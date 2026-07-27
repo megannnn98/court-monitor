@@ -55,7 +55,7 @@ def generate_matches(session: Session) -> dict[str, int]:
             # Pre-filter: find records with matching surname (after normalization)
             candidates = surname_index.get(doc_name.surname, [])
 
-            doc_birth_date = _extract_date_from_fact(fact)
+            doc_birth_date = _extract_birth_date_from_fact(fact)
             doc_birth_place = _extract_place_from_fact(fact)
 
             created_any = False
@@ -139,25 +139,19 @@ def _extract_name_from_fact(fact: ExtractedFact) -> str | None:
     return None
 
 
-def _extract_date_from_fact(fact: ExtractedFact) -> str | None:
-    """Try to find a birth date near the name fact.
+def _extract_birth_date_from_fact(fact: ExtractedFact) -> str | None:
+    """Extract birth date ONLY from the fact's quote context.
 
-    Looks for:
-    1. Date facts on the same document
-    2. Year patterns in the fact's quote (e.g. "1983 года рождения")
+    Does NOT use document-level date facts (those are court hearing dates,
+    not birth dates). Looks for patterns like:
+    - "1983 года рождения"
+    - "1985 г.р."
+    - "рожд. 1990"
     """
-    # Check document-level date facts
-    if fact.document:
-        for f in fact.document.facts:
-            if f.field == "date" and isinstance(f.value, dict):
-                return f.value.get("date")
-
-    # Try to extract year from the fact's quote
     if fact.quote:
         year = _extract_year_from_text(fact.quote)
         if year:
             return f"{year}-01-01"
-
     return None
 
 
