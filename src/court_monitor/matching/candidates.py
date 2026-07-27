@@ -16,6 +16,7 @@ from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.matching.score import (
     ALGORITHM_VERSION,
     CANDIDATE_THRESHOLD,
+    BirthDateEvidence,
     score_match,
 )
 from court_monitor.storage.orm import ExtractedFact, MatchCandidate, PersonRecord
@@ -58,7 +59,7 @@ def generate_matches(session: Session) -> dict[str, int]:
             doc_birth_date = _extract_birth_date_from_fact(fact)
             doc_birth_place = _extract_place_from_fact(fact)
 
-            created_any = False
+            matched_any = False
             for record in candidates:
                 record_name = normalize_name_morph(record.normalized_name)
                 result = score_match(
@@ -73,6 +74,7 @@ def generate_matches(session: Session) -> dict[str, int]:
                 if result.score < CANDIDATE_THRESHOLD:
                     continue
 
+                matched_any = True
                 existing = _find_existing_candidate(session, fact.id, record.id)
                 if existing is not None:
                     stats["already_existed"] += 1
@@ -99,9 +101,8 @@ def generate_matches(session: Session) -> dict[str, int]:
                 )
                 session.add(candidate)
                 stats["candidates_created"] += 1
-                created_any = True
 
-            if not created_any:
+            if not matched_any:
                 stats["no_candidates"] += 1
 
         except Exception:
@@ -137,19 +138,37 @@ def _extract_name_from_fact(fact: ExtractedFact) -> str | None:
     return None
 
 
-def _extract_birth_date_from_fact(fact: ExtractedFact) -> str | None:
+def _extract_birth_date_from_fact(fact: ExtractedFact) -> BirthDateEvidence | None:
     """Extract birth date ONLY from the fact's quote context.
 
     Does NOT use document-level date facts (those are court hearing dates,
-    not birth dates). Looks for patterns like:
-    - "1983 года рождения"
-    - "1985 г.р."
-    - "рожд. 1990"
+    not birth dates). Returns BirthDateEvidence with explicit precision:
+    - "1983 года рождения" → BirthDateEvidence(year="1983", precision="year")
+    - "1 января 1983 года рождения" → BirthDateEvidence(year="1983", month="01", day="01", precision="full")
     """
-    if fact.quote:
-        year = _extract_year_from_text(fact.quote)
-        if year:
-            return f"{year}-01-01"
+    if not fact.quote:
+        return None
+
+    # Try to extract full date first (DD.MM.YYYY or YYYY-MM-DD)
+    m = re.search(r"(\d{1,2})\s+[а-яё]+\s+(\d{4})", fact.quote, re.IGNORECASE)
+    if m:
+        day = m.group(1).zfill(2)
+        year = m.group(2)
+        # Find month
+        from court_monitor.extraction.dates import _MONTHS_RU  # noqa: PLC0415
+
+        month_name = m.group(0).split()[1].lower()
+        month_num = _MONTHS_RU.get(month_name)
+        if month_num:
+            return BirthDateEvidence(
+                year=year, month=str(month_num).zfill(2), day=day, precision="full"
+            )
+
+    # Fall back to year-only
+    year = _extract_year_from_text(fact.quote)
+    if year:
+        return BirthDateEvidence.from_year(year)
+
     return None
 
 

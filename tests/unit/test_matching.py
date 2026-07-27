@@ -14,6 +14,7 @@ from court_monitor.matching.candidates import _extract_year_from_text, generate_
 from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.matching.score import (
     CANDIDATE_THRESHOLD,
+    BirthDateEvidence,
     score_match,
 )
 from court_monitor.services import import_rfm_records
@@ -193,7 +194,7 @@ def test_year_match():
     """Same birth year → positive score."""
     doc = normalize_name_morph("Иванов Иван Иванович")
     rec = normalize_name_morph("Иванов Иван Иванович")
-    result = score_match(doc, rec, "1983-01-01", "1983-06-15")
+    result = score_match(doc, rec, BirthDateEvidence.from_year("1983"), "1983-06-15")
     assert result.birth_date_score > 0
     assert any(r["rule"] == "birth_year_match" for r in result.reasons)
 
@@ -202,7 +203,7 @@ def test_year_conflict():
     """Different birth years → hard conflict."""
     doc = normalize_name_morph("Иванов Иван Иванович")
     rec = normalize_name_morph("Иванов Иван Иванович")
-    result = score_match(doc, rec, "1983-01-01", "1980-01-01")
+    result = score_match(doc, rec, BirthDateEvidence.from_year("1983"), "1980-01-01")
     assert result.birth_date_score < 0, "Year conflict should give negative score"
     assert any(c["rule"] == "birth_year_conflict" for c in result.conflicts)
     # Year conflict should make total score below threshold
@@ -216,6 +217,17 @@ def test_missing_birth_date():
     result = score_match(doc, rec, None, "1980-01-01")
     assert result.birth_date_score == 0.0
     assert not any(c["rule"] == "birth_year_conflict" for c in result.conflicts)
+
+
+def test_full_date_match():
+    """Full date match → higher score."""
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+    result = score_match(
+        doc, rec, BirthDateEvidence.from_full_date("1983-01-01"), "1983-01-01"
+    )
+    assert result.birth_date_score == 0.20
+    assert any(r["rule"] == "birth_date_match" for r in result.reasons)
 
 
 def test_different_surname():

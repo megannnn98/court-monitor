@@ -29,7 +29,57 @@ P_NAME_CONFLICT = -0.40
 # Threshold for creating a candidate
 CANDIDATE_THRESHOLD = 0.45
 
-ALGORITHM_VERSION = "match-v2"
+ALGORITHM_VERSION = "match-v3"
+
+
+@dataclass(frozen=True)
+class BirthDateEvidence:
+    """Explicit representation of birth date data precision.
+
+    Never fabricate month/day from year-only data.
+    """
+
+    year: str | None = None
+    month: str | None = None
+    day: str | None = None
+    precision: str = "none"  # "full", "year", "none"
+
+    @classmethod
+    def from_full_date(cls, date_str: str | None) -> BirthDateEvidence:
+        """Parse YYYY-MM-DD or DD.MM.YYYY into full evidence."""
+        if not date_str:
+            return cls()
+        m = re.match(r"(\d{4})-(\d{2})-(\d{2})", date_str)
+        if m:
+            return cls(year=m.group(1), month=m.group(2), day=m.group(3), precision="full")
+        m = re.match(r"(\d{2})\.(\d{2})\.(\d{4})", date_str)
+        if m:
+            return cls(year=m.group(3), month=m.group(2), day=m.group(1), precision="full")
+        m = re.match(r"(\d{4})", date_str)
+        if m:
+            return cls(year=m.group(1), precision="year")
+        return cls()
+
+    @classmethod
+    def from_year(cls, year: str) -> BirthDateEvidence:
+        """Create year-only evidence (no fabrication of month/day)."""
+        return cls(year=year, precision="year")
+
+    @property
+    def iso_date(self) -> str | None:
+        """Return full ISO date if available, None otherwise."""
+        if self.year and self.month and self.day:
+            return f"{self.year}-{self.month}-{self.day}"
+        return None
+
+    @property
+    def display(self) -> str:
+        """Human-readable representation."""
+        if self.precision == "full":
+            return self.iso_date or ""
+        if self.precision == "year":
+            return self.year or ""
+        return "-"
 
 
 @dataclass
@@ -47,7 +97,7 @@ class ScoreResult:
 def score_match(
     doc_name: NormalizedName,
     record_name: NormalizedName,
-    doc_birth_date: str | None,
+    doc_birth_date: BirthDateEvidence | None,
     record_birth_date: str | None,
     *,
     doc_birth_place: str | None = None,
@@ -184,62 +234,79 @@ def _extract_year(date_str: str | None) -> str | None:
 
 
 def _score_birth_date(
-    doc_date: str | None,
+    doc_evidence: BirthDateEvidence | None,
     rec_date: str | None,
     reasons: list[dict],
     conflicts: list[dict],
 ) -> float:
-    """Score birth date similarity."""
-    doc_year = _extract_year(doc_date)
-    rec_year = _extract_year(rec_date)
-    score = 0.0
+    """Score birth date similarity.
 
-    if not doc_date and not rec_date:
-        reasons.append({"rule": "birth_date_missing_both", "impact": 0.0})
-    elif not doc_date:
-        reasons.append({"rule": "birth_date_missing_in_document", "impact": 0.0})
-    elif not rec_date:
+    Uses BirthDateEvidence to distinguish year-only from full date.
+    Never fabricates month/day from year-only data.
+    """
+    rec_year = _extract_year(rec_date)
+    rec_evidence = BirthDateEvidence.from_full_date(rec_date)
+
+    if not doc_evidence or doc_evidence.precision == "none":
+        if not rec_date:
+            reasons.append({"rule": "birth_date_missing_both", "impact": 0.0})
+        else:
+            reasons.append({"rule": "birth_date_missing_in_document", "impact": 0.0})
+        return 0.0
+
+    if not rec_date:
         reasons.append({"rule": "birth_date_missing_in_record", "impact": 0.0})
-    elif doc_date == rec_date:
+        return 0.0
+
+    # Full date match (both have full precision and match)
+    if (
+        doc_evidence.precision == "full"
+        and rec_evidence.precision == "full"
+        and doc_evidence.iso_date == rec_evidence.iso_date
+    ):
         reasons.append(
             {
                 "rule": "birth_date_match",
                 "impact": W_BIRTH_DATE_MATCH,
-                "document_value": doc_date,
-                "record_value": rec_date,
+                "document_value": doc_evidence.display,
+                "record_value": rec_evidence.display,
             }
         )
-        score = W_BIRTH_DATE_MATCH
-    elif doc_year and rec_year and doc_year == rec_year:
+        return W_BIRTH_DATE_MATCH
+
+    # Year match (at least year matches)
+    if doc_evidence.year and rec_year and doc_evidence.year == rec_year:
         reasons.append(
             {
                 "rule": "birth_year_match",
                 "impact": W_BIRTH_YEAR_MATCH,
-                "document_value": doc_year,
+                "document_value": doc_evidence.year,
                 "record_value": rec_year,
+                "precision": doc_evidence.precision,
             }
         )
-        score = W_BIRTH_YEAR_MATCH
-    elif doc_year and rec_year and doc_year != rec_year:
+        return W_BIRTH_YEAR_MATCH
+
+    # Year conflict
+    if doc_evidence.year and rec_year and doc_evidence.year != rec_year:
         conflicts.append(
             {
                 "rule": "birth_year_conflict",
-                "document_value": doc_year,
+                "document_value": doc_evidence.year,
                 "record_value": rec_year,
             }
         )
-        score = P_BIRTH_YEAR_CONFLICT
-    else:
-        conflicts.append(
-            {
-                "rule": "birth_date_conflict",
-                "document_value": doc_date,
-                "record_value": rec_date,
-            }
-        )
-        score = P_BIRTH_DATE_CONFLICT
+        return P_BIRTH_YEAR_CONFLICT
 
-    return score
+    # Date conflict (same year, different full date)
+    conflicts.append(
+        {
+            "rule": "birth_date_conflict",
+            "document_value": doc_evidence.display,
+            "record_value": rec_evidence.display,
+        }
+    )
+    return P_BIRTH_DATE_CONFLICT
 
 
 def _score_birthplace(
