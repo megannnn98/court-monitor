@@ -271,6 +271,9 @@ def fetch_source(
         int | None,
         typer.Option("--limit", help="Cap the number of materials fetched."),
     ] = None,
+    no_parse: Annotated[
+        bool, typer.Option("--no-parse", help="Only fetch; leave documents in pending state.")
+    ] = False,
 ) -> None:
     """Fetch documents from one source and ingest them."""
     _bootstrap_logging()
@@ -300,7 +303,7 @@ def fetch_source(
         raise typer.Exit(code=1)
     engine = make_engine()
     with session_scope(engine) as session:
-        stats = process_source(session, src, monitoring)
+        stats = process_source(session, src, monitoring, parse_immediately=not no_parse)
     typer.echo(
         f"{name}: fetched={stats.fetched} new={stats.new_documents} "
         f"duplicates={stats.duplicates} parsed={stats.parsed} "

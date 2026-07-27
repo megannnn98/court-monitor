@@ -124,3 +124,13 @@ def list_pending_documents(session: Session, *, limit: int = 100) -> list[Source
         .limit(limit)
     )
     return list(session.execute(stmt).scalars())
+
+
+def count_pending_documents(session: Session) -> int:
+    return int(
+        session.execute(
+            select(func.count(SourceDocument.id)).where(
+                SourceDocument.parser_status == ParserStatus.pending.value
+            )
+        ).scalar_one()
+    )

@@ -154,7 +154,11 @@ def parse_and_extract(
 
 
 def process_source(
-    session: Session, source_cfg: SourceConfig, monitoring: MonitoringConfig
+    session: Session,
+    source_cfg: SourceConfig,
+    monitoring: MonitoringConfig,
+    *,
+    parse_immediately: bool = True,
 ) -> SourceStats:
     stats = SourceStats()
     with correlation_scope() as cid:
@@ -167,13 +171,14 @@ def process_source(
                 stats.duplicates += 1
                 continue
             stats.new_documents += 1
-            parse_and_extract(session, doc, monitoring)
-            if doc.parser_status == ParserStatus.parsed.value:
-                stats.parsed += 1
-            elif doc.parser_status == ParserStatus.irrelevant.value:
-                stats.irrelevant += 1
-            elif doc.parser_status == ParserStatus.parser_failed.value:
-                stats.failed += 1
+            if parse_immediately:
+                parse_and_extract(session, doc, monitoring)
+                if doc.parser_status == ParserStatus.parsed.value:
+                    stats.parsed += 1
+                elif doc.parser_status == ParserStatus.irrelevant.value:
+                    stats.irrelevant += 1
+                elif doc.parser_status == ParserStatus.parser_failed.value:
+                    stats.failed += 1
         _log.info("pipeline.source.done", source=source_cfg.name, **stats.__dict__)
     return stats
 

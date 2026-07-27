@@ -115,3 +115,98 @@ def test_sudrf_adapter_fixture_mode_yields_results(fixtures_html_dir):
     assert len(results) == 2
     assert all(r.source_type == SourceType.sudrf for r in results)
     assert all(r.content_hash for r in results)
+
+
+# ---------------------------------------------------------------------------
+# Etap 2: fetch → pending → parse-pending → parsed
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_no_parse_leaves_documents_pending(db_session, monitoring_cfg, fixtures_html_dir):
+    """fetch-source --no-parse: documents saved with parser_status=pending."""
+    from court_monitor.services import process_pending
+
+    source = _make_source(str(fixtures_html_dir))
+    stats = process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+
+    assert stats.fetched == 2
+    assert stats.new_documents == 2
+    assert stats.parsed == 0
+    assert stats.irrelevant == 0
+
+    docs = repo.list_documents(db_session)
+    assert len(docs) == 2
+    assert all(d.parser_status == ParserStatus.pending.value for d in docs)
+
+
+def test_parse_pending_calls_sudrf_press(db_session, monitoring_cfg, fixtures_html_dir):
+    """parse-pending processes pending documents through sudrf_press parser."""
+    from court_monitor.services import process_pending
+
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+
+    pending = repo.list_pending_documents(db_session)
+    assert len(pending) == 2
+
+    stats = process_pending(db_session, monitoring_cfg)
+    assert stats.parsed == 1
+    assert stats.irrelevant == 1
+    assert stats.failed == 0
+
+    assert repo.count_pending_documents(db_session) == 0
+
+
+def test_parse_pending_saves_title_date_text(db_session, monitoring_cfg, fixtures_html_dir):
+    """Parsed document has title, published_at, text fields populated."""
+    from court_monitor.services import process_pending
+
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+    process_pending(db_session, monitoring_cfg)
+
+    docs = repo.list_documents(db_session)
+    relevant = next(d for d in docs if d.parser_status == ParserStatus.parsed.value)
+
+    assert relevant.title is not None
+    assert "приговор" in relevant.title.lower() or "терроризм" in relevant.title.lower()
+    assert relevant.published_at is not None
+    assert relevant.published_at.year == 2026
+    assert relevant.published_at.month == 4
+    assert relevant.published_at.day == 2
+    assert relevant.text is not None
+    assert len(relevant.text) > 0
+
+
+def test_parse_pending_status_transition(db_session, monitoring_cfg, fixtures_html_dir):
+    """Document status transitions: pending → parsed (or irrelevant)."""
+    from court_monitor.services import process_pending
+
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+
+    docs_before = repo.list_documents(db_session)
+    assert all(d.parser_status == ParserStatus.pending.value for d in docs_before)
+
+    process_pending(db_session, monitoring_cfg)
+
+    docs_after = repo.list_documents(db_session)
+    statuses = {d.parser_status for d in docs_after}
+    assert ParserStatus.pending.value not in statuses
+    assert ParserStatus.parsed.value in statuses or ParserStatus.irrelevant.value in statuses
+
+
+def test_parse_pending_skips_already_parsed(db_session, monitoring_cfg, fixtures_html_dir):
+    """Second parse-pending run processes zero documents (idempotent)."""
+    from court_monitor.services import process_pending
+
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+
+    stats1 = process_pending(db_session, monitoring_cfg)
+    assert stats1.parsed + stats1.irrelevant == 2
+
+    stats2 = process_pending(db_session, monitoring_cfg)
+    assert stats2.parsed == 0
+    assert stats2.irrelevant == 0
+    assert stats2.failed == 0
