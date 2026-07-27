@@ -450,6 +450,102 @@ def show_document(
             typer.echo(f"  confidence: {f.confidence:.2f}")
 
 
+@app.command(name="list-sources")
+def list_sources() -> None:
+    """List sources from the Airtable fixture (ID | Name | URL)."""
+    fixture = Path("tests/fixtures/airtable/source_registry.json")
+    if not fixture.exists():
+        typer.echo(f"Fixture not found: {fixture}", err=True)
+        raise typer.Exit(code=1)
+
+    import json
+
+    with fixture.open() as f:
+        rows = json.load(f)
+
+    typer.echo(f"{'ID':4}  {'Название':40}  URL")
+    typer.echo("-" * 90)
+    for i, row in enumerate(rows, start=1):
+        name = row.get("name", "")
+        url = row.get("url", "")
+        typer.echo(f"{i:<4}  {name:40}  {url}")
+
+
+@app.command(name="fetch-demo-source")
+def fetch_demo_source() -> None:
+    """Fetch one demo page from the first working source and extract title + text."""
+    fixture = Path("tests/fixtures/airtable/source_registry.json")
+    if not fixture.exists():
+        typer.echo(f"Fixture not found: {fixture}", err=True)
+        raise typer.Exit(code=1)
+
+    import json
+
+    import httpx
+    from selectolax.parser import HTMLParser
+
+    with fixture.open() as f:
+        rows = json.load(f)
+
+    if not rows:
+        typer.echo("No sources in fixture.", err=True)
+        raise typer.Exit(code=1)
+
+    # Find first reachable URL
+    target_url = None
+    for row in rows:
+        url = row.get("url", "")
+        if not url:
+            continue
+        try:
+            resp = httpx.get(url, timeout=10, follow_redirects=True)
+            if resp.status_code == 200:
+                target_url = url
+                break
+        except Exception:
+            continue
+
+    if target_url is None:
+        typer.echo("No reachable source found.", err=True)
+        raise typer.Exit(code=1)
+
+    # Fetch and save fixture
+    resp = httpx.get(target_url, timeout=10, follow_redirects=True)
+    html = resp.text
+
+    out_dir = Path("tests/fixtures/demo")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / "demo_page.html"
+    out_file.write_text(html, encoding="utf-8")
+    typer.echo(f"Saved fixture: {out_file}")
+
+    # Extract title and text
+    tree = HTMLParser(html)
+    title_node = tree.css_first("title")
+    title = title_node.text(strip=True) if title_node else "(no title)"
+
+    # Telegram preview pages: extract description and content
+    description = ""
+    desc_node = tree.css_first('meta[property="og:description"]')
+    if desc_node:
+        description = desc_node.attributes.get("content", "")
+
+    body_text = ""
+    # Try common content selectors
+    for selector in ["div.tgme_widget_message_text", "div.tgme_page_description", "article", "main"]:
+        nodes = tree.css(selector)
+        if nodes:
+            body_text = "\n".join(n.text(strip=True) for n in nodes if n.text(strip=True))
+            break
+
+    if not body_text:
+        body_text = description or tree.body.text(strip=True)[:2000] if tree.body else ""
+
+    typer.echo(f"\nURL: {target_url}")
+    typer.echo(f"Title: {title}")
+    typer.echo(f"\nText:\n{body_text[:1500]}")
+
+
 def _safe_url(url: str) -> str:
     if "://" in url and "@" in url:
         scheme, rest = url.split("://", 1)

@@ -17,6 +17,31 @@
   через ручное подтверждение в очереди.
 - **Fixtures-first.** Парсеры тестируются на сохранённых HTML, без live-сети.
 
+## Демо-сценарий
+
+```plantuml
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam sequenceArrowThickness 2
+
+actor Оператор
+participant "Airtable\n(shared view)" as AT
+participant "CLI\ncourt-monitor" as CLI
+participant "HTTP\nисточник" as SRC
+
+Оператор -> CLI: list-sources
+CLI -> AT: fixture (JSON)
+AT --> CLI: список каналов
+CLI --> Оператор: ID | Название | URL
+
+Оператор -> CLI: fetch-demo-source
+CLI -> SRC: GET первый рабочий URL
+SRC --> CLI: HTML страница
+CLI -> CLI: извлечь заголовок + текст
+CLI --> Оператор: Title, Text
+@enduml
+```
+
 Подробнее: `docs/discovery.md`, `docs/airtable-discovery.md`.
 
 ## Быстрый старт
