@@ -38,34 +38,22 @@ class NormalizedName:
 # Surnames: masculine → feminine and oblique cases
 # ---------------------------------------------------------------------------
 
-# Masculine → feminine: -ов → -ова, -ев → -ева, -ин → -ина
-SurnameRule = tuple[str, str]  # (pattern_suffix, replacement)
-
-_MASC_TO_FEM: list[SurnameRule] = [
-    ("ов", "ова"),
-    ("ев", "ева"),
-    ("ин", "ина"),
-    ("цкий", "цкая"),
-    ("ский", "ская"),
-    ("ной", "ная"),
-    ("ой", "ая"),
-]
-
-# Masculine oblique: -а, -у, -ом, -ым, -е
-SurnameObliqueMasculine = [
-    ("у", "", "m"),    # Иванову → Иванов
+# Masculine oblique: order matters — longer suffixes first
+_SURNAME_OBLIQUE_M = [
     ("ом", "", "m"),   # Ивановым → Иванов
     ("ым", "", "m"),   # Ивановым → Иванов (instrumental)
+    ("у", "", "m"),    # Иванову → Иванов
     ("е", "", "m"),    # Иванове → Иванов (locative)
     ("а", "", "m"),    # Иванова → Иванов (genitive/accusative)
 ]
 
-# Feminine oblique: -у, -овой, -евной
-SurnameObliqueFeminine = [
-    ("у", "а", "f"),       # Петрову → Петрова (accusative)
+# Feminine oblique: order matters — longer suffixes first
+_SURNAME_OBLIQUE_F = [
+    ("евой", "ева", "f"),  # Марьевой → Марьева
     ("овой", "ова", "f"),  # Петровой → Петрова (genitive/dative)
-    ("евной", "евна", "f"),  # Ивановной → Ивановна
-    ("овной", "овна", "f"),  # Ивановной → Ивановна
+    ("ью", "ья", "f"),     # Наталью → Наталья (accusative for -ья names)
+    ("ую", "ая", "f"),     # Козловую → Козлова
+    ("у", "а", "f"),       # Петрову → Петрова (accusative)
 ]
 
 # Patronymic oblique suffixes
@@ -107,10 +95,11 @@ _NAME_OBLIQUE_M = [
     ("я", ""),     # Никитя → Никита (rare)
 ]
 
-# Feminine name oblique
+# Feminine name oblique: order matters — longer suffixes first
 _NAME_OBLIQUE_F = [
     ("ию", "ия"),  # Марию → Мария (accusative for -ия names)
-    ("ю", "я"),    # Наталью → Наталья (accusative)
+    ("ью", "ья"),  # Софью → Софья (accusative for -ья names)
+    ("ю", "я"),    # Наталью → Наталья (accusative for -я names)
     ("у", "а"),    # Марину → Марина
     ("ии", "ия"),  # Марии → Мария (genitive/dative for -ия names)
     ("ой", "а"),   # Марией → Марина (actually instrumental)
@@ -118,9 +107,6 @@ _NAME_OBLIQUE_F = [
     ("ею", "а"),   # Мариею → Марина
     ("е", "а"),    # Марии → Марина (dative/prepositional)
 ]
-
-# Feminine names ending in -а/-я → oblique patterns
-_FEMININE_NAME_SUFFIXES = ("а", "я", "ья")
 
 
 def normalize_name_morph(raw: str) -> NormalizedName:
@@ -243,7 +229,7 @@ def _normalize_surname(surname: str, gender: str) -> str:
 
     # Try feminine oblique first (more specific)
     if gender == "f":
-        for oblique, nominative, _ in SurnameObliqueFeminine:
+        for oblique, nominative, _ in _SURNAME_OBLIQUE_F:
             if s.endswith(oblique):
                 base = s[: -len(oblique)]
                 candidate = base + nominative if nominative else base
@@ -253,7 +239,7 @@ def _normalize_surname(surname: str, gender: str) -> str:
 
     # Try masculine oblique
     if gender == "m":
-        for oblique, nominative, _ in SurnameObliqueMasculine:
+        for oblique, nominative, _ in _SURNAME_OBLIQUE_M:
             if s.endswith(oblique):
                 base = s[: -len(oblique)]
                 candidate = base + nominative if nominative else base
@@ -262,7 +248,7 @@ def _normalize_surname(surname: str, gender: str) -> str:
 
     # If gender unknown, try both
     if gender == "unknown":
-        for oblique, nominative, _g in SurnameObliqueMasculine + SurnameObliqueFeminine:
+        for oblique, nominative, _g in _SURNAME_OBLIQUE_M + _SURNAME_OBLIQUE_F:
             if s.endswith(oblique):
                 base = s[: -len(oblique)]
                 candidate = base + nominative if nominative else base

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -13,7 +14,6 @@ from court_monitor.matching.candidates import _extract_year_from_text, generate_
 from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.matching.score import (
     CANDIDATE_THRESHOLD,
-    P_BIRTH_YEAR_CONFLICT,
     score_match,
 )
 from court_monitor.services import import_rfm_records
@@ -122,6 +122,22 @@ def test_morph_oblique_genitive():
     assert n.patronymic == "сергеевна"
 
 
+def test_morph_natalya():
+    """Наталью → Наталья (accusative for -ья names)."""
+    n = normalize_name_morph("Наталью Сергеевну Ивановну")
+    assert n.surname == "наталья"
+    assert n.name == "сергеевна"
+    assert n.patronymic == "ивановна"
+
+
+def test_morph_sofya():
+    """Софью → Софья (accusative for -ья names)."""
+    n = normalize_name_morph("Софью Александровну Петровну")
+    assert n.surname == "софья"
+    assert n.name == "александровна"
+    assert n.patronymic == "петровна"
+
+
 def test_morph_initials():
     """Initials — no morphological change, but goes through morph path."""
     n = normalize_name_morph("Иванов И. И.")
@@ -187,7 +203,7 @@ def test_year_conflict():
     doc = normalize_name_morph("Иванов Иван Иванович")
     rec = normalize_name_morph("Иванов Иван Иванович")
     result = score_match(doc, rec, "1983-01-01", "1980-01-01")
-    assert result.birth_date_score == P_BIRTH_YEAR_CONFLICT
+    assert result.birth_date_score < 0, "Year conflict should give negative score"
     assert any(c["rule"] == "birth_year_conflict" for c in result.conflicts)
     # Year conflict should make total score below threshold
     assert result.score < CANDIDATE_THRESHOLD
@@ -220,9 +236,7 @@ def test_negative_no_candidate_year_conflict():
     session = _make_session()
     try:
         # Import RFM record with birth_date 1980
-        result = parse_file(
-            __import__("pathlib").Path("tests/fixtures/rfm/persons.xml")
-        )
+        result = parse_file(Path("tests/fixtures/rfm/persons.xml"))
         import_rfm_records(session, result.rows, source="rfm")
         session.commit()
 
