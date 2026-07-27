@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0002_registry_provenance"
 down_revision: str | None = "0001_initial"
@@ -24,9 +24,7 @@ def upgrade() -> None:
         batch.add_column(sa.Column("external_id", sa.String(length=256), nullable=True))
         batch.add_column(sa.Column("content_type", sa.String(length=128), nullable=True))
         batch.add_column(sa.Column("adapter_version", sa.String(length=32), nullable=True))
-        batch.add_column(
-            sa.Column("relevant", sa.Integer(), nullable=False, server_default="0")
-        )
+        batch.add_column(sa.Column("relevant", sa.Integer(), nullable=False, server_default="0"))
         batch.alter_column("canonical_url", existing_type=sa.String(length=1024), nullable=True)
     op.create_index("ix_source_documents_canonical_url", "source_documents", ["canonical_url"])
     op.create_index("ix_source_documents_source_id", "source_documents", ["source_id"])

@@ -90,8 +90,16 @@ def extract_dates(text: str, *, source_url: str | None = None) -> list[Extracted
         d = _safe_date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
         if d is None:
             continue
-        _add_date(out, d, m.group(0), m.start(), m.end(),
-                  text=text, source_url=source_url, seen_spans=seen_spans)
+        _add_date(
+            out,
+            d,
+            m.group(0),
+            m.start(),
+            m.end(),
+            text=text,
+            source_url=source_url,
+            seen_spans=seen_spans,
+        )
 
     # Long form dates
     for m in _LONG_RE.finditer(text):
@@ -105,8 +113,16 @@ def extract_dates(text: str, *, source_url: str | None = None) -> list[Extracted
         d = _safe_date(year, month, day)
         if d is None:
             continue
-        _add_date(out, d, m.group(0), m.start(), m.end(),
-                  text=text, source_url=source_url, seen_spans=seen_spans)
+        _add_date(
+            out,
+            d,
+            m.group(0),
+            m.start(),
+            m.end(),
+            text=text,
+            source_url=source_url,
+            seen_spans=seen_spans,
+        )
 
     # Numeric dates
     for m in _NUMERIC_RE.finditer(text):
@@ -118,8 +134,16 @@ def extract_dates(text: str, *, source_url: str | None = None) -> list[Extracted
         d = _safe_date(year, month, day)
         if d is None:
             continue
-        _add_date(out, d, m.group(0), m.start(), m.end(),
-                  text=text, source_url=source_url, seen_spans=seen_spans)
+        _add_date(
+            out,
+            d,
+            m.group(0),
+            m.start(),
+            m.end(),
+            text=text,
+            source_url=source_url,
+            seen_spans=seen_spans,
+        )
 
     return out
 

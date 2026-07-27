@@ -61,12 +61,8 @@ def score_match(
     conflicts: list[dict[str, Any]] = []
 
     name_score = _score_name(doc_name, record_name, reasons, conflicts)
-    birth_date_score = _score_birth_date(
-        doc_birth_date, record_birth_date, reasons, conflicts
-    )
-    birthplace_score = _score_birthplace(
-        doc_birth_place, record_birth_place, reasons, conflicts
-    )
+    birth_date_score = _score_birth_date(doc_birth_date, record_birth_date, reasons, conflicts)
+    birthplace_score = _score_birthplace(doc_birth_place, record_birth_place, reasons, conflicts)
 
     total = max(0.0, min(1.0, name_score + birth_date_score + birthplace_score))
 
@@ -102,48 +98,54 @@ def _score_name(
     surname_match = doc_surname == rec_surname
     name_match = doc_name == rec_name if (doc_name and rec_name) else False
     patronymic_match = (
-        doc_patronymic == rec_patronymic
-        if (doc_patronymic and rec_patronymic)
-        else False
+        doc_patronymic == rec_patronymic if (doc_patronymic and rec_patronymic) else False
     )
 
     # Check for conflict: different surname is a strong negative signal
     if not surname_match:
-        conflicts.append({
-            "rule": "surname_mismatch",
-            "document_value": doc.raw,
-            "record_value": rec.raw,
-        })
+        conflicts.append(
+            {
+                "rule": "surname_mismatch",
+                "document_value": doc.raw,
+                "record_value": rec.raw,
+            }
+        )
         return 0.0
 
     # Full name match (after morphological normalization)
     if surname_match and name_match and patronymic_match:
-        reasons.append({
-            "rule": "full_name_morphological_match",
-            "impact": W_FULL_NAME_MATCH,
-            "document_value": doc.raw,
-            "record_value": rec.raw,
-            "normalized_doc": doc.nominative,
-            "normalized_rec": rec.nominative,
-        })
+        reasons.append(
+            {
+                "rule": "full_name_morphological_match",
+                "impact": W_FULL_NAME_MATCH,
+                "document_value": doc.raw,
+                "record_value": rec.raw,
+                "normalized_doc": doc.nominative,
+                "normalized_rec": rec.nominative,
+            }
+        )
         return W_FULL_NAME_MATCH
 
     # Surname + name match (no patronymic data or mismatch)
     if surname_match and name_match:
         impact = W_SURNAME_NAME_MATCH
         if doc_patronymic and rec_patronymic and not patronymic_match:
-            conflicts.append({
-                "rule": "patronymic_mismatch",
-                "document_value": doc_patronymic,
-                "record_value": rec_patronymic,
-            })
+            conflicts.append(
+                {
+                    "rule": "patronymic_mismatch",
+                    "document_value": doc_patronymic,
+                    "record_value": rec_patronymic,
+                }
+            )
             impact += P_NAME_CONFLICT
-        reasons.append({
-            "rule": "surname_name_match",
-            "impact": max(0.0, impact),
-            "document_value": f"{doc_surname} {doc_name}",
-            "record_value": f"{rec_surname} {rec_name}",
-        })
+        reasons.append(
+            {
+                "rule": "surname_name_match",
+                "impact": max(0.0, impact),
+                "document_value": f"{doc_surname} {doc_name}",
+                "record_value": f"{rec_surname} {rec_name}",
+            }
+        )
         return max(0.0, impact)
 
     # Surname + initials match
@@ -151,21 +153,25 @@ def _score_name(
         doc_init = doc.initials[1:] if len(doc.initials) > 1 else ""
         rec_init = rec.initials[1:] if len(rec.initials) > 1 else ""
         if doc_init and rec_init and doc_init == rec_init:
-            reasons.append({
-                "rule": "surname_initials_match",
-                "impact": W_SURNAME_INITIALS_MATCH,
-                "document_value": f"{doc_surname} {doc.initials}",
-                "record_value": f"{rec_surname} {rec.initials}",
-            })
+            reasons.append(
+                {
+                    "rule": "surname_initials_match",
+                    "impact": W_SURNAME_INITIALS_MATCH,
+                    "document_value": f"{doc_surname} {doc.initials}",
+                    "record_value": f"{rec_surname} {rec.initials}",
+                }
+            )
             return W_SURNAME_INITIALS_MATCH
 
     # Surname only
-    reasons.append({
-        "rule": "surname_only_match",
-        "impact": W_SURNAME_INITIALS_MATCH * 0.5,
-        "document_value": doc_surname,
-        "record_value": rec_surname,
-    })
+    reasons.append(
+        {
+            "rule": "surname_only_match",
+            "impact": W_SURNAME_INITIALS_MATCH * 0.5,
+            "document_value": doc_surname,
+            "record_value": rec_surname,
+        }
+    )
     return W_SURNAME_INITIALS_MATCH * 0.5
 
 
@@ -195,34 +201,42 @@ def _score_birth_date(
     elif not rec_date:
         reasons.append({"rule": "birth_date_missing_in_record", "impact": 0.0})
     elif doc_date == rec_date:
-        reasons.append({
-            "rule": "birth_date_match",
-            "impact": W_BIRTH_DATE_MATCH,
-            "document_value": doc_date,
-            "record_value": rec_date,
-        })
+        reasons.append(
+            {
+                "rule": "birth_date_match",
+                "impact": W_BIRTH_DATE_MATCH,
+                "document_value": doc_date,
+                "record_value": rec_date,
+            }
+        )
         score = W_BIRTH_DATE_MATCH
     elif doc_year and rec_year and doc_year == rec_year:
-        reasons.append({
-            "rule": "birth_year_match",
-            "impact": W_BIRTH_YEAR_MATCH,
-            "document_value": doc_year,
-            "record_value": rec_year,
-        })
+        reasons.append(
+            {
+                "rule": "birth_year_match",
+                "impact": W_BIRTH_YEAR_MATCH,
+                "document_value": doc_year,
+                "record_value": rec_year,
+            }
+        )
         score = W_BIRTH_YEAR_MATCH
     elif doc_year and rec_year and doc_year != rec_year:
-        conflicts.append({
-            "rule": "birth_year_conflict",
-            "document_value": doc_year,
-            "record_value": rec_year,
-        })
+        conflicts.append(
+            {
+                "rule": "birth_year_conflict",
+                "document_value": doc_year,
+                "record_value": rec_year,
+            }
+        )
         score = P_BIRTH_YEAR_CONFLICT
     else:
-        conflicts.append({
-            "rule": "birth_date_conflict",
-            "document_value": doc_date,
-            "record_value": rec_date,
-        })
+        conflicts.append(
+            {
+                "rule": "birth_date_conflict",
+                "document_value": doc_date,
+                "record_value": rec_date,
+            }
+        )
         score = P_BIRTH_DATE_CONFLICT
 
     return score
@@ -251,27 +265,33 @@ def _score_birthplace(
     rec_norm = rec_place.lower().strip()
 
     if doc_norm == rec_norm:
-        reasons.append({
-            "rule": "birthplace_match",
-            "impact": W_BIRTHPLACE_MATCH,
-            "document_value": doc_place,
-            "record_value": rec_place,
-        })
+        reasons.append(
+            {
+                "rule": "birthplace_match",
+                "impact": W_BIRTHPLACE_MATCH,
+                "document_value": doc_place,
+                "record_value": rec_place,
+            }
+        )
         return W_BIRTHPLACE_MATCH
 
     if doc_norm in rec_norm or rec_norm in doc_norm:
-        reasons.append({
-            "rule": "birthplace_partial_match",
-            "impact": W_BIRTHPLACE_MATCH * 0.5,
-            "document_value": doc_place,
-            "record_value": rec_place,
-        })
+        reasons.append(
+            {
+                "rule": "birthplace_partial_match",
+                "impact": W_BIRTHPLACE_MATCH * 0.5,
+                "document_value": doc_place,
+                "record_value": rec_place,
+            }
+        )
         return W_BIRTHPLACE_MATCH * 0.5
 
-    reasons.append({
-        "rule": "birthplace_mismatch",
-        "impact": 0.0,
-        "document_value": doc_place,
-        "record_value": rec_place,
-    })
+    reasons.append(
+        {
+            "rule": "birthplace_mismatch",
+            "impact": 0.0,
+            "document_value": doc_place,
+            "record_value": rec_place,
+        }
+    )
     return 0.0

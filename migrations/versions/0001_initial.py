@@ -54,7 +54,9 @@ def upgrade() -> None:
         sa.Column("entity", sa.String(length=64), nullable=False),
         sa.Column("field", sa.String(length=64), nullable=False),
         sa.Column("value", sa.JSON(), nullable=False),
-        sa.Column("verification_status", sa.String(length=32), nullable=False, server_default="inferred"),
+        sa.Column(
+            "verification_status", sa.String(length=32), nullable=False, server_default="inferred"
+        ),
         sa.Column("confidence", sa.Float(), nullable=False, server_default="0"),
         sa.Column("quote", sa.Text(), nullable=True),
         sa.Column("extraction_method", sa.String(length=128), nullable=False),

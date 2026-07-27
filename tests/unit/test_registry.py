@@ -18,9 +18,7 @@ from court_monitor.sources.airtable_registry import RawRegistryRow
 def test_url_normalization_basic() -> None:
     assert canonicalize_url("HTTPS://T.me/Test/") == "https://t.me/Test"
     assert canonicalize_url("t.me/foo") == "https://t.me/foo"
-    assert canonicalize_url("  https://x.io/a?utm_source=q&keep=1#f  ") == (
-        "https://x.io/a?keep=1"
-    )
+    assert canonicalize_url("  https://x.io/a?utm_source=q&keep=1#f  ") == ("https://x.io/a?keep=1")
 
 
 def test_url_normalization_drops_tracking_params() -> None:
@@ -60,7 +58,9 @@ def test_row_without_url_or_username_is_dropped() -> None:
 def test_duplicates_within_source_are_collapsed() -> None:
     rows = [
         RawRegistryRow(name="A", username="aaa", url="https://t.me/aaa", topics=[], fields={}),
-        RawRegistryRow(name="A again", username="aaa", url="https://t.me/aaa", topics=[], fields={}),
+        RawRegistryRow(
+            name="A again", username="aaa", url="https://t.me/aaa", topics=[], fields={}
+        ),
     ]
     entries, stats = normalize_rows(rows)
     assert len(entries) == 1
@@ -69,7 +69,9 @@ def test_duplicates_within_source_are_collapsed() -> None:
 
 def test_idempotent_reimport_changes_nothing() -> None:
     rows = [
-        RawRegistryRow(name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={}),
+        RawRegistryRow(
+            name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={}
+        ),
     ]
     entries, stats = normalize_rows(rows)
     merged, preview1 = merge_registry([], entries, stats=stats)
@@ -83,7 +85,11 @@ def test_idempotent_reimport_changes_nothing() -> None:
 
 def test_changed_source_detected_on_diff() -> None:
     entries, stats = normalize_rows(
-        [RawRegistryRow(name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={})]
+        [
+            RawRegistryRow(
+                name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={}
+            )
+        ]
     )
     merged, _ = merge_registry([], entries, stats=stats)
     changed = [
@@ -104,7 +110,9 @@ def test_changed_source_detected_on_diff() -> None:
 def test_load_registry_roundtrip(tmp_path) -> None:
     entries, _ = normalize_rows(
         [
-            RawRegistryRow(name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={}),
+            RawRegistryRow(
+                name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={}
+            ),
             RawRegistryRow(name="B", username="bbb", url="https://t.me/bbb", topics=[], fields={}),
         ]
     )

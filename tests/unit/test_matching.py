@@ -265,9 +265,7 @@ def test_positive_candidate_year_match():
     session = _make_session()
     try:
         # Import positive fixture (birth year 1983)
-        result = parse_file(
-            __import__("pathlib").Path("tests/fixtures/rfm/persons_match.xml")
-        )
+        result = parse_file(__import__("pathlib").Path("tests/fixtures/rfm/persons_match.xml"))
         import_rfm_records(session, result.rows, source="rfm")
         session.commit()
 
@@ -308,9 +306,7 @@ def test_idempotent_no_duplicates():
     """Second generate-matches does not create duplicates."""
     session = _make_session()
     try:
-        result = parse_file(
-            __import__("pathlib").Path("tests/fixtures/rfm/persons_match.xml")
-        )
+        result = parse_file(__import__("pathlib").Path("tests/fixtures/rfm/persons_match.xml"))
         import_rfm_records(session, result.rows, source="rfm")
         session.commit()
 
@@ -336,9 +332,7 @@ def test_confirmed_not_overwritten():
     """Confirmed status is preserved on re-generation."""
     session = _make_session()
     try:
-        result = parse_file(
-            __import__("pathlib").Path("tests/fixtures/rfm/persons_match.xml")
-        )
+        result = parse_file(__import__("pathlib").Path("tests/fixtures/rfm/persons_match.xml"))
         import_rfm_records(session, result.rows, source="rfm")
         session.commit()
 

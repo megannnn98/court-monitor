@@ -21,7 +21,9 @@ from court_monitor.sources.probe import (
 class _FakeClient:
     """A stand-in for HttpClient returning a canned HttpResponse or raising."""
 
-    def __init__(self, *, response: HttpResponse | None = None, exc: Exception | None = None) -> None:
+    def __init__(
+        self, *, response: HttpResponse | None = None, exc: Exception | None = None
+    ) -> None:
         self._response = response
         self._exc = exc
 
@@ -41,7 +43,9 @@ class _FakeClient:
         self.close()
 
 
-def _entry(source_type: str = "telegram", username: str | None = "abc", url: str | None = None) -> SourceRegistryEntry:
+def _entry(
+    source_type: str = "telegram", username: str | None = "abc", url: str | None = None
+) -> SourceRegistryEntry:
     return SourceRegistryEntry(
         id=username or "x",
         name=username or "x",
@@ -53,10 +57,12 @@ def _entry(source_type: str = "telegram", username: str | None = "abc", url: str
 
 
 def test_probe_telegram_available() -> None:
-    body = (Path(__file__).parent.parent / "fixtures" / "telegram" / "tg_preview_extremizmunet.html").read_text(
-        encoding="utf-8"
+    body = (
+        Path(__file__).parent.parent / "fixtures" / "telegram" / "tg_preview_extremizmunet.html"
+    ).read_text(encoding="utf-8")
+    resp = HttpResponse(
+        status=200, text=body, url="https://t.me/s/extremizmunet", health=FetchHealth.ok
     )
-    resp = HttpResponse(status=200, text=body, url="https://t.me/s/extremizmunet", health=FetchHealth.ok)
     result = probe_source(_entry(username="extremizmunet"), client=_FakeClient(response=resp))
     assert result.status == AVAILABLE
     assert result.http_status == 200
@@ -71,7 +77,11 @@ def test_probe_timeout_is_temporarily_unavailable() -> None:
     assert result.status == TEMPORARILY_UNAVAILABLE
     assert result.http_status == 0
     # Never classified as removed/dead.
-    assert "тайм" in result.note.lower() or "network" in result.note.lower() or "dns" in result.note.lower()
+    assert (
+        "тайм" in result.note.lower()
+        or "network" in result.note.lower()
+        or "dns" in result.note.lower()
+    )
 
 
 def test_probe_dns_failure_does_not_raise() -> None:

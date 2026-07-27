@@ -62,8 +62,10 @@ def generate_matches(session: Session) -> dict[str, int]:
             for record in candidates:
                 record_name = normalize_name_morph(record.normalized_name)
                 result = score_match(
-                    doc_name, record_name,
-                    doc_birth_date, record.birth_date,
+                    doc_name,
+                    record_name,
+                    doc_birth_date,
+                    record.birth_date,
                     doc_birth_place=doc_birth_place,
                     record_birth_place=record.birth_place,
                 )
@@ -79,12 +81,8 @@ def generate_matches(session: Session) -> dict[str, int]:
                         existing.name_score = result.name_score
                         existing.birth_date_score = result.birth_date_score
                         existing.birthplace_score = result.birthplace_score
-                        existing.reasons_json = json.dumps(
-                            result.reasons, ensure_ascii=False
-                        )
-                        existing.conflicts_json = json.dumps(
-                            result.conflicts, ensure_ascii=False
-                        )
+                        existing.reasons_json = json.dumps(result.reasons, ensure_ascii=False)
+                        existing.conflicts_json = json.dumps(result.conflicts, ensure_ascii=False)
                     continue
 
                 candidate = MatchCandidate(

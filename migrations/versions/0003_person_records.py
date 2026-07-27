@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0003_person_records"
 down_revision: str | None = "0002_registry_provenance"
@@ -40,7 +40,9 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
         sa.UniqueConstraint(
-            "source", "normalized_name", "birth_date",
+            "source",
+            "normalized_name",
+            "birth_date",
             name="uq_person_source_name_birth",
         ),
     )

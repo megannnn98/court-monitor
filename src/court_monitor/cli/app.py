@@ -181,8 +181,10 @@ def _doctor_check_tables(problems: list[str]) -> None:
             )
             tables = [row[0] for row in result]
             expected = {
-                "source_documents", "extracted_facts",
-                "person_records", "person_match_candidates",
+                "source_documents",
+                "extracted_facts",
+                "person_records",
+                "person_match_candidates",
             }
             missing = expected - set(tables)
             if missing:
@@ -480,8 +482,7 @@ def _handle_fedsfm(
     with session_scope(engine) as session:
         stats = import_rfm_records(session, rows, source_url=source_url)
     typer.echo(
-        f"fedsfm: total={stats.total} imported={stats.imported} "
-        f"duplicates={stats.duplicates}"
+        f"fedsfm: total={stats.total} imported={stats.imported} duplicates={stats.duplicates}"
     )
 
 
@@ -509,19 +510,17 @@ def _import_fedsfm_file(file: str, *, dry_run: bool) -> None:
     engine = make_engine()
     with session_scope(engine) as session:
         stats = import_rfm_records(
-            session, result.rows,
+            session,
+            result.rows,
             source="rfm",
             source_url=f"file://{file_path.absolute()}",
         )
     typer.echo(
-        f"\nfedsfm: total={stats.total} imported={stats.imported} "
-        f"duplicates={stats.duplicates}"
+        f"\nfedsfm: total={stats.total} imported={stats.imported} duplicates={stats.duplicates}"
     )
 
 
-def _print_fedsfm_preview(
-    filename: str, file_hash: str, file_size: int, result
-) -> None:
+def _print_fedsfm_preview(filename: str, file_hash: str, file_size: int, result) -> None:
     """Print RFM file preview."""
     typer.echo(f"Файл: {filename}")
     typer.echo(f"SHA-256: {file_hash}")
@@ -885,9 +884,7 @@ def fetch_demo_source() -> None:
 
 @app.command(name="list-person-records")
 def list_person_records_cmd(
-    source: Annotated[
-        str, typer.Option("--source", help="Filter by source (e.g. rfm).")
-    ] = "rfm",
+    source: Annotated[str, typer.Option("--source", help="Filter by source (e.g. rfm).")] = "rfm",
     limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
 ) -> None:
     """List person records from external registries."""
@@ -981,9 +978,7 @@ def list_matches_cmd(
         candidates = repo.list_match_candidates(session, status=status, limit=limit)
         total = repo.count_match_candidates(session, status=status)
 
-        typer.echo(
-            f"Всего кандидатов{f' (status={status})' if status else ''}: {total}"
-        )
+        typer.echo(f"Всего кандидатов{f' (status={status})' if status else ''}: {total}")
         typer.echo(
             f"{'ID':>4}  {'Документ':>8}  {'Имя в тексте':30}"
             f"  {'Запись':>6}  {'Score':>5}  {'Статус':10}"
@@ -999,9 +994,7 @@ def _print_match_row(c) -> None:
     record = c.person_record
     doc_id = fact.document_id if fact else "-"
     name_raw = (
-        (fact.value if isinstance(fact.value, str) else str(fact.value))[:30]
-        if fact
-        else "-"
+        (fact.value if isinstance(fact.value, str) else str(fact.value))[:30] if fact else "-"
     )
     rec_id = record.id if record else "-"
     typer.echo(

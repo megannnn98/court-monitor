@@ -118,7 +118,9 @@ class PersonRecord(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "source", "normalized_name", "birth_date",
+            "source",
+            "normalized_name",
+            "birth_date",
             name="uq_person_source_name_birth",
         ),
     )
@@ -160,7 +162,8 @@ class MatchCandidate(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "extracted_fact_id", "person_record_id",
+            "extracted_fact_id",
+            "person_record_id",
             name="uq_fact_person_record",
         ),
     )

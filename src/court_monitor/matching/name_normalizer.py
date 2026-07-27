@@ -40,20 +40,20 @@ class NormalizedName:
 
 # Masculine oblique: order matters — longer suffixes first
 _SURNAME_OBLIQUE_M = [
-    ("ом", "", "m"),   # Ивановым → Иванов
-    ("ым", "", "m"),   # Ивановым → Иванов (instrumental)
-    ("у", "", "m"),    # Иванову → Иванов
-    ("е", "", "m"),    # Иванове → Иванов (locative)
-    ("а", "", "m"),    # Иванова → Иванов (genitive/accusative)
+    ("ом", "", "m"),  # Ивановым → Иванов
+    ("ым", "", "m"),  # Ивановым → Иванов (instrumental)
+    ("у", "", "m"),  # Иванову → Иванов
+    ("е", "", "m"),  # Иванове → Иванов (locative)
+    ("а", "", "m"),  # Иванова → Иванов (genitive/accusative)
 ]
 
 # Feminine oblique: order matters — longer suffixes first
 _SURNAME_OBLIQUE_F = [
     ("евой", "ева", "f"),  # Марьевой → Марьева
     ("овой", "ова", "f"),  # Петровой → Петрова (genitive/dative)
-    ("ью", "ья", "f"),     # Наталью → Наталья (accusative for -ья names)
-    ("ую", "ая", "f"),     # Козловую → Козлова
-    ("у", "а", "f"),       # Петрову → Петрова (accusative)
+    ("ью", "ья", "f"),  # Наталью → Наталья (accusative for -ья names)
+    ("ую", "ая", "f"),  # Козловую → Козлова
+    ("у", "а", "f"),  # Петрову → Петрова (accusative)
 ]
 
 # Patronymic oblique suffixes
@@ -88,24 +88,24 @@ _PATRONYMIC_OBLIQUE = [
 
 # Masculine name oblique
 _NAME_OBLIQUE_M = [
-    ("а", ""),     # Ивана → Иван
-    ("у", ""),     # Ивану → Иван
-    ("ом", ""),    # Иваном → Иван
-    ("е", ""),     # Иване → Иван
-    ("я", ""),     # Никитя → Никита (rare)
+    ("а", ""),  # Ивана → Иван
+    ("у", ""),  # Ивану → Иван
+    ("ом", ""),  # Иваном → Иван
+    ("е", ""),  # Иване → Иван
+    ("я", ""),  # Никитя → Никита (rare)
 ]
 
 # Feminine name oblique: order matters — longer suffixes first
 _NAME_OBLIQUE_F = [
     ("ию", "ия"),  # Марию → Мария (accusative for -ия names)
     ("ью", "ья"),  # Софью → Софья (accusative for -ья names)
-    ("ю", "я"),    # Наталью → Наталья (accusative for -я names)
-    ("у", "а"),    # Марину → Марина
+    ("ю", "я"),  # Наталью → Наталья (accusative for -я names)
+    ("у", "а"),  # Марину → Марина
     ("ии", "ия"),  # Марии → Мария (genitive/dative for -ия names)
-    ("ой", "а"),   # Марией → Марина (actually instrumental)
-    ("ей", "а"),   # Мариею → Марина
-    ("ею", "а"),   # Мариею → Марина
-    ("е", "а"),    # Марии → Марина (dative/prepositional)
+    ("ой", "а"),  # Марией → Марина (actually instrumental)
+    ("ей", "а"),  # Мариею → Марина
+    ("ею", "а"),  # Мариею → Марина
+    ("е", "а"),  # Марии → Марина (dative/prepositional)
 ]
 
 
@@ -119,8 +119,15 @@ def normalize_name_morph(raw: str) -> NormalizedName:
     """
     if not raw:
         return NormalizedName(
-            raw=raw, nominative="", tokens=[], surname="", name="",
-            patronymic="", initials="", method="empty", confidence=0.0,
+            raw=raw,
+            nominative="",
+            tokens=[],
+            surname="",
+            name="",
+            patronymic="",
+            initials="",
+            method="empty",
+            confidence=0.0,
         )
 
     normalized = normalize_fio(raw)

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0005_match_candidates"
 down_revision: str | None = "0004_person_names"
@@ -22,8 +22,18 @@ def upgrade() -> None:
     op.create_table(
         "person_match_candidates",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("extracted_fact_id", sa.Integer(), sa.ForeignKey("extracted_facts.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("person_record_id", sa.Integer(), sa.ForeignKey("person_records.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "extracted_fact_id",
+            sa.Integer(),
+            sa.ForeignKey("extracted_facts.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "person_record_id",
+            sa.Integer(),
+            sa.ForeignKey("person_records.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False, server_default="pending"),
         sa.Column("name_score", sa.Float(), nullable=False, server_default="0"),
@@ -32,7 +42,9 @@ def upgrade() -> None:
         sa.Column("reasons_json", sa.Text(), nullable=True),
         sa.Column("conflicts_json", sa.Text(), nullable=True),
         sa.Column("algorithm_version", sa.String(length=32), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("review_comment", sa.Text(), nullable=True),
         sa.UniqueConstraint("extracted_fact_id", "person_record_id", name="uq_fact_person_record"),
