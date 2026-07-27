@@ -6,12 +6,14 @@ layers produce plain DTOs; services call the repository.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus
-from court_monitor.storage.orm import ExtractedFact, PersonRecord, SourceDocument
+from court_monitor.storage.orm import ExtractedFact, MatchCandidate, PersonRecord, SourceDocument
 
 
 def find_document_by_hash_url(
@@ -189,3 +191,46 @@ def count_person_records(session: Session, *, source: str | None = None) -> int:
     if source is not None:
         stmt = stmt.where(PersonRecord.source == source)
     return int(session.execute(stmt).scalar_one())
+
+
+# ---------------------------------------------------------------------------
+# MatchCandidate
+# ---------------------------------------------------------------------------
+
+
+def list_match_candidates(
+    session: Session, *, status: str | None = None, limit: int = 100
+) -> list[MatchCandidate]:
+    stmt = select(MatchCandidate).order_by(MatchCandidate.score.desc())
+    if status is not None:
+        stmt = stmt.where(MatchCandidate.status == status)
+    stmt = stmt.limit(limit)
+    return list(session.execute(stmt).scalars())
+
+
+def get_match_candidate(session: Session, candidate_id: int) -> MatchCandidate | None:
+    return session.get(MatchCandidate, candidate_id)
+
+
+def count_match_candidates(session: Session, *, status: str | None = None) -> int:
+    stmt = select(func.count(MatchCandidate.id))
+    if status is not None:
+        stmt = stmt.where(MatchCandidate.status == status)
+    return int(session.execute(stmt).scalar_one())
+
+
+def update_match_status(
+    session: Session,
+    candidate_id: int,
+    new_status: str,
+    comment: str | None = None,
+) -> MatchCandidate | None:
+    """Update a match candidate's status (confirm/reject)."""
+    candidate = session.get(MatchCandidate, candidate_id)
+    if candidate is None:
+        return None
+    candidate.status = new_status
+    candidate.reviewed_at = datetime.now(UTC)
+    candidate.review_comment = comment
+    session.flush()
+    return candidate

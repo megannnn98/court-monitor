@@ -122,3 +122,45 @@ class PersonRecord(Base):
             name="uq_person_source_name_birth",
         ),
     )
+
+
+class MatchCandidate(Base):
+    """A potential match between an extracted person fact and a PersonRecord.
+
+    Never auto-confirmed — always requires operator review.
+    """
+
+    __tablename__ = "person_match_candidates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    extracted_fact_id: Mapped[int] = mapped_column(
+        ForeignKey("extracted_facts.id", ondelete="CASCADE"), index=True
+    )
+    person_record_id: Mapped[int] = mapped_column(
+        ForeignKey("person_records.id", ondelete="CASCADE"), index=True
+    )
+
+    score: Mapped[float] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+
+    name_score: Mapped[float] = mapped_column(Float, default=0.0)
+    birth_date_score: Mapped[float] = mapped_column(Float, default=0.0)
+    birthplace_score: Mapped[float] = mapped_column(Float, default=0.0)
+
+    reasons_json: Mapped[str | None] = mapped_column(Text)
+    conflicts_json: Mapped[str | None] = mapped_column(Text)
+    algorithm_version: Mapped[str] = mapped_column(String(32))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_comment: Mapped[str | None] = mapped_column(Text)
+
+    extracted_fact: Mapped[ExtractedFact] = relationship()
+    person_record: Mapped[PersonRecord] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "extracted_fact_id", "person_record_id",
+            name="uq_fact_person_record",
+        ),
+    )

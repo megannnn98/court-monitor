@@ -727,6 +727,158 @@ def _safe_url(url: str) -> str:
     return url
 
 
+# ---------------------------------------------------------------------------
+# Person matching
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="generate-matches")
+def generate_matches_cmd() -> None:
+    """Generate match candidates between person facts and registry records."""
+    _bootstrap_logging()
+    from court_monitor.matching.candidates import generate_matches  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = generate_matches(session)
+
+    typer.echo(f"Документов обработано: {stats.get('documents_processed', '-')}")
+    typer.echo(f"Фактов person: {stats['facts_person']}")
+    typer.echo(f"Кандидатов создано: {stats['candidates_created']}")
+    typer.echo(f"Уже существовало: {stats['already_existed']}")
+    typer.echo(f"Без кандидатов: {stats['no_candidates']}")
+    typer.echo(f"Ошибок: {stats['errors']}")
+
+
+@app.command(name="list-matches")
+def list_matches_cmd(
+    status: Annotated[
+        str | None, typer.Option("--status", help="Filter by status (pending/confirmed/rejected).")
+    ] = None,
+    limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
+) -> None:
+    """List match candidates."""
+    _bootstrap_logging()
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    with factory() as session:
+        candidates = repo.list_match_candidates(session, status=status, limit=limit)
+        total = repo.count_match_candidates(session, status=status)
+
+        typer.echo(f"Всего кандидатов{f' (status={status})' if status else ''}: {total}")
+        typer.echo(f"{'ID':>4}  {'Документ':>8}  {'Имя в тексте':30}  {'Запись':>6}  {'Score':>5}  {'Статус':10}")
+        typer.echo("-" * 80)
+        for c in candidates:
+            fact = c.extracted_fact
+            record = c.person_record
+            doc_id = fact.document_id if fact else "-"
+            name_raw = (fact.value if isinstance(fact.value, str) else str(fact.value))[:30] if fact else "-"
+            rec_id = record.id if record else "-"
+            typer.echo(f"{c.id:>4}  {str(doc_id):>8}  {name_raw:30}  {str(rec_id):>6}  {c.score:>5.2f}  {c.status:10}")
+
+
+@app.command(name="show-match")
+def show_match_cmd(
+    candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
+) -> None:
+    """Show detailed match candidate information."""
+    _bootstrap_logging()
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    with factory() as session:
+        c = repo.get_match_candidate(session, candidate_id)
+        if c is None:
+            typer.echo(f"Candidate {candidate_id} not found.", err=True)
+            raise typer.Exit(code=1)
+
+        fact = c.extracted_fact
+        record = c.person_record
+
+        typer.echo(f"ID: {c.id}")
+        typer.echo(f"Статус: {c.status}")
+        typer.echo(f"Score: {c.score:.2f}")
+        typer.echo(f"Algorithm: {c.algorithm_version}")
+        typer.echo(f"Создан: {c.created_at.isoformat() if c.created_at else '-'}")
+        if c.reviewed_at:
+            typer.echo(f"Рассмотрен: {c.reviewed_at.isoformat()}")
+        if c.review_comment:
+            typer.echo(f"Комментарий: {c.review_comment}")
+
+        typer.echo("\n--- Документ ---")
+        if fact:
+            typer.echo(f"Fact ID: {fact.id}")
+            typer.echo(f"Document ID: {fact.document_id}")
+            typer.echo(f"Имя в тексте: {fact.value}")
+            if fact.quote:
+                typer.echo(f"Цитата: «{fact.quote}»")
+
+        typer.echo("\n--- Запись ---")
+        if record:
+            typer.echo(f"Record ID: {record.id}")
+            typer.echo(f"ФИО (raw): {record.raw_name}")
+            typer.echo(f"ФИО (normalized): {record.normalized_name}")
+            typer.echo(f"Дата рождения: {record.birth_date or '-'}")
+            typer.echo(f"Место рождения: {record.birth_place or '-'}")
+
+        typer.echo(f"\n--- Оценка ---")
+        typer.echo(f"Имя: {c.name_score:.2f}")
+        typer.echo(f"Дата рождения: {c.birth_date_score:.2f}")
+        typer.echo(f"Место рождения: {c.birthplace_score:.2f}")
+
+        if c.reasons_json:
+            typer.echo("\nПричины:")
+            import json as _json  # noqa: PLC0415
+            for r in _json.loads(c.reasons_json):
+                impact = r.get("impact", 0)
+                typer.echo(f"  +{impact:.2f}  {r['rule']}")
+                if "document_value" in r:
+                    typer.echo(f"         док: {r['document_value']}")
+                if "record_value" in r:
+                    typer.echo(f"         зап: {r['record_value']}")
+
+        if c.conflicts_json:
+            typer.echo("\nКонфликты:")
+            import json as _json  # noqa: PLC0415
+            for r in _json.loads(c.conflicts_json):
+                typer.echo(f"  {r['rule']}")
+                if "document_value" in r:
+                    typer.echo(f"    док: {r['document_value']}")
+                if "record_value" in r:
+                    typer.echo(f"    зап: {r['record_value']}")
+
+
+@app.command(name="confirm-match")
+def confirm_match_cmd(
+    candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
+    comment: Annotated[str, typer.Option("--comment", help="Review comment.")] = "",
+) -> None:
+    """Confirm a match candidate."""
+    _bootstrap_logging()
+    engine = make_engine()
+    with session_scope(engine) as session:
+        c = repo.update_match_status(session, candidate_id, "confirmed", comment or None)
+        if c is None:
+            typer.echo(f"Candidate {candidate_id} not found.", err=True)
+            raise typer.Exit(code=1)
+    typer.echo(f"Match {candidate_id} confirmed.")
+
+
+@app.command(name="reject-match")
+def reject_match_cmd(
+    candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
+    comment: Annotated[str, typer.Option("--comment", help="Review comment.")] = "",
+) -> None:
+    """Reject a match candidate."""
+    _bootstrap_logging()
+    engine = make_engine()
+    with session_scope(engine) as session:
+        c = repo.update_match_status(session, candidate_id, "rejected", comment or None)
+        if c is None:
+            typer.echo(f"Candidate {candidate_id} not found.", err=True)
+            raise typer.Exit(code=1)
+    typer.echo(f"Match {candidate_id} rejected.")
+
+
 __all__ = ["app", "ImportPreview"]
 
 
