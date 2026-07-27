@@ -1,307 +1,167 @@
 # court-monitor
 
-Полуавтоматическая OSINT-система мониторинга уголовных дел по открытым источникам:
-пресс-релизы судов на платформе `sudrf.ru`, перечень Росфинмониторинга, Telegram-каналы,
-синхронизация с Airtable. Все неоднозначные решения принимает оператор через очередь ручной проверки.
+Полуавтоматическая система мониторинга уголовных дел по открытым источникам.
 
-> Статус: MVP-каркас + вертикальный срез (Etap 0–3). Источники работают на
-> сохранённых fixtures; live-доступ и запись в Airtable отключены до подтверждения.
+## Что это делает?
 
-## Принципы
+Собирает информацию о уголовных делах из публичных источников, извлекает из неё факты (статьи УК, даты, ФИО) и помогает оператору находить связи между делами и реестрами (например, Росфинмониторинг). Ничего не публикует и не принимает решения автоматически — всегда нужен человек.
 
-- **Факт vs предположение.** Каждое значение поля — `ExtractedFact` со статусом
-  (`confirmed` / `inferred` / `unverified` / `conflicting` / `rejected`), цитатой,
-  источником и confidence.
-- **Источник каждого факта** сохраняется (URL, дата, фрагмент, хеш).
-- **Ничего опасного автоматически.** Создание/объединение/публикация — только
-  через ручное подтверждение в очереди.
-- **Fixtures-first.** Парсеры тестируются на сохранённых HTML, без live-сети.
-- **Explainable matching.** Сопоставление людей с реестрами — детерминированное,
-  объяснимое, с ручным подтверждением.
-
-## Архитектура
-
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-
-rectangle "Источники" as SRC {
-  rectangle "sudrf.ru\n(пресс-релизы)" as SUDRF
-  rectangle "fedsfm.ru\n(Росфинмониторинг)" as RFM
-  rectangle "Airtable\n(реестр)" as AT
-  rectangle "Telegram\n(каналы)" as TG
-}
-
-rectangle "Pipeline" as PIPE {
-  rectangle "fetch-source" as FETCH
-  rectangle "parse-pending" as PARSE
-  rectangle "extract" as EXT {
-    rectangle "articles.py" as ART
-    rectangle "dates.py" as DATE
-    rectangle "names.py" as NAME
-  }
-  rectangle "generate-matches" as MATCH
-}
-
-rectangle "Хранилище" as DB {
-  rectangle "SourceDocument" as DOC
-  rectangle "ExtractedFact" as FACT
-  rectangle "PersonRecord" as PR
-  rectangle "MatchCandidate" as MC
-}
-
-rectangle "CLI" as CLI {
-  rectangle "list-sources" as LS
-  rectangle "show-document" as SD
-  rectangle "list-matches" as LM
-  rectangle "confirm/reject-match" as CRM
-}
-
-SUDRF --> FETCH
-RFM --> FETCH
-AT --> FETCH
-TG --> FETCH
-FETCH --> DOC
-DOC --> PARSE
-PARSE --> EXT
-EXT --> FACT
-FACT --> MATCH
-PR --> MATCH
-MATCH --> MC
-DOC --> SD
-MC --> LM
-MC --> CRM
-@enduml
-```
+**Источники:**
+- Пресс-релизы судов (`sudrf.ru`)
+- Перечень Росфинмониторинга (`fedsfm.ru`, XML/DBF/CSV)
+- Telegram-каналы
+- Airtable (реестр источников)
 
 ## Быстрый старт
 
 ```bash
-# 1. Зависимости (uv сам поставит Python при необходимости)
+# 1. Установить зависимости
 make install
 
-# 2. Схема БД (SQLite по умолчанию, см. .env.example для PostgreSQL)
-make init-db            # = court-monitor init-db (alembic upgrade head)
+# 2. Создать базу данных (SQLite по умолчанию)
+make init-db
 
-# 3. Проверка окружения
+# 3. Проверить, что всё работает
 make doctor
+```
 
-# 4. Вертикальный срез: загрузить fixture пресс-релиз и распарсить
+## Пример использования
+
+### Загрузить и распарсить пресс-релиз суда
+
+```bash
+# Скачать пресс-релиз (заглушка для демо)
 uv run court-monitor fetch-source 2zovs
+
+# Распарсить скачанные документы
 uv run court-monitor parse-pending
+
+# Посмотреть статистику
 uv run court-monitor show-stats
+
+# Посмотреть содержимое конкретного документа
 uv run court-monitor show-document 1
+```
 
-# 5. Импорт Росфинмониторинга
+### Импорт данных Росфинмониторинга
+
+```bash
+# Импортировать файл перечня
 uv run court-monitor fetch-source fedsfm --file tests/fixtures/rfm/persons.xml
-uv run court-monitor list-person-records
 
-# 6. Сопоставление людей
+# Посмотреть список записей
+uv run court-monitor list-person-records
+```
+
+### Поиск связей между делами и реестрами
+
+```bash
+# Сгенерировать кандидатов на совпадение
 uv run court-monitor generate-matches
+
+# Посмотреть список совпадений
 uv run court-monitor list-matches
+
+# Детали конкретного совпадения (с объяснением score)
 uv run court-monitor show-match 1
 
-# 7. Тесты и проверки
-make lint typecheck test
+# Подтвердить или отклонить (только вручную!)
+uv run court-monitor confirm-match 1 --comment "Подтверждено оператором"
+uv run court-monitor reject-match 1 --comment "Не совпадает"
 ```
 
-## Источники
-
-### sudrf.ru — пресс-релизы судов
-
-Адаптер читает HTML-страницы пресс-релизов (fixtures или HTTP). Парсер
-`sudrf_press.py` извлекает заголовок, дату, текст. Extraction-модули
-извлекают статьи УК, даты, ФИО.
-
-### fedsfm.ru — перечень Росфинмониторинга
-
-Поддержка форматов: XML, DBF, ZIP, CSV (внутренний fixture). Оператор
-скачивает файл вручную и импортирует через `--file`. Формат описан в
-`docs/fedsfm-format-discovery.md`.
-
-### Telegram — каналы
-
-Реестр каналов импортируется из Airtable shared-view в `config/source_registry.yaml`.
-Пока: парсинг постов (`telegram_post.py`), интеграция в pipeline — в разработке.
-
-### Airtable — реестр источников
-
-Публичное shared-view представление читается из fixture (JSON/CSV).
-Live-доступ через API требует PAT.
-
-## Извлечение фактов (Etap 3)
-
-| Модуль | Что извлекает | Пример |
-|---|---|---|
-| `articles.py` | Статья, часть, пункт, кодекс | `п. «а» ч. 2 ст. 205 УК РФ` |
-| `dates.py` | Дата + тип из контекста | `2026-04-02 (verdict_date)` |
-| `names.py` | ФИО-кандидаты с confidence | `Иванов Иван Иванович (0.95)` |
-
-Каждый факт хранится с цитатой, confidence и методом извлечения.
-
-## Сопоставление людей (Explainable Matching)
-
-Система сопоставляет факты `full_name_original` из судебных документов с
-записями `PersonRecord` (Росфинмониторинг). **Никогда не подтверждает
-автоматически** — только создаёт кандидатов для оператора.
-
-### Формула score
-
-| Правило | Вес |
-|---|---|
-| Полное совпадение ФИО (morphological) | +0.70 |
-| Совпадение фамилии и имени | +0.50 |
-| Совпадение фамилии и инициалов | +0.35 |
-| Совпадение даты рождения (full date) | +0.20 |
-| Совпадение года рождения | +0.15 |
-| Совпадение места рождения | +0.10 |
-| Конфликт года рождения | -0.60 |
-| Конфликт даты рождения | -0.50 |
-| Конфликт имени/фамилии | -0.40 |
-
-Порог создания кандидата: `score ≥ 0.45`. Подробнее: `docs/ai-context/matching.md`.
-
-### CLI matching
+## CLI — все команды
 
 ```bash
-uv run court-monitor generate-matches          # генерация кандидатов
-uv run court-monitor list-matches              # список
-uv run court-monitor list-matches --status pending  # фильтр
-uv run court-monitor show-match <id>           # детали с объяснением
-uv run court-monitor confirm-match <id> --comment "..."
-uv run court-monitor reject-match <id> --comment "..."
-```
+# Справка
+court-monitor --help
 
-## CLI
-
-```bash
-# Схема и миграции
-court-monitor init-db
-court-monitor migrate
-court-monitor doctor
-court-monitor show-config
+# БД и миграции
+court-monitor init-db            # создать схему
+court-monitor migrate            # применить миграции
+court-monitor doctor             # проверка окружения
+court-monitor show-config        # текущая конфигурация
 
 # Источники
-court-monitor list-sources                           # список из Airtable fixture
-court-monitor fetch-source <name>                    # загрузить и распарсить
-court-monitor fetch-source <name> --no-parse         # только загрузить (pending)
-court-monitor fetch-source fedsfm --file <path>      # импорт РФМ из файла
+court-monitor list-sources                               # список источников
+court-monitor fetch-source <name>                        # загрузить и распарсить
+court-monitor fetch-source <name> --no-parse             # только загрузить
+court-monitor fetch-source fedsfm --file <path>          # импорт из файла
 court-monitor fetch-source fedsfm --file <path> --dry-run  # предпросмотр
-court-monitor fetch-all                              # все включённые источники
-
-# Реестр источников
-court-monitor import-source-registry --from-airtable # импорт из Airtable
-court-monitor import-source-registry --from-csv <f>  # импорт из CSV
-court-monitor check-sources                          # проверка доступности
+court-monitor fetch-all                                  # все источники
 
 # Документы
-court-monitor parse-pending                          # распарсить pending
-court-monitor reprocess-document <id>                # перепарсить один
-court-monitor list-documents                         # список документов
-court-monitor show-document <id>                     # детали + факты
-court-monitor show-stats                             # сводка по БД
+court-monitor parse-pending                              # распарсить pending
+court-monitor reprocess-document <id>                    # перепарсить
+court-monitor list-documents                             # список
+court-monitor show-document <id>                         # детали + факты
 
 # Росфинмониторинг
-court-monitor list-person-records                    # список записей РФМ
-court-monitor show-person-record <id>                # детали записи
+court-monitor list-person-records                        # список записей
+court-monitor show-person-record <id>                    # детали записи
 
-# Сопоставление
-court-monitor generate-matches                       # генерация кандидатов
-court-monitor list-matches [--status pending]        # список
-court-monitor show-match <id>                        # детали с объяснением
-court-monitor confirm-match <id> --comment "..."     # подтвердить
-court-monitor reject-match <id> --comment "..."      # отклонить
-
-# Демо
-court-monitor fetch-demo-source                      # скачать + извлечь текст
+# Совпадения
+court-monitor generate-matches                           # генерация кандидатов
+court-monitor list-matches [--status pending]            # список
+court-monitor show-match <id>                            # детали
+court-monitor confirm-match <id> --comment "..."         # подтвердить
+court-monitor reject-match <id> --comment "..."          # отклонить
 ```
 
-## Docker Compose
+## Что извлекается из документов
+
+| Что | Пример |
+|---|---|
+| Статья УК | `п. «а» ч. 2 ст. 205 УК РФ` |
+| Дата | `2026-04-02 (дата приговора)` |
+| ФИО | `Иванов Иван Иванович (уверенность 0.95)` |
+
+## Как работает сопоставление людей
+
+Система сравнивает ФИО из судебных документов с записями из реестра Росфинмониторинга. По умолчанию **ничего не подтверждает автоматически** — создаёт кандидатов с объяснением оценки, а оператор решает.
+
+Пример оценки:
+
+| Совпадение | Вес |
+|---|---|
+| Полное ФИО | +0.70 |
+| Фамилия + имя | +0.50 |
+| Фамилия + инициалы | +0.35 |
+| Дата рождения (полная) | +0.20 |
+| Год рождения | +0.15 |
+| Конфликт года рождения | -0.60 |
+
+Порог: `score ≥ 0.45` — создаётся кандидат для проверки.
+
+## Docker
 
 ```bash
-cp .env.example .env              # при необходимости отредактировать
-make docker-up                    # postgres + app (FastAPI на :8000)
-# или
-docker compose up --build
+cp .env.example .env
+make docker-up    # PostgreSQL + FastAPI на :8000
 ```
-
-После старта: `GET http://localhost:8000/health`, `GET /docs`.
 
 ## Переменные окружения
 
-См. `.env.example`. Секреты (Airtable token, LLM key) **никогда** не коммитятся.
-Префикс `CM_`. Минимум для старта: `CM_DATABASE_URL`.
+Копируются в `.env` (никогда не коммитятся). Префикс `CM_`. Минимум:
 
-## Добавление нового суда
-
-1. Добавьте запись в `config/sources.yaml` (`type: sudrf`, `backend`, `paths`,
-   `fixture_path` или live URL).
-2. При нестандартной вёрстке — переопределите селекторы/парсер (см.
-   `docs/source-adapters.md`, готовится).
-3. Положите образец HTML в `tests/fixtures/html/` и добавьте regression-тест.
-
-## Добавление статьи / ключевого слова
-
-Отредактируйте `config/monitoring.yaml`. Перезапуск не требует изменения кода.
-
-## Безопасная эксплуатация
-
-- `CM_AIRTABLE_MODE=read_only` до валидации маппинга (`docs/airtable-discovery.md`).
-- LLM отключена (`CM_LLM_MODE=disabled`); regex-экстракция детерминирована.
-- Логи — структурированный JSON; персональные данные без нужды не логируются.
-- CAPTCHA/блокировки не обходятся — создаётся `ReviewItem` оператору.
-- SSL не отключается — оператор скачивает файлы вручную при необходимости.
-- Совпадения с реестрами никогда не подтверждаются автоматически.
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `CM_DATABASE_URL` | `sqlite:///./court_monitor.db` | Строка подключения к БД |
+| `CM_LOG_LEVEL` | `INFO` | Уровень логирования |
+| `CM_AIRTABLE_MODE` | `read_only` | Режим Airtable |
+| `CM_LLM_MODE` | `disabled` | LLM-извлечение (выключено) |
 
 ## Тесты
 
 ```bash
-make test               # все (134 теста)
-make test-unit          # только unit
-make test-integration   # только integration
+make test            # все тесты (134)
+make test-unit       # unit-тесты
+make test-integration  # integration-тесты
 ```
-
-## Работа с тестовой базой
-
-Для изолированного тестирования можно создать временную SQLite:
-
-```bash
-# 1. Создать чистую БД
-rm -f test-manual.db
-export CM_DATABASE_URL="sqlite:////ABSOLUTE/PATH/test-manual.db"
-
-# 2. Применить миграции
-uv run alembic upgrade head
-
-# 3. Проверить конфигурацию
-uv run court-monitor show-config
-uv run court-monitor doctor
-
-# 4. Заполнить данными
-uv run court-monitor fetch-source 2zovs
-uv run court-monitor parse-pending
-uv run court-monitor fetch-source fedsfm --file tests/fixtures/rfm/persons.xml
-
-# 5. Проверить
-uv run court-monitor show-stats
-```
-
-Убедитесь, что `CM_DATABASE_URL` установлен **до** запуска команд.
-Если переменная не задана, используется `.env` файл или дефолт `sqlite:///./court_monitor.db`.
-
-Диагностика: `docs/database-bootstrap.md`.
 
 ## Документация
 
-- `docs/ai-context/architecture.md` — архитектура, слои, потоки данных.
-- `docs/ai-context/extraction.md` — модули извлечения фактов.
-- `docs/ai-context/matching.md` — сопоставление людей, scoring, нормализация.
-- `docs/ai-context/build-ci-release.md` — сборка, CI, Docker.
-- `docs/ai-context/known-risks-and-notes.md` — известные риски и технический долг.
-- `docs/discovery.md` — исследование источников и ограничения.
-- `docs/airtable-discovery.md` — исследование Airtable.
-- `docs/fedsfm-format-discovery.md` — формат перечня Росфинмониторинга.
-- `docs/person-matching.md` — формула сопоставления, веса, ограничения.
-- `docs/database-bootstrap.md` — инфраструктура миграций и БД.
-- `docs/technical-debt.md` — известный технический долг.
-- `CHANGELOG.md` — история изменений.
+- `docs/ai-context/architecture.md` — архитектура
+- `docs/ai-context/extraction.md` — извлечение фактов
+- `docs/ai-context/matching.md` — сопоставление людей
+- `docs/ai-context/known-risks-and-notes.md` — известные риски

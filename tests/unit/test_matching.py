@@ -223,9 +223,7 @@ def test_full_date_match():
     """Full date match → higher score."""
     doc = normalize_name_morph("Иванов Иван Иванович")
     rec = normalize_name_morph("Иванов Иван Иванович")
-    result = score_match(
-        doc, rec, BirthDateEvidence.from_full_date("1983-01-01"), "1983-01-01"
-    )
+    result = score_match(doc, rec, BirthDateEvidence.from_full_date("1983-01-01"), "1983-01-01")
     assert result.birth_date_score == 0.20
     assert any(r["rule"] == "birth_date_match" for r in result.reasons)
 
