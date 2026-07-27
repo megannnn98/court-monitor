@@ -1,8 +1,8 @@
 # court-monitor
 
 Полуавтоматическая OSINT-система мониторинга уголовных дел по открытым источникам:
-пресс-релизы судов на платформе `sudrf.ru`, перечень Росфинмониторинга, синхронизация
-с Airtable. Все неоднозначные решения принимает оператор через очередь ручной проверки.
+пресс-релизы судов на платформе `sudrf.ru`, перечень Росфинмониторинга, Telegram-каналы,
+синхронизация с Airtable. Все неоднозначные решения принимает оператор через очередь ручной проверки.
 
 > Статус: MVP-каркас + вертикальный срез (Etap 0–3). Источники работают на
 > сохранённых fixtures; live-доступ и запись в Airtable отключены до подтверждения.
@@ -29,6 +29,7 @@ rectangle "Источники" as SRC {
   rectangle "sudrf.ru\n(пресс-релизы)" as SUDRF
   rectangle "fedsfm.ru\n(Росфинмониторинг)" as RFM
   rectangle "Airtable\n(реестр)" as AT
+  rectangle "Telegram\n(каналы)" as TG
 }
 
 rectangle "Pipeline" as PIPE {
@@ -59,6 +60,7 @@ rectangle "CLI" as CLI {
 SUDRF --> FETCH
 RFM --> FETCH
 AT --> FETCH
+TG --> FETCH
 FETCH --> DOC
 DOC --> PARSE
 PARSE --> EXT
@@ -91,7 +93,7 @@ uv run court-monitor show-stats
 uv run court-monitor show-document 1
 
 # 5. Импорт Росфинмониторинга
-uv run court-monitor fetch-source fedsfm --file data.xml
+uv run court-monitor fetch-source fedsfm --file tests/fixtures/rfm/persons.xml
 uv run court-monitor list-person-records
 
 # 6. Сопоставление людей
@@ -116,6 +118,11 @@ make lint typecheck test
 Поддержка форматов: XML, DBF, ZIP, CSV (внутренний fixture). Оператор
 скачивает файл вручную и импортирует через `--file`. Формат описан в
 `docs/fedsfm-format-discovery.md`.
+
+### Telegram — каналы
+
+Реестр каналов импортируется из Airtable shared-view в `config/source_registry.yaml`.
+Пока: парсинг постов (`telegram_post.py`), интеграция в pipeline — в разработке.
 
 ### Airtable — реестр источников
 
@@ -142,15 +149,17 @@ Live-доступ через API требует PAT.
 
 | Правило | Вес |
 |---|---|
-| Полное совпадение ФИО | +0.70 |
+| Полное совпадение ФИО (morphological) | +0.70 |
 | Совпадение фамилии и имени | +0.50 |
 | Совпадение фамилии и инициалов | +0.35 |
-| Совпадение даты рождения | +0.20 |
+| Совпадение даты рождения (full date) | +0.20 |
+| Совпадение года рождения | +0.15 |
 | Совпадение места рождения | +0.10 |
+| Конфликт года рождения | -0.60 |
 | Конфликт даты рождения | -0.50 |
-| Конфликт имени | -0.40 |
+| Конфликт имени/фамилии | -0.40 |
 
-Порог создания кандидата: `score ≥ 0.45`. Подробнее: `docs/person-matching.md`.
+Порог создания кандидата: `score ≥ 0.45`. Подробнее: `docs/ai-context/matching.md`.
 
 ### CLI matching
 
@@ -170,6 +179,7 @@ uv run court-monitor reject-match <id> --comment "..."
 court-monitor init-db
 court-monitor migrate
 court-monitor doctor
+court-monitor show-config
 
 # Источники
 court-monitor list-sources                           # список из Airtable fixture
@@ -178,6 +188,11 @@ court-monitor fetch-source <name> --no-parse         # только загруз
 court-monitor fetch-source fedsfm --file <path>      # импорт РФМ из файла
 court-monitor fetch-source fedsfm --file <path> --dry-run  # предпросмотр
 court-monitor fetch-all                              # все включённые источники
+
+# Реестр источников
+court-monitor import-source-registry --from-airtable # импорт из Airtable
+court-monitor import-source-registry --from-csv <f>  # импорт из CSV
+court-monitor check-sources                          # проверка доступности
 
 # Документы
 court-monitor parse-pending                          # распарсить pending
@@ -198,7 +213,6 @@ court-monitor confirm-match <id> --comment "..."     # подтвердить
 court-monitor reject-match <id> --comment "..."      # отклонить
 
 # Демо
-court-monitor list-sources                           # список источников
 court-monitor fetch-demo-source                      # скачать + извлечь текст
 ```
 
@@ -242,7 +256,7 @@ docker compose up --build
 ## Тесты
 
 ```bash
-make test               # все (131 тест)
+make test               # все (134 теста)
 make test-unit          # только unit
 make test-integration   # только integration
 ```
@@ -279,6 +293,11 @@ uv run court-monitor show-stats
 
 ## Документация
 
+- `docs/ai-context/architecture.md` — архитектура, слои, потоки данных.
+- `docs/ai-context/extraction.md` — модули извлечения фактов.
+- `docs/ai-context/matching.md` — сопоставление людей, scoring, нормализация.
+- `docs/ai-context/build-ci-release.md` — сборка, CI, Docker.
+- `docs/ai-context/known-risks-and-notes.md` — известные риски и технический долг.
 - `docs/discovery.md` — исследование источников и ограничения.
 - `docs/airtable-discovery.md` — исследование Airtable.
 - `docs/fedsfm-format-discovery.md` — формат перечня Росфинмониторинга.
