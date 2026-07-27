@@ -1,0 +1,204 @@
+sources:
+- id: astrapress
+  name: ASTRA
+  url: https://t.me/astrapress
+  domain: t.me
+  source_type: telegram
+  username: astrapress
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: bazabazon
+  name: Baza
+  url: https://t.me/bazabazon
+  domain: t.me
+  source_type: telegram
+  username: bazabazon
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: cknot
+  name: Кавказский узел
+  url: https://t.me/cknot
+  domain: t.me
+  source_type: telegram
+  username: cknot
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: extremizmunet
+  name: Экстремизму - НЕТ!
+  url: https://t.me/extremizmunet
+  domain: t.me
+  source_type: telegram
+  username: extremizmunet
+  topics:
+  - Гниды
+  - Силовики
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: mash
+  name: Mash
+  url: https://t.me/mash
+  domain: t.me
+  source_type: telegram
+  username: mash
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: mediazona_exclusive
+  name: Медиазона. Эксклюзив
+  url: https://t.me/mediazona_exclusive
+  domain: t.me
+  source_type: telegram
+  username: mediazona_exclusive
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: mediazzzona
+  name: Медиазона
+  url: https://t.me/mediazzzona
+  domain: t.me
+  source_type: telegram
+  username: mediazzzona
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: opersvodki
+  name: Оперативные сводки
+  url: https://t.me/opersvodki
+  domain: t.me
+  source_type: telegram
+  username: opersvodki
+  topics:
+  - Гниды
+  - Силовики
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: ovdinfolive
+  name: ОВД-Инфо LIVE
+  url: https://t.me/ovdinfolive
+  domain: t.me
+  source_type: telegram
+  username: ovdinfolive
+  topics:
+  - Новости
+  - Правозащитная организация
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: pochtasizo212
+  name: Чат про письма и книги политзаключенным
+  url: https://t.me/pochtasizo212
+  domain: t.me
+  source_type: telegram
+  username: pochtasizo212
+  topics:
+  - Активисты
+  - Инициатива
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: rusnews
+  name: RusNews ⭕️
+  url: https://t.me/rusnews
+  domain: t.me
+  source_type: telegram
+  username: rusnews
+  topics:
+  - Новости
+  - Активисты
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: shot_shot
+  name: SHOT
+  url: https://t.me/shot_shot
+  domain: t.me
+  source_type: telegram
+  username: shot_shot
+  topics:
+  - Новости
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+- id: sotavisionmedia
+  name: SOTAvision
+  url: https://t.me/sotavisionmedia
+  domain: t.me
+  source_type: telegram
+  username: sotavisionmedia
+  topics:
+  - Новости
+  - Активисты
+  enabled: true
+  status: unknown
+  last_checked_at: null
+  disable_reason: null
+  discovered_from:
+    type: airtable_shared_view
+    url: https://airtable.com/apppAy5vZCrpb53wc/shr2RcGSNfQPtqUPs
+note: Local normalized source registry. Sources are imported from the Airtable shared view only — do not
+  add entries by hand.

@@ -1,0 +1,35 @@
+# docker-compose for court-monitor.
+# Local dev: `docker compose up --build` starts PostgreSQL + the FastAPI app
+# (migrations run automatically on start). API: http://localhost:8000  docs: /docs
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cm
+      POSTGRES_PASSWORD: cm
+      POSTGRES_DB: cm
+    volumes:
+      - cm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cm -d cm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CM_DATABASE_URL: postgresql+psycopg://cm:cm@db:5432/cm
+      CM_LOG_LEVEL: INFO
+      CM_CONFIG_DIR: config
+      CM_AIRTABLE_MODE: read_only
+      CM_LLM_MODE: disabled
+    ports:
+      - "8000:8000"
+
+volumes:
+  cm_pgdata:

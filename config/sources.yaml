@@ -1,0 +1,41 @@
+# Source adapters configuration.
+# Per-court overrides live here. Backend "fixture" reads local HTML (no network) —
+# used for the MVP vertical slice and for regression tests.
+
+sources:
+  - name: "2zovs"
+    type: "sudrf"
+    backend: "fixture"
+    base_url: "https://2zovs.sudrf.ru"
+    # Module paths to probe (platform ГАС "Правосудие"). Confirm per-court.
+    paths:
+      - "/modules.php?name=press"
+    # Fixture mode: directory with *.html sample pages.
+    fixture_path: "tests/fixtures/html"
+    parser: "sudrf_press"
+    enabled: true
+
+  - name: "uovs"
+    type: "sudrf"
+    backend: "fixture"
+    base_url: "https://uovs.sudrf.ru"
+    paths:
+      - "/modules.php?name=press"
+    fixture_path: "tests/fixtures/html"
+    parser: "sudrf_press"
+    enabled: true
+
+# Airtable integration. read_only until mapping is validated (see docs/airtable-discovery.md).
+airtable:
+  mode: read_only
+  bases:
+    monitoring_articles:
+      base_id: "app42KQc45WUgqx7A"
+      shared_view_id: "shrEOzzOObIUY6byU"
+      table_name: null
+      purpose: "Список статей УК и ключевых слов для мониторинга"
+    main_database:
+      base_id: "apppAy5vZCrpb53wc"
+      shared_view_id: "shr2RcGSNfQPtqUPs"
+      table_name: null
+      purpose: "Основная база людей/дел (требует подтверждения)"

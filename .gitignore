@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.uv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local DB / runtime
+*.db
+*.sqlite
+*.sqlite3
+court_monitor.db
+instance/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*~
+
+# Playwright
+playwright-report/
+
+# Airtable exports / cached snapshots (may contain PII)
+exports/
+snapshots/
