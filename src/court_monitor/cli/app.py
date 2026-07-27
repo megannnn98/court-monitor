@@ -60,6 +60,7 @@ app = typer.Typer(
 
 # Default fixture location for a registry telegram source (no-network mode).
 FIXTURE_DIR = Path("tests/fixtures/telegram")
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _version_callback(value: bool) -> None:
@@ -105,46 +106,199 @@ def migrate() -> None:
     typer.echo("Migrations applied.")
 
 
-@app.command()
-def doctor() -> None:
-    """Sanity-check the environment: config, DB connectivity, dependencies."""
+@app.command(name="show-config")
+def show_config() -> None:
+    """Show current database configuration."""
     _bootstrap_logging()
-    typer.echo(f"court-monitor {__version__}")
-    typer.echo(f"python: {sys.version.split()[0]}")
-    typer.echo(f"database_url: {_safe_url(settings.database_url)}")
-    typer.echo(f"airtable_mode: {settings.airtable_mode}")
-    typer.echo(f"llm_mode: {settings.llm_mode}")
+    db_url = settings.database_url
+    is_sqlite = db_url.startswith("sqlite")
 
-    problems: list[str] = []
-    try:
-        monitoring = load_monitoring()
-        typer.echo(
-            f"monitoring: {len(monitoring.article_set())} articles, "
-            f"{len(monitoring.keyword_set())} keywords"
-        )
-    except Exception as exc:  # pragma: no cover - reported in CLI
-        problems.append(f"monitoring config error: {exc}")
+    typer.echo(f"Database URL: {_safe_url(db_url)}")
 
+    if is_sqlite:
+        db_path = db_url.replace("sqlite:///", "").replace("sqlite://", "")
+        db_file = Path(db_path).resolve()
+        typer.echo(f"Absolute path: {db_file}")
+        typer.echo(f"SQLite exists: {'yes' if db_file.exists() else 'no'}")
+
+    # Alembic current revision
     try:
-        registry = load_registry()
-        typer.echo(f"registry: {len(registry)} sources ({DEFAULT_REGISTRY_PATH})")
-    except Exception as exc:  # pragma: no cover
-        problems.append(f"registry error: {exc}")
+        from alembic import command as alembic_cmd  # noqa: PLC0415
+        from alembic.config import Config as AlembicConfig  # noqa: PLC0415
+
+        alembic_cfg = AlembicConfig(str(REPO_ROOT / "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", str(REPO_ROOT / "migrations"))
+        alembic_cfg.set_main_option("prepend_sys_path", str(REPO_ROOT / "src"))
+        alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+
+        alembic_cmd.current(alembic_cfg)
+        typer.echo("Alembic revision: ✓ applied")
+    except Exception as exc:
+        typer.echo(f"Alembic revision: error ({exc})")
+
+    # Settings source
+    import os  # noqa: PLC0415
+
+    env_val = os.environ.get("CM_DATABASE_URL")
+    if env_val:
+        typer.echo("Settings source: env var CM_DATABASE_URL")
+    elif Path(".env").exists():
+        typer.echo("Settings source: .env file")
+    else:
+        typer.echo("Settings source: default value")
+
+
+def _doctor_check_sqlite(problems: list[str]) -> None:
+    """Check SQLite file existence and connectivity."""
+    db_url = settings.database_url
+    if not db_url.startswith("sqlite"):
+        return
+
+    db_path = db_url.replace("sqlite:///", "").replace("sqlite://", "")
+    db_file = Path(db_path)
+    exists = db_file.exists()
+    typer.echo(f"database_exists: {'✓' if exists else '✗'} ({db_path})")
+    if not exists:
+        problems.append(f"Database file does not exist: {db_path}")
 
     try:
         engine = make_engine()
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        typer.echo("db: connection OK")
+        typer.echo("connection: ✓")
     except Exception as exc:
+        typer.echo(f"connection: ✗ ({exc})")
         problems.append(f"db connection failed: {exc}")
+
+
+def _doctor_check_tables(problems: list[str]) -> None:
+    """Check that required tables exist."""
+    try:
+        engine = make_engine()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            )
+            tables = [row[0] for row in result]
+            expected = {
+                "source_documents", "extracted_facts",
+                "person_records", "person_match_candidates",
+            }
+            missing = expected - set(tables)
+            if missing:
+                typer.echo(f"tables: ✗ (missing: {', '.join(sorted(missing))})")
+                problems.append(f"Missing tables: {', '.join(sorted(missing))}")
+            else:
+                typer.echo(f"tables: ✓ ({len(tables)} tables)")
+    except Exception as exc:
+        typer.echo(f"tables: ✗ ({exc})")
+
+
+def _doctor_check_alembic() -> None:
+    """Check Alembic current revision."""
+
+    from alembic import command as alembic_cmd  # noqa: PLC0415
+    from alembic.config import Config as AlembicConfig  # noqa: PLC0415
+
+    try:
+        alembic_cfg = AlembicConfig(str(REPO_ROOT / "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", str(REPO_ROOT / "migrations"))
+        alembic_cfg.set_main_option("prepend_sys_path", str(REPO_ROOT / "src"))
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+
+        alembic_cmd.current(alembic_cfg)
+        typer.echo("alembic_current: ✓")
+    except Exception as exc:
+        typer.echo(f"alembic_current: ✗ ({exc})")
+
+
+def _doctor_check_repository(problems: list[str]) -> None:
+    """Check repository query works."""
+    try:
+        factory = make_session_factory(make_engine())
+        with factory() as session:
+            doc_count = repo.count_documents(session)
+            fact_count = repo.count_facts(session)
+        typer.echo(f"repository: ✓ (docs={doc_count}, facts={fact_count})")
+    except Exception as exc:
+        typer.echo(f"repository: ✗ ({exc})")
+        problems.append(f"repository query failed: {exc}")
+
+
+def _doctor_check_config(problems: list[str]) -> None:
+    """Check config files (monitoring, registry)."""
+    try:
+        monitoring = load_monitoring()
+        typer.echo(
+            f"monitoring: ✓ ({len(monitoring.article_set())} articles, "
+            f"{len(monitoring.keyword_set())} keywords)"
+        )
+    except Exception as exc:  # pragma: no cover
+        typer.echo(f"monitoring: ✗ ({exc})")
+        problems.append(f"monitoring config error: {exc}")
+
+    try:
+        registry = load_registry()
+        typer.echo(f"registry: ✓ ({len(registry)} sources)")
+    except Exception as exc:  # pragma: no cover
+        typer.echo(f"registry: ✗ ({exc})")
+        problems.append(f"registry error: {exc}")
+
+
+def _doctor_check_settings_source() -> None:
+    """Show where settings are loaded from."""
+    import os  # noqa: PLC0415
+
+    env_val = os.environ.get("CM_DATABASE_URL")
+    if env_val:
+        typer.echo("settings_source: env var CM_DATABASE_URL")
+    elif Path(".env").exists():
+        typer.echo("settings_source: .env file")
+    else:
+        typer.echo("settings_source: default")
+
+
+@app.command()
+def doctor() -> None:
+    """Sanity-check the environment: config, DB, migrations, repository."""
+    _bootstrap_logging()
+    problems: list[str] = []
+
+    typer.echo(f"court-monitor {__version__}")
+    typer.echo(f"python: {sys.version.split()[0]}")
+    typer.echo(f"database_url: {_safe_url(settings.database_url)}")
+
+    _doctor_check_sqlite(problems)
+    _doctor_check_tables(problems)
+    _doctor_check_alembic()
+    _doctor_check_repository(problems)
+    _doctor_check_config(problems)
+    _doctor_check_settings_source()
 
     if problems:
         typer.echo("\nProblems:")
         for p in problems:
-            typer.echo(f"  - {p}")
+            typer.echo(f"  ✗ {p}")
         raise typer.Exit(code=1)
-    typer.echo("\nAll checks passed.")
+    typer.echo("\n✓ All checks passed.")
+
+    # Settings source
+    import os  # noqa: PLC0415
+
+    env_val = os.environ.get("CM_DATABASE_URL")
+    if env_val:
+        typer.echo("settings_source: env var CM_DATABASE_URL")
+    elif Path(".env").exists():
+        typer.echo("settings_source: .env file")
+    else:
+        typer.echo("settings_source: default")
+
+    if problems:
+        typer.echo("\nProblems:")
+        for p in problems:
+            typer.echo(f"  ✗ {p}")
+        raise typer.Exit(code=1)
+    typer.echo("\n✓ All checks passed.")
 
 
 # ---------------------------------------------------------------------------

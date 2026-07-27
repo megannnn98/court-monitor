@@ -247,11 +247,42 @@ make test-unit          # только unit
 make test-integration   # только integration
 ```
 
+## Работа с тестовой базой
+
+Для изолированного тестирования можно создать временную SQLite:
+
+```bash
+# 1. Создать чистую БД
+rm -f test-manual.db
+export CM_DATABASE_URL="sqlite:////ABSOLUTE/PATH/test-manual.db"
+
+# 2. Применить миграции
+uv run alembic upgrade head
+
+# 3. Проверить конфигурацию
+uv run court-monitor show-config
+uv run court-monitor doctor
+
+# 4. Заполнить данными
+uv run court-monitor fetch-source 2zovs
+uv run court-monitor parse-pending
+uv run court-monitor fetch-source fedsfm --file tests/fixtures/rfm/persons.xml
+
+# 5. Проверить
+uv run court-monitor show-stats
+```
+
+Убедитесь, что `CM_DATABASE_URL` установлен **до** запуска команд.
+Если переменная не задана, используется `.env` файл или дефолт `sqlite:///./court_monitor.db`.
+
+Диагностика: `docs/database-bootstrap.md`.
+
 ## Документация
 
 - `docs/discovery.md` — исследование источников и ограничения.
 - `docs/airtable-discovery.md` — исследование Airtable.
 - `docs/fedsfm-format-discovery.md` — формат перечня Росфинмониторинга.
 - `docs/person-matching.md` — формула сопоставления, веса, ограничения.
+- `docs/database-bootstrap.md` — инфраструктура миграций и БД.
 - `docs/technical-debt.md` — известный технический долг.
 - `CHANGELOG.md` — история изменений.
