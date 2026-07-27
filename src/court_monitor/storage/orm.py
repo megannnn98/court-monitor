@@ -90,8 +90,9 @@ class ExtractedFact(Base):
 class PersonRecord(Base):
     """A record from an external registry (e.g. Rosfinmonitoring terrorist list).
 
-    Stores raw and normalized name separately — normalization is never assumed
-    to be lossless.
+    Stores raw, search, and normalized name separately — normalization is never
+    assumed to be lossless. ``search_name`` is a lowercase fold for fast lookup;
+    ``normalized_name`` is the best-effort canonical form.
     """
 
     __tablename__ = "person_records"
@@ -100,8 +101,10 @@ class PersonRecord(Base):
     source: Mapped[str] = mapped_column(String(32), index=True)  # "rfm", etc.
 
     raw_name: Mapped[str] = mapped_column(Text)
+    search_name: Mapped[str] = mapped_column(String(512), index=True)
     normalized_name: Mapped[str] = mapped_column(String(512), index=True)
     normalization_confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    normalization_method: Mapped[str] = mapped_column(String(64), default="lowercase")
 
     birth_date: Mapped[str | None] = mapped_column(String(32), index=True)
     birth_place: Mapped[str | None] = mapped_column(Text)

@@ -539,16 +539,75 @@ def fetch_rfm_source(
     no_parse: Annotated[
         bool, typer.Option("--no-parse", help="Only fetch; leave documents in pending state.")
     ] = False,
+    file: Annotated[
+        str | None, typer.Option("--file", help="Import from a local file (XML, DBF, ZIP, CSV).")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Preview only; do not write to DB.")
+    ] = False,
 ) -> None:
     """Fetch data from a source (RFM, sudrf, etc.)."""
     _bootstrap_logging()
 
     if name == "fedsfm":
-        from court_monitor.sources.fedsfm import load_fixture_rows  # noqa: PLC0415
+        import hashlib as _hashlib  # noqa: PLC0415
+
+        from court_monitor.sources.fedsfm import load_fixture_rows, parse_file  # noqa: PLC0415
 
         source_url = "https://fedsfm.ru/documents/terrorists-catalog-portal-act"
+
+        if file:
+            file_path = Path(file)
+            if not file_path.exists():
+                typer.echo(f"File not found: {file}", err=True)
+                raise typer.Exit(code=1)
+
+            file_size = file_path.stat().st_size
+            file_hash = _hashlib.sha256(file_path.read_bytes()).hexdigest()
+
+            result = parse_file(file_path)
+
+            typer.echo(f"Файл: {file_path.name}")
+            typer.echo(f"SHA-256: {file_hash}")
+            typer.echo(f"Размер: {file_size} bytes")
+            typer.echo(f"Формат: {result.format_detected}")
+            typer.echo(f"Всего записей: {result.total_records}")
+            typer.echo(f"Распознано: {result.recognized}")
+            typer.echo(f"Не распознано: {result.unrecognized}")
+
+            if result.errors:
+                typer.echo(f"Ошибки ({len(result.errors)}):")
+                for err in result.errors[:5]:
+                    typer.echo(f"  - {err}")
+
+            if result.rows:
+                typer.echo("\nПримеры первых 5 записей:")
+                for i, row in enumerate(result.rows[:5], 1):
+                    typer.echo(f"  {i}. {row.raw_name} | {row.birth_date or '-'} | {row.birth_place or '-'}")
+
+            if dry_run:
+                typer.echo("\n(режим --dry-run: данные не записаны)")
+                return
+
+            if not result.rows:
+                typer.echo("Нет записей для импорта.", err=True)
+                raise typer.Exit(code=1)
+
+            engine = make_engine()
+            with session_scope(engine) as session:
+                stats = import_rfm_records(
+                    session, result.rows,
+                    source="rfm",
+                    source_url=f"file://{file_path.absolute()}",
+                )
+            typer.echo(
+                f"\nfedsfm: total={stats.total} imported={stats.imported} "
+                f"duplicates={stats.duplicates}"
+            )
+            return
+
         if live:
-            typer.echo("Live mode not yet implemented for fedsfm. Use fixture.", err=True)
+            typer.echo("Live mode not yet implemented for fedsfm. Use --file.", err=True)
             raise typer.Exit(code=1)
 
         rows = load_fixture_rows()
@@ -645,8 +704,10 @@ def show_person_record_cmd(
         typer.echo(f"ID: {rec.id}")
         typer.echo(f"Источник: {rec.source}")
         typer.echo(f"ФИО (raw): {rec.raw_name}")
+        typer.echo(f"ФИО (search): {rec.search_name}")
         typer.echo(f"ФИО (normalized): {rec.normalized_name}")
         typer.echo(f"Confidence нормализации: {rec.normalization_confidence:.2f}")
+        typer.echo(f"Метод нормализации: {rec.normalization_method}")
         typer.echo(f"Дата рождения: {rec.birth_date or '-'}")
         typer.echo(f"Место рождения: {rec.birth_place or '-'}")
         typer.echo(f"Основание: {rec.category or '-'}")

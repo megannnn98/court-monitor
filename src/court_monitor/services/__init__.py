@@ -322,8 +322,10 @@ def import_rfm_records(
         rec = PersonRecord(
             source=source,
             raw_name=row.raw_name,
+            search_name=row.search_name,
             normalized_name=row.normalized_name,
             normalization_confidence=row.normalization_confidence,
+            normalization_method=row.normalization_method,
             birth_date=row.birth_date,
             birth_place=row.birth_place,
             category=row.category,
