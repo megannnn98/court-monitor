@@ -27,6 +27,7 @@ from court_monitor.config.registry import (
 from court_monitor.config.settings import settings
 from court_monitor.observability import configure_logging, get_logger
 from court_monitor.services import (
+    import_rfm_records,
     process_pending,
     process_registry_source,
     process_source,
@@ -259,56 +260,6 @@ def _fixture_path_for(entry) -> Path | None:
     if entry.source_type == "telegram":
         return FIXTURE_DIR / f"tg_preview_{entry.id}.html"
     return None
-
-
-@app.command()
-def fetch_source(
-    name: Annotated[str, typer.Argument(help="Registry source id (or legacy sources.yaml name)")],
-    live: Annotated[
-        bool, typer.Option("--live", help="Fetch the real source over HTTP (default: fixture).")
-    ] = False,
-    limit: Annotated[
-        int | None,
-        typer.Option("--limit", help="Cap the number of materials fetched."),
-    ] = None,
-    no_parse: Annotated[
-        bool, typer.Option("--no-parse", help="Only fetch; leave documents in pending state.")
-    ] = False,
-) -> None:
-    """Fetch documents from one source and ingest them."""
-    _bootstrap_logging()
-    monitoring = load_monitoring()
-
-    entry = _registry_entry_or_none(name)
-    if entry is not None:
-        engine = make_engine()
-        with session_scope(engine) as session:
-            stats = process_registry_source(
-                session,
-                entry,
-                monitoring,
-                live=live,
-                limit=limit,
-                fixture_path=str(_fixture_path_for(entry)) if _fixture_path_for(entry) else None,
-            )
-        typer.echo(_render_registry_stats(stats, entry.id, live=live))
-        return
-
-    src = get_source(name)
-    if src is None or not src.enabled:
-        typer.echo(
-            f"Источник «{name}» не найден ни в реестре, ни в config/sources.yaml.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    engine = make_engine()
-    with session_scope(engine) as session:
-        stats = process_source(session, src, monitoring, parse_immediately=not no_parse)
-    typer.echo(
-        f"{name}: fetched={stats.fetched} new={stats.new_documents} "
-        f"duplicates={stats.duplicates} parsed={stats.parsed} "
-        f"irrelevant={stats.irrelevant} failed={stats.failed}"
-    )
 
 
 def _render_registry_stats(stats, source_id: str, *, live: bool) -> str:
@@ -572,6 +523,137 @@ def fetch_demo_source() -> None:
     typer.echo(f"\nURL: {target_url}")
     typer.echo(f"Title: {title}")
     typer.echo(f"\nText:\n{body_text[:1500]}")
+
+
+# ---------------------------------------------------------------------------
+# Rosfinmonitoring (RFM) person records
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="fetch-source")
+def fetch_rfm_source(
+    name: Annotated[str, typer.Argument(help="Source name, e.g. 'fedsfm'")],
+    live: Annotated[
+        bool, typer.Option("--live", help="Fetch from the real HTTP source.")
+    ] = False,
+    no_parse: Annotated[
+        bool, typer.Option("--no-parse", help="Only fetch; leave documents in pending state.")
+    ] = False,
+) -> None:
+    """Fetch data from a source (RFM, sudrf, etc.)."""
+    _bootstrap_logging()
+
+    if name == "fedsfm":
+        from court_monitor.sources.fedsfm import load_fixture_rows  # noqa: PLC0415
+
+        source_url = "https://fedsfm.ru/documents/terrorists-catalog-portal-act"
+        if live:
+            typer.echo("Live mode not yet implemented for fedsfm. Use fixture.", err=True)
+            raise typer.Exit(code=1)
+
+        rows = load_fixture_rows()
+        if not rows:
+            typer.echo("No fixture data found.", err=True)
+            raise typer.Exit(code=1)
+
+        engine = make_engine()
+        with session_scope(engine) as session:
+            stats = import_rfm_records(session, rows, source_url=source_url)
+        typer.echo(
+            f"fedsfm: total={stats.total} imported={stats.imported} "
+            f"duplicates={stats.duplicates}"
+        )
+        return
+
+    # Fallback to existing fetch-source logic for other sources
+    _fetch_source_legacy(name, live=live, no_parse=no_parse)
+
+
+def _fetch_source_legacy(name: str, *, live: bool = False, no_parse: bool = False) -> None:
+    monitoring = load_monitoring()
+
+    entry = _registry_entry_or_none(name)
+    if entry is not None:
+        engine = make_engine()
+        with session_scope(engine) as session:
+            stats = process_registry_source(
+                session,
+                entry,
+                monitoring,
+                live=live,
+                fixture_path=str(_fixture_path_for(entry)) if _fixture_path_for(entry) else None,
+            )
+        typer.echo(_render_registry_stats(stats, entry.id, live=live))
+        return
+
+    src = get_source(name)
+    if src is None or not src.enabled:
+        typer.echo(
+            f"Источник «{name}» не найден ни в реестре, ни в config/sources.yaml.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = process_source(session, src, monitoring, parse_immediately=not no_parse)
+    typer.echo(
+        f"{name}: fetched={stats.fetched} new={stats.new_documents} "
+        f"duplicates={stats.duplicates} parsed={stats.parsed} "
+        f"irrelevant={stats.irrelevant} failed={stats.failed}"
+    )
+
+
+@app.command(name="list-person-records")
+def list_person_records_cmd(
+    source: Annotated[
+        str, typer.Option("--source", help="Filter by source (e.g. rfm).")
+    ] = "rfm",
+    limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
+) -> None:
+    """List person records from external registries."""
+    _bootstrap_logging()
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    with factory() as session:
+        records = repo.list_person_records(session, source=source, limit=limit)
+        total = repo.count_person_records(session, source=source)
+
+    typer.echo(f"Всего записей ({source}): {total}")
+    typer.echo(f"{'ID':>4}  {'ФИО':40}  {'Дата рожд.':12}  {'Основание':30}")
+    typer.echo("-" * 100)
+    for r in records:
+        name = r.raw_name[:40]
+        birth = r.birth_date or "-"
+        cat = (r.category or "-")[:30]
+        typer.echo(f"{r.id:>4}  {name:40}  {birth:12}  {cat:30}")
+
+
+@app.command(name="show-person-record")
+def show_person_record_cmd(
+    record_id: Annotated[int, typer.Argument(help="PersonRecord.id")],
+) -> None:
+    """Show a person record in detail."""
+    _bootstrap_logging()
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    with factory() as session:
+        rec = repo.get_person_record(session, record_id)
+        if rec is None:
+            typer.echo(f"Record {record_id} not found.", err=True)
+            raise typer.Exit(code=1)
+
+        typer.echo(f"ID: {rec.id}")
+        typer.echo(f"Источник: {rec.source}")
+        typer.echo(f"ФИО (raw): {rec.raw_name}")
+        typer.echo(f"ФИО (normalized): {rec.normalized_name}")
+        typer.echo(f"Confidence нормализации: {rec.normalization_confidence:.2f}")
+        typer.echo(f"Дата рождения: {rec.birth_date or '-'}")
+        typer.echo(f"Место рождения: {rec.birth_place or '-'}")
+        typer.echo(f"Основание: {rec.category or '-'}")
+        typer.echo(f"Номер записи: {rec.source_ref or '-'}")
+        typer.echo(f"Дата включения: {rec.added_date or '-'}")
+        typer.echo(f"URL источника: {rec.source_url or '-'}")
+        typer.echo(f"Загружено: {rec.fetched_at.isoformat() if rec.fetched_at else '-'}")
 
 
 def _safe_url(url: str) -> str:

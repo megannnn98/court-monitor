@@ -1,10 +1,8 @@
-"""SQLAlchemy 2 ORM models. Only the tables needed for the MVP slice:
+"""SQLAlchemy 2 ORM models.
 
 * ``SourceDocument`` — fetched page/file with provenance + dedup hash.
 * ``ExtractedFact``  — every extracted value with status/confidence/quote.
-
-Person / Case / CourtEvent / ReviewItem / AuditLog / RfmEntry are planned for
-later stages and will be added as migrations; see docs/technical-debt.md.
+* ``PersonRecord``   — entries from external registries (e.g. Rosfinmonitoring).
 """
 
 from __future__ import annotations
@@ -87,6 +85,40 @@ class ExtractedFact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     document: Mapped[SourceDocument] = relationship(back_populates="facts")
+
+
+class PersonRecord(Base):
+    """A record from an external registry (e.g. Rosfinmonitoring terrorist list).
+
+    Stores raw and normalized name separately — normalization is never assumed
+    to be lossless.
+    """
+
+    __tablename__ = "person_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)  # "rfm", etc.
+
+    raw_name: Mapped[str] = mapped_column(Text)
+    normalized_name: Mapped[str] = mapped_column(String(512), index=True)
+    normalization_confidence: Mapped[float] = mapped_column(Float, default=0.0)
+
+    birth_date: Mapped[str | None] = mapped_column(String(32), index=True)
+    birth_place: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(128))
+    source_ref: Mapped[str | None] = mapped_column(String(128))
+    added_date: Mapped[str | None] = mapped_column(String(32))
+    source_url: Mapped[str | None] = mapped_column(String(1024))
+    raw_line: Mapped[str | None] = mapped_column(Text)
+
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "normalized_name", "birth_date",
+            name="uq_person_source_name_birth",
+        ),
+    )
 
 
 PARSER_VERSION = "sudrf-press-0.1"

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus
-from court_monitor.storage.orm import ExtractedFact, SourceDocument
+from court_monitor.storage.orm import ExtractedFact, PersonRecord, SourceDocument
 
 
 def find_document_by_hash_url(
@@ -134,3 +134,58 @@ def count_pending_documents(session: Session) -> int:
             )
         ).scalar_one()
     )
+
+
+# ---------------------------------------------------------------------------
+# PersonRecord (Rosfinmonitoring / external registries)
+# ---------------------------------------------------------------------------
+
+
+def find_person_record(
+    session: Session, *, source: str, normalized_name: str, birth_date: str | None
+) -> PersonRecord | None:
+    stmt = select(PersonRecord).where(
+        PersonRecord.source == source,
+        PersonRecord.normalized_name == normalized_name,
+        PersonRecord.birth_date == birth_date,
+    )
+    return session.execute(stmt).scalar_one_or_none()
+
+
+def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRecord, bool]:
+    """Insert a person record unless the same (source, name, birth_date) exists.
+
+    Returns (record, created).
+    """
+    existing = find_person_record(
+        session,
+        source=rec.source,
+        normalized_name=rec.normalized_name,
+        birth_date=rec.birth_date,
+    )
+    if existing is not None:
+        return existing, False
+    session.add(rec)
+    session.flush()
+    return rec, True
+
+
+def list_person_records(
+    session: Session, *, source: str | None = None, limit: int = 100
+) -> list[PersonRecord]:
+    stmt = select(PersonRecord).order_by(PersonRecord.id.desc())
+    if source is not None:
+        stmt = stmt.where(PersonRecord.source == source)
+    stmt = stmt.limit(limit)
+    return list(session.execute(stmt).scalars())
+
+
+def get_person_record(session: Session, record_id: int) -> PersonRecord | None:
+    return session.get(PersonRecord, record_id)
+
+
+def count_person_records(session: Session, *, source: str | None = None) -> int:
+    stmt = select(func.count(PersonRecord.id))
+    if source is not None:
+        stmt = stmt.where(PersonRecord.source == source)
+    return int(session.execute(stmt).scalar_one())

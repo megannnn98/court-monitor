@@ -289,3 +289,59 @@ def reprocess(session: Session, document_id: int) -> int | None:
     session.flush()
     parse_and_extract(session, doc, load_monitoring())
     return doc.id
+
+
+# ---------------------------------------------------------------------------
+# Rosfinmonitoring (RFM) import
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RfmImportStats:
+    total: int = 0
+    imported: int = 0
+    duplicates: int = 0
+
+
+def import_rfm_records(
+    session: Session,
+    rows: list,
+    *,
+    source: str = "rfm",
+    source_url: str | None = None,
+) -> RfmImportStats:
+    """Import Rosfinmonitoring person records into the database.
+
+    Deduplicates by (source, normalized_name, birth_date).
+    """
+    from court_monitor.storage.orm import PersonRecord  # noqa: PLC0415
+
+    stats = RfmImportStats()
+    for row in rows:
+        stats.total += 1
+        rec = PersonRecord(
+            source=source,
+            raw_name=row.raw_name,
+            normalized_name=row.normalized_name,
+            normalization_confidence=row.normalization_confidence,
+            birth_date=row.birth_date,
+            birth_place=row.birth_place,
+            category=row.category,
+            source_ref=row.source_ref,
+            added_date=row.added_date,
+            source_url=source_url,
+            raw_line=row.raw_line,
+        )
+        _, created = repo.upsert_person_record(session, rec)
+        if created:
+            stats.imported += 1
+        else:
+            stats.duplicates += 1
+    _log.info(
+        "rfm.import.done",
+        source=source,
+        total=stats.total,
+        imported=stats.imported,
+        duplicates=stats.duplicates,
+    )
+    return stats
