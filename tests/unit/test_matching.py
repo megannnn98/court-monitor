@@ -236,6 +236,19 @@ def test_different_surname():
     assert result.score == 0.0
 
 
+def test_same_surname_different_given_name_is_conflict():
+    """Same surname, coincidentally matching initials, but known full first
+    names differ — must NOT score as a coincidental initials match, and must
+    be visible to the reviewer as a conflict."""
+    doc = normalize_name_morph("Петров Дмитрий Иванович")
+    rec = normalize_name_morph("Петров Денис Игоревич")
+    result = score_match(doc, rec, BirthDateEvidence.from_year("1983"), "1983-06-15")
+    assert result.name_score == 0.0
+    assert any(c["rule"] == "given_name_mismatch" for c in result.conflicts)
+    assert not any(r["rule"] == "surname_initials_match" for r in result.reasons)
+    assert result.score < CANDIDATE_THRESHOLD
+
+
 # ======================================================================
 # Negative integration test: 1983 vs 1980 → no candidate
 # ======================================================================

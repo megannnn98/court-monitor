@@ -126,6 +126,11 @@ def score_match(
     )
 
 
+def _is_initial_token(token: str) -> bool:
+    """True for a single-letter-plus-dot token (e.g. "и."), not a full given name."""
+    return len(token) <= 2 and token.endswith(".")
+
+
 def _score_name(
     doc: NormalizedName,
     rec: NormalizedName,
@@ -162,8 +167,39 @@ def _score_name(
         )
         return 0.0
 
+    return _score_matching_surname(
+        doc,
+        rec,
+        doc_name=doc_name,
+        rec_name=rec_name,
+        doc_patronymic=doc_patronymic,
+        rec_patronymic=rec_patronymic,
+        name_match=name_match,
+        patronymic_match=patronymic_match,
+        reasons=reasons,
+        conflicts=conflicts,
+    )
+
+
+def _score_matching_surname(
+    doc: NormalizedName,
+    rec: NormalizedName,
+    *,
+    doc_name: str,
+    rec_name: str,
+    doc_patronymic: str,
+    rec_patronymic: str,
+    name_match: bool,
+    patronymic_match: bool,
+    reasons: list[dict],
+    conflicts: list[dict],
+) -> float:
+    """Score given-name/patronymic similarity once the surname is known to match."""
+    doc_surname = doc.surname
+    rec_surname = rec.surname
+
     # Full name match (after morphological normalization)
-    if surname_match and name_match and patronymic_match:
+    if name_match and patronymic_match:
         reasons.append(
             {
                 "rule": "full_name_morphological_match",
@@ -177,7 +213,7 @@ def _score_name(
         return W_FULL_NAME_MATCH
 
     # Surname + name match (no patronymic data or mismatch)
-    if surname_match and name_match:
+    if name_match:
         impact = W_SURNAME_NAME_MATCH
         if doc_patronymic and rec_patronymic and not patronymic_match:
             conflicts.append(
@@ -198,8 +234,26 @@ def _score_name(
         )
         return max(0.0, impact)
 
+    # Both sides give a full (non-initial) first name and they differ: this is
+    # a hard conflict, not a coincidental initials match. Without this check,
+    # two different people sharing a surname and initial letters (but with
+    # known, differing first names) would fall into the initials-match branch
+    # below and score as a match with no visible conflict for the reviewer.
+    doc_name_is_full = bool(doc_name) and not _is_initial_token(doc_name)
+    rec_name_is_full = bool(rec_name) and not _is_initial_token(rec_name)
+    if doc_name_is_full and rec_name_is_full:
+        conflicts.append(
+            {
+                "rule": "given_name_mismatch",
+                "document_value": doc_name,
+                "record_value": rec_name,
+            }
+        )
+        reasons.append({"rule": "given_name_mismatch", "impact": 0.0})
+        return 0.0
+
     # Surname + initials match
-    if surname_match and doc.initials and rec.initials:
+    if doc.initials and rec.initials:
         doc_init = doc.initials[1:] if len(doc.initials) > 1 else ""
         rec_init = rec.initials[1:] if len(rec.initials) > 1 else ""
         if doc_init and rec_init and doc_init == rec_init:

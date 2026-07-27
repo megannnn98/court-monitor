@@ -19,7 +19,10 @@ from court_monitor.matching.score import (
     BirthDateEvidence,
     score_match,
 )
+from court_monitor.observability import get_logger
 from court_monitor.storage.orm import ExtractedFact, MatchCandidate, PersonRecord
+
+_log = get_logger(__name__)
 
 
 def generate_matches(session: Session) -> dict[str, int]:
@@ -105,8 +108,9 @@ def generate_matches(session: Session) -> dict[str, int]:
             if not matched_any:
                 stats["no_candidates"] += 1
 
-        except Exception:
+        except Exception as exc:
             stats["errors"] += 1
+            _log.exception("matching.generate_failed", fact_id=fact.id, error=str(exc))
 
     session.flush()
     return stats
