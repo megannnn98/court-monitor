@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
-import pytest
 
 from court_monitor.config.registry import SourceRegistryEntry
+from court_monitor.domain.models import FetchHealth
 from court_monitor.sources.http_client import HttpResponse
 from court_monitor.sources.probe import (
     AVAILABLE,
@@ -53,8 +53,6 @@ def _entry(source_type: str = "telegram", username: str | None = "abc", url: str
 
 
 def test_probe_telegram_available() -> None:
-    from court_monitor.domain.models import FetchHealth
-
     body = (Path(__file__).parent.parent / "fixtures" / "telegram" / "tg_preview_extremizmunet.html").read_text(
         encoding="utf-8"
     )

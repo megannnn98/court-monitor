@@ -9,6 +9,7 @@ from court_monitor.config.registry import (
     make_stable_id,
     merge_registry,
     normalize_rows,
+    save_registry,
 )
 from court_monitor.normalization import canonicalize_url, url_domain
 from court_monitor.sources.airtable_registry import RawRegistryRow
@@ -101,8 +102,6 @@ def test_changed_source_detected_on_diff() -> None:
 
 
 def test_load_registry_roundtrip(tmp_path) -> None:
-    from court_monitor.config.registry import save_registry
-
     entries, _ = normalize_rows(
         [
             RawRegistryRow(name="A", username="aaa", url="https://t.me/aaa", topics=["Новости"], fields={}),

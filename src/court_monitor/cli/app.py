@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from selectolax.parser import HTMLParser
 from sqlalchemy import text
 
 from court_monitor import __version__
@@ -25,6 +28,8 @@ from court_monitor.config.registry import (
     set_entry_status,
 )
 from court_monitor.config.settings import settings
+from court_monitor.domain.models import FetchHealth
+from court_monitor.matching.candidates import generate_matches
 from court_monitor.observability import configure_logging, get_logger
 from court_monitor.services import (
     import_rfm_records,
@@ -39,6 +44,8 @@ from court_monitor.sources.airtable_registry import (
     parse_registry_csv,
     render_shared_view,
 )
+from court_monitor.sources.fedsfm import load_fixture_rows, parse_file
+from court_monitor.sources.http_client import HttpClient
 from court_monitor.sources.probe import probe_source
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory, session_scope
@@ -262,6 +269,161 @@ def _fixture_path_for(entry) -> Path | None:
     return None
 
 
+@app.command()
+def fetch_source(
+    name: Annotated[str, typer.Argument(help="Registry source id (or legacy sources.yaml name)")],
+    *,
+    live: Annotated[
+        bool, typer.Option("--live", help="Fetch the real source over HTTP (default: fixture).")
+    ] = False,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", help="Cap the number of materials fetched."),
+    ] = None,
+    no_parse: Annotated[
+        bool, typer.Option("--no-parse", help="Only fetch; leave documents in pending state.")
+    ] = False,
+    file: Annotated[
+        str | None, typer.Option("--file", help="Import from a local file (XML, DBF, ZIP, CSV).")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Preview only; do not write to DB.")
+    ] = False,
+) -> None:
+    """Fetch data from a source (RFM, sudrf, etc.)."""
+    _bootstrap_logging()
+
+    if name == "fedsfm":
+        _handle_fedsfm(file=file, live=live, dry_run=dry_run)
+        return
+
+    _fetch_source_legacy(name, live=live, no_parse=no_parse)
+
+
+def _handle_fedsfm(
+    *,
+    file: str | None,
+    live: bool,
+    dry_run: bool,
+) -> None:
+    """Handle fedsfm source: --file import or fixture."""
+    source_url = "https://fedsfm.ru/documents/terrorists-catalog-portal-act"
+
+    if file:
+        _import_fedsfm_file(file, dry_run=dry_run)
+        return
+
+    if live:
+        typer.echo("Live mode not yet implemented for fedsfm. Use --file.", err=True)
+        raise typer.Exit(code=1)
+
+    rows = load_fixture_rows()
+    if not rows:
+        typer.echo("No fixture data found.", err=True)
+        raise typer.Exit(code=1)
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = import_rfm_records(session, rows, source_url=source_url)
+    typer.echo(
+        f"fedsfm: total={stats.total} imported={stats.imported} "
+        f"duplicates={stats.duplicates}"
+    )
+
+
+def _import_fedsfm_file(file: str, *, dry_run: bool) -> None:
+    """Import a local RFM file (XML, DBF, ZIP, CSV)."""
+    file_path = Path(file)
+    if not file_path.exists():
+        typer.echo(f"File not found: {file}", err=True)
+        raise typer.Exit(code=1)
+
+    file_size = file_path.stat().st_size
+    file_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
+    result = parse_file(file_path)
+
+    _print_fedsfm_preview(file_path.name, file_hash, file_size, result)
+
+    if dry_run:
+        typer.echo("\n(режим --dry-run: данные не записаны)")
+        return
+
+    if not result.rows:
+        typer.echo("Нет записей для импорта.", err=True)
+        raise typer.Exit(code=1)
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = import_rfm_records(
+            session, result.rows,
+            source="rfm",
+            source_url=f"file://{file_path.absolute()}",
+        )
+    typer.echo(
+        f"\nfedsfm: total={stats.total} imported={stats.imported} "
+        f"duplicates={stats.duplicates}"
+    )
+
+
+def _print_fedsfm_preview(
+    filename: str, file_hash: str, file_size: int, result
+) -> None:
+    """Print RFM file preview."""
+    typer.echo(f"Файл: {filename}")
+    typer.echo(f"SHA-256: {file_hash}")
+    typer.echo(f"Размер: {file_size} bytes")
+    typer.echo(f"Формат: {result.format_detected}")
+    typer.echo(f"Всего записей: {result.total_records}")
+    typer.echo(f"Распознано: {result.recognized}")
+    typer.echo(f"Не распознано: {result.unrecognized}")
+
+    if result.errors:
+        typer.echo(f"Ошибки ({len(result.errors)}):")
+        for err in result.errors[:5]:
+            typer.echo(f"  - {err}")
+
+    if result.rows:
+        typer.echo("\nПримеры первых 5 записей:")
+        for i, row in enumerate(result.rows[:5], 1):
+            typer.echo(
+                f"  {i}. {row.raw_name} | {row.birth_date or '-'} | {row.birth_place or '-'}"
+            )
+
+
+def _fetch_source_legacy(name: str, *, live: bool = False, no_parse: bool = False) -> None:
+    monitoring = load_monitoring()
+
+    entry = _registry_entry_or_none(name)
+    if entry is not None:
+        engine = make_engine()
+        with session_scope(engine) as session:
+            stats = process_registry_source(
+                session,
+                entry,
+                monitoring,
+                live=live,
+                fixture_path=str(_fixture_path_for(entry)) if _fixture_path_for(entry) else None,
+            )
+        typer.echo(_render_registry_stats(stats, entry.id, live=live))
+        return
+
+    src = get_source(name)
+    if src is None or not src.enabled:
+        typer.echo(
+            f"Источник «{name}» не найден ни в реестре, ни в config/sources.yaml.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = process_source(session, src, monitoring, parse_immediately=not no_parse)
+    typer.echo(
+        f"{name}: fetched={stats.fetched} new={stats.new_documents} "
+        f"duplicates={stats.duplicates} parsed={stats.parsed} "
+        f"irrelevant={stats.irrelevant} failed={stats.failed}"
+    )
+
+
 def _render_registry_stats(stats, source_id: str, *, live: bool) -> str:
     mode = "live" if live else "fixture"
     return (
@@ -355,6 +517,89 @@ def show_stats() -> None:
     typer.echo(f"Документов: {docs} (релевантных: {relevant})\nИзвлечённых фактов: {facts}")
 
 
+# ---------------------------------------------------------------------------
+# show-document: split into helpers
+# ---------------------------------------------------------------------------
+
+
+def _print_doc_header(doc) -> None:
+    """Print document header info."""
+    typer.echo(f"Документ: {doc.id}")
+    typer.echo(f"Источник: {doc.source_id or doc.source_name or '-'}")
+    typer.echo(f"Дата: {doc.published_at.isoformat() if doc.published_at else '-'}")
+    typer.echo(f"Заголовок: {doc.title or '-'}")
+    typer.echo(f"URL: {doc.canonical_url or doc.url}")
+    typer.echo(f"Статус: {doc.parser_status}")
+    typer.echo(f"Релевантность: {bool(doc.relevant)}")
+    if doc.external_id:
+        typer.echo(f"Внешний ID: {doc.external_id}")
+    if doc.content_type:
+        typer.echo(f"Content-Type: {doc.content_type}")
+    typer.echo(f"SHA-256: {doc.content_hash}")
+
+
+def _print_doc_articles(facts) -> None:
+    """Print extracted criminal articles."""
+    articles = [f for f in facts if f.field == "criminal_article"]
+    typer.echo("\nСтатьи:")
+    if not articles:
+        typer.echo("- (не найдены)")
+        return
+    for f in articles:
+        val = f.value if isinstance(f.value, dict) else {"article": str(f.value)}
+        parts = []
+        if val.get("point"):
+            parts.append(f"п. «{val['point']}»")
+        if val.get("part"):
+            parts.append(f"ч. {val['part']}")
+        parts.append(f"ст. {val['article']}")
+        if val.get("code"):
+            parts.append(val["code"])
+        typer.echo(f"- {' '.join(parts)}")
+        typer.echo(f"  quote: «{f.quote}»")
+
+
+def _print_doc_dates(facts) -> None:
+    """Print extracted dates."""
+    dates = [f for f in facts if f.field == "date"]
+    typer.echo("\nДаты:")
+    if not dates:
+        typer.echo("- (не найдены)")
+        return
+    for f in dates:
+        val = f.value if isinstance(f.value, dict) else {"date": str(f.value)}
+        typer.echo(f"- {val.get('date', val)}")
+        if val.get("type"):
+            typer.echo(f"  type: {val['type']}")
+        typer.echo(f"  quote: «{f.quote}»")
+
+
+def _print_doc_people(facts) -> None:
+    """Print extracted person names."""
+    people = [f for f in facts if f.field == "full_name_original"]
+    typer.echo("\nЛюди:")
+    if not people:
+        typer.echo("- (не найдены)")
+        return
+    for f in people:
+        typer.echo(f"- {f.value}")
+        typer.echo(f"  confidence: {f.confidence:.2f}")
+        typer.echo(f"  quote: «{f.quote}»")
+
+
+def _print_doc_content(doc) -> None:
+    """Print document text and all facts."""
+    typer.echo("\nТекст:")
+    typer.echo((doc.text or "")[:1500])
+
+    typer.echo("\nИзвлечённые факты:")
+    for f in doc.facts:
+        quote = f"«{f.quote}»" if f.quote else "-"
+        typer.echo(f"- {f.field} = {f.value}")
+        typer.echo(f"  quote: {quote}")
+        typer.echo(f"  confidence: {f.confidence:.2f}")
+
+
 @app.command(name="show-document")
 def show_document(
     document_id: Annotated[int, typer.Argument(help="SourceDocument.id")],
@@ -368,69 +613,16 @@ def show_document(
         if doc is None:
             typer.echo(f"Document {document_id} not found.", err=True)
             raise typer.Exit(code=1)
-        typer.echo(f"Документ: {doc.id}")
-        typer.echo(f"Источник: {doc.source_id or doc.source_name or '-'}")
-        typer.echo(f"Дата: {doc.published_at.isoformat() if doc.published_at else '-'}")
-        typer.echo(f"Заголовок: {doc.title or '-'}")
-        typer.echo(f"URL: {doc.canonical_url or doc.url}")
-        typer.echo(f"Статус: {doc.parser_status}")
-        typer.echo(f"Релевантность: {bool(doc.relevant)}")
-        if doc.external_id:
-            typer.echo(f"Внешний ID: {doc.external_id}")
-        if doc.content_type:
-            typer.echo(f"Content-Type: {doc.content_type}")
-        typer.echo(f"SHA-256: {doc.content_hash}")
+        _print_doc_header(doc)
+        _print_doc_articles(doc.facts)
+        _print_doc_dates(doc.facts)
+        _print_doc_people(doc.facts)
+        _print_doc_content(doc)
 
-        articles = [f for f in doc.facts if f.field == "criminal_article"]
-        dates = [f for f in doc.facts if f.field == "date"]
-        people = [f for f in doc.facts if f.field == "full_name_original"]
 
-        typer.echo("\nСтатьи:")
-        if articles:
-            for f in articles:
-                val = f.value if isinstance(f.value, dict) else {"article": str(f.value)}
-                parts = []
-                if val.get("point"):
-                    parts.append(f"п. «{val['point']}»")
-                if val.get("part"):
-                    parts.append(f"ч. {val['part']}")
-                parts.append(f"ст. {val['article']}")
-                if val.get("code"):
-                    parts.append(val["code"])
-                typer.echo(f"- {' '.join(parts)}")
-                typer.echo(f"  quote: «{f.quote}»")
-        else:
-            typer.echo("- (не найдены)")
-
-        typer.echo("\nДаты:")
-        if dates:
-            for f in dates:
-                val = f.value if isinstance(f.value, dict) else {"date": str(f.value)}
-                typer.echo(f"- {val.get('date', val)}")
-                if val.get("type"):
-                    typer.echo(f"  type: {val['type']}")
-                typer.echo(f"  quote: «{f.quote}»")
-        else:
-            typer.echo("- (не найдены)")
-
-        typer.echo("\nЛюди:")
-        if people:
-            for f in people:
-                typer.echo(f"- {f.value}")
-                typer.echo(f"  confidence: {f.confidence:.2f}")
-                typer.echo(f"  quote: «{f.quote}»")
-        else:
-            typer.echo("- (не найдены)")
-
-        typer.echo("\nТекст:")
-        typer.echo((doc.text or "")[:1500])
-
-        typer.echo("\nИзвлечённые факты:")
-        for f in doc.facts:
-            quote = f"«{f.quote}»" if f.quote else "-"
-            typer.echo(f"- {f.field} = {f.value}")
-            typer.echo(f"  quote: {quote}")
-            typer.echo(f"  confidence: {f.confidence:.2f}")
+# ---------------------------------------------------------------------------
+# list-sources + fetch-demo-source
+# ---------------------------------------------------------------------------
 
 
 @app.command(name="list-sources")
@@ -440,8 +632,6 @@ def list_sources() -> None:
     if not fixture.exists():
         typer.echo(f"Fixture not found: {fixture}", err=True)
         raise typer.Exit(code=1)
-
-    import json
 
     with fixture.open() as f:
         rows = json.load(f)
@@ -454,31 +644,18 @@ def list_sources() -> None:
         typer.echo(f"{i:<4}  {name:40}  {url}")
 
 
-@app.command(name="fetch-demo-source")
-def fetch_demo_source() -> None:
-    """Fetch one demo page from the first working source and extract title + text."""
-    import json as _json  # noqa: PLC0415
-
-    from selectolax.parser import HTMLParser  # noqa: PLC0415
-
-    from court_monitor.domain.models import FetchHealth  # noqa: PLC0415
-    from court_monitor.sources.http_client import HttpClient  # noqa: PLC0415
-
+def _read_demo_fixture() -> list[dict]:
+    """Read the Airtable source fixture."""
     fixture = Path("tests/fixtures/airtable/source_registry.json")
     if not fixture.exists():
         typer.echo(f"Fixture not found: {fixture}", err=True)
         raise typer.Exit(code=1)
-
     with fixture.open() as f:
-        rows = _json.load(f)
+        return json.load(f)
 
-    if not rows:
-        typer.echo("No sources in fixture.", err=True)
-        raise typer.Exit(code=1)
 
-    # Find first reachable URL via polite HttpClient
-    target_url = None
-    html = ""
+def _find_first_reachable(rows: list[dict]) -> tuple[str, str]:
+    """Find the first reachable URL and return (url, html)."""
     with HttpClient() as client:
         for row in rows:
             url = row.get("url", "")
@@ -487,23 +664,14 @@ def fetch_demo_source() -> None:
             try:
                 resp = client.get(url)
                 if resp.health == FetchHealth.ok and resp.text:
-                    target_url = url
-                    html = resp.text
-                    break
+                    return url, resp.text
             except Exception:
                 continue
+    return "", ""
 
-    if target_url is None:
-        typer.echo("No reachable source found.", err=True)
-        raise typer.Exit(code=1)
 
-    out_dir = Path("tests/fixtures/demo")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_file = out_dir / "demo_page.html"
-    out_file.write_text(html, encoding="utf-8")
-    typer.echo(f"Saved fixture: {out_file}")
-
-    # Extract title and text
+def _extract_page_content(html: str) -> tuple[str, str]:
+    """Extract title and body text from HTML."""
     tree = HTMLParser(html)
     title_node = tree.css_first("title")
     title = title_node.text(strip=True) if title_node else "(no title)"
@@ -514,7 +682,12 @@ def fetch_demo_source() -> None:
         description = desc_node.attributes.get("content", "") or ""
 
     body_text = ""
-    for selector in ["div.tgme_widget_message_text", "div.tgme_page_description", "article", "main"]:
+    for selector in [
+        "div.tgme_widget_message_text",
+        "div.tgme_page_description",
+        "article",
+        "main",
+    ]:
         nodes = tree.css(selector)
         if nodes:
             body_text = "\n".join(n.text(strip=True) for n in nodes if n.text(strip=True))
@@ -523,6 +696,29 @@ def fetch_demo_source() -> None:
     if not body_text:
         body_text = description or tree.body.text(strip=True)[:2000] if tree.body else ""
 
+    return title, body_text
+
+
+@app.command(name="fetch-demo-source")
+def fetch_demo_source() -> None:
+    """Fetch one demo page from the first working source and extract title + text."""
+    rows = _read_demo_fixture()
+    if not rows:
+        typer.echo("No sources in fixture.", err=True)
+        raise typer.Exit(code=1)
+
+    target_url, html = _find_first_reachable(rows)
+    if not target_url:
+        typer.echo("No reachable source found.", err=True)
+        raise typer.Exit(code=1)
+
+    out_dir = Path("tests/fixtures/demo")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / "demo_page.html"
+    out_file.write_text(html, encoding="utf-8")
+    typer.echo(f"Saved fixture: {out_file}")
+
+    title, body_text = _extract_page_content(html)
     typer.echo(f"\nURL: {target_url}")
     typer.echo(f"Title: {title}")
     typer.echo(f"\nText:\n{body_text[:1500]}")
@@ -531,138 +727,6 @@ def fetch_demo_source() -> None:
 # ---------------------------------------------------------------------------
 # Rosfinmonitoring (RFM) person records
 # ---------------------------------------------------------------------------
-
-
-@app.command(name="fetch-source")
-def fetch_rfm_source(
-    name: Annotated[str, typer.Argument(help="Source name, e.g. 'fedsfm'")],
-    live: Annotated[
-        bool, typer.Option("--live", help="Fetch from the real HTTP source.")
-    ] = False,
-    no_parse: Annotated[
-        bool, typer.Option("--no-parse", help="Only fetch; leave documents in pending state.")
-    ] = False,
-    file: Annotated[
-        str | None, typer.Option("--file", help="Import from a local file (XML, DBF, ZIP, CSV).")
-    ] = None,
-    dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Preview only; do not write to DB.")
-    ] = False,
-) -> None:
-    """Fetch data from a source (RFM, sudrf, etc.)."""
-    _bootstrap_logging()
-
-    if name == "fedsfm":
-        import hashlib as _hashlib  # noqa: PLC0415
-
-        from court_monitor.sources.fedsfm import load_fixture_rows, parse_file  # noqa: PLC0415
-
-        source_url = "https://fedsfm.ru/documents/terrorists-catalog-portal-act"
-
-        if file:
-            file_path = Path(file)
-            if not file_path.exists():
-                typer.echo(f"File not found: {file}", err=True)
-                raise typer.Exit(code=1)
-
-            file_size = file_path.stat().st_size
-            file_hash = _hashlib.sha256(file_path.read_bytes()).hexdigest()
-
-            result = parse_file(file_path)
-
-            typer.echo(f"Файл: {file_path.name}")
-            typer.echo(f"SHA-256: {file_hash}")
-            typer.echo(f"Размер: {file_size} bytes")
-            typer.echo(f"Формат: {result.format_detected}")
-            typer.echo(f"Всего записей: {result.total_records}")
-            typer.echo(f"Распознано: {result.recognized}")
-            typer.echo(f"Не распознано: {result.unrecognized}")
-
-            if result.errors:
-                typer.echo(f"Ошибки ({len(result.errors)}):")
-                for err in result.errors[:5]:
-                    typer.echo(f"  - {err}")
-
-            if result.rows:
-                typer.echo("\nПримеры первых 5 записей:")
-                for i, row in enumerate(result.rows[:5], 1):
-                    typer.echo(f"  {i}. {row.raw_name} | {row.birth_date or '-'} | {row.birth_place or '-'}")
-
-            if dry_run:
-                typer.echo("\n(режим --dry-run: данные не записаны)")
-                return
-
-            if not result.rows:
-                typer.echo("Нет записей для импорта.", err=True)
-                raise typer.Exit(code=1)
-
-            engine = make_engine()
-            with session_scope(engine) as session:
-                stats = import_rfm_records(
-                    session, result.rows,
-                    source="rfm",
-                    source_url=f"file://{file_path.absolute()}",
-                )
-            typer.echo(
-                f"\nfedsfm: total={stats.total} imported={stats.imported} "
-                f"duplicates={stats.duplicates}"
-            )
-            return
-
-        if live:
-            typer.echo("Live mode not yet implemented for fedsfm. Use --file.", err=True)
-            raise typer.Exit(code=1)
-
-        rows = load_fixture_rows()
-        if not rows:
-            typer.echo("No fixture data found.", err=True)
-            raise typer.Exit(code=1)
-
-        engine = make_engine()
-        with session_scope(engine) as session:
-            stats = import_rfm_records(session, rows, source_url=source_url)
-        typer.echo(
-            f"fedsfm: total={stats.total} imported={stats.imported} "
-            f"duplicates={stats.duplicates}"
-        )
-        return
-
-    # Fallback to existing fetch-source logic for other sources
-    _fetch_source_legacy(name, live=live, no_parse=no_parse)
-
-
-def _fetch_source_legacy(name: str, *, live: bool = False, no_parse: bool = False) -> None:
-    monitoring = load_monitoring()
-
-    entry = _registry_entry_or_none(name)
-    if entry is not None:
-        engine = make_engine()
-        with session_scope(engine) as session:
-            stats = process_registry_source(
-                session,
-                entry,
-                monitoring,
-                live=live,
-                fixture_path=str(_fixture_path_for(entry)) if _fixture_path_for(entry) else None,
-            )
-        typer.echo(_render_registry_stats(stats, entry.id, live=live))
-        return
-
-    src = get_source(name)
-    if src is None or not src.enabled:
-        typer.echo(
-            f"Источник «{name}» не найден ни в реестре, ни в config/sources.yaml.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    engine = make_engine()
-    with session_scope(engine) as session:
-        stats = process_source(session, src, monitoring, parse_immediately=not no_parse)
-    typer.echo(
-        f"{name}: fetched={stats.fetched} new={stats.new_documents} "
-        f"duplicates={stats.duplicates} parsed={stats.parsed} "
-        f"irrelevant={stats.irrelevant} failed={stats.failed}"
-    )
 
 
 @app.command(name="list-person-records")
@@ -728,7 +792,7 @@ def _safe_url(url: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Person matching
+# Person matching: split into helpers
 # ---------------------------------------------------------------------------
 
 
@@ -736,8 +800,6 @@ def _safe_url(url: str) -> str:
 def generate_matches_cmd() -> None:
     """Generate match candidates between person facts and registry records."""
     _bootstrap_logging()
-    from court_monitor.matching.candidates import generate_matches  # noqa: PLC0415
-
     engine = make_engine()
     with session_scope(engine) as session:
         stats = generate_matches(session)
@@ -765,16 +827,101 @@ def list_matches_cmd(
         candidates = repo.list_match_candidates(session, status=status, limit=limit)
         total = repo.count_match_candidates(session, status=status)
 
-        typer.echo(f"Всего кандидатов{f' (status={status})' if status else ''}: {total}")
-        typer.echo(f"{'ID':>4}  {'Документ':>8}  {'Имя в тексте':30}  {'Запись':>6}  {'Score':>5}  {'Статус':10}")
+        typer.echo(
+            f"Всего кандидатов{f' (status={status})' if status else ''}: {total}"
+        )
+        typer.echo(
+            f"{'ID':>4}  {'Документ':>8}  {'Имя в тексте':30}"
+            f"  {'Запись':>6}  {'Score':>5}  {'Статус':10}"
+        )
         typer.echo("-" * 80)
         for c in candidates:
-            fact = c.extracted_fact
-            record = c.person_record
-            doc_id = fact.document_id if fact else "-"
-            name_raw = (fact.value if isinstance(fact.value, str) else str(fact.value))[:30] if fact else "-"
-            rec_id = record.id if record else "-"
-            typer.echo(f"{c.id:>4}  {str(doc_id):>8}  {name_raw:30}  {str(rec_id):>6}  {c.score:>5.2f}  {c.status:10}")
+            _print_match_row(c)
+
+
+def _print_match_row(c) -> None:
+    """Print one match candidate row."""
+    fact = c.extracted_fact
+    record = c.person_record
+    doc_id = fact.document_id if fact else "-"
+    name_raw = (
+        (fact.value if isinstance(fact.value, str) else str(fact.value))[:30]
+        if fact
+        else "-"
+    )
+    rec_id = record.id if record else "-"
+    typer.echo(
+        f"{c.id:>4}  {str(doc_id):>8}  {name_raw:30}"
+        f"  {str(rec_id):>6}  {c.score:>5.2f}  {c.status:10}"
+    )
+
+
+def _print_match_header(c) -> None:
+    """Print match candidate header."""
+    typer.echo(f"ID: {c.id}")
+    typer.echo(f"Статус: {c.status}")
+    typer.echo(f"Score: {c.score:.2f}")
+    typer.echo(f"Algorithm: {c.algorithm_version}")
+    typer.echo(f"Создан: {c.created_at.isoformat() if c.created_at else '-'}")
+    if c.reviewed_at:
+        typer.echo(f"Рассмотрен: {c.reviewed_at.isoformat()}")
+    if c.review_comment:
+        typer.echo(f"Комментарий: {c.review_comment}")
+
+
+def _print_match_document(fact) -> None:
+    """Print match document section."""
+    typer.echo("\n--- Документ ---")
+    if not fact:
+        return
+    typer.echo(f"Fact ID: {fact.id}")
+    typer.echo(f"Document ID: {fact.document_id}")
+    typer.echo(f"Имя в тексте: {fact.value}")
+    if fact.quote:
+        typer.echo(f"Цитата: «{fact.quote}»")
+
+
+def _print_match_record(record) -> None:
+    """Print match PersonRecord section."""
+    typer.echo("\n--- Запись ---")
+    if not record:
+        return
+    typer.echo(f"Record ID: {record.id}")
+    typer.echo(f"ФИО (raw): {record.raw_name}")
+    typer.echo(f"ФИО (normalized): {record.normalized_name}")
+    typer.echo(f"Дата рождения: {record.birth_date or '-'}")
+    typer.echo(f"Место рождения: {record.birth_place or '-'}")
+
+
+def _print_match_score(c) -> None:
+    """Print match score breakdown."""
+    typer.echo("\n--- Оценка ---")
+    typer.echo(f"Имя: {c.name_score:.2f}")
+    typer.echo(f"Дата рождения: {c.birth_date_score:.2f}")
+    typer.echo(f"Место рождения: {c.birthplace_score:.2f}")
+
+
+def _print_match_reasons(reasons_json: str) -> None:
+    """Print match reasons."""
+    typer.echo("\nПричины:")
+    for r in json.loads(reasons_json):
+        impact = r.get("impact", 0)
+        typer.echo(f"  +{impact:.2f}  {r['rule']}")
+        if "document_value" in r:
+            typer.echo(f"         док: {r['document_value']}")
+        if "record_value" in r:
+            typer.echo(f"         зап: {r['record_value']}")
+
+
+def _print_match_conflicts(conflicts_json: str) -> None:
+    """Print match conflicts."""
+    typer.echo("\nКонфликты:")
+    for r in json.loads(conflicts_json):
+        typer.echo(f"  {r['rule']}")
+        if "document_value" in r:
+            typer.echo(f"    док: {r['document_value']}")
+        if "record_value" in r:
+            typer.echo(f"    зап: {r['record_value']}")
 
 
 @app.command(name="show-match")
@@ -791,60 +938,15 @@ def show_match_cmd(
             typer.echo(f"Candidate {candidate_id} not found.", err=True)
             raise typer.Exit(code=1)
 
-        fact = c.extracted_fact
-        record = c.person_record
-
-        typer.echo(f"ID: {c.id}")
-        typer.echo(f"Статус: {c.status}")
-        typer.echo(f"Score: {c.score:.2f}")
-        typer.echo(f"Algorithm: {c.algorithm_version}")
-        typer.echo(f"Создан: {c.created_at.isoformat() if c.created_at else '-'}")
-        if c.reviewed_at:
-            typer.echo(f"Рассмотрен: {c.reviewed_at.isoformat()}")
-        if c.review_comment:
-            typer.echo(f"Комментарий: {c.review_comment}")
-
-        typer.echo("\n--- Документ ---")
-        if fact:
-            typer.echo(f"Fact ID: {fact.id}")
-            typer.echo(f"Document ID: {fact.document_id}")
-            typer.echo(f"Имя в тексте: {fact.value}")
-            if fact.quote:
-                typer.echo(f"Цитата: «{fact.quote}»")
-
-        typer.echo("\n--- Запись ---")
-        if record:
-            typer.echo(f"Record ID: {record.id}")
-            typer.echo(f"ФИО (raw): {record.raw_name}")
-            typer.echo(f"ФИО (normalized): {record.normalized_name}")
-            typer.echo(f"Дата рождения: {record.birth_date or '-'}")
-            typer.echo(f"Место рождения: {record.birth_place or '-'}")
-
-        typer.echo(f"\n--- Оценка ---")
-        typer.echo(f"Имя: {c.name_score:.2f}")
-        typer.echo(f"Дата рождения: {c.birth_date_score:.2f}")
-        typer.echo(f"Место рождения: {c.birthplace_score:.2f}")
+        _print_match_header(c)
+        _print_match_document(c.extracted_fact)
+        _print_match_record(c.person_record)
+        _print_match_score(c)
 
         if c.reasons_json:
-            typer.echo("\nПричины:")
-            import json as _json  # noqa: PLC0415
-            for r in _json.loads(c.reasons_json):
-                impact = r.get("impact", 0)
-                typer.echo(f"  +{impact:.2f}  {r['rule']}")
-                if "document_value" in r:
-                    typer.echo(f"         док: {r['document_value']}")
-                if "record_value" in r:
-                    typer.echo(f"         зап: {r['record_value']}")
-
+            _print_match_reasons(c.reasons_json)
         if c.conflicts_json:
-            typer.echo("\nКонфликты:")
-            import json as _json  # noqa: PLC0415
-            for r in _json.loads(c.conflicts_json):
-                typer.echo(f"  {r['rule']}")
-                if "document_value" in r:
-                    typer.echo(f"    док: {r['document_value']}")
-                if "record_value" in r:
-                    typer.echo(f"    зап: {r['record_value']}")
+            _print_match_conflicts(c.conflicts_json)
 
 
 @app.command(name="confirm-match")

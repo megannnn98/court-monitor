@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import UTC
 from pathlib import Path
 
 from court_monitor.parsers.telegram_post import (
@@ -23,7 +23,7 @@ def test_parse_preview_returns_posts() -> None:
     assert first.permalink and first.permalink.startswith("https://t.me/extremizmunet/")
     assert first.channel == "extremizmunet"
     assert first.published_at is not None
-    assert first.published_at.tzinfo == timezone.utc
+    assert first.published_at.tzinfo == UTC
     assert first.text  # non-empty body
 
 
