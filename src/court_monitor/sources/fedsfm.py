@@ -343,8 +343,8 @@ def _normalize_name(raw: str) -> tuple[str, float]:
 
 
 def _search_name(raw: str) -> str:
-    """Create a lowercase search key from a name."""
-    return raw.lower().strip()
+    """Create a lowercase search key from a name (normalized for ё→е, etc.)."""
+    return normalize_fio(raw)
 
 
 def _normalize_date(raw: str) -> str | None:

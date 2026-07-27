@@ -122,6 +122,3 @@ class PersonRecord(Base):
             name="uq_person_source_name_birth",
         ),
     )
-
-
-PARSER_VERSION = "sudrf-press-0.1"

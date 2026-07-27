@@ -221,5 +221,7 @@ def test_parse_empty_csv(tmp_path):
 def test_search_name_is_lowercase():
     rows = parse_rfm_csv(FIXTURE_CSV)
     for row in rows:
-        assert row.search_name == row.raw_name.lower()
+        assert row.search_name == row.search_name.lower()
         assert row.normalization_method == "lowercase"
+        # search_name should match normalized_name (both go through normalize_fio)
+        assert row.search_name == row.normalized_name

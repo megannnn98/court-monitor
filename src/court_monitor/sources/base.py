@@ -67,6 +67,13 @@ class FetchResult:
         title: str | None = None,
         text: str | None = None,
     ) -> FetchResult:
+        """Build a FetchResult from raw content.
+
+        If ``text`` is not provided, falls back to ``content`` (which may be
+        HTML).  The ``text`` field stores *whitespace-normalized* visible text
+        when a dedicated extractor is available; otherwise it is a best-effort
+        fold of the raw payload.
+        """
         visible = text if text is not None else content
         return cls(
             url=url,

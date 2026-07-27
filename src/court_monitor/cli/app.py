@@ -278,15 +278,19 @@ def fetch_all() -> None:
     monitoring = load_monitoring()
     engine = make_engine()
     totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0}
-    with session_scope(engine) as session:
-        for src in (s for s in load_sources() if s.enabled):
-            stats = process_source(session, src, monitoring)
-            totals["fetched"] += stats.fetched
-            totals["new"] += stats.new_documents
-            totals["dup"] += stats.duplicates
-            totals["parsed"] += stats.parsed
-            totals["irr"] += stats.irrelevant
-            totals["fail"] += stats.failed
+    for src in (s for s in load_sources() if s.enabled):
+        try:
+            with session_scope(engine) as session:
+                stats = process_source(session, src, monitoring)
+                totals["fetched"] += stats.fetched
+                totals["new"] += stats.new_documents
+                totals["dup"] += stats.duplicates
+                totals["parsed"] += stats.parsed
+                totals["irr"] += stats.irrelevant
+                totals["fail"] += stats.failed
+        except Exception as exc:
+            typer.echo(f"  {src.name}: ERROR {type(exc).__name__}: {exc}", err=True)
+            totals["fail"] += 1
     typer.echo(
         f"TOTAL fetched={totals['fetched']} new={totals['new']} "
         f"duplicates={totals['dup']} parsed={totals['parsed']} "
@@ -453,44 +457,45 @@ def list_sources() -> None:
 @app.command(name="fetch-demo-source")
 def fetch_demo_source() -> None:
     """Fetch one demo page from the first working source and extract title + text."""
+    import json as _json  # noqa: PLC0415
+
+    from selectolax.parser import HTMLParser  # noqa: PLC0415
+
+    from court_monitor.domain.models import FetchHealth  # noqa: PLC0415
+    from court_monitor.sources.http_client import HttpClient  # noqa: PLC0415
+
     fixture = Path("tests/fixtures/airtable/source_registry.json")
     if not fixture.exists():
         typer.echo(f"Fixture not found: {fixture}", err=True)
         raise typer.Exit(code=1)
 
-    import json
-
-    import httpx
-    from selectolax.parser import HTMLParser
-
     with fixture.open() as f:
-        rows = json.load(f)
+        rows = _json.load(f)
 
     if not rows:
         typer.echo("No sources in fixture.", err=True)
         raise typer.Exit(code=1)
 
-    # Find first reachable URL
+    # Find first reachable URL via polite HttpClient
     target_url = None
-    for row in rows:
-        url = row.get("url", "")
-        if not url:
-            continue
-        try:
-            resp = httpx.get(url, timeout=10, follow_redirects=True)
-            if resp.status_code == 200:
-                target_url = url
-                break
-        except Exception:
-            continue
+    html = ""
+    with HttpClient() as client:
+        for row in rows:
+            url = row.get("url", "")
+            if not url:
+                continue
+            try:
+                resp = client.get(url)
+                if resp.health == FetchHealth.ok and resp.text:
+                    target_url = url
+                    html = resp.text
+                    break
+            except Exception:
+                continue
 
     if target_url is None:
         typer.echo("No reachable source found.", err=True)
         raise typer.Exit(code=1)
-
-    # Fetch and save fixture
-    resp = httpx.get(target_url, timeout=10, follow_redirects=True)
-    html = resp.text
 
     out_dir = Path("tests/fixtures/demo")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -503,14 +508,12 @@ def fetch_demo_source() -> None:
     title_node = tree.css_first("title")
     title = title_node.text(strip=True) if title_node else "(no title)"
 
-    # Telegram preview pages: extract description and content
     description = ""
     desc_node = tree.css_first('meta[property="og:description"]')
     if desc_node:
         description = desc_node.attributes.get("content", "") or ""
 
     body_text = ""
-    # Try common content selectors
     for selector in ["div.tgme_widget_message_text", "div.tgme_page_description", "article", "main"]:
         nodes = tree.css(selector)
         if nodes:

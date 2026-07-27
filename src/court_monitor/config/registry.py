@@ -153,6 +153,11 @@ def build_entry(
     """
     username = raw.username
     url = canonicalize_url(raw.url)
+
+    # A row is usable only when it has either a URL or a Telegram username.
+    if url is None and not username:
+        return None
+
     # A bare @username (or a t.me link) still lets us reach the channel.
     if url is None and username:
         url = canonicalize_url(f"https://t.me/{username.lstrip('@')}")

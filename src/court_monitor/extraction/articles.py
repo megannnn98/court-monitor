@@ -187,10 +187,7 @@ def _normalize_point(raw: str | None) -> str | None:
     return raw.strip().strip("«»\"'").lower()
 
 
-def _quote_around(text: str, start: int, end: int, *, window: int = 40) -> str:
-    lo = max(0, start - window)
-    hi = min(len(text), end + window)
-    return re.sub(r"\s+", " ", text[lo:hi]).strip()
+from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402
 
 
 def _overlaps(spans: set[tuple[int, int]], start: int, end: int) -> bool:

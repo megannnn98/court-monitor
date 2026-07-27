@@ -140,7 +140,7 @@ def _add_date(
     seen_spans.add((start, end))
 
     date_type = _guess_date_type(text, start)
-    context = _quote_around(text, start, end)
+    context = _quote_around(text, start, end, window=50)
     confidence = 0.90 if date_type else 0.80
 
     value: dict[str, str | None] = {
@@ -173,10 +173,7 @@ def _guess_date_type(text: str, date_pos: int) -> str | None:
     return None
 
 
-def _quote_around(text: str, start: int, end: int, *, window: int = 50) -> str:
-    lo = max(0, start - window)
-    hi = min(len(text), end + window)
-    return re.sub(r"\s+", " ", text[lo:hi]).strip()
+from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402
 
 
 def _overlaps(spans: set[tuple[int, int]], start: int, end: int) -> bool:

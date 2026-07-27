@@ -137,7 +137,7 @@ def extract_name_candidates(text: str, *, source_url: str | None = None) -> list
                 value=full,
                 verification_status=VerificationStatus.inferred,
                 confidence=confidence,
-                quote=_quote_around(text, m.start(), m.end()),
+                quote=_quote_around(text, m.start(), m.end(), window=30),
                 source_url=source_url,
                 extraction_method=method,
             )
@@ -150,7 +150,4 @@ def _is_stopword(token: str) -> bool:
     return base in _STOPWORDS
 
 
-def _quote_around(text: str, start: int, end: int, *, window: int = 30) -> str:
-    lo = max(0, start - window)
-    hi = min(len(text), end + window)
-    return re.sub(r"\s+", " ", text[lo:hi]).strip()
+from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402
