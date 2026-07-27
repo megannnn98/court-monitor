@@ -27,7 +27,15 @@ def evaluate_relevance(
     if not text:
         return Relevance(False, [], [])
 
-    found_articles = {str(dto.value) for dto in extract_articles(text, source_url=source_url)}
+    found_articles = set()
+    for dto in extract_articles(text, source_url=source_url):
+        val = dto.value
+        if isinstance(val, dict):
+            art = val.get("article")
+            if art:
+                found_articles.add(str(art))
+        else:
+            found_articles.add(str(val))
     monitored = monitoring.article_set()
     matched_articles = sorted(a for a in found_articles if _article_in(a, monitored))
 

@@ -15,6 +15,7 @@ from court_monitor.config.loader import MonitoringConfig, SourceConfig, load_mon
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus, VerificationStatus
 from court_monitor.extraction.articles import extract_articles
+from court_monitor.extraction.dates import extract_dates
 from court_monitor.extraction.filtering import evaluate_relevance, relevance_as_facts
 from court_monitor.extraction.names import extract_name_candidates
 from court_monitor.observability import correlation_scope, get_logger
@@ -127,9 +128,25 @@ def parse_and_extract(
             )
         )
 
-    # Articles + names operate on the visible text.
-    facts.extend(extract_articles(text, source_url=source_url))
-    facts.extend(extract_name_candidates(text, source_url=source_url))
+    # Build full text for extraction: title + date text + body.
+    # The body selector may not cover elements outside it (e.g. <time>),
+    # so include parsed title and date representation for broader coverage.
+    extraction_parts = []
+    if parsed.title:
+        extraction_parts.append(parsed.title)
+    if parsed.published_at is not None:
+        extraction_parts.append(parsed.published_at.strftime("%d.%m.%Y"))
+    extraction_parts.append(text)
+    extraction_text = " ".join(extraction_parts)
+
+    # Articles + names + dates operate on the broad extraction text.
+    article_facts = extract_articles(extraction_text, source_url=source_url)
+    name_facts = extract_name_candidates(extraction_text, source_url=source_url)
+    date_facts = extract_dates(extraction_text, source_url=source_url)
+
+    facts.extend(article_facts)
+    facts.extend(name_facts)
+    facts.extend(date_facts)
 
     rel = evaluate_relevance(text, monitoring, source_url=source_url)
     facts.extend(relevance_as_facts(rel, source_url=source_url))
@@ -147,8 +164,11 @@ def parse_and_extract(
         document_id=doc.id,
         facts=len(facts),
         relevant=rel.relevant,
-        articles=rel.matched_articles,
-        keywords=rel.matched_keywords,
+        articles=len(article_facts),
+        dates=len(date_facts),
+        names=len(name_facts),
+        matched_articles=rel.matched_articles,
+        matched_keywords=rel.matched_keywords,
     )
     return facts
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from court_monitor.config.loader import SourceConfig
 from court_monitor.domain.models import ParserStatus, SourceBackend, SourceType
-from court_monitor.services import ingest_fetch_result, process_source, reprocess
+from court_monitor.services import ingest_fetch_result, process_pending, process_source, reprocess
 from court_monitor.sources.base import FetchResult
 from court_monitor.sources.sudrf import SudrfAdapter
 from court_monitor.storage import repository as repo
@@ -47,12 +47,17 @@ def test_pipeline_ingests_fixtures_and_extracts_facts(
     irrelevant = next(d for d in docs if d.parser_status == ParserStatus.irrelevant.value)
 
     # The relevant document has the expected extracted facts.
-    fields = {(f.field, str(f.value)) for f in relevant.facts}
-    assert ("criminal_article", "205.1") in fields
-    assert ("matched_keyword", "финансирование терроризма") in fields
-    assert any(field == "title" for field, _ in fields)
-    assert any(field == "published_at" for field, _ in fields)
-    assert any(field == "full_name_original" for field, _ in fields)
+    article_facts = [f for f in relevant.facts if f.field == "criminal_article"]
+    assert len(article_facts) >= 1
+    art_val = article_facts[0].value
+    assert isinstance(art_val, dict)
+    assert art_val["article"] == "205.1"
+
+    keyword_facts = [f for f in relevant.facts if f.field == "matched_keyword"]
+    assert any("финансирование терроризма" in str(f.value) for f in keyword_facts)
+    assert any(f.field == "title" for f in relevant.facts)
+    assert any(f.field == "published_at" for f in relevant.facts)
+    assert any(f.field == "full_name_original" for f in relevant.facts)
 
     # published_at parsed as 2026-04-02.
     assert relevant.published_at is not None
@@ -106,7 +111,10 @@ def test_reprocess_refreshes_facts(db_session, monitoring_cfg, fixtures_html_dir
     assert new_id == relevant.id
     after = len(relevant.facts)
     assert after >= before  # facts rebuilt; count should be stable for same content
-    assert any(f.field == "criminal_article" for f in relevant.facts)
+    article_facts = [f for f in relevant.facts if f.field == "criminal_article"]
+    assert len(article_facts) >= 1
+    assert isinstance(article_facts[0].value, dict)
+    assert article_facts[0].value["article"] == "205.1"
 
 
 def test_sudrf_adapter_fixture_mode_yields_results(fixtures_html_dir):
@@ -124,8 +132,6 @@ def test_sudrf_adapter_fixture_mode_yields_results(fixtures_html_dir):
 
 def test_fetch_no_parse_leaves_documents_pending(db_session, monitoring_cfg, fixtures_html_dir):
     """fetch-source --no-parse: documents saved with parser_status=pending."""
-    from court_monitor.services import process_pending
-
     source = _make_source(str(fixtures_html_dir))
     stats = process_source(db_session, source, monitoring_cfg, parse_immediately=False)
 
@@ -141,8 +147,6 @@ def test_fetch_no_parse_leaves_documents_pending(db_session, monitoring_cfg, fix
 
 def test_parse_pending_calls_sudrf_press(db_session, monitoring_cfg, fixtures_html_dir):
     """parse-pending processes pending documents through sudrf_press parser."""
-    from court_monitor.services import process_pending
-
     source = _make_source(str(fixtures_html_dir))
     process_source(db_session, source, monitoring_cfg, parse_immediately=False)
 
@@ -159,8 +163,6 @@ def test_parse_pending_calls_sudrf_press(db_session, monitoring_cfg, fixtures_ht
 
 def test_parse_pending_saves_title_date_text(db_session, monitoring_cfg, fixtures_html_dir):
     """Parsed document has title, published_at, text fields populated."""
-    from court_monitor.services import process_pending
-
     source = _make_source(str(fixtures_html_dir))
     process_source(db_session, source, monitoring_cfg, parse_immediately=False)
     process_pending(db_session, monitoring_cfg)
@@ -180,8 +182,6 @@ def test_parse_pending_saves_title_date_text(db_session, monitoring_cfg, fixture
 
 def test_parse_pending_status_transition(db_session, monitoring_cfg, fixtures_html_dir):
     """Document status transitions: pending → parsed (or irrelevant)."""
-    from court_monitor.services import process_pending
-
     source = _make_source(str(fixtures_html_dir))
     process_source(db_session, source, monitoring_cfg, parse_immediately=False)
 
@@ -198,8 +198,6 @@ def test_parse_pending_status_transition(db_session, monitoring_cfg, fixtures_ht
 
 def test_parse_pending_skips_already_parsed(db_session, monitoring_cfg, fixtures_html_dir):
     """Second parse-pending run processes zero documents (idempotent)."""
-    from court_monitor.services import process_pending
-
     source = _make_source(str(fixtures_html_dir))
     process_source(db_session, source, monitoring_cfg, parse_immediately=False)
 
@@ -210,3 +208,69 @@ def test_parse_pending_skips_already_parsed(db_session, monitoring_cfg, fixtures
     assert stats2.parsed == 0
     assert stats2.irrelevant == 0
     assert stats2.failed == 0
+
+
+# ---------------------------------------------------------------------------
+# Etap 3: extraction modules integration
+# ---------------------------------------------------------------------------
+
+
+def test_extraction_articles_in_pipeline(db_session, monitoring_cfg, fixtures_html_dir):
+    """Articles extracted as structured dicts in pipeline."""
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+    process_pending(db_session, monitoring_cfg)
+
+    docs = repo.list_documents(db_session)
+    relevant = next(d for d in docs if d.parser_status == ParserStatus.parsed.value)
+
+    article_facts = [f for f in relevant.facts if f.field == "criminal_article"]
+    assert len(article_facts) >= 1
+    assert isinstance(article_facts[0].value, dict)
+    assert "article" in article_facts[0].value
+
+
+def test_extraction_dates_in_pipeline(db_session, monitoring_cfg, fixtures_html_dir):
+    """Dates extracted with type and context."""
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+    process_pending(db_session, monitoring_cfg)
+
+    docs = repo.list_documents(db_session)
+    relevant = next(d for d in docs if d.parser_status == ParserStatus.parsed.value)
+
+    date_facts = [f for f in relevant.facts if f.field == "date"]
+    assert len(date_facts) >= 1
+    assert isinstance(date_facts[0].value, dict)
+    assert "date" in date_facts[0].value
+
+
+def test_extraction_names_in_pipeline(db_session, monitoring_cfg, fixtures_html_dir):
+    """Name candidates extracted with confidence."""
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+    process_pending(db_session, monitoring_cfg)
+
+    docs = repo.list_documents(db_session)
+    relevant = next(d for d in docs if d.parser_status == ParserStatus.parsed.value)
+
+    name_facts = [f for f in relevant.facts if f.field == "full_name_original"]
+    assert len(name_facts) >= 1
+    assert name_facts[0].confidence > 0
+    assert name_facts[0].quote
+
+
+def test_extraction_no_duplicates_on_rerun(db_session, monitoring_cfg, fixtures_html_dir):
+    """Re-running parse-pending does not create duplicate facts."""
+    source = _make_source(str(fixtures_html_dir))
+    process_source(db_session, source, monitoring_cfg, parse_immediately=False)
+    process_pending(db_session, monitoring_cfg)
+
+    docs = repo.list_documents(db_session)
+    relevant = next(d for d in docs if d.parser_status == ParserStatus.parsed.value)
+    facts_count = len(relevant.facts)
+
+    # Second run should not create new facts (no pending docs)
+    process_pending(db_session, monitoring_cfg)
+    db_session.refresh(relevant)
+    assert len(relevant.facts) == facts_count

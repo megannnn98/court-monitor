@@ -427,11 +427,34 @@ def show_document(
         typer.echo(f"SHA-256: {doc.content_hash}")
 
         articles = [f for f in doc.facts if f.field == "criminal_article"]
+        dates = [f for f in doc.facts if f.field == "date"]
         people = [f for f in doc.facts if f.field == "full_name_original"]
+
         typer.echo("\nСтатьи:")
         if articles:
             for f in articles:
-                typer.echo(f"- {f.value}")
+                val = f.value if isinstance(f.value, dict) else {"article": str(f.value)}
+                parts = []
+                if val.get("point"):
+                    parts.append(f"п. «{val['point']}»")
+                if val.get("part"):
+                    parts.append(f"ч. {val['part']}")
+                parts.append(f"ст. {val['article']}")
+                if val.get("code"):
+                    parts.append(val["code"])
+                typer.echo(f"- {' '.join(parts)}")
+                typer.echo(f"  quote: «{f.quote}»")
+        else:
+            typer.echo("- (не найдены)")
+
+        typer.echo("\nДаты:")
+        if dates:
+            for f in dates:
+                val = f.value if isinstance(f.value, dict) else {"date": str(f.value)}
+                typer.echo(f"- {val.get('date', val)}")
+                if val.get("type"):
+                    typer.echo(f"  type: {val['type']}")
+                typer.echo(f"  quote: «{f.quote}»")
         else:
             typer.echo("- (не найдены)")
 
@@ -439,6 +462,8 @@ def show_document(
         if people:
             for f in people:
                 typer.echo(f"- {f.value}")
+                typer.echo(f"  confidence: {f.confidence:.2f}")
+                typer.echo(f"  quote: «{f.quote}»")
         else:
             typer.echo("- (не найдены)")
 
@@ -531,7 +556,7 @@ def fetch_demo_source() -> None:
     description = ""
     desc_node = tree.css_first('meta[property="og:description"]')
     if desc_node:
-        description = desc_node.attributes.get("content", "")
+        description = desc_node.attributes.get("content", "") or ""
 
     body_text = ""
     # Try common content selectors
