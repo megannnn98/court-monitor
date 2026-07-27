@@ -1,16 +1,18 @@
 """Candidate generation: find potential matches between facts and registry records.
 
 Uses surname-based pre-filtering to avoid O(N*M) comparisons.
+Morphological normalization (ru-name-v2) converts oblique cases to nominative.
 """
 
 from __future__ import annotations
 
 import json
+import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from court_monitor.matching.name_normalizer import normalize_name
+from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.matching.score import (
     ALGORITHM_VERSION,
     CANDIDATE_THRESHOLD,
@@ -22,10 +24,10 @@ from court_monitor.storage.orm import ExtractedFact, MatchCandidate, PersonRecor
 def generate_matches(session: Session) -> dict[str, int]:
     """Generate match candidates for all person facts not yet matched.
 
-    Returns stats: {processed, facts, created, existed, no_candidates, errors}.
+    Returns stats: {facts_person, candidates_created, already_existed,
+                     no_candidates, errors}.
     """
     stats = {
-        "documents_processed": 0,
         "facts_person": 0,
         "candidates_created": 0,
         "already_existed": 0,
@@ -33,11 +35,9 @@ def generate_matches(session: Session) -> dict[str, int]:
         "errors": 0,
     }
 
-    # Get all person facts
     person_facts = _get_person_facts(session)
     stats["facts_person"] = len(person_facts)
 
-    # Build surname index from PersonRecord for fast lookup
     surname_index = _build_surname_index(session)
 
     for fact in person_facts:
@@ -47,12 +47,12 @@ def generate_matches(session: Session) -> dict[str, int]:
                 stats["errors"] += 1
                 continue
 
-            doc_name = normalize_name(doc_name_raw)
+            doc_name = normalize_name_morph(doc_name_raw)
             if not doc_name.surname:
                 stats["errors"] += 1
                 continue
 
-            # Pre-filter: find records with matching surname
+            # Pre-filter: find records with matching surname (after normalization)
             candidates = surname_index.get(doc_name.surname, [])
 
             doc_birth_date = _extract_date_from_fact(fact)
@@ -60,7 +60,7 @@ def generate_matches(session: Session) -> dict[str, int]:
 
             created_any = False
             for record in candidates:
-                record_name = normalize_name(record.normalized_name)
+                record_name = normalize_name_morph(record.normalized_name)
                 result = score_match(
                     doc_name, record_name,
                     doc_birth_date, record.birth_date,
@@ -71,18 +71,20 @@ def generate_matches(session: Session) -> dict[str, int]:
                 if result.score < CANDIDATE_THRESHOLD:
                     continue
 
-                # Check if candidate already exists
                 existing = _find_existing_candidate(session, fact.id, record.id)
                 if existing is not None:
                     stats["already_existed"] += 1
-                    # Update score only for pending candidates
                     if existing.status == "pending":
                         existing.score = result.score
                         existing.name_score = result.name_score
                         existing.birth_date_score = result.birth_date_score
                         existing.birthplace_score = result.birthplace_score
-                        existing.reasons_json = json.dumps(result.reasons, ensure_ascii=False)
-                        existing.conflicts_json = json.dumps(result.conflicts, ensure_ascii=False)
+                        existing.reasons_json = json.dumps(
+                            result.reasons, ensure_ascii=False
+                        )
+                        existing.conflicts_json = json.dumps(
+                            result.conflicts, ensure_ascii=False
+                        )
                     continue
 
                 candidate = MatchCandidate(
@@ -101,7 +103,7 @@ def generate_matches(session: Session) -> dict[str, int]:
                 stats["candidates_created"] += 1
                 created_any = True
 
-            if not created_any and not candidates:
+            if not created_any:
                 stats["no_candidates"] += 1
 
         except Exception:
@@ -118,11 +120,11 @@ def _get_person_facts(session: Session) -> list[ExtractedFact]:
 
 
 def _build_surname_index(session: Session) -> dict[str, list[PersonRecord]]:
-    """Build a dict: surname → list of PersonRecord for fast lookup."""
+    """Build a dict: normalized_surname → list of PersonRecord."""
     records = list(session.execute(select(PersonRecord)).scalars())
     index: dict[str, list[PersonRecord]] = {}
     for rec in records:
-        norm = normalize_name(rec.normalized_name)
+        norm = normalize_name_morph(rec.normalized_name)
         if norm.surname:
             index.setdefault(norm.surname, []).append(rec)
     return index
@@ -138,18 +140,46 @@ def _extract_name_from_fact(fact: ExtractedFact) -> str | None:
 
 
 def _extract_date_from_fact(fact: ExtractedFact) -> str | None:
-    """Try to find a birth date near the name fact."""
-    # Check if the fact's document has date facts
+    """Try to find a birth date near the name fact.
+
+    Looks for:
+    1. Date facts on the same document
+    2. Year patterns in the fact's quote (e.g. "1983 года рождения")
+    """
+    # Check document-level date facts
     if fact.document:
         for f in fact.document.facts:
             if f.field == "date" and isinstance(f.value, dict):
                 return f.value.get("date")
+
+    # Try to extract year from the fact's quote
+    if fact.quote:
+        year = _extract_year_from_text(fact.quote)
+        if year:
+            return f"{year}-01-01"
+
+    return None
+
+
+def _extract_year_from_text(text: str) -> str | None:
+    """Extract a birth year from text like '1983 года рождения'."""
+    # Pattern: year + "года рождения" or "году рождения"
+    m = re.search(r"(\d{4})\s+год[ау]?\s+рождени", text, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    # Pattern: year near "рожд" or "г.р." (year before or after)
+    m = re.search(r"(\d{4})\s*(?:г\.?\s*р\.?|рожд\.?)", text, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    # Pattern: "рожд." before year
+    m = re.search(r"рожд\.?\s+(\d{4})", text, re.IGNORECASE)
+    if m:
+        return m.group(1)
     return None
 
 
 def _extract_place_from_fact(fact: ExtractedFact) -> str | None:
     """Try to find a birth place near the name fact."""
-    # Not implemented yet — birth place is rarely in press releases
     return None
 
 
