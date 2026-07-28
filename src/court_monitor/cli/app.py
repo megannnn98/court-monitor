@@ -657,6 +657,12 @@ def run_all(
     engine = make_engine()
     totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
 
+    typer.secho(
+        f"База данных: {_db_display_path(settings.database_url)}",
+        fg=typer.colors.WHITE,
+        bold=True,
+    )
+
     typer.secho("=== Sudrf-источники ===", fg=typer.colors.CYAN, bold=True)
     sudrf_sources = [s for s in load_sources() if s.enabled]
     if not sudrf_sources:
@@ -730,6 +736,12 @@ def run_all(
         f"без_кандидата={match_stats['no_candidates']} "
         f"ошибок={match_stats['errors']}",
         fg=matches_color,
+        bold=True,
+    )
+
+    typer.secho(
+        f"\nДанные сохранены в БД: {_db_display_path(settings.database_url)}",
+        fg=typer.colors.WHITE,
         bold=True,
     )
 
@@ -1061,6 +1073,21 @@ def _safe_url(url: str) -> str:
         scheme, rest = url.split("://", 1)
         return f"{scheme}://***@{rest.split('@', 1)[1]}"
     return url
+
+
+def _db_display_path(url: str) -> str:
+    """Human-readable DB location.
+
+    For SQLite returns the absolute filesystem path (resolving relative paths
+    against the current directory) so it's obvious where data lands. Other
+    backends get the credential-masked URL via :func:`_safe_url`.
+    """
+    if url.startswith("sqlite"):
+        body = url.split("sqlite:///", 1)[1] if "sqlite:///" in url else ""
+        if not body or body == ":memory:" or "memory" in url:
+            return ":memory:"
+        return str(Path(body).resolve())
+    return _safe_url(url)
 
 
 # ---------------------------------------------------------------------------
