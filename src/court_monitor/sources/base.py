@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from court_monitor.config.loader import SourceConfig
-from court_monitor.domain.models import SourceType
+from court_monitor.domain.models import FetchHealth, SourceType
 
 _WS_RE = re.compile(r"\s+", flags=re.UNICODE)
 
@@ -94,12 +94,31 @@ class FetchResult:
         )
 
 
+@dataclass(frozen=True)
+class FetchProblem:
+    """A fetch attempt that produced no usable content.
+
+    Surfaced to the service layer (which holds a DB session) instead of being
+    silently dropped inside the adapter — adapters themselves stay
+    side-effect-free (spec: "Sources... are pure"). The service layer turns
+    this into a ``ReviewItem`` (item_type="source_blocked") so an operator
+    sees a blocked/erroring source instead of only a log line (technical-debt
+    D-011).
+    """
+
+    url: str
+    health: FetchHealth
+    http_status: int
+    source_id: str | None = None
+    source_name: str | None = None
+
+
 class SourceAdapter(Protocol):
     """Protocol every source adapter satisfies."""
 
     config: SourceConfig
 
-    def fetch_new(self) -> Iterator[FetchResult]: ...
+    def fetch_new(self) -> Iterator[FetchResult | FetchProblem]: ...
 
 
 def get_adapter(source_cfg: SourceConfig) -> SourceAdapter:

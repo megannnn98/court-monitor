@@ -298,18 +298,32 @@ def upsert_review_item(
     source_url: str | None = None,
     data: dict[str, Any] | None = None,
 ) -> ReviewItem:
-    """Create a review item, or refresh a still-open one for the same document.
+    """Create a review item, or refresh a still-open one for the same key.
 
     Without this, a document that keeps failing to parse (e.g. re-run via
-    ``reprocess-document`` while the underlying bug is unfixed) would pile up
-    a duplicate pending ReviewItem on every attempt — mirrors the existing
+    ``reprocess-document`` while the underlying bug is unfixed) — or a source
+    that stays blocked across repeated ``fetch-source`` runs — would pile up
+    a duplicate pending ReviewItem on every attempt. Mirrors the existing
     pending-candidate check in ``matching/candidates.py`` for MatchCandidate.
     Once an item is resolved/dismissed, the next occurrence opens a new one.
+
+    Dedup key: ``document_id`` when present (document-level problems, e.g.
+    ``parser_failed``); otherwise ``source_id`` (source-level problems, e.g.
+    ``source_blocked``, which have no document). With neither, every call
+    creates a new item — there is no key to dedup on.
     """
     existing: ReviewItem | None = None
     if document_id is not None:
         stmt = select(ReviewItem).where(
             ReviewItem.document_id == document_id,
+            ReviewItem.item_type == item_type,
+            ReviewItem.status == "pending",
+        )
+        existing = session.execute(stmt).scalar_one_or_none()
+    elif source_id is not None:
+        stmt = select(ReviewItem).where(
+            ReviewItem.document_id.is_(None),
+            ReviewItem.source_id == source_id,
             ReviewItem.item_type == item_type,
             ReviewItem.status == "pending",
         )

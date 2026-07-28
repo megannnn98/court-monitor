@@ -1,4 +1,4 @@
-# Контекст — 2026-07-28
+# Контекст — 2026-07-28 (обновлено)
 
 ## Что сделано
 - Etap 0: Discovery — исследование источников (sudrf.ru, Росфинмониторинг, Airtable, Telegram), fixtures-first архитектура, модель данных.
@@ -14,13 +14,14 @@
 - 167 тестов проходят (ruff + mypy чистые).
 - Мелкий техдолг закрыт: убрано дублирование в CLI `doctor`, `print("already_exists")` заменён на structured log.
 - `.venv` пересоздан (был битый симлинк на python другого пользователя/хоста).
-- **Etap 4, срез 1** — таблицы `ReviewItem` (generic очередь проверки оператора) и `AuditLog` (append-only аудит решений), миграции `0006_review_items`/`0007_audit_log`. `ReviewItem` создаётся в `parse_and_extract` при `parser_status=parser_failed`. `AuditLog` пишется атомарно внутри `repo.update_match_status` (confirm/reject-match) и `repo.resolve_review_item`, с `actor` (CLI `--operator`, default `getpass.getuser()`) и `correlation_id`. CLI: `list-review-items`, `resolve-review-item [--dismiss]`. Person/PersonAlias/Case/PersonCase/CourtEvent сознательно не введены — см. `technical-debt.md` D-001.
-- 184 теста проходят (ruff + mypy чистые).
+- **Etap 4, срез 1** — таблицы `ReviewItem` (generic очередь проверки оператора) и `AuditLog` (append-only аудит решений), миграции `0006_review_items`/`0007_audit_log`. `ReviewItem` создаётся в `parse_and_extract` при `parser_status=parser_failed`. `AuditLog` пишется атомарно внутри `repo.update_match_status` (confirm/reject-match) и `repo.resolve_review_item`, с `actor` (CLI `--operator`, default `getpass.getuser()`) и `correlation_id`. CLI: `list-review-items`, `resolve-review-item [--dismiss]`. Person/PersonAlias/Case/PersonCase/CourtEvent сознательно не введены — см. `technical-debt.md` D-001. Смёржено в master (PR #1).
+- **D-011 закрыт** — `sources.base.FetchProblem` (новый тип рядом с `FetchResult`); `SudrfAdapter`/`TelegramChannelAdapter.fetch_new()` возвращают `Iterator[FetchResult | FetchProblem]` вместо молчаливого `continue`/`return None` при `FetchHealth.blocked`/`http_error`/`timeout`/пустом теле. `process_source`/`process_registry_source` на `FetchProblem` создают `ReviewItem(item_type="source_blocked")`. `repo.upsert_review_item` расширен: дедуп по `source_id`, если нет `document_id`. Новое поле `SourceStats.blocked` (видно в `fetch-source`/`fetch-all`). `not_modified` и fixture-missing НЕ создают ReviewItem (это не сбои источника).
+- 208 тестов проходят (ruff + mypy чистые).
 
 ## Следующий шаг
 - Airtable write-back: запись подтверждённых кандидатов в Airtable (после валидации маппинга) — заблокировано отсутствием PAT.
 - Etap 4, срез 2 (кандидат): `Person`/`Case`/`CourtEvent` — нужен либо экстрактор структурированных case/event-фактов (сейчас есть только article/date/name/relevance), либо политика авто-создания Person из подтверждённого MatchCandidate. `EventType` enum уже существует в `domain/models.py`, но не используется.
-- D-011 (`technical-debt.md`): `source_blocked`/`http_error`/`timeout` не создают ReviewItem — адаптеры pure/side-effect-free, нужен новый способ прокинуть событие блокировки в service-слой без нарушения архитектуры.
+- `list-audit-log` CLI — сейчас аудит смотрится только через sqlite напрямую.
 - `_extract_place_from_fact` в `matching/candidates.py` всегда возвращает `None` — birthplace-скоринг протестирован, но не используется в реальных кандидатах, пока нет источника места рождения из документа.
 - `known-risks-and-notes.md`: `birth_date_conflict` в scoring почти недостижим (year-match branch перехватывает раньше) — задокументировано, не исправлялось (сознательно, scoring — чувствительная зона).
 
@@ -38,6 +39,7 @@
 - `src/court_monitor/matching/candidates.py` — generation match candidates
 - `src/court_monitor/matching/name_normalizer.py` — морфологическая нормализация ru-name-v2
 - `src/court_monitor/sources/fedsfm.py` — парсер XML/DBF/ZIP/CSV для Росфинмониторинга
+- `src/court_monitor/sources/base.py` — FetchResult/FetchProblem, SourceAdapter Protocol
 - `src/court_monitor/storage/orm.py` — ORM-модели (SourceDocument, ExtractedFact, PersonRecord, MatchCandidate, ReviewItem, AuditLog)
 - `src/court_monitor/domain/models.py` — доменные enum'ы
 - `src/court_monitor/api/app.py` — FastAPI read-only surface

@@ -13,9 +13,10 @@
   `ReviewItem` подключён к единственной существующей точке отказа —
   `parse_and_extract` при `parser_status=parser_failed`. `AuditLog`
   подключён к `update_match_status` (confirm/reject-match) и
-  `resolve_review_item`. Ещё не реализованы: `Person`, `PersonAlias`, `Case`,
-  `PersonCase`, `CourtEvent` — см. D-011 про уже существующий, но неиспользуемый
-  `EventType`.
+  `resolve_review_item`. D-011 (`source_blocked` → ReviewItem) закрыт. Ещё не
+  реализованы: `Person`, `PersonAlias`, `Case`, `PersonCase`, `CourtEvent` —
+  для них в `domain/models.py` уже есть неиспользуемый enum `EventType`
+  (заготовка с Etap 1).
 - **Влияние.** Невозможно хранить канонических (подтверждённых) людей и дела
   — Etap 6/7 (полноценный review-workflow с созданием Person из подтверждённых
   MatchCandidate) остаётся заблокирован.
@@ -127,24 +128,29 @@
 - **Решение.** Реализовать вместе с Etap 5.
 - **Почему не сейчас.** Зависит от секрета.
 
-## D-011. `source_blocked` не создаёт ReviewItem
+## D-011. `source_blocked` не создаёт ReviewItem — ЗАКРЫТО
 
-- **Описание.** `SudrfAdapter._fetch_http` и `TelegramChannelAdapter._load_html`
-  при `FetchHealth.blocked`/`http_error`/`timeout` только логируют факт и
-  молча пропускают ответ (`continue` / `return None`) — оператор узнаёт о
-  блокировке только через grep логов. `known-risks-and-notes.md` утверждал,
-  что в этом случае «создаётся ReviewItem», но до Etap 4/среза 1 это было
-  неверно, а после — по-прежнему неверно именно для source-level блокировок
-  (ReviewItem сейчас подключён только к `parser_failed`).
-- **Влияние.** Оператор не видит заблокированные источники без чтения логов;
-  нет единой точки триажа.
-- **Приоритет.** Средний.
-- **Решение.** Адаптеры сейчас архитектурно pure/side-effect-free ("Sources...
-  are pure" — только service-слой мутирует storage), поэтому просто добавить
-  `repo.create_review_item(...)` внутрь адаптера нельзя. Нужно либо (a)
-  прокинуть health/статус блокировки через `FetchResult`/новый тип события
-  наружу в `process_source`/`process_registry_source`, которые уже держат
-  `session`, либо (b) явный список "плохих" ответов, который adapter
-  возвращает отдельно от `Iterator[FetchResult]`.
-- **Почему не сейчас.** Требует изменения контракта `SourceAdapter`, что шире
-  минимального среза Etap 4 (ReviewItem+AuditLog, без изменения адаптеров).
+- **Было.** `SudrfAdapter._fetch_http` и `TelegramChannelAdapter._load_html`
+  при `FetchHealth.blocked`/`http_error`/`timeout` только логировали факт и
+  молча пропускали ответ (`continue` / `return None`).
+- **Решение (реализовано).** Новый тип `sources.base.FetchProblem`
+  (frozen dataclass: url, health, http_status, source_id, source_name).
+  `SourceAdapter.fetch_new()` теперь возвращает `Iterator[FetchResult |
+  FetchProblem]` — адаптеры остаются side-effect-free (просто `yield`,
+  никакого доступа к БД), а `process_source`/`process_registry_source`
+  различают типы через `isinstance` и на `FetchProblem` вызывают
+  `repo.upsert_review_item(item_type="source_blocked", ...)`. `304 Not
+  Modified` — не проблема, пропускается как раньше. Fixture-режим
+  (`live=False`, локально отсутствующая fixture) НЕ создаёт ReviewItem —
+  это dev/test-особенность, а не прод-сбой.
+  `repo.upsert_review_item` расширен: без `document_id`, но с `source_id`,
+  дедуп идёт по `(source_id, item_type)` — повторные блокировки одного
+  источника при регулярных `fetch-source` не плодят дубликаты (тот же приём,
+  что и для `parser_failed` в срезе 1).
+  Новое поле `SourceStats.blocked`, видно в выводе `fetch-source`/`fetch-all`.
+- **Тесты.** `tests/unit/test_sudrf_http_adapter.py`,
+  `tests/unit/test_telegram_adapter_http.py` (мок `HttpClient` на уровне
+  адаптера — blocked/http_error/timeout/ok-но-пусто/not_modified),
+  `tests/integration/test_source_blocked_review_item.py` (wiring в
+  `process_source`/`process_registry_source`, идемпотентность), плюс
+  расширенные тесты `upsert_review_item` на dedup по `source_id`.

@@ -1,19 +1,22 @@
-# Как проверить ReviewItem + AuditLog (Etap 4, срез 1)
+# Как проверить ReviewItem + AuditLog (Etap 4)
 
-Эта ветка добавляет две новые таблицы и CLI-команды:
+Этот документ покрывает две таблицы и CLI-команды, добавленные в двух
+последовательных срезах:
 
-- `ReviewItem` — очередь проверки оператора (пока один producer: сбой
-  парсера, `parser_status=parser_failed`).
+- `ReviewItem` — очередь проверки оператора. Два producer'а: сбой парсера
+  (`parser_status=parser_failed`, срез 1) и блокировка/ошибка источника
+  (`FetchHealth.blocked`/`http_error`/`timeout`, `item_type=source_blocked`,
+  срез 2 / D-011).
 - `AuditLog` — append-only аудит операторских решений (кто/что/когда
   изменил): пишется при confirm/reject-match и при resolve-review-item.
 
-Ниже — план ручной проверки на чистой БД, без сети (всё на fixtures).
+Ниже — план ручной проверки на чистой БД, без сети (всё на fixtures/моках).
 Автоматические тесты см. в конце.
 
 ## 0. Подготовка
 
 ```bash
-git checkout review-item-audit-log-etap4
+git checkout source-blocked-review-item-d011
 make install            # или: uv sync
 rm -f court_monitor.db  # если есть старая БД от master — начать с чистой
 uv run court-monitor init-db
@@ -188,11 +191,66 @@ sqlite3 court_monitor.db "SELECT id, actor, action, object_type, object_id, old_
 (`getpass.getuser()`), не `"unknown"` (если только вы явно не в окружении
 без имени пользователя).
 
-## 5. Что явно НЕ покрыто в этом срезе (ожидаемое поведение)
+## 4б. ReviewItem при блокировке источника (D-011)
 
-- Блокировка источника (`FetchHealth.blocked`/`http_error`/`timeout`) **не**
-  создаёт ReviewItem — это известный, задокументированный пробел
-  (`docs/technical-debt.md`, пункт D-011), не баг этой ветки.
+`SudrfAdapter`/`TelegramChannelAdapter` при `FetchHealth.blocked`/
+`http_error`/`timeout`/пустом теле теперь создают
+`ReviewItem(item_type="source_blocked")` вместо молчаливого пропуска.
+Поскольку `HttpClient` создаётся внутри адаптера без точки внедрения,
+воспроизвести это без реальной сети проще всего тем же способом, что и
+шаг 2 — через мок:
+
+```bash
+uv run python - <<'EOF'
+from sqlalchemy.orm import sessionmaker
+from court_monitor.storage.db import make_engine
+from court_monitor.services import process_source
+from court_monitor.config.loader import SourceConfig, load_monitoring
+from court_monitor.domain.models import SourceBackend, SourceType, FetchHealth
+from court_monitor.sources.http_client import HttpResponse
+from unittest.mock import patch
+import court_monitor.sources.sudrf as sudrf_module
+
+engine = make_engine()
+session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+class _FakeClient:
+    def __init__(self, resp): self._resp = resp
+    def get(self, url): return self._resp
+    def __enter__(self): return self
+    def __exit__(self, *a): pass
+
+resp = HttpResponse(
+    status=403,
+    text="проверка безопасности",
+    url="https://2zovs.sudrf.ru/modules.php?name=press",
+    health=FetchHealth.blocked,
+)
+config = SourceConfig(
+    name="2zovs-demo", type=SourceType.sudrf, backend=SourceBackend.http,
+    base_url="https://2zovs.sudrf.ru", paths=("/modules.php?name=press",),
+)
+
+with patch.object(sudrf_module, "HttpClient", lambda: _FakeClient(resp)):
+    stats = process_source(session, config, load_monitoring())
+    session.commit()
+
+print("stats:", stats)
+EOF
+
+uv run court-monitor list-review-items --type source_blocked
+# Ожидаемо: 1 запись, item_type=source_blocked, priority=high, документ=- (нет document_id)
+```
+
+**Идемпотентность:** повторить блок ещё раз (тот же `config.name`) — записей
+должна остаться **1**, только с обновлённым `data_json` (проверено).
+
+**Не должно создавать ReviewItem:** `health=FetchHealth.not_modified`
+(304 — нет новых данных, это не сбой) и отсутствие локальной fixture для
+Telegram-адаптера в `live=False` режиме (dev/test-особенность, не прод-сбой).
+
+## 5. Что явно НЕ покрыто (ожидаемое поведение)
+
 - Нет команды `court-monitor list-audit-log` — просмотр только через sqlite
   напрямую (см. шаг 4). Если это нужно оператору уже сейчас — дайте знать,
   добавим в следующий срез.
@@ -201,10 +259,13 @@ sqlite3 court_monitor.db "SELECT id, actor, action, object_type, object_id, old_
 ## 6. Автоматические тесты
 
 ```bash
-make test                                   # весь набор (188 тестов)
-uv run pytest tests/unit/test_review_and_audit.py -v      # repo-функции ReviewItem/AuditLog
-uv run pytest tests/integration/test_pipeline.py -v -k review_item  # wiring в pipeline
-uv run pytest tests/unit/test_matching.py -v -k audit_log  # audit-запись при confirm/reject
+make test                                                   # весь набор (208 тестов)
+uv run pytest tests/unit/test_review_and_audit.py -v        # repo-функции ReviewItem/AuditLog
+uv run pytest tests/unit/test_sudrf_http_adapter.py -v       # FetchProblem: SudrfAdapter
+uv run pytest tests/unit/test_telegram_adapter_http.py -v    # FetchProblem: TelegramChannelAdapter
+uv run pytest tests/integration/test_source_blocked_review_item.py -v  # wiring source_blocked
+uv run pytest tests/integration/test_pipeline.py -v -k review_item     # wiring parser_failed
+uv run pytest tests/unit/test_matching.py -v -k audit_log    # audit-запись при confirm/reject
 uv run ruff check .
 uv run mypy src
 ```
