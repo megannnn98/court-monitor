@@ -354,10 +354,14 @@ def get_review_item(session: Session, item_id: int) -> ReviewItem | None:
     return session.get(ReviewItem, item_id)
 
 
-def count_review_items(session: Session, *, status: str | None = None) -> int:
+def count_review_items(
+    session: Session, *, status: str | None = None, item_type: str | None = None
+) -> int:
     stmt = select(func.count(ReviewItem.id))
     if status is not None:
         stmt = stmt.where(ReviewItem.status == status)
+    if item_type is not None:
+        stmt = stmt.where(ReviewItem.item_type == item_type)
     return int(session.execute(stmt).scalar_one())
 
 

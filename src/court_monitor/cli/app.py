@@ -1152,9 +1152,18 @@ def list_review_items_cmd(
     factory = make_session_factory(engine)
     with factory() as session:
         items = repo.list_review_items(session, status=status, item_type=item_type, limit=limit)
-        total = repo.count_review_items(session, status=status)
+        total = repo.count_review_items(session, status=status, item_type=item_type)
 
-        typer.echo(f"Всего review items{f' (status={status})' if status else ''}: {total}")
+        label = "Всего review items"
+        if status or item_type:
+            label += " ("
+            parts = []
+            if status:
+                parts.append(f"status={status}")
+            if item_type:
+                parts.append(f"type={item_type}")
+            label += ", ".join(parts) + ")"
+        typer.echo(f"{label}: {total}")
         typer.echo(
             f"{'ID':>4}  {'Тип':16}  {'Приоритет':9}  {'Документ':>8}  {'Статус':10}  {'Создан'}"
         )
@@ -1193,7 +1202,7 @@ def resolve_review_item_cmd(
         if item is None:
             typer.echo(f"Review item {item_id} not found.", err=True)
             raise typer.Exit(code=1)
-    typer.echo(f"Review item {item_id} → {item.status}.")
+        typer.echo(f"Review item {item_id} → {item.status}.")
 
 
 __all__ = ["app", "ImportPreview"]
