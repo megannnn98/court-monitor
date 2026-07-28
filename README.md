@@ -66,8 +66,21 @@ uv run court-monitor list-matches
 uv run court-monitor show-match 1
 
 # Подтвердить или отклонить (только вручную!)
-uv run court-monitor confirm-match 1 --comment "Подтверждено оператором"
-uv run court-monitor reject-match 1 --comment "Не совпадает"
+uv run court-monitor confirm-match 1 --comment "Подтверждено оператором" --operator "имя"
+uv run court-monitor reject-match 1 --comment "Не совпадает" --operator "имя"
+```
+
+Каждое confirm/reject записывается в `AuditLog` (actor, старый/новый статус,
+correlation_id) — см. `docs/review-and-audit-testing.md`.
+
+### Очередь проверки оператора (ReviewItem)
+
+Сбои парсера (`parser_status=parser_failed`) автоматически попадают в очередь
+проверки, а не просто в лог:
+
+```bash
+uv run court-monitor list-review-items [--status pending] [--type parser_failed]
+uv run court-monitor resolve-review-item <id> --comment "починил селектор" [--dismiss]
 ```
 
 ## CLI — все команды
@@ -158,7 +171,7 @@ make docker-up    # PostgreSQL + FastAPI на :8000
 ## Тесты
 
 ```bash
-make test            # все тесты (134)
+make test            # все тесты (188)
 make test-unit       # unit-тесты
 make test-integration  # integration-тесты
 ```
@@ -169,3 +182,4 @@ make test-integration  # integration-тесты
 - `docs/ai-context/extraction.md` — извлечение фактов
 - `docs/ai-context/matching.md` — сопоставление людей
 - `docs/ai-context/known-risks-and-notes.md` — известные риски
+- `docs/review-and-audit-testing.md` — как вручную проверить ReviewItem/AuditLog (очередь проверки оператора + аудит-лог)
