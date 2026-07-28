@@ -6,14 +6,23 @@ layers produce plain DTOs; services call the repository.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus
-from court_monitor.storage.orm import ExtractedFact, MatchCandidate, PersonRecord, SourceDocument
+from court_monitor.storage.orm import (
+    AuditLog,
+    ExtractedFact,
+    MatchCandidate,
+    PersonRecord,
+    ReviewItem,
+    SourceDocument,
+)
 
 
 def find_document_by_hash_url(
@@ -224,13 +233,207 @@ def update_match_status(
     candidate_id: int,
     new_status: str,
     comment: str | None = None,
+    *,
+    actor: str = "unknown",
+    correlation_id: str | None = None,
 ) -> MatchCandidate | None:
-    """Update a match candidate's status (confirm/reject)."""
+    """Update a match candidate's status (confirm/reject) and record an audit entry."""
     candidate = session.get(MatchCandidate, candidate_id)
     if candidate is None:
         return None
+    old_status = candidate.status
     candidate.status = new_status
     candidate.reviewed_at = datetime.now(UTC)
     candidate.review_comment = comment
     session.flush()
+    create_audit_log_entry(
+        session,
+        actor=actor,
+        action="match_status_change",
+        object_type="match_candidate",
+        object_id=candidate.id,
+        old_value={"status": old_status},
+        new_value={"status": new_status, "comment": comment},
+        correlation_id=correlation_id,
+    )
     return candidate
+
+
+# ---------------------------------------------------------------------------
+# ReviewItem
+# ---------------------------------------------------------------------------
+
+
+def create_review_item(
+    session: Session,
+    *,
+    item_type: str,
+    priority: str = "medium",
+    document_id: int | None = None,
+    source_id: str | None = None,
+    source_url: str | None = None,
+    data: dict[str, Any] | None = None,
+) -> ReviewItem:
+    item = ReviewItem(
+        item_type=item_type,
+        priority=priority,
+        document_id=document_id,
+        source_id=source_id,
+        source_url=source_url,
+        data_json=json.dumps(data, ensure_ascii=False) if data is not None else None,
+        status="pending",
+    )
+    session.add(item)
+    session.flush()
+    return item
+
+
+def upsert_review_item(
+    session: Session,
+    *,
+    item_type: str,
+    priority: str = "medium",
+    document_id: int | None = None,
+    source_id: str | None = None,
+    source_url: str | None = None,
+    data: dict[str, Any] | None = None,
+) -> ReviewItem:
+    """Create a review item, or refresh a still-open one for the same document.
+
+    Without this, a document that keeps failing to parse (e.g. re-run via
+    ``reprocess-document`` while the underlying bug is unfixed) would pile up
+    a duplicate pending ReviewItem on every attempt — mirrors the existing
+    pending-candidate check in ``matching/candidates.py`` for MatchCandidate.
+    Once an item is resolved/dismissed, the next occurrence opens a new one.
+    """
+    existing: ReviewItem | None = None
+    if document_id is not None:
+        stmt = select(ReviewItem).where(
+            ReviewItem.document_id == document_id,
+            ReviewItem.item_type == item_type,
+            ReviewItem.status == "pending",
+        )
+        existing = session.execute(stmt).scalar_one_or_none()
+
+    if existing is not None:
+        existing.priority = priority
+        existing.source_id = source_id
+        existing.source_url = source_url
+        existing.data_json = json.dumps(data, ensure_ascii=False) if data is not None else None
+        session.flush()
+        return existing
+
+    return create_review_item(
+        session,
+        item_type=item_type,
+        priority=priority,
+        document_id=document_id,
+        source_id=source_id,
+        source_url=source_url,
+        data=data,
+    )
+
+
+def list_review_items(
+    session: Session,
+    *,
+    status: str | None = None,
+    item_type: str | None = None,
+    limit: int = 100,
+) -> list[ReviewItem]:
+    stmt = select(ReviewItem).order_by(ReviewItem.id.desc())
+    if status is not None:
+        stmt = stmt.where(ReviewItem.status == status)
+    if item_type is not None:
+        stmt = stmt.where(ReviewItem.item_type == item_type)
+    stmt = stmt.limit(limit)
+    return list(session.execute(stmt).scalars())
+
+
+def get_review_item(session: Session, item_id: int) -> ReviewItem | None:
+    return session.get(ReviewItem, item_id)
+
+
+def count_review_items(session: Session, *, status: str | None = None) -> int:
+    stmt = select(func.count(ReviewItem.id))
+    if status is not None:
+        stmt = stmt.where(ReviewItem.status == status)
+    return int(session.execute(stmt).scalar_one())
+
+
+def resolve_review_item(
+    session: Session,
+    item_id: int,
+    *,
+    status: str = "resolved",
+    resolved_by: str | None = None,
+    comment: str | None = None,
+    correlation_id: str | None = None,
+) -> ReviewItem | None:
+    """Resolve/dismiss a review item and record an audit entry."""
+    item = session.get(ReviewItem, item_id)
+    if item is None:
+        return None
+    old_status = item.status
+    item.status = status
+    item.resolved_at = datetime.now(UTC)
+    item.resolved_by = resolved_by
+    item.resolution_comment = comment
+    session.flush()
+    create_audit_log_entry(
+        session,
+        actor=resolved_by or "unknown",
+        action="review_item_resolved",
+        object_type="review_item",
+        object_id=item.id,
+        old_value={"status": old_status},
+        new_value={"status": status, "comment": comment},
+        correlation_id=correlation_id,
+    )
+    return item
+
+
+# ---------------------------------------------------------------------------
+# AuditLog
+# ---------------------------------------------------------------------------
+
+
+def create_audit_log_entry(
+    session: Session,
+    *,
+    actor: str,
+    action: str,
+    object_type: str,
+    object_id: int,
+    old_value: dict[str, Any] | None = None,
+    new_value: dict[str, Any] | None = None,
+    correlation_id: str | None = None,
+) -> AuditLog:
+    entry = AuditLog(
+        actor=actor,
+        action=action,
+        object_type=object_type,
+        object_id=object_id,
+        old_value_json=json.dumps(old_value, ensure_ascii=False) if old_value is not None else None,
+        new_value_json=json.dumps(new_value, ensure_ascii=False) if new_value is not None else None,
+        correlation_id=correlation_id,
+    )
+    session.add(entry)
+    session.flush()
+    return entry
+
+
+def list_audit_log(
+    session: Session,
+    *,
+    object_type: str | None = None,
+    object_id: int | None = None,
+    limit: int = 100,
+) -> list[AuditLog]:
+    stmt = select(AuditLog).order_by(AuditLog.id.desc())
+    if object_type is not None:
+        stmt = stmt.where(AuditLog.object_type == object_type)
+    if object_id is not None:
+        stmt = stmt.where(AuditLog.object_id == object_id)
+    stmt = stmt.limit(limit)
+    return list(session.execute(stmt).scalars())

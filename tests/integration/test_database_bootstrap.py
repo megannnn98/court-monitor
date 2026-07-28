@@ -39,6 +39,8 @@ class TestDatabaseBootstrap:
             assert "extracted_facts" in tables
             assert "person_records" in tables
             assert "person_match_candidates" in tables
+            assert "review_items" in tables
+            assert "audit_log" in tables
 
         # Step 3: Create a document via repository
         factory = make_session_factory(make_engine(db_url))

@@ -7,17 +7,20 @@
 - Etap 3: Структурированная экстракция — статьи УК, даты, ФИО. Фильтр релевантности по monitoring.yaml.
 - Росфинмониторинг — импорт из XML/DBF/ZIP/CSV, нормализация ФИО, дедупликация по (source, normalized_name, birth_date).
 - Explainable matching — морфологическая нормализация (ru-name-v2), scoring с весами,BirthDateEvidence для precision, generation candidates.
-- CLI: init-db, migrate, doctor, show-config, fetch-source (sudrf + fedsfm), fetch-all, parse-pending, reprocess-document, list-documents, show-document, show-stats, list-sources, fetch-demo-source, import-source-registry, check-sources, list-person-records, show-person-record, generate-matches, list-matches, show-match, confirm-match, reject-match.
+- CLI: init-db, migrate, doctor, show-config, fetch-source (sudrf + fedsfm), fetch-all, parse-pending, reprocess-document, list-documents, show-document, show-stats, list-sources, fetch-demo-source, import-source-registry, check-sources, list-person-records, show-person-record, generate-matches, list-matches, show-match, confirm-match, reject-match, list-review-items, resolve-review-item.
 - FastAPI: /health, /stats, /documents, /documents/{id}.
 - Telegram-источники: `process_registry_source` + `TelegramChannelAdapter` полностью подключены к pipeline (fetch fixture/`--live` → ingest → parse → extract). Исправлен баг — `parse_and_extract` теперь для source_type != sudrf использует уже очищенный `doc.text` вместо повторного прогона через sudrf-специфичный HTML-парсер (который подмешивал UI-мусор Telegram в текст для экстракции).
 - Расширено тестовое покрытие `matching/` (birthplace scoring, BirthDateEvidence парсинг, mixed full-name/initial matching, invariant-тест на surname mismatch) и `fedsfm` (DBF/ZIP edge cases, форматы дат, dedup_key, CSV без ФИО).
 - 167 тестов проходят (ruff + mypy чистые).
 - Мелкий техдолг закрыт: убрано дублирование в CLI `doctor`, `print("already_exists")` заменён на structured log.
 - `.venv` пересоздан (был битый симлинк на python другого пользователя/хоста).
+- **Etap 4, срез 1** — таблицы `ReviewItem` (generic очередь проверки оператора) и `AuditLog` (append-only аудит решений), миграции `0006_review_items`/`0007_audit_log`. `ReviewItem` создаётся в `parse_and_extract` при `parser_status=parser_failed`. `AuditLog` пишется атомарно внутри `repo.update_match_status` (confirm/reject-match) и `repo.resolve_review_item`, с `actor` (CLI `--operator`, default `getpass.getuser()`) и `correlation_id`. CLI: `list-review-items`, `resolve-review-item [--dismiss]`. Person/PersonAlias/Case/PersonCase/CourtEvent сознательно не введены — см. `technical-debt.md` D-001.
+- 184 теста проходят (ruff + mypy чистые).
 
 ## Следующий шаг
 - Airtable write-back: запись подтверждённых кандидатов в Airtable (после валидации маппинга) — заблокировано отсутствием PAT.
-- Etap 4-5: дополнительные источники, расширенная экстракция.
+- Etap 4, срез 2 (кандидат): `Person`/`Case`/`CourtEvent` — нужен либо экстрактор структурированных case/event-фактов (сейчас есть только article/date/name/relevance), либо политика авто-создания Person из подтверждённого MatchCandidate. `EventType` enum уже существует в `domain/models.py`, но не используется.
+- D-011 (`technical-debt.md`): `source_blocked`/`http_error`/`timeout` не создают ReviewItem — адаптеры pure/side-effect-free, нужен новый способ прокинуть событие блокировки в service-слой без нарушения архитектуры.
 - `_extract_place_from_fact` в `matching/candidates.py` всегда возвращает `None` — birthplace-скоринг протестирован, но не используется в реальных кандидатах, пока нет источника места рождения из документа.
 - `known-risks-and-notes.md`: `birth_date_conflict` в scoring почти недостижим (year-match branch перехватывает раньше) — задокументировано, не исправлялось (сознательно, scoring — чувствительная зона).
 
@@ -35,7 +38,7 @@
 - `src/court_monitor/matching/candidates.py` — generation match candidates
 - `src/court_monitor/matching/name_normalizer.py` — морфологическая нормализация ru-name-v2
 - `src/court_monitor/sources/fedsfm.py` — парсер XML/DBF/ZIP/CSV для Росфинмониторинга
-- `src/court_monitor/storage/orm.py` — ORM-модели (SourceDocument, ExtractedFact, PersonRecord, MatchCandidate)
+- `src/court_monitor/storage/orm.py` — ORM-модели (SourceDocument, ExtractedFact, PersonRecord, MatchCandidate, ReviewItem, AuditLog)
 - `src/court_monitor/domain/models.py` — доменные enum'ы
 - `src/court_monitor/api/app.py` — FastAPI read-only surface
 - `config/sources.yaml` — адаптеры источников (sudrf)

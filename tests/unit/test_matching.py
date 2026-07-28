@@ -326,6 +326,70 @@ def test_positive_candidate_year_match():
         session.close()
 
 
+def test_update_match_status_creates_audit_log_entry():
+    """Confirming/rejecting a candidate must leave an AuditLog trail (spec §17)."""
+    session = _make_session()
+    try:
+        result = parse_file(Path("tests/fixtures/rfm/persons_match.xml"))
+        import_rfm_records(session, result.rows, source="rfm")
+        session.commit()
+
+        _add_person_fact(
+            session,
+            "Иванова Ивана Ивановича",
+            quote="Иванова Ивана Ивановича, 1983 года рождения",
+        )
+        generate_matches(session)
+        session.commit()
+
+        c = repo.list_match_candidates(session)[0]
+        repo.update_match_status(
+            session, c.id, "confirmed", "looks correct", actor="op1", correlation_id="cid-xyz"
+        )
+        session.commit()
+
+        entries = repo.list_audit_log(session, object_type="match_candidate", object_id=c.id)
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.actor == "op1"
+        assert entry.action == "match_status_change"
+        assert entry.correlation_id == "cid-xyz"
+        assert json.loads(entry.old_value_json) == {"status": "pending"}
+        assert json.loads(entry.new_value_json) == {
+            "status": "confirmed",
+            "comment": "looks correct",
+        }
+    finally:
+        session.close()
+
+
+def test_update_match_status_default_actor_is_unknown():
+    """Callers that omit ``actor`` still get an audit entry, not a crash."""
+    session = _make_session()
+    try:
+        result = parse_file(Path("tests/fixtures/rfm/persons_match.xml"))
+        import_rfm_records(session, result.rows, source="rfm")
+        session.commit()
+
+        _add_person_fact(
+            session,
+            "Иванова Ивана Ивановича",
+            quote="Иванова Ивана Ивановича, 1983 года рождения",
+        )
+        generate_matches(session)
+        session.commit()
+
+        c = repo.list_match_candidates(session)[0]
+        repo.update_match_status(session, c.id, "confirmed", "looks correct")
+        session.commit()
+
+        entries = repo.list_audit_log(session, object_type="match_candidate", object_id=c.id)
+        assert len(entries) == 1
+        assert entries[0].actor == "unknown"
+    finally:
+        session.close()
+
+
 def test_idempotent_no_duplicates():
     """Second generate-matches does not create duplicates."""
     session = _make_session()

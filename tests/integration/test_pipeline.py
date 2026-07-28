@@ -6,9 +6,16 @@ No network: everything runs on saved HTML fixtures.
 
 from __future__ import annotations
 
+import court_monitor.services as services_module
 from court_monitor.config.loader import SourceConfig
 from court_monitor.domain.models import ParserStatus, SourceBackend, SourceType
-from court_monitor.services import ingest_fetch_result, process_pending, process_source, reprocess
+from court_monitor.services import (
+    ingest_fetch_result,
+    parse_and_extract,
+    process_pending,
+    process_source,
+    reprocess,
+)
 from court_monitor.sources.base import FetchResult
 from court_monitor.sources.sudrf import SudrfAdapter
 from court_monitor.storage import repository as repo
@@ -274,3 +281,69 @@ def test_extraction_no_duplicates_on_rerun(db_session, monitoring_cfg, fixtures_
     process_pending(db_session, monitoring_cfg)
     db_session.refresh(relevant)
     assert len(relevant.facts) == facts_count
+
+
+# ---------------------------------------------------------------------------
+# ReviewItem: parser failure creates an operator-facing review item
+# ---------------------------------------------------------------------------
+
+
+def test_parser_failure_creates_review_item(db_session, monitoring_cfg, monkeypatch):
+    """A sudrf parser exception must set parser_failed AND leave a ReviewItem
+    for an operator to triage — previously it only logged and vanished."""
+
+    def _boom(_html: str):
+        raise ValueError("selector engine exploded")
+
+    monkeypatch.setattr(services_module, "parse_press_release", _boom)
+
+    result = FetchResult.from_content(
+        url="https://test/broken",
+        content="<html><body>irrelevant</body></html>",
+        source_type=SourceType.sudrf,
+        source_name="test-court",
+        source_id="test-court-id",
+    )
+    doc, created = ingest_fetch_result(db_session, result)
+    assert created is True
+
+    facts = parse_and_extract(db_session, doc, monitoring_cfg)
+    assert facts == []
+    assert doc.parser_status == ParserStatus.parser_failed.value
+
+    items = repo.list_review_items(db_session, item_type="parser_failed")
+    assert len(items) == 1
+    item = items[0]
+    assert item.document_id == doc.id
+    assert item.source_id == "test-court-id"
+    assert item.priority == "high"
+    assert item.status == "pending"
+    assert "selector engine exploded" in item.data_json
+
+
+def test_reprocessing_a_persistently_broken_document_does_not_duplicate_review_items(
+    db_session, monitoring_cfg, monkeypatch
+):
+    """reprocess-document on a document that keeps failing must refresh the
+    existing pending ReviewItem, not create a new one on every attempt."""
+
+    def _boom(_html: str):
+        raise ValueError("still broken")
+
+    monkeypatch.setattr(services_module, "parse_press_release", _boom)
+
+    result = FetchResult.from_content(
+        url="https://test/broken",
+        content="<html><body>irrelevant</body></html>",
+        source_type=SourceType.sudrf,
+        source_name="test-court",
+    )
+    doc, _ = ingest_fetch_result(db_session, result)
+
+    parse_and_extract(db_session, doc, monitoring_cfg)
+    reprocess(db_session, doc.id)
+    reprocess(db_session, doc.id)
+
+    items = repo.list_review_items(db_session, item_type="parser_failed")
+    assert len(items) == 1
+    assert items[0].status == "pending"

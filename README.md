@@ -104,8 +104,12 @@ court-monitor show-person-record <id>                    # детали запи
 court-monitor generate-matches                           # генерация кандидатов
 court-monitor list-matches [--status pending]            # список
 court-monitor show-match <id>                            # детали
-court-monitor confirm-match <id> --comment "..."         # подтвердить
-court-monitor reject-match <id> --comment "..."          # отклонить
+court-monitor confirm-match <id> --comment "..." [--operator ...]  # подтвердить
+court-monitor reject-match <id> --comment "..." [--operator ...]   # отклонить
+
+# Очередь проверки оператора (ReviewItem) и аудит
+court-monitor list-review-items [--status pending] [--type parser_failed]  # список
+court-monitor resolve-review-item <id> --comment "..." [--dismiss]         # разрешить/отклонить
 ```
 
 ## Что извлекается из документов
