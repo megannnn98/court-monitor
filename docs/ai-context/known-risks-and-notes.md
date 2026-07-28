@@ -6,6 +6,7 @@
 - Live-доступ и запись в Airtable отключены до подтверждения маппинга.
 - LLM отключена (`CM_LLM_MODE=disabled`); regex-экстракция детерминирована.
 - Telegram: `process_registry_source` + `TelegramChannelAdapter` полностью подключены к pipeline (fetch fixture/`--live` → ingest → parse → extract). Ранее `parse_and_extract` безусловно прогонял контент через sudrf-специфичный `parse_press_release`, из-за чего в текст для экстракции подмешивался Telegram UI-мусор (имя канала, "VIEW IN TELEGRAM", плейсхолдеры медиа) — исправлено: для source_type != sudrf используется уже очищенный `doc.text`, sudrf-парсер вызывается только для sudrf-документов. Regression-тесты: `tests/integration/test_telegram_pipeline.py`.
+- Etap 4, срез 1: добавлены `ReviewItem` (generic очередь проверки оператора) и `AuditLog` (append-only аудит решений) — миграции `0006_review_items`, `0007_audit_log`. `ReviewItem` создаётся при `parser_status=parser_failed`; `AuditLog` пишется из `update_match_status` (confirm/reject-match) и `resolve_review_item`. CLI: `list-review-items`, `resolve-review-item --dismiss`, `--operator` флаг у `confirm-match`/`reject-match`/`resolve-review-item`. `Person`/`Case`/`CourtEvent` намеренно не введены в этом срезе — см. `technical-debt.md` D-001.
 
 ## Ограничения
 
@@ -13,7 +14,7 @@
 - **Live HTTP** — тестирование на удалённых судах недоступно из тестового окружения (404/блокировки).
 - **Экстракция ФИО** — эвристика, не полный морфологический анализ. Возможны пропуски и ложные срабатывания.
 - **Нормализация дат рождения** — year-only precision не fabrication month/day, но сравнение less precise.
-- **CAPTCHA/блокировки** — не обходятся; создаётся `ReviewItem` оператору.
+- **CAPTCHA/блокировки** — не обходятся. `ReviewItem` для этого случая **пока не создаётся** (см. D-011 в `technical-debt.md`): адаптеры при `FetchHealth.blocked`/`http_error`/`timeout` только логируют и молча пропускают ответ; ReviewItem сейчас подключён только к `parser_failed`.
 - **SSL** — не отключается; оператор скачивает файлы вручную при необходимости.
 - **Birthplace-скоринг мёртв на практике** — `_extract_place_from_fact` в `matching/candidates.py` всегда возвращает `None`, так что `_score_birthplace` (протестирован юнит-тестами напрямую) не участвует в реальных кандидатах, пока не появится реальный источник места рождения из документа.
 - **`birth_date_conflict` почти недостижим** — в `matching/score.py::_score_birth_date` ветка "тот же год, разная полная дата" переоценена комментарием: при совпадающем годе всегда срабатывает более ранняя проверка `birth_year_match`, независимо от дня/месяца. Реальный конфликт по дате возможен только когда дата записи нераспознаваема. Задокументировано тестами (`test_birth_year_match_currently_masks_day_month_difference`, `test_birth_date_conflict_on_unparseable_record_date`), поведение не менялось — scoring-логика ревьюится отдельно.

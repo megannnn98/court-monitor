@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import getpass
 import hashlib
 import json
 import sys
@@ -30,7 +31,7 @@ from court_monitor.config.registry import (
 from court_monitor.config.settings import settings
 from court_monitor.domain.models import FetchHealth
 from court_monitor.matching.candidates import generate_matches
-from court_monitor.observability import configure_logging, get_logger
+from court_monitor.observability import configure_logging, correlation_scope, get_logger
 from court_monitor.services import (
     import_rfm_records,
     process_pending,
@@ -1078,16 +1079,35 @@ def show_match_cmd(
             _print_match_conflicts(c.conflicts_json)
 
 
+def _default_operator() -> str:
+    """Best-effort identity for the audit trail (spec §17)."""
+    try:
+        return getpass.getuser()
+    except Exception:  # pragma: no cover - defensive, no login name available
+        return "unknown"
+
+
+_OPERATOR_OPTION = typer.Option("--operator", help="Who is making this decision (audit trail).")
+
+
 @app.command(name="confirm-match")
 def confirm_match_cmd(
     candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
     comment: Annotated[str, typer.Option("--comment", help="Review comment.")] = "",
+    operator: Annotated[str, _OPERATOR_OPTION] = "",
 ) -> None:
     """Confirm a match candidate."""
     _bootstrap_logging()
     engine = make_engine()
-    with session_scope(engine) as session:
-        c = repo.update_match_status(session, candidate_id, "confirmed", comment or None)
+    with session_scope(engine) as session, correlation_scope() as cid:
+        c = repo.update_match_status(
+            session,
+            candidate_id,
+            "confirmed",
+            comment or None,
+            actor=operator or _default_operator(),
+            correlation_id=cid,
+        )
         if c is None:
             typer.echo(f"Candidate {candidate_id} not found.", err=True)
             raise typer.Exit(code=1)
@@ -1098,16 +1118,91 @@ def confirm_match_cmd(
 def reject_match_cmd(
     candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
     comment: Annotated[str, typer.Option("--comment", help="Review comment.")] = "",
+    operator: Annotated[str, _OPERATOR_OPTION] = "",
 ) -> None:
     """Reject a match candidate."""
     _bootstrap_logging()
     engine = make_engine()
-    with session_scope(engine) as session:
-        c = repo.update_match_status(session, candidate_id, "rejected", comment or None)
+    with session_scope(engine) as session, correlation_scope() as cid:
+        c = repo.update_match_status(
+            session,
+            candidate_id,
+            "rejected",
+            comment or None,
+            actor=operator or _default_operator(),
+            correlation_id=cid,
+        )
         if c is None:
             typer.echo(f"Candidate {candidate_id} not found.", err=True)
             raise typer.Exit(code=1)
     typer.echo(f"Match {candidate_id} rejected.")
+
+
+@app.command(name="list-review-items")
+def list_review_items_cmd(
+    status: Annotated[
+        str | None, typer.Option("--status", help="Filter by status (pending/resolved/dismissed).")
+    ] = None,
+    item_type: Annotated[str | None, typer.Option("--type", help="Filter by item_type.")] = None,
+    limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
+) -> None:
+    """List operator review items (parser failures, etc.)."""
+    _bootstrap_logging()
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    with factory() as session:
+        items = repo.list_review_items(session, status=status, item_type=item_type, limit=limit)
+        total = repo.count_review_items(session, status=status, item_type=item_type)
+
+        label = "Всего review items"
+        if status or item_type:
+            label += " ("
+            parts = []
+            if status:
+                parts.append(f"status={status}")
+            if item_type:
+                parts.append(f"type={item_type}")
+            label += ", ".join(parts) + ")"
+        typer.echo(f"{label}: {total}")
+        typer.echo(
+            f"{'ID':>4}  {'Тип':16}  {'Приоритет':9}  {'Документ':>8}  {'Статус':10}  {'Создан'}"
+        )
+        typer.echo("-" * 80)
+        for item in items:
+            doc_id = "-" if item.document_id is None else str(item.document_id)
+            typer.echo(
+                f"{item.id:>4}  {item.item_type:16}  {item.priority:9}"
+                f"  {doc_id:>8}  {item.status:10}"
+                f"  {item.created_at.isoformat() if item.created_at else '-'}"
+            )
+
+
+@app.command(name="resolve-review-item")
+def resolve_review_item_cmd(
+    item_id: Annotated[int, typer.Argument(help="ReviewItem.id")],
+    comment: Annotated[str, typer.Option("--comment", help="Resolution comment.")] = "",
+    dismiss: Annotated[
+        bool, typer.Option("--dismiss", help="Mark as dismissed instead of resolved.")
+    ] = False,
+    operator: Annotated[str, _OPERATOR_OPTION] = "",
+) -> None:
+    """Mark a review item as resolved (or dismissed)."""
+    _bootstrap_logging()
+    engine = make_engine()
+    with session_scope(engine) as session, correlation_scope() as cid:
+        actor = operator or _default_operator()
+        item = repo.resolve_review_item(
+            session,
+            item_id,
+            status="dismissed" if dismiss else "resolved",
+            resolved_by=actor,
+            comment=comment or None,
+            correlation_id=cid,
+        )
+        if item is None:
+            typer.echo(f"Review item {item_id} not found.", err=True)
+            raise typer.Exit(code=1)
+        typer.echo(f"Review item {item_id} → {item.status}.")
 
 
 __all__ = ["app", "ImportPreview"]

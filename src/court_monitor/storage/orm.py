@@ -3,6 +3,8 @@
 * ``SourceDocument`` — fetched page/file with provenance + dedup hash.
 * ``ExtractedFact``  — every extracted value with status/confidence/quote.
 * ``PersonRecord``   — entries from external registries (e.g. Rosfinmonitoring).
+* ``ReviewItem``     — generic operator review queue (parser failures, etc.).
+* ``AuditLog``       — append-only record of operator decisions.
 """
 
 from __future__ import annotations
@@ -167,3 +169,54 @@ class MatchCandidate(Base):
             name="uq_fact_person_record",
         ),
     )
+
+
+class ReviewItem(Base):
+    """Something an operator needs to look at.
+
+    Generic on purpose: distinct from ``MatchCandidate`` (person-match-only),
+    this covers everything else that currently only reaches a log line —
+    parser failures now, source blocks / structural drift later (spec §15,
+    §24.2). ``item_type`` is intentionally a free-form string, not an enum:
+    there is exactly one producer today (``parser_failed``); a closed enum
+    would be premature until a second one exists.
+    """
+
+    __tablename__ = "review_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    item_type: Mapped[str] = mapped_column(String(64), index=True)
+    priority: Mapped[str] = mapped_column(String(16), default="medium")
+    document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="SET NULL"), index=True
+    )
+    source_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    source_url: Mapped[str | None] = mapped_column(String(1024))
+    data_json: Mapped[str | None] = mapped_column(Text)
+
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[str | None] = mapped_column(String(128))
+    resolution_comment: Mapped[str | None] = mapped_column(Text)
+
+    document: Mapped[SourceDocument | None] = relationship()
+
+
+class AuditLog(Base):
+    """Append-only record of operator decisions (spec §17, discovery.md §7).
+
+    Rows are never updated or deleted by application code — only inserted.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor: Mapped[str] = mapped_column(String(128))
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    object_type: Mapped[str] = mapped_column(String(64), index=True)
+    object_id: Mapped[int] = mapped_column(Integer, index=True)
+    old_value_json: Mapped[str | None] = mapped_column(Text)
+    new_value_json: Mapped[str | None] = mapped_column(Text)
+    correlation_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)

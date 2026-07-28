@@ -156,6 +156,15 @@ def parse_and_extract(
     if str(doc.source_type) == str(SourceType.sudrf):
         text, extraction_text = _parse_structural_html(doc, source_url, facts)
         if doc.parser_status == ParserStatus.parser_failed.value:
+            repo.upsert_review_item(
+                session,
+                item_type="parser_failed",
+                priority="high",
+                document_id=doc.id,
+                source_id=doc.source_id,
+                source_url=source_url,
+                data={"error": doc.parser_error},
+            )
             return []
     else:
         # Non-HTML-document sources (e.g. Telegram) already carry a clean,

@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Added — Etap 4, срез 1: ReviewItem + AuditLog
+- `ReviewItem` — generic очередь проверки оператора (`migrations/0006_review_items.py`).
+  Создаётся автоматически в `parse_and_extract` при `parser_status=parser_failed`.
+  CLI: `list-review-items [--status] [--type]`, `resolve-review-item <id> [--dismiss] [--comment] [--operator]`.
+- `AuditLog` — append-only аудит операторских решений (`migrations/0007_audit_log.py`).
+  Пишется атомарно из `repo.update_match_status` (confirm/reject-match) и
+  `repo.resolve_review_item`, с `actor`/`correlation_id`.
+- `confirm-match`/`reject-match` получили флаг `--operator` (default: `getpass.getuser()`).
+- Person/PersonAlias/Case/PersonCase/CourtEvent намеренно не введены в этом
+  срезе — см. `docs/technical-debt.md` D-001 (нужен либо экстрактор
+  case/event-фактов, либо политика авто-создания Person из подтверждённого
+  MatchCandidate).
+
 ### Fixed
 - `parse_and_extract` больше не прогоняет non-sudrf документы (Telegram) через
   sudrf-специфичный структурный HTML-парсер — для них используется уже
