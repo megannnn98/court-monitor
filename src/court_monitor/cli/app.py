@@ -607,34 +607,90 @@ def _accumulate_fetch_stats(totals: dict[str, int], stats) -> None:
     totals["blocked"] += stats.blocked
 
 
+def _render_stats_line(stats) -> str:
+    return (
+        f"fetched={stats.fetched} new={stats.new_documents} "
+        f"duplicates={stats.duplicates} parsed={stats.parsed} "
+        f"irrelevant={stats.irrelevant} failed={stats.failed} blocked={stats.blocked}"
+    )
+
+
+def _render_totals_line(totals: dict[str, int]) -> str:
+    return (
+        f"fetched={totals['fetched']} new={totals['new']} "
+        f"duplicates={totals['dup']} parsed={totals['parsed']} "
+        f"irrelevant={totals['irr']} failed={totals['fail']} blocked={totals['blocked']}"
+    )
+
+
+def _stats_color(stats, *, skipped: bool = False) -> str:
+    """Green = clean, yellow = needs a look (blocked/failed/skipped), never red here —
+    red is reserved for hard exceptions (a source that crashed, not just found nothing)."""
+    if stats.failed > 0 or stats.blocked > 0 or skipped:
+        return typer.colors.YELLOW
+    return typer.colors.GREEN
+
+
 @app.command(name="run-all")
 def run_all(
     live: Annotated[
         bool,
         typer.Option("--live", help="Fetch real sources over HTTP instead of fixtures."),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose", "-v", help="Show detailed per-document JSON logs (normal log level)."
+        ),
+    ] = False,
 ) -> None:
     """Fetch everything (sudrf sources + Telegram registry channels), then generate matches.
 
-    Fixtures by default (no network); pass --live to hit real sources.
+    Fixtures by default (no network); pass --live to hit real sources. By
+    default, per-document INFO/WARNING logs are suppressed (only genuine
+    errors, with traceback, still print) so the per-source summary lines
+    below are actually readable — pass --verbose to see the full structured
+    JSON log.
     """
-    _bootstrap_logging()
+    configure_logging(settings.log_level if verbose else "ERROR")
     monitoring = load_monitoring()
     engine = make_engine()
     totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
 
-    for src in (s for s in load_sources() if s.enabled):
+    typer.secho("=== Sudrf-источники ===", fg=typer.colors.CYAN, bold=True)
+    sudrf_sources = [s for s in load_sources() if s.enabled]
+    if not sudrf_sources:
+        typer.secho("  (нет включённых источников в config/sources.yaml)", dim=True)
+    for src in sudrf_sources:
         try:
             with session_scope(engine) as session:
                 stats = process_source(session, src, monitoring)
                 _accumulate_fetch_stats(totals, stats)
+            typer.secho(f"  ✓ {src.name}: {_render_stats_line(stats)}", fg=_stats_color(stats))
         except Exception as exc:
-            typer.echo(f"  {src.name}: ERROR {type(exc).__name__}: {exc}", err=True)
+            typer.secho(
+                f"  ✗ {src.name}: ОШИБКА {type(exc).__name__}: {exc}",
+                fg=typer.colors.RED,
+                bold=True,
+                err=True,
+            )
             totals["fail"] += 1
 
-    for entry in (e for e in load_registry() if e.enabled):
+    typer.secho("\n=== Telegram-каналы ===", fg=typer.colors.CYAN, bold=True)
+    registry_entries = [e for e in load_registry() if e.enabled]
+    if not registry_entries:
+        typer.secho("  (нет включённых каналов в config/source_registry.yaml)", dim=True)
+    for entry in registry_entries:
         try:
             fixture_path = _fixture_path_for(entry)
+            # _fixture_path_for returns None for any non-telegram source_type too
+            # (unsupported by _build_registry_adapter) — only call it "fixture
+            # missing" when that's actually why, not for an unrelated reason.
+            fixture_missing = (
+                not live
+                and entry.source_type == "telegram"
+                and (fixture_path is None or not fixture_path.exists())
+            )
             with session_scope(engine) as session:
                 stats = process_registry_source(
                     session,
@@ -644,22 +700,37 @@ def run_all(
                     fixture_path=str(fixture_path) if fixture_path else None,
                 )
                 _accumulate_fetch_stats(totals, stats)
+            note = " (нет сохранённой fixture — пропущено)" if fixture_missing else ""
+            typer.secho(
+                f"  ✓ {entry.id}: {_render_stats_line(stats)}{note}",
+                fg=_stats_color(stats, skipped=fixture_missing),
+            )
         except Exception as exc:
-            typer.echo(f"  {entry.id}: ERROR {type(exc).__name__}: {exc}", err=True)
+            typer.secho(
+                f"  ✗ {entry.id}: ОШИБКА {type(exc).__name__}: {exc}",
+                fg=typer.colors.RED,
+                bold=True,
+                err=True,
+            )
             totals["fail"] += 1
 
-    typer.echo(
-        f"fetch: fetched={totals['fetched']} new={totals['new']} "
-        f"duplicates={totals['dup']} parsed={totals['parsed']} "
-        f"irrelevant={totals['irr']} failed={totals['fail']} blocked={totals['blocked']}"
+    typer.secho("\n=== Итого: fetch + parse ===", fg=typer.colors.CYAN, bold=True)
+    totals_color = (
+        typer.colors.YELLOW if (totals["fail"] or totals["blocked"]) else typer.colors.GREEN
     )
+    typer.secho(f"  {_render_totals_line(totals)}", fg=totals_color, bold=True)
 
     with session_scope(engine) as session:
         match_stats = generate_matches(session)
-    typer.echo(
-        f"matches: created={match_stats['candidates_created']} "
-        f"already_existed={match_stats['already_existed']} "
-        f"no_candidates={match_stats['no_candidates']} errors={match_stats['errors']}"
+    typer.secho("\n=== Совпадения (generate-matches) ===", fg=typer.colors.CYAN, bold=True)
+    matches_color = typer.colors.RED if match_stats["errors"] else typer.colors.GREEN
+    typer.secho(
+        f"  создано={match_stats['candidates_created']} "
+        f"уже_было={match_stats['already_existed']} "
+        f"без_кандидата={match_stats['no_candidates']} "
+        f"ошибок={match_stats['errors']}",
+        fg=matches_color,
+        bold=True,
     )
 
 

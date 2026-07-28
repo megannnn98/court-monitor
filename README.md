@@ -102,7 +102,8 @@ court-monitor fetch-source <name> --no-parse             # только загр
 court-monitor fetch-source fedsfm --file <path>          # импорт из файла
 court-monitor fetch-source fedsfm --file <path> --dry-run  # предпросмотр
 court-monitor fetch-all                                  # только sudrf-источники (config/sources.yaml)
-court-monitor run-all [--live]                           # sudrf + все Telegram-каналы + generate-matches, разом
+court-monitor run-all [--live] [--verbose]               # sudrf + все Telegram-каналы + generate-matches, разом
+                                                          # цветной построчный вывод; --verbose — полный JSON-лог
 
 # Документы
 court-monitor parse-pending                              # распарсить pending
@@ -172,7 +173,7 @@ make docker-up    # PostgreSQL + FastAPI на :8000
 ## Тесты
 
 ```bash
-make test            # все тесты (210)
+make test            # все тесты (216)
 make test-unit       # unit-тесты
 make test-integration  # integration-тесты
 ```
