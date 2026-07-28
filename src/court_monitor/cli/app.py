@@ -597,6 +597,72 @@ def fetch_all() -> None:
     )
 
 
+def _accumulate_fetch_stats(totals: dict[str, int], stats) -> None:
+    totals["fetched"] += stats.fetched
+    totals["new"] += stats.new_documents
+    totals["dup"] += stats.duplicates
+    totals["parsed"] += stats.parsed
+    totals["irr"] += stats.irrelevant
+    totals["fail"] += stats.failed
+    totals["blocked"] += stats.blocked
+
+
+@app.command(name="run-all")
+def run_all(
+    live: Annotated[
+        bool,
+        typer.Option("--live", help="Fetch real sources over HTTP instead of fixtures."),
+    ] = False,
+) -> None:
+    """Fetch everything (sudrf sources + Telegram registry channels), then generate matches.
+
+    Fixtures by default (no network); pass --live to hit real sources.
+    """
+    _bootstrap_logging()
+    monitoring = load_monitoring()
+    engine = make_engine()
+    totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
+
+    for src in (s for s in load_sources() if s.enabled):
+        try:
+            with session_scope(engine) as session:
+                stats = process_source(session, src, monitoring)
+                _accumulate_fetch_stats(totals, stats)
+        except Exception as exc:
+            typer.echo(f"  {src.name}: ERROR {type(exc).__name__}: {exc}", err=True)
+            totals["fail"] += 1
+
+    for entry in (e for e in load_registry() if e.enabled):
+        try:
+            fixture_path = _fixture_path_for(entry)
+            with session_scope(engine) as session:
+                stats = process_registry_source(
+                    session,
+                    entry,
+                    monitoring,
+                    live=live,
+                    fixture_path=str(fixture_path) if fixture_path else None,
+                )
+                _accumulate_fetch_stats(totals, stats)
+        except Exception as exc:
+            typer.echo(f"  {entry.id}: ERROR {type(exc).__name__}: {exc}", err=True)
+            totals["fail"] += 1
+
+    typer.echo(
+        f"fetch: fetched={totals['fetched']} new={totals['new']} "
+        f"duplicates={totals['dup']} parsed={totals['parsed']} "
+        f"irrelevant={totals['irr']} failed={totals['fail']} blocked={totals['blocked']}"
+    )
+
+    with session_scope(engine) as session:
+        match_stats = generate_matches(session)
+    typer.echo(
+        f"matches: created={match_stats['candidates_created']} "
+        f"already_existed={match_stats['already_existed']} "
+        f"no_candidates={match_stats['no_candidates']} errors={match_stats['errors']}"
+    )
+
+
 @app.command()
 def parse_pending() -> None:
     """Parse all documents left in 'pending' state."""

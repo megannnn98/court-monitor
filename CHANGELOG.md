@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added — `run-all` CLI command
+- `court-monitor run-all [--live]` — один прогон всего пайплайна: все
+  sudrf-источники (`config/sources.yaml`, как `fetch-all`) + все Telegram-
+  каналы из `config/source_registry.yaml` (раньше не было общей команды,
+  только `fetch-source <name>` по одному) + `generate-matches`. Fixtures по
+  умолчанию (без сети), `--live` — реальные HTTP-запросы.
+
 ### Added — D-011: source_blocked → ReviewItem
 - `sources.base.FetchProblem` — новый тип рядом с `FetchResult`. Адаптеры
   (`SudrfAdapter`, `TelegramChannelAdapter`) теперь возвращают
