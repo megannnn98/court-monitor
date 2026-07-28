@@ -20,7 +20,7 @@ from court_monitor.extraction.filtering import evaluate_relevance, relevance_as_
 from court_monitor.extraction.names import extract_name_candidates
 from court_monitor.observability import correlation_scope, get_logger
 from court_monitor.parsers.sudrf_press import PARSER_VERSION, parse_press_release, to_datetime
-from court_monitor.sources.base import FetchResult, get_adapter
+from court_monitor.sources.base import FetchProblem, FetchResult, get_adapter
 from court_monitor.storage import repository as repo
 from court_monitor.storage.orm import SourceDocument
 
@@ -35,8 +35,25 @@ class SourceStats:
     parsed: int = 0
     irrelevant: int = 0
     failed: int = 0
+    blocked: int = 0
     already_exists_ids: list[int] = dataclass_field(default_factory=list)
     changed_ids: list[int] = dataclass_field(default_factory=list)
+
+
+def _report_fetch_problem(session: Session, problem: FetchProblem) -> None:
+    """Turn a FetchProblem into an operator-facing ReviewItem (D-011).
+
+    Dedups on source_id via upsert_review_item so a source that stays
+    blocked across repeated fetch-source runs doesn't pile up duplicates.
+    """
+    repo.upsert_review_item(
+        session,
+        item_type="source_blocked",
+        priority="high",
+        source_id=problem.source_id,
+        source_url=problem.url,
+        data={"health": str(problem.health), "http_status": problem.http_status},
+    )
 
 
 def ingest_fetch_result(session: Session, result: FetchResult) -> tuple[SourceDocument, bool]:
@@ -222,6 +239,10 @@ def process_source(
         adapter = get_adapter(source_cfg)
         for result in adapter.fetch_new():
             stats.fetched += 1
+            if isinstance(result, FetchProblem):
+                stats.blocked += 1
+                _report_fetch_problem(session, result)
+                continue
             doc, created = ingest_fetch_result(session, result)
             if not created:
                 stats.duplicates += 1
@@ -270,6 +291,10 @@ def process_registry_source(
             return stats
         for result in adapter.fetch_new(live=live, limit=limit):
             stats.fetched += 1
+            if isinstance(result, FetchProblem):
+                stats.blocked += 1
+                _report_fetch_problem(session, result)
+                continue
             doc, created = ingest_fetch_result(session, result)
             if not created:
                 stats.duplicates += 1

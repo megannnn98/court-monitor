@@ -107,11 +107,55 @@ def test_upsert_review_item_reopens_after_resolution(session):
     assert repo.count_review_items(session, status="pending") == 1
 
 
-def test_upsert_review_item_without_document_id_always_creates(session):
-    """No document_id means no dedup key — every call creates a new item."""
+def test_upsert_review_item_without_any_key_always_creates(session):
+    """Neither document_id nor source_id means no dedup key — every call creates a new item."""
     repo.upsert_review_item(session, item_type="source_blocked")
     repo.upsert_review_item(session, item_type="source_blocked")
     assert repo.count_review_items(session) == 2
+
+
+def test_upsert_review_item_dedups_by_source_id_when_no_document(session):
+    """A source-level problem (no document_id) dedups on source_id instead —
+    repeated fetch-source runs against a still-blocked source must not pile up."""
+    first = repo.upsert_review_item(
+        session, item_type="source_blocked", source_id="2zovs", data={"health": "blocked"}
+    )
+    second = repo.upsert_review_item(
+        session, item_type="source_blocked", source_id="2zovs", data={"health": "http_error"}
+    )
+
+    assert first.id == second.id
+    assert repo.count_review_items(session) == 1
+    assert json.loads(second.data_json) == {"health": "http_error"}
+
+    # A different source is a different dedup key.
+    repo.upsert_review_item(session, item_type="source_blocked", source_id="uovs")
+    assert repo.count_review_items(session) == 2
+
+
+def test_upsert_review_item_source_id_reopens_after_resolution(session):
+    first = repo.upsert_review_item(session, item_type="source_blocked", source_id="2zovs")
+    repo.resolve_review_item(session, first.id, resolved_by="op1")
+
+    second = repo.upsert_review_item(session, item_type="source_blocked", source_id="2zovs")
+
+    assert second.id != first.id
+    assert repo.count_review_items(session) == 2
+    assert repo.count_review_items(session, status="pending") == 1
+
+
+def test_upsert_review_item_document_id_takes_priority_over_source_id(session):
+    """When both are given, document_id is the dedup key (document-level
+    granularity is finer than source-level)."""
+    doc = _make_document(session)
+    first = repo.upsert_review_item(
+        session, item_type="parser_failed", document_id=doc.id, source_id="2zovs"
+    )
+    second = repo.upsert_review_item(
+        session, item_type="parser_failed", document_id=doc.id, source_id="2zovs"
+    )
+    assert first.id == second.id
+    assert repo.count_review_items(session) == 1
 
 
 def test_list_review_items_filters_by_status(session):

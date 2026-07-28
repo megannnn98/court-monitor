@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Added — D-011: source_blocked → ReviewItem
+- `sources.base.FetchProblem` — новый тип рядом с `FetchResult`. Адаптеры
+  (`SudrfAdapter`, `TelegramChannelAdapter`) теперь возвращают
+  `Iterator[FetchResult | FetchProblem]`: при `FetchHealth.blocked`/
+  `http_error`/`timeout`/пустом теле — `yield FetchProblem(...)` вместо
+  молчаливого `continue`/`return None`. `304 Not Modified` и отсутствующая
+  локальная fixture (dev/test) по-прежнему не считаются проблемой.
+- `process_source`/`process_registry_source` на `FetchProblem` создают
+  `ReviewItem(item_type="source_blocked")` через `repo.upsert_review_item`.
+  Новое поле `SourceStats.blocked`, выводится в `fetch-source`/`fetch-all`.
+- `repo.upsert_review_item`: дедуп теперь и по `source_id` (когда нет
+  `document_id`) — повторные блокировки одного источника при регулярных
+  `fetch-source` не плодят дубликаты pending review items.
+
 ### Added — Etap 4, срез 1: ReviewItem + AuditLog
 - `ReviewItem` — generic очередь проверки оператора (`migrations/0006_review_items.py`).
   Создаётся автоматически в `parse_and_extract` при `parser_status=parser_failed`.

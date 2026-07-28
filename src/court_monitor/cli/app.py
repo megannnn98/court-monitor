@@ -556,7 +556,7 @@ def _fetch_source_legacy(name: str, *, live: bool = False, no_parse: bool = Fals
     typer.echo(
         f"{name}: fetched={stats.fetched} new={stats.new_documents} "
         f"duplicates={stats.duplicates} parsed={stats.parsed} "
-        f"irrelevant={stats.irrelevant} failed={stats.failed}"
+        f"irrelevant={stats.irrelevant} failed={stats.failed} blocked={stats.blocked}"
     )
 
 
@@ -565,7 +565,7 @@ def _render_registry_stats(stats, source_id: str, *, live: bool) -> str:
     return (
         f"{source_id} ({mode}): fetched={stats.fetched} new={stats.new_documents} "
         f"already_exists={stats.duplicates} parsed={stats.parsed} "
-        f"irrelevant={stats.irrelevant} failed={stats.failed}"
+        f"irrelevant={stats.irrelevant} failed={stats.failed} blocked={stats.blocked}"
     )
 
 
@@ -575,7 +575,7 @@ def fetch_all() -> None:
     _bootstrap_logging()
     monitoring = load_monitoring()
     engine = make_engine()
-    totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0}
+    totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
     for src in (s for s in load_sources() if s.enabled):
         try:
             with session_scope(engine) as session:
@@ -586,13 +586,14 @@ def fetch_all() -> None:
                 totals["parsed"] += stats.parsed
                 totals["irr"] += stats.irrelevant
                 totals["fail"] += stats.failed
+                totals["blocked"] += stats.blocked
         except Exception as exc:
             typer.echo(f"  {src.name}: ERROR {type(exc).__name__}: {exc}", err=True)
             totals["fail"] += 1
     typer.echo(
         f"TOTAL fetched={totals['fetched']} new={totals['new']} "
         f"duplicates={totals['dup']} parsed={totals['parsed']} "
-        f"irrelevant={totals['irr']} failed={totals['fail']}"
+        f"irrelevant={totals['irr']} failed={totals['fail']} blocked={totals['blocked']}"
     )
 
 

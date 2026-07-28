@@ -11,9 +11,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from court_monitor.config.loader import SourceConfig
-from court_monitor.domain.models import SourceBackend, SourceType
+from court_monitor.domain.models import FetchHealth, SourceBackend, SourceType
 from court_monitor.observability import get_logger
-from court_monitor.sources.base import FetchResult
+from court_monitor.sources.base import FetchProblem, FetchResult
 from court_monitor.sources.http_client import HttpClient
 
 _log = get_logger(__name__)
@@ -30,7 +30,7 @@ class SudrfAdapter:
     def __init__(self, config: SourceConfig) -> None:
         self.config = config
 
-    def fetch_new(self) -> Iterator[FetchResult]:
+    def fetch_new(self) -> Iterator[FetchResult | FetchProblem]:
         if self.config.backend == SourceBackend.fixture:
             yield from self._fetch_fixture()
         elif self.config.backend == SourceBackend.http:
@@ -57,7 +57,7 @@ class SudrfAdapter:
                 http_status=200,
             )
 
-    def _fetch_http(self) -> Iterator[FetchResult]:
+    def _fetch_http(self) -> Iterator[FetchResult | FetchProblem]:
         base = (self.config.base_url or "").rstrip("/")
         if not base:
             _log.warning("sudrf.http.no_base_url", source=self.config.name)
@@ -74,7 +74,16 @@ class SudrfAdapter:
                     status=resp.status,
                     health=str(resp.health),
                 )
-                if resp.health.value != "ok" or not resp.text:
+                if resp.health == FetchHealth.not_modified:
+                    continue
+                if resp.health != FetchHealth.ok or not resp.text:
+                    yield FetchProblem(
+                        url=url,
+                        health=resp.health,
+                        http_status=resp.status,
+                        source_id=self.config.name,
+                        source_name=self.config.name,
+                    )
                     continue
                 yield FetchResult.from_content(
                     url=url,

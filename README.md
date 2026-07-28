@@ -171,7 +171,7 @@ make docker-up    # PostgreSQL + FastAPI на :8000
 ## Тесты
 
 ```bash
-make test            # все тесты (188)
+make test            # все тесты (208)
 make test-unit       # unit-тесты
 make test-integration  # integration-тесты
 ```

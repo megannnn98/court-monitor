@@ -16,10 +16,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 
-from court_monitor.domain.models import SourceType
+from court_monitor.domain.models import FetchHealth, SourceType
 from court_monitor.observability import get_logger
 from court_monitor.parsers.telegram_post import parse_channel_preview
-from court_monitor.sources.base import FetchResult
+from court_monitor.sources.base import FetchProblem, FetchResult
 from court_monitor.sources.http_client import HttpClient
 
 _log = get_logger(__name__)
@@ -54,9 +54,19 @@ class TelegramChannelAdapter:
         self.url = url
         self.fixture_path = Path(fixture_path) if fixture_path else None
 
-    def fetch_new(self, *, live: bool = False, limit: int | None = None) -> Iterator[FetchResult]:
-        html, fetched_via, http_status = self._load_html(live=live)
+    def fetch_new(
+        self, *, live: bool = False, limit: int | None = None
+    ) -> Iterator[FetchResult | FetchProblem]:
+        html, fetched_via, http_status, health = self._load_html(live=live)
         if html is None:
+            if live and health is not None:
+                yield FetchProblem(
+                    url=self._preview_url(),
+                    health=health,
+                    http_status=http_status,
+                    source_id=self.source_id,
+                    source_name=self.name,
+                )
             return
 
         posts = parse_channel_preview(html)
@@ -79,7 +89,15 @@ class TelegramChannelAdapter:
         for post in chosen:
             yield self._to_fetch_result(post, html_source=fetched_via, http_status=http_status)
 
-    def _load_html(self, *, live: bool) -> tuple[str | None, str, int]:
+    def _load_html(self, *, live: bool) -> tuple[str | None, str, int, FetchHealth | None]:
+        """Return ``(html, html_source, http_status, health)``.
+
+        ``health`` is ``None`` whenever the caller should NOT raise a
+        ReviewItem: fixture mode (a local dev/test setup issue, not a
+        production source problem) and ``not_modified`` (no new content is a
+        normal outcome, not a failure). It carries the actual
+        :class:`FetchHealth` only for a real live-fetch problem.
+        """
         if not live:
             if self.fixture_path is None or not self.fixture_path.exists():
                 _log.warning(
@@ -87,8 +105,8 @@ class TelegramChannelAdapter:
                     source=self.source_id,
                     path=str(self.fixture_path),
                 )
-                return None, "fixture-missing", 0
-            return self.fixture_path.read_text(encoding="utf-8"), "fixture", 200
+                return None, "fixture-missing", 0, None
+            return self.fixture_path.read_text(encoding="utf-8"), "fixture", 200, None
 
         url = self._preview_url()
         with HttpClient() as client:
@@ -100,9 +118,11 @@ class TelegramChannelAdapter:
             status=resp.status,
             health=str(resp.health),
         )
-        if not resp.text:
-            return None, f"http:{resp.health}", resp.status
-        return resp.text, f"http:{resp.health}", resp.status
+        if resp.health == FetchHealth.not_modified:
+            return None, f"http:{resp.health}", resp.status, None
+        if resp.health != FetchHealth.ok or not resp.text:
+            return None, f"http:{resp.health}", resp.status, resp.health
+        return resp.text, f"http:{resp.health}", resp.status, None
 
     def _preview_url(self) -> str:
         return f"https://t.me/s/{self.username}"
