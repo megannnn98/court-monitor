@@ -10,7 +10,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from court_monitor.services import import_rfm_records
-from court_monitor.sources.fedsfm import PersonRow, load_fixture_rows, parse_file, parse_rfm_csv
+from court_monitor.sources.fedsfm import (
+    PersonRow,
+    _normalize_date,
+    _normalize_name,
+    load_fixture_rows,
+    parse_file,
+    parse_rfm_csv,
+)
 from court_monitor.storage import repository as repo
 from court_monitor.storage.orm import Base
 
@@ -225,3 +232,150 @@ def test_search_name_is_lowercase():
         assert row.normalization_method == "lowercase"
         # search_name should match normalized_name (both go through normalize_fio)
         assert row.search_name == row.normalized_name
+
+
+# --- Date normalization edge cases ---
+
+
+def test_normalize_date_iso_passthrough():
+    assert _normalize_date("1983-06-15") == "1983-06-15"
+
+
+def test_normalize_date_dd_mm_yyyy():
+    assert _normalize_date("15.06.1983") == "1983-06-15"
+
+
+def test_normalize_date_dd_mm_yyyy_single_digit_day_month():
+    assert _normalize_date("5.6.1983") == "1983-06-05"
+
+
+def test_normalize_date_dbf_yyyymmdd():
+    """DBF stores dates as bare YYYYMMDD (no separators)."""
+    assert _normalize_date("19830615") == "1983-06-15"
+
+
+def test_normalize_date_malformed_passthrough_unchanged():
+    """Unrecognized formats are returned unchanged, not dropped or guessed."""
+    assert _normalize_date("дата неизвестна") == "дата неизвестна"
+
+
+def test_normalize_date_empty_is_none():
+    assert _normalize_date("") is None
+
+
+# --- Name normalization confidence by token count ---
+
+
+def test_normalize_name_confidence_three_tokens():
+    norm, conf = _normalize_name("Иванов Иван Иванович")
+    assert norm == "иванов иван иванович"
+    assert conf == 0.95
+
+
+def test_normalize_name_confidence_two_tokens():
+    norm, conf = _normalize_name("Иванов Иван")
+    assert conf == 0.70
+
+
+def test_normalize_name_confidence_one_token():
+    norm, conf = _normalize_name("Иванов")
+    assert conf == 0.40
+
+
+# --- dedup_key ---
+
+
+def test_dedup_key_differs_by_birth_date():
+    base = {
+        "raw_name": "Иванов Иван Иванович",
+        "normalized_name": "иванов иван иванович",
+        "search_name": "иванов иван иванович",
+        "normalization_confidence": 0.95,
+        "normalization_method": "lowercase",
+        "birth_place": None,
+        "category": None,
+        "source_ref": None,
+        "added_date": None,
+        "raw_line": "",
+    }
+    row_a = PersonRow(birth_date="1980-01-01", **base)
+    row_b = PersonRow(birth_date="1983-01-01", **base)
+    row_c = PersonRow(birth_date="1980-01-01", **base)
+    assert row_a.dedup_key != row_b.dedup_key
+    assert row_a.dedup_key == row_c.dedup_key
+
+
+# --- CSV: rows without a name are skipped, not errored ---
+
+
+def test_csv_row_without_fio_is_skipped(tmp_path):
+    path = tmp_path / "partial.csv"
+    path.write_text(
+        "ФИО,Дата рождения\n"
+        "Иванов Иван Иванович,01.01.1980\n"
+        ",01.01.1990\n"  # no FIO — must be skipped
+        "Петров Петр Петрович,02.02.1975\n",
+        encoding="utf-8",
+    )
+    rows = parse_rfm_csv(path)
+    assert len(rows) == 2
+    assert all(r.raw_name for r in rows)
+
+
+# --- ZIP edge cases ---
+
+
+def test_zip_with_no_recognized_files(tmp_path):
+    import zipfile  # noqa: PLC0415
+
+    path = tmp_path / "empty.zip"
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("readme.txt", "not a data file")
+
+    result = parse_file(path)
+    assert result.rows == []
+    assert any("No XML or DBF" in e for e in result.errors)
+
+
+def test_zip_that_is_actually_xml_falls_back(tmp_path):
+    """Some published archives are XML content saved with a .zip extension."""
+    path = tmp_path / "mislabeled.zip"
+    path.write_text(FIXTURE_XML.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = parse_file(path)
+    assert "xml" in result.format_detected
+    assert len(result.rows) == 3
+
+
+# --- Unknown-extension format auto-detection ---
+
+
+def test_unknown_extension_detects_xml_by_content(tmp_path):
+    path = tmp_path / "data.dat"
+    path.write_text(FIXTURE_XML.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = parse_file(path)
+    assert result.format_detected == "xml"
+    assert len(result.rows) == 3
+
+
+def test_unknown_extension_detects_dbf_by_magic_byte(tmp_path):
+    """A DBF magic byte (0x03) with otherwise garbage content should be routed
+    to the DBF parser (and fail there with a reported error), not silently
+    treated as an unrecognized format."""
+    path = tmp_path / "data.dat"
+    path.write_bytes(bytes([0x03]) + b"not really a dbf file")
+
+    result = parse_file(path)
+    assert result.format_detected == "dbf"
+    assert len(result.errors) > 0
+
+
+def test_unknown_extension_no_match_reports_error(tmp_path):
+    path = tmp_path / "data.dat"
+    path.write_bytes(b"\xff\xfe\x00\x01random binary")
+
+    result = parse_file(path)
+    assert result.format_detected == "unknown"
+    assert len(result.errors) > 0
+    assert result.rows == []

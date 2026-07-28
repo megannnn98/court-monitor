@@ -284,24 +284,6 @@ def doctor() -> None:
         raise typer.Exit(code=1)
     typer.echo("\n✓ All checks passed.")
 
-    # Settings source
-    import os  # noqa: PLC0415
-
-    env_val = os.environ.get("CM_DATABASE_URL")
-    if env_val:
-        typer.echo("settings_source: env var CM_DATABASE_URL")
-    elif Path(".env").exists():
-        typer.echo("settings_source: .env file")
-    else:
-        typer.echo("settings_source: default")
-
-    if problems:
-        typer.echo("\nProblems:")
-        for p in problems:
-            typer.echo(f"  ✗ {p}")
-        raise typer.Exit(code=1)
-    typer.echo("\n✓ All checks passed.")
-
 
 # ---------------------------------------------------------------------------
 # Source registry: import + check

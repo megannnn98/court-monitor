@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from court_monitor.config.loader import MonitoringConfig, SourceConfig, load_monitoring
 from court_monitor.domain.facts import ExtractedFactDTO
-from court_monitor.domain.models import ParserStatus, VerificationStatus
+from court_monitor.domain.models import ParserStatus, SourceType, VerificationStatus
 from court_monitor.extraction.articles import extract_articles
 from court_monitor.extraction.dates import extract_dates
 from court_monitor.extraction.filtering import evaluate_relevance, relevance_as_facts
@@ -79,24 +79,25 @@ def ingest_fetch_result(session: Session, result: FetchResult) -> tuple[SourceDo
     return doc, True
 
 
-def parse_and_extract(
-    session: Session,
+def _parse_structural_html(
     doc: SourceDocument,
-    monitoring: MonitoringConfig,
-) -> list[ExtractedFactDTO]:
-    """Parse a document and persist extracted facts. Updates parser_status."""
-    source_url = doc.canonical_url or doc.url
+    source_url: str | None,
+    facts: list[ExtractedFactDTO],
+) -> tuple[str, str]:
+    """Parse sudrf-style structural HTML (title/date/body selectors).
 
+    On parser failure, sets ``doc.parser_status``/``doc.parser_error`` and
+    returns ``("", "")`` — the caller checks parser_status to short-circuit.
+    """
     try:
         parsed = parse_press_release(doc.content or "")
     except Exception as exc:  # pragma: no cover - parser resilience
         _log.exception("pipeline.parse_failed", document_id=doc.id, error=str(exc))
         doc.parser_status = ParserStatus.parser_failed.value
         doc.parser_error = str(exc)
-        return []
+        return "", ""
 
     text = parsed.text or (doc.text or "")
-    facts: list[ExtractedFactDTO] = []
 
     if parsed.title:
         doc.title = parsed.title
@@ -139,6 +140,33 @@ def parse_and_extract(
     extraction_parts.append(text)
     extraction_text = " ".join(extraction_parts)
 
+    doc.parser_version = PARSER_VERSION
+    return text, extraction_text
+
+
+def parse_and_extract(
+    session: Session,
+    doc: SourceDocument,
+    monitoring: MonitoringConfig,
+) -> list[ExtractedFactDTO]:
+    """Parse a document and persist extracted facts. Updates parser_status."""
+    source_url = doc.canonical_url or doc.url
+    facts: list[ExtractedFactDTO] = []
+
+    if str(doc.source_type) == str(SourceType.sudrf):
+        text, extraction_text = _parse_structural_html(doc, source_url, facts)
+        if doc.parser_status == ParserStatus.parser_failed.value:
+            return []
+    else:
+        # Non-HTML-document sources (e.g. Telegram) already carry a clean,
+        # adapter-parsed body in doc.text. Re-running the sudrf structural
+        # HTML parser on their raw content would mix UI chrome (author line,
+        # view counters, "VIEW IN TELEGRAM" labels) into the extraction text
+        # instead of the actual message — title/published_at are already set
+        # at ingestion time from the adapter's FetchResult.
+        text = doc.text or ""
+        extraction_text = text
+
     # Articles + names + dates operate on the broad extraction text.
     article_facts = extract_articles(extraction_text, source_url=source_url)
     name_facts = extract_name_candidates(extraction_text, source_url=source_url)
@@ -157,7 +185,6 @@ def parse_and_extract(
         doc.parser_status = ParserStatus.parsed.value
     doc.relevant = bool(rel.relevant)
 
-    doc.parser_version = PARSER_VERSION
     repo.add_facts_from_dtos(session, doc.id, facts)
     _log.info(
         "pipeline.parsed",
@@ -237,7 +264,9 @@ def process_registry_source(
             doc, created = ingest_fetch_result(session, result)
             if not created:
                 stats.duplicates += 1
-                print("already_exists")
+                _log.info(
+                    "pipeline.registry_source.already_exists", source=entry.id, document_id=doc.id
+                )
                 if doc.id:
                     stats.already_exists_ids.append(doc.id)
                 continue

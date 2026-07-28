@@ -14,6 +14,7 @@ from court_monitor.matching.candidates import _extract_year_from_text, generate_
 from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.matching.score import (
     CANDIDATE_THRESHOLD,
+    W_SURNAME_INITIALS_MATCH,
     BirthDateEvidence,
     score_match,
 )
@@ -388,3 +389,166 @@ def test_year_extraction_from_quote():
     assert _extract_year_from_text("Петров 1985 г.р.") == "1985"
     assert _extract_year_from_text("Сидоров, рожд. 1990") == "1990"
     assert _extract_year_from_text("без даты") is None
+
+
+# ======================================================================
+# BirthDateEvidence parsing
+# ======================================================================
+
+
+def test_birth_date_evidence_from_iso_date():
+    """YYYY-MM-DD parses to full precision."""
+    e = BirthDateEvidence.from_full_date("1983-06-15")
+    assert e.precision == "full"
+    assert e.iso_date == "1983-06-15"
+
+
+def test_birth_date_evidence_from_dd_mm_yyyy():
+    """DD.MM.YYYY parses to full precision."""
+    e = BirthDateEvidence.from_full_date("15.06.1983")
+    assert e.precision == "full"
+    assert e.iso_date == "1983-06-15"
+
+
+def test_birth_date_evidence_year_only():
+    """Bare year never fabricates month/day."""
+    e = BirthDateEvidence.from_full_date("1983")
+    assert e.precision == "year"
+    assert e.year == "1983"
+    assert e.iso_date is None
+
+
+def test_birth_date_evidence_unparseable():
+    """Unparseable string yields empty evidence, not a crash."""
+    e = BirthDateEvidence.from_full_date("неизвестно")
+    assert e.precision == "none"
+    assert e.iso_date is None
+
+
+# ======================================================================
+# Birth date scoring — additional branches
+# ======================================================================
+
+
+def test_birth_year_match_currently_masks_day_month_difference():
+    """Documents CURRENT behavior: when both years match, the year-match
+    branch fires before any day/month comparison — so a same-year,
+    different-day pair is scored as a positive year match, not a conflict,
+    even though both sides carry full-precision dates. The
+    'birth_date_conflict' rule (P_BIRTH_DATE_CONFLICT) is effectively
+    unreachable for this case; it only fires when the record's date string
+    is unparseable (see test_birth_date_conflict_on_unparseable_record_date).
+    Flagging here rather than changing scoring logic, since match weights
+    are a reviewed, safety-relevant area."""
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+    result = score_match(doc, rec, BirthDateEvidence.from_full_date("1983-06-15"), "1983-01-01")
+    assert result.birth_date_score == 0.15  # W_BIRTH_YEAR_MATCH, not a conflict
+    assert any(r["rule"] == "birth_year_match" for r in result.reasons)
+    assert not any(c["rule"] == "birth_date_conflict" for c in result.conflicts)
+
+
+def test_birth_date_conflict_on_unparseable_record_date():
+    """Record date present but unparseable (no leading year) → falls through
+    to the birth_date_conflict branch (negative score)."""
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+    result = score_match(
+        doc, rec, BirthDateEvidence.from_full_date("1983-06-15"), "дата неизвестна"
+    )
+    assert result.birth_date_score < 0
+    assert any(c["rule"] == "birth_date_conflict" for c in result.conflicts)
+
+
+# ======================================================================
+# Birthplace scoring
+# ======================================================================
+
+
+def test_birthplace_full_match_case_insensitive():
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+    result = score_match(
+        doc, rec, None, None, doc_birth_place="Москва", record_birth_place="МОСКВА"
+    )
+    assert result.birthplace_score == 0.10
+    assert any(r["rule"] == "birthplace_match" for r in result.reasons)
+
+
+def test_birthplace_partial_match_substring():
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+    result = score_match(
+        doc,
+        rec,
+        None,
+        None,
+        doc_birth_place="Москва",
+        record_birth_place="г. Москва, Россия",
+    )
+    assert result.birthplace_score == 0.05
+    assert any(r["rule"] == "birthplace_partial_match" for r in result.reasons)
+
+
+def test_birthplace_mismatch():
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+    result = score_match(
+        doc,
+        rec,
+        None,
+        None,
+        doc_birth_place="Москва",
+        record_birth_place="Новосибирск",
+    )
+    assert result.birthplace_score == 0.0
+    assert any(r["rule"] == "birthplace_mismatch" for r in result.reasons)
+
+
+def test_birthplace_missing_is_never_a_conflict():
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Иванов Иван Иванович")
+
+    both_missing = score_match(doc, rec, None, None)
+    doc_only = score_match(doc, rec, None, None, record_birth_place="Москва")
+    rec_only = score_match(doc, rec, None, None, doc_birth_place="Москва")
+
+    for result in (both_missing, doc_only, rec_only):
+        assert result.birthplace_score == 0.0
+        assert not result.conflicts
+
+
+# ======================================================================
+# Mixed full-name vs. initial-only name (not a given-name conflict)
+# ======================================================================
+
+
+def test_full_name_vs_initial_uses_initials_match_not_conflict():
+    """One side has a full given name, the other only an initial ('Д.').
+    This must be scored via the initials-match branch, not flagged as a
+    given_name_mismatch — that check requires BOTH sides to carry a known
+    full given name (see c5257a7)."""
+    doc = normalize_name_morph("Петров Дмитрий Иванович")
+    rec = normalize_name_morph("Петров Д. Иванович")
+    result = score_match(doc, rec, None, None)
+    assert result.name_score == W_SURNAME_INITIALS_MATCH
+    assert any(r["rule"] == "surname_initials_match" for r in result.reasons)
+    assert not any(c["rule"] == "given_name_mismatch" for c in result.conflicts)
+
+
+def test_surname_mismatch_cannot_reach_candidate_threshold():
+    """Regression guard: even a perfect birth-date + birthplace match cannot
+    push a different-surname pair over CANDIDATE_THRESHOLD, since name
+    scoring returns 0.0 (not merely 'no bonus') on surname mismatch."""
+    doc = normalize_name_morph("Иванов Иван Иванович")
+    rec = normalize_name_morph("Петров Иван Иванович")
+    result = score_match(
+        doc,
+        rec,
+        BirthDateEvidence.from_full_date("1983-06-15"),
+        "1983-06-15",
+        doc_birth_place="Москва",
+        record_birth_place="Москва",
+    )
+    assert result.name_score == 0.0
+    assert result.score < CANDIDATE_THRESHOLD

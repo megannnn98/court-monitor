@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+### Fixed
+- `parse_and_extract` больше не прогоняет non-sudrf документы (Telegram) через
+  sudrf-специфичный структурный HTML-парсер — для них используется уже
+  очищенный `doc.text`, заполненный адаптером при ingest. Раньше это
+  подмешивало Telegram UI-мусор (имя канала, "VIEW IN TELEGRAM", плейсхолдеры
+  медиа) в текст, используемый для relevance/article/date/name-экстракции.
+  Regression-тесты: `tests/integration/test_telegram_pipeline.py`.
+- CLI `doctor`: убрано дублирование блока problems-check/settings_source
+  (печаталось дважды).
+- `process_registry_source`: `print("already_exists")` заменён на
+  structured log (`pipeline.registry_source.already_exists`).
+
+### Added — тесты
+- Расширено покрытие `matching/`: birthplace scoring, `BirthDateEvidence`
+  парсинг (ISO/DD.MM.YYYY/year-only/unparseable), full-name-vs-initial
+  matching, invariant-тест на недостижимость порога кандидата при surname
+  mismatch.
+- Расширено покрытие `fedsfm`: DBF/ZIP edge cases (пустой/битый/
+  mislabeled-as-xml архив), автодетект формата по magic byte/содержимому,
+  YYYYMMDD-даты, CSV-строки без ФИО, `PersonRow.dedup_key`.
+
 ### Added — Etap 0: Discovery
 - `docs/discovery.md` — исследование сред исполнения и источников (sudrf.ru, военные суды, Росфинмониторинг, Airtable, Telegram); fixtures-first архитектурное решение; модель данных и план первых трёх этапов.
 - `docs/airtable-discovery.md` — исследование двух существующих баз Airtable (`app42KQc45WUgqx7A`, `apppAy5vZCrpb53wc`); слой `AirtableFieldMapping`; CLI-путь к безопасной синхронизации.

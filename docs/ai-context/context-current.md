@@ -1,4 +1,4 @@
-# Контекст — 2026-07-27
+# Контекст — 2026-07-28
 
 ## Что сделано
 - Etap 0: Discovery — исследование источников (sudrf.ru, Росфинмониторинг, Airtable, Telegram), fixtures-first архитектура, модель данных.
@@ -9,13 +9,17 @@
 - Explainable matching — морфологическая нормализация (ru-name-v2), scoring с весами,BirthDateEvidence для precision, generation candidates.
 - CLI: init-db, migrate, doctor, show-config, fetch-source (sudrf + fedsfm), fetch-all, parse-pending, reprocess-document, list-documents, show-document, show-stats, list-sources, fetch-demo-source, import-source-registry, check-sources, list-person-records, show-person-record, generate-matches, list-matches, show-match, confirm-match, reject-match.
 - FastAPI: /health, /stats, /documents, /documents/{id}.
-- 134 теста проходят.
+- Telegram-источники: `process_registry_source` + `TelegramChannelAdapter` полностью подключены к pipeline (fetch fixture/`--live` → ingest → parse → extract). Исправлен баг — `parse_and_extract` теперь для source_type != sudrf использует уже очищенный `doc.text` вместо повторного прогона через sudrf-специфичный HTML-парсер (который подмешивал UI-мусор Telegram в текст для экстракции).
+- Расширено тестовое покрытие `matching/` (birthplace scoring, BirthDateEvidence парсинг, mixed full-name/initial matching, invariant-тест на surname mismatch) и `fedsfm` (DBF/ZIP edge cases, форматы дат, dedup_key, CSV без ФИО).
+- 167 тестов проходят (ruff + mypy чистые).
+- Мелкий техдолг закрыт: убрано дублирование в CLI `doctor`, `print("already_exists")` заменён на structured log.
+- `.venv` пересоздан (был битый симлинк на python другого пользователя/хоста).
 
 ## Следующий шаг
-- Telegram-источники: парсинг постов из каналов (source_type=telegram в реестре).
-- Airtable write-back: запись подтверждённых кандидатов в Airtable (после валидации маппинга).
+- Airtable write-back: запись подтверждённых кандидатов в Airtable (после валидации маппинга) — заблокировано отсутствием PAT.
 - Etap 4-5: дополнительные источники, расширенная экстракция.
-- Покрытие тестами matching/ и fedsfm.
+- `_extract_place_from_fact` в `matching/candidates.py` всегда возвращает `None` — birthplace-скоринг протестирован, но не используется в реальных кандидатах, пока нет источника места рождения из документа.
+- `known-risks-and-notes.md`: `birth_date_conflict` в scoring почти недостижим (year-match branch перехватывает раньше) — задокументировано, не исправлялось (сознательно, scoring — чувствительная зона).
 
 ## Блокировки
 - нет
