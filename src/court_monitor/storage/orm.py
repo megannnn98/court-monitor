@@ -115,6 +115,10 @@ class PersonRecord(Base):
     added_date: Mapped[str | None] = mapped_column(String(32))
     source_url: Mapped[str | None] = mapped_column(String(1024))
     raw_line: Mapped[str | None] = mapped_column(Text)
+    gender: Mapped[str | None] = mapped_column(String(16))
+    country: Mapped[str | None] = mapped_column(String(128))
+    region: Mapped[str | None] = mapped_column(String(256))
+    extra_json: Mapped[str | None] = mapped_column(Text)
 
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 

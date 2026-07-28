@@ -23,6 +23,7 @@ from court_monitor.storage.orm import Base
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "rfm"
 FIXTURE_CSV = FIXTURE_DIR / "persons.csv"
+FIXTURE_CSV_V2 = FIXTURE_DIR / "rosfinmonitoring-2.csv"
 FIXTURE_XML = FIXTURE_DIR / "persons.xml"
 FIXTURE_ZIP = FIXTURE_DIR / "persons.zip"
 
@@ -379,3 +380,82 @@ def test_unknown_extension_no_match_reports_error(tmp_path):
     assert result.format_detected == "unknown"
     assert len(result.errors) > 0
     assert result.rows == []
+
+
+# --- New CSV format (rosfinmonitoring-2.csv) tests ---
+
+
+def test_parse_new_csv_format():
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)
+    assert len(rows) > 20000
+    assert all(r.raw_name for r in rows)
+    assert all(r.normalized_name for r in rows)
+
+
+def test_new_csv_fields():
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)
+    first = rows[0]
+    assert first.gender is not None
+    assert first.country is not None
+    assert first.region is not None
+    assert first.category in ("терроризм", "экстремизм")
+    assert first.added_date is not None
+    assert first.birth_date is None  # new format has no birth date
+    assert first.source_ref is None  # new format has no row number
+
+
+def test_new_csv_birth_place_from_country_region():
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)
+    with_region = [r for r in rows if r.region]
+    assert len(with_region) > 1000
+    for r in with_region[:10]:
+        assert r.country in r.birth_place
+        assert r.region in r.birth_place
+
+
+def test_new_csv_extra_json():
+    import json
+
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)
+    minors = [r for r in rows if r.extra_json and "minor" in r.extra_json]
+    assert len(minors) > 500
+    parsed = json.loads(minors[0].extra_json)
+    assert "age_at_inclusion" in parsed
+    assert "status" in parsed
+
+
+def test_new_csv_long_names():
+    """Central Asian 4+ token names parse correctly."""
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)
+    long_names = [r for r in rows if len(r.raw_name.split()) >= 4]
+    assert len(long_names) > 400
+    for r in long_names[:5]:
+        assert len(r.normalized_name.split()) >= 4
+        assert r.normalization_confidence == 0.95
+
+
+def test_new_csv_import(db_session):
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)[:10]  # import subset for speed
+    stats = import_rfm_records(db_session, rows)
+    assert stats.imported == 10
+    records = repo.list_person_records(db_session)
+    assert len(records) == 10
+    assert records[0].gender is not None
+    assert records[0].country is not None
+
+
+def test_new_csv_dedup(db_session):
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)[:5]
+    stats1 = import_rfm_records(db_session, rows)
+    stats2 = import_rfm_records(db_session, rows)
+    assert stats1.imported == stats2.duplicates
+    assert stats2.imported == 0
+
+
+def test_new_csv_bom_handled():
+    """CSV with UTF-8 BOM (\\ufeff) parses correctly."""
+    rows = parse_rfm_csv(FIXTURE_CSV_V2)
+    # BOM should not appear in any field values
+    for r in rows[:100]:
+        assert not r.raw_name.startswith("\ufeff")
+        assert not r.normalized_name.startswith("\ufeff")

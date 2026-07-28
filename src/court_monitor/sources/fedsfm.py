@@ -53,6 +53,10 @@ class PersonRow:
     source_ref: str | None
     added_date: str | None
     raw_line: str
+    gender: str | None = None
+    country: str | None = None
+    region: str | None = None
+    extra_json: str | None = None
 
     @property
     def dedup_key(self) -> str:
@@ -95,33 +99,92 @@ def parse_file(path: Path) -> ParseResult:
 
 
 def parse_rfm_csv(path: Path) -> list[PersonRow]:
-    """Parse a CSV file with Rosfinmonitoring data."""
+    """Parse a CSV file with Rosfinmonitoring data.
+
+    Auto-detects two known schemas by header columns:
+    - Legacy: ФИО, Дата рождения, Место рождения, Основание включения, ...
+    - New (rosfinmonitoring-2.csv): ФИО, Категория, Статус, Добавлен, Пол, ...
+    """
     rows: list[PersonRow] = []
-    with path.open(encoding="utf-8") as f:
+    with path.open(encoding="utf-8-sig") as f:
         reader = csv.DictReader(f, delimiter=",")
+        if reader.fieldnames is None:
+            return rows
+        is_new_format = "Возраст при включении" in reader.fieldnames
         for line in reader:
             raw_name = (line.get("ФИО") or "").strip()
             if not raw_name:
                 continue
             norm, conf = _normalize_name(raw_name)
-            birth_raw = (line.get("Дата рождения") or "").strip() or None
-            birth_date = _normalize_date(birth_raw) if birth_raw else None
-            rows.append(
-                PersonRow(
-                    raw_name=raw_name,
-                    normalized_name=norm,
-                    search_name=_search_name(raw_name),
-                    normalization_confidence=conf,
-                    normalization_method="lowercase",
-                    birth_date=birth_date,
-                    birth_place=(line.get("Место рождения") or "").strip() or None,
-                    category=(line.get("Основание включения") or "").strip() or None,
-                    source_ref=(line.get("Номер п/п") or "").strip() or None,
-                    added_date=(line.get("Дата включения") or "").strip() or None,
-                    raw_line=",".join(str(v) for v in line.values()),
-                )
-            )
+            if is_new_format:
+                rows.append(_parse_new_csv_row(line, raw_name, norm, conf))
+            else:
+                rows.append(_parse_legacy_csv_row(line, raw_name, norm, conf))
     return rows
+
+
+def _parse_legacy_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> PersonRow:
+    birth_raw = (line.get("Дата рождения") or "").strip() or None
+    birth_date = _normalize_date(birth_raw) if birth_raw else None
+    return PersonRow(
+        raw_name=raw_name,
+        normalized_name=norm,
+        search_name=_search_name(raw_name),
+        normalization_confidence=conf,
+        normalization_method="lowercase",
+        birth_date=birth_date,
+        birth_place=(line.get("Место рождения") or "").strip() or None,
+        category=(line.get("Основание включения") or "").strip() or None,
+        source_ref=(line.get("Номер п/п") or "").strip() or None,
+        added_date=(line.get("Дата включения") or "").strip() or None,
+        raw_line=",".join(str(v) for v in line.values()),
+    )
+
+
+def _parse_new_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> PersonRow:
+    import json as _json  # noqa: PLC0415
+
+    country = (line.get("Страна") or "").strip() or None
+    region = (line.get("Регион") or "").strip() or None
+    birth_place = ", ".join(filter(None, [country, region])) or None
+
+    added_raw = (line.get("Добавлен") or "").strip() or None
+    added_date = _normalize_date(added_raw) if added_raw else None
+
+    extra: dict[str, str | None] = {}
+    for key, col in (
+        ("gender", "Пол"),
+        ("age_at_inclusion", "Возраст при включении"),
+        ("foreign_agent", "Иностранный агент"),
+        ("minor", "Несовершеннолетний"),
+        ("pensioner", "Пенсионер"),
+        ("woman", "Женщина"),
+        ("in_oi_db", "В базе преследований ОИ"),
+        ("status", "Статус"),
+        ("removed", "Удалён"),
+    ):
+        val = (line.get(col) or "").strip() or None
+        if val is not None:
+            extra[key] = val
+    extra_json = _json.dumps(extra, ensure_ascii=False) if extra else None
+
+    return PersonRow(
+        raw_name=raw_name,
+        normalized_name=norm,
+        search_name=_search_name(raw_name),
+        normalization_confidence=conf,
+        normalization_method="lowercase",
+        birth_date=None,
+        birth_place=birth_place,
+        category=(line.get("Категория") or "").strip() or None,
+        source_ref=None,
+        added_date=added_date,
+        raw_line=",".join(str(v) for v in line.values()),
+        gender=(line.get("Пол") or "").strip() or None,
+        country=country,
+        region=region,
+        extra_json=extra_json,
+    )
 
 
 def load_fixture_rows() -> list[PersonRow]:

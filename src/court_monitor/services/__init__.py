@@ -396,6 +396,10 @@ def import_rfm_records(
             added_date=row.added_date,
             source_url=source_url,
             raw_line=row.raw_line,
+            gender=row.gender,
+            country=row.country,
+            region=row.region,
+            extra_json=row.extra_json,
         )
         _, created = repo.upsert_person_record(session, rec)
         if created:
