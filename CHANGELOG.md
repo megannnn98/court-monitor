@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Added — `run-all` CLI command
+- `court-monitor run-all [--live] [--verbose]` — один прогон всего пайплайна:
+  все sudrf-источники (`config/sources.yaml`, как `fetch-all`) + все Telegram-
+  каналы из `config/source_registry.yaml` (раньше не было общей команды,
+  только `fetch-source <name>` по одному) + `generate-matches`. Fixtures по
+  умолчанию (без сети), `--live` — реальные HTTP-запросы.
+- Явный, цветной вывод вместо голого JSON-лога: заголовки секций (cyan),
+  построчный статус на источник/канал (green — чисто, yellow —
+  blocked/failed/пропущено из-за отсутствующей fixture), красным — реальные
+  исключения. По умолчанию INFO/WARNING-логи глушатся (виден только
+  структурированный текст выше и ERROR-трейсбеки), `--verbose` возвращает
+  обычный уровень логирования.
+
 ### Added — D-011: source_blocked → ReviewItem
 - `sources.base.FetchProblem` — новый тип рядом с `FetchResult`. Адаптеры
   (`SudrfAdapter`, `TelegramChannelAdapter`) теперь возвращают
