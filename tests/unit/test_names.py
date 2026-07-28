@@ -56,6 +56,46 @@ def test_empty_text():
     assert extract_name_candidates("") == []
 
 
+def test_not_foreign_agent_disclaimer():
+    """Real production example: the legally mandated ALL-CAPS foreign-agent
+    disclaimer must not be extracted as a person, but a genuine name
+    elsewhere in the same text still must be found."""
+    text = (
+        "Ростовчане призвали ускорить работы. "
+        "НАСТОЯЩИЙ МАТЕРИАЛ (ИНФОРМАЦИЯ) ПРОИЗВЕДЕН И РАСПРОСТРАНЕН "
+        'ИНОСТРАННЫМ АГЕНТОМ ООО "МЕМО", ЛИБО КАСАЕТСЯ ДЕЯТЕЛЬНОСТИ '
+        'ИНОСТРАННОГО АГЕНТА ООО "МЕМО". '
+        "По словам губернатора, ситуацию прокомментировал Юрий Слюсарь."
+    )
+    values = [d.value for d in extract_name_candidates(text)]
+    assert not any("ИНОСТРАН" in v.upper() and v.isupper() for v in values)
+    assert any("Слюсарь" in v for v in values)
+
+
+def test_not_all_caps_abbreviation():
+    """A bare multi-letter ALL-CAPS run (agency abbreviation) is not a name."""
+    dtos = extract_name_candidates("СБУ квалифицировала произошедшее как теракт")
+    assert dtos == []
+
+
+def test_not_hyphenated_outlet_or_topic_abbreviation():
+    """An ALL-CAPS abbreviation hyphenated with a real word (media outlet,
+    "РБК-Украина", or a topic label, "ЛГБТ-активистки") is not a name —
+    checked, unlike a genuine hyphenated double-barrelled surname below."""
+    dtos = extract_name_candidates('"РБК-Украина" сообщило о происшествии')
+    assert not any("РБК" in d.value for d in dtos)
+
+    dtos2 = extract_name_candidates("Против ЛГБТ-активистки возбудили дело")
+    assert not any("ЛГБТ" in d.value for d in dtos2)
+
+
+def test_hyphenated_surname_still_extracted():
+    """A genuine double-barrelled surname (both parts Title Case) must not
+    be rejected by the ALL-CAPS filter."""
+    dtos = extract_name_candidates("Иванов-Петров Иван Иванович задержан")
+    assert any(d.value == "Иванов-Петров Иван Иванович" for d in dtos)
+
+
 def test_no_duplicates():
     text = "Иванов Иван Иванович. Иванов Иван Иванович повторился."
     dtos = extract_name_candidates(text)

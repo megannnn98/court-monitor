@@ -108,6 +108,8 @@ def extract_name_candidates(text: str, *, source_url: str | None = None) -> list
             continue
         if any(_is_stopword(t) for t in tokens):
             continue
+        if any(_is_boilerplate_caps(t) for t in tokens):
+            continue
         # Skip if all tokens are initials (low quality)
         all_initials = all(re.match(r"[А-ЯЁ]\.", t) for t in tokens)
         full = " ".join(tokens)
@@ -148,6 +150,27 @@ def extract_name_candidates(text: str, *, source_url: str | None = None) -> list
 def _is_stopword(token: str) -> bool:
     base = token.rstrip(".").split("-")[0]
     return base in _STOPWORDS
+
+
+def _is_boilerplate_caps(token: str) -> bool:
+    """Reject tokens containing a multi-letter ALL-CAPS part (real names are
+    Title Case, never ALL CAPS).
+
+    Real-world Telegram/news text often embeds a legally mandated ALL-CAPS
+    disclaimer ("НАСТОЯЩИЙ МАТЕРИАЛ ... РАСПРОСТРАНЕН ИНОСТРАННЫМ АГЕНТОМ...")
+    or an org/outlet abbreviation (ООО, СБУ, РБК-Украина, ЛГБТ-активистки).
+    Neither is a person name, and enumerating every disclaimer wording
+    variant (or every outlet abbreviation) as a stopword would be fragile —
+    this is the actual, general signal that generalizes across them. Checked
+    per hyphen-separated part so a legitimate double-barrelled surname
+    ("Иванов-Петров", both parts Title Case) is not affected. A single-letter
+    initial ("И.") has only one letter and must not be rejected.
+    """
+    for part in token.split("-"):
+        letters = [c for c in part if c.isalpha()]
+        if len(letters) > 1 and part.isupper():
+            return True
+    return False
 
 
 from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402
