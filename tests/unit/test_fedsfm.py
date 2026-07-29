@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -414,8 +415,6 @@ def test_new_csv_birth_place_from_country_region():
 
 
 def test_new_csv_extra_json():
-    import json
-
     rows = parse_rfm_csv(FIXTURE_CSV_V2)
     minors = [r for r in rows if r.extra_json and "minor" in r.extra_json]
     assert len(minors) > 500
