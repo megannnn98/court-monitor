@@ -3,7 +3,7 @@
 # Runs on every push and pull request:
 #   1. lint + format check + type check + full test suite on Python 3.12 / 3.13 / 3.14
 #   2. fast unit tests on Python 3.12 (parallel quick feedback)
-#   3. Docker image build + smoke (single job, Python 3.12)
+#   3. Docker image build + smoke — only when image-relevant files change
 #   4. Secret scanning with gitleaks
 #
 # No automatic production deploy — see docs/operations.md (to be added).
@@ -73,10 +73,38 @@ jobs:
       - name: Pytest (unit only)
         run: uv run pytest tests/unit -ra
 
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    # Need the full history for accurate diff against the base.
+    outputs:
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docker:
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'docker-compose.yml'
+              - 'docker/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'README.md'
+              - 'src/**'
+              - 'config/**'
+              - 'migrations/**'
+              - '.github/workflows/ci.yml'
+
   build-image:
     name: Docker image build
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, changes]
+    if: needs.changes.outputs.docker == 'true'
     steps:
       - uses: actions/checkout@v4
       - name: Build image
