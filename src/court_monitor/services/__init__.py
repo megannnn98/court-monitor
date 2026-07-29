@@ -66,6 +66,8 @@ def ingest_fetch_result(session: Session, result: FetchResult) -> tuple[SourceDo
     """
     existing, match_kind = repo.find_existing_document(
         session,
+        source_type=str(result.source_type),
+        source_id=result.source_id,
         external_id=result.external_id,
         canonical_url=result.canonical_url,
         url=result.url,
@@ -232,12 +234,15 @@ def process_source(
     monitoring: MonitoringConfig,
     *,
     parse_immediately: bool = True,
+    limit: int | None = None,
 ) -> SourceStats:
     stats = SourceStats()
     with correlation_scope() as cid:
         _log.info("pipeline.source.start", source=source_cfg.name, correlation_id=cid)
         adapter = get_adapter(source_cfg)
         for result in adapter.fetch_new():
+            if limit is not None and stats.fetched >= max(0, limit):
+                break
             stats.fetched += 1
             if isinstance(result, FetchProblem):
                 stats.blocked += 1
@@ -268,6 +273,7 @@ def process_registry_source(
     live: bool = False,
     limit: int | None = None,
     fixture_path: str | None = None,
+    parse_immediately: bool = True,
 ) -> SourceStats:
     """Fetch + ingest + parse one registry source (Telegram channel, …).
 
@@ -305,13 +311,14 @@ def process_registry_source(
                     stats.already_exists_ids.append(doc.id)
                 continue
             stats.new_documents += 1
-            parse_and_extract(session, doc, monitoring)
-            if doc.parser_status == ParserStatus.parsed.value:
-                stats.parsed += 1
-            elif doc.parser_status == ParserStatus.irrelevant.value:
-                stats.irrelevant += 1
-            elif doc.parser_status == ParserStatus.parser_failed.value:
-                stats.failed += 1
+            if parse_immediately:
+                parse_and_extract(session, doc, monitoring)
+                if doc.parser_status == ParserStatus.parsed.value:
+                    stats.parsed += 1
+                elif doc.parser_status == ParserStatus.irrelevant.value:
+                    stats.irrelevant += 1
+                elif doc.parser_status == ParserStatus.parser_failed.value:
+                    stats.failed += 1
         _log.info("pipeline.registry_source.done", source=entry.id, **stats.__dict__)
     return stats
 
@@ -330,14 +337,19 @@ def _build_registry_adapter(entry, *, fixture_path: str | None = None):
 def process_pending(session: Session, monitoring: MonitoringConfig | None = None) -> SourceStats:
     monitoring = monitoring or load_monitoring()
     stats = SourceStats()
-    for doc in repo.list_pending_documents(session):
-        parse_and_extract(session, doc, monitoring)
-        if doc.parser_status == ParserStatus.parsed.value:
-            stats.parsed += 1
-        elif doc.parser_status == ParserStatus.irrelevant.value:
-            stats.irrelevant += 1
-        elif doc.parser_status == ParserStatus.parser_failed.value:
-            stats.failed += 1
+    while True:
+        pending = repo.list_pending_documents(session)
+        if not pending:
+            break
+        for doc in pending:
+            parse_and_extract(session, doc, monitoring)
+            if doc.parser_status == ParserStatus.parsed.value:
+                stats.parsed += 1
+            elif doc.parser_status == ParserStatus.irrelevant.value:
+                stats.irrelevant += 1
+            elif doc.parser_status == ParserStatus.parser_failed.value:
+                stats.failed += 1
+        session.flush()
     return stats
 
 
@@ -363,6 +375,7 @@ def reprocess(session: Session, document_id: int) -> int | None:
 class RfmImportStats:
     total: int = 0
     imported: int = 0
+    updated: int = 0
     duplicates: int = 0
 
 
@@ -401,9 +414,11 @@ def import_rfm_records(
             region=row.region,
             extra_json=row.extra_json,
         )
-        _, created = repo.upsert_person_record(session, rec)
+        _, created, updated = repo.upsert_person_record(session, rec)
         if created:
             stats.imported += 1
+        elif updated:
+            stats.updated += 1
         else:
             stats.duplicates += 1
     _log.info(
@@ -411,6 +426,7 @@ def import_rfm_records(
         source=source,
         total=stats.total,
         imported=stats.imported,
+        updated=stats.updated,
         duplicates=stats.duplicates,
     )
     return stats

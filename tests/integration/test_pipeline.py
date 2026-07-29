@@ -105,6 +105,40 @@ def test_ingest_fetch_result_dedup_directly(db_session):
     assert doc1.id == doc2.id
 
 
+def test_ingest_fetch_result_scopes_external_id_by_source(db_session):
+    """Telegram post ids are local to a channel; same id from another source is a distinct doc."""
+    first = FetchResult.from_content(
+        url="https://t.me/chan_a/42",
+        canonical_url="https://t.me/chan_a/42",
+        content="first channel post",
+        text="first channel post",
+        source_type=SourceType.telegram,
+        source_name="Channel A",
+        source_id="chan_a",
+        external_id="42",
+    )
+    second = FetchResult.from_content(
+        url="https://t.me/chan_b/42",
+        canonical_url="https://t.me/chan_b/42",
+        content="second channel post",
+        text="second channel post",
+        source_type=SourceType.telegram,
+        source_name="Channel B",
+        source_id="chan_b",
+        external_id="42",
+    )
+
+    doc1, created1 = ingest_fetch_result(db_session, first)
+    doc2, created2 = ingest_fetch_result(db_session, second)
+    doc1_again, created1_again = ingest_fetch_result(db_session, first)
+
+    assert created1 is True
+    assert created2 is True
+    assert created1_again is False
+    assert doc1.id != doc2.id
+    assert doc1_again.id == doc1.id
+
+
 def test_reprocess_refreshes_facts(db_session, monitoring_cfg, fixtures_html_dir):
     source = _make_source(str(fixtures_html_dir))
     process_source(db_session, source, monitoring_cfg)
@@ -215,6 +249,28 @@ def test_parse_pending_skips_already_parsed(db_session, monitoring_cfg, fixtures
     assert stats2.parsed == 0
     assert stats2.irrelevant == 0
     assert stats2.failed == 0
+
+
+def test_process_pending_drains_more_than_one_batch(db_session, monitoring_cfg, fixtures_html_dir):
+    """Default pending batch size is 100; process_pending must loop until the queue is empty."""
+    source = _make_source(str(fixtures_html_dir))
+    sample = next(iter(SudrfAdapter(source).fetch_new()))
+
+    for i in range(105):
+        result = FetchResult.from_content(
+            url=f"https://2zovs.sudrf.ru/fixture/relevant-{i}.html",
+            content=sample.content,
+            source_type=SourceType.sudrf,
+            source_name=source.name,
+        )
+        doc, created = ingest_fetch_result(db_session, result)
+        assert created is True
+        assert doc.parser_status == ParserStatus.pending.value
+
+    stats = process_pending(db_session, monitoring_cfg)
+
+    assert stats.parsed + stats.irrelevant + stats.failed == 105
+    assert repo.count_pending_documents(db_session) == 0
 
 
 # ---------------------------------------------------------------------------

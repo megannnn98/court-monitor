@@ -9,15 +9,29 @@ here.
 
 from __future__ import annotations
 
-import typer
+from pathlib import Path
 
+import typer
+import yaml
+from alembic import command as alembic_cmd
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
+
+import court_monitor.cli.app as cli_module
 from court_monitor.cli.app import (
     _accumulate_fetch_stats,
+    _doctor_check_alembic,
+    _doctor_check_tables,
+    _fetch_source_legacy,
     _render_stats_line,
     _render_totals_line,
     _stats_color,
 )
+from court_monitor.config.registry import SourceRegistryEntry
 from court_monitor.services import SourceStats
+from court_monitor.storage import repository as repo
+from court_monitor.storage.orm import Base
 
 
 def test_accumulate_fetch_stats_sums_fields():
@@ -78,3 +92,81 @@ def test_render_totals_line_includes_all_fields():
     totals = {"fetched": 9, "new": 4, "dup": 5, "parsed": 2, "irr": 1, "fail": 1, "blocked": 1}
     line = _render_totals_line(totals)
     assert line == ("fetched=9 new=4 duplicates=5 parsed=2 irrelevant=1 failed=1 blocked=1")
+
+
+def _make_engine():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    Base.metadata.create_all(engine)
+    return engine
+
+
+def _registry_entry() -> SourceRegistryEntry:
+    return SourceRegistryEntry(
+        id="extremizmunet",
+        name="Экстремизму - НЕТ!",
+        url="https://t.me/extremizmunet",
+        domain="t.me",
+        source_type="telegram",
+        username="extremizmunet",
+    )
+
+
+def test_fetch_source_legacy_registry_dry_run_rolls_back(monkeypatch):
+    engine = _make_engine()
+    monkeypatch.setattr(cli_module, "make_engine", lambda: engine)
+    monkeypatch.setattr(cli_module, "_registry_entry_or_none", lambda _name: _registry_entry())
+
+    _fetch_source_legacy("extremizmunet", dry_run=True, limit=1)
+
+    with Session(engine) as session:
+        assert repo.count_documents(session) == 0
+
+
+def test_fetch_source_legacy_registry_limit_and_no_parse(monkeypatch):
+    engine = _make_engine()
+    monkeypatch.setattr(cli_module, "make_engine", lambda: engine)
+    monkeypatch.setattr(cli_module, "_registry_entry_or_none", lambda _name: _registry_entry())
+
+    _fetch_source_legacy("extremizmunet", limit=1, no_parse=True)
+
+    with Session(engine) as session:
+        docs = repo.list_documents(session)
+        assert len(docs) == 1
+        assert docs[0].parser_status == "pending"
+
+
+def test_doctor_check_tables_reports_inspection_errors(monkeypatch):
+    class _BrokenEngine:
+        def connect(self):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli_module, "make_engine", _BrokenEngine)
+    problems: list[str] = []
+
+    _doctor_check_tables(problems)
+
+    assert any("table inspection failed" in p for p in problems)
+
+
+def test_doctor_check_alembic_reports_errors(monkeypatch):
+    def _raise_current(_config):
+        raise RuntimeError("migration boom")
+
+    monkeypatch.setattr(alembic_cmd, "current", _raise_current)
+    problems: list[str] = []
+
+    _doctor_check_alembic(problems)
+
+    assert any("alembic check failed" in p for p in problems)
+
+
+def test_docker_build_filter_includes_all_dockerfile_inputs():
+    workflow = yaml.safe_load(Path(".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    filters = workflow["jobs"]["changes"]["steps"][1]["with"]["filters"]
+
+    assert "alembic.ini" in filters

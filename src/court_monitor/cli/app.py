@@ -6,12 +6,13 @@ import getpass
 import hashlib
 import json
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from selectolax.parser import HTMLParser
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from court_monitor import __version__
 from court_monitor.config.loader import (
@@ -176,28 +177,25 @@ def _doctor_check_tables(problems: list[str]) -> None:
     """Check that required tables exist."""
     try:
         engine = make_engine()
-        with engine.connect() as conn:
-            result = conn.execute(
-                text("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-            )
-            tables = [row[0] for row in result]
-            expected = {
-                "source_documents",
-                "extracted_facts",
-                "person_records",
-                "person_match_candidates",
-            }
-            missing = expected - set(tables)
-            if missing:
-                typer.echo(f"tables: ✗ (missing: {', '.join(sorted(missing))})")
-                problems.append(f"Missing tables: {', '.join(sorted(missing))}")
-            else:
-                typer.echo(f"tables: ✓ ({len(tables)} tables)")
+        tables = inspect(engine).get_table_names()
+        expected = {
+            "source_documents",
+            "extracted_facts",
+            "person_records",
+            "person_match_candidates",
+        }
+        missing = expected - set(tables)
+        if missing:
+            typer.echo(f"tables: ✗ (missing: {', '.join(sorted(missing))})")
+            problems.append(f"Missing tables: {', '.join(sorted(missing))}")
+        else:
+            typer.echo(f"tables: ✓ ({len(tables)} tables)")
     except Exception as exc:
         typer.echo(f"tables: ✗ ({exc})")
+        problems.append(f"table inspection failed: {exc}")
 
 
-def _doctor_check_alembic() -> None:
+def _doctor_check_alembic(problems: list[str]) -> None:
     """Check Alembic current revision."""
 
     from alembic import command as alembic_cmd  # noqa: PLC0415
@@ -213,6 +211,7 @@ def _doctor_check_alembic() -> None:
         typer.echo("alembic_current: ✓")
     except Exception as exc:
         typer.echo(f"alembic_current: ✗ ({exc})")
+        problems.append(f"alembic check failed: {exc}")
 
 
 def _doctor_check_repository(problems: list[str]) -> None:
@@ -273,7 +272,7 @@ def doctor() -> None:
 
     _doctor_check_sqlite(problems)
     _doctor_check_tables(problems)
-    _doctor_check_alembic()
+    _doctor_check_alembic(problems)
     _doctor_check_repository(problems)
     _doctor_check_config(problems)
     _doctor_check_settings_source()
@@ -436,7 +435,7 @@ def fetch_source(
         _handle_fedsfm(file=file, live=live, dry_run=dry_run)
         return
 
-    _fetch_source_legacy(name, live=live, no_parse=no_parse)
+    _fetch_source_legacy(name, live=live, no_parse=no_parse, limit=limit, dry_run=dry_run)
 
 
 def _handle_fedsfm(
@@ -461,11 +460,17 @@ def _handle_fedsfm(
         typer.echo("No fixture data found.", err=True)
         raise typer.Exit(code=1)
 
+    if dry_run:
+        typer.echo(f"fedsfm: total={len(rows)} imported=0 updated=0 duplicates=0")
+        typer.echo("\n(режим --dry-run: данные не записаны)")
+        return
+
     engine = make_engine()
     with session_scope(engine) as session:
         stats = import_rfm_records(session, rows, source_url=source_url)
     typer.echo(
-        f"fedsfm: total={stats.total} imported={stats.imported} duplicates={stats.duplicates}"
+        f"fedsfm: total={stats.total} imported={stats.imported} "
+        f"updated={stats.updated} duplicates={stats.duplicates}"
     )
 
 
@@ -499,7 +504,8 @@ def _import_fedsfm_file(file: str, *, dry_run: bool) -> None:
             source_url=f"file://{file_path.absolute()}",
         )
     typer.echo(
-        f"\nfedsfm: total={stats.total} imported={stats.imported} duplicates={stats.duplicates}"
+        f"\nfedsfm: total={stats.total} imported={stats.imported} "
+        f"updated={stats.updated} duplicates={stats.duplicates}"
     )
 
 
@@ -526,21 +532,32 @@ def _print_fedsfm_preview(filename: str, file_hash: str, file_size: int, result)
             )
 
 
-def _fetch_source_legacy(name: str, *, live: bool = False, no_parse: bool = False) -> None:
+def _fetch_source_legacy(
+    name: str,
+    *,
+    live: bool = False,
+    no_parse: bool = False,
+    limit: int | None = None,
+    dry_run: bool = False,
+) -> None:
     monitoring = load_monitoring()
 
     entry = _registry_entry_or_none(name)
     if entry is not None:
         engine = make_engine()
-        with session_scope(engine) as session:
+        with _maybe_dry_run_session(engine, dry_run=dry_run) as session:
             stats = process_registry_source(
                 session,
                 entry,
                 monitoring,
                 live=live,
+                limit=limit,
                 fixture_path=str(_fixture_path_for(entry)) if _fixture_path_for(entry) else None,
+                parse_immediately=not no_parse,
             )
         typer.echo(_render_registry_stats(stats, entry.id, live=live))
+        if dry_run:
+            typer.echo("\n(режим --dry-run: данные не записаны)")
         return
 
     src = get_source(name)
@@ -551,13 +568,40 @@ def _fetch_source_legacy(name: str, *, live: bool = False, no_parse: bool = Fals
         )
         raise typer.Exit(code=1)
     engine = make_engine()
-    with session_scope(engine) as session:
-        stats = process_source(session, src, monitoring, parse_immediately=not no_parse)
+    with _maybe_dry_run_session(engine, dry_run=dry_run) as session:
+        stats = process_source(
+            session,
+            src,
+            monitoring,
+            parse_immediately=not no_parse,
+            limit=limit,
+        )
     typer.echo(
         f"{name}: fetched={stats.fetched} new={stats.new_documents} "
         f"duplicates={stats.duplicates} parsed={stats.parsed} "
         f"irrelevant={stats.irrelevant} failed={stats.failed} blocked={stats.blocked}"
     )
+    if dry_run:
+        typer.echo("\n(режим --dry-run: данные не записаны)")
+
+
+@contextmanager
+def _maybe_dry_run_session(engine, *, dry_run: bool):
+    if not dry_run:
+        with session_scope(engine) as session:
+            yield session
+        return
+
+    factory = make_session_factory(engine)
+    session = factory()
+    try:
+        yield session
+        session.rollback()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def _render_registry_stats(stats, source_id: str, *, live: bool) -> str:

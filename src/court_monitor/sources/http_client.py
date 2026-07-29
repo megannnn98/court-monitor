@@ -81,6 +81,8 @@ class HttpClient:
             resp = decorated(url)
         except httpx.TimeoutException:
             return HttpResponse(0, "", url, FetchHealth.timeout)
+        except httpx.TransportError:
+            return HttpResponse(0, "", url, FetchHealth.http_error)
         except RetryError:  # pragma: no cover - tenacity exhausted
             return HttpResponse(0, "", url, FetchHealth.http_error)
         health = classify_response(resp.status_code, resp.text)

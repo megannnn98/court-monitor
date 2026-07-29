@@ -90,6 +90,7 @@ jobs:
             docker:
               - 'Dockerfile'
               - '.dockerignore'
+              - 'alembic.ini'
               - 'docker-compose.yml'
               - 'docker/**'
               - 'pyproject.toml'
