@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Аудит — court-monitor{% endblock %}
+{% block content %}
+
+<h1>Журнал аудита <span class="muted">({{ total }})</span></h1>
+<p class="muted">
+  Только добавление: записи никогда не изменяются и не удаляются кодом приложения.
+  Здесь видно, кто и когда принял каждое решение.
+</p>
+
+<div class="filters">
+  <a href="{{ url_for('audit') }}" class="{{ 'active' if not object_type }}">Все</a>
+  <a href="{{ url_for('audit') }}?object_type=match_candidate" class="{{ 'active' if object_type == 'match_candidate' }}">Совпадения</a>
+  <a href="{{ url_for('audit') }}?object_type=review_item" class="{{ 'active' if object_type == 'review_item' }}">Проверка</a>
+</div>
+
+{% if rows %}
+<table class="bordered">
+  <thead>
+    <tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Объект</th><th>Было → стало</th></tr>
+  </thead>
+  <tbody>
+  {% for e in rows %}
+    <tr>
+      <td class="muted">{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') if e.created_at else '—' }}</td>
+      <td>{{ e.actor }}</td>
+      <td class="muted">{{ e.action }}</td>
+      <td>
+        {% if e.object_type == 'match_candidate' %}
+          <a href="{{ url_for('match_detail', candidate_id=e.object_id) }}">кандидат #{{ e.object_id }}</a>
+        {% else %}
+          <span class="muted">{{ e.object_type }} #{{ e.object_id }}</span>
+        {% endif %}
+      </td>
+      <td class="muted"><code>{{ e.old_value_json or '—' }}</code> → <code>{{ e.new_value_json or '—' }}</code></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Решений пока не принималось.</p>
+{% endif %}
+
+{% endblock %}

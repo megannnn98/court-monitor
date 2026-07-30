@@ -916,6 +916,33 @@ def run_all(
     )
 
 
+@app.command(name="list-audit-log")
+def list_audit_log_cmd(
+    object_type: Annotated[
+        str | None, typer.Option("--type", help="Filter: match_candidate / review_item.")
+    ] = None,
+    object_id: Annotated[int | None, typer.Option("--id", help="Filter by object id.")] = None,
+    limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
+) -> None:
+    """Show the append-only trail of operator decisions."""
+    _bootstrap_logging()
+    factory = make_session_factory(make_engine())
+    with factory() as session:
+        entries = repo.list_audit_log(
+            session, object_type=object_type, object_id=object_id, limit=limit
+        )
+        total = repo.count_audit_log(session, object_type=object_type, object_id=object_id)
+
+    typer.echo(f"Всего записей аудита: {total}")
+    typer.echo(f"{'Когда':20}  {'Кто':16}  {'Действие':22}  {'Объект':24}  Изменение")
+    typer.echo("-" * 110)
+    for e in entries:
+        when = e.created_at.strftime("%Y-%m-%d %H:%M:%S") if e.created_at else "-"
+        obj = f"{e.object_type}#{e.object_id}"
+        change = f"{e.old_value_json or '-'} -> {e.new_value_json or '-'}"
+        typer.echo(f"{when:20}  {e.actor[:16]:16}  {e.action[:22]:22}  {obj[:24]:24}  {change}")
+
+
 @app.command(name="run-web")
 def run_web(
     host: Annotated[str | None, typer.Option("--host", help="Bind address.")] = None,

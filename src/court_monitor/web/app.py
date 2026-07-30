@@ -274,6 +274,41 @@ def review_resolve(
 
 
 # ---------------------------------------------------------------------------
+# Registry and audit
+# ---------------------------------------------------------------------------
+
+
+@app.get("/registry", response_class=HTMLResponse, name="registry")
+def registry(request: Request, session: SessionDep, q: str = "") -> HTMLResponse:
+    query = q.strip() or None
+    rows = repo.search_person_records(session, query=query, limit=PAGE_SIZE)
+    return _render(
+        request,
+        "registry.html",
+        session,
+        nav="registry",
+        rows=rows,
+        q=query,
+        shown=len(rows),
+        total=repo.count_person_records_matching(session, query=query),
+    )
+
+
+@app.get("/audit", response_class=HTMLResponse, name="audit")
+def audit(request: Request, session: SessionDep, object_type: str = "") -> HTMLResponse:
+    selected = object_type if object_type in {"match_candidate", "review_item"} else None
+    return _render(
+        request,
+        "audit.html",
+        session,
+        nav="audit",
+        rows=repo.list_audit_log(session, object_type=selected, limit=200),
+        object_type=selected,
+        total=repo.count_audit_log(session, object_type=selected),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Background jobs
 # ---------------------------------------------------------------------------
 

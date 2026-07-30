@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Реестр — court-monitor{% endblock %}
+{% block content %}
+
+<h1>Реестр <span class="muted">({{ total }})</span></h1>
+<p class="muted">
+  Записи внешних перечней, с которыми сопоставляются имена из документов.
+  Поиск идёт по нормализованной форме, поэтому регистр, «ё» и лишние пробелы не мешают.
+</p>
+
+<form method="get" action="{{ url_for('registry') }}" class="actions">
+  <input type="text" name="q" value="{{ q or '' }}" placeholder="Фамилия или ФИО" autofocus>
+  <button type="submit">Найти</button>
+  {% if q %}<a href="{{ url_for('registry') }}"><button type="button">Сбросить</button></a>{% endif %}
+</form>
+
+{% if rows %}
+<table class="bordered">
+  <thead>
+    <tr><th>ID</th><th>ФИО</th><th>Дата рожд.</th><th>Место рождения</th><th>Основание</th><th>Источник</th></tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td class="num muted">{{ r.id }}</td>
+      <td>{{ r.raw_name }}</td>
+      <td class="muted">{{ r.birth_date or '—' }}</td>
+      <td class="muted">{{ r.birth_place or '—' }}</td>
+      <td class="muted">{{ r.category or '—' }}</td>
+      <td class="muted">{{ r.source }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if shown < total %}
+<p class="muted">Показаны первые {{ shown }} из {{ total }} — уточните запрос.</p>
+{% endif %}
+{% elif q %}
+<p class="empty">По запросу «{{ q }}» ничего не найдено.</p>
+{% else %}
+<p class="empty">Реестр пуст. Загрузите перечень на вкладке «Операции».</p>
+{% endif %}
+
+{% endblock %}

@@ -323,3 +323,74 @@ def test_starting_an_unknown_kind_is_409(client: TestClient):
         follow_redirects=False,
     )
     assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# Registry search
+# ---------------------------------------------------------------------------
+
+
+def test_registry_page_renders_and_warns_when_empty(client: TestClient):
+    assert "Реестр пуст" in client.get("/registry").text
+
+
+def test_registry_search_is_case_and_yo_insensitive(client: TestClient, session: Session):
+    """A name typed casually must still find the record: search runs against
+    the normalized form, which folds case and ё→е."""
+    session.add(
+        PersonRecord(
+            source="rfm",
+            raw_name="ВОРОБЬЁВ АНДРЕЙ ВИКТОРОВИЧ",
+            search_name="воробьев андрей викторович",
+            normalized_name="воробьев андрей викторович",
+        )
+    )
+    session.commit()
+
+    for query in ("Воробьёв", "воробьев", "ВОРОБЬЕВ АНДРЕЙ"):
+        assert "ВОРОБЬЁВ АНДРЕЙ ВИКТОРОВИЧ" in client.get(f"/registry?q={query}").text, query
+
+
+def test_registry_search_reports_no_hits(client: TestClient, session: Session):
+    _seed(session)
+    assert "ничего не найдено" in client.get("/registry?q=несуществующий").text
+
+
+# ---------------------------------------------------------------------------
+# Audit trail
+# ---------------------------------------------------------------------------
+
+
+def test_audit_page_is_empty_before_any_decision(client: TestClient):
+    assert "Решений пока не принималось" in client.get("/audit").text
+
+
+def test_a_decision_shows_up_in_the_audit_page(client: TestClient, session: Session):
+    """The audit trail is what makes a consequential decision reviewable, so
+    the UI must actually surface it, not just store it."""
+    candidate = _seed(session)
+    client.post(
+        f"/matches/{candidate.id}/decide",
+        data={
+            "decision": "confirmed",
+            "comment": "проверил дату",
+            deps.CSRF_FIELD: deps.csrf_token(),
+        },
+        follow_redirects=False,
+    )
+
+    body = client.get("/audit").text
+    assert "match_status_change" in body
+    assert "confirmed" in body
+    assert "проверил дату" in body
+
+
+def test_audit_can_be_filtered_by_object_type(client: TestClient, session: Session):
+    candidate = _seed(session)
+    client.post(
+        f"/matches/{candidate.id}/decide",
+        data={"decision": "rejected", deps.CSRF_FIELD: deps.csrf_token()},
+        follow_redirects=False,
+    )
+    assert "match_status_change" in client.get("/audit?object_type=match_candidate").text
+    assert "match_status_change" not in client.get("/audit?object_type=review_item").text

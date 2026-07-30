@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus
+from court_monitor.normalization import normalize_fio
 from court_monitor.storage.orm import (
     AuditLog,
     ExtractedFact,
@@ -492,3 +493,45 @@ def list_audit_log(
         stmt = stmt.where(AuditLog.object_id == object_id)
     stmt = stmt.limit(limit)
     return list(session.execute(stmt).scalars())
+
+
+def count_audit_log(
+    session: Session, *, object_type: str | None = None, object_id: int | None = None
+) -> int:
+    stmt = select(func.count(AuditLog.id))
+    if object_type is not None:
+        stmt = stmt.where(AuditLog.object_type == object_type)
+    if object_id is not None:
+        stmt = stmt.where(AuditLog.object_id == object_id)
+    return int(session.execute(stmt).scalar_one())
+
+
+def search_person_records(
+    session: Session, *, query: str | None = None, source: str | None = None, limit: int = 100
+) -> list[PersonRecord]:
+    """Find registry records by name.
+
+    Matching goes against ``search_name`` — the normalized form — so a query
+    typed in mixed case, with "ё", or with odd spacing still finds the record.
+    """
+    stmt = select(PersonRecord).order_by(PersonRecord.id.asc())
+    if source is not None:
+        stmt = stmt.where(PersonRecord.source == source)
+    if query:
+        needle = normalize_fio(query)
+        if needle:
+            stmt = stmt.where(PersonRecord.search_name.contains(needle))
+    return list(session.execute(stmt.limit(limit)).scalars())
+
+
+def count_person_records_matching(
+    session: Session, *, query: str | None = None, source: str | None = None
+) -> int:
+    stmt = select(func.count(PersonRecord.id))
+    if source is not None:
+        stmt = stmt.where(PersonRecord.source == source)
+    if query:
+        needle = normalize_fio(query)
+        if needle:
+            stmt = stmt.where(PersonRecord.search_name.contains(needle))
+    return int(session.execute(stmt).scalar_one())

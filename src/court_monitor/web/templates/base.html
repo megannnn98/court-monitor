@@ -19,6 +19,8 @@
     <a href="{{ url_for('review_items') }}" class="{{ 'active' if nav == 'review' }}">
       Проверка{% if pending_reviews %} <span class="badge">{{ pending_reviews }}</span>{% endif %}
     </a>
+    <a href="{{ url_for('registry') }}" class="{{ 'active' if nav == 'registry' }}">Реестр</a>
+    <a href="{{ url_for('audit') }}" class="{{ 'active' if nav == 'audit' }}">Аудит</a>
     <a href="{{ url_for('jobs') }}" class="{{ 'active' if nav == 'jobs' }}">
       Операции{% if active_jobs %} <span class="badge running">{{ active_jobs }}</span>{% endif %}
     </a>
