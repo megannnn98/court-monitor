@@ -12,12 +12,14 @@ from dataclasses import field as dataclass_field
 from sqlalchemy.orm import Session
 
 from court_monitor.config.loader import MonitoringConfig, SourceConfig, load_monitoring
+from court_monitor.config.settings import settings
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus, SourceType, VerificationStatus
 from court_monitor.extraction.articles import extract_articles
 from court_monitor.extraction.dates import extract_dates
 from court_monitor.extraction.filtering import evaluate_relevance, relevance_as_facts
 from court_monitor.extraction.names import extract_name_candidates
+from court_monitor.extraction.ner_names import extract_name_candidates_ner
 from court_monitor.observability import correlation_scope, get_logger
 from court_monitor.parsers.sudrf_press import PARSER_VERSION, parse_press_release, to_datetime
 from court_monitor.sources.base import FetchProblem, FetchResult, get_adapter
@@ -201,6 +203,14 @@ def parse_and_extract(
     facts.extend(article_facts)
     facts.extend(name_facts)
     facts.extend(date_facts)
+
+    if settings.ner_mode == "spacy":
+        try:
+            facts.extend(extract_name_candidates_ner(extraction_text, source_url=source_url))
+        except OSError:
+            # Model not downloaded (`python -m spacy download ru_core_news_lg`) —
+            # degrade to regex-only names rather than failing the whole document.
+            _log.error("pipeline.ner_model_missing", source_url=source_url)
 
     rel = evaluate_relevance(text, monitoring, source_url=source_url)
     facts.extend(relevance_as_facts(rel, source_url=source_url))
