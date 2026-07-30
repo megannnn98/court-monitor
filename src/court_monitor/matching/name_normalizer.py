@@ -184,10 +184,104 @@ def normalize_name_morph(raw: str) -> NormalizedName:
     )
 
 
+# ---------------------------------------------------------------------------
+# Two-token order detection ("Имя Фамилия" vs "Фамилия Имя")
+# ---------------------------------------------------------------------------
+#
+# A three-token name is anchored by its patronymic, so the surname is known to
+# come first. A two-token name has no such anchor, and the two sides of the
+# system disagree on order: news text writes "Владимир Романов" (given name
+# first) while the RFM registry writes "Романов Владимир Петрович". Taking
+# tokens[0] unconditionally therefore files an article's *given* name in the
+# surname field, and the surname index can never match it against a record.
+
+# Endings that mark a Russian/post-Soviet surname. Feminine forms are listed
+# explicitly because "-ова" does not end in "-ов".
+_SURNAME_SUFFIXES = (
+    "ов",
+    "ев",
+    "ин",
+    "ын",  # Иванов, Лебедев, Пушкин, Птицын
+    "ова",
+    "ева",
+    "ина",
+    "ына",  # Иванова, Пушкина
+    "ский",
+    "цкий",
+    "ской",
+    "цкой",
+    "ская",
+    "цкая",
+    "енко",
+    "ко",
+    "ук",
+    "юк",
+    "чук",  # Шевченко, Ткачук
+    "ян",
+    "дзе",
+    "швили",
+    "оглы",  # Петросян, Гвинашвили
+)
+
+# Common given names in the nominative. Needed because the suffix test alone
+# cannot separate "Ирина Иванова" — both tokens end in a surname-like "-ина"
+# / "-ова". Oblique forms ("Виктора", "Ахмата") are left out on purpose: the
+# suffix test already resolves them via the other token.
+# Kept as one whitespace-separated block: a name-per-line list would run to
+# ~150 lines and bury the logic below it (hence the SIM905 suppression).
+_GIVEN_NAMES = frozenset(
+    """
+    александр алексей анатолий андрей антон аркадий арсений артем артур богдан борис
+    вадим валентин валерий василий вениамин виктор виталий владимир владислав всеволод
+    вячеслав геннадий георгий глеб григорий давид даниил данил денис дмитрий евгений
+    егор ефим захар иван игнат игорь илья иннокентий кирилл константин кузьма лев
+    леонид максим марк матвей мирон михаил назар никита николай олег павел петр платон
+    прохор роман руслан савелий святослав семен сергей станислав степан тимофей тимур
+    трофим федор филипп эдуард эмиль юлиан юрий яков ярослав
+    айдар алишер аслан ахмат бекзод зелимхан ибрагим ильдар казбек камиль магомед марат
+    рамзан рустам шамиль
+    александра алина алла альбина анастасия ангелина анна антонина валентина валерия
+    варвара вера вероника виктория галина дарья диана ева евгения екатерина елена
+    елизавета жанна зинаида зоя инна ирина карина кристина ксения лариса лидия любовь
+    людмила маргарита марина мария надежда наталья нина оксана олеся ольга полина
+    раиса регина римма светлана софья таисия тамара татьяна ульяна юлия яна
+    """.split()  # noqa: SIM905 - readability: grouped by gender/origin, see comment above
+)
+
+
+def _looks_like_surname(token: str) -> bool:
+    return token.endswith(_SURNAME_SUFFIXES)
+
+
+def _surname_comes_first(first: str, second: str) -> bool:
+    """Decide whether ``first`` is the surname in a two-token name.
+
+    Falls back to the registry order ("Фамилия Имя") whenever the two tokens
+    give the same signal, so an ambiguous pair is never made worse than the
+    previous unconditional behaviour.
+    """
+    first_is_given = first in _GIVEN_NAMES
+    second_is_given = second in _GIVEN_NAMES
+    if first_is_given != second_is_given:
+        # A recognised given name is the strongest signal available: whichever
+        # token is *not* the given name has to be the surname.
+        return second_is_given
+
+    first_like = _looks_like_surname(first)
+    second_like = _looks_like_surname(second)
+    if first_like != second_like:
+        return first_like
+
+    return True
+
+
 def _simple_parse(raw: str, normalized: str, tokens: list[str]) -> NormalizedName:
     """Parse a name with fewer than 3 tokens (no morphological normalization)."""
-    surname = tokens[0] if len(tokens) >= 1 else ""
-    name = tokens[1] if len(tokens) >= 2 else ""
+    if len(tokens) == 2 and not _surname_comes_first(tokens[0], tokens[1]):
+        surname, name = tokens[1], tokens[0]
+    else:
+        surname = tokens[0] if len(tokens) >= 1 else ""
+        name = tokens[1] if len(tokens) >= 2 else ""
     patronymic = tokens[2] if len(tokens) >= 3 else ""
 
     initials_parts = []
