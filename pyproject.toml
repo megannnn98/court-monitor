@@ -25,6 +25,10 @@ dependencies = [
 [project.optional-dependencies]
 pg = ["psycopg[binary]>=3.1.18"]
 playwright = ["playwright>=1.44"]
+# ru_core_news_lg is a 500MB+ model wheel, not on PyPI's normal index —
+# install after `pip install -e ".[nlp]"` via:
+#   python -m spacy download ru_core_news_lg
+nlp = ["spacy>=3.8,<3.9"]
 
 [project.scripts]
 court-monitor = "court_monitor.cli.app:app"

@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     llm_api_key: str | None = None
     llm_model: str | None = None
 
+    # Name NER (disabled by default; opt-in via CM_NER_MODE=spacy — requires
+    # the `nlp` extra and `python -m spacy download ru_core_news_lg`)
+    ner_mode: str = "disabled"
+
     @property
     def config_path(self) -> Path:
         return Path(self.config_dir)
