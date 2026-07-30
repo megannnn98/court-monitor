@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Проверка — court-monitor{% endblock %}
+{% block content %}
+
+<h1>Очередь проверки</h1>
+<p class="muted">Сбои парсера и заблокированные источники — то, что pipeline не смог разобрать сам.</p>
+
+<div class="filters">
+  <a href="{{ url_for('review_items') }}?status=pending" class="{{ 'active' if status == 'pending' }}">Открытые ({{ counts.pending }})</a>
+  <a href="{{ url_for('review_items') }}?status=resolved" class="{{ 'active' if status == 'resolved' }}">Решённые ({{ counts.resolved }})</a>
+  <a href="{{ url_for('review_items') }}?status=dismissed" class="{{ 'active' if status == 'dismissed' }}">Отклонённые ({{ counts.dismissed }})</a>
+  <a href="{{ url_for('review_items') }}?status=all" class="{{ 'active' if not status }}">Все</a>
+</div>
+
+{% if rows %}
+<table class="bordered">
+  <thead>
+    <tr><th>ID</th><th>Тип</th><th>Приоритет</th><th>Источник</th><th>Документ</th><th>Создан</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for item in rows %}
+    <tr>
+      <td class="num muted">{{ item.id }}</td>
+      <td>
+        {% if item.item_type == 'parser_failed' %}<span class="tag danger">сбой парсера</span>
+        {% elif item.item_type == 'source_blocked' %}<span class="tag warn">источник заблокирован</span>
+        {% else %}<span class="tag">{{ item.item_type }}</span>{% endif %}
+      </td>
+      <td class="muted">{{ item.priority }}</td>
+      <td class="muted">{{ item.source_id or '—' }}</td>
+      <td class="muted">
+        {% if item.document_id %}<a href="{{ url_for('document_detail', document_id=item.document_id) }}">#{{ item.document_id }}</a>
+        {% else %}—{% endif %}
+      </td>
+      <td class="muted">{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '—' }}</td>
+      <td>
+        {% if item.status == 'pending' %}
+        <form method="post" action="{{ url_for('review_resolve', item_id=item.id) }}">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}">
+          <button name="decision" value="resolved" type="submit">Решено</button>
+          <button name="decision" value="dismissed" type="submit">Не важно</button>
+        </form>
+        {% else %}
+          <span class="muted">{{ item.status }}{% if item.resolved_by %} · {{ item.resolved_by }}{% endif %}</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Записей с таким статусом нет.</p>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Совпадения — court-monitor{% endblock %}
+{% block content %}
+
+<h1>Совпадения</h1>
+
+<div class="filters">
+  <a href="{{ url_for('matches') }}?status=pending" class="{{ 'active' if status == 'pending' }}">Ждут решения ({{ counts.pending }})</a>
+  <a href="{{ url_for('matches') }}?status=confirmed" class="{{ 'active' if status == 'confirmed' }}">Подтверждены ({{ counts.confirmed }})</a>
+  <a href="{{ url_for('matches') }}?status=rejected" class="{{ 'active' if status == 'rejected' }}">Отклонены ({{ counts.rejected }})</a>
+  <a href="{{ url_for('matches') }}?status=all" class="{{ 'active' if not status }}">Все</a>
+</div>
+
+{% if rows %}
+<table class="bordered">
+  <thead>
+    <tr><th>Score</th><th>Имя в тексте</th><th>Запись реестра</th><th>Дата рожд.</th><th>Статус</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for c in rows %}
+    <tr>
+      <td class="num score">{{ '%.2f' | format(c.score) }}</td>
+      <td>{{ c.extracted_fact.value if c.extracted_fact else '—' }}</td>
+      <td>{{ c.person_record.raw_name if c.person_record else '—' }}</td>
+      <td class="muted">{{ c.person_record.birth_date if c.person_record and c.person_record.birth_date else '—' }}</td>
+      <td>
+        {% if c.status == 'pending' %}<span class="tag warn">ждёт</span>
+        {% elif c.status == 'confirmed' %}<span class="tag ok">подтверждён</span>
+        {% else %}<span class="tag muted">отклонён</span>{% endif %}
+      </td>
+      <td><a href="{{ url_for('match_detail', candidate_id=c.id) }}">разобрать →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Кандидатов с таким статусом нет.</p>
+{% endif %}
+
+{% endblock %}

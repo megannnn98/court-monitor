@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Кандидат {{ c.id }} — court-monitor{% endblock %}
+{% block content %}
+
+<p class="muted"><a href="{{ url_for('matches') }}?status=pending">← к совпадениям</a></p>
+
+<h1>
+  Кандидат {{ c.id }}
+  <span class="score">{{ '%.2f' | format(c.score) }}</span>
+  {% if c.status == 'pending' %}<span class="tag warn">ждёт решения</span>
+  {% elif c.status == 'confirmed' %}<span class="tag ok">подтверждён</span>
+  {% else %}<span class="tag muted">отклонён</span>{% endif %}
+</h1>
+
+<div class="two-col">
+  <div class="card">
+    <h2 style="margin-top:0">В документе</h2>
+    {% if fact %}
+      <p><strong>{{ fact.value }}</strong></p>
+      {% if fact.quote %}<p class="quote">{{ fact.quote }}</p>{% endif %}
+      <p class="muted">
+        метод: {{ fact.extraction_method }} · confidence {{ '%.2f' | format(fact.confidence) }}<br>
+        документ: <a href="{{ url_for('document_detail', document_id=fact.document_id) }}">#{{ fact.document_id }}</a>
+      </p>
+    {% else %}
+      <p class="empty">Факт удалён.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">В реестре</h2>
+    {% if record %}
+      <p><strong>{{ record.raw_name }}</strong></p>
+      <table>
+        <tr><th>Дата рождения</th><td>{{ record.birth_date or '—' }}</td></tr>
+        <tr><th>Место рождения</th><td>{{ record.birth_place or '—' }}</td></tr>
+        <tr><th>Основание</th><td>{{ record.category or '—' }}</td></tr>
+        <tr><th>Номер записи</th><td>{{ record.source_ref or '—' }}</td></tr>
+        <tr><th>Источник</th><td class="muted">{{ record.source_url or record.source }}</td></tr>
+      </table>
+    {% else %}
+      <p class="empty">Запись удалена.</p>
+    {% endif %}
+  </div>
+</div>
+
+<h2>Из чего сложился score</h2>
+<div class="card">
+  <p class="muted">
+    имя {{ '%.2f' | format(c.name_score) }} ·
+    дата рождения {{ '%.2f' | format(c.birth_date_score) }} ·
+    место рождения {{ '%.2f' | format(c.birthplace_score) }} ·
+    алгоритм {{ c.algorithm_version }}
+  </p>
+
+  {% for r in reasons %}
+    <div class="reason">
+      <span class="impact">{{ '%+.2f' | format(r.impact) if r.impact is defined else '' }}</span>
+      <span>
+        <strong>{{ r.rule }}</strong>
+        {% if r.document_value %}<br><span class="muted">док: {{ r.document_value }}</span>{% endif %}
+        {% if r.record_value %}<br><span class="muted">зап: {{ r.record_value }}</span>{% endif %}
+      </span>
+    </div>
+  {% endfor %}
+
+  {% for r in conflicts %}
+    <div class="reason conflict">
+      <span class="impact">конфликт</span>
+      <span>
+        <strong>{{ r.rule }}</strong>
+        {% if r.document_value %}<br><span class="muted">док: {{ r.document_value }}</span>{% endif %}
+        {% if r.record_value %}<br><span class="muted">зап: {{ r.record_value }}</span>{% endif %}
+      </span>
+    </div>
+  {% endfor %}
+
+  {% if not reasons and not conflicts %}<p class="empty">Разбор не сохранён.</p>{% endif %}
+</div>
+
+{% if c.status == 'pending' %}
+<div class="card">
+  <h2 style="margin-top:0">Решение</h2>
+  <p class="muted">
+    Совпадение фамилии и имени даёт 0.50 и само по себе не отличает человека от однофамильца.
+    Проверьте дату и место рождения, прежде чем подтверждать.
+  </p>
+  <form method="post" action="{{ url_for('match_decide', candidate_id=c.id) }}">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}">
+    <input type="text" name="comment" placeholder="Комментарий (попадёт в журнал аудита)">
+    <div class="actions">
+      <button class="primary" name="decision" value="confirmed" type="submit">Подтвердить</button>
+      <button class="danger" name="decision" value="rejected" type="submit">Отклонить</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <p>
+    Решение: <strong>{{ 'подтверждён' if c.status == 'confirmed' else 'отклонён' }}</strong>
+    {% if c.reviewed_at %}<span class="muted">· {{ c.reviewed_at.isoformat() }}</span>{% endif %}
+  </p>
+  {% if c.review_comment %}<p class="quote">{{ c.review_comment }}</p>{% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,4 +1,4 @@
-.PHONY: help install lock sync fmt lint typecheck test test-unit test-integration run-api run-cli docker-build docker-up migrate init-db doctor
+.PHONY: help install lock sync fmt lint typecheck test test-unit test-integration run-web run-api run-cli docker-build docker-up migrate init-db doctor
 
 PYTHON ?= python
 PKG := court_monitor
@@ -16,7 +16,8 @@ help:
 	@echo "  make init-db       - create schema (alembic upgrade head)"
 	@echo "  make migrate       - run migrations"
 	@echo "  make doctor        - environment sanity check"
-	@echo "  make run-api       - uvicorn (FastAPI)"
+	@echo "  make run-web       - operator web UI (127.0.0.1:8010)"
+	@echo "  make run-api       - uvicorn (FastAPI JSON)"
 	@echo "  make run-cli       - Typer CLI REPL"
 	@echo "  make docker-build  - build image"
 	@echo "  make docker-up     - compose up (postgres + app)"
@@ -54,6 +55,9 @@ migrate:
 
 doctor:
 	uv run court-monitor doctor
+
+run-web:
+	uv run court-monitor run-web --reload
 
 run-api:
 	uv run uvicorn court_monitor.api.app:app --reload --host 0.0.0.0 --port 8000

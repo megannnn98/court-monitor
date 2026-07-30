@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Документ {{ doc.id }} — court-monitor{% endblock %}
+{% block content %}
+
+<p class="muted"><a href="{{ url_for('documents') }}">← к документам</a></p>
+<h1>{{ doc.title or '(без заголовка)' }}</h1>
+
+<div class="card">
+  <table>
+    <tr><th>Источник</th><td>{{ doc.source_id or doc.source_name or '—' }}</td></tr>
+    <tr><th>Дата</th><td>{{ doc.published_at.isoformat() if doc.published_at else '—' }}</td></tr>
+    <tr><th>URL</th><td><a href="{{ doc.canonical_url or doc.url }}" rel="noreferrer noopener">{{ doc.canonical_url or doc.url }}</a></td></tr>
+    <tr><th>Статус разбора</th><td>{{ doc.parser_status }}</td></tr>
+    <tr><th>Релевантность</th><td>{{ 'да' if doc.relevant else 'нет' }}</td></tr>
+    <tr><th>SHA-256</th><td class="muted"><code>{{ doc.content_hash }}</code></td></tr>
+    {% if doc.parser_error %}<tr><th>Ошибка</th><td class="tag danger">{{ doc.parser_error }}</td></tr>{% endif %}
+  </table>
+</div>
+
+<h2>Извлечённые факты</h2>
+{% if grouped %}
+  {% for field, facts in grouped.items() %}
+  <div class="card">
+    <strong>{{ field }}</strong> <span class="muted">({{ facts | length }})</span>
+    <table>
+      <thead><tr><th>Значение</th><th>Confidence</th><th>Метод</th><th>Цитата</th></tr></thead>
+      <tbody>
+      {% for f in facts %}
+        <tr>
+          <td>{{ f.value }}</td>
+          <td class="num">{{ '%.2f' | format(f.confidence) }}</td>
+          <td class="muted">{{ f.extraction_method }}</td>
+          <td class="muted">{% if f.quote %}«{{ f.quote }}»{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+{% else %}
+<p class="empty">Фактов не извлечено.</p>
+{% endif %}
+
+<h2>Текст</h2>
+<div class="card">
+  {% if doc.text %}<p style="white-space: pre-wrap">{{ doc.text[:4000] }}</p>
+  {% else %}<p class="empty">Текст пуст.</p>{% endif %}
+</div>
+
+{% endblock %}

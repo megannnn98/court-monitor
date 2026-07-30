@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     # the `nlp` extra and `python -m spacy download ru_core_news_lg`)
     ner_mode: str = "disabled"
 
+    # Web UI. Binds to loopback by default: the review pages mutate match
+    # decisions and there is no authentication yet (D-007).
+    web_host: str = "127.0.0.1"
+    web_port: int = 8010
+    # Recorded as `actor` on every decision; falls back to the OS user.
+    web_operator: str | None = None
+
     @property
     def config_path(self) -> Path:
         return Path(self.config_dir)

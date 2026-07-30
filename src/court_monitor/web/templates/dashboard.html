@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Обзор — court-monitor{% endblock %}
+{% block content %}
+
+<h1>Обзор</h1>
+
+<div class="stats">
+  <div class="stat"><div class="n">{{ documents }}</div><div class="k">документов</div></div>
+  <div class="stat"><div class="n">{{ relevant }}</div><div class="k">релевантных</div></div>
+  <div class="stat"><div class="n">{{ facts }}</div><div class="k">извлечённых фактов</div></div>
+  <div class="stat"><div class="n">{{ person_records }}</div><div class="k">записей реестра</div></div>
+</div>
+
+<h2>Очередь оператора</h2>
+<div class="stats">
+  <div class="stat">
+    <div class="n">{{ matches_pending }}</div>
+    <div class="k"><a href="{{ url_for('matches') }}?status=pending">совпадений ждут решения</a></div>
+  </div>
+  <div class="stat"><div class="n">{{ matches_confirmed }}</div><div class="k">подтверждено</div></div>
+  <div class="stat"><div class="n">{{ matches_rejected }}</div><div class="k">отклонено</div></div>
+  <div class="stat">
+    <div class="n">{{ reviews_pending }}</div>
+    <div class="k"><a href="{{ url_for('review_items') }}?status=pending">проблем источников</a></div>
+  </div>
+</div>
+
+{% if person_records == 0 %}
+<div class="card">
+  <strong>Реестр не загружен.</strong>
+  <p class="muted">Без записей реестра сопоставление не даст ни одного кандидата.
+  Загрузите перечень: <code>court-monitor fetch-source fedsfm --live</code></p>
+</div>
+{% endif %}
+
+<h2>Последние документы</h2>
+{% if recent %}
+<table class="bordered">
+  <thead><tr><th>Дата</th><th>Источник</th><th>Заголовок</th><th>Статус</th></tr></thead>
+  <tbody>
+  {% for d in recent %}
+    <tr>
+      <td class="muted">{{ d.published_at.strftime('%Y-%m-%d') if d.published_at else '—' }}</td>
+      <td class="muted">{{ d.source_id or d.source_name or '—' }}</td>
+      <td><a href="{{ url_for('document_detail', document_id=d.id) }}">{{ d.title or '(без заголовка)' }}</a></td>
+      <td>
+        {% if d.relevant %}<span class="tag ok">релевантен</span>
+        {% else %}<span class="tag muted">нет</span>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Документов пока нет.</p>
+{% endif %}
+
+{% endblock %}

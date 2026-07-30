@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}court-monitor{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('dashboard') }}">court-monitor</a>
+  <nav>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if nav == 'dashboard' }}">Обзор</a>
+    <a href="{{ url_for('documents') }}" class="{{ 'active' if nav == 'documents' }}">Документы</a>
+    <a href="{{ url_for('matches') }}" class="{{ 'active' if nav == 'matches' }}">
+      Совпадения{% if pending_matches %} <span class="badge">{{ pending_matches }}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('review_items') }}" class="{{ 'active' if nav == 'review' }}">
+      Проверка{% if pending_reviews %} <span class="badge">{{ pending_reviews }}</span>{% endif %}
+    </a>
+  </nav>
+  <span class="operator" title="Записывается в журнал аудита">{{ operator }}</span>
+</header>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  Полуавтоматический мониторинг. Ни одно совпадение не подтверждается автоматически.
+</footer>
+</body>
+</html>

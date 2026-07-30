@@ -916,6 +916,34 @@ def run_all(
     )
 
 
+@app.command(name="run-web")
+def run_web(
+    host: Annotated[str | None, typer.Option("--host", help="Bind address.")] = None,
+    port: Annotated[int | None, typer.Option("--port", help="Port.")] = None,
+    reload: Annotated[bool, typer.Option("--reload", help="Auto-reload on code changes.")] = False,
+) -> None:
+    """Serve the operator web UI (review queue, documents, statistics).
+
+    Binds to loopback unless told otherwise: the review pages change match
+    decisions and there is no authentication yet (D-007).
+    """
+    import uvicorn  # noqa: PLC0415 - keeps CLI startup free of the server import
+
+    bind_host = host or settings.web_host
+    bind_port = port or settings.web_port
+    if bind_host not in {"127.0.0.1", "localhost", "::1"}:
+        typer.secho(
+            f"ВНИМАНИЕ: интерфейс слушает {bind_host} — он доступен не только с этой машины, "
+            "а аутентификации пока нет (D-007). Любой, кто дотянется до порта, сможет "
+            "подтверждать и отклонять совпадения от вашего имени.",
+            fg=typer.colors.YELLOW,
+            bold=True,
+            err=True,
+        )
+    typer.secho(f"http://{bind_host}:{bind_port}", fg=typer.colors.CYAN, bold=True)
+    uvicorn.run("court_monitor.web.app:app", host=bind_host, port=bind_port, reload=reload)
+
+
 @app.command()
 def parse_pending() -> None:
     """Parse all documents left in 'pending' state."""

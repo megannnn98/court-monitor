@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Документы — court-monitor{% endblock %}
+{% block content %}
+
+<h1>Документы <span class="muted">({{ total }})</span></h1>
+
+{% if rows %}
+<table class="bordered">
+  <thead>
+    <tr><th>ID</th><th>Дата</th><th>Источник</th><th>Заголовок</th><th>Разбор</th><th>Релевантность</th></tr>
+  </thead>
+  <tbody>
+  {% for d in rows %}
+    <tr>
+      <td class="num muted">{{ d.id }}</td>
+      <td class="muted">{{ d.published_at.strftime('%Y-%m-%d') if d.published_at else '—' }}</td>
+      <td class="muted">{{ d.source_id or d.source_name or '—' }}</td>
+      <td><a href="{{ url_for('document_detail', document_id=d.id) }}">{{ d.title or '(без заголовка)' }}</a></td>
+      <td>
+        {% if d.parser_status == 'parsed' %}<span class="tag ok">разобран</span>
+        {% elif d.parser_status == 'irrelevant' %}<span class="tag muted">нерелевантен</span>
+        {% elif d.parser_status == 'parser_failed' %}<span class="tag danger">сбой парсера</span>
+        {% else %}<span class="tag warn">{{ d.parser_status }}</span>{% endif %}
+      </td>
+      <td>{% if d.relevant %}<span class="tag ok">да</span>{% else %}<span class="tag muted">нет</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="pager">
+  {% if page > 1 %}<a href="{{ url_for('documents') }}?page={{ page - 1 }}">← назад</a>{% endif %}
+  <span class="muted">стр. {{ page }}</span>
+  {% if has_next %}<a href="{{ url_for('documents') }}?page={{ page + 1 }}">вперёд →</a>{% endif %}
+</div>
+{% else %}
+<p class="empty">На этой странице документов нет.</p>
+{% endif %}
+
+{% endblock %}
