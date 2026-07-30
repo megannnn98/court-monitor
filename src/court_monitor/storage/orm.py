@@ -224,3 +224,35 @@ class AuditLog(Base):
     new_value_json: Mapped[str | None] = mapped_column(Text)
     correlation_id: Mapped[str | None] = mapped_column(String(64), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+
+
+class Job(Base):
+    """A long-running pipeline operation started from the web UI.
+
+    Fetching every source takes minutes, far longer than a request may hold, so
+    the work runs in the background and its state lives here — that is also what
+    lets the UI show progress and, more importantly, what a failure *was*
+    instead of losing it to a log line nobody reads.
+
+    ``kind`` is a free-form string for the same reason ``ReviewItem.item_type``
+    is: the set of operations is still moving.
+    """
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
+    actor: Mapped[str] = mapped_column(String(128))
+
+    params_json: Mapped[str | None] = mapped_column(Text)
+    result_json: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in {"queued", "running"}

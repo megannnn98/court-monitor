@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}court-monitor{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
 <header class="topbar">
@@ -17,6 +18,9 @@
     </a>
     <a href="{{ url_for('review_items') }}" class="{{ 'active' if nav == 'review' }}">
       Проверка{% if pending_reviews %} <span class="badge">{{ pending_reviews }}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('jobs') }}" class="{{ 'active' if nav == 'jobs' }}">
+      Операции{% if active_jobs %} <span class="badge running">{{ active_jobs }}</span>{% endif %}
     </a>
   </nav>
   <span class="operator" title="Записывается в журнал аудита">{{ operator }}</span>

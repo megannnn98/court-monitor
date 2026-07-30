@@ -16,6 +16,7 @@ from court_monitor.storage.orm import (
     AuditLog,
     Base,
     ExtractedFact,
+    Job,
     MatchCandidate,
     PersonRecord,
     ReviewItem,
@@ -275,3 +276,50 @@ def test_review_resolve_requires_csrf(client: TestClient, session: Session):
     assert resp.status_code == 403
     session.expire_all()
     assert session.get(ReviewItem, item.id).status == "pending"
+
+
+# ---------------------------------------------------------------------------
+# Jobs pages
+# ---------------------------------------------------------------------------
+
+
+def test_jobs_page_renders_and_lists_kinds(client: TestClient):
+    body = client.get("/jobs").text
+    assert "Собрать всё и сопоставить" in body
+    assert "Загрузить перечень РФМ" in body
+
+
+def test_jobs_page_does_not_autorefresh_when_idle(client: TestClient):
+    assert 'http-equiv="refresh"' not in client.get("/jobs").text
+
+
+def test_jobs_page_autorefreshes_while_a_job_is_active(client: TestClient, session: Session):
+    session.add(Job(kind="run_all", status="running", actor="tester"))
+    session.commit()
+    assert 'http-equiv="refresh"' in client.get("/jobs").text
+
+
+def test_job_detail_shows_error(client: TestClient, session: Session):
+    job = Job(kind="run_all", status="failed", actor="tester", error="ValueError: сломалось")
+    session.add(job)
+    session.commit()
+    body = client.get(f"/jobs/{job.id}").text
+    assert "ValueError: сломалось" in body
+
+
+def test_missing_job_is_404(client: TestClient):
+    assert client.get("/jobs/4242").status_code == 404
+
+
+def test_starting_a_job_requires_csrf(client: TestClient):
+    resp = client.post("/jobs/start", data={"kind": "generate_matches"}, follow_redirects=False)
+    assert resp.status_code == 403
+
+
+def test_starting_an_unknown_kind_is_409(client: TestClient):
+    resp = client.post(
+        "/jobs/start",
+        data={"kind": "nope", deps.CSRF_FIELD: deps.csrf_token()},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 409

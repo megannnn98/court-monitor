@@ -29,7 +29,9 @@ src/court_monitor/
 ├── normalization/  # __init__.py (normalize_fio — ё→е, register)
 ├── services/       # __init__.py (pipeline orchestration)
 ├── cli/            # app.py (Typer)
-├── api/            # app.py (FastAPI, read-only)
+├── api/            # app.py (FastAPI, read-only JSON)
+├── web/            # app.py (операторский UI), jobs.py (фоновые задачи),
+│                   # deps.py, templates/, static/
 └── observability/  # __init__.py (structlog, correlation_id)
 ```
 
@@ -106,6 +108,7 @@ MC --> CRM
 | `ExtractedFact` | `extracted_facts` | Каждое извлечённое значение с confidence/quote |
 | `PersonRecord` | `person_records` | Записи из внешних реестров (Росфинмониторинг) |
 | `MatchCandidate` | `person_match_candidates` | Кандидаты сопоставления (pending → confirmed/rejected) |
+| `Job` | `jobs` | Фоновая операция, запущенная из веба (статус, результат, ошибка) |
 
 ## Типы источников
 
@@ -123,7 +126,7 @@ MC --> CRM
 
 ## Миграции
 
-Alembic, 8 миграций: initial → registry_provenance → person_records → person_names → match_candidates → review_items → audit_log → person_records_rfm_v2.
+Alembic, 9 миграций: initial → registry_provenance → person_records → person_names → match_candidates → review_items → audit_log → person_records_rfm_v2 → jobs.
 
 `doctor` сравнивает применённую ревизию с head (`storage/migrations.py::revision_status`) и считает отставание проблемой: отставшая БД отвечает на `SELECT 1` и сохраняет все старые таблицы, поэтому обнаруживается только позже как `no such column` посреди прогона.
 
@@ -134,3 +137,13 @@ Alembic, 8 миграций: initial → registry_provenance → person_records 
 - `config/source_registry.yaml` — реестр Telegram-каналов (импорт из Airtable)
 - `config/ca/fedsfm_ru_chain.pem` — цепочка доверия для fedsfm.ru; провенанс, отпечатки, ротация и остаточный риск описаны в `config/ca/README.md`
 - `.env` / env vars — `CM_DATABASE_URL`, `CM_LOG_LEVEL`, `CM_CONFIG_DIR`, `CM_AIRTABLE_MODE`, `CM_LLM_MODE`, `CM_NER_MODE`
+
+## Операторский веб-интерфейс (web/)
+
+Server-rendered Jinja2 без сборки и без JS: `confirm`/`reject` — обычная форма с POST, поэтому всё тестируется через `TestClient`. Отделён от `api/`, который остаётся read-only JSON.
+
+Страницы: обзор, документы и их факты, очередь совпадений с разбором score, очередь проверки, операции.
+
+**Безопасность.** Аутентификации нет (D-007), поэтому по умолчанию слушает loopback, а `run-web --host` с внешним адресом печатает предупреждение. Все изменяющие маршруты зависят от `require_operator` + `verify_csrf`. Имя оператора уже пишется в `AuditLog` — когда появится настоящая авторизация, меняется только `require_operator`, эндпоинты трогать не нужно.
+
+**Фоновые задачи (`web/jobs.py`).** Сбор источников идёт минутами и в HTTP-запрос не укладывается, поэтому работа уходит в `ThreadPoolExecutor(max_workers=1)`, а состояние живёт в таблице `jobs`. Один воркер — осознанно: SQLite сериализует запись и иначе выдаёт `database is locked`, а два одновременных `run_all` дважды дёргали бы одни и те же источники. Задача получает собственную сессию: request-scoped закрылась бы вместе с ответом. Повторный запуск операции того же вида отклоняется с 409. Ничто не переживает рестарт, поэтому `recover_stale_jobs` при старте помечает зависшие в `running` как прерванные — иначе UI обещал бы работу, которая никогда не завершится. Это закрывает D-008 для ad-hoc запуска; расписания по-прежнему нет.

@@ -142,3 +142,15 @@ input[type=text] {
 .reason.conflict .impact { color: var(--danger); }
 
 .pager { display: flex; gap: 0.75rem; margin-top: 1rem; align-items: center; }
+
+.job-launcher { display: grid; gap: 0.5rem; }
+.job-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.6rem 0; border-bottom: 1px dashed var(--border);
+}
+.job-option label { display: block; margin-top: 0.3rem; font-size: 0.85rem; }
+.badge.running { background: var(--warn); }
+pre.error {
+  white-space: pre-wrap; overflow-x: auto; margin: 0;
+  font-size: 0.82rem; color: var(--danger);
+}

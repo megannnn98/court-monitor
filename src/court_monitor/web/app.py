@@ -12,6 +12,8 @@ through ``require_operator`` + ``verify_csrf``.
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -25,6 +27,9 @@ from court_monitor import __version__
 from court_monitor.config.settings import settings
 from court_monitor.observability import configure_logging, correlation_scope, get_logger
 from court_monitor.storage import repository as repo
+from court_monitor.storage.db import session_scope
+from court_monitor.storage.orm import Job
+from court_monitor.web import jobs
 from court_monitor.web.deps import (
     CSRF_FIELD,
     csrf_token,
@@ -40,7 +45,32 @@ STATIC_DIR = _HERE / "static"
 configure_logging(settings.log_level)
 _log = get_logger("web")
 
-app = FastAPI(title="court-monitor UI", version=__version__, docs_url=None, redoc_url=None)
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Clear jobs orphaned by a previous process before serving anything.
+
+    Nothing survives a restart mid-run, so those rows would otherwise sit in
+    ``running`` forever and the UI would keep promising work that is never
+    coming back.
+    """
+    try:
+        with session_scope() as session:
+            recovered = jobs.recover_stale_jobs(session)
+        if recovered:
+            _log.warning("web.startup.recovered_jobs", count=recovered)
+    except Exception:  # pragma: no cover - never block startup over cleanup
+        _log.exception("web.startup.recover_failed")
+    yield
+
+
+app = FastAPI(
+    title="court-monitor UI",
+    version=__version__,
+    docs_url=None,
+    redoc_url=None,
+    lifespan=_lifespan,
+)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
@@ -58,6 +88,7 @@ def _render(request: Request, template: str, session: Session, **ctx: Any) -> HT
         "csrf_field": CSRF_FIELD,
         "pending_matches": repo.count_match_candidates(session, status="pending"),
         "pending_reviews": repo.count_review_items(session, status="pending"),
+        "active_jobs": jobs.count_active(session),
     }
     return templates.TemplateResponse(request, template, {**base, **ctx})
 
@@ -240,6 +271,74 @@ def review_resolve(
             raise HTTPException(status_code=404, detail="Запись не найдена")
         session.commit()
     return RedirectResponse(url="/review?status=pending", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Background jobs
+# ---------------------------------------------------------------------------
+
+
+@app.get("/jobs", response_class=HTMLResponse, name="jobs")
+def jobs_page(request: Request, session: SessionDep) -> HTMLResponse:
+    rows = jobs.list_jobs(session, limit=50)
+    return _render(
+        request,
+        "jobs.html",
+        session,
+        nav="jobs",
+        rows=rows,
+        kinds=jobs.JOB_KINDS,
+        # Only refresh while something is actually moving, so a quiet page
+        # does not reload every few seconds for nothing.
+        autorefresh=any(j.is_active for j in rows),
+    )
+
+
+@app.get("/jobs/{job_id}", response_class=HTMLResponse, name="job_detail")
+def job_detail(request: Request, job_id: int, session: SessionDep) -> HTMLResponse:
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+    return _render(
+        request,
+        "job_detail.html",
+        session,
+        nav="jobs",
+        job=job,
+        kinds=jobs.JOB_KINDS,
+        result=_load_obj(job.result_json),
+        autorefresh=job.is_active,
+    )
+
+
+@app.post("/jobs/start", name="job_start")
+def job_start(
+    kind: Annotated[str, Form()],
+    _csrf: CsrfDep,
+    session: SessionDep,
+    live: Annotated[bool, Form()] = False,
+    replace: Annotated[bool, Form()] = False,
+) -> RedirectResponse:
+    operator = require_operator()
+    try:
+        jobs.submit(
+            session,
+            kind,
+            actor=operator,
+            params={"live": live, "replace": replace},
+        )
+    except jobs.JobRejected as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return RedirectResponse(url="/jobs", status_code=303)
+
+
+def _load_obj(raw: str | None) -> Any:
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:  # pragma: no cover - defensive
+        return None
 
 
 def _load_json(raw: str | None) -> list[dict[str, Any]]:

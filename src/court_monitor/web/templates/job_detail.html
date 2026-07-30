@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Операция {{ job.id }} — court-monitor{% endblock %}
+{% block head %}{% if autorefresh %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+
+<p class="muted"><a href="{{ url_for('jobs') }}">← к операциям</a></p>
+
+<h1>
+  {{ kinds[job.kind].label if job.kind in kinds else job.kind }}
+  {% if job.status == 'running' %}<span class="tag warn">выполняется</span>
+  {% elif job.status == 'queued' %}<span class="tag muted">в очереди</span>
+  {% elif job.status == 'succeeded' %}<span class="tag ok">готово</span>
+  {% else %}<span class="tag danger">ошибка</span>{% endif %}
+</h1>
+
+<div class="card">
+  <table>
+    <tr><th>Запустил</th><td>{{ job.actor }}</td></tr>
+    <tr><th>Создана</th><td>{{ job.created_at.isoformat() if job.created_at else '—' }}</td></tr>
+    <tr><th>Начата</th><td>{{ job.started_at.isoformat() if job.started_at else '—' }}</td></tr>
+    <tr><th>Завершена</th><td>{{ job.finished_at.isoformat() if job.finished_at else '—' }}</td></tr>
+    <tr><th>Параметры</th><td class="muted"><code>{{ job.params_json or '{}' }}</code></td></tr>
+  </table>
+</div>
+
+{% if job.is_active %}
+<p class="muted">Страница обновляется каждые 5 секунд, пока операция идёт.</p>
+{% endif %}
+
+{% if result %}
+<h2>Результат</h2>
+<div class="card">
+  {% if result.totals %}
+  <table>
+    <thead><tr>{% for k in result.totals %}<th>{{ k }}</th>{% endfor %}</tr></thead>
+    <tbody><tr>{% for v in result.totals.values() %}<td class="num">{{ v }}</td>{% endfor %}</tr></tbody>
+  </table>
+  {% endif %}
+
+  {% if result.matches %}
+  <h3>Совпадения</h3>
+  <table>
+    <tbody>
+    {% for k, v in result.matches.items() %}<tr><th>{{ k }}</th><td class="num">{{ v }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if result.sources %}
+  <h3>По источникам</h3>
+  <table>
+    <tbody>
+    {% for name, line in result.sources.items() %}
+      <tr><th>{{ name }}</th><td class="muted">{{ line }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if not result.totals and not result.matches and not result.sources %}
+  <table>
+    <tbody>
+    {% for k, v in result.items() %}<tr><th>{{ k }}</th><td class="num">{{ v }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if job.error %}
+<h2>Ошибка</h2>
+<div class="card">
+  <pre class="error">{{ job.error }}</pre>
+</div>
+{% endif %}
+
+{% endblock %}

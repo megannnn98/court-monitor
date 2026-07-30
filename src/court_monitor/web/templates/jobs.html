@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Операции — court-monitor{% endblock %}
+{% block head %}{% if autorefresh %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+
+<h1>Операции</h1>
+<p class="muted">
+  Выполняются в фоне и по одной за раз: SQLite не любит параллельную запись,
+  а два одновременных сбора дважды дёргали бы одни и те же источники.
+</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Запустить</h2>
+  <div class="job-launcher">
+    {% for kind, meta in kinds.items() %}
+    <form method="post" action="{{ url_for('job_start') }}">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <div class="job-option">
+        <div>
+          <strong>{{ meta.label }}</strong>
+          <div class="muted">{{ meta.description }}</div>
+          {% if kind in ('run_all', 'fetch_all') %}
+          <label class="muted"><input type="checkbox" name="live" value="true"> реальная сеть (--live)</label>
+          {% endif %}
+          {% if kind == 'import_rfm' %}
+          <label class="muted"><input type="checkbox" name="replace" value="true"> заменить перечень целиком</label>
+          {% endif %}
+        </div>
+        <button type="submit">Запустить</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+  {% if kinds.import_rfm %}
+  <p class="muted" style="margin-bottom:0">
+    Про «заменить перечень целиком»: дедупликация учитывает дату рождения,
+    а в CSV-выгрузке её нет. Дозапись поверх такого реестра задваивает людей,
+    а не объединяет их.
+  </p>
+  {% endif %}
+</div>
+
+<h2>История</h2>
+{% if rows %}
+<table class="bordered">
+  <thead><tr><th>ID</th><th>Операция</th><th>Статус</th><th>Запустил</th><th>Начата</th><th>Длительность</th><th></th></tr></thead>
+  <tbody>
+  {% for j in rows %}
+    <tr>
+      <td class="num muted">{{ j.id }}</td>
+      <td>{{ kinds[j.kind].label if j.kind in kinds else j.kind }}</td>
+      <td>
+        {% if j.status == 'running' %}<span class="tag warn">выполняется</span>
+        {% elif j.status == 'queued' %}<span class="tag muted">в очереди</span>
+        {% elif j.status == 'succeeded' %}<span class="tag ok">готово</span>
+        {% else %}<span class="tag danger">ошибка</span>{% endif %}
+      </td>
+      <td class="muted">{{ j.actor }}</td>
+      <td class="muted">{{ j.started_at.strftime('%H:%M:%S') if j.started_at else '—' }}</td>
+      <td class="muted">
+        {% if j.started_at and j.finished_at %}{{ '%.0f' | format((j.finished_at - j.started_at).total_seconds()) }} с
+        {% else %}—{% endif %}
+      </td>
+      <td><a href="{{ url_for('job_detail', job_id=j.id) }}">подробно →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Операций пока не было.</p>
+{% endif %}
+
+{% endblock %}
