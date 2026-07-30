@@ -18,6 +18,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+import court_monitor.cli._shared as shared
 import court_monitor.cli.app as cli_module
 import court_monitor.cli.commands.db as db_commands
 from court_monitor.cli.app import _fetch_source_legacy, _stats_color
@@ -132,16 +133,16 @@ def test_doctor_check_alembic_passes_when_at_head(monkeypatch):
 def test_require_current_schema_aborts_when_behind(monkeypatch):
     """Must stop before any work: run-all otherwise fetches every source over
     the network and only then dies inside generate_matches."""
-    monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0007_audit_log", "0008_rfm"))
+    monkeypatch.setattr(shared, "revision_status", lambda _url: ("0007_audit_log", "0008_rfm"))
 
     with pytest.raises(typer.Exit) as exc:
-        cli_module._require_current_schema()
+        shared.require_current_schema()
     assert exc.value.exit_code == 1
 
 
 def test_require_current_schema_passes_at_head(monkeypatch):
-    monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0008_rfm", "0008_rfm"))
-    cli_module._require_current_schema()  # must not raise
+    monkeypatch.setattr(shared, "revision_status", lambda _url: ("0008_rfm", "0008_rfm"))
+    shared.require_current_schema()  # must not raise
 
 
 def test_require_current_schema_does_not_block_on_check_failure(monkeypatch):
@@ -150,8 +151,8 @@ def test_require_current_schema_does_not_block_on_check_failure(monkeypatch):
     def _boom(_url):
         raise RuntimeError("no alembic table")
 
-    monkeypatch.setattr(cli_module, "revision_status", _boom)
-    cli_module._require_current_schema()  # must not raise
+    monkeypatch.setattr(shared, "revision_status", _boom)
+    shared.require_current_schema()  # must not raise
 
 
 def test_docker_build_filter_includes_all_dockerfile_inputs():
