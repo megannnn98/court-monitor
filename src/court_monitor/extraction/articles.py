@@ -15,6 +15,7 @@ a quote (the matched fragment), and a confidence reflecting how explicit the ref
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import VerificationStatus
@@ -61,104 +62,57 @@ _WITH_PREFIX_RE = re.compile(rf"{_ART_PREFIX}({_ARTICLE_NUM})\b", re.IGNORECASE)
 _BARE_NEAR_UK_RE = re.compile(rf"\b({_ARTICLE_NUM})\s+{_UK}", re.IGNORECASE)
 
 
+@dataclass(frozen=True)
+class _Pass:
+    """One regex sweep over the text, most specific first.
+
+    Order matters: every pass skips spans an earlier one already claimed, so
+    "п. «а» ч. 2 ст. 205 УК РФ" is recorded once at 0.98 rather than five
+    times at descending confidence.
+    """
+
+    pattern: re.Pattern[str]
+    article_group: int
+    part_group: int | None
+    point_group: int | None
+    code: str | None
+    confidence: float
+    method: str
+
+
+_PASSES: tuple[_Pass, ...] = (
+    _Pass(_FULL_RE, 3, 2, 1, "УК РФ", 0.98, "full_structured"),
+    _Pass(_PART_ART_RE, 2, 1, None, "УК РФ", 0.95, "part_article"),
+    _Pass(_EXPLICIT_RE, 1, None, None, "УК РФ", 0.90, "explicit"),
+    _Pass(_WITH_PREFIX_RE, 1, None, None, None, 0.70, "prefix"),
+    _Pass(_BARE_NEAR_UK_RE, 1, None, None, "УК РФ", 0.60, "bare_near_uk"),
+)
+
+
 def extract_articles(text: str, *, source_url: str | None = None) -> list[ExtractedFactDTO]:
     if not text:
         return []
     found: list[ExtractedFactDTO] = []
     seen_spans: set[tuple[int, int]] = set()
 
-    # 1. Full structured: point + part + article + UK
-    for m in _FULL_RE.finditer(text):
-        _add(
-            found,
-            article=_normalize(m.group(3)),
-            part=m.group(2),
-            point=_normalize_point(m.group(1)),
-            code="УК РФ",
-            quote=_quote_around(text, m.start(), m.end()),
-            source_url=source_url,
-            confidence=0.98,
-            method="regex:article:full_structured",
-            seen_spans=seen_spans,
-            start=m.start(),
-            end=m.end(),
-        )
-
-    # 2. Part + article + UK
-    for m in _PART_ART_RE.finditer(text):
-        if _overlaps(seen_spans, m.start(), m.end()):
-            continue
-        _add(
-            found,
-            article=_normalize(m.group(2)),
-            part=m.group(1),
-            point=None,
-            code="УК РФ",
-            quote=_quote_around(text, m.start(), m.end()),
-            source_url=source_url,
-            confidence=0.95,
-            method="regex:article:part_article",
-            seen_spans=seen_spans,
-            start=m.start(),
-            end=m.end(),
-        )
-
-    # 3. Explicit: article + UK
-    for m in _EXPLICIT_RE.finditer(text):
-        if _overlaps(seen_spans, m.start(), m.end()):
-            continue
-        _add(
-            found,
-            article=_normalize(m.group(1)),
-            part=None,
-            point=None,
-            code="УК РФ",
-            quote=_quote_around(text, m.start(), m.end()),
-            source_url=source_url,
-            confidence=0.90,
-            method="regex:article:explicit",
-            seen_spans=seen_spans,
-            start=m.start(),
-            end=m.end(),
-        )
-
-    # 4. Prefix only: статья/ст. + number
-    for m in _WITH_PREFIX_RE.finditer(text):
-        if _overlaps(seen_spans, m.start(), m.end()):
-            continue
-        _add(
-            found,
-            article=_normalize(m.group(1)),
-            part=None,
-            point=None,
-            code=None,
-            quote=_quote_around(text, m.start(), m.end()),
-            source_url=source_url,
-            confidence=0.70,
-            method="regex:article:prefix",
-            seen_spans=seen_spans,
-            start=m.start(),
-            end=m.end(),
-        )
-
-    # 5. Bare number near УК
-    for m in _BARE_NEAR_UK_RE.finditer(text):
-        if _overlaps(seen_spans, m.start(), m.end()):
-            continue
-        _add(
-            found,
-            article=_normalize(m.group(1)),
-            part=None,
-            point=None,
-            code="УК РФ",
-            quote=_quote_around(text, m.start(), m.end()),
-            source_url=source_url,
-            confidence=0.60,
-            method="regex:article:bare_near_uk",
-            seen_spans=seen_spans,
-            start=m.start(),
-            end=m.end(),
-        )
+    for sweep in _PASSES:
+        for m in sweep.pattern.finditer(text):
+            if _overlaps(seen_spans, m.start(), m.end()):
+                continue
+            _add(
+                found,
+                article=_normalize(m.group(sweep.article_group)),
+                part=m.group(sweep.part_group) if sweep.part_group else None,
+                point=(_normalize_point(m.group(sweep.point_group)) if sweep.point_group else None),
+                code=sweep.code,
+                quote=_quote_around(text, m.start(), m.end()),
+                source_url=source_url,
+                confidence=sweep.confidence,
+                method=f"regex:article:{sweep.method}",
+                seen_spans=seen_spans,
+                start=m.start(),
+                end=m.end(),
+            )
 
     return found
 

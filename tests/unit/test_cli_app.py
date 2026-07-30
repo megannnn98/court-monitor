@@ -99,9 +99,8 @@ def test_doctor_check_tables_reports_inspection_errors(monkeypatch):
             raise RuntimeError("boom")
 
     monkeypatch.setattr(cli_module, "make_engine", _BrokenEngine)
-    problems: list[str] = []
 
-    _doctor_check_tables(problems)
+    problems = _doctor_check_tables()
 
     assert any("table inspection failed" in p for p in problems)
 
@@ -111,9 +110,8 @@ def test_doctor_check_alembic_reports_errors(monkeypatch):
         raise RuntimeError("migration boom")
 
     monkeypatch.setattr(cli_module, "revision_status", _raise_status)
-    problems: list[str] = []
 
-    _doctor_check_alembic(problems)
+    problems = _doctor_check_alembic()
 
     assert any("revision check failed" in p for p in problems)
 
@@ -122,20 +120,16 @@ def test_doctor_check_alembic_reports_a_database_behind_head(monkeypatch):
     """Drift raises nothing — the old tables are all still there — so it has
     to be detected by comparing revisions, not by catching an exception."""
     monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0007_audit_log", "0008_rfm"))
-    problems: list[str] = []
 
-    _doctor_check_alembic(problems)
+    problems = _doctor_check_alembic()
 
     assert any("behind migrations" in p for p in problems)
 
 
 def test_doctor_check_alembic_passes_when_at_head(monkeypatch):
     monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0008_rfm", "0008_rfm"))
-    problems: list[str] = []
 
-    _doctor_check_alembic(problems)
-
-    assert problems == []
+    assert _doctor_check_alembic() == []
 
 
 def test_require_current_schema_aborts_when_behind(monkeypatch):

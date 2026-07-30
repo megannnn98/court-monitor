@@ -160,12 +160,13 @@ def show_config() -> None:
         typer.echo("Settings source: default value")
 
 
-def _doctor_check_sqlite(problems: list[str]) -> None:
+def _doctor_check_sqlite() -> list[str]:
     """Check SQLite file existence and connectivity."""
     db_url = settings.database_url
     if not db_url.startswith("sqlite"):
-        return
+        return []
 
+    problems: list[str] = []
     db_path = db_url.replace("sqlite:///", "").replace("sqlite://", "")
     db_file = Path(db_path)
     exists = db_file.exists()
@@ -181,10 +182,12 @@ def _doctor_check_sqlite(problems: list[str]) -> None:
     except Exception as exc:
         typer.echo(f"connection: ✗ ({exc})")
         problems.append(f"db connection failed: {exc}")
+    return problems
 
 
-def _doctor_check_tables(problems: list[str]) -> None:
+def _doctor_check_tables() -> list[str]:
     """Check that required tables exist."""
+    problems: list[str] = []
     try:
         engine = make_engine()
         tables = inspect(engine).get_table_names()
@@ -206,9 +209,10 @@ def _doctor_check_tables(problems: list[str]) -> None:
     except Exception as exc:
         typer.echo(f"tables: ✗ ({exc})")
         problems.append(f"table inspection failed: {exc}")
+    return problems
 
 
-def _doctor_check_alembic(problems: list[str]) -> None:
+def _doctor_check_alembic() -> list[str]:
     """Check that the database is migrated up to the latest revision.
 
     A database left behind the scripts still answers "SELECT 1" and still has
@@ -219,21 +223,20 @@ def _doctor_check_alembic(problems: list[str]) -> None:
         applied, head = revision_status(settings.database_url)
     except Exception as exc:
         typer.echo(f"alembic_current: ✗ ({exc})")
-        problems.append(f"alembic revision check failed: {exc}")
-        return
+        return [f"alembic revision check failed: {exc}"]
 
     if applied == head:
         typer.echo(f"alembic_current: ✓ ({applied})")
-        return
+        return []
 
     typer.echo(f"alembic_current: ✗ (применена {applied or 'нет'}, ожидается {head})")
-    problems.append(
+    return [
         f"Database is behind migrations: applied={applied or 'none'}, head={head}. "
         "Run: court-monitor migrate"
-    )
+    ]
 
 
-def _doctor_check_repository(problems: list[str]) -> None:
+def _doctor_check_repository() -> list[str]:
     """Check repository query works."""
     try:
         factory = make_session_factory(make_engine())
@@ -243,11 +246,13 @@ def _doctor_check_repository(problems: list[str]) -> None:
         typer.echo(f"repository: ✓ (docs={doc_count}, facts={fact_count})")
     except Exception as exc:
         typer.echo(f"repository: ✗ ({exc})")
-        problems.append(f"repository query failed: {exc}")
+        return [f"repository query failed: {exc}"]
+    return []
 
 
-def _doctor_check_config(problems: list[str]) -> None:
+def _doctor_check_config() -> list[str]:
     """Check config files (monitoring, registry)."""
+    problems: list[str] = []
     try:
         monitoring = load_monitoring()
         typer.echo(
@@ -264,6 +269,7 @@ def _doctor_check_config(problems: list[str]) -> None:
     except Exception as exc:  # pragma: no cover
         typer.echo(f"registry: ✗ ({exc})")
         problems.append(f"registry error: {exc}")
+    return problems
 
 
 def _doctor_check_settings_source() -> None:
@@ -283,17 +289,21 @@ def _doctor_check_settings_source() -> None:
 def doctor() -> None:
     """Sanity-check the environment: config, DB, migrations, repository."""
     _bootstrap_logging()
-    problems: list[str] = []
-
     typer.echo(f"court-monitor {__version__}")
     typer.echo(f"python: {sys.version.split()[0]}")
     typer.echo(f"database_url: {_safe_url(settings.database_url)}")
 
-    _doctor_check_sqlite(problems)
-    _doctor_check_tables(problems)
-    _doctor_check_alembic(problems)
-    _doctor_check_repository(problems)
-    _doctor_check_config(problems)
+    # Each check reports its own findings rather than mutating a shared list,
+    # so a check can be run and asserted on in isolation.
+    problems: list[str] = []
+    for check in (
+        _doctor_check_sqlite,
+        _doctor_check_tables,
+        _doctor_check_alembic,
+        _doctor_check_repository,
+        _doctor_check_config,
+    ):
+        problems.extend(check())
     _doctor_check_settings_source()
 
     if problems:

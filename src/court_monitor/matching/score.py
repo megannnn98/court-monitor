@@ -194,86 +194,139 @@ def _score_matching_surname(
     reasons: list[dict],
     conflicts: list[dict],
 ) -> float:
-    """Score given-name/patronymic similarity once the surname is known to match."""
-    doc_surname = doc.surname
-    rec_surname = rec.surname
+    """Score given-name/patronymic similarity once the surname is known to match.
 
-    # Full name match (after morphological normalization)
+    A dispatcher over the mutually exclusive cases, strongest evidence first.
+    Each branch is its own function so the rule it encodes can be read — and
+    tested — without holding the whole cascade in mind.
+    """
     if name_match and patronymic_match:
-        reasons.append(
-            {
-                "rule": "full_name_morphological_match",
-                "impact": W_FULL_NAME_MATCH,
-                "document_value": doc.raw,
-                "record_value": rec.raw,
-                "normalized_doc": doc.nominative,
-                "normalized_rec": rec.nominative,
-            }
-        )
-        return W_FULL_NAME_MATCH
+        return _score_full_name(doc, rec, reasons)
 
-    # Surname + name match (no patronymic data or mismatch)
     if name_match:
-        impact = W_SURNAME_NAME_MATCH
-        if doc_patronymic and rec_patronymic and not patronymic_match:
-            conflicts.append(
-                {
-                    "rule": "patronymic_mismatch",
-                    "document_value": doc_patronymic,
-                    "record_value": rec_patronymic,
-                }
-            )
-            impact += P_NAME_CONFLICT
-        reasons.append(
-            {
-                "rule": "surname_name_match",
-                "impact": max(0.0, impact),
-                "document_value": f"{doc_surname} {doc_name}",
-                "record_value": f"{rec_surname} {rec_name}",
-            }
+        return _score_surname_and_name(
+            doc,
+            rec,
+            doc_name=doc_name,
+            rec_name=rec_name,
+            doc_patronymic=doc_patronymic,
+            rec_patronymic=rec_patronymic,
+            patronymic_match=patronymic_match,
+            reasons=reasons,
+            conflicts=conflicts,
         )
-        return max(0.0, impact)
 
-    # Both sides give a full (non-initial) first name and they differ: this is
-    # a hard conflict, not a coincidental initials match. Without this check,
-    # two different people sharing a surname and initial letters (but with
-    # known, differing first names) would fall into the initials-match branch
-    # below and score as a match with no visible conflict for the reviewer.
-    doc_name_is_full = bool(doc_name) and not _is_initial_token(doc_name)
-    rec_name_is_full = bool(rec_name) and not _is_initial_token(rec_name)
-    if doc_name_is_full and rec_name_is_full:
+    if _both_give_a_full_given_name(doc_name, rec_name):
+        return _score_given_name_conflict(doc_name, rec_name, reasons, conflicts)
+
+    initials = _score_shared_initials(doc, rec, reasons)
+    if initials is not None:
+        return initials
+
+    return _score_surname_only(doc, rec, reasons)
+
+
+def _score_full_name(doc: NormalizedName, rec: NormalizedName, reasons: list[dict]) -> float:
+    reasons.append(
+        {
+            "rule": "full_name_morphological_match",
+            "impact": W_FULL_NAME_MATCH,
+            "document_value": doc.raw,
+            "record_value": rec.raw,
+            "normalized_doc": doc.nominative,
+            "normalized_rec": rec.nominative,
+        }
+    )
+    return W_FULL_NAME_MATCH
+
+
+def _score_surname_and_name(
+    doc: NormalizedName,
+    rec: NormalizedName,
+    *,
+    doc_name: str,
+    rec_name: str,
+    doc_patronymic: str,
+    rec_patronymic: str,
+    patronymic_match: bool,
+    reasons: list[dict],
+    conflicts: list[dict],
+) -> float:
+    """Surname and given name agree; a patronymic known on both sides and
+    differing still counts against the match."""
+    impact = W_SURNAME_NAME_MATCH
+    if doc_patronymic and rec_patronymic and not patronymic_match:
         conflicts.append(
             {
-                "rule": "given_name_mismatch",
-                "document_value": doc_name,
-                "record_value": rec_name,
+                "rule": "patronymic_mismatch",
+                "document_value": doc_patronymic,
+                "record_value": rec_patronymic,
             }
         )
-        reasons.append({"rule": "given_name_mismatch", "impact": 0.0})
-        return 0.0
+        impact += P_NAME_CONFLICT
 
-    # Surname + initials match
-    if doc.initials and rec.initials:
-        doc_init = doc.initials[1:] if len(doc.initials) > 1 else ""
-        rec_init = rec.initials[1:] if len(rec.initials) > 1 else ""
-        if doc_init and rec_init and doc_init == rec_init:
-            reasons.append(
-                {
-                    "rule": "surname_initials_match",
-                    "impact": W_SURNAME_INITIALS_MATCH,
-                    "document_value": f"{doc_surname} {doc.initials}",
-                    "record_value": f"{rec_surname} {rec.initials}",
-                }
-            )
-            return W_SURNAME_INITIALS_MATCH
+    reasons.append(
+        {
+            "rule": "surname_name_match",
+            "impact": max(0.0, impact),
+            "document_value": f"{doc.surname} {doc_name}",
+            "record_value": f"{rec.surname} {rec_name}",
+        }
+    )
+    return max(0.0, impact)
 
-    # Surname only
+
+def _both_give_a_full_given_name(doc_name: str, rec_name: str) -> bool:
+    """True when both sides name a person outright rather than by initial.
+
+    Without this, two different people sharing a surname and initial letters —
+    but with known, differing first names — would fall through to the initials
+    branch and score as a match with no conflict shown to the reviewer.
+    """
+    doc_full = bool(doc_name) and not _is_initial_token(doc_name)
+    rec_full = bool(rec_name) and not _is_initial_token(rec_name)
+    return doc_full and rec_full
+
+
+def _score_given_name_conflict(
+    doc_name: str, rec_name: str, reasons: list[dict], conflicts: list[dict]
+) -> float:
+    conflicts.append(
+        {"rule": "given_name_mismatch", "document_value": doc_name, "record_value": rec_name}
+    )
+    reasons.append({"rule": "given_name_mismatch", "impact": 0.0})
+    return 0.0
+
+
+def _score_shared_initials(
+    doc: NormalizedName, rec: NormalizedName, reasons: list[dict]
+) -> float | None:
+    """Returns None when the initials do not line up, so the caller falls through."""
+    if not (doc.initials and rec.initials):
+        return None
+    doc_init = doc.initials[1:] if len(doc.initials) > 1 else ""
+    rec_init = rec.initials[1:] if len(rec.initials) > 1 else ""
+    if not (doc_init and rec_init and doc_init == rec_init):
+        return None
+
+    reasons.append(
+        {
+            "rule": "surname_initials_match",
+            "impact": W_SURNAME_INITIALS_MATCH,
+            "document_value": f"{doc.surname} {doc.initials}",
+            "record_value": f"{rec.surname} {rec.initials}",
+        }
+    )
+    return W_SURNAME_INITIALS_MATCH
+
+
+def _score_surname_only(doc: NormalizedName, rec: NormalizedName, reasons: list[dict]) -> float:
     reasons.append(
         {
             "rule": "surname_only_match",
             "impact": W_SURNAME_INITIALS_MATCH * 0.5,
-            "document_value": doc_surname,
-            "record_value": rec_surname,
+            "document_value": doc.surname,
+            "record_value": rec.surname,
         }
     )
     return W_SURNAME_INITIALS_MATCH * 0.5
