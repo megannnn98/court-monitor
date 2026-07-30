@@ -28,7 +28,8 @@ src/court_monitor/
 ├── matching/       # candidates.py, score.py, name_normalizer.py
 ├── normalization/  # __init__.py (normalize_fio — ё→е, register)
 ├── services/       # __init__.py (pipeline orchestration)
-├── cli/            # app.py (Typer)
+├── cli/            # app.py (сборка + fetch/run-all), _shared.py,
+│                   # commands/ (db, documents, records, review, fedsfm)
 ├── api/            # app.py (FastAPI, read-only JSON)
 ├── web/            # app.py (операторский UI), jobs.py (фоновые задачи),
 │                   # deps.py, templates/, static/
@@ -133,6 +134,10 @@ MC --> CRM
 Alembic, 9 миграций: initial → registry_provenance → person_records → person_names → match_candidates → review_items → audit_log → person_records_rfm_v2 → jobs.
 
 `doctor` сравнивает применённую ревизию с head (`storage/migrations.py::revision_status`) и считает отставание проблемой: отставшая БД отвечает на `SELECT 1` и сохраняет все старые таблицы, поэтому обнаруживается только позже как `no such column` посреди прогона.
+
+## CLI
+
+Команды разложены по доменам в `cli/commands/`, каждый модуль отдаёт `register(app)`. Имена команд намеренно остались плоскими: Typer-подприложения переименовали бы всё (`court-monitor db doctor` вместо `court-monitor doctor`) и сломали бы всех вызывающих. `cli/app.py` держит сборку и две команды, которым нужен весь конвейер (`fetch-source`, `run-all`); общие хелперы — в `cli/_shared.py`.
 
 ## Конфигурация
 
