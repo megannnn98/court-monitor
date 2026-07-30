@@ -19,12 +19,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 import court_monitor.cli.app as cli_module
-from court_monitor.cli.app import (
-    _doctor_check_alembic,
-    _doctor_check_tables,
-    _fetch_source_legacy,
-    _stats_color,
-)
+import court_monitor.cli.commands.db as db_commands
+from court_monitor.cli.app import _fetch_source_legacy, _stats_color
+from court_monitor.cli.commands.db import _doctor_check_alembic, _doctor_check_tables
 from court_monitor.config.registry import SourceRegistryEntry
 from court_monitor.services import SourceStats
 from court_monitor.storage import repository as repo
@@ -98,7 +95,7 @@ def test_doctor_check_tables_reports_inspection_errors(monkeypatch):
         def connect(self):
             raise RuntimeError("boom")
 
-    monkeypatch.setattr(cli_module, "make_engine", _BrokenEngine)
+    monkeypatch.setattr(db_commands, "make_engine", _BrokenEngine)
 
     problems = _doctor_check_tables()
 
@@ -109,7 +106,7 @@ def test_doctor_check_alembic_reports_errors(monkeypatch):
     def _raise_status(_url):
         raise RuntimeError("migration boom")
 
-    monkeypatch.setattr(cli_module, "revision_status", _raise_status)
+    monkeypatch.setattr(db_commands, "revision_status", _raise_status)
 
     problems = _doctor_check_alembic()
 
@@ -119,7 +116,7 @@ def test_doctor_check_alembic_reports_errors(monkeypatch):
 def test_doctor_check_alembic_reports_a_database_behind_head(monkeypatch):
     """Drift raises nothing — the old tables are all still there — so it has
     to be detected by comparing revisions, not by catching an exception."""
-    monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0007_audit_log", "0008_rfm"))
+    monkeypatch.setattr(db_commands, "revision_status", lambda _url: ("0007_audit_log", "0008_rfm"))
 
     problems = _doctor_check_alembic()
 
@@ -127,7 +124,7 @@ def test_doctor_check_alembic_reports_a_database_behind_head(monkeypatch):
 
 
 def test_doctor_check_alembic_passes_when_at_head(monkeypatch):
-    monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0008_rfm", "0008_rfm"))
+    monkeypatch.setattr(db_commands, "revision_status", lambda _url: ("0008_rfm", "0008_rfm"))
 
     assert _doctor_check_alembic() == []
 
