@@ -442,6 +442,10 @@ def fetch_source(
 ) -> None:
     """Fetch data from a source (RFM, sudrf, etc.)."""
     _bootstrap_logging()
+    # Checked before the fetch: the RFM list is a 4 MB download parsed into 21k
+    # rows, and writing them is what first touches a column a pending migration
+    # would have added.
+    _require_current_schema()
 
     if name == "fedsfm":
         _handle_fedsfm(file=file, live=live, dry_run=dry_run)
