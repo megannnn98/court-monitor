@@ -73,3 +73,34 @@ def test_full_structured_has_highest_confidence():
     dtos = extract_articles("п. «б» ч. 1 ст. 105 УК РФ")
     assert len(dtos) >= 1
     assert dtos[0].confidence >= 0.95
+
+
+def test_compound_charge_keeps_the_article_actually_charged():
+    """Regression, from document 56 of the live corpus.
+
+    "ч. 1 ст. 30, ч. 2 ст. 205.5 УК РФ" is the standard formula for preparing
+    a terrorist offence. The span opened at ст. 30 used to consume everything
+    up to УК, and because later passes skip claimed spans, 205.5 was never
+    extracted — the relevance filter then dropped the document, since ст. 30
+    alone is in nobody's watch list.
+    """
+    text = "Подростка задержали, возбуждено уголовное дело по ч. 1 ст. 30, ч. 2 ст. 205.5 УК РФ"
+
+    articles = extract_article_strings(text)
+
+    assert articles == ["30", "205.5"]
+
+
+def test_compound_charge_with_three_references():
+    """Complicity + preparation + the offence itself, all in one citation."""
+    articles = extract_article_strings("ч. 1 ст. 33, ч. 3 ст. 30, ч. 2 ст. 205 УК РФ")
+
+    assert articles == ["33", "30", "205"]
+
+
+def test_compound_charge_keeps_parts_with_their_own_articles():
+    """Each reference must keep its own часть, not inherit a neighbour's."""
+    dtos = extract_articles("ч. 1 ст. 30, ч. 2 ст. 205.5 УК РФ")
+
+    by_article = {d.value["article"]: d.value.get("part") for d in dtos}
+    assert by_article == {"30": "1", "205.5": "2"}

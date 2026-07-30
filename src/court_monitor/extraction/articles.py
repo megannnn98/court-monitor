@@ -32,26 +32,33 @@ _POINT_PREFIX = r"(?:п\.\s*|пункт[а-яё]*\s+)"
 
 _UK = r"(?:УК\s*РФ|УК(?![а-яёА-ЯЁ]))"
 
+# "…somewhere in the next 40 characters there is a УК" — asserted, never
+# consumed. Consuming it swallows anything in between, and compound charges
+# put a whole second reference there: in "ч. 1 ст. 30, ч. 2 ст. 205.5 УК РФ"
+# the span opened at ст. 30 reached past ст. 205.5 to the УК, and because
+# later passes skip spans an earlier one claimed, the article actually charged
+# was never extracted. That is the standard formula for preparing a terrorist
+# offence, so the loss fell precisely on what this project monitors.
+_NEAR_UK = rf"(?=[^0-9.])(?=.{{0,40}}?{_UK})"
+
 # Full structured: point + part + article + UK
 _FULL_RE = re.compile(
     rf"(?:{_POINT_PREFIX}[«\"]?({_POINT})[»\"]?\s*)?"
     rf"(?:{_PART_PREFIX}({_PART_NUM})\s*)"
     rf"{_ART_PREFIX}({_ARTICLE_NUM})"
-    rf"(?=[^0-9.]).{{0,40}}?{_UK}",
+    rf"{_NEAR_UK}",
     re.IGNORECASE | re.DOTALL,
 )
 
 # Part + article + UK
 _PART_ART_RE = re.compile(
-    rf"(?:{_PART_PREFIX}({_PART_NUM})\s*)"
-    rf"{_ART_PREFIX}({_ARTICLE_NUM})"
-    rf"(?=[^0-9.]).{{0,40}}?{_UK}",
+    rf"(?:{_PART_PREFIX}({_PART_NUM})\s*)" rf"{_ART_PREFIX}({_ARTICLE_NUM})" rf"{_NEAR_UK}",
     re.IGNORECASE | re.DOTALL,
 )
 
 # Explicit: article + UK (no part/point)
 _EXPLICIT_RE = re.compile(
-    rf"{_ART_PREFIX}({_ARTICLE_NUM})(?=[^0-9.]).{{0,40}}?{_UK}",
+    rf"{_ART_PREFIX}({_ARTICLE_NUM}){_NEAR_UK}",
     re.IGNORECASE | re.DOTALL,
 )
 
