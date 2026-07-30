@@ -6,8 +6,15 @@ from typing import Annotated
 
 import typer
 
-from court_monitor.cli._shared import bootstrap_logging
-from court_monitor.services import ReprocessWouldDiscardDecisions, process_pending, reprocess
+from court_monitor.cli._shared import bootstrap_logging, maybe_dry_run_session
+from court_monitor.config.settings import settings
+from court_monitor.observability import configure_logging
+from court_monitor.services import (
+    ReprocessWouldDiscardDecisions,
+    process_pending,
+    reprocess,
+    reprocess_all,
+)
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory, session_scope
 
@@ -46,6 +53,57 @@ def reprocess_document(
         typer.echo(f"Document {document_id} not found.", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"Reprocessed document {result}.")
+
+
+def reprocess_all_documents(
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Re-parse even if it discards reviewed match decisions."),
+    ] = False,
+    limit: Annotated[
+        int | None,
+        typer.Option(help="Only re-parse this many documents (oldest first)."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Report what would change; roll back afterwards."),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show per-document JSON logs."),
+    ] = False,
+) -> None:
+    """Re-parse every stored document with the current extractors.
+
+    Like ``run-all``, the per-document logs are suppressed by default: 379 JSON
+    lines bury the one summary the operator actually needs.
+    """
+    configure_logging(settings.log_level if verbose else "ERROR")
+    engine = make_engine()
+
+    def _progress(done: int, total: int) -> None:
+        if done % 25 == 0 or done == total:
+            typer.echo(f"  {done}/{total}", err=True)
+
+    try:
+        with maybe_dry_run_session(engine, dry_run=dry_run) as session:
+            stats = reprocess_all(session, force=force, limit=limit, on_progress=_progress)
+    except ReprocessWouldDiscardDecisions as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, bold=True, err=True)
+        typer.echo(
+            "Решения оператора будут потеряны безвозвратно. "
+            "Если это действительно нужно — повторите с --force.",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(
+        f"Переразобрано документов: {stats.documents} "
+        f"(parsed={stats.parsed} irrelevant={stats.irrelevant} failed={stats.failed})"
+    )
+    typer.echo(f"Фактов: {stats.facts_before} → {stats.facts_after} ({stats.facts_delta:+d})")
+    if dry_run:
+        typer.secho("(режим --dry-run: изменения откачены)", fg=typer.colors.YELLOW)
 
 
 def list_documents(
@@ -183,6 +241,7 @@ def show_document(
 def register(app: typer.Typer) -> None:
     app.command()(parse_pending)
     app.command(name="reprocess-document")(reprocess_document)
+    app.command(name="reprocess-all")(reprocess_all_documents)
     app.command(name="list-documents")(list_documents)
     app.command(name="show-stats")(show_stats)
     app.command(name="show-document")(show_document)

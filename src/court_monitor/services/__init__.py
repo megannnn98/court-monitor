@@ -462,9 +462,10 @@ def process_pending(session: Session, monitoring: MonitoringConfig | None = None
 class ReprocessWouldDiscardDecisions(RuntimeError):
     """Re-parsing would delete match candidates an operator has already ruled on."""
 
-    def __init__(self, document_id: int, decided: int) -> None:
+    def __init__(self, document_id: int | None, decided: int) -> None:
+        where = f"Документ {document_id}: " if document_id is not None else "В базе "
         super().__init__(
-            f"Документ {document_id}: {decided} совпадений уже рассмотрены оператором. "
+            f"{where}{decided} совпадений уже рассмотрены оператором. "
             "Повторный разбор удалит эти решения."
         )
         self.document_id = document_id
@@ -481,6 +482,83 @@ def count_decided_candidates(session: Session, document_id: int) -> int:
         .where(ExtractedFact.document_id == document_id, MatchCandidate.status != "pending")
     )
     return int(session.execute(stmt).scalar_one())
+
+
+def count_all_decided_candidates(session: Session) -> int:
+    """How many confirmed/rejected candidates exist anywhere in the database."""
+    from court_monitor.storage.orm import MatchCandidate  # noqa: PLC0415
+
+    stmt = select(func.count(MatchCandidate.id)).where(MatchCandidate.status != "pending")
+    return int(session.execute(stmt).scalar_one())
+
+
+@dataclass
+class ReprocessAllStats:
+    """Outcome of a corpus-wide re-parse."""
+
+    documents: int = 0
+    parsed: int = 0
+    irrelevant: int = 0
+    failed: int = 0
+    facts_before: int = 0
+    facts_after: int = 0
+
+    @property
+    def facts_delta(self) -> int:
+        return self.facts_after - self.facts_before
+
+
+def reprocess_all(
+    session: Session,
+    *,
+    force: bool = False,
+    limit: int | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> ReprocessAllStats:
+    """Re-parse every stored document against the current extractors.
+
+    Extraction rules improve, but the corpus does not follow: facts stay as
+    they were pulled at fetch time, so a fix in the extractor lives in the code
+    and never reaches the data already collected. This applies one to the other.
+
+    The same protection as :func:`reprocess` applies, checked once for the whole
+    corpus rather than per document — a run that would wipe operator decisions
+    should not delete half of them before hitting the first protected document.
+    """
+    if not force:
+        decided = count_all_decided_candidates(session)
+        if decided:
+            raise ReprocessWouldDiscardDecisions(None, decided)
+
+    stats = ReprocessAllStats(facts_before=repo.count_facts(session))
+    monitoring = load_monitoring()
+
+    doc_ids = [doc.id for doc in repo.list_documents(session, limit=limit or 1_000_000)]
+    total = len(doc_ids)
+
+    for index, doc_id in enumerate(doc_ids, start=1):
+        doc = repo.get_document(session, doc_id)
+        if doc is None:  # deleted between listing and processing
+            continue
+        for fact in list(doc.facts):
+            session.delete(fact)
+        doc.parser_status = ParserStatus.pending.value
+        session.flush()
+        parse_and_extract(session, doc, monitoring)
+
+        stats.documents += 1
+        if doc.parser_status == ParserStatus.parsed.value:
+            stats.parsed += 1
+        elif doc.parser_status == ParserStatus.irrelevant.value:
+            stats.irrelevant += 1
+        elif doc.parser_status == ParserStatus.parser_failed.value:
+            stats.failed += 1
+        if on_progress is not None:
+            on_progress(index, total)
+
+    session.flush()
+    stats.facts_after = repo.count_facts(session)
+    return stats
 
 
 def reprocess(session: Session, document_id: int, *, force: bool = False) -> int | None:

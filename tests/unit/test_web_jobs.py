@@ -15,6 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from court_monitor.config import settings as settings_module
+from court_monitor.services import ReprocessAllStats
 from court_monitor.storage.orm import Base, Job
 from court_monitor.web import jobs
 
@@ -158,3 +159,21 @@ def test_count_active_and_listing(db, monkeypatch):
     jobs.submit(db, "generate_matches", actor="tester")
     assert jobs.count_active(db) == 1
     assert len(jobs.list_jobs(db)) == 1
+
+
+def test_reprocess_all_job_defaults_to_refusing(db, monkeypatch):
+    """The web runner must inherit the CLI's guard rather than quietly forcing:
+    a job started from a browser can destroy operator decisions just as well."""
+    seen: dict[str, object] = {}
+
+    def _fake(_session, *, force):
+        seen["force"] = force
+        return ReprocessAllStats()
+
+    monkeypatch.setattr(jobs, "reprocess_all", _fake)
+
+    jobs._job_reprocess_all(db, {})
+    assert seen["force"] is False
+
+    jobs._job_reprocess_all(db, {"force": True})
+    assert seen["force"] is True

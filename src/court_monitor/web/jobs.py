@@ -40,6 +40,7 @@ from court_monitor.services import (
     process_pending,
     process_registry_source,
     process_source,
+    reprocess_all,
 )
 from court_monitor.sources.fedsfm_live import (
     LIST_URL,
@@ -100,6 +101,24 @@ def _job_parse_pending(session: Session, _params: dict[str, Any]) -> dict[str, A
         "parsed": stats.parsed,
         "irrelevant": stats.irrelevant,
         "failed": stats.failed,
+    }
+
+
+def _job_reprocess_all(session: Session, params: dict[str, Any]) -> dict[str, Any]:
+    """Re-parse the whole corpus with the current extractors.
+
+    Refuses by default if any operator decision would be destroyed; the caller
+    must pass ``force`` deliberately, exactly as on the command line.
+    """
+    stats = reprocess_all(session, force=bool(params.get("force")))
+    return {
+        "documents": stats.documents,
+        "parsed": stats.parsed,
+        "irrelevant": stats.irrelevant,
+        "failed": stats.failed,
+        "facts_before": stats.facts_before,
+        "facts_after": stats.facts_after,
+        "facts_delta": stats.facts_delta,
     }
 
 
@@ -172,6 +191,11 @@ JOB_KINDS: dict[str, dict[str, Any]] = {
         "label": "Найти совпадения",
         "runner": _job_generate_matches,
         "description": "Сопоставление извлечённых имён с реестром.",
+    },
+    "reprocess_all": {
+        "label": "Переразобрать весь корпус",
+        "runner": _job_reprocess_all,
+        "description": "Применить текущие правила извлечения к уже собранным документам.",
     },
 }
 
