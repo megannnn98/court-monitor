@@ -108,7 +108,13 @@ def import_source_registry(
     ] = DEFAULT_REGISTRY_VIEW_URL,
     dry_run: Annotated[
         bool,
-        typer.Option("--dry-run", help="Preview only; do not write (default behaviour)."),
+        # Needs the negative form spelled out: with only "--dry-run" declared,
+        # Typer offers no way to turn the default off and save_registry below
+        # becomes unreachable.
+        typer.Option(
+            "--dry-run/--no-dry-run",
+            help="Preview only; do not write (default behaviour).",
+        ),
     ] = True,
     registry_path: Annotated[
         str, typer.Option(help="Local registry YAML to read/write.")

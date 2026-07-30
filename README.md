@@ -2,130 +2,145 @@
 
 Полуавтоматическая система мониторинга уголовных дел по открытым источникам.
 
-## Что это делает?
+Собирает публичные материалы, извлекает из них факты (статьи УК, даты, ФИО) и
+показывает оператору кандидатов на совпадение с реестром Росфинмониторинга.
 
-Собирает информацию о уголовных делах из публичных источников, извлекает из неё факты (статьи УК, даты, ФИО) и помогает оператору находить связи между делами и реестрами (например, Росфинмониторинг). Ничего не публикует и не принимает решения автоматически — всегда нужен человек.
+**Ничего не публикует и ничего не решает сама.** Совпадение подтверждает
+человек, каждое решение пишется в аудит-лог.
 
-**Источники:**
-- Пресс-релизы судов (`sudrf.ru`)
-- Перечень Росфинмониторинга (`fedsfm.ru`, XML/DBF/CSV)
-- Telegram-каналы
-- Airtable (реестр источников)
+---
 
-## Быстрый старт
+## Установка — один раз
 
 ```bash
-# 1. Установить зависимости
-make install
-
-# 2. Создать базу данных (SQLite по умолчанию)
-make init-db
-
-# 3. Проверить, что всё работает
-make doctor
+make install     # зависимости
+make init-db     # схема БД (SQLite по умолчанию)
+make doctor      # проверка, что всё на месте
 ```
 
-## Пример использования
+`make doctor` должен закончиться без проблем. Если он ругается — читайте
+вывод, он называет конкретную причину; чаще всего это отставшая БД, лечится
+`make migrate`.
 
-### Загрузить и распарсить пресс-релиз суда
+---
+
+## Рабочий цикл
+
+Пять шагов. Первые два нужны редко, три последних — это собственно работа.
+
+### Шаг 1. Обновить список источников *(редко)*
+
+Список каналов и сайтов лежит в `config/source_registry.yaml`. Он меняется
+нечасто, так что этот шаг — не для каждого запуска.
 
 ```bash
-# Скачать пресс-релиз (заглушка для демо)
-uv run court-monitor fetch-source 2zovs
-
-# Распарсить скачанные документы
-uv run court-monitor parse-pending
-
-# Посмотреть статистику
-uv run court-monitor show-stats
-
-# Посмотреть содержимое конкретного документа
-uv run court-monitor show-document 1
+uv run court-monitor import-source-registry --from-airtable   # предпросмотр
+uv run court-monitor import-source-registry --from-airtable --no-dry-run
+uv run court-monitor check-sources                            # кто ещё отвечает
 ```
 
-### Импорт данных Росфинмониторинга
+`import-source-registry` по умолчанию **только показывает**, что импортирует.
+Чтобы записать файл, нужен явный `--no-dry-run`.
+
+`check-sources` делает по одному запросу на источник и говорит, кто отвечает,
+а кто блокирует. Полезно, когда сбор вдруг стал приносить меньше материалов.
+
+### Шаг 2. Загрузить перечень Росфинмониторинга *(раз в несколько дней)*
+
+Это та база, с которой сопоставляются найденные в документах имена. Без неё
+шаг 4 не найдёт ничего.
 
 ```bash
-# Импортировать файл перечня
-uv run court-monitor fetch-source fedsfm --file tests/fixtures/rfm/persons.xml
-
-# Посмотреть список записей
-uv run court-monitor list-person-records
+uv run court-monitor fetch-source fedsfm --live
 ```
 
-### Поиск связей между делами и реестрами
+Загружает ~21 500 записей о физлицах напрямую с `fedsfm.ru`. VPN не нужен —
+сайт не блокирует по географии, там достаточно правильно проверить TLS
+(детали в [`docs/configuration.md`](docs/configuration.md)).
+
+Если сеть недоступна, можно импортировать из файла:
 
 ```bash
-# Сгенерировать кандидатов на совпадение
-uv run court-monitor generate-matches
-
-# Посмотреть список совпадений
-uv run court-monitor list-matches
-
-# Детали конкретного совпадения (с объяснением score)
-uv run court-monitor show-match 1
-
-# Подтвердить или отклонить (только вручную!)
-uv run court-monitor confirm-match 1 --comment "Подтверждено оператором" --operator "имя"
-uv run court-monitor reject-match 1 --comment "Не совпадает" --operator "имя"
+uv run court-monitor fetch-source fedsfm --file <path> --dry-run   # посмотреть
+uv run court-monitor fetch-source fedsfm --file <path>             # записать
 ```
 
-Каждое confirm/reject записывается в `AuditLog` (actor, старый/новый статус,
-correlation_id) — см. `docs/review-and-audit-testing.md`.
+### Шаг 3. Собрать материалы и найти кандидатов
 
-### Очередь проверки оператора (ReviewItem)
-
-Сбои парсера (`parser_status=parser_failed`) автоматически попадают в очередь
-проверки, а не просто в лог:
+Одна команда: все sudrf-источники + Telegram-каналы, затем сопоставление.
 
 ```bash
-uv run court-monitor list-review-items [--status pending] [--type parser_failed]
-uv run court-monitor resolve-review-item <id> --comment "починил селектор" [--dismiss]
+uv run court-monitor run-all --live
 ```
 
-## CLI — все команды
+Без `--live` работает на фикстурах и в сеть не ходит — так проверяют, что
+конвейер цел, не трогая чужие сайты.
+
+Вывод — построчная сводка по каждому источнику. Смотреть надо на две вещи:
+
+- **`blocked`** — источник ответил, но отказал. Это не сетевой сбой, это
+  осознанный отказ на той стороне; такой источник не чинится повтором.
+- **`failed`** — сбой разбора. Материалы при этом уже сохранены, и каждый сбой
+  попадает в очередь проверки (шаг 5), а не только в лог.
+
+`--verbose` включает полный JSON-лог по каждому документу.
+
+### Шаг 4. Разобрать кандидатов — это основная работа
 
 ```bash
-# Справка
-court-monitor --help
-
-# БД и миграции
-court-monitor init-db            # создать схему
-court-monitor migrate            # применить миграции
-court-monitor doctor             # проверка окружения
-court-monitor show-config        # текущая конфигурация
-
-# Источники
-court-monitor list-sources                               # список источников
-court-monitor fetch-source <name>                        # загрузить и распарсить
-court-monitor fetch-source <name> --no-parse             # только загрузить
-court-monitor fetch-source fedsfm --file <path>          # импорт из файла
-court-monitor fetch-source fedsfm --file <path> --dry-run  # предпросмотр
-court-monitor fetch-all                                  # только sudrf-источники (config/sources.yaml)
-court-monitor run-all [--live] [--verbose]               # sudrf + все Telegram-каналы + generate-matches, разом
-                                                          # цветной построчный вывод; --verbose — полный JSON-лог
-
-# Документы
-court-monitor parse-pending                              # распарсить pending
-court-monitor reprocess-document <id>                    # перепарсить
-court-monitor list-documents                             # список
-court-monitor show-document <id>                         # детали + факты
-
-# Росфинмониторинг
-court-monitor list-person-records                        # список записей
-court-monitor show-person-record <id>                    # детали записи
-
-# Совпадения
-court-monitor generate-matches                           # генерация кандидатов
-court-monitor list-matches [--status pending]            # список
-court-monitor show-match <id>                            # детали
-court-monitor confirm-match <id> --comment "..." [--operator ...]  # подтвердить
-court-monitor reject-match <id> --comment "..." [--operator ...]   # отклонить
-
-# Очередь проверки оператора (ReviewItem) и аудит
-court-monitor list-review-items [--status pending] [--type parser_failed]  # список
-court-monitor resolve-review-item <id> --comment "..." [--dismiss]         # разрешить/отклонить
+make run-web     # http://127.0.0.1:8010
 ```
+
+Откройте `/matches`. Каждый кандидат — предположение, что имя из документа и
+запись в реестре относятся к одному человеку. Дальше решает оператор.
+
+**Почему у всех кандидатов score 0.50 и на что тогда смотреть.** Порог 0.45
+проходит совпадение фамилии и имени — 0.50. Всё, что могло бы поднять или
+опустить оценку (дата и место рождения), в реестре есть, но **в текстах
+документов почти отсутствует**: 5 упоминаний даты рождения на 379 документов,
+мест рождения — ноль. То есть однофамильца от фигуранта скор отличить не может
+в принципе, и доверять числу как ранжированию нельзя.
+
+Поэтому карточка совпадения показывает то, чего в скоре нет:
+
+- **сколько в реестре однофамильцев** — один Шульман и 64 Иванова при
+  одинаковом 0.50 это принципиально разные ситуации;
+- **другие упоминания того же человека** с цитатами — фигурант нескольких
+  материалов и единичное упоминание весят по-разному.
+
+Решение (подтвердить / отклонить) требует комментария и пишется в аудит-лог
+вместе с тем, кто его принял. То же самое из CLI:
+
+```bash
+uv run court-monitor list-matches --status pending
+uv run court-monitor show-match <id>
+uv run court-monitor confirm-match <id> --comment "..." --operator "имя"
+uv run court-monitor reject-match <id> --comment "..." --operator "имя"
+```
+
+### Шаг 5. Разобрать очередь проверки
+
+Страница `/review`. Сюда автоматически попадает всё, что система не смогла
+обработать сама — в первую очередь сбои парсера. Смысл очереди в том, что
+сломанный селектор иначе молча теряет материалы: в логе строчка есть, а
+заметить её некому.
+
+```bash
+uv run court-monitor list-review-items --status pending
+uv run court-monitor resolve-review-item <id> --comment "починил селектор"
+uv run court-monitor resolve-review-item <id> --dismiss --comment "не наш случай"
+```
+
+Починив парсер, документ можно перепарсить:
+
+```bash
+uv run court-monitor reprocess-document <id>
+```
+
+Если по документу уже приняты решения о совпадениях, команда откажется
+работать — перепарсинг их уничтожит. Подавляется через `--force`, осознанно.
+
+---
 
 ## Что извлекается из документов
 
@@ -135,98 +150,63 @@ court-monitor resolve-review-item <id> --comment "..." [--dismiss]         # р�
 | Дата | `2026-04-02 (дата приговора)` |
 | ФИО | `Иванов Иван Иванович (уверенность 0.95)` |
 
-## Как работает сопоставление людей
+Извлечение — regex; опционально включается NER (`CM_NER_MODE=spacy`),
+работающий в дополнение к нему. Подробности — в
+[`docs/ai-context/extraction.md`](docs/ai-context/extraction.md).
 
-Система сравнивает ФИО из судебных документов с записями из реестра Росфинмониторинга. По умолчанию **ничего не подтверждает автоматически** — создаёт кандидатов с объяснением оценки, а оператор решает.
+---
 
-Пример оценки:
+## Если что-то пошло не так
 
-| Совпадение | Вес |
+| Симптом | Куда смотреть |
 |---|---|
-| Полное ФИО | +0.70 |
-| Фамилия + имя | +0.50 |
-| Фамилия + инициалы | +0.35 |
-| Дата рождения (полная) | +0.20 |
-| Год рождения | +0.15 |
-| Конфликт года рождения | -0.60 |
+| Любая непонятная ошибка | `make doctor` — называет конкретную причину |
+| `no such column` | БД отстала от миграций → `make migrate` |
+| Источник ничего не приносит | `check-sources`; счётчик `blocked` в сводке `run-all` |
+| Документы есть, фактов нет | `/review`, `show-document <id>` |
+| Кандидатов нет вообще | Загружен ли перечень РФМ (шаг 2): `list-person-records` |
 
-Порог: `score ≥ 0.45` — создаётся кандидат для проверки.
-
-## Веб-интерфейс оператора
-
-Веб-интерфейс позволяет просматривать документы, проверять совпадения
-и запускать фоновые задачи сбора данных — без командной строки.
-
-```bash
-# Запустить веб-интерфейс (по умолчанию http://127.0.0.1:8010)
-make run-web
-
-# Смена адреса/порта
-uv run court-monitor run-web --host 0.0.0.0 --port 9090
-
-# Автоперезагрузка при изменении кода
-uv run court-monitor run-web --reload
-```
-
-Интерфейс привязывается к loopback по умолчанию — аутентификации пока нет
-(D-007), поэтому при смене хоста на внешний вы получите предупреждение.
-
-### Доступные страницы
-
-| Страница | URL | Описание |
-|---|---|---|
-| Дашборд | `/` | Общая статистика, последние документы |
-| Документы | `/documents` | Список загруженных материалов |
-| Детали документа | `/documents/<id>` | Извлечённые факты |
-| Совпадения | `/matches` | Кандидаты на сопоставление с реестром |
-| Детали совпадения | `/matches/<id>` | Score breakdown, подтвердить/отклонить |
-| Очередь проверки | `/review` | Сбои парсера, блокировки источников |
-| Реестр | `/registry` | Поиск по записям Росфинмониторинга |
-| Аудит | `/audit` | Журнал решений оператора |
-| Задачи | `/jobs` | Запуск и мониторинг фоновых задач |
-
-### JSON API (read-only)
-
-```bash
-# Запустить API (порт 8000)
-make run-api
-
-# Проверить
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/stats
-curl http://127.0.0.1:8000/documents
-```
-
-## Docker
-
-```bash
-cp .env.example .env
-make docker-up    # PostgreSQL + FastAPI на :8000
-```
-
-## Переменные окружения
-
-Копируются в `.env` (никогда не коммитятся). Префикс `CM_`. Минимум:
-
-| Переменная | По умолчанию | Описание |
-|---|---|---|
-| `CM_DATABASE_URL` | `sqlite:///./court_monitor.db` | Строка подключения к БД |
-| `CM_LOG_LEVEL` | `INFO` | Уровень логирования |
-| `CM_AIRTABLE_MODE` | `read_only` | Режим Airtable |
-| `CM_LLM_MODE` | `disabled` | LLM-извлечение (выключено) |
+---
 
 ## Тесты
 
 ```bash
-make test            # все тесты (216)
-make test-unit       # unit-тесты
-make test-integration  # integration-тесты
+make test              # все (338)
+make test-unit
+make test-integration
 ```
+
+---
 
 ## Документация
 
-- `docs/ai-context/architecture.md` — архитектура
-- `docs/ai-context/extraction.md` — извлечение фактов
-- `docs/ai-context/matching.md` — сопоставление людей
-- `docs/ai-context/known-risks-and-notes.md` — известные риски
-- `docs/review-and-audit-testing.md` — как вручную проверить ReviewItem/AuditLog (очередь проверки оператора + аудит-лог)
+**Как пользоваться:**
+- [`docs/cli-reference.md`](docs/cli-reference.md) — все команды и флаги
+- [`docs/configuration.md`](docs/configuration.md) — переменные окружения, веб, API, Docker
+- [`docs/review-and-audit-testing.md`](docs/review-and-audit-testing.md) — ручная проверка очереди и аудита
+
+**Как устроено:**
+- [`docs/ai-context/architecture.md`](docs/ai-context/architecture.md) — архитектура
+- [`docs/ai-context/extraction.md`](docs/ai-context/extraction.md) — извлечение фактов
+- [`docs/ai-context/matching.md`](docs/ai-context/matching.md) — сопоставление людей
+- [`docs/ai-context/known-risks-and-notes.md`](docs/ai-context/known-risks-and-notes.md) — известные риски и ограничения
+- [`docs/technical-debt.md`](docs/technical-debt.md) — технический долг
+
+**Разведка источников** (историческое, для понимания решений):
+- [`docs/discovery.md`](docs/discovery.md), [`docs/airtable-discovery.md`](docs/airtable-discovery.md),
+  [`docs/fedsfm-format-discovery.md`](docs/fedsfm-format-discovery.md),
+  [`docs/person-matching.md`](docs/person-matching.md),
+  [`docs/database-bootstrap.md`](docs/database-bootstrap.md)
+
+---
+
+## Ограничения, о которых надо знать заранее
+
+- **Аутентификации в вебе нет** (D-007). Интерфейс сидит на loopback; при
+  выносе наружу вы получите предупреждение — оно не декоративное.
+- **Сайты судов недоступны** без туннеля в РФ: `bsr.sudrf.ru` блокирует по
+  TCP, персональные домены судов отдают 404, `vsrf.ru` публикует только
+  обезличенные документы. Основной живой источник сейчас — Telegram-каналы.
+- **Скор не ранжирует.** См. шаг 4: в документах нет дат рождения, поэтому
+  0.50 стоит почти у всех и означает «проверь руками», а не «вероятно».
+- **Планировщика нет.** Сбор запускает человек — из `/jobs` или командой.

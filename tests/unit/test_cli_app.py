@@ -17,6 +17,7 @@ import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
+from typer.testing import CliRunner
 
 import court_monitor.cli._shared as shared
 import court_monitor.cli.app as cli_module
@@ -153,6 +154,19 @@ def test_require_current_schema_does_not_block_on_check_failure(monkeypatch):
 
     monkeypatch.setattr(shared, "revision_status", _boom)
     shared.require_current_schema()  # must not raise
+
+
+def test_import_source_registry_can_leave_dry_run():
+    """A boolean flag declared only in its positive form can never be turned
+    off, which made save_registry unreachable — the command could preview the
+    registry but never write it."""
+    result = CliRunner().invoke(
+        cli_module.app,
+        ["import-source-registry", "--from-csv", "/nonexistent.csv", "--no-dry-run"],
+    )
+
+    assert "unexpected extra argument" not in result.output
+    assert "No such file" in result.output  # got past parsing, died on the input file
 
 
 def test_docker_build_filter_includes_all_dockerfile_inputs():
