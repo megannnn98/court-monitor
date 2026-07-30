@@ -394,3 +394,80 @@ def test_audit_can_be_filtered_by_object_type(client: TestClient, session: Sessi
     )
     assert "match_status_change" in client.get("/audit?object_type=match_candidate").text
     assert "match_status_change" not in client.get("/audit?object_type=review_item").text
+
+
+# ---------------------------------------------------------------------------
+# Review context — what the score cannot say
+# ---------------------------------------------------------------------------
+
+
+def _add_registry_namesakes(session: Session, surname: str, count: int) -> None:
+    for i in range(count):
+        session.add(
+            PersonRecord(
+                source="rfm",
+                raw_name=f"{surname.upper()} ИМЯ{i} ОТЧЕСТВО",
+                search_name=f"{surname} имя{i} отчество",
+                normalized_name=f"{surname} имя{i} отчество",
+            )
+        )
+    session.commit()
+
+
+def test_a_unique_surname_is_shown_as_a_strong_signal(client: TestClient, session: Session):
+    """Every candidate scores 0.50, so rarity of the surname is what actually
+    separates a hit from a namesake."""
+    candidate = _seed(session)
+    body = client.get(f"/matches/{candidate.id}").text
+    assert "уникальна" in body
+    assert "весомое" in body
+
+
+def test_a_common_surname_warns_that_a_name_alone_cannot_decide(
+    client: TestClient, session: Session
+):
+    candidate = _seed(session)
+    _add_registry_namesakes(session, "иванов", 20)
+    body = client.get(f"/matches/{candidate.id}").text
+    assert "различить нельзя" in body
+
+
+def test_other_mentions_of_the_same_person_are_listed(client: TestClient, session: Session):
+    """Someone named across several materials is a different proposition from
+    one passing mention."""
+    candidate = _seed(session)
+    other = SourceDocument(
+        url="https://example.invalid/b",
+        source_type="telegram",
+        content_hash="h2",
+        parser_status="parsed",
+    )
+    session.add(other)
+    session.flush()
+    session.add(
+        ExtractedFact(
+            document_id=other.id,
+            entity="person",
+            field="full_name_original",
+            value="Иванов Иван Иванович",
+            quote="снова упомянут Иванов Иван Иванович",
+            extraction_method="regex:name:full_fio",
+        )
+    )
+    session.commit()
+
+    body = client.get(f"/matches/{candidate.id}").text
+    assert f"#{other.id}" in body
+    assert "снова упомянут" in body
+
+
+def test_a_single_mention_says_so_explicitly(client: TestClient, session: Session):
+    candidate = _seed(session)
+    assert "единичное упоминание" in client.get(f"/matches/{candidate.id}").text
+
+
+def test_candidate_page_links_to_the_original_source(client: TestClient, session: Session):
+    candidate = _seed(session)
+    body = client.get(f"/matches/{candidate.id}").text
+    assert "https://example.invalid/a" in body
+    assert "открыть оригинал" in body

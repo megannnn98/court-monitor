@@ -21,6 +21,11 @@
       <p class="muted">
         метод: {{ fact.extraction_method }} · confidence {{ '%.2f' | format(fact.confidence) }}<br>
         документ: <a href="{{ url_for('document_detail', document_id=fact.document_id) }}">#{{ fact.document_id }}</a>
+        {% if document %}
+        — {{ document.title or '(без заголовка)' }}<br>
+        источник: {{ document.source_id or document.source_name or '—' }}{% if document.published_at %}, {{ document.published_at.strftime('%Y-%m-%d') }}{% endif %}<br>
+        <a href="{{ document.canonical_url or document.url }}" rel="noreferrer noopener">открыть оригинал →</a>
+        {% endif %}
       </p>
     {% else %}
       <p class="empty">Факт удалён.</p>
@@ -41,6 +46,48 @@
     {% else %}
       <p class="empty">Запись удалена.</p>
     {% endif %}
+  </div>
+</div>
+
+<h2>Контекст для решения</h2>
+<div class="card">
+  <p class="muted">
+    Скоринг здесь сказать больше не может: совпали только фамилия и имя,
+    ни даты, ни места рождения в тексте нет. Ниже — то, что помогает решить вручную.
+  </p>
+
+  <div class="two-col">
+    <div>
+      <strong>Однофамильцы в реестре</strong>
+      <p>
+        {% if namesakes <= 1 %}
+          <span class="tag ok">{{ namesakes }}</span>
+          фамилия в перечне уникальна — совпадение весомое
+        {% elif namesakes <= 5 %}
+          <span class="tag warn">{{ namesakes }}</span>
+          записей с этой фамилией — совпадение среднее
+        {% else %}
+          <span class="tag danger">{{ namesakes }}</span>
+          записей с этой фамилией — по одному имени различить нельзя
+        {% endif %}
+      </p>
+    </div>
+
+    <div>
+      <strong>Упоминания в других документах</strong>
+      {% if others %}
+      <ul>
+        {% for o in others %}
+        <li>
+          <a href="{{ url_for('document_detail', document_id=o.document_id) }}">#{{ o.document_id }}</a>
+          {% if o.quote %}<span class="muted">— «{{ o.quote[:90] }}»</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Больше нигде не встречается — единичное упоминание.</p>
+      {% endif %}
+    </div>
   </div>
 </div>
 

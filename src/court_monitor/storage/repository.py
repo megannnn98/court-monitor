@@ -535,3 +535,38 @@ def count_person_records_matching(
         if needle:
             stmt = stmt.where(PersonRecord.search_name.contains(needle))
     return int(session.execute(stmt).scalar_one())
+
+
+def count_registry_namesakes(session: Session, surname: str, *, source: str = "rfm") -> int:
+    """How many registry records share this surname.
+
+    A candidate scoring 0.50 means only the name matched. Whether that is worth
+    anything depends on how common the surname is in the registry: one Шульман
+    is a very different signal from fourteen Кадыровых, and the score alone
+    does not say which.
+    """
+    if not surname:
+        return 0
+    stmt = select(func.count(PersonRecord.id)).where(
+        PersonRecord.source == source,
+        PersonRecord.search_name.startswith(f"{surname} "),
+    )
+    return int(session.execute(stmt).scalar_one())
+
+
+def find_other_mentions(
+    session: Session, value: str, *, exclude_document_id: int | None = None, limit: int = 20
+) -> list[ExtractedFact]:
+    """Other documents naming the same person.
+
+    Someone appearing across several materials is a different proposition from
+    a single passing mention, and that is context the score cannot express.
+    """
+    needle = normalize_fio(value)
+    if not needle:
+        return []
+    stmt = select(ExtractedFact).where(ExtractedFact.field == "full_name_original")
+    if exclude_document_id is not None:
+        stmt = stmt.where(ExtractedFact.document_id != exclude_document_id)
+    rows = list(session.execute(stmt.limit(2000)).scalars())
+    return [f for f in rows if normalize_fio(str(f.value)) == needle][:limit]

@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from court_monitor import __version__
 from court_monitor.config.settings import settings
+from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.observability import configure_logging, correlation_scope, get_logger
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import session_scope
@@ -182,14 +183,34 @@ def match_detail(request: Request, candidate_id: int, session: SessionDep) -> HT
     candidate = repo.get_match_candidate(session, candidate_id)
     if candidate is None:
         raise HTTPException(status_code=404, detail="Кандидат не найден")
+
+    fact = candidate.extracted_fact
+    record = candidate.person_record
+    # Context the score cannot carry. Every candidate here sits at 0.50 —
+    # surname and given name matched, nothing else was available — so what
+    # separates a real hit from a namesake is how rare the surname is in the
+    # registry and whether the person turns up in more than one document.
+    namesakes = 0
+    if record is not None:
+        namesakes = repo.count_registry_namesakes(
+            session, normalize_name_morph(record.normalized_name).surname
+        )
+    others = (
+        repo.find_other_mentions(session, str(fact.value), exclude_document_id=fact.document_id)
+        if fact is not None
+        else []
+    )
     return _render(
         request,
         "match_detail.html",
         session,
         nav="matches",
         c=candidate,
-        fact=candidate.extracted_fact,
-        record=candidate.person_record,
+        fact=fact,
+        record=record,
+        document=fact.document if fact is not None else None,
+        namesakes=namesakes,
+        others=others,
         reasons=_load_json(candidate.reasons_json),
         conflicts=_load_json(candidate.conflicts_json),
     )

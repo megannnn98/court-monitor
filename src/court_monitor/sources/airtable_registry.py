@@ -187,6 +187,18 @@ def render_shared_view(
         try:
             page = browser.new_page(user_agent=ua, viewport={"width": 1500, "height": 1000})
             page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            # Airtable renders its grid client-side, so a fixed settle delay is a
+            # race: lose it and this returns an empty shell that parses to zero
+            # rows, which reads as "the view is empty" rather than "we were too
+            # early". Wait for actual rows and fail loudly if they never arrive.
+            try:
+                page.wait_for_selector(".dataRow.leftPane", timeout=timeout_ms)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Airtable view rendered no rows within {timeout_ms} ms ({url}). "
+                    "The view may be empty or unreachable, or its markup may have "
+                    "changed; export it to CSV and use --from-csv to bypass this."
+                ) from exc
             page.wait_for_timeout(settle_ms)
             pane = page.locator(".dataRightPane.pane").first
             for _ in range(max(1, scroll_steps)):

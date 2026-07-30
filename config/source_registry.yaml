@@ -8,8 +8,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:34.154196+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -23,8 +23,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:35.030847+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -38,8 +38,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:36.009553+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -54,8 +54,8 @@ sources:
   - Гниды
   - Силовики
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:37.103459+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -69,8 +69,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:37.638242+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -84,8 +84,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:38.180903+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -99,8 +99,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:38.788616+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -115,8 +115,8 @@ sources:
   - Гниды
   - Силовики
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:39.633188+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -131,8 +131,8 @@ sources:
   - Новости
   - Правозащитная организация
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:40.078916+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -147,8 +147,8 @@ sources:
   - Активисты
   - Инициатива
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: temporarily_unavailable
+  last_checked_at: '2026-07-30T08:48:40.465574+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -163,8 +163,8 @@ sources:
   - Новости
   - Активисты
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:41.164498+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -178,8 +178,8 @@ sources:
   topics:
   - Новости
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:41.933527+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
@@ -194,8 +194,8 @@ sources:
   - Новости
   - Активисты
   enabled: true
-  status: unknown
-  last_checked_at: null
+  status: available
+  last_checked_at: '2026-07-30T08:48:42.584352+00:00'
   disable_reason: null
   discovered_from:
     type: airtable_shared_view
