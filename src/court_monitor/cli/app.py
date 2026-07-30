@@ -34,6 +34,7 @@ from court_monitor.domain.models import FetchHealth
 from court_monitor.matching.candidates import generate_matches
 from court_monitor.observability import configure_logging, correlation_scope, get_logger
 from court_monitor.services import (
+    ReprocessWouldDiscardDecisions,
     import_rfm_records,
     process_pending,
     process_registry_source,
@@ -66,9 +67,11 @@ app = typer.Typer(
     add_completion=False,
 )
 
-# Default fixture location for a registry telegram source (no-network mode).
-FIXTURE_DIR = Path("tests/fixtures/telegram")
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Default fixture location for a registry telegram source (no-network mode).
+# Anchored to the repo rather than the CWD so the command works from anywhere.
+FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "telegram"
 
 
 def _version_callback(value: bool) -> None:
@@ -189,6 +192,9 @@ def _doctor_check_tables(problems: list[str]) -> None:
             "extracted_facts",
             "person_records",
             "person_match_candidates",
+            "review_items",
+            "audit_log",
+            "jobs",
         }
         missing = expected - set(tables)
         if missing:
@@ -380,7 +386,6 @@ def check_sources(
         raise typer.Exit(code=1)
 
     typer.echo(f"{'ID':24} {'Тип':10} {'Статус':26} {'HTTP':>5}  Примечание")
-    rows_for_save: list[tuple[object, object]] = []
     updated = entries
     for entry in entries:
         result = probe_source(entry)
@@ -395,7 +400,6 @@ def check_sources(
             f"{entry.id[:24]:24} {entry.source_type[:10]:10} {result.status:26} "
             f"{result.http_status:>5}  {result.note}"
         )
-        rows_for_save.append((entry, result))
         updated = set_entry_status(updated, entry.id, status=result.status, reason=result.note)
 
     save_registry(updated, registry_path)
@@ -669,6 +673,7 @@ def _fetch_source_legacy(
 
     entry = _registry_entry_or_none(name)
     if entry is not None:
+        fixture_path = _fixture_path_for(entry)
         engine = make_engine()
         with _maybe_dry_run_session(engine, dry_run=dry_run) as session:
             stats = process_registry_source(
@@ -677,7 +682,7 @@ def _fetch_source_legacy(
                 monitoring,
                 live=live,
                 limit=limit,
-                fixture_path=str(_fixture_path_for(entry)) if _fixture_path_for(entry) else None,
+                fixture_path=str(fixture_path) if fixture_path else None,
                 parse_immediately=not no_parse,
             )
         typer.echo(_render_registry_stats(stats, entry.id, live=live))
@@ -984,12 +989,25 @@ def parse_pending() -> None:
 @app.command(name="reprocess-document")
 def reprocess_document(
     document_id: Annotated[int, typer.Argument(help="SourceDocument.id")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Re-parse even if it discards reviewed match decisions."),
+    ] = False,
 ) -> None:
     """Drop existing facts for a document and re-parse it."""
     _bootstrap_logging()
     engine = make_engine()
-    with session_scope(engine) as session:
-        result = reprocess(session, document_id)
+    try:
+        with session_scope(engine) as session:
+            result = reprocess(session, document_id, force=force)
+    except ReprocessWouldDiscardDecisions as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, bold=True, err=True)
+        typer.echo(
+            "Решения оператора будут потеряны безвозвратно. "
+            "Если это действительно нужно — повторите с --force.",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
     if result is None:
         typer.echo(f"Document {document_id} not found.", err=True)
         raise typer.Exit(code=1)
@@ -1139,7 +1157,7 @@ def show_document(
 @app.command(name="list-sources")
 def list_sources() -> None:
     """List sources from the Airtable fixture (ID | Name | URL)."""
-    fixture = Path("tests/fixtures/airtable/source_registry.json")
+    fixture = REPO_ROOT / "tests" / "fixtures" / "airtable" / "source_registry.json"
     if not fixture.exists():
         typer.echo(f"Fixture not found: {fixture}", err=True)
         raise typer.Exit(code=1)
@@ -1157,7 +1175,7 @@ def list_sources() -> None:
 
 def _read_demo_fixture() -> list[dict]:
     """Read the Airtable source fixture."""
-    fixture = Path("tests/fixtures/airtable/source_registry.json")
+    fixture = REPO_ROOT / "tests" / "fixtures" / "airtable" / "source_registry.json"
     if not fixture.exists():
         typer.echo(f"Fixture not found: {fixture}", err=True)
         raise typer.Exit(code=1)
@@ -1167,6 +1185,7 @@ def _read_demo_fixture() -> list[dict]:
 
 def _find_first_reachable(rows: list[dict]) -> tuple[str, str]:
     """Find the first reachable URL and return (url, html)."""
+    log = get_logger("cli.fetch_demo")
     with HttpClient() as client:
         for row in rows:
             url = row.get("url", "")
@@ -1176,8 +1195,11 @@ def _find_first_reachable(rows: list[dict]) -> tuple[str, str]:
                 resp = client.get(url)
                 if resp.health == FetchHealth.ok and resp.text:
                     return url, resp.text
-            except Exception:
-                continue
+                log.info("demo.source.unusable", url=url, health=str(resp.health))
+            except Exception as exc:
+                # Without this the operator just gets "no reachable source"
+                # and no way to tell which one failed or why.
+                log.warning("demo.source.failed", url=url, error=f"{type(exc).__name__}: {exc}")
     return "", ""
 
 
@@ -1223,7 +1245,7 @@ def fetch_demo_source() -> None:
         typer.echo("No reachable source found.", err=True)
         raise typer.Exit(code=1)
 
-    out_dir = Path("tests/fixtures/demo")
+    out_dir = REPO_ROOT / "tests" / "fixtures" / "demo"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "demo_page.html"
     out_file.write_text(html, encoding="utf-8")
