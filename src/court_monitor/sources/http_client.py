@@ -53,7 +53,14 @@ class HttpClient:
         timeout: float | None = None,
         delay_seconds: float | None = None,
         max_retries: int | None = None,
+        verify: str | bool | None = None,
     ) -> None:
+        """``verify`` accepts a CA bundle path for hosts whose issuer is not in
+        the default trust store (fedsfm.ru is signed by the Russian Ministry of
+        Digital Development CA). Passing a bundle keeps verification *on* — it
+        only widens which issuers count — and is scoped to the one client that
+        needs it, so that CA cannot vouch for any other host we fetch.
+        """
         self._user_agent = user_agent or settings.http_user_agent
         self._timeout = timeout or settings.http_timeout
         self._delay = delay_seconds if delay_seconds is not None else settings.http_delay_seconds
@@ -62,6 +69,7 @@ class HttpClient:
             headers={"User-Agent": self._user_agent},
             timeout=self._timeout,
             follow_redirects=True,
+            verify=True if verify is None else verify,
         )
         self._last_request_ts: dict[str, float] = {}
 
