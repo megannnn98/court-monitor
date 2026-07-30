@@ -50,7 +50,7 @@ from court_monitor.sources.http_client import HttpClient
 from court_monitor.sources.probe import probe_source
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory, session_scope
-from court_monitor.storage.migrations import upgrade_head
+from court_monitor.storage.migrations import revision_status, upgrade_head
 
 app = typer.Typer(
     name="court-monitor",
@@ -197,22 +197,29 @@ def _doctor_check_tables(problems: list[str]) -> None:
         typer.echo(f"tables: ✗ ({exc})")
 
 
-def _doctor_check_alembic() -> None:
-    """Check Alembic current revision."""
+def _doctor_check_alembic(problems: list[str]) -> None:
+    """Check that the database is migrated up to the latest revision.
 
-    from alembic import command as alembic_cmd  # noqa: PLC0415
-    from alembic.config import Config as AlembicConfig  # noqa: PLC0415
-
+    A database left behind the scripts still answers "SELECT 1" and still has
+    all its old tables, so every other check here passes while the next
+    pipeline run dies on a missing column. Treat the drift as a problem.
+    """
     try:
-        alembic_cfg = AlembicConfig(str(REPO_ROOT / "alembic.ini"))
-        alembic_cfg.set_main_option("script_location", str(REPO_ROOT / "migrations"))
-        alembic_cfg.set_main_option("prepend_sys_path", str(REPO_ROOT / "src"))
-        alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-
-        alembic_cmd.current(alembic_cfg)
-        typer.echo("alembic_current: ✓")
+        applied, head = revision_status(settings.database_url)
     except Exception as exc:
         typer.echo(f"alembic_current: ✗ ({exc})")
+        problems.append(f"alembic revision check failed: {exc}")
+        return
+
+    if applied == head:
+        typer.echo(f"alembic_current: ✓ ({applied})")
+        return
+
+    typer.echo(f"alembic_current: ✗ (применена {applied or 'нет'}, ожидается {head})")
+    problems.append(
+        f"Database is behind migrations: applied={applied or 'none'}, head={head}. "
+        "Run: court-monitor migrate"
+    )
 
 
 def _doctor_check_repository(problems: list[str]) -> None:
@@ -273,7 +280,7 @@ def doctor() -> None:
 
     _doctor_check_sqlite(problems)
     _doctor_check_tables(problems)
-    _doctor_check_alembic()
+    _doctor_check_alembic(problems)
     _doctor_check_repository(problems)
     _doctor_check_config(problems)
     _doctor_check_settings_source()
