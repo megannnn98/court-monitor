@@ -9,6 +9,8 @@ CM_DATABASE_URL at a temporary file for the duration.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine
@@ -37,6 +39,13 @@ def db(tmp_path, monkeypatch):
     finally:
         session.close()
         engine.dispose()
+
+
+@dataclass
+class _ImportStats:
+    imported: int = 0
+    updated: int = 0
+    duplicates: int = 0
 
 
 def _register(monkeypatch, name: str, runner) -> None:
@@ -159,6 +168,42 @@ def test_count_active_and_listing(db, monkeypatch):
     jobs.submit(db, "generate_matches", actor="tester")
     assert jobs.count_active(db) == 1
     assert len(jobs.list_jobs(db)) == 1
+
+
+def test_import_rfm_job_purges_through_the_guarded_path(db, monkeypatch):
+    """The job used to delete every registry record inline, cascading into
+    confirmed candidates without asking. It must go through the guard, and must
+    not force by default."""
+    seen: dict[str, object] = {}
+
+    def _fake_purge(_session, *, source, force):
+        seen["source"], seen["force"] = source, force
+        return 3
+
+    monkeypatch.setattr(jobs, "purge_person_records", _fake_purge)
+    monkeypatch.setattr(jobs, "fetch_live_html", lambda: "<html></html>")
+    monkeypatch.setattr(
+        jobs,
+        "parse_terrorists_html",
+        lambda _html: SimpleNamespace(rows=[], total_records=0, recognized=0, unrecognized=0),
+    )
+    monkeypatch.setattr(jobs, "import_rfm_records", lambda *a, **k: _ImportStats())
+
+    with pytest.raises(RuntimeError):
+        jobs._job_import_rfm(db, {"replace": True})  # empty page is a hard error
+    assert "source" not in seen  # and the purge must not have happened first
+
+    monkeypatch.setattr(
+        jobs,
+        "parse_terrorists_html",
+        lambda _html: SimpleNamespace(
+            rows=[object()], total_records=1, recognized=1, unrecognized=0
+        ),
+    )
+    result = jobs._job_import_rfm(db, {"replace": True})
+
+    assert seen == {"source": "rfm", "force": False}
+    assert result["deleted_before_import"] == 3
 
 
 def test_reprocess_all_job_defaults_to_refusing(db, monkeypatch):

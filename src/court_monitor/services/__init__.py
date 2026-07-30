@@ -602,6 +602,62 @@ class RfmImportStats:
     duplicates: int = 0
 
 
+class PurgeWouldDiscardDecisions(RuntimeError):
+    """Replacing the registry would delete records an operator has ruled on."""
+
+    def __init__(self, source: str, decided: int) -> None:
+        super().__init__(
+            f"Перечень «{source}»: {decided} совпадений уже рассмотрены оператором. "
+            "Замена перечня удалит эти решения."
+        )
+        self.source = source
+        self.decided = decided
+
+
+def count_decided_candidates_for_source(session: Session, source: str) -> int:
+    """Decided candidates hanging off the registry records of one source."""
+    from court_monitor.storage.orm import MatchCandidate, PersonRecord  # noqa: PLC0415
+
+    stmt = (
+        select(func.count(MatchCandidate.id))
+        .join(PersonRecord, MatchCandidate.person_record_id == PersonRecord.id)
+        .where(PersonRecord.source == source, MatchCandidate.status != "pending")
+    )
+    return int(session.execute(stmt).scalar_one())
+
+
+def purge_person_records(session: Session, *, source: str, force: bool = False) -> int:
+    """Delete every registry record of ``source``. Returns how many were removed.
+
+    Rosfinmonitoring publishes a full list, not a delta, so importing on top of
+    an older one is only correct when both carry the same fields. They do not:
+    the CSV export has no birth date at all while the live page supplies one
+    for everybody, so the same human produces two different dedup keys and
+    lands twice — measured, 21 277 of 22 156 names overlapped and the registry
+    grew to 43 667. Replacing is the operation that actually matches how the
+    source publishes.
+
+    Deleting records cascades into their match candidates, so the same
+    protection as re-parsing applies: decisions are human judgements and are
+    not thrown away without ``force``.
+    """
+    from court_monitor.storage.orm import PersonRecord  # noqa: PLC0415
+
+    if not force:
+        decided = count_decided_candidates_for_source(session, source)
+        if decided:
+            raise PurgeWouldDiscardDecisions(source, decided)
+
+    records = session.execute(select(PersonRecord).where(PersonRecord.source == source))
+    removed = 0
+    for record in records.scalars():
+        session.delete(record)
+        removed += 1
+    session.flush()
+    _log.info("rfm.purge.done", source=source, removed=removed)
+    return removed
+
+
 def import_rfm_records(
     session: Session,
     rows: list,

@@ -8,7 +8,11 @@ from pathlib import Path
 import typer
 from sqlalchemy import text
 
-from court_monitor.services import import_rfm_records
+from court_monitor.services import (
+    PurgeWouldDiscardDecisions,
+    import_rfm_records,
+    purge_person_records,
+)
 from court_monitor.sources.fedsfm import load_fixture_rows, parse_file
 from court_monitor.sources.fedsfm_live import (
     LIST_URL,
@@ -24,16 +28,18 @@ def _handle_fedsfm(
     file: str | None,
     live: bool,
     dry_run: bool,
+    replace: bool = False,
+    force: bool = False,
 ) -> None:
     """Handle fedsfm source: --file import or fixture."""
     source_url = "https://fedsfm.ru/documents/terrorists-catalog-portal-act"
 
     if file:
-        _import_fedsfm_file(file, dry_run=dry_run)
+        _import_fedsfm_file(file, dry_run=dry_run, replace=replace, force=force)
         return
 
     if live:
-        _import_fedsfm_live(dry_run=dry_run)
+        _import_fedsfm_live(dry_run=dry_run, replace=replace, force=force)
         return
 
     rows = load_fixture_rows()
@@ -53,6 +59,21 @@ def _handle_fedsfm(
         f"fedsfm: total={stats.total} imported={stats.imported} "
         f"updated={stats.updated} duplicates={stats.duplicates}"
     )
+
+
+def _purge_before_import(session, *, force: bool) -> None:
+    """Drop the stored registry so the incoming list replaces it wholesale."""
+    try:
+        removed = purge_person_records(session, source="rfm", force=force)
+    except PurgeWouldDiscardDecisions as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, bold=True, err=True)
+        typer.echo(
+            "Решения оператора будут потеряны безвозвратно. "
+            "Если это действительно нужно — повторите с --force.",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"Удалено старых записей перечня: {removed}")
 
 
 def _warn_on_dateless_rfm_records() -> None:
@@ -96,7 +117,7 @@ def _warn_on_dateless_rfm_records() -> None:
     )
 
 
-def _import_fedsfm_live(*, dry_run: bool) -> None:
+def _import_fedsfm_live(*, dry_run: bool, replace: bool = False, force: bool = False) -> None:
     """Fetch and import the list straight from the published fedsfm.ru page."""
     try:
         html = fetch_live_html()
@@ -119,7 +140,8 @@ def _import_fedsfm_live(*, dry_run: bool) -> None:
         )
         raise typer.Exit(code=1)
 
-    _warn_on_dateless_rfm_records()
+    if not replace:
+        _warn_on_dateless_rfm_records()
 
     if dry_run:
         typer.echo("\n(режим --dry-run: данные не записаны)")
@@ -127,6 +149,8 @@ def _import_fedsfm_live(*, dry_run: bool) -> None:
 
     engine = make_engine()
     with session_scope(engine) as session:
+        if replace:
+            _purge_before_import(session, force=force)
         stats = import_rfm_records(session, result.rows, source="rfm", source_url=LIST_URL)
     typer.echo(
         f"\nfedsfm: total={stats.total} imported={stats.imported} "
@@ -134,7 +158,9 @@ def _import_fedsfm_live(*, dry_run: bool) -> None:
     )
 
 
-def _import_fedsfm_file(file: str, *, dry_run: bool) -> None:
+def _import_fedsfm_file(
+    file: str, *, dry_run: bool, replace: bool = False, force: bool = False
+) -> None:
     """Import a local RFM file (XML, DBF, ZIP, CSV)."""
     file_path = Path(file)
     if not file_path.exists():
@@ -157,6 +183,8 @@ def _import_fedsfm_file(file: str, *, dry_run: bool) -> None:
 
     engine = make_engine()
     with session_scope(engine) as session:
+        if replace:
+            _purge_before_import(session, force=force)
         stats = import_rfm_records(
             session,
             result.rows,

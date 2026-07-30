@@ -127,7 +127,8 @@ class PersonRecord(Base):
             "source",
             "normalized_name",
             "birth_date",
-            name="uq_person_source_name_birth",
+            "birth_place",
+            name="uq_person_source_name_birth_place",
         ),
     )
 

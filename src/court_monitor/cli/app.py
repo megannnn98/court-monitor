@@ -233,6 +233,17 @@ def fetch_source(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Preview only; do not write to DB.")
     ] = False,
+    replace: Annotated[
+        bool,
+        typer.Option(
+            "--replace",
+            help="Registry sources only: drop the stored list before importing.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="With --replace: proceed even if it discards decisions."),
+    ] = False,
 ) -> None:
     """Fetch data from a source (RFM, sudrf, etc.)."""
     _bootstrap_logging()
@@ -242,8 +253,12 @@ def fetch_source(
     require_current_schema()
 
     if name == "fedsfm":
-        _handle_fedsfm(file=file, live=live, dry_run=dry_run)
+        _handle_fedsfm(file=file, live=live, dry_run=dry_run, replace=replace, force=force)
         return
+
+    if replace:
+        typer.echo("--replace применим только к источникам-перечням (fedsfm).", err=True)
+        raise typer.Exit(code=1)
 
     _fetch_source_legacy(name, live=live, no_parse=no_parse, limit=limit, dry_run=dry_run)
 

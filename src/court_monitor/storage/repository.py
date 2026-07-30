@@ -160,13 +160,34 @@ def count_pending_documents(session: Session) -> int:
 
 
 def find_person_record(
-    session: Session, *, source: str, normalized_name: str, birth_date: str | None
+    session: Session,
+    *,
+    source: str,
+    normalized_name: str,
+    birth_date: str | None,
+    birth_place: str | None = None,
 ) -> PersonRecord | None:
+    """Find an existing record, keyed on birth_place only when there is no date.
+
+    A birth date pins identity well enough on its own, and the place is then a
+    mutable detail a later export may correct — keying on it there would turn
+    every correction into a duplicate person.
+
+    Without a date the key degenerates into name-only, which is not safe on
+    this data: the rosfinmonitoring-2.csv export has no birth date column at
+    all, and among its 22,250 rows that collapsed 94 genuinely distinct people
+    who share a common Russian full name — two different "Яковлев Александр
+    Николаевич", one from Забайкальский край and one from Краснодарский.
+    Region is not a perfect disambiguator either, but it is what the source
+    data actually offers.
+    """
     stmt = select(PersonRecord).where(
         PersonRecord.source == source,
         PersonRecord.normalized_name == normalized_name,
         PersonRecord.birth_date == birth_date,
     )
+    if birth_date is None:
+        stmt = stmt.where(PersonRecord.birth_place == birth_place)
     return session.execute(stmt).scalar_one_or_none()
 
 
@@ -180,6 +201,7 @@ def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRec
         source=rec.source,
         normalized_name=rec.normalized_name,
         birth_date=rec.birth_date,
+        birth_place=rec.birth_place,
     )
     if existing is not None:
         updated = _refresh_person_record(existing, rec)

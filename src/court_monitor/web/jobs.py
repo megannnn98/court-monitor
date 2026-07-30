@@ -40,6 +40,7 @@ from court_monitor.services import (
     process_pending,
     process_registry_source,
     process_source,
+    purge_person_records,
     reprocess_all,
 )
 from court_monitor.sources.fedsfm_live import (
@@ -132,6 +133,10 @@ def _job_import_rfm(session: Session, params: dict[str, Any]) -> dict[str, Any]:
     ``replace`` exists because the deduplication key includes birth_date, and
     the CSV export carries none: importing on top of a CSV-loaded registry
     doubles every person instead of merging them.
+
+    The purge goes through :func:`purge_person_records` rather than deleting
+    inline: deleting registry records cascades into match candidates, and this
+    job used to take confirmed and rejected ones with it without asking.
     """
     html = fetch_live_html()
     result = parse_terrorists_html(html)
@@ -140,13 +145,7 @@ def _job_import_rfm(session: Session, params: dict[str, Any]) -> dict[str, Any]:
 
     replaced = 0
     if params.get("replace"):
-        from court_monitor.storage.orm import PersonRecord  # noqa: PLC0415 - avoids import cycle
-
-        existing = session.execute(select(PersonRecord).where(PersonRecord.source == "rfm"))
-        for record in existing.scalars():
-            session.delete(record)
-            replaced += 1
-        session.flush()
+        replaced = purge_person_records(session, source="rfm", force=bool(params.get("force")))
 
     stats = import_rfm_records(session, result.rows, source="rfm", source_url=LIST_URL)
     return {
