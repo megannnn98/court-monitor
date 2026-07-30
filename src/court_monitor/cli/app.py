@@ -47,6 +47,12 @@ from court_monitor.sources.airtable_registry import (
     render_shared_view,
 )
 from court_monitor.sources.fedsfm import load_fixture_rows, parse_file
+from court_monitor.sources.fedsfm_live import (
+    LIST_URL,
+    FedsfmFetchError,
+    fetch_live_html,
+    parse_terrorists_html,
+)
 from court_monitor.sources.http_client import HttpClient
 from court_monitor.sources.probe import probe_source
 from court_monitor.storage import repository as repo
@@ -458,8 +464,8 @@ def _handle_fedsfm(
         return
 
     if live:
-        typer.echo("Live mode not yet implemented for fedsfm. Use --file.", err=True)
-        raise typer.Exit(code=1)
+        _import_fedsfm_live(dry_run=dry_run)
+        return
 
     rows = load_fixture_rows()
     if not rows:
@@ -476,6 +482,85 @@ def _handle_fedsfm(
         stats = import_rfm_records(session, rows, source_url=source_url)
     typer.echo(
         f"fedsfm: total={stats.total} imported={stats.imported} "
+        f"updated={stats.updated} duplicates={stats.duplicates}"
+    )
+
+
+def _warn_on_dateless_rfm_records() -> None:
+    """Warn that a prior dateless import will double up, not merge.
+
+    Records are deduplicated by (source, normalized_name, birth_date). The CSV
+    export carries no birth dates at all, while this page supplies one for
+    every person — so the same human yields two different dedup keys and lands
+    twice. Measured against a real CSV import: 21277 of 22156 names overlapped,
+    and the live import reported duplicates=0. Silently doubling the registry
+    would hand the operator two candidates per person to review, so say so
+    before writing rather than after.
+    """
+    try:
+        engine = make_engine()
+        factory = make_session_factory(engine)
+        with factory() as session:
+            dateless = session.execute(
+                text(
+                    "SELECT COUNT(*) FROM person_records "
+                    "WHERE source='rfm' AND (birth_date IS NULL OR birth_date='')"
+                )
+            ).scalar_one()
+    except Exception:  # pragma: no cover - warning must never block the import
+        return
+
+    if not dateless:
+        return
+
+    typer.secho(
+        f"\nВНИМАНИЕ: в базе уже есть {dateless} записей rfm без даты рождения "
+        "(типично для импорта из CSV).\n"
+        "Дедупликация идёт по (source, normalized_name, birth_date), поэтому эти записи "
+        "НЕ будут объединены с загружаемыми — люди задвоятся, и оператор увидит по два "
+        "кандидата на каждого.\n"
+        "Живой перечень полнее (есть даты и места рождения), поэтому обычно старые записи "
+        "стоит удалить перед импортом.",
+        fg=typer.colors.YELLOW,
+        bold=True,
+        err=True,
+    )
+
+
+def _import_fedsfm_live(*, dry_run: bool) -> None:
+    """Fetch and import the list straight from the published fedsfm.ru page."""
+    try:
+        html = fetch_live_html()
+    except FedsfmFetchError as exc:
+        typer.echo(f"Не удалось загрузить перечень: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    result = parse_terrorists_html(html)
+    _print_fedsfm_preview(
+        f"{LIST_URL} (live)",
+        hashlib.sha256(html.encode("utf-8")).hexdigest(),
+        len(html.encode("utf-8")),
+        result,
+    )
+
+    if not result.rows:
+        typer.echo(
+            "Ни одной записи о физлице не распознано — вероятно, изменилась вёрстка страницы.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    _warn_on_dateless_rfm_records()
+
+    if dry_run:
+        typer.echo("\n(режим --dry-run: данные не записаны)")
+        return
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = import_rfm_records(session, result.rows, source="rfm", source_url=LIST_URL)
+    typer.echo(
+        f"\nfedsfm: total={stats.total} imported={stats.imported} "
         f"updated={stats.updated} duplicates={stats.duplicates}"
     )
 
