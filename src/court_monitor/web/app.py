@@ -42,7 +42,6 @@ _HERE = Path(__file__).resolve().parent
 TEMPLATES_DIR = _HERE / "templates"
 STATIC_DIR = _HERE / "static"
 
-configure_logging(settings.log_level)
 _log = get_logger("web")
 
 
@@ -52,8 +51,10 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     Nothing survives a restart mid-run, so those rows would otherwise sit in
     ``running`` forever and the UI would keep promising work that is never
-    coming back.
+    coming back. Logging is configured here too: doing it at import time means
+    whichever app module is imported last silently wins.
     """
+    configure_logging(settings.log_level)
     try:
         with session_scope() as session:
             recovered = jobs.recover_stale_jobs(session)

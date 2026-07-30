@@ -14,22 +14,34 @@ from court_monitor.config.settings import settings
 from court_monitor.storage.orm import Base
 
 
-def _enable_sqlite_foreign_keys(engine: Engine) -> None:
-    """Turn on SQLite's foreign-key enforcement for every new connection.
+def _configure_sqlite(engine: Engine) -> None:
+    """Set the pragmas every SQLite connection in this project needs.
 
-    SQLite defaults to ``PRAGMA foreign_keys=OFF``, which silently disables
-    every ``ondelete="CASCADE"`` declared in orm.py. The ORM in turn declares
+    ``foreign_keys=ON``: SQLite defaults it off, which silently disables every
+    ``ondelete="CASCADE"`` declared in orm.py. The ORM declares
     ``passive_deletes=True`` on those relationships, i.e. it deliberately does
-    *not* delete children itself and expects the database to do it. With the
-    pragma off, neither side deletes anything: dropping a document's facts
-    (``reprocess``) left its MatchCandidate rows behind pointing at ids that
-    no longer exist.
+    *not* delete children itself and expects the database to. With the pragma
+    off neither side deletes anything, and dropping a document's facts
+    (``reprocess``) left its MatchCandidate rows pointing at ids that no longer
+    exist.
+
+    ``journal_mode=WAL``: in the default rollback journal a writer blocks all
+    readers. A background job holds its transaction open for as long as it
+    takes to fetch every source, so an operator opening the UI mid-run hit
+    "database is locked" — reproduced in ~5s against the default journal. WAL
+    lets readers through while a write is in flight.
+
+    WAL does not make two *writers* concurrent, so a longer ``busy_timeout``
+    covers the remaining case: a UI write during a job now waits rather than
+    failing outright. Real concurrency needs PostgreSQL (see docker-compose).
     """
 
     @event.listens_for(engine, "connect")
-    def _set_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
+    def _set_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 
 
@@ -39,10 +51,10 @@ def make_engine(url: str | None = None) -> Engine:
     if db_url.startswith("sqlite"):
         # Allow shared thread access in tests / FastAPI; check_same_thread keeps
         # SQLite usable across the request threadpool.
-        connect_args = {"check_same_thread": False}
+        connect_args = {"check_same_thread": False, "timeout": 30}
     engine = create_engine(db_url, future=True, pool_pre_ping=True, connect_args=connect_args)
     if db_url.startswith("sqlite"):
-        _enable_sqlite_foreign_keys(engine)
+        _configure_sqlite(engine)
     return engine
 
 

@@ -27,6 +27,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from court_monitor.config.loader import load_monitoring, load_sources
@@ -207,8 +208,20 @@ def submit(session: Session, kind: str, *, actor: str, params: dict[str, Any] | 
 
 
 def _execute(job_id: int) -> None:
-    """Run one job in the worker thread, against its own session."""
+    """Run one job in the worker thread, against its own session.
+
+    The engine is disposed in ``finally``: this runs once per submitted job for
+    the life of the process, so leaving pools behind would accumulate
+    connections across a long-lived UI session.
+    """
     engine = make_engine()
+    try:
+        _execute_with(engine, job_id)
+    finally:
+        engine.dispose()
+
+
+def _execute_with(engine: Engine, job_id: int) -> None:
     factory = make_session_factory(engine)
 
     with factory() as session:

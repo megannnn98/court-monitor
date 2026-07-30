@@ -7,6 +7,8 @@ would not exercise the PRAGMA that make_engine installs.
 
 from __future__ import annotations
 
+import threading
+
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -104,3 +106,51 @@ def test_deleting_a_document_removes_facts_and_candidates(tmp_path):
         assert session.execute(select(MatchCandidate)).scalars().all() == []
     finally:
         session.close()
+
+
+def test_sqlite_uses_wal_and_a_long_busy_timeout(tmp_path):
+    """A background job holds its write transaction for as long as it takes to
+    fetch every source. Under the default rollback journal that blocked every
+    reader, so opening the UI mid-run failed."""
+    session = _session_for(tmp_path)
+    try:
+        assert session.execute(text("PRAGMA journal_mode")).scalar() == "wal"
+        assert session.execute(text("PRAGMA busy_timeout")).scalar() >= 30000
+    finally:
+        session.close()
+
+
+def test_reads_are_not_blocked_by_an_open_write(tmp_path):
+    """The concrete regression: reproduced as 'database is locked' before WAL."""
+    engine = make_engine(f"sqlite:///{tmp_path / 'wal.db'}")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session, future=True)
+
+    writing = threading.Event()
+    release = threading.Event()
+
+    def hold_write() -> None:
+        with factory() as s:
+            s.add(
+                SourceDocument(
+                    url="https://example.invalid/w",
+                    source_type="telegram",
+                    content_hash="wal-1",
+                    parser_status="pending",
+                )
+            )
+            s.flush()
+            writing.set()
+            release.wait(10)
+            s.commit()
+
+    writer = threading.Thread(target=hold_write, daemon=True)
+    writer.start()
+    try:
+        assert writing.wait(5)
+        with factory() as reader:
+            reader.execute(select(SourceDocument)).scalars().all()  # must not block
+    finally:
+        release.set()
+        writer.join(10)
+        engine.dispose()

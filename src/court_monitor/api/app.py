@@ -6,6 +6,8 @@ require authentication. For now all endpoints are GET and side-effect free.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -16,16 +18,30 @@ from court_monitor.observability import configure_logging, get_logger
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory
 
-configure_logging(settings.log_level)
 _log = get_logger("api")
+
+_engine = make_engine()
+_session_factory = make_session_factory(_engine)
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Own logging setup and engine teardown here rather than at import time.
+
+    Configuring logging on import means whichever app module is imported last
+    wins, which is invisible until two of them share a process.
+    """
+    configure_logging(settings.log_level)
+    yield
+    _engine.dispose()
+
 
 app = FastAPI(
     title="court-monitor",
     version=__version__,
     description="OSINT monitoring of criminal cases (read-only MVP surface).",
+    lifespan=_lifespan,
 )
-_engine = make_engine()
-_session_factory = make_session_factory(_engine)
 
 
 def _session():
