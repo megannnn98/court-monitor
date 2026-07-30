@@ -486,6 +486,36 @@ def _handle_fedsfm(
     )
 
 
+def _require_current_schema() -> None:
+    """Abort before doing any work if the database is behind the migrations.
+
+    A database on an older revision still opens, still answers SELECT 1 and
+    still has every table it used to, so nothing complains until an ORM query
+    touches a column a pending migration was supposed to add. In ``run-all``
+    that moment is ``generate_matches`` — the very last step, after every
+    source has already been fetched over the network and written. The operator
+    then sees a bare ``OperationalError: no such column: person_records.gender``
+    on top of a traceback, with the run's real work already done.
+
+    Checking up front costs one query and turns that into one actionable line.
+    """
+    try:
+        applied, head = revision_status(settings.database_url)
+    except Exception:  # pragma: no cover - never block work over a failed check
+        return
+    if applied == head:
+        return
+
+    typer.secho(
+        f"База данных отстаёт от миграций: применена {applied or 'нет'}, ожидается {head}.\n"
+        "Выполните: court-monitor migrate",
+        fg=typer.colors.RED,
+        bold=True,
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
 def _warn_on_dateless_rfm_records() -> None:
     """Warn that a prior dateless import will double up, not merge.
 
@@ -788,6 +818,7 @@ def run_all(
     JSON log.
     """
     configure_logging(settings.log_level if verbose else "ERROR")
+    _require_current_schema()
     monitoring = load_monitoring()
     engine = make_engine()
     totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
@@ -1234,6 +1265,7 @@ def _db_display_path(url: str) -> str:
 def generate_matches_cmd() -> None:
     """Generate match candidates between person facts and registry records."""
     _bootstrap_logging()
+    _require_current_schema()
     engine = make_engine()
     with session_scope(engine) as session:
         stats = generate_matches(session)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import typer
 import yaml
 from sqlalchemy import create_engine
@@ -182,6 +183,31 @@ def test_doctor_check_alembic_passes_when_at_head(monkeypatch):
     _doctor_check_alembic(problems)
 
     assert problems == []
+
+
+def test_require_current_schema_aborts_when_behind(monkeypatch):
+    """Must stop before any work: run-all otherwise fetches every source over
+    the network and only then dies inside generate_matches."""
+    monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0007_audit_log", "0008_rfm"))
+
+    with pytest.raises(typer.Exit) as exc:
+        cli_module._require_current_schema()
+    assert exc.value.exit_code == 1
+
+
+def test_require_current_schema_passes_at_head(monkeypatch):
+    monkeypatch.setattr(cli_module, "revision_status", lambda _url: ("0008_rfm", "0008_rfm"))
+    cli_module._require_current_schema()  # must not raise
+
+
+def test_require_current_schema_does_not_block_on_check_failure(monkeypatch):
+    """A broken revision lookup must not stop a run that would have worked."""
+
+    def _boom(_url):
+        raise RuntimeError("no alembic table")
+
+    monkeypatch.setattr(cli_module, "revision_status", _boom)
+    cli_module._require_current_schema()  # must not raise
 
 
 def test_docker_build_filter_includes_all_dockerfile_inputs():
