@@ -199,7 +199,7 @@ uv run court-monitor generate-matches          # кандидаты считал
 ## Тесты
 
 ```bash
-make test              # все (353)
+make test              # все (354)
 make test-unit
 make test-integration
 ```

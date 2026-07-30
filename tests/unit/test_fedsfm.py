@@ -100,6 +100,9 @@ def test_import_deduplicates(db_session):
 
 
 def test_import_refreshes_existing_record_fields(db_session):
+    """A birth place corrected by a later export must update the record, not
+    insert a second person — which is why find_person_record only keys on
+    birth_place when there is no birth date to identify by."""
     first = PersonRow(
         raw_name="Иванов Иван Иванович",
         normalized_name="иванов иван иванович",
@@ -436,18 +439,25 @@ def test_unknown_extension_no_match_reports_error(tmp_path):
 
 
 # --- New CSV format (rosfinmonitoring-2.csv) tests ---
+#
+# FIXTURE_CSV_V2 has 22,250 rows — parsing it is not free. All tests in this
+# section share one module-scoped parse instead of each re-parsing the whole
+# file from scratch (the latter took the whole suite from ~2s to ~8s).
 
 
-def test_parse_new_csv_format():
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)
-    assert len(rows) > 20000
-    assert all(r.raw_name for r in rows)
-    assert all(r.normalized_name for r in rows)
+@pytest.fixture(scope="module")
+def csv_v2_rows() -> list[PersonRow]:
+    return parse_rfm_csv(FIXTURE_CSV_V2)
 
 
-def test_new_csv_fields():
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)
-    first = rows[0]
+def test_parse_new_csv_format(csv_v2_rows):
+    assert len(csv_v2_rows) > 20000
+    assert all(r.raw_name for r in csv_v2_rows)
+    assert all(r.normalized_name for r in csv_v2_rows)
+
+
+def test_new_csv_fields(csv_v2_rows):
+    first = csv_v2_rows[0]
     assert first.gender is not None
     assert first.country is not None
     assert first.region is not None
@@ -457,36 +467,33 @@ def test_new_csv_fields():
     assert first.source_ref is None  # new format has no row number
 
 
-def test_new_csv_birth_place_from_country_region():
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)
-    with_region = [r for r in rows if r.region]
+def test_new_csv_birth_place_from_country_region(csv_v2_rows):
+    with_region = [r for r in csv_v2_rows if r.region]
     assert len(with_region) > 1000
     for r in with_region[:10]:
         assert r.country in r.birth_place
         assert r.region in r.birth_place
 
 
-def test_new_csv_extra_json():
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)
-    minors = [r for r in rows if r.extra_json and "minor" in r.extra_json]
+def test_new_csv_extra_json(csv_v2_rows):
+    minors = [r for r in csv_v2_rows if r.extra_json and "minor" in r.extra_json]
     assert len(minors) > 500
     parsed = json.loads(minors[0].extra_json)
     assert "age_at_inclusion" in parsed
     assert "status" in parsed
 
 
-def test_new_csv_long_names():
+def test_new_csv_long_names(csv_v2_rows):
     """Central Asian 4+ token names parse correctly."""
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)
-    long_names = [r for r in rows if len(r.raw_name.split()) >= 4]
+    long_names = [r for r in csv_v2_rows if len(r.raw_name.split()) >= 4]
     assert len(long_names) > 400
     for r in long_names[:5]:
         assert len(r.normalized_name.split()) >= 4
         assert r.normalization_confidence == 0.95
 
 
-def test_new_csv_import(db_session):
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)[:10]  # import subset for speed
+def test_new_csv_import(db_session, csv_v2_rows):
+    rows = csv_v2_rows[:10]  # import subset for speed
     stats = import_rfm_records(db_session, rows)
     assert stats.imported == 10
     records = repo.list_person_records(db_session)
@@ -495,18 +502,46 @@ def test_new_csv_import(db_session):
     assert records[0].country is not None
 
 
-def test_new_csv_dedup(db_session):
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)[:5]
+def test_new_csv_dedup(db_session, csv_v2_rows):
+    rows = csv_v2_rows[:5]
     stats1 = import_rfm_records(db_session, rows)
     stats2 = import_rfm_records(db_session, rows)
     assert stats1.imported == stats2.duplicates
     assert stats2.imported == 0
 
 
-def test_new_csv_bom_handled():
+def test_new_csv_bom_handled(csv_v2_rows):
     """CSV with UTF-8 BOM (\\ufeff) parses correctly."""
-    rows = parse_rfm_csv(FIXTURE_CSV_V2)
     # BOM should not appear in any field values
-    for r in rows[:100]:
+    for r in csv_v2_rows[:100]:
         assert not r.raw_name.startswith("\ufeff")
         assert not r.normalized_name.startswith("\ufeff")
+
+
+def test_new_csv_namesakes_from_different_regions_both_imported(db_session, csv_v2_rows):
+    """Regression: the new format has no birth_date at all, so two different
+    real people who happen to share a full name (common in a 22k-row Russian
+    name list) must not collide during import just because both also lack a
+    birth_date \u2014 verified against a real collision in this fixture
+    ("\u042f\u043a\u043e\u0432\u043b\u0435\u0432 \u0410\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440 \u041d\u0438\u043a\u043e\u043b\u0430\u0435\u0432\u0438\u0447" from two different regions)."""
+    namesakes = [
+        r
+        for r in csv_v2_rows
+        if r.normalized_name
+        == "\u044f\u043a\u043e\u0432\u043b\u0435\u0432 \u0430\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440 \u043d\u0438\u043a\u043e\u043b\u0430\u0435\u0432\u0438\u0447"
+    ]
+    assert len(namesakes) == 2
+    assert namesakes[0].region != namesakes[1].region
+
+    stats = import_rfm_records(db_session, namesakes)
+    assert stats.imported == 2
+    assert stats.duplicates == 0
+
+    records = [
+        r
+        for r in repo.list_person_records(db_session)
+        if r.normalized_name
+        == "\u044f\u043a\u043e\u0432\u043b\u0435\u0432 \u0430\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440 \u043d\u0438\u043a\u043e\u043b\u0430\u0435\u0432\u0438\u0447"
+    ]
+    assert len(records) == 2
+    assert {r.region for r in records} == {namesakes[0].region, namesakes[1].region}

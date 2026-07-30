@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 import re
 import tempfile
 import zipfile
@@ -142,8 +143,6 @@ def _parse_legacy_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> 
 
 
 def _parse_new_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> PersonRow:
-    import json as _json  # noqa: PLC0415
-
     country = (line.get("Страна") or "").strip() or None
     region = (line.get("Регион") or "").strip() or None
     birth_place = ", ".join(filter(None, [country, region])) or None
@@ -166,7 +165,7 @@ def _parse_new_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> Per
         val = (line.get(col) or "").strip() or None
         if val is not None:
             extra[key] = val
-    extra_json = _json.dumps(extra, ensure_ascii=False) if extra else None
+    extra_json = json.dumps(extra, ensure_ascii=False) if extra else None
 
     return PersonRow(
         raw_name=raw_name,
