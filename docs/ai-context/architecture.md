@@ -122,7 +122,11 @@ MC --> CRM
 
 ## Целостность БД
 
-`ondelete="CASCADE"` объявлен на внешних ключах, а связи помечены `passive_deletes=True` — то есть ORM намеренно перекладывает удаление детей на БД. SQLite по умолчанию `PRAGMA foreign_keys=OFF`, поэтому `make_engine()` включает прагму на каждое соединение; без неё не удалял никто и `MatchCandidate` переживал удаление своего факта.
+`make_engine()` выставляет три прагмы на каждое SQLite-соединение:
+
+- `foreign_keys=ON` — `ondelete="CASCADE"` объявлен на внешних ключах, а связи помечены `passive_deletes=True`, то есть ORM намеренно перекладывает удаление детей на БД. При выключенной прагме не удалял никто, и `MatchCandidate` переживал удаление своего факта.
+- `journal_mode=WAL` — фоновая задача держит транзакцию открытой всё время сбора, а в журнале по умолчанию писатель блокирует читателей. Воспроизводилось как `database is locked` через 5 с: оператор не мог подтвердить совпадение, пока идёт прогон.
+- `busy_timeout=30000` — WAL не делает параллельными двух **писателей**, поэтому запись из UI во время задачи теперь ждёт, а не падает. Настоящая параллельность требует PostgreSQL (есть в `docker-compose.yml`).
 
 ## Миграции
 
@@ -136,7 +140,7 @@ Alembic, 9 миграций: initial → registry_provenance → person_records 
 - `config/monitoring.yaml` — статьи УК и ключевые слова для фильтрации
 - `config/source_registry.yaml` — реестр Telegram-каналов (импорт из Airtable)
 - `config/ca/fedsfm_ru_chain.pem` — цепочка доверия для fedsfm.ru; провенанс, отпечатки, ротация и остаточный риск описаны в `config/ca/README.md`
-- `.env` / env vars — `CM_DATABASE_URL`, `CM_LOG_LEVEL`, `CM_CONFIG_DIR`, `CM_AIRTABLE_MODE`, `CM_LLM_MODE`, `CM_NER_MODE`
+- `.env` / env vars — `CM_DATABASE_URL`, `CM_LOG_LEVEL`, `CM_CONFIG_DIR`, `CM_AIRTABLE_MODE`, `CM_LLM_MODE`, `CM_NER_MODE`, `CM_WEB_HOST`, `CM_WEB_PORT`, `CM_WEB_OPERATOR`
 
 ## Операторский веб-интерфейс (web/)
 

@@ -20,7 +20,7 @@ make install       # uv sync + dev dependencies
 ## Тесты
 
 ```bash
-make test          # все (271 тест)
+make test          # все (336 тестов)
 make test-unit     # только unit
 make test-integration  # только integration
 make lint          # ruff check + ruff format --check
