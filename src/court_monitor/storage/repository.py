@@ -38,6 +38,8 @@ def find_document_by_hash_url(
 def find_existing_document(
     session: Session,
     *,
+    source_type: str | None,
+    source_id: str | None,
     external_id: str | None,
     canonical_url: str | None,
     url: str,
@@ -58,6 +60,10 @@ def find_existing_document(
     """
     if external_id:
         stmt = select(SourceDocument).where(SourceDocument.external_id == external_id)
+        if source_id is not None:
+            stmt = stmt.where(SourceDocument.source_id == source_id)
+        if source_type is not None:
+            stmt = stmt.where(SourceDocument.source_type == source_type)
         doc = session.execute(stmt).scalar_one_or_none()
         if doc is not None:
             return doc, "exact" if doc.content_hash == content_hash else "changed"
@@ -163,10 +169,10 @@ def find_person_record(
     return session.execute(stmt).scalar_one_or_none()
 
 
-def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRecord, bool]:
+def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRecord, bool, bool]:
     """Insert a person record unless the same (source, name, birth_date) exists.
 
-    Returns (record, created).
+    Returns (record, created, updated).
     """
     existing = find_person_record(
         session,
@@ -175,10 +181,41 @@ def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRec
         birth_date=rec.birth_date,
     )
     if existing is not None:
-        return existing, False
+        updated = _refresh_person_record(existing, rec)
+        if updated:
+            session.flush()
+        return existing, False, updated
     session.add(rec)
     session.flush()
-    return rec, True
+    return rec, True, False
+
+
+def _refresh_person_record(existing: PersonRecord, incoming: PersonRecord) -> bool:
+    """Refresh mutable registry fields from the newest source import."""
+    updates = {
+        "raw_name": incoming.raw_name,
+        "search_name": incoming.search_name,
+        "normalization_confidence": incoming.normalization_confidence,
+        "normalization_method": incoming.normalization_method,
+        "birth_place": incoming.birth_place,
+        "category": incoming.category,
+        "source_ref": incoming.source_ref,
+        "added_date": incoming.added_date,
+        "source_url": incoming.source_url,
+        "raw_line": incoming.raw_line,
+        "gender": incoming.gender,
+        "country": incoming.country,
+        "region": incoming.region,
+        "extra_json": incoming.extra_json,
+    }
+    changed = False
+    for attr, value in updates.items():
+        if getattr(existing, attr) != value:
+            setattr(existing, attr, value)
+            changed = True
+    if changed:
+        existing.fetched_at = datetime.now(UTC)
+    return changed
 
 
 def list_person_records(

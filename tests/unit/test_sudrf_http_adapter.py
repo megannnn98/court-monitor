@@ -7,11 +7,13 @@ ReviewItem so an operator sees a blocked/erroring source.
 
 from __future__ import annotations
 
+import httpx
+
 import court_monitor.sources.sudrf as sudrf_module
 from court_monitor.config.loader import SourceConfig
 from court_monitor.domain.models import FetchHealth, SourceBackend, SourceType
 from court_monitor.sources.base import FetchProblem, FetchResult
-from court_monitor.sources.http_client import HttpResponse
+from court_monitor.sources.http_client import HttpClient, HttpResponse
 from court_monitor.sources.sudrf import SudrfAdapter
 
 
@@ -149,3 +151,19 @@ def test_mixed_paths_yield_both_result_and_problem(monkeypatch):
     assert len(results) == 2
     assert isinstance(results[0], FetchResult)
     assert isinstance(results[1], FetchProblem)
+
+
+def test_http_client_transport_error_returns_http_error(monkeypatch):
+    client = HttpClient(max_retries=1, delay_seconds=0)
+
+    def _raise(_url: str):
+        raise httpx.ConnectError("name resolution failed")
+
+    monkeypatch.setattr(client._client, "get", _raise)
+    try:
+        response = client.get("https://test-court.example/a")
+    finally:
+        client.close()
+
+    assert response.status == 0
+    assert response.health == FetchHealth.http_error

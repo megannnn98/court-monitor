@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -96,6 +97,58 @@ def test_import_deduplicates(db_session):
     assert stats1.imported == stats2.duplicates
     assert stats2.imported == 0
     assert repo.count_person_records(db_session) == stats1.total
+
+
+def test_import_refreshes_existing_record_fields(db_session):
+    first = PersonRow(
+        raw_name="Иванов Иван Иванович",
+        normalized_name="иванов иван иванович",
+        search_name="иванов иван иванович",
+        normalization_confidence=0.95,
+        normalization_method="lowercase",
+        birth_date="1980-01-01",
+        birth_place="г. Москва",
+        category="старое основание",
+        source_ref="1",
+        added_date="2026-01-01",
+        raw_line="old",
+        gender="м",
+        country="Россия",
+        region="Москва",
+        extra_json='{"status": "old"}',
+    )
+    second = PersonRow(
+        raw_name="Иванов Иван Иванович",
+        normalized_name="иванов иван иванович",
+        search_name="иванов иван иванович",
+        normalization_confidence=0.95,
+        normalization_method="lowercase",
+        birth_date="1980-01-01",
+        birth_place="г. Санкт-Петербург",
+        category="новое основание",
+        source_ref="2",
+        added_date="2026-02-01",
+        raw_line="new",
+        gender="м",
+        country="Россия",
+        region="Санкт-Петербург",
+        extra_json='{"status": "new"}',
+    )
+
+    stats1 = import_rfm_records(db_session, [first], source_url="file://old")
+    stats2 = import_rfm_records(db_session, [second], source_url="file://new")
+
+    assert stats1.imported == 1
+    assert stats2.imported == 0
+    assert stats2.updated == 1
+    records = repo.list_person_records(db_session)
+    assert len(records) == 1
+    assert records[0].birth_place == "г. Санкт-Петербург"
+    assert records[0].category == "новое основание"
+    assert records[0].source_ref == "2"
+    assert records[0].source_url == "file://new"
+    assert records[0].raw_line == "new"
+    assert records[0].extra_json == '{"status": "new"}'
 
 
 def test_list_person_records(db_session):
@@ -414,8 +467,6 @@ def test_new_csv_birth_place_from_country_region():
 
 
 def test_new_csv_extra_json():
-    import json
-
     rows = parse_rfm_csv(FIXTURE_CSV_V2)
     minors = [r for r in rows if r.extra_json and "minor" in r.extra_json]
     assert len(minors) > 500
