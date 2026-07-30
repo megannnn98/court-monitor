@@ -35,6 +35,7 @@ from court_monitor.matching.candidates import generate_matches
 from court_monitor.observability import configure_logging, correlation_scope, get_logger
 from court_monitor.services import (
     ReprocessWouldDiscardDecisions,
+    SourceStats,
     import_rfm_records,
     process_pending,
     process_registry_source,
@@ -749,52 +750,15 @@ def fetch_all() -> None:
     _bootstrap_logging()
     monitoring = load_monitoring()
     engine = make_engine()
-    totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
+    totals = SourceStats()
     for src in (s for s in load_sources() if s.enabled):
         try:
             with session_scope(engine) as session:
-                stats = process_source(session, src, monitoring)
-                totals["fetched"] += stats.fetched
-                totals["new"] += stats.new_documents
-                totals["dup"] += stats.duplicates
-                totals["parsed"] += stats.parsed
-                totals["irr"] += stats.irrelevant
-                totals["fail"] += stats.failed
-                totals["blocked"] += stats.blocked
+                totals.accumulate(process_source(session, src, monitoring))
         except Exception as exc:
             typer.echo(f"  {src.name}: ERROR {type(exc).__name__}: {exc}", err=True)
-            totals["fail"] += 1
-    typer.echo(
-        f"TOTAL fetched={totals['fetched']} new={totals['new']} "
-        f"duplicates={totals['dup']} parsed={totals['parsed']} "
-        f"irrelevant={totals['irr']} failed={totals['fail']} blocked={totals['blocked']}"
-    )
-
-
-def _accumulate_fetch_stats(totals: dict[str, int], stats) -> None:
-    totals["fetched"] += stats.fetched
-    totals["new"] += stats.new_documents
-    totals["dup"] += stats.duplicates
-    totals["parsed"] += stats.parsed
-    totals["irr"] += stats.irrelevant
-    totals["fail"] += stats.failed
-    totals["blocked"] += stats.blocked
-
-
-def _render_stats_line(stats) -> str:
-    return (
-        f"fetched={stats.fetched} new={stats.new_documents} "
-        f"duplicates={stats.duplicates} parsed={stats.parsed} "
-        f"irrelevant={stats.irrelevant} failed={stats.failed} blocked={stats.blocked}"
-    )
-
-
-def _render_totals_line(totals: dict[str, int]) -> str:
-    return (
-        f"fetched={totals['fetched']} new={totals['new']} "
-        f"duplicates={totals['dup']} parsed={totals['parsed']} "
-        f"irrelevant={totals['irr']} failed={totals['fail']} blocked={totals['blocked']}"
-    )
+            totals.failed += 1
+    typer.echo(f"TOTAL {totals.summary()}")
 
 
 def _stats_color(stats, *, skipped: bool = False) -> str:
@@ -830,7 +794,7 @@ def run_all(
     _require_current_schema()
     monitoring = load_monitoring()
     engine = make_engine()
-    totals = {"fetched": 0, "new": 0, "dup": 0, "parsed": 0, "irr": 0, "fail": 0, "blocked": 0}
+    totals = SourceStats()
 
     typer.secho(
         f"База данных: {_db_display_path(settings.database_url)}",
@@ -846,8 +810,8 @@ def run_all(
         try:
             with session_scope(engine) as session:
                 stats = process_source(session, src, monitoring)
-                _accumulate_fetch_stats(totals, stats)
-            typer.secho(f"  ✓ {src.name}: {_render_stats_line(stats)}", fg=_stats_color(stats))
+                totals.accumulate(stats)
+            typer.secho(f"  ✓ {src.name}: {stats.summary()}", fg=_stats_color(stats))
         except Exception as exc:
             typer.secho(
                 f"  ✗ {src.name}: ОШИБКА {type(exc).__name__}: {exc}",
@@ -855,7 +819,7 @@ def run_all(
                 bold=True,
                 err=True,
             )
-            totals["fail"] += 1
+            totals.failed += 1
 
     typer.secho("\n=== Telegram-каналы ===", fg=typer.colors.CYAN, bold=True)
     registry_entries = [e for e in load_registry() if e.enabled]
@@ -880,10 +844,10 @@ def run_all(
                     live=live,
                     fixture_path=str(fixture_path) if fixture_path else None,
                 )
-                _accumulate_fetch_stats(totals, stats)
+                totals.accumulate(stats)
             note = " (нет сохранённой fixture — пропущено)" if fixture_missing else ""
             typer.secho(
-                f"  ✓ {entry.id}: {_render_stats_line(stats)}{note}",
+                f"  ✓ {entry.id}: {stats.summary()}{note}",
                 fg=_stats_color(stats, skipped=fixture_missing),
             )
         except Exception as exc:
@@ -893,13 +857,11 @@ def run_all(
                 bold=True,
                 err=True,
             )
-            totals["fail"] += 1
+            totals.failed += 1
 
     typer.secho("\n=== Итого: fetch + parse ===", fg=typer.colors.CYAN, bold=True)
-    totals_color = (
-        typer.colors.YELLOW if (totals["fail"] or totals["blocked"]) else typer.colors.GREEN
-    )
-    typer.secho(f"  {_render_totals_line(totals)}", fg=totals_color, bold=True)
+    totals_color = typer.colors.YELLOW if totals.needs_attention else typer.colors.GREEN
+    typer.secho(f"  {totals.summary()}", fg=totals_color, bold=True)
 
     with session_scope(engine) as session:
         match_stats = generate_matches(session)

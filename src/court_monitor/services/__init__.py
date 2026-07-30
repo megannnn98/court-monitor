@@ -6,6 +6,7 @@ Sources, parsers and extractors are pure / side-effect free.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 
@@ -33,6 +34,15 @@ _log = get_logger(__name__)
 
 @dataclass
 class SourceStats:
+    """Counters for one fetch pass, and the only place that knows their names.
+
+    Accumulation and rendering live here rather than in each caller. They used
+    to be reimplemented per entry point over a plain dict, and the copies had
+    already drifted: the CLI totalled ``blocked`` while the background job
+    silently dropped it, so a blocked source was invisible to an operator who
+    started the run from the web — the exact failure D-011 exists to prevent.
+    """
+
     fetched: int = 0
     new_documents: int = 0
     duplicates: int = 0
@@ -42,6 +52,40 @@ class SourceStats:
     blocked: int = 0
     already_exists_ids: list[int] = dataclass_field(default_factory=list)
     changed_ids: list[int] = dataclass_field(default_factory=list)
+
+    def accumulate(self, other: SourceStats) -> None:
+        """Add another pass's counters into this one."""
+        self.fetched += other.fetched
+        self.new_documents += other.new_documents
+        self.duplicates += other.duplicates
+        self.parsed += other.parsed
+        self.irrelevant += other.irrelevant
+        self.failed += other.failed
+        self.blocked += other.blocked
+
+    def as_dict(self) -> dict[str, int]:
+        """Counters only — for JSON results and templates."""
+        return {
+            "fetched": self.fetched,
+            "new": self.new_documents,
+            "duplicates": self.duplicates,
+            "parsed": self.parsed,
+            "irrelevant": self.irrelevant,
+            "failed": self.failed,
+            "blocked": self.blocked,
+        }
+
+    def summary(self) -> str:
+        return (
+            f"fetched={self.fetched} new={self.new_documents} "
+            f"duplicates={self.duplicates} parsed={self.parsed} "
+            f"irrelevant={self.irrelevant} failed={self.failed} blocked={self.blocked}"
+        )
+
+    @property
+    def needs_attention(self) -> bool:
+        """Something an operator should look at, rather than a clean pass."""
+        return bool(self.failed or self.blocked)
 
 
 def _report_fetch_problem(session: Session, problem: FetchProblem) -> None:
@@ -264,6 +308,54 @@ def parse_and_extract(
     return facts
 
 
+def _consume_fetch_results(
+    session: Session,
+    results: Iterable[FetchResult | FetchProblem],
+    monitoring: MonitoringConfig,
+    stats: SourceStats,
+    *,
+    parse_immediately: bool,
+    limit: int | None = None,
+    on_duplicate: Callable[[SourceDocument], None] | None = None,
+) -> None:
+    """Ingest one adapter's output into storage, counting as it goes.
+
+    Both source flavours (legacy ``sources.yaml`` entries and registry
+    entries) ran identical loops here; keeping one copy means a fix to the
+    counting or the problem-reporting lands in both. Only what genuinely
+    differs stays with the caller: how the adapter is built, and what a
+    duplicate should additionally do.
+    """
+    for result in results:
+        if limit is not None and stats.fetched >= max(0, limit):
+            break
+        stats.fetched += 1
+
+        if isinstance(result, FetchProblem):
+            stats.blocked += 1
+            _report_fetch_problem(session, result)
+            continue
+
+        doc, created = ingest_fetch_result(session, result)
+        if not created:
+            stats.duplicates += 1
+            if on_duplicate is not None:
+                on_duplicate(doc)
+            continue
+
+        stats.new_documents += 1
+        if not parse_immediately:
+            continue
+
+        parse_and_extract(session, doc, monitoring)
+        if doc.parser_status == ParserStatus.parsed.value:
+            stats.parsed += 1
+        elif doc.parser_status == ParserStatus.irrelevant.value:
+            stats.irrelevant += 1
+        elif doc.parser_status == ParserStatus.parser_failed.value:
+            stats.failed += 1
+
+
 def process_source(
     session: Session,
     source_cfg: SourceConfig,
@@ -275,28 +367,14 @@ def process_source(
     stats = SourceStats()
     with correlation_scope() as cid:
         _log.info("pipeline.source.start", source=source_cfg.name, correlation_id=cid)
-        adapter = get_adapter(source_cfg)
-        for result in adapter.fetch_new():
-            if limit is not None and stats.fetched >= max(0, limit):
-                break
-            stats.fetched += 1
-            if isinstance(result, FetchProblem):
-                stats.blocked += 1
-                _report_fetch_problem(session, result)
-                continue
-            doc, created = ingest_fetch_result(session, result)
-            if not created:
-                stats.duplicates += 1
-                continue
-            stats.new_documents += 1
-            if parse_immediately:
-                parse_and_extract(session, doc, monitoring)
-                if doc.parser_status == ParserStatus.parsed.value:
-                    stats.parsed += 1
-                elif doc.parser_status == ParserStatus.irrelevant.value:
-                    stats.irrelevant += 1
-                elif doc.parser_status == ParserStatus.parser_failed.value:
-                    stats.failed += 1
+        _consume_fetch_results(
+            session,
+            get_adapter(source_cfg).fetch_new(),
+            monitoring,
+            stats,
+            parse_immediately=parse_immediately,
+            limit=limit,
+        )
         _log.info("pipeline.source.done", source=source_cfg.name, **stats.__dict__)
     return stats
 
@@ -331,30 +409,22 @@ def process_registry_source(
                 "pipeline.registry_source.unsupported", source=entry.id, type=entry.source_type
             )
             return stats
-        for result in adapter.fetch_new(live=live, limit=limit):
-            stats.fetched += 1
-            if isinstance(result, FetchProblem):
-                stats.blocked += 1
-                _report_fetch_problem(session, result)
-                continue
-            doc, created = ingest_fetch_result(session, result)
-            if not created:
-                stats.duplicates += 1
-                _log.info(
-                    "pipeline.registry_source.already_exists", source=entry.id, document_id=doc.id
-                )
-                if doc.id:
-                    stats.already_exists_ids.append(doc.id)
-                continue
-            stats.new_documents += 1
-            if parse_immediately:
-                parse_and_extract(session, doc, monitoring)
-                if doc.parser_status == ParserStatus.parsed.value:
-                    stats.parsed += 1
-                elif doc.parser_status == ParserStatus.irrelevant.value:
-                    stats.irrelevant += 1
-                elif doc.parser_status == ParserStatus.parser_failed.value:
-                    stats.failed += 1
+
+        def _note_duplicate(doc: SourceDocument) -> None:
+            _log.info(
+                "pipeline.registry_source.already_exists", source=entry.id, document_id=doc.id
+            )
+            if doc.id:
+                stats.already_exists_ids.append(doc.id)
+
+        _consume_fetch_results(
+            session,
+            adapter.fetch_new(live=live, limit=limit),
+            monitoring,
+            stats,
+            parse_immediately=parse_immediately,
+            on_duplicate=_note_duplicate,
+        )
         _log.info("pipeline.registry_source.done", source=entry.id, **stats.__dict__)
     return stats
 

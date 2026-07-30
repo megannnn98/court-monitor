@@ -35,6 +35,7 @@ from court_monitor.config.registry import load_registry
 from court_monitor.matching.candidates import generate_matches
 from court_monitor.observability import get_logger
 from court_monitor.services import (
+    SourceStats,
     import_rfm_records,
     process_pending,
     process_registry_source,
@@ -69,28 +70,28 @@ def _job_fetch_all(session: Session, params: dict[str, Any]) -> dict[str, Any]:
     """Fetch every sudrf source and Telegram channel, parsing as we go."""
     live = bool(params.get("live"))
     monitoring = load_monitoring()
-    totals = {"fetched": 0, "new": 0, "duplicates": 0, "parsed": 0, "irrelevant": 0, "failed": 0}
+    totals = SourceStats()
     per_source: dict[str, str] = {}
 
     for src in (s for s in load_sources() if s.enabled):
         try:
             stats = process_source(session, src, monitoring)
-            _accumulate(totals, stats)
-            per_source[src.name] = _summary(stats)
+            totals.accumulate(stats)
+            per_source[src.name] = stats.summary()
         except Exception as exc:
-            totals["failed"] += 1
+            totals.failed += 1
             per_source[src.name] = f"ОШИБКА {type(exc).__name__}: {exc}"
 
     for entry in (e for e in load_registry() if e.enabled):
         try:
             stats = process_registry_source(session, entry, monitoring, live=live)
-            _accumulate(totals, stats)
-            per_source[entry.id] = _summary(stats)
+            totals.accumulate(stats)
+            per_source[entry.id] = stats.summary()
         except Exception as exc:
-            totals["failed"] += 1
+            totals.failed += 1
             per_source[entry.id] = f"ОШИБКА {type(exc).__name__}: {exc}"
 
-    return {"totals": totals, "sources": per_source}
+    return {"totals": totals.as_dict(), "sources": per_source}
 
 
 def _job_parse_pending(session: Session, _params: dict[str, Any]) -> dict[str, Any]:
@@ -280,19 +281,3 @@ def list_jobs(session: Session, *, limit: int = 50) -> list[Job]:
 
 def count_active(session: Session) -> int:
     return len(list(session.execute(select(Job).where(Job.status.in_(ACTIVE_STATUSES))).scalars()))
-
-
-def _accumulate(totals: dict[str, int], stats: Any) -> None:
-    totals["fetched"] += stats.fetched
-    totals["new"] += stats.new_documents
-    totals["duplicates"] += stats.duplicates
-    totals["parsed"] += stats.parsed
-    totals["irrelevant"] += stats.irrelevant
-    totals["failed"] += stats.failed
-
-
-def _summary(stats: Any) -> str:
-    return (
-        f"получено {stats.fetched}, новых {stats.new_documents}, "
-        f"разобрано {stats.parsed}, нерелевантных {stats.irrelevant}"
-    )
