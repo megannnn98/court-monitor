@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from court_monitor.extraction.names import extract_name_candidates
 
 
@@ -115,3 +117,64 @@ def test_multiple_names():
     dtos = extract_name_candidates(text)
     values = [d.value for d in dtos]
     assert len(values) >= 2
+
+
+# ---------------------------------------------------------------------------
+# The token class used to span Latin A..Cyrillic Я
+# ---------------------------------------------------------------------------
+
+
+def test_quotes_are_not_part_of_a_name():
+    """The continuation class was written "A-Я" with a *Latin* A (U+0041),
+    spanning 1006 code points — so «, », § and Latin letters were accepted
+    inside names. Found in production data as "Андрей Воробьев»"."""
+    dtos = extract_name_candidates("Об этом сообщил Андрей Воробьев».")
+    assert [d.value for d in dtos] == ["Андрей Воробьев"]
+
+
+def test_a_title_in_quotes_does_not_swallow_the_person():
+    dtos = extract_name_candidates("Гендиректор «Аэрофлота» Михаила Полубояринова вызвали.")
+    values = [d.value for d in dtos]
+    assert "Михаила Полубояринова" in values
+    assert not any("Аэрофлота" in v for v in values)
+
+
+def test_latin_letters_are_not_accepted_inside_a_cyrillic_name():
+    dtos = extract_name_candidates("Компания Google Russia сообщила.")
+    assert not any("Google" in d.value for d in dtos)
+
+
+def test_a_name_after_a_closing_quote_is_still_found():
+    """Quotes had to become terminators once they stopped being name
+    characters, or these names would silently disappear instead."""
+    dtos = extract_name_candidates("В посте «Базы» Сергей Поляков заявил.")
+    assert any("Сергей Поляков" in d.value for d in dtos)
+
+
+def test_parentheses_terminate_a_name():
+    dtos = extract_name_candidates("(Сергей Поляков) сообщил.")
+    assert [d.value for d in dtos] == ["Сергей Поляков"]
+
+
+# ---------------------------------------------------------------------------
+# Collective heads vs leading filler
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Жители Дагестана вышли на улицы.",
+        "Власти Грузии сообщили о задержании.",
+        "Администрация Перми прокомментировала.",
+    ],
+)
+def test_groups_and_institutions_are_not_people(text):
+    assert extract_name_candidates(text) == []
+
+
+def test_leading_filler_is_trimmed_rather_than_rejecting_the_person():
+    """Dropping the whole match would lose a real person: "Сам Джаред Лето"
+    and "Позднее Романов" each name someone."""
+    dtos = extract_name_candidates("Сам Джаред Лето приехал на съёмки.")
+    assert [d.value for d in dtos] == ["Джаред Лето"]
