@@ -4,13 +4,33 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from court_monitor.config.settings import settings
 from court_monitor.storage.orm import Base
+
+
+def _enable_sqlite_foreign_keys(engine: Engine) -> None:
+    """Turn on SQLite's foreign-key enforcement for every new connection.
+
+    SQLite defaults to ``PRAGMA foreign_keys=OFF``, which silently disables
+    every ``ondelete="CASCADE"`` declared in orm.py. The ORM in turn declares
+    ``passive_deletes=True`` on those relationships, i.e. it deliberately does
+    *not* delete children itself and expects the database to do it. With the
+    pragma off, neither side deletes anything: dropping a document's facts
+    (``reprocess``) left its MatchCandidate rows behind pointing at ids that
+    no longer exist.
+    """
+
+    @event.listens_for(engine, "connect")
+    def _set_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 def make_engine(url: str | None = None) -> Engine:
@@ -20,7 +40,10 @@ def make_engine(url: str | None = None) -> Engine:
         # Allow shared thread access in tests / FastAPI; check_same_thread keeps
         # SQLite usable across the request threadpool.
         connect_args = {"check_same_thread": False}
-    return create_engine(db_url, future=True, pool_pre_ping=True, connect_args=connect_args)
+    engine = create_engine(db_url, future=True, pool_pre_ping=True, connect_args=connect_args)
+    if db_url.startswith("sqlite"):
+        _enable_sqlite_foreign_keys(engine)
+    return engine
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:
