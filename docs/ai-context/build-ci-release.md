@@ -4,6 +4,13 @@
 
 Python ≥3.12, uv (пакетный менеджер). Основные зависимости: httpx, selectolax, pydantic v2, sqlalchemy 2, alembic, fastapi, typer, structlog, tenacity, pyyaml, dbfread.
 
+Опциональные extras: `pg` (psycopg), `playwright`, `nlp` (spacy). Для `nlp` модель ставится отдельно — её нет в обычном индексе PyPI:
+
+```bash
+pip install -e ".[nlp]"
+python -m spacy download ru_core_news_lg   # ~500 МБ
+```
+
 ## Установка
 
 ```bash
@@ -13,7 +20,7 @@ make install       # uv sync + dev dependencies
 ## Тесты
 
 ```bash
-make test          # все (134 теста)
+make test          # все (271 тест)
 make test-unit     # только unit
 make test-integration  # только integration
 make lint          # ruff check + ruff format --check
@@ -33,7 +40,15 @@ docker compose up --build
 
 ## CI (GitHub Actions)
 
-Матрица Python 3.12–3.14: ruff format/lint, mypy, pytest, docker build, gitleaks.
+Джобы:
+
+| Джоб | Что делает |
+|---|---|
+| `test` | Матрица Python 3.12–3.14: ruff format/lint, mypy, pytest |
+| `unit-tests` | Быстрый прогон только `tests/unit` |
+| `changes` | `paths-filter`: определяет, затронуты ли файлы, влияющие на образ (включая `alembic.ini`) |
+| `build-image` | Docker build — только если `changes` сказал «да» |
+| `secrets` | gitleaks |
 
 ## Миграции
 

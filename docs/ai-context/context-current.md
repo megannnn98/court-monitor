@@ -1,63 +1,66 @@
-# Контекст — 2026-07-30 (обновлено)
+# Контекст — 2026-07-30
 
 ## Что сделано
-- Etap 0: Discovery — исследование источников (sudrf.ru, Росфинмониторинг, Airtable, Telegram), fixtures-first архитектура, модель данных.
-- Etap 1: Каркас пакета + вертикальный срез — конфиг, домен, хранилище, источники, парсеры, экстракция, сервисы, CLI, API, логирование. Миграции Alembic.
-- Etap 2: Интеграция парсера sudrf_press в pipeline, реестр источников из Airtable, probe/checkout команды.
-- Etap 3: Структурированная экстракция — статьи УК, даты, ФИО. Фильтр релевантности по monitoring.yaml.
-- Росфинмониторинг — импорт из XML/DBF/ZIP/CSV, нормализация ФИО, дедупликация по (source, normalized_name, birth_date).
-- Explainable matching — морфологическая нормализация (ru-name-v2), scoring с весами,BirthDateEvidence для precision, generation candidates.
-- CLI: init-db, migrate, doctor, show-config, fetch-source (sudrf + fedsfm), fetch-all, run-all, parse-pending, reprocess-document, list-documents, show-document, show-stats, list-sources, fetch-demo-source, import-source-registry, check-sources, list-person-records, show-person-record, generate-matches, list-matches, show-match, confirm-match, reject-match, list-review-items, resolve-review-item.
-- FastAPI: /health, /stats, /documents, /documents/{id}.
-- Telegram-источники: `process_registry_source` + `TelegramChannelAdapter` полностью подключены к pipeline (fetch fixture/`--live` → ingest → parse → extract). Исправлен баг — `parse_and_extract` теперь для source_type != sudrf использует уже очищенный `doc.text` вместо повторного прогона через sudrf-специфичный HTML-парсер (который подмешивал UI-мусор Telegram в текст для экстракции).
-- Расширено тестовое покрытие `matching/` (birthplace scoring, BirthDateEvidence парсинг, mixed full-name/initial matching, invariant-тест на surname mismatch) и `fedsfm` (DBF/ZIP edge cases, форматы дат, dedup_key, CSV без ФИО).
-- 167 тестов проходят (ruff + mypy чистые).
-- Мелкий техдолг закрыт: убрано дублирование в CLI `doctor`, `print("already_exists")` заменён на structured log.
-- `.venv` пересоздан (был битый симлинк на python другого пользователя/хоста).
-- **Etap 4, срез 1** — таблицы `ReviewItem` (generic очередь проверки оператора) и `AuditLog` (append-only аудит решений), миграции `0006_review_items`/`0007_audit_log`. `ReviewItem` создаётся в `parse_and_extract` при `parser_status=parser_failed`. `AuditLog` пишется атомарно внутри `repo.update_match_status` (confirm/reject-match) и `repo.resolve_review_item`, с `actor` (CLI `--operator`, default `getpass.getuser()`) и `correlation_id`. CLI: `list-review-items`, `resolve-review-item [--dismiss]`. Person/PersonAlias/Case/PersonCase/CourtEvent сознательно не введены — см. `technical-debt.md` D-001. Смёржено в master (PR #1).
-- **D-011 закрыт** — `sources.base.FetchProblem` (новый тип рядом с `FetchResult`); `SudrfAdapter`/`TelegramChannelAdapter.fetch_new()` возвращают `Iterator[FetchResult | FetchProblem]` вместо молчаливого `continue`/`return None` при `FetchHealth.blocked`/`http_error`/`timeout`/пустом теле. `process_source`/`process_registry_source` на `FetchProblem` создают `ReviewItem(item_type="source_blocked")`. `repo.upsert_review_item` расширен: дедуп по `source_id`, если нет `document_id`. Новое поле `SourceStats.blocked` (видно в `fetch-source`/`fetch-all`). `not_modified` и fixture-missing НЕ создают ReviewItem (это не сбои источника).
-- **`run-all [--live] [--verbose]`** — одна команда: sudrf-источники (`config/sources.yaml`) + все Telegram-каналы из реестра (`config/source_registry.yaml`, раньше не было общего fetch для них) + `generate-matches`. Fixtures по умолчанию, `--live` — реальная сеть. Явный, цветной построчный вывод (typer.secho: cyan-заголовки секций, green/yellow по источнику в зависимости от blocked/failed/skipped, red для реальных исключений) — по умолчанию глушит INFO/WARNING structlog-шум (`configure_logging(..., "ERROR")`), `--verbose` возвращает обычный уровень логов. Тонкая оркестрация уже протестированных `process_source`/`process_registry_source`/`generate_matches` — как и у существующего `fetch-all`, отдельных CLI-тестов на саму команду нет, только на pure-хелперы (`_accumulate_fetch_stats`, `_stats_color`, `_render_stats_line`, `_render_totals_line`).
-- **Экстракция ФИО: фикс ALL-CAPS дисклеймера** — найдено через `run-all --live` на реальных Telegram-каналах: обязательный ALL-CAPS дисклеймер «иностранного агента» + аббревиатуры (ООО/СБУ/«РБК-Украина») массово ловились как ФИО. `extraction/names.py::_is_boilerplate_caps` отклоняет токены с >1 ALL-CAPS буквой (реальные ФИО — Title Case, инициалы однобуквенные — не задеваются). Остаточная, не исправленная проблема: склейка топонима в родительном падеже с именем — см. `known-risks-and-notes.md`. Локальная `court_monitor.db` (gitignored) была засорена ручными тестовыми артефактами прошлых сессий — пересоздана с нуля.
-- 220 тестов проходят на этой ветке (ruff + mypy чистые).
-- **Матчинг чинился по итогам живого прогона `run-all --live` на master (2026-07-30, не закоммичено).** Прогон дал 143 новых документа, 463 person-факта и **0 кандидатов**. Две причины:
-  1. `matching/name_normalizer.py::_simple_parse` для 2-токенных имён безусловно брал `tokens[0]` как фамилию. Новостной текст пишет «Имя Фамилия» («Владимир Романов»), реестр РФМ — «Фамилия Имя Отчество», поэтому в поле `surname` попадало имя и surname-индекс не мог совпасть никогда. 367 из 463 фактов — двухтокенные; замер: попаданий по фамилии 6 (первый токен) против 83 (последний). Фикс: порядок определяется по самим токенам — сначала список распространённых русских имён (`_GIVEN_NAMES`, ~147, нужен для «Ирина Иванова», где оба токена выглядят как фамилия), затем фамильные суффиксы (`_SURNAME_SUFFIXES`), при неоднозначности сохраняется прежнее поведение «Фамилия Имя». Логика симметрична — порядок «Иванов Иван» не сломался.
-  2. `person_records` был пуст — реестр не импортирован. Загружен `tests/fixtures/rfm/rosfinmonitoring-2.csv`: 22250 строк, imported=22156, duplicates=94. **`run-all` не импортирует реестр**, так что матчить было не с чем.
-  Результат: 0 → 5 кандидатов, все `pending` на ручной review. Скор у всех ровно 0.50 (`W_SURNAME_NAME_MATCH`), т.к. в этом CSV нет дат рождения, а `_extract_place_from_fact` — заглушка. Из 5: «Екатерина Шульман» → «Шульман Екатерина Михайловна» похоже на истинное совпадение; «Андрей Воробьев» (подмосковный губернатор) → запись из Курской области — почти наверняка однофамилец. Различить алгоритмически без дат рождения нельзя — это by design, решает оператор.
-- **`doctor` не ловил отставание БД от миграций** — именно это уронило первый живой прогон (`OperationalError: no such column: person_records.gender`, БД на 0007 при head 0008), при том что doctor рапортовал «✓ All checks passed»: старые таблицы на месте, `SELECT 1` отвечает. Добавлен `storage/migrations.py::revision_status()` (применённая ревизия vs head), `_doctor_check_alembic` теперь пишет расхождение в `problems` → exit code 1. Проверено на копии БД с откаченным маркером версии.
-- Предсуществующий (не мой) линт-фейл на master: `tests/unit/test_fedsfm.py:417` PLC0415 (`import json` внутри функции) из коммита `d075795` — блокирует `make lint`, не трогал.
-- **spaCy NER смержен в master** (`2942490`). Замер на живом корпусе (341 документ, 22156 записей РФМ): NER выдаёт меньше фактов, чем regex (346 против 463), но больше из них резолвятся в фамилию из реестра (66 против 52) — то есть выше precision, а не recall. 20 имён с попаданием в реестр находит только NER (Гарри Каспаров, Николай Рыбаков, Игорь Додонов…), только regex — 6, из них 4 мусор («Госдумы Свинцов», «Позднее Романов»). Уникальные кандидаты 5 → 12. Цена: модель грузится 2.82 с на процесс, затем 10.6 мс/документ против ~0 у regex (в 255 раз медленнее). По умолчанию **выключен** (`CM_NER_MODE=disabled`).
-- **Дедупликация regex↔NER** (`024adcb`) — оба экстрактора называли одного человека в одном документе, и один и тот же триплет (документ, имя, запись) становился двумя кандидатами: 17 строк на 12 уникальных, 5 избыточных. `services._dedupe_against` сравнивает через `normalize_fio` (схлопывает ё/е, регистр, пробелы) → 12 строк, 12 уникальных, 0 избыточных, ни один полезный кандидат не потерян. Дедуп **в пределах документа**: один человек в двух документах по-прежнему даёт двух кандидатов, это правильно — каждый документ отдельное свидетельство.
-- **Включено принуждение foreign keys в SQLite** (`cd56ea4`) — `orm.py` повсюду объявляет `ondelete="CASCADE"` и ставит `passive_deletes=True` (ORM намеренно перекладывает удаление детей на БД), но SQLite по умолчанию `PRAGMA foreign_keys=OFF`, поэтому не удалял никто: `reprocess` сносил факты документа, а строки `MatchCandidate` оставались висеть на несуществующих id и всплывали в `list-matches` с пустым именем. Прагма включается на каждое соединение в `make_engine`; рабочая БД предварительно проверена на висячие строки (их не было). Тесты идут через `make_engine` намеренно — фикстура `db_session` строит engine голым `create_engine` и прагму не задействует.
 
-- **Живая загрузка перечня РФМ заработала** (`ee1f4c3`, `44a95ff`, `6da5f5c`). Оказалось, `fedsfm.ru` **не блокирует Казахстан** — TCP отвечает за 0.1 с, HTTP 200, ни капчи, ни Cloudflare, VPN не нужен. Мешал только TLS: сертификат выдан УЦ Минцифры, которого нет ни в системном хранилище, ни в `certifi`. Сервер отдаёт **только leaf**, поэтому промежуточный нужен свой; при этом опубликованный на gu-st.ru `russian_trusted_sub_ca_pem.crt` — **другой** Sub CA (2022, SKI `D1:E1:71:0D:…`) и текущий leaf им не подписан. Правильный (`subca_ssl_rsa2024`, SKI `77:3D:D9:39:…` = AKI leaf'а) берётся по `CA Issuers` URI из AIA-расширения leaf'а. Цепочка лежит в `config/ca/`, передаётся только этому клиенту через новый `HttpClient(verify=…)` — верификация остаётся включённой, и этот УЦ не может подтверждать другие хосты проекта. Остаточный риск задокументирован в `config/ca/README.md`: оба сертификата впервые скачаны по непроверяемому соединению, то есть пиннинг даёт непрерывность, но не аутентичность.
-- **`sources/fedsfm_live.py`** — перечень вшит прямо в HTML страницы (4.2 МБ, 23 220 записей). Парсер достаёт **только одиночных физлиц**: 21 511 из 23 220. Организации и «ОБЪЕДИНЕНИЕ» (несколько людей в одной записи) не лезут в `PersonRecord` и попадают в `unrecognized` (1709), а не отбрасываются молча — смена вёрстки проявится скачком этого счётчика. Учтены: звёздочка-сноска после ФИО (`ИВАНОВ ИВАН АЛЕКСАНДРОВИЧ*`), четырёхсловные имена с ОГЛЫ, оба написания даты (`г.р.` и `ГОДА РОЖДЕНИЯ`), отсутствующее место рождения.
-- **Незакрытая проблема: смешивание CSV- и HTML-импортов даёт дубли.** Дедуп идёт по `(source, normalized_name, birth_date)`, а в `rosfinmonitoring-2.csv` дат рождения нет вообще (только «возраст при включении») — тогда как HTML даёт дату каждому. Замер на реальной БД: 21 277 из 22 156 имён пересекаются, живой импорт отрапортовал `duplicates=0` и база выросла 22 156 → 43 667, то есть человек задвоился почти каждый. Логику дедупа **сознательно не трогал** — именно она не даёт схлопнуться настоящим однофамильцам (см. ветку `fix-rfm-dedup-collision`). Вместо этого CLI громко предупреждает перед записью, если в базе есть записи rfm без дат. Правильное решение (замена перечня вместо дозаписи, либо обогащение существующих записей датами) — отдельная задача.
+Etap 0–3 закрыты: discovery источников, каркас пакета, вертикальный срез (конфиг → домен → хранилище → источники → парсеры → экстракция → сервисы → CLI → API), структурированная экстракция (статьи УК, даты, ФИО) и фильтр релевантности по `monitoring.yaml`.
+
+Etap 4, срез 1: `ReviewItem` (очередь ручной проверки) и `AuditLog` (append-only аудит решений), миграции `0006`/`0007`. `Person`/`Case`/`CourtEvent` намеренно не введены — см. `technical-debt.md` D-001.
+
+D-011 закрыт: адаптеры возвращают `Iterator[FetchResult | FetchProblem]` вместо молчаливого пропуска при блокировке/ошибке/таймауте; на `FetchProblem` создаётся `ReviewItem(item_type="source_blocked")`.
+
+Состояние на сегодня — 271 тест, ruff + mypy чистые, `master` в синхроне с origin.
+
+### Что закрыто в этой сессии
+
+| Изменение | Коммит | Суть |
+|---|---|---|
+| Порядок токенов в двусловных ФИО | `68d62a1` | `_simple_parse` клал имя в поле `surname`, из-за чего матчинг давал **0 кандидатов**. Детали — `matching.md` |
+| `doctor` ловит отставание миграций | `0b82c24` | Отставшая БД проходила все проверки и падала позже как `no such column` |
+| spaCy NER (opt-in) | `2942490` | Выше precision, чем regex, но в 255 раз медленнее. Детали — `extraction.md` |
+| Дедуп regex ↔ NER | `024adcb` | 17 строк кандидатов на 12 уникальных → 12/12 |
+| Принуждение FK в SQLite | `cd56ea4` | `PRAGMA foreign_keys=OFF` обесценивал все объявленные каскады |
+| Пиннинг цепочки fedsfm.ru | `ee1f4c3` | Единственная преграда к живому доступу была TLS, не геоблок |
+| Живой парсер перечня РФМ | `3fb5172` | 21 511 физлиц из 23 220 записей HTML-страницы |
+| `fetch-source fedsfm --live` | `6da5f5c` | Заменил заглушку «Live mode not yet implemented» |
+
+Ключевой факт для планирования: **`fedsfm.ru` доступен из Казахстана без VPN**, мешал только сертификат УЦ Минцифры.
 
 ## Следующий шаг
-- Airtable write-back: запись подтверждённых кандидатов в Airtable (после валидации маппинга) — заблокировано отсутствием PAT.
-- Etap 4, срез 2 (кандидат): `Person`/`Case`/`CourtEvent` — нужен либо экстрактор структурированных case/event-фактов (сейчас есть только article/date/name/relevance), либо политика авто-создания Person из подтверждённого MatchCandidate. `EventType` enum уже существует в `domain/models.py`, но не используется.
-- `list-audit-log` CLI — сейчас аудит смотрится только через sqlite напрямую.
-- `_extract_place_from_fact` в `matching/candidates.py` всегда возвращает `None` — birthplace-скоринг протестирован, но не используется в реальных кандидатах, пока нет источника места рождения из документа.
-- `known-risks-and-notes.md`: `birth_date_conflict` в scoring почти недостижим (year-match branch перехватывает раньше) — задокументировано, не исправлялось (сознательно, scoring — чувствительная зона).
+
+- **Замена перечня РФМ вместо дозаписи.** Смешивание CSV- и HTML-импортов дублирует людей (21 277 из 22 156 имён пересекаются, база растёт 22 156 → 43 667). Сейчас CLI лишь предупреждает. Нужно либо заменять перечень целиком, либо обогащать существующие записи датами — не трогая логику дедупа, которая защищает настоящих однофамильцев.
+- **`run-all` не импортирует реестр РФМ** — на чистой машине матчить не с чем, пока вручную не выполнить `fetch-source fedsfm`.
+- Airtable write-back — заблокировано отсутствием PAT.
+- Etap 4, срез 2 (кандидат): `Person`/`Case`/`CourtEvent`. Нужен либо экстрактор структурированных case/event-фактов, либо политика авто-создания `Person` из подтверждённого `MatchCandidate`. `EventType` уже есть в `domain/models.py`, но не используется.
+- `list-audit-log` CLI — сейчас аудит читается только напрямую из sqlite.
+- `_extract_place_from_fact` всегда возвращает `None` — birthplace-скоринг протестирован, но в реальных кандидатах не участвует.
+- Осиротевшие `MatchCandidate` после `reprocess` — с включённым FK-каскадом проблема снята, но старые базы, наполненные до `cd56ea4`, могут содержать висячие строки.
 
 ## Блокировки
+
 - нет
 
 ## Ключевые файлы
+
 - `src/court_monitor/cli/app.py` — CLI entrypoint, все команды
-- `src/court_monitor/services/__init__.py` — pipeline: fetch → parse → extract → match
-- `src/court_monitor/extraction/articles.py` — экстракция статей УК (regex)
-- `src/court_monitor/extraction/dates.py` — экстракция дат (русский формат)
-- `src/court_monitor/extraction/names.py` — экстракция ФИО (эвристика)
+- `src/court_monitor/services/__init__.py` — pipeline: fetch → parse → extract → match, `_dedupe_against`
+- `src/court_monitor/extraction/names.py` — ФИО через regex-эвристику
+- `src/court_monitor/extraction/ner_names.py` — ФИО через spaCy NER (opt-in, `CM_NER_MODE=spacy`)
+- `src/court_monitor/extraction/articles.py` — статьи УК
+- `src/court_monitor/extraction/dates.py` — даты (русский формат)
 - `src/court_monitor/extraction/filtering.py` — фильтр релевантности
-- `src/court_monitor/matching/score.py` — scoring с весами, BirthDateEvidence
-- `src/court_monitor/matching/candidates.py` — generation match candidates
-- `src/court_monitor/matching/name_normalizer.py` — морфологическая нормализация ru-name-v2
-- `src/court_monitor/sources/fedsfm.py` — парсер XML/DBF/ZIP/CSV для Росфинмониторинга
-- `src/court_monitor/sources/base.py` — FetchResult/FetchProblem, SourceAdapter Protocol
-- `src/court_monitor/storage/orm.py` — ORM-модели (SourceDocument, ExtractedFact, PersonRecord, MatchCandidate, ReviewItem, AuditLog)
+- `src/court_monitor/matching/name_normalizer.py` — нормализация `ru-name-v2` + порядок токенов
+- `src/court_monitor/matching/score.py` — веса скоринга, `BirthDateEvidence`
+- `src/court_monitor/matching/candidates.py` — генерация кандидатов
+- `src/court_monitor/sources/fedsfm.py` — парсер файлов XML/DBF/ZIP/CSV
+- `src/court_monitor/sources/fedsfm_live.py` — живая загрузка и HTML-парсер перечня
+- `src/court_monitor/sources/http_client.py` — вежливый HTTP-клиент, `verify=` для своего CA
+- `src/court_monitor/sources/base.py` — `FetchResult`/`FetchProblem`, `SourceAdapter`
+- `src/court_monitor/storage/orm.py` — ORM-модели
+- `src/court_monitor/storage/db.py` — engine, `PRAGMA foreign_keys=ON`
+- `src/court_monitor/storage/migrations.py` — `upgrade_head`, `revision_status`
 - `src/court_monitor/domain/models.py` — доменные enum'ы
 - `src/court_monitor/api/app.py` — FastAPI read-only surface
-- `config/sources.yaml` — адаптеры источников (sudrf)
+- `config/sources.yaml` — адаптеры sudrf-источников
 - `config/monitoring.yaml` — статьи УК и ключевые слова
 - `config/source_registry.yaml` — реестр Telegram-каналов
+- `config/ca/` — цепочка доверия fedsfm.ru + провенанс и ротация в README

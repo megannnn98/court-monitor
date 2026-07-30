@@ -19,10 +19,12 @@ src/court_monitor/
 ├── config/         # loader.py (YAML), settings.py (pydantic-settings), registry.py
 ├── domain/         # models.py (enum'ы), facts.py (ExtractedFactDTO)
 ├── storage/        # orm.py (SQLAlchemy 2), repository.py, db.py, migrations.py
-├── sources/        # base.py (ABC), sudrf.py, fedsfm.py, airtable_registry.py,
-│                   # telegram_channel.py, probe.py, http_client.py
+├── sources/        # base.py (ABC), sudrf.py, fedsfm.py, fedsfm_live.py,
+│                   # airtable_registry.py, telegram_channel.py, probe.py,
+│                   # http_client.py
 ├── parsers/        # sudrf_press.py, telegram_post.py
-├── extraction/     # articles.py, dates.py, names.py, filtering.py, _utils.py
+├── extraction/     # articles.py, dates.py, names.py, ner_names.py,
+│                   # filtering.py, _utils.py
 ├── matching/       # candidates.py, score.py, name_normalizer.py
 ├── normalization/  # __init__.py (normalize_fio — ё→е, register)
 ├── services/       # __init__.py (pipeline orchestration)
@@ -91,7 +93,7 @@ MC --> CRM
 1. **Fetch** — адаптер (sudrf, fedsfm, telegram) загружает данные, возвращает `FetchResult`.
 2. **Ingest** — `ingest_fetch_result()` дедуплицирует по `(external_id → canonical_url → url+content_hash)`.
 3. **Parse** — `parse_press_release()` (selectolax) извлекает заголовок, дату, текст.
-4. **Extract** — `extract_articles()`, `extract_dates()`, `extract_name_candidates()` работают на тексте.
+4. **Extract** — `extract_articles()`, `extract_dates()`, `extract_name_candidates()` работают на тексте. При `CM_NER_MODE=spacy` дополнительно вызывается `extract_name_candidates_ner()`, а его результат проходит через `_dedupe_against()` — иначе одно имя даёт два факта.
 5. **Filter** — `evaluate_relevance()` проверяет статьи/ключевые слова из `monitoring.yaml`.
 6. **Store** — `add_facts_from_dtos()` записывает факты в БД.
 7. **Match** — `generate_matches()` ищет кандидатов через surname-based pre-filtering + scoring.
@@ -110,17 +112,25 @@ MC --> CRM
 | Тип | Backend | Описание |
 |---|---|---|
 | `sudrf` | fixture / http | Пресс-релизы судов на sudrf.ru |
-| `rfm` | file import | Росфинмониторинг (XML/DBF/ZIP/CSV) |
+| `rfm` | file import | Росфинмониторинг (XML/DBF/ZIP/CSV), `fetch-source fedsfm --file` |
+| `rfm` | live http | Перечень с HTML-страницы fedsfm.ru, `fetch-source fedsfm --live` |
 | `airtable` | fixture / http | Реестр источников из Airtable |
 | `telegram` | fixture / http | Telegram-каналы (парсинг постов) |
 
+## Целостность БД
+
+`ondelete="CASCADE"` объявлен на внешних ключах, а связи помечены `passive_deletes=True` — то есть ORM намеренно перекладывает удаление детей на БД. SQLite по умолчанию `PRAGMA foreign_keys=OFF`, поэтому `make_engine()` включает прагму на каждое соединение; без неё не удалял никто и `MatchCandidate` переживал удаление своего факта.
+
 ## Миграции
 
-Alembic, 5 миграций: initial → registry_provenance → person_records → person_names → match_candidates.
+Alembic, 8 миграций: initial → registry_provenance → person_records → person_names → match_candidates → review_items → audit_log → person_records_rfm_v2.
+
+`doctor` сравнивает применённую ревизию с head (`storage/migrations.py::revision_status`) и считает отставание проблемой: отставшая БД отвечает на `SELECT 1` и сохраняет все старые таблицы, поэтому обнаруживается только позже как `no such column` посреди прогона.
 
 ## Конфигурация
 
 - `config/sources.yaml` — адаптеры sudrf-источников
 - `config/monitoring.yaml` — статьи УК и ключевые слова для фильтрации
 - `config/source_registry.yaml` — реестр Telegram-каналов (импорт из Airtable)
-- `.env` / env vars — `CM_DATABASE_URL`, `CM_LOG_LEVEL`, `CM_CONFIG_DIR`, `CM_AIRTABLE_MODE`, `CM_LLM_MODE`
+- `config/ca/fedsfm_ru_chain.pem` — цепочка доверия для fedsfm.ru; провенанс, отпечатки, ротация и остаточный риск описаны в `config/ca/README.md`
+- `.env` / env vars — `CM_DATABASE_URL`, `CM_LOG_LEVEL`, `CM_CONFIG_DIR`, `CM_AIRTABLE_MODE`, `CM_LLM_MODE`, `CM_NER_MODE`
