@@ -38,9 +38,20 @@
 |---|---|---|
 | `CM_AIRTABLE_MODE` | `read_only` | Режим Airtable |
 | `CM_AIRTABLE_TOKEN` | — | Токен Airtable (нужен не для публичной view) |
-| `CM_LLM_MODE` | `disabled` | LLM-извлечение — выключено |
-| `CM_LLM_BASE_URL`, `CM_LLM_API_KEY`, `CM_LLM_MODEL` | — | Параметры LLM |
+| `CM_LLM_MODE` | `disabled` | Любое значение кроме `disabled` включает LLM |
+| `CM_LLM_BASE_URL` | — | Корень OpenAI-совместимого API, например `https://api.deepseek.com` |
+| `CM_LLM_API_KEY` | — | Ключ провайдера |
+| `CM_LLM_MODEL` | — | Имя модели, например `deepseek-v4-pro` |
 | `CM_NER_MODE` | `disabled` | `spacy` включает NER-извлечение имён |
+
+Все четыре `CM_LLM_*` нужны вместе: при неполной настройке команда
+`judge-matches` выходит с кодом 1 и называет недостающую переменную, а
+конвейер продолжает работать на детерминированных правилах. Провайдер не
+зашит в код — клиент говорит на OpenAI-совместимом формате, поэтому локальный
+`vLLM`/`Ollama` подключается сменой `CM_LLM_BASE_URL`.
+
+Модель применяется только к дизамбигуации кандидатов (`judge-matches`) и
+никогда не меняет `score` или статус — подробности в README, шаг 4.
 
 `CM_NER_MODE=spacy` требует установленного extra `nlp` и модели
 `ru_core_news_lg`. NER работает **в дополнение** к regex-извлечению, результаты
