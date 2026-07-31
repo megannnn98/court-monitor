@@ -47,9 +47,9 @@ def list_matches_cmd(
         typer.echo(f"Всего кандидатов{f' (status={status})' if status else ''}: {total}")
         typer.echo(
             f"{'ID':>4}  {'Документ':>8}  {'Имя в тексте':30}"
-            f"  {'Запись':>6}  {'Score':>5}  {'Статус':10}"
+            f"  {'Запись':>6}  {'Score':>5}  {'Одноф':>5}  {'Упом':>4}  {'Статус':10}"
         )
-        typer.echo("-" * 80)
+        typer.echo("-" * 96)
         for c in candidates:
             _print_match_row(c)
 
@@ -63,9 +63,11 @@ def _print_match_row(c) -> None:
         (fact.value if isinstance(fact.value, str) else str(fact.value))[:30] if fact else "-"
     )
     rec_id = record.id if record else "-"
+    namesakes = "—" if c.namesakes is None else str(c.namesakes)
+    mentions = "—" if not c.other_mentions else str(c.other_mentions)
     typer.echo(
         f"{c.id:>4}  {str(doc_id):>8}  {name_raw:30}"
-        f"  {str(rec_id):>6}  {c.score:>5.2f}  {c.status:10}"
+        f"  {str(rec_id):>6}  {c.score:>5.2f}  {namesakes:>5}  {mentions:>4}  {c.status:10}"
     )
 
 
@@ -107,11 +109,15 @@ def _print_match_record(record) -> None:
 
 
 def _print_match_score(c) -> None:
-    """Print match score breakdown."""
+    """Print match score breakdown, plus the context the score cannot carry."""
     typer.echo("\n--- Оценка ---")
     typer.echo(f"Имя: {c.name_score:.2f}")
     typer.echo(f"Дата рождения: {c.birth_date_score:.2f}")
     typer.echo(f"Место рождения: {c.birthplace_score:.2f}")
+    if c.namesakes is not None:
+        typer.echo("\n--- Контекст (в score не входит) ---")
+        typer.echo(f"Однофамильцев в реестре: {c.namesakes}")
+        typer.echo(f"Упоминаний в других документах: {c.other_mentions or 0}")
 
 
 def _print_match_reasons(reasons_json: str) -> None:

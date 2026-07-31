@@ -25,7 +25,6 @@ from sqlalchemy.orm import Session
 
 from court_monitor import __version__
 from court_monitor.config.settings import settings
-from court_monitor.matching.name_normalizer import normalize_name_morph
 from court_monitor.observability import configure_logging, correlation_scope, get_logger
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import session_scope
@@ -199,11 +198,12 @@ def match_detail(request: Request, candidate_id: int, session: SessionDep) -> HT
     # surname and given name matched, nothing else was available — so what
     # separates a real hit from a namesake is how rare the surname is in the
     # registry and whether the person turns up in more than one document.
-    namesakes = 0
-    if record is not None:
-        namesakes = repo.count_registry_namesakes(
-            session, normalize_name_morph(record.normalized_name).surname
-        )
+    #
+    # Read off the candidate rather than recounted here: the queue is ordered by
+    # the stored number, and a second implementation counting it a different way
+    # (by search_name prefix, rather than by normalised surname) would let this
+    # page disagree with the ordering that led the operator to it.
+    namesakes = candidate.namesakes
     others = (
         repo.find_other_mentions(session, str(fact.value), exclude_document_id=fact.document_id)
         if fact is not None

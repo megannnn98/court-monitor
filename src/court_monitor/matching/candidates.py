@@ -58,6 +58,7 @@ def generate_matches(session: Session) -> MatchStats:
     stats.facts_person = len(person_facts)
 
     surname_index = _build_surname_index(session)
+    documents_by_name = _build_mention_index(person_facts)
 
     for fact in person_facts:
         try:
@@ -76,6 +77,20 @@ def generate_matches(session: Session) -> MatchStats:
 
             doc_birth_date = _extract_birth_date_from_fact(fact)
             doc_birth_place = _extract_place_from_fact(fact)
+
+            # Both counts come out of what is already in memory — the surname
+            # index and the person facts — so ranking the queue costs no extra
+            # queries. `namesakes` counts everyone in the registry sharing this
+            # surname, including the record being compared against.
+            namesakes = len(candidates)
+            # A fact with no normalized form cannot be matched to any other
+            # mention, so it has none rather than an unknown number.
+            same_name_docs = (
+                documents_by_name.get(fact.normalized_value, set())
+                if fact.normalized_value
+                else set()
+            )
+            other_mentions = len(same_name_docs - {fact.document_id})
 
             matched_any = False
             for record, record_name in candidates:
@@ -102,6 +117,8 @@ def generate_matches(session: Session) -> MatchStats:
                         existing.birthplace_score = result.birthplace_score
                         existing.reasons_json = json.dumps(result.reasons, ensure_ascii=False)
                         existing.conflicts_json = json.dumps(result.conflicts, ensure_ascii=False)
+                        existing.namesakes = namesakes
+                        existing.other_mentions = other_mentions
                     continue
 
                 candidate = MatchCandidate(
@@ -115,6 +132,8 @@ def generate_matches(session: Session) -> MatchStats:
                     reasons_json=json.dumps(result.reasons, ensure_ascii=False),
                     conflicts_json=json.dumps(result.conflicts, ensure_ascii=False),
                     algorithm_version=ALGORITHM_VERSION,
+                    namesakes=namesakes,
+                    other_mentions=other_mentions,
                 )
                 session.add(candidate)
                 stats.candidates_created += 1
@@ -153,6 +172,20 @@ def _build_surname_index(
         norm = normalize_name_morph(rec.normalized_name)
         if norm.surname:
             index.setdefault(norm.surname, []).append((rec, norm))
+    return index
+
+
+def _build_mention_index(facts: list[ExtractedFact]) -> dict[str, set[int]]:
+    """normalized name → the set of documents naming that person.
+
+    Documents, not facts: one article naming somebody twice is a single
+    mention, and counting the facts would reward verbose sources instead of
+    corroboration across sources.
+    """
+    index: dict[str, set[int]] = {}
+    for fact in facts:
+        if fact.normalized_value:
+            index.setdefault(fact.normalized_value, set()).add(fact.document_id)
     return index
 
 

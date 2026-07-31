@@ -53,7 +53,7 @@ def client(session: Session) -> TestClient:
         app.dependency_overrides.clear()
 
 
-def _seed(session: Session) -> MatchCandidate:
+def _seed(session: Session, *, namesakes: int = 1, other_mentions: int = 0) -> MatchCandidate:
     doc = SourceDocument(
         url="https://example.invalid/a",
         source_type="telegram",
@@ -93,6 +93,8 @@ def _seed(session: Session) -> MatchCandidate:
         score=0.7,
         status="pending",
         name_score=0.7,
+        namesakes=namesakes,
+        other_mentions=other_mentions,
         algorithm_version="match-v3",
         reasons_json='[{"rule": "full_name_morphological_match", "impact": 0.7}]',
         conflicts_json="[]",
@@ -401,23 +403,10 @@ def test_audit_can_be_filtered_by_object_type(client: TestClient, session: Sessi
 # ---------------------------------------------------------------------------
 
 
-def _add_registry_namesakes(session: Session, surname: str, count: int) -> None:
-    for i in range(count):
-        session.add(
-            PersonRecord(
-                source="rfm",
-                raw_name=f"{surname.upper()} ИМЯ{i} ОТЧЕСТВО",
-                search_name=f"{surname} имя{i} отчество",
-                normalized_name=f"{surname} имя{i} отчество",
-            )
-        )
-    session.commit()
-
-
 def test_a_unique_surname_is_shown_as_a_strong_signal(client: TestClient, session: Session):
     """Every candidate scores 0.50, so rarity of the surname is what actually
     separates a hit from a namesake."""
-    candidate = _seed(session)
+    candidate = _seed(session, namesakes=1)
     body = client.get(f"/matches/{candidate.id}").text
     assert "уникальна" in body
     assert "весомое" in body
@@ -426,10 +415,25 @@ def test_a_unique_surname_is_shown_as_a_strong_signal(client: TestClient, sessio
 def test_a_common_surname_warns_that_a_name_alone_cannot_decide(
     client: TestClient, session: Session
 ):
-    candidate = _seed(session)
-    _add_registry_namesakes(session, "иванов", 20)
+    candidate = _seed(session, namesakes=21)
     body = client.get(f"/matches/{candidate.id}").text
     assert "различить нельзя" in body
+
+
+def test_an_unmeasured_candidate_says_so_rather_than_claiming_uniqueness(
+    client: TestClient, session: Session
+):
+    """The count is read off the candidate, measured when matches were
+    generated — not recounted at render time. A row predating the column must
+    say "не измерено" rather than render as the rarest surname there is."""
+    candidate = _seed(session)
+    candidate.namesakes = None
+    session.commit()
+
+    body = client.get(f"/matches/{candidate.id}").text
+
+    assert "не измерено" in body
+    assert "уникальна" not in body
 
 
 def test_other_mentions_of_the_same_person_are_listed(client: TestClient, session: Session):

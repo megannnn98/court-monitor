@@ -60,7 +60,11 @@
     <div>
       <strong>Однофамильцы в реестре</strong>
       <p>
-        {% if namesakes <= 1 %}
+        {% if namesakes is none %}
+          <span class="tag muted">—</span>
+          не измерено: кандидат создан до появления этого признака.
+          Выполните <code>generate-matches</code>, чтобы заполнить
+        {% elif namesakes <= 1 %}
           <span class="tag ok">{{ namesakes }}</span>
           фамилия в перечне уникальна — совпадение весомое
         {% elif namesakes <= 5 %}

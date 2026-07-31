@@ -309,10 +309,34 @@ def count_person_records(session: Session, *, source: str | None = None) -> int:
 # ---------------------------------------------------------------------------
 
 
+# Sorting an unmeasured candidate as if it had the rarest surname in the
+# registry would put exactly the least-known rows at the top of the queue.
+_NEVER_MEASURED_NAMESAKES = 1_000_000
+
+
 def list_match_candidates(
     session: Session, *, status: str | None = None, limit: int = 100
 ) -> list[MatchCandidate]:
-    stmt = select(MatchCandidate).order_by(MatchCandidate.score.desc())
+    """The review queue, most informative first.
+
+    Ordering by score alone is useless here: every candidate the pipeline
+    produces scores exactly 0.50, because news text carries no birth date or
+    place and only the name can match. What actually separates them is context
+    — how many people in the registry share the surname, and how many other
+    documents name the same person.
+
+    The order is lexicographic over those two measured facts rather than a
+    weighted blend of them. A blended number would have to invent weights, and
+    an operator cannot check 0.73 against anything; "1 однофамилец, 3
+    упоминания" they can. Rarity leads because it is the stronger signal: one
+    Шульман is a near-certain lead, one of fourteen Кадыровых is noise no
+    amount of corroboration fixes.
+    """
+    stmt = select(MatchCandidate).order_by(
+        func.coalesce(MatchCandidate.namesakes, _NEVER_MEASURED_NAMESAKES).asc(),
+        func.coalesce(MatchCandidate.other_mentions, 0).desc(),
+        MatchCandidate.score.desc(),
+    )
     if status is not None:
         stmt = stmt.where(MatchCandidate.status == status)
     stmt = stmt.limit(limit)
@@ -598,23 +622,6 @@ def count_person_records_matching(
         needle = normalize_fio(query)
         if needle:
             stmt = stmt.where(PersonRecord.search_name.contains(needle))
-    return int(session.execute(stmt).scalar_one())
-
-
-def count_registry_namesakes(session: Session, surname: str, *, source: str = "rfm") -> int:
-    """How many registry records share this surname.
-
-    A candidate scoring 0.50 means only the name matched. Whether that is worth
-    anything depends on how common the surname is in the registry: one Шульман
-    is a very different signal from fourteen Кадыровых, and the score alone
-    does not say which.
-    """
-    if not surname:
-        return 0
-    stmt = select(func.count(PersonRecord.id)).where(
-        PersonRecord.source == source,
-        PersonRecord.search_name.startswith(f"{surname} "),
-    )
     return int(session.execute(stmt).scalar_one())
 
 

@@ -184,6 +184,14 @@ class MatchCandidate(Base):
     conflicts_json: Mapped[str | None] = mapped_column(Text)
     algorithm_version: Mapped[str] = mapped_column(String(32))
 
+    # Context the score cannot express, and the only thing separating candidates
+    # that all sit at 0.50. Deliberately two measured facts rather than one
+    # weighted number: an operator can check "1 однофамилец, 3 упоминания"
+    # against the data, but not a 0.73 nobody can audit.
+    # NULL means "never measured" (rows predating this), not "zero".
+    namesakes: Mapped[int | None] = mapped_column(Integer)
+    other_mentions: Mapped[int | None] = mapped_column(Integer)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     review_comment: Mapped[str | None] = mapped_column(Text)

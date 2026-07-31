@@ -14,12 +14,14 @@
 {% if rows %}
 <table class="bordered">
   <thead>
-    <tr><th>Score</th><th>Имя в тексте</th><th>Запись реестра</th><th>Дата рожд.</th><th>Статус</th><th></th></tr>
+    <tr><th>Score</th><th title="Сколько записей реестра носят эту фамилию. Чем меньше — тем сильнее сигнал.">Однофамильцев</th><th title="В скольких других документах встречается это же имя.">Упоминаний</th><th>Имя в тексте</th><th>Запись реестра</th><th>Дата рожд.</th><th>Статус</th><th></th></tr>
   </thead>
   <tbody>
   {% for c in rows %}
     <tr>
       <td class="num score">{{ '%.2f' | format(c.score) }}</td>
+      <td class="num">{{ c.namesakes if c.namesakes is not none else '—' }}</td>
+      <td class="num">{{ c.other_mentions if c.other_mentions else '—' }}</td>
       <td>{{ c.extracted_fact.value if c.extracted_fact else '—' }}</td>
       <td>{{ c.person_record.raw_name if c.person_record else '—' }}</td>
       <td class="muted">{{ c.person_record.birth_date if c.person_record and c.person_record.birth_date else '—' }}</td>
