@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import PERSON_NAME_FIELD, VerificationStatus
 from court_monitor.extraction._utils import quote_around
+from court_monitor.observability import get_logger
 
 if TYPE_CHECKING:
     from spacy.language import Language
@@ -30,14 +31,65 @@ if TYPE_CHECKING:
 _MODEL_NAME = "ru_core_news_lg"
 _INITIAL_RE = re.compile(r"^[А-ЯЁ]\.$")
 
+_log = get_logger(__name__)
+
+
+class NerModelUnavailable(RuntimeError):
+    """``CM_NER_MODE=spacy`` is set but the model is not installed."""
+
+
+def _import_spacy():
+    """Indirection so the absence of the model can be exercised in tests.
+
+    spacy is an optional (`nlp` extra) dependency, imported lazily.
+    """
+    import spacy  # noqa: PLC0415
+
+    return spacy
+
 
 @lru_cache(maxsize=1)
-def _get_nlp() -> Language:
-    import spacy  # noqa: PLC0415 — spacy is an optional (`nlp` extra) dependency
+def _load_attempt() -> Language | Exception:
+    """Load the model once, remembering failure as well as success.
 
-    return spacy.load(
-        _MODEL_NAME, disable=["morphologizer", "parser", "attribute_ruler", "lemmatizer"]
-    )
+    ``lru_cache`` alone was not enough: it does not memoize exceptions, so a
+    missing model meant every document re-ran ``spacy.load`` and re-logged the
+    same error. The retry itself is cheap (a failed load measures ~0.1 ms, so
+    the whole corpus wastes about 0.05 s — not the reason to fix this); the
+    cost is the log. One setup mistake produced 379 identical ERROR lines, and
+    an ERROR that repeats per document is one nobody reads, which is where a
+    genuine error goes to hide.
+
+    *Returning* the outcome rather than raising is what makes it cacheable, so
+    the log happens once as a consequence, with no flag to keep in sync.
+
+    ``ImportError`` counts as the same kind of failure as ``OSError``: spacy
+    itself is an optional extra, so "the model is missing" and "the extra was
+    never installed" are one setup mistake, and neither should cost the
+    document its other facts.
+    """
+    try:
+        return _import_spacy().load(
+            _MODEL_NAME, disable=["morphologizer", "parser", "attribute_ruler", "lemmatizer"]
+        )
+    except (OSError, ImportError) as exc:
+        _log.error("ner.model_unavailable", model=_MODEL_NAME, error=str(exc))
+        return exc
+
+
+def reset_model_cache() -> None:
+    """Forget the load outcome. For tests; nothing in the pipeline calls it."""
+    _load_attempt.cache_clear()
+
+
+def _get_nlp() -> Language:
+    outcome = _load_attempt()
+    if isinstance(outcome, Exception):
+        raise NerModelUnavailable(
+            f"NER недоступен: модель {_MODEL_NAME} не загружена. "
+            f"Установите extra `nlp` и выполните: python -m spacy download {_MODEL_NAME}"
+        ) from outcome
+    return outcome
 
 
 def _merge_adjacent_per_spans(ents: list[Span]) -> list[list[Span]]:

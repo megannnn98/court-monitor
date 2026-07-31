@@ -20,7 +20,10 @@ from court_monitor.extraction.articles import extract_articles
 from court_monitor.extraction.dates import extract_dates
 from court_monitor.extraction.filtering import evaluate_relevance, relevance_as_facts
 from court_monitor.extraction.names import extract_name_candidates
-from court_monitor.extraction.ner_names import extract_name_candidates_ner
+from court_monitor.extraction.ner_names import (
+    NerModelUnavailable,
+    extract_name_candidates_ner,
+)
 from court_monitor.normalization import normalize_fio
 from court_monitor.observability import correlation_scope, get_logger
 from court_monitor.parsers.sudrf_press import PARSER_VERSION, parse_press_release, to_datetime
@@ -298,10 +301,12 @@ def parse_and_extract(
     if settings.ner_mode == "spacy":
         try:
             ner_facts = extract_name_candidates_ner(extraction_text, source_url=source_url)
-        except OSError:
-            # Model not downloaded (`python -m spacy download ru_core_news_lg`) —
-            # degrade to regex-only names rather than failing the whole document.
-            _log.error("pipeline.ner_model_missing", source_url=source_url)
+        except NerModelUnavailable:
+            # Model not downloaded — degrade to regex-only names rather than
+            # failing the whole document. Not logged here: the extractor already
+            # reported it once, at load time. Logging per document turned one
+            # setup mistake into a line per document, burying real errors.
+            pass
         else:
             facts.extend(_dedupe_against(ner_facts, name_facts))
 
