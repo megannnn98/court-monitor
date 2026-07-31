@@ -184,6 +184,14 @@ class MatchCandidate(Base):
     conflicts_json: Mapped[str | None] = mapped_column(Text)
     algorithm_version: Mapped[str] = mapped_column(String(32))
 
+    # A model's judgement on whether this is the same person, with the quote it
+    # rested on. Advisory only: it never changes ``status`` or ``score`` — nothing
+    # here is confirmed automatically, and a model's opinion is no exception.
+    # NULL means "not judged" (LLM disabled, or unreachable at the time).
+    llm_verdict: Mapped[str | None] = mapped_column(String(16))
+    llm_quote: Mapped[str | None] = mapped_column(Text)
+    llm_reasoning: Mapped[str | None] = mapped_column(Text)
+
     # Context the score cannot express, and the only thing separating candidates
     # that all sit at 0.50. Deliberately two measured facts rather than one
     # weighted number: an operator can check "1 однофамилец, 3 упоминания"

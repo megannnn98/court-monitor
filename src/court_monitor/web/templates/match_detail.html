@@ -56,6 +56,20 @@
     ни даты, ни места рождения в тексте нет. Ниже — то, что помогает решить вручную.
   </p>
 
+  {% if c.llm_verdict %}
+  <div class="card">
+    <strong>Суждение модели</strong>
+    <p>
+      {% if c.llm_verdict == 'consistent' %}<span class="tag warn">совпадает</span>
+      {% elif c.llm_verdict == 'contradicts' %}<span class="tag ok">опровергнуто</span>
+      {% else %}<span class="tag muted">мало данных</span>{% endif %}
+      {{ c.llm_reasoning }}
+    </p>
+    <p class="muted">Цитата из документа: «{{ c.llm_quote }}»</p>
+    <p class="muted">Это подсказка, а не решение: в score не входит и статус не меняет.</p>
+  </div>
+  {% endif %}
+
   <div class="two-col">
     <div>
       <strong>Однофамильцы в реестре</strong>

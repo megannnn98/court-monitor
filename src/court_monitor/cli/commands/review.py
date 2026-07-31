@@ -9,8 +9,10 @@ from typing import Annotated
 import typer
 
 from court_monitor.cli._shared import bootstrap_logging, require_current_schema
+from court_monitor.config.settings import settings
+from court_monitor.llm import LlmDisambiguator, client_from_settings
 from court_monitor.matching.candidates import generate_matches
-from court_monitor.observability import correlation_scope
+from court_monitor.observability import configure_logging, correlation_scope
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory, session_scope
 
@@ -282,9 +284,98 @@ def resolve_review_item_cmd(
 
 def register(app: typer.Typer) -> None:
     app.command(name="generate-matches")(generate_matches_cmd)
+    app.command(name="judge-matches")(judge_matches_cmd)
     app.command(name="list-matches")(list_matches_cmd)
     app.command(name="show-match")(show_match_cmd)
     app.command(name="confirm-match")(confirm_match_cmd)
     app.command(name="reject-match")(reject_match_cmd)
     app.command(name="list-review-items")(list_review_items_cmd)
     app.command(name="resolve-review-item")(resolve_review_item_cmd)
+
+
+def judge_matches_cmd(
+    limit: Annotated[int, typer.Option(help="Сколько кандидатов разобрать.")] = 20,
+    status: Annotated[str, typer.Option("--status", help="Какие кандидаты брать.")] = "pending",
+    rejudge: Annotated[
+        bool, typer.Option("--rejudge", help="Пересмотреть и те, у кого суждение уже есть.")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Показать JSON-логи (токены, ошибки).")
+    ] = False,
+) -> None:
+    """Спросить у модели, тот ли это человек (суждение, не решение).
+
+    Скоринг здесь бессилен: в новостных текстах нет ни дат, ни мест рождения,
+    поэтому все кандидаты имеют одинаковый score. Модель читает документ и
+    говорит, согласуется ли описанное лицо с записью реестра, приводя цитату.
+    Статус кандидата при этом не меняется — решение остаётся за оператором.
+    """
+    # Как в run-all: по одной строке на кандидата читается, а поток JSON-логов
+    # с расходом токенов — нет. Ошибки при этом остаются видимыми.
+    configure_logging(settings.log_level if verbose else "ERROR")
+    client = client_from_settings()
+    if client is None:
+        typer.secho(
+            "LLM не настроен: задайте CM_LLM_MODE (не 'disabled'), CM_LLM_BASE_URL, "
+            "CM_LLM_MODEL и CM_LLM_API_KEY.",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    disambiguator = LlmDisambiguator(client)
+    engine = make_engine()
+    factory = make_session_factory(engine)
+    judged = skipped = failed = 0
+
+    # Сначала короткой транзакцией выбираем, что разбирать, и только потом
+    # ходим в сеть — по одной транзакции на кандидата. Иначе запись держалась
+    # бы открытой все несколько минут прогона, и веб-задача в это время
+    # получала бы "database is locked" (ровно тот случай, ради которого в
+    # storage/db.py включён WAL и выставлен busy_timeout).
+    with factory() as session:
+        planned = [
+            (c.id, str(c.extracted_fact.value)[:40] if c.extracted_fact else "—")
+            for c in repo.list_match_candidates(session, status=status, limit=limit)
+            if c.llm_verdict is None or rejudge
+        ]
+        total_seen = repo.count_match_candidates(session, status=status)
+    skipped = min(limit, total_seen) - len(planned)
+
+    if not planned:
+        typer.echo(
+            f"Нечего разбирать: кандидатов со статусом «{status}» — {total_seen}"
+            + (", все уже разобраны (--rejudge пересмотрит)." if total_seen else ".")
+        )
+        return
+
+    for candidate_id, name in planned:
+        typer.echo(f"  #{candidate_id} {name}…", nl=False)
+        with session_scope(engine) as session:
+            candidate = repo.get_match_candidate(session, candidate_id)
+            if candidate is None:  # удалён между планированием и разбором
+                typer.secho(" → исчез", fg=typer.colors.YELLOW)
+                continue
+            if disambiguator.judge(session, candidate):
+                judged += 1
+                typer.secho(
+                    f" → {candidate.llm_verdict}",
+                    fg=_VERDICT_COLOR.get(candidate.llm_verdict or ""),
+                )
+            else:
+                failed += 1
+                typer.secho(" → не удалось", fg=typer.colors.RED)
+
+    typer.echo(f"\nРазобрано: {judged}, пропущено: {skipped}, ошибок: {failed}")
+    if judged:
+        typer.secho(
+            "Это суждения модели, а не решения — подтверждать по-прежнему вам.",
+            dim=True,
+        )
+
+
+_VERDICT_COLOR = {
+    "consistent": typer.colors.YELLOW,  # совпадает — самое важное к проверке
+    "contradicts": typer.colors.GREEN,  # опровергнуто — можно отклонять быстрее
+    "insufficient": typer.colors.WHITE,
+}
