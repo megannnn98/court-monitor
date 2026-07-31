@@ -31,8 +31,32 @@ from court_monitor.storage.orm import SourceDocument
 _log = get_logger(__name__)
 
 
+class ParseOutcomeCounters:
+    """The parsed/irrelevant/failed tally, shared by every stats type that keeps one.
+
+    Deliberately not a dataclass: subclasses declare the three fields
+    themselves, so adding this base cannot reorder their constructors.
+
+    The cascade below used to be written out at each of the three call sites —
+    nine branches that had to agree, across two different stats classes.
+    """
+
+    parsed: int
+    irrelevant: int
+    failed: int
+
+    def record_parse_outcome(self, status: str) -> None:
+        """Tally one document by the status parsing left it in."""
+        if status == ParserStatus.parsed.value:
+            self.parsed += 1
+        elif status == ParserStatus.irrelevant.value:
+            self.irrelevant += 1
+        elif status == ParserStatus.parser_failed.value:
+            self.failed += 1
+
+
 @dataclass
-class SourceStats:
+class SourceStats(ParseOutcomeCounters):
     """Counters for one fetch pass, and the only place that knows their names.
 
     Accumulation and rendering live here rather than in each caller. They used
@@ -345,12 +369,7 @@ def _consume_fetch_results(
             continue
 
         parse_and_extract(session, doc, monitoring)
-        if doc.parser_status == ParserStatus.parsed.value:
-            stats.parsed += 1
-        elif doc.parser_status == ParserStatus.irrelevant.value:
-            stats.irrelevant += 1
-        elif doc.parser_status == ParserStatus.parser_failed.value:
-            stats.failed += 1
+        stats.record_parse_outcome(doc.parser_status)
 
 
 def process_source(
@@ -439,12 +458,7 @@ def process_pending(session: Session, monitoring: MonitoringConfig | None = None
             break
         for doc in pending:
             parse_and_extract(session, doc, monitoring)
-            if doc.parser_status == ParserStatus.parsed.value:
-                stats.parsed += 1
-            elif doc.parser_status == ParserStatus.irrelevant.value:
-                stats.irrelevant += 1
-            elif doc.parser_status == ParserStatus.parser_failed.value:
-                stats.failed += 1
+            stats.record_parse_outcome(doc.parser_status)
         session.flush()
     return stats
 
@@ -483,7 +497,7 @@ def count_all_decided_candidates(session: Session) -> int:
 
 
 @dataclass
-class ReprocessAllStats:
+class ReprocessAllStats(ParseOutcomeCounters):
     """Outcome of a corpus-wide re-parse."""
 
     documents: int = 0
@@ -537,12 +551,7 @@ def reprocess_all(
         parse_and_extract(session, doc, monitoring)
 
         stats.documents += 1
-        if doc.parser_status == ParserStatus.parsed.value:
-            stats.parsed += 1
-        elif doc.parser_status == ParserStatus.irrelevant.value:
-            stats.irrelevant += 1
-        elif doc.parser_status == ParserStatus.parser_failed.value:
-            stats.failed += 1
+        stats.record_parse_outcome(doc.parser_status)
         if on_progress is not None:
             on_progress(index, total)
 

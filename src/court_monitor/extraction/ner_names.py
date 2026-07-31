@@ -20,7 +20,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from court_monitor.domain.facts import ExtractedFactDTO
-from court_monitor.domain.models import VerificationStatus
+from court_monitor.domain.models import PERSON_NAME_FIELD, VerificationStatus
 from court_monitor.extraction._utils import quote_around
 
 if TYPE_CHECKING:
@@ -96,7 +96,7 @@ def extract_name_candidates_ner(
         out.append(
             ExtractedFactDTO(
                 entity="person",
-                field="full_name_original",
+                field=PERSON_NAME_FIELD,
                 value=full,
                 verification_status=VerificationStatus.inferred,
                 confidence=confidence,

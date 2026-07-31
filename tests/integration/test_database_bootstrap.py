@@ -149,7 +149,7 @@ class TestDatabaseBootstrap:
         with factory() as session:
             match_stats = generate_matches(session)
             session.commit()
-            assert match_stats["candidates_created"] >= 1
+            assert match_stats.candidates_created >= 1
 
         # Verify match candidate exists
         with factory() as session:

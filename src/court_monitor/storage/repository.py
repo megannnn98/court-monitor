@@ -14,10 +14,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from court_monitor.domain.facts import ExtractedFactDTO
-from court_monitor.domain.models import ParserStatus
+from court_monitor.domain.models import PERSON_NAME_FIELD, ParserStatus
 from court_monitor.normalization import normalize_fio
 from court_monitor.storage.orm import (
-    PERSON_NAME_FIELD,
     AuditLog,
     ExtractedFact,
     MatchCandidate,

@@ -276,8 +276,8 @@ def test_negative_no_candidate_year_conflict():
 
         stats = generate_matches(session)
         # Year conflict (1983 vs 1980) should prevent candidate creation
-        assert stats["candidates_created"] == 0
-        assert stats["no_candidates"] >= 1
+        assert stats.candidates_created == 0
+        assert stats.no_candidates >= 1
     finally:
         session.close()
 
@@ -304,7 +304,7 @@ def test_positive_candidate_year_match():
         )
 
         stats = generate_matches(session)
-        assert stats["candidates_created"] >= 1
+        assert stats.candidates_created >= 1
 
         # Verify candidate details
         candidates = repo.list_match_candidates(session)
@@ -409,12 +409,12 @@ def test_idempotent_no_duplicates():
 
         stats1 = generate_matches(session)
         session.commit()
-        assert stats1["candidates_created"] >= 1
+        assert stats1.candidates_created >= 1
 
         stats2 = generate_matches(session)
         session.commit()
-        assert stats2["already_existed"] >= 1
-        assert stats2["candidates_created"] == 0
+        assert stats2.already_existed >= 1
+        assert stats2.candidates_created == 0
     finally:
         session.close()
 

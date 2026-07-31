@@ -9,6 +9,12 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+# The ExtractedFact.field that names a person. Load-bearing: extractors write
+# it, the ORM derives ``normalized_value`` from it, and matching selects on it.
+# It lives here rather than next to any one of them because all three would
+# otherwise have to import from each other's layer.
+PERSON_NAME_FIELD = "full_name_original"
+
 
 class VerificationStatus(StrEnum):
     """Status of an extracted value — see spec §3.1."""

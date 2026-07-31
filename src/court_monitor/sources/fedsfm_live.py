@@ -35,7 +35,6 @@ from court_monitor.sources.fedsfm import (
     PersonRow,
     _normalize_date,
     _normalize_name,
-    _search_name,
 )
 from court_monitor.sources.http_client import HttpClient
 
@@ -138,7 +137,7 @@ def _entry_to_row(entry: str, *, source_url: str) -> PersonRow | None:
     return PersonRow(
         raw_name=name,
         normalized_name=normalized,
-        search_name=_search_name(name),
+        search_name=normalized,
         normalization_confidence=confidence,
         normalization_method="rfm-html",
         birth_date=_normalize_date(match.group("dob")),

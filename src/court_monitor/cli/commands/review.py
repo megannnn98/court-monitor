@@ -23,12 +23,11 @@ def generate_matches_cmd() -> None:
     with session_scope(engine) as session:
         stats = generate_matches(session)
 
-    typer.echo(f"Документов обработано: {stats.get('documents_processed', '-')}")
-    typer.echo(f"Фактов person: {stats['facts_person']}")
-    typer.echo(f"Кандидатов создано: {stats['candidates_created']}")
-    typer.echo(f"Уже существовало: {stats['already_existed']}")
-    typer.echo(f"Без кандидатов: {stats['no_candidates']}")
-    typer.echo(f"Ошибок: {stats['errors']}")
+    typer.echo(f"Фактов person: {stats.facts_person}")
+    typer.echo(f"Кандидатов создано: {stats.candidates_created}")
+    typer.echo(f"Уже существовало: {stats.already_existed}")
+    typer.echo(f"Без кандидатов: {stats.no_candidates}")
+    typer.echo(f"Ошибок: {stats.errors}")
 
 
 def list_matches_cmd(

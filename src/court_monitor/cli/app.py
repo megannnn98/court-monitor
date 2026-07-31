@@ -443,12 +443,12 @@ def run_all(
     with session_scope(engine) as session:
         match_stats = generate_matches(session)
     typer.secho("\n=== Совпадения (generate-matches) ===", fg=typer.colors.CYAN, bold=True)
-    matches_color = typer.colors.RED if match_stats["errors"] else typer.colors.GREEN
+    matches_color = typer.colors.RED if match_stats.errors else typer.colors.GREEN
     typer.secho(
-        f"  создано={match_stats['candidates_created']} "
-        f"уже_было={match_stats['already_existed']} "
-        f"без_кандидата={match_stats['no_candidates']} "
-        f"ошибок={match_stats['errors']}",
+        f"  создано={match_stats.candidates_created} "
+        f"уже_было={match_stats.already_existed} "
+        f"без_кандидата={match_stats.no_candidates} "
+        f"ошибок={match_stats.errors}",
         fg=matches_color,
         bold=True,
     )

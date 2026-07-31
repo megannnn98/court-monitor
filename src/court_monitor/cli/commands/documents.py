@@ -8,6 +8,7 @@ import typer
 
 from court_monitor.cli._shared import bootstrap_logging, maybe_dry_run_session
 from court_monitor.config.settings import settings
+from court_monitor.domain.models import PERSON_NAME_FIELD
 from court_monitor.observability import configure_logging
 from court_monitor.services import (
     ReprocessWouldDiscardDecisions,
@@ -195,7 +196,7 @@ def _print_doc_dates(facts) -> None:
 
 def _print_doc_people(facts) -> None:
     """Print extracted person names."""
-    people = [f for f in facts if f.field == "full_name_original"]
+    people = [f for f in facts if f.field == PERSON_NAME_FIELD]
     typer.echo("\nЛюди:")
     if not people:
         typer.echo("- (не найдены)")

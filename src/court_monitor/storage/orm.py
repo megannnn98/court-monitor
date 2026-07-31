@@ -14,6 +14,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -25,8 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# The one fact field that names a person. Only these carry a normalized form.
-PERSON_NAME_FIELD = "full_name_original"
+from court_monitor.domain.models import PERSON_NAME_FIELD
 
 
 def _now_utc() -> datetime:
@@ -62,7 +62,7 @@ class SourceDocument(Base):
     parser_status: Mapped[str] = mapped_column(String(32), default="pending")
     parser_error: Mapped[str | None] = mapped_column(Text)
     adapter_version: Mapped[str | None] = mapped_column(String(32))
-    relevant: Mapped[bool] = mapped_column(Integer, default=0)
+    relevant: Mapped[bool] = mapped_column(Boolean, default=False)
 
     facts: Mapped[list[ExtractedFact]] = relationship(
         back_populates="document",

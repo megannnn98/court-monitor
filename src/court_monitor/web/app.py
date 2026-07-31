@@ -82,6 +82,15 @@ SessionDep = Annotated[Session, Depends(get_session)]
 CsrfDep = Annotated[None, Depends(verify_csrf)]
 
 
+def _validated_choice(value: str, allowed: set[str]) -> str | None:
+    """A query-string filter, or ``None`` when it names nothing we serve.
+
+    ``None`` means "no filter", so an unrecognised value widens the listing
+    rather than erroring — the same shape every filtered page needs.
+    """
+    return value if value in allowed else None
+
+
 def _render(request: Request, template: str, session: Session, **ctx: Any) -> HTMLResponse:
     """Render with the chrome every page needs (operator, queue badges)."""
     base = {
@@ -162,7 +171,7 @@ def document_detail(request: Request, document_id: int, session: SessionDep) -> 
 
 @app.get("/matches", response_class=HTMLResponse, name="matches")
 def matches(request: Request, session: SessionDep, status: str = "pending") -> HTMLResponse:
-    selected = status if status in {"pending", "confirmed", "rejected"} else None
+    selected = _validated_choice(status, {"pending", "confirmed", "rejected"})
     return _render(
         request,
         "matches.html",
@@ -252,7 +261,7 @@ def match_decide(
 
 @app.get("/review", response_class=HTMLResponse, name="review_items")
 def review_items(request: Request, session: SessionDep, status: str = "pending") -> HTMLResponse:
-    selected = status if status in {"pending", "resolved", "dismissed"} else None
+    selected = _validated_choice(status, {"pending", "resolved", "dismissed"})
     return _render(
         request,
         "review_items.html",
@@ -318,7 +327,7 @@ def registry(request: Request, session: SessionDep, q: str = "") -> HTMLResponse
 
 @app.get("/audit", response_class=HTMLResponse, name="audit")
 def audit(request: Request, session: SessionDep, object_type: str = "") -> HTMLResponse:
-    selected = object_type if object_type in {"match_candidate", "review_item"} else None
+    selected = _validated_choice(object_type, {"match_candidate", "review_item"})
     return _render(
         request,
         "audit.html",

@@ -130,7 +130,7 @@ def _parse_legacy_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> 
     return PersonRow(
         raw_name=raw_name,
         normalized_name=norm,
-        search_name=_search_name(raw_name),
+        search_name=norm,
         normalization_confidence=conf,
         normalization_method="lowercase",
         birth_date=birth_date,
@@ -170,7 +170,7 @@ def _parse_new_csv_row(line: dict, raw_name: str, norm: str, conf: float) -> Per
     return PersonRow(
         raw_name=raw_name,
         normalized_name=norm,
-        search_name=_search_name(raw_name),
+        search_name=norm,
         normalization_confidence=conf,
         normalization_method="lowercase",
         birth_date=None,
@@ -253,7 +253,7 @@ def _xml_element_to_row(elem: ElementTree.Element) -> PersonRow | None:
     return PersonRow(
         raw_name=raw_name,
         normalized_name=norm,
-        search_name=_search_name(raw_name),
+        search_name=norm,
         normalization_confidence=conf,
         normalization_method="lowercase",
         birth_date=birth_date,
@@ -324,7 +324,7 @@ def _dbf_record_to_row(record: dict) -> PersonRow | None:
     return PersonRow(
         raw_name=raw_name,
         normalized_name=norm,
-        search_name=_search_name(raw_name),
+        search_name=norm,
         normalization_confidence=conf,
         normalization_method="lowercase",
         birth_date=birth_date,
@@ -394,7 +394,12 @@ def _parse_unknown(path: Path) -> ParseResult:
 
 
 def _normalize_name(raw: str) -> tuple[str, float]:
-    """Normalize a name and return (normalized, confidence)."""
+    """Normalize a name and return (normalized, confidence).
+
+    ``normalized`` doubles as the search key — the two used to be produced by
+    separate functions with identical bodies, which read as if they computed
+    different things.
+    """
     normalized = normalize_fio(raw)
     tokens = normalized.split()
     if len(tokens) >= 3:
@@ -402,11 +407,6 @@ def _normalize_name(raw: str) -> tuple[str, float]:
     if len(tokens) == 2:
         return normalized, 0.70
     return normalized, 0.40
-
-
-def _search_name(raw: str) -> str:
-    """Create a lowercase search key from a name (normalized for ё→е, etc.)."""
-    return normalize_fio(raw)
 
 
 def _normalize_date(raw: str) -> str | None:

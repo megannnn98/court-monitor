@@ -124,7 +124,7 @@ def _job_reprocess_all(session: Session, params: dict[str, Any]) -> dict[str, An
 
 
 def _job_generate_matches(session: Session, _params: dict[str, Any]) -> dict[str, Any]:
-    return dict(generate_matches(session))
+    return generate_matches(session).as_dict()
 
 
 def _job_import_rfm(session: Session, params: dict[str, Any]) -> dict[str, Any]:

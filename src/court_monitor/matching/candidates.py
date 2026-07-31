@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import asdict, dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from court_monitor.domain.models import PERSON_NAME_FIELD
 from court_monitor.matching.name_normalizer import NormalizedName, normalize_name_morph
 from court_monitor.matching.score import (
     ALGORITHM_VERSION,
@@ -25,22 +27,35 @@ from court_monitor.storage.orm import ExtractedFact, MatchCandidate, PersonRecor
 _log = get_logger(__name__)
 
 
-def generate_matches(session: Session) -> dict[str, int]:
-    """Generate match candidates for all person facts not yet matched.
+@dataclass
+class MatchStats:
+    """Outcome of one match-generation pass.
 
-    Returns stats: {facts_person, candidates_created, already_existed,
-                     no_candidates, errors}.
+    A dataclass like every other pipeline result (``SourceStats``,
+    ``RfmImportStats``, ``ReprocessAllStats``). It used to be a bare dict whose
+    valid keys lived only in a docstring, and the predictable happened: the CLI
+    read a ``documents_processed`` key that was never set, so
+    ``generate-matches`` printed an em-dash on every run and nobody could tell
+    it apart from a real zero.
     """
-    stats = {
-        "facts_person": 0,
-        "candidates_created": 0,
-        "already_existed": 0,
-        "no_candidates": 0,
-        "errors": 0,
-    }
+
+    facts_person: int = 0
+    candidates_created: int = 0
+    already_existed: int = 0
+    no_candidates: int = 0
+    errors: int = 0
+
+    def as_dict(self) -> dict[str, int]:
+        """For JSON job results and templates."""
+        return asdict(self)
+
+
+def generate_matches(session: Session) -> MatchStats:
+    """Generate match candidates for all person facts not yet matched."""
+    stats = MatchStats()
 
     person_facts = _get_person_facts(session)
-    stats["facts_person"] = len(person_facts)
+    stats.facts_person = len(person_facts)
 
     surname_index = _build_surname_index(session)
 
@@ -48,12 +63,12 @@ def generate_matches(session: Session) -> dict[str, int]:
         try:
             doc_name_raw = _extract_name_from_fact(fact)
             if not doc_name_raw:
-                stats["errors"] += 1
+                stats.errors += 1
                 continue
 
             doc_name = normalize_name_morph(doc_name_raw)
             if not doc_name.surname:
-                stats["errors"] += 1
+                stats.errors += 1
                 continue
 
             # Pre-filter: find records with matching surname (after normalization)
@@ -79,7 +94,7 @@ def generate_matches(session: Session) -> dict[str, int]:
                 matched_any = True
                 existing = _find_existing_candidate(session, fact.id, record.id)
                 if existing is not None:
-                    stats["already_existed"] += 1
+                    stats.already_existed += 1
                     if existing.status == "pending":
                         existing.score = result.score
                         existing.name_score = result.name_score
@@ -102,13 +117,13 @@ def generate_matches(session: Session) -> dict[str, int]:
                     algorithm_version=ALGORITHM_VERSION,
                 )
                 session.add(candidate)
-                stats["candidates_created"] += 1
+                stats.candidates_created += 1
 
             if not matched_any:
-                stats["no_candidates"] += 1
+                stats.no_candidates += 1
 
         except Exception as exc:
-            stats["errors"] += 1
+            stats.errors += 1
             _log.exception("matching.generate_failed", fact_id=fact.id, error=str(exc))
 
     session.flush()
@@ -117,7 +132,7 @@ def generate_matches(session: Session) -> dict[str, int]:
 
 def _get_person_facts(session: Session) -> list[ExtractedFact]:
     """Get all ExtractedFact with field='full_name_original'."""
-    stmt = select(ExtractedFact).where(ExtractedFact.field == "full_name_original")
+    stmt = select(ExtractedFact).where(ExtractedFact.field == PERSON_NAME_FIELD)
     return list(session.execute(stmt).scalars())
 
 

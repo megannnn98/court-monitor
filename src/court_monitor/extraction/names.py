@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 from court_monitor.domain.facts import ExtractedFactDTO
-from court_monitor.domain.models import VerificationStatus
+from court_monitor.domain.models import PERSON_NAME_FIELD, VerificationStatus
 from court_monitor.extraction._utils import quote_around
 
 # Capitalized Cyrillic word, optional initial letter + dot.
@@ -208,7 +208,7 @@ def extract_name_candidates(text: str, *, source_url: str | None = None) -> list
         out.append(
             ExtractedFactDTO(
                 entity="person",
-                field="full_name_original",
+                field=PERSON_NAME_FIELD,
                 value=full,
                 verification_status=VerificationStatus.inferred,
                 confidence=confidence,
