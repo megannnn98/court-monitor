@@ -173,19 +173,15 @@ def _default_operator() -> str:
 _OPERATOR_OPTION = typer.Option("--operator", help="Who is making this decision (audit trail).")
 
 
-def confirm_match_cmd(
-    candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
-    comment: Annotated[str, typer.Option("--comment", help="Review comment.")] = "",
-    operator: Annotated[str, _OPERATOR_OPTION] = "",
-) -> None:
-    """Confirm a match candidate."""
+def _decide_match(candidate_id: int, *, status: str, comment: str, operator: str) -> None:
+    """Record one operator decision. Confirm and reject differ only in ``status``."""
     bootstrap_logging()
     engine = make_engine()
     with session_scope(engine) as session, correlation_scope() as cid:
         c = repo.update_match_status(
             session,
             candidate_id,
-            "confirmed",
+            status,
             comment or None,
             actor=operator or _default_operator(),
             correlation_id=cid,
@@ -193,7 +189,16 @@ def confirm_match_cmd(
         if c is None:
             typer.echo(f"Candidate {candidate_id} not found.", err=True)
             raise typer.Exit(code=1)
-    typer.echo(f"Match {candidate_id} confirmed.")
+    typer.echo(f"Match {candidate_id} {status}.")
+
+
+def confirm_match_cmd(
+    candidate_id: Annotated[int, typer.Argument(help="MatchCandidate.id")],
+    comment: Annotated[str, typer.Option("--comment", help="Review comment.")] = "",
+    operator: Annotated[str, _OPERATOR_OPTION] = "",
+) -> None:
+    """Confirm a match candidate."""
+    _decide_match(candidate_id, status="confirmed", comment=comment, operator=operator)
 
 
 def reject_match_cmd(
@@ -202,21 +207,7 @@ def reject_match_cmd(
     operator: Annotated[str, _OPERATOR_OPTION] = "",
 ) -> None:
     """Reject a match candidate."""
-    bootstrap_logging()
-    engine = make_engine()
-    with session_scope(engine) as session, correlation_scope() as cid:
-        c = repo.update_match_status(
-            session,
-            candidate_id,
-            "rejected",
-            comment or None,
-            actor=operator or _default_operator(),
-            correlation_id=cid,
-        )
-        if c is None:
-            typer.echo(f"Candidate {candidate_id} not found.", err=True)
-            raise typer.Exit(code=1)
-    typer.echo(f"Match {candidate_id} rejected.")
+    _decide_match(candidate_id, status="rejected", comment=comment, operator=operator)
 
 
 def list_review_items_cmd(

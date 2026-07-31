@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from dataclasses import field as dataclass_field
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -50,8 +49,6 @@ class SourceStats:
     irrelevant: int = 0
     failed: int = 0
     blocked: int = 0
-    already_exists_ids: list[int] = dataclass_field(default_factory=list)
-    changed_ids: list[int] = dataclass_field(default_factory=list)
 
     def accumulate(self, other: SourceStats) -> None:
         """Add another pass's counters into this one."""
@@ -108,11 +105,11 @@ def ingest_fetch_result(session: Session, result: FetchResult) -> tuple[SourceDo
     """Insert a fetched document unless the same material already exists.
 
     Identity (in priority order): ``external_id`` → ``canonical_url`` →
-    ``(url, content_hash)``. Returns ``(document, created)``. When the material
-    exists but its content changed, the original is preserved untouched and the
-    change is recorded in stats (the caller surfaces ``already_exists``).
+    ``(url, content_hash)``. Returns ``(document, created)``. A material that
+    already exists is returned untouched — re-fetching never overwrites the
+    stored original, even when the remote content has since changed.
     """
-    existing, match_kind = repo.find_existing_document(
+    existing = repo.find_existing_document(
         session,
         source_type=str(result.source_type),
         source_id=result.source_id,
@@ -316,15 +313,15 @@ def _consume_fetch_results(
     *,
     parse_immediately: bool,
     limit: int | None = None,
-    on_duplicate: Callable[[SourceDocument], None] | None = None,
+    source_label: str | None = None,
 ) -> None:
     """Ingest one adapter's output into storage, counting as it goes.
 
     Both source flavours (legacy ``sources.yaml`` entries and registry
     entries) ran identical loops here; keeping one copy means a fix to the
-    counting or the problem-reporting lands in both. Only what genuinely
-    differs stays with the caller: how the adapter is built, and what a
-    duplicate should additionally do.
+    counting or the problem-reporting lands in both. Only how the adapter is
+    built stays with the caller. ``source_label``, when given, names the source
+    in the per-duplicate log line — the one thing this loop cannot derive.
     """
     for result in results:
         if limit is not None and stats.fetched >= max(0, limit):
@@ -339,8 +336,8 @@ def _consume_fetch_results(
         doc, created = ingest_fetch_result(session, result)
         if not created:
             stats.duplicates += 1
-            if on_duplicate is not None:
-                on_duplicate(doc)
+            if source_label is not None:
+                _log.info("pipeline.already_exists", source=source_label, document_id=doc.id)
             continue
 
         stats.new_documents += 1
@@ -375,7 +372,7 @@ def process_source(
             parse_immediately=parse_immediately,
             limit=limit,
         )
-        _log.info("pipeline.source.done", source=source_cfg.name, **stats.__dict__)
+        _log.info("pipeline.source.done", source=source_cfg.name, **stats.as_dict())
     return stats
 
 
@@ -410,22 +407,15 @@ def process_registry_source(
             )
             return stats
 
-        def _note_duplicate(doc: SourceDocument) -> None:
-            _log.info(
-                "pipeline.registry_source.already_exists", source=entry.id, document_id=doc.id
-            )
-            if doc.id:
-                stats.already_exists_ids.append(doc.id)
-
         _consume_fetch_results(
             session,
             adapter.fetch_new(live=live, limit=limit),
             monitoring,
             stats,
             parse_immediately=parse_immediately,
-            on_duplicate=_note_duplicate,
+            source_label=entry.id,
         )
-        _log.info("pipeline.registry_source.done", source=entry.id, **stats.__dict__)
+        _log.info("pipeline.registry_source.done", source=entry.id, **stats.as_dict())
     return stats
 
 
@@ -667,11 +657,16 @@ def import_rfm_records(
 ) -> RfmImportStats:
     """Import Rosfinmonitoring person records into the database.
 
-    Deduplicates by (source, normalized_name, birth_date).
+    Deduplicates by (source, normalized_name, birth_date) — see
+    :func:`repository.person_record_key`. The existing records of this source
+    are read once up front rather than queried per row: the list runs to ~22k
+    entries, and after a ``--replace`` every per-row lookup was a round trip
+    that could only ever miss.
     """
     from court_monitor.storage.orm import PersonRecord  # noqa: PLC0415
 
     stats = RfmImportStats()
+    index = repo.load_person_record_index(session, source=source)
     for row in rows:
         stats.total += 1
         rec = PersonRecord(
@@ -693,13 +688,14 @@ def import_rfm_records(
             region=row.region,
             extra_json=row.extra_json,
         )
-        _, created, updated = repo.upsert_person_record(session, rec)
+        created, updated = repo.merge_person_record(session, rec, index)
         if created:
             stats.imported += 1
         elif updated:
             stats.updated += 1
         else:
             stats.duplicates += 1
+    session.flush()
     _log.info(
         "rfm.import.done",
         source=source,

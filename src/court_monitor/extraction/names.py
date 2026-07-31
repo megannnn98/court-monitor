@@ -15,6 +15,7 @@ import re
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import VerificationStatus
+from court_monitor.extraction._utils import quote_around
 
 # Capitalized Cyrillic word, optional initial letter + dot.
 #
@@ -211,7 +212,7 @@ def extract_name_candidates(text: str, *, source_url: str | None = None) -> list
                 value=full,
                 verification_status=VerificationStatus.inferred,
                 confidence=confidence,
-                quote=_quote_around(text, m.start(), m.end(), window=30),
+                quote=quote_around(text, m.start(), m.end(), window=30),
                 source_url=source_url,
                 extraction_method=method,
             )
@@ -243,6 +244,3 @@ def _is_boilerplate_caps(token: str) -> bool:
         if len(letters) > 1 and part.isupper():
             return True
     return False
-
-
-from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402

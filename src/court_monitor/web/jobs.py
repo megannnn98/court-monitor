@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -211,9 +211,9 @@ def submit(session: Session, kind: str, *, actor: str, params: dict[str, Any] | 
 
     with _submit_lock:
         active = session.execute(
-            select(Job).where(Job.kind == kind, Job.status.in_(ACTIVE_STATUSES))
-        ).scalars()
-        if next(iter(active), None) is not None:
+            select(Job.id).where(Job.kind == kind, Job.status.in_(ACTIVE_STATUSES)).limit(1)
+        ).first()
+        if active is not None:
             raise JobRejected("Такая операция уже выполняется")
 
         job = Job(
@@ -303,4 +303,6 @@ def list_jobs(session: Session, *, limit: int = 50) -> list[Job]:
 
 
 def count_active(session: Session) -> int:
-    return len(list(session.execute(select(Job).where(Job.status.in_(ACTIVE_STATUSES))).scalars()))
+    """Counted in the database, not in Python: this runs on every page render."""
+    stmt = select(func.count(Job.id)).where(Job.status.in_(ACTIVE_STATUSES))
+    return int(session.execute(stmt).scalar_one())

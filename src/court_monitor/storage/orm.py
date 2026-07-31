@@ -21,8 +21,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+# The one fact field that names a person. Only these carry a normalized form.
+PERSON_NAME_FIELD = "full_name_original"
 
 
 def _now_utc() -> datetime:
@@ -80,6 +84,10 @@ class ExtractedFact(Base):
     entity: Mapped[str] = mapped_column(String(64))
     field: Mapped[str] = mapped_column(String(64))
     value: Mapped[Any] = mapped_column(JSON)
+    # Set for person names only: the normalized form of ``value``, so "the same
+    # person named elsewhere" is an indexed lookup instead of a scan. ``value``
+    # is JSON and cannot be matched on directly.
+    normalized_value: Mapped[str | None] = mapped_column(String(512), index=True)
     verification_status: Mapped[str] = mapped_column(String(32), default="inferred")
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     quote: Mapped[str | None] = mapped_column(Text)
@@ -87,6 +95,22 @@ class ExtractedFact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
     document: Mapped[SourceDocument] = relationship(back_populates="facts")
+
+
+# The name a person fact is searchable by is derived from the fact, not supplied
+# by whoever builds it: a caller that constructs an ExtractedFact directly would
+# otherwise leave the column empty and the row invisible to find_other_mentions,
+# with nothing to signal it. Deriving it here makes the invariant hold for every
+# path into the table.
+@event.listens_for(ExtractedFact, "before_insert")
+@event.listens_for(ExtractedFact, "before_update")
+def _derive_normalized_value(_mapper: Any, _connection: Any, target: ExtractedFact) -> None:
+    from court_monitor.normalization import normalize_fio  # noqa: PLC0415 - import cycle
+
+    if target.field != PERSON_NAME_FIELD:
+        target.normalized_value = None
+        return
+    target.normalized_value = normalize_fio(str(target.value)) or None
 
 
 class PersonRecord(Base):

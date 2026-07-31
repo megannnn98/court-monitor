@@ -416,27 +416,133 @@ def _score_birth_date(
     return P_BIRTH_DATE_CONFLICT
 
 
+# Settlement- and region-type words that prefix a Russian place name but carry
+# no identity ("Г. МОСКВА" and "город Москва" are the same place). Matched
+# *after* stemming, so the registry's "РЕСПУБЛИКА ДАГЕСТАН" and a report's
+# "уроженец Республики Дагестан" drop the same word. Forms whose stem does not
+# converge (область/области, край/краю) are listed outright.
+_PLACE_PREFIXES = frozenset(
+    {
+        "г",
+        "гор",
+        "город",
+        "с",
+        "село",
+        "п",
+        "пос",
+        "поселок",
+        "пгт",
+        "д",
+        "дер",
+        "деревн",
+        "ст",
+        "стца",
+        "станиц",
+        "х",
+        "хутор",
+        "аул",
+        "республик",
+        "респ",
+        "обл",
+        "област",
+        "область",
+        "край",
+        "края",
+        "краю",
+        "крае",
+        "р-н",
+        "район",
+        "ссср",
+        "рсфср",
+        "рф",
+    }
+)
+
+# Case endings stripped to reach a comparable stem. Longest first; a stem is
+# only accepted when enough of the word survives, so short names are left
+# alone rather than mangled ("Уфа" must not become "Уф").
+_PLACE_ENDINGS = (
+    "ого",
+    "ому",
+    "ыми",
+    "ими",
+    "ами",
+    "ях",
+    "ах",
+    "ых",
+    "ой",
+    "ей",
+    "ый",
+    "ий",
+    "ая",
+    "ое",
+    "ые",
+    "ую",
+    "ом",
+    "ем",
+    "ы",
+    "и",
+    "е",
+    "у",
+    "ю",
+    "а",
+    "я",
+)
+
+_MIN_PLACE_STEM = 4
+
+_PLACE_PUNCT_RE = re.compile(r"[^\w\s-]", re.UNICODE)
+_PLACE_WS_RE = re.compile(r"\s+")
+
+
+def _place_stem(token: str) -> str:
+    """Strip one case ending, but only when the word can spare it."""
+    for ending in _PLACE_ENDINGS:
+        if token.endswith(ending) and len(token) - len(ending) >= _MIN_PLACE_STEM:
+            return token[: -len(ending)]
+    return token
+
+
+def _place_key(value: str) -> str:
+    """Comparable form of a place name.
+
+    Both sides of a comparison go through this, because they arrive in
+    different shapes: the registry publishes "Г. МОСКВА" in the nominative,
+    while a court report says "уроженец г. Москвы" in the genitive. Without a
+    shared key the two never match, and the birthplace signal — the only one
+    available beyond name and birth year — is silently worth nothing.
+    """
+    cleaned = _PLACE_PUNCT_RE.sub(" ", value.replace("ё", "е").replace("Ё", "Е").lower())
+    stems = (_place_stem(t) for t in _PLACE_WS_RE.split(cleaned) if t)
+    return " ".join(s for s in stems if s not in _PLACE_PREFIXES)
+
+
 def _score_birthplace(
     doc_place: str | None,
     rec_place: str | None,
     reasons: list[dict],
     conflicts: list[dict],
 ) -> float:
-    """Score birthplace similarity."""
-    if not doc_place and not rec_place:
+    """Score birthplace similarity.
+
+    Normalization happens before the branching, so a value that carries no
+    place after it ("г." on its own) is treated as absent rather than as a
+    place that fails to match — the two are the same thing to a reviewer.
+    """
+    doc_norm = _place_key(doc_place or "")
+    rec_norm = _place_key(rec_place or "")
+
+    if not doc_norm and not rec_norm:
         reasons.append({"rule": "birthplace_missing_both", "impact": 0.0})
         return 0.0
 
-    if not doc_place:
+    if not doc_norm:
         reasons.append({"rule": "birthplace_missing_in_document", "impact": 0.0})
         return 0.0
 
-    if not rec_place:
+    if not rec_norm:
         reasons.append({"rule": "birthplace_missing_in_record", "impact": 0.0})
         return 0.0
-
-    doc_norm = doc_place.lower().strip()
-    rec_norm = rec_place.lower().strip()
 
     if doc_norm == rec_norm:
         reasons.append(

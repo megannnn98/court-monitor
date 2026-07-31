@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -41,7 +40,13 @@ from court_monitor.sources.probe import probe_source
 from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory, session_scope
 
-from ._shared import require_current_schema
+from ._shared import (
+    FIXTURE_DIR,
+    bootstrap_logging,
+    db_display_path,
+    maybe_dry_run_session,
+    require_current_schema,
+)
 from .commands import db as _db_commands
 from .commands import documents as _documents_commands
 from .commands import records as _records_commands
@@ -54,12 +59,6 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
-# Default fixture location for a registry telegram source (no-network mode).
-# Anchored to the repo rather than the CWD so the command works from anywhere.
-FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "telegram"
 
 
 def _version_callback(value: bool) -> None:
@@ -81,10 +80,6 @@ def _main(
     ] = False,
 ) -> None:
     """court-monitor — OSINT monitoring of criminal cases."""
-
-
-def _bootstrap_logging() -> None:
-    configure_logging(settings.log_level)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +116,7 @@ def import_source_registry(
     ] = DEFAULT_REGISTRY_PATH,
 ) -> None:
     """Import the source list from Airtable or a CSV export (preview by default)."""
-    _bootstrap_logging()
+    bootstrap_logging()
     log = get_logger("cli.import_registry")
 
     if not from_airtable and not from_csv:
@@ -167,7 +162,7 @@ def check_sources(
     ] = DEFAULT_REGISTRY_PATH,
 ) -> None:
     """Probe every source in the local registry (one polite HTTP request each)."""
-    _bootstrap_logging()
+    bootstrap_logging()
     log = get_logger("cli.check_sources")
     entries = load_registry(registry_path)
     if not entries:
@@ -246,7 +241,7 @@ def fetch_source(
     ] = False,
 ) -> None:
     """Fetch data from a source (RFM, sudrf, etc.)."""
-    _bootstrap_logging()
+    bootstrap_logging()
     # Checked before the fetch: the RFM list is a 4 MB download parsed into 21k
     # rows, and writing them is what first touches a column a pending migration
     # would have added.
@@ -277,7 +272,7 @@ def _fetch_source_legacy(
     if entry is not None:
         fixture_path = _fixture_path_for(entry)
         engine = make_engine()
-        with _maybe_dry_run_session(engine, dry_run=dry_run) as session:
+        with maybe_dry_run_session(engine, dry_run=dry_run) as session:
             stats = process_registry_source(
                 session,
                 entry,
@@ -300,7 +295,7 @@ def _fetch_source_legacy(
         )
         raise typer.Exit(code=1)
     engine = make_engine()
-    with _maybe_dry_run_session(engine, dry_run=dry_run) as session:
+    with maybe_dry_run_session(engine, dry_run=dry_run) as session:
         stats = process_source(
             session,
             src,
@@ -317,25 +312,6 @@ def _fetch_source_legacy(
         typer.echo("\n(режим --dry-run: данные не записаны)")
 
 
-@contextmanager
-def _maybe_dry_run_session(engine, *, dry_run: bool):
-    if not dry_run:
-        with session_scope(engine) as session:
-            yield session
-        return
-
-    factory = make_session_factory(engine)
-    session = factory()
-    try:
-        yield session
-        session.rollback()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
 def _render_registry_stats(stats, source_id: str, *, live: bool) -> str:
     mode = "live" if live else "fixture"
     return (
@@ -348,7 +324,7 @@ def _render_registry_stats(stats, source_id: str, *, live: bool) -> str:
 @app.command(name="fetch-all")
 def fetch_all() -> None:
     """Fetch from all enabled legacy sources (config/sources.yaml)."""
-    _bootstrap_logging()
+    bootstrap_logging()
     monitoring = load_monitoring()
     engine = make_engine()
     totals = SourceStats()
@@ -398,7 +374,7 @@ def run_all(
     totals = SourceStats()
 
     typer.secho(
-        f"База данных: {_db_display_path(settings.database_url)}",
+        f"База данных: {db_display_path(settings.database_url)}",
         fg=typer.colors.WHITE,
         bold=True,
     )
@@ -478,7 +454,7 @@ def run_all(
     )
 
     typer.secho(
-        f"\nДанные сохранены в БД: {_db_display_path(settings.database_url)}",
+        f"\nДанные сохранены в БД: {db_display_path(settings.database_url)}",
         fg=typer.colors.WHITE,
         bold=True,
     )
@@ -493,7 +469,7 @@ def list_audit_log_cmd(
     limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
 ) -> None:
     """Show the append-only trail of operator decisions."""
-    _bootstrap_logging()
+    bootstrap_logging()
     factory = make_session_factory(make_engine())
     with factory() as session:
         entries = repo.list_audit_log(
@@ -537,33 +513,6 @@ def run_web(
         )
     typer.secho(f"http://{bind_host}:{bind_port}", fg=typer.colors.CYAN, bold=True)
     uvicorn.run("court_monitor.web.app:app", host=bind_host, port=bind_port, reload=reload)
-
-
-def _safe_url(url: str) -> str:
-    if "://" in url and "@" in url:
-        scheme, rest = url.split("://", 1)
-        return f"{scheme}://***@{rest.split('@', 1)[1]}"
-    return url
-
-
-def _db_display_path(url: str) -> str:
-    """Human-readable DB location.
-
-    For SQLite returns the absolute filesystem path (resolving relative paths
-    against the current directory) so it's obvious where data lands. Other
-    backends get the credential-masked URL via :func:`_safe_url`.
-    """
-    if url.startswith("sqlite"):
-        body = url.split("sqlite:///", 1)[1] if "sqlite:///" in url else ""
-        if not body or body == ":memory:" or "memory" in url:
-            return ":memory:"
-        return str(Path(body).resolve())
-    return _safe_url(url)
-
-
-# ---------------------------------------------------------------------------
-# Person matching: split into helpers
-# ---------------------------------------------------------------------------
 
 
 # Command groups live in cli/commands/; each attaches its commands under their

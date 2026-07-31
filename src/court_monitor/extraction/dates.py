@@ -17,6 +17,7 @@ from datetime import date, datetime
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import VerificationStatus
+from court_monitor.extraction._utils import overlaps, quote_around
 
 _MONTHS_RU = {
     "января": 1,
@@ -159,12 +160,12 @@ def _add_date(
     source_url: str | None,
     seen_spans: set[tuple[int, int]],
 ) -> None:
-    if _overlaps(seen_spans, start, end):
+    if overlaps(seen_spans, start, end):
         return
     seen_spans.add((start, end))
 
     date_type = _guess_date_type(text, start)
-    context = _quote_around(text, start, end, window=50)
+    context = quote_around(text, start, end, window=50)
     confidence = 0.90 if date_type else 0.80
 
     value: dict[str, str | None] = {
@@ -195,13 +196,6 @@ def _guess_date_type(text: str, date_pos: int) -> str | None:
         if pattern.search(window):
             return dtype
     return None
-
-
-from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402
-
-
-def _overlaps(spans: set[tuple[int, int]], start: int, end: int) -> bool:
-    return any(start < e and end > s for s, e in spans)
 
 
 def _try_iso(text: str) -> date | None:

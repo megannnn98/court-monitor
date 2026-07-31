@@ -40,20 +40,20 @@ class NormalizedName:
 
 # Masculine oblique: order matters — longer suffixes first
 _SURNAME_OBLIQUE_M = [
-    ("ом", "", "m"),  # Ивановым → Иванов
-    ("ым", "", "m"),  # Ивановым → Иванов (instrumental)
-    ("у", "", "m"),  # Иванову → Иванов
-    ("е", "", "m"),  # Иванове → Иванов (locative)
-    ("а", "", "m"),  # Иванова → Иванов (genitive/accusative)
+    ("ом", ""),  # Ивановым → Иванов
+    ("ым", ""),  # Ивановым → Иванов (instrumental)
+    ("у", ""),  # Иванову → Иванов
+    ("е", ""),  # Иванове → Иванов (locative)
+    ("а", ""),  # Иванова → Иванов (genitive/accusative)
 ]
 
 # Feminine oblique: order matters — longer suffixes first
 _SURNAME_OBLIQUE_F = [
-    ("евой", "ева", "f"),  # Марьевой → Марьева
-    ("овой", "ова", "f"),  # Петровой → Петрова (genitive/dative)
-    ("ью", "ья", "f"),  # Наталью → Наталья (accusative for -ья names)
-    ("ую", "ая", "f"),  # Козловую → Козлова
-    ("у", "а", "f"),  # Петрову → Петрова (accusative)
+    ("евой", "ева"),  # Марьевой → Марьева
+    ("овой", "ова"),  # Петровой → Петрова (genitive/dative)
+    ("ью", "ья"),  # Наталью → Наталья (accusative for -ья names)
+    ("ую", "ая"),  # Козловую → Козлова
+    ("у", "а"),  # Петрову → Петрова (accusative)
 ]
 
 # Patronymic oblique suffixes
@@ -109,6 +109,11 @@ _NAME_OBLIQUE_F = [
 ]
 
 
+def _initials(*parts: str) -> str:
+    """First letter of each part that has one."""
+    return "".join(part[0] for part in parts if part)
+
+
 def normalize_name_morph(raw: str) -> NormalizedName:
     """Normalize a Russian name to nominative using morphological rules.
 
@@ -155,16 +160,7 @@ def normalize_name_morph(raw: str) -> NormalizedName:
 
     # Build nominative form
     nominative = f"{surname_nom} {name_nom} {patronymic_nom}"
-
-    # Build initials
-    initials_parts = []
-    if surname_nom:
-        initials_parts.append(surname_nom[0])
-    if name_nom:
-        initials_parts.append(name_nom[0])
-    if patronymic_nom:
-        initials_parts.append(patronymic_nom[0])
-    initials = "".join(initials_parts)
+    initials = _initials(surname_nom, name_nom, patronymic_nom)
 
     # Check if transformation was confident
     confidence = 0.85
@@ -283,15 +279,7 @@ def _simple_parse(raw: str, normalized: str, tokens: list[str]) -> NormalizedNam
         surname = tokens[0] if len(tokens) >= 1 else ""
         name = tokens[1] if len(tokens) >= 2 else ""
     patronymic = tokens[2] if len(tokens) >= 3 else ""
-
-    initials_parts = []
-    if surname:
-        initials_parts.append(surname[0])
-    if name:
-        initials_parts.append(name[0])
-    if patronymic:
-        initials_parts.append(patronymic[0])
-    initials = "".join(initials_parts)
+    initials = _initials(surname, name, patronymic)
 
     confidence = 0.60 if len(tokens) == 2 else 0.30
 
@@ -324,71 +312,48 @@ def _detect_gender(patronymic: str) -> str:
     return "unknown"
 
 
+def _apply_oblique_table(token: str, table: list[tuple[str, str]], *, min_len: int) -> str | None:
+    """Rewrite ``token`` with the first matching rule, or ``None`` if none fits.
+
+    Tables are ordered longest-suffix-first, so the first hit is the most
+    specific one. ``min_len`` guards against stripping a short word down to a
+    stub — the rewrite is refused rather than applied.
+    """
+    for oblique, nominative in table:
+        if token.endswith(oblique):
+            candidate = token[: -len(oblique)] + nominative
+            if len(candidate) >= min_len:
+                return candidate
+    return None
+
+
+# Which oblique rules apply, by gender. "unknown" tries both, masculine first —
+# the same order the three copies of this dispatch used before.
+_SURNAME_TABLES: dict[str, list[tuple[str, str]]] = {
+    "m": _SURNAME_OBLIQUE_M,
+    "f": _SURNAME_OBLIQUE_F,
+    "unknown": _SURNAME_OBLIQUE_M + _SURNAME_OBLIQUE_F,
+}
+
+_NAME_TABLES: dict[str, list[tuple[str, str]]] = {
+    "m": _NAME_OBLIQUE_M,
+    "f": _NAME_OBLIQUE_F,
+}
+
+
 def _normalize_surname(surname: str, gender: str) -> str:
     """Normalize surname to nominative."""
     s = surname.lower()
-
-    # Try feminine oblique first (more specific)
-    if gender == "f":
-        for oblique, nominative, _ in _SURNAME_OBLIQUE_F:
-            if s.endswith(oblique):
-                base = s[: -len(oblique)]
-                candidate = base + nominative if nominative else base
-                # Verify it looks like a valid surname
-                if len(candidate) >= 3:
-                    return candidate
-
-    # Try masculine oblique
-    if gender == "m":
-        for oblique, nominative, _ in _SURNAME_OBLIQUE_M:
-            if s.endswith(oblique):
-                base = s[: -len(oblique)]
-                candidate = base + nominative if nominative else base
-                if len(candidate) >= 3:
-                    return candidate
-
-    # If gender unknown, try both
-    if gender == "unknown":
-        for oblique, nominative, _g in _SURNAME_OBLIQUE_M + _SURNAME_OBLIQUE_F:
-            if s.endswith(oblique):
-                base = s[: -len(oblique)]
-                candidate = base + nominative if nominative else base
-                if len(candidate) >= 3:
-                    return candidate
-
-    return s
+    return _apply_oblique_table(s, _SURNAME_TABLES.get(gender, []), min_len=3) or s
 
 
 def _normalize_name(name: str, gender: str) -> str:
     """Normalize first name to nominative."""
     n = name.lower()
-
-    if gender == "f":
-        for oblique, nominative in _NAME_OBLIQUE_F:
-            if n.endswith(oblique):
-                base = n[: -len(oblique)]
-                candidate = base + nominative if nominative else base
-                if len(candidate) >= 2:
-                    return candidate
-
-    if gender == "m":
-        for oblique, nominative in _NAME_OBLIQUE_M:
-            if n.endswith(oblique):
-                base = n[: -len(oblique)]
-                candidate = base + nominative if nominative else base
-                if len(candidate) >= 2:
-                    return candidate
-
-    return n
+    return _apply_oblique_table(n, _NAME_TABLES.get(gender, []), min_len=2) or n
 
 
 def _normalize_patronymic(patronymic: str) -> str:
     """Normalize patronymic to nominative."""
     p = patronymic.lower()
-
-    for oblique, nominative in _PATRONYMIC_OBLIQUE:
-        if p.endswith(oblique):
-            base = p[: -len(oblique)]
-            return base + nominative
-
-    return p
+    return _apply_oblique_table(p, _PATRONYMIC_OBLIQUE, min_len=0) or p

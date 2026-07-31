@@ -12,7 +12,7 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from court_monitor.matching.name_normalizer import normalize_name_morph
+from court_monitor.matching.name_normalizer import NormalizedName, normalize_name_morph
 from court_monitor.matching.score import (
     ALGORITHM_VERSION,
     CANDIDATE_THRESHOLD,
@@ -63,8 +63,7 @@ def generate_matches(session: Session) -> dict[str, int]:
             doc_birth_place = _extract_place_from_fact(fact)
 
             matched_any = False
-            for record in candidates:
-                record_name = normalize_name_morph(record.normalized_name)
+            for record, record_name in candidates:
                 result = score_match(
                     doc_name,
                     record_name,
@@ -122,14 +121,23 @@ def _get_person_facts(session: Session) -> list[ExtractedFact]:
     return list(session.execute(stmt).scalars())
 
 
-def _build_surname_index(session: Session) -> dict[str, list[PersonRecord]]:
-    """Build a dict: normalized_surname → list of PersonRecord."""
+def _build_surname_index(
+    session: Session,
+) -> dict[str, list[tuple[PersonRecord, NormalizedName]]]:
+    """Build a dict: normalized_surname → [(PersonRecord, its NormalizedName)].
+
+    The normalized form is kept next to the record rather than thrown away:
+    building the key already computed it, and the scoring loop needs exactly
+    that object. Dropping it here meant re-normalizing every registry record a
+    second time inside the loop — on a 22k-row registry, twice the work for
+    the same answer.
+    """
     records = list(session.execute(select(PersonRecord)).scalars())
-    index: dict[str, list[PersonRecord]] = {}
+    index: dict[str, list[tuple[PersonRecord, NormalizedName]]] = {}
     for rec in records:
         norm = normalize_name_morph(rec.normalized_name)
         if norm.surname:
-            index.setdefault(norm.surname, []).append(rec)
+            index.setdefault(norm.surname, []).append((rec, norm))
     return index
 
 
@@ -193,9 +201,35 @@ def _extract_year_from_text(text: str) -> str | None:
     return None
 
 
+# "уроженец г. Москвы", "уроженка Республики Дагестан", "родился в г. Грозном".
+# Read from the fact's quote for the same reason the birth date is: the quote is
+# the window around *this* name, so a place mentioned elsewhere in the document
+# cannot be attached to the wrong person.
+_BIRTHPLACE_RE = re.compile(
+    r"(?:урожен(?:ец|ка|цем|кой)\s+|родил(?:ся|ась)\s+в\s+)"
+    r"(?P<place>[А-ЯЁа-яё][А-ЯЁа-яё\s.\-]*?)"
+    r"(?=[,;)]|\s+(?:и|в|на|осужден|признан|обвиня|привлеч)|$)",
+    re.IGNORECASE,
+)
+
+# A place is at most a settlement-type abbreviation plus a couple of words; a
+# longer run means the regex ate into the following clause.
+_MAX_PLACE_TOKENS = 4
+
+
 def _extract_place_from_fact(fact: ExtractedFact) -> str | None:
-    """Try to find a birth place near the name fact."""
-    return None
+    """Find the birth place stated next to this name, if the quote carries one."""
+    if not fact.quote:
+        return None
+
+    match = _BIRTHPLACE_RE.search(fact.quote)
+    if match is None:
+        return None
+
+    place = match.group("place").strip(" .,-")
+    if not place or len(place.split()) > _MAX_PLACE_TOKENS:
+        return None
+    return place
 
 
 def _find_existing_candidate(

@@ -12,7 +12,7 @@ same registry re-imported produces no changes.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -217,20 +217,17 @@ def merge_registry(
             new_sources += 1
             continue
         if _entry_changed(current, entry):
-            # Preserve last_checked_at / status from existing; refresh the rest.
-            by_id[entry.id] = SourceRegistryEntry(
+            # Take the imported entry wholesale, then put back the fields that
+            # belong to the local probe rather than to the import. Spelling out
+            # only the difference means a field added to the dataclass later
+            # keeps its imported value instead of being silently dropped.
+            by_id[entry.id] = replace(
+                entry,
                 id=current.id,
-                name=entry.name,
-                url=entry.url,
-                domain=entry.domain,
-                source_type=entry.source_type,
-                username=entry.username,
-                topics=entry.topics,
                 enabled=current.enabled,
                 status=current.status,
                 last_checked_at=current.last_checked_at,
                 disable_reason=current.disable_reason,
-                discovered_from=entry.discovered_from,
             )
             changed_sources += 1
         else:
@@ -316,20 +313,7 @@ def set_entry_status(
         if e.id == entry_id:
             disable_reason = reason if status in {"unsupported", "invalid_url"} else None
             out.append(
-                SourceRegistryEntry(
-                    id=e.id,
-                    name=e.name,
-                    url=e.url,
-                    domain=e.domain,
-                    source_type=e.source_type,
-                    username=e.username,
-                    topics=e.topics,
-                    enabled=e.enabled,
-                    status=status,
-                    last_checked_at=now,
-                    disable_reason=disable_reason,
-                    discovered_from=e.discovered_from,
-                )
+                replace(e, status=status, last_checked_at=now, disable_reason=disable_reason)
             )
         else:
             out.append(e)

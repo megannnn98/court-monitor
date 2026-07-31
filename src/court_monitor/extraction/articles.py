@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import VerificationStatus
+from court_monitor.extraction._utils import overlaps, quote_around
 
 _ARTICLE_NUM = r"\d{1,3}(?:\.\d{1,2})?"
 _PART_NUM = r"\d{1,2}"
@@ -104,7 +105,7 @@ def extract_articles(text: str, *, source_url: str | None = None) -> list[Extrac
 
     for sweep in _PASSES:
         for m in sweep.pattern.finditer(text):
-            if _overlaps(seen_spans, m.start(), m.end()):
+            if overlaps(seen_spans, m.start(), m.end()):
                 continue
             _add(
                 found,
@@ -112,7 +113,7 @@ def extract_articles(text: str, *, source_url: str | None = None) -> list[Extrac
                 part=m.group(sweep.part_group) if sweep.part_group else None,
                 point=(_normalize_point(m.group(sweep.point_group)) if sweep.point_group else None),
                 code=sweep.code,
-                quote=_quote_around(text, m.start(), m.end()),
+                quote=quote_around(text, m.start(), m.end()),
                 source_url=source_url,
                 confidence=sweep.confidence,
                 method=f"regex:article:{sweep.method}",
@@ -146,13 +147,6 @@ def _normalize_point(raw: str | None) -> str | None:
     if raw is None:
         return None
     return raw.strip().strip("«»\"'").lower()
-
-
-from court_monitor.extraction._utils import quote_around as _quote_around  # noqa: E402
-
-
-def _overlaps(spans: set[tuple[int, int]], start: int, end: int) -> bool:
-    return any(start < e and end > s for s, e in spans)
 
 
 def _add(

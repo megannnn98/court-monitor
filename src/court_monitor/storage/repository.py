@@ -17,6 +17,7 @@ from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import ParserStatus
 from court_monitor.normalization import normalize_fio
 from court_monitor.storage.orm import (
+    PERSON_NAME_FIELD,
     AuditLog,
     ExtractedFact,
     MatchCandidate,
@@ -45,7 +46,7 @@ def find_existing_document(
     canonical_url: str | None,
     url: str,
     content_hash: str,
-) -> tuple[SourceDocument | None, str]:
+) -> SourceDocument | None:
     """Find a document that represents the same material.
 
     Match priority (first hit wins):
@@ -54,10 +55,9 @@ def find_existing_document(
     2. ``canonical_url``;
     3. ``(url, content_hash)`` — identical bytes at the same URL.
 
-    Returns ``(document, match_kind)``. ``match_kind`` is ``"exact"`` when the
-    content hash also matches, ``"changed"`` when the identity matches but the
-    content differs (caller decides how to surface it — it never silently
-    overwrites the original).
+    A hit on 1 or 2 counts as the same material even when the content hash
+    differs: the identity is what makes it the same document, and the stored
+    original is never overwritten by a later fetch.
     """
     if external_id:
         stmt = select(SourceDocument).where(SourceDocument.external_id == external_id)
@@ -67,18 +67,15 @@ def find_existing_document(
             stmt = stmt.where(SourceDocument.source_type == source_type)
         doc = session.execute(stmt).scalar_one_or_none()
         if doc is not None:
-            return doc, "exact" if doc.content_hash == content_hash else "changed"
+            return doc
 
     if canonical_url:
         stmt = select(SourceDocument).where(SourceDocument.canonical_url == canonical_url)
         doc = session.execute(stmt).scalar_one_or_none()
         if doc is not None:
-            return doc, "exact" if doc.content_hash == content_hash else "changed"
+            return doc
 
-    doc = find_document_by_hash_url(session, content_hash, url)
-    if doc is not None:
-        return doc, "exact"
-    return None, "new"
+    return find_document_by_hash_url(session, content_hash, url)
 
 
 def list_documents(session: Session, *, limit: int = 100, offset: int = 0) -> list[SourceDocument]:
@@ -191,6 +188,33 @@ def find_person_record(
     return session.execute(stmt).scalar_one_or_none()
 
 
+def person_record_key(rec: PersonRecord) -> tuple[str, str | None, str | None]:
+    """The dedup identity of a registry record, as one comparable value.
+
+    Mirrors :func:`find_person_record` exactly — birth_place takes part only
+    when there is no birth date. Kept as a function so the SQL lookup and the
+    bulk in-memory index cannot drift apart.
+    """
+    return (
+        rec.normalized_name,
+        rec.birth_date,
+        None if rec.birth_date else rec.birth_place,
+    )
+
+
+def load_person_record_index(
+    session: Session, *, source: str
+) -> dict[tuple[str, str | None, str | None], PersonRecord]:
+    """All records of one source, keyed by :func:`person_record_key`.
+
+    One query instead of one per imported row. The Rosfinmonitoring list is
+    ~22k rows, so the per-row lookup meant 22k round trips — and after a
+    ``--replace`` every one of them was guaranteed to find nothing.
+    """
+    stmt = select(PersonRecord).where(PersonRecord.source == source)
+    return {person_record_key(rec): rec for rec in session.execute(stmt).scalars()}
+
+
 def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRecord, bool, bool]:
     """Insert a person record unless the same (source, name, birth_date) exists.
 
@@ -211,6 +235,25 @@ def upsert_person_record(session: Session, rec: PersonRecord) -> tuple[PersonRec
     session.add(rec)
     session.flush()
     return rec, True, False
+
+
+def merge_person_record(
+    session: Session,
+    rec: PersonRecord,
+    index: dict[tuple[str, str | None, str | None], PersonRecord],
+) -> tuple[bool, bool]:
+    """Insert or refresh ``rec`` against a preloaded ``index``. Returns (created, updated).
+
+    The index is updated in place so two identical rows inside the same import
+    collapse into one, exactly as the per-row lookup did.
+    """
+    key = person_record_key(rec)
+    existing = index.get(key)
+    if existing is not None:
+        return False, _refresh_person_record(existing, rec)
+    session.add(rec)
+    index[key] = rec
+    return True, False
 
 
 def _refresh_person_record(existing: PersonRecord, incoming: PersonRecord) -> bool:
@@ -583,12 +626,19 @@ def find_other_mentions(
 
     Someone appearing across several materials is a different proposition from
     a single passing mention, and that is context the score cannot express.
+
+    Matched on the indexed ``normalized_value``. It used to pull 2000 rows and
+    filter them in Python, which quietly stopped being correct once the corpus
+    held more than that many names: the "other mentions" an operator saw were
+    then an arbitrary slice, with nothing to say so.
     """
     needle = normalize_fio(value)
     if not needle:
         return []
-    stmt = select(ExtractedFact).where(ExtractedFact.field == "full_name_original")
+    stmt = select(ExtractedFact).where(
+        ExtractedFact.field == PERSON_NAME_FIELD,
+        ExtractedFact.normalized_value == needle,
+    )
     if exclude_document_id is not None:
         stmt = stmt.where(ExtractedFact.document_id != exclude_document_id)
-    rows = list(session.execute(stmt.limit(2000)).scalars())
-    return [f for f in rows if normalize_fio(str(f.value)) == needle][:limit]
+    return list(session.execute(stmt.limit(limit)).scalars())
