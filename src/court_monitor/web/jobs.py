@@ -30,19 +30,17 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from court_monitor.config.loader import load_monitoring, load_sources
-from court_monitor.config.registry import load_registry
+from court_monitor.config.loader import load_monitoring
 from court_monitor.matching.candidates import generate_matches
 from court_monitor.observability import get_logger
 from court_monitor.services import (
     SourceStats,
     import_rfm_records,
     process_pending,
-    process_registry_source,
-    process_source,
     purge_person_records,
     reprocess_all,
 )
+from court_monitor.services.work import plan_all_work
 from court_monitor.sources.fedsfm_live import (
     LIST_URL,
     fetch_live_html,
@@ -75,23 +73,15 @@ def _job_fetch_all(session: Session, params: dict[str, Any]) -> dict[str, Any]:
     totals = SourceStats()
     per_source: dict[str, str] = {}
 
-    for src in (s for s in load_sources() if s.enabled):
-        try:
-            stats = process_source(session, src, monitoring)
-            totals.accumulate(stats)
-            per_source[src.name] = stats.summary()
-        except Exception as exc:
-            totals.failed += 1
-            per_source[src.name] = f"ОШИБКА {type(exc).__name__}: {exc}"
-
-    for entry in (e for e in load_registry() if e.enabled):
-        try:
-            stats = process_registry_source(session, entry, monitoring, live=live)
-            totals.accumulate(stats)
-            per_source[entry.id] = stats.summary()
-        except Exception as exc:
-            totals.failed += 1
-            per_source[entry.id] = f"ОШИБКА {type(exc).__name__}: {exc}"
+    for group in plan_all_work(monitoring, live=live):
+        for item in group.items:
+            try:
+                stats = item.run(session)
+                totals.accumulate(stats)
+                per_source[item.label] = stats.summary()
+            except Exception as exc:
+                totals.failed += 1
+                per_source[item.label] = f"ОШИБКА {type(exc).__name__}: {exc}"
 
     return {"totals": totals.as_dict(), "sources": per_source}
 

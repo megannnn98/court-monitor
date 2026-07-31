@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -30,6 +29,7 @@ from court_monitor.services import (
     process_registry_source,
     process_source,
 )
+from court_monitor.services.work import plan_all_work, telegram_fixture_path
 from court_monitor.sources.airtable_registry import (
     DEFAULT_REGISTRY_VIEW_URL,
     parse_airtable_shared_view,
@@ -41,7 +41,6 @@ from court_monitor.storage import repository as repo
 from court_monitor.storage.db import make_engine, make_session_factory, session_scope
 
 from ._shared import (
-    FIXTURE_DIR,
     bootstrap_logging,
     db_display_path,
     maybe_dry_run_session,
@@ -202,12 +201,6 @@ def _registry_entry_or_none(name: str):
     return None
 
 
-def _fixture_path_for(entry) -> Path | None:
-    if entry.source_type == "telegram":
-        return FIXTURE_DIR / f"tg_preview_{entry.id}.html"
-    return None
-
-
 @app.command()
 def fetch_source(
     name: Annotated[str, typer.Argument(help="Registry source id (or legacy sources.yaml name)")],
@@ -270,7 +263,7 @@ def _fetch_source_legacy(
 
     entry = _registry_entry_or_none(name)
     if entry is not None:
-        fixture_path = _fixture_path_for(entry)
+        fixture_path = telegram_fixture_path(entry)
         engine = make_engine()
         with maybe_dry_run_session(engine, dry_run=dry_run) as session:
             stats = process_registry_source(
@@ -379,62 +372,33 @@ def run_all(
         bold=True,
     )
 
-    typer.secho("=== Sudrf-источники ===", fg=typer.colors.CYAN, bold=True)
-    sudrf_sources = [s for s in load_sources() if s.enabled]
-    if not sudrf_sources:
-        typer.secho("  (нет включённых источников в config/sources.yaml)", dim=True)
-    for src in sudrf_sources:
-        try:
-            with session_scope(engine) as session:
-                stats = process_source(session, src, monitoring)
-                totals.accumulate(stats)
-            typer.secho(f"  ✓ {src.name}: {stats.summary()}", fg=_stats_color(stats))
-        except Exception as exc:
-            typer.secho(
-                f"  ✗ {src.name}: ОШИБКА {type(exc).__name__}: {exc}",
-                fg=typer.colors.RED,
-                bold=True,
-                err=True,
-            )
-            totals.failed += 1
-
-    typer.secho("\n=== Telegram-каналы ===", fg=typer.colors.CYAN, bold=True)
-    registry_entries = [e for e in load_registry() if e.enabled]
-    if not registry_entries:
-        typer.secho("  (нет включённых каналов в config/source_registry.yaml)", dim=True)
-    for entry in registry_entries:
-        try:
-            fixture_path = _fixture_path_for(entry)
-            # _fixture_path_for returns None for any non-telegram source_type too
-            # (unsupported by _build_registry_adapter) — only call it "fixture
-            # missing" when that's actually why, not for an unrelated reason.
-            fixture_missing = (
-                not live
-                and entry.source_type == "telegram"
-                and (fixture_path is None or not fixture_path.exists())
-            )
-            with session_scope(engine) as session:
-                stats = process_registry_source(
-                    session,
-                    entry,
-                    monitoring,
-                    live=live,
-                    fixture_path=str(fixture_path) if fixture_path else None,
+    for index, group in enumerate(plan_all_work(monitoring, live=live)):
+        if index:
+            typer.echo()
+        typer.secho(f"=== {group.title} ===", fg=typer.colors.CYAN, bold=True)
+        if not group.items:
+            typer.secho(f"  ({group.empty_note})", dim=True)
+            continue
+        for item in group.items:
+            try:
+                # One session per source: a source that blows up must not roll
+                # back what the previous ones already wrote.
+                with session_scope(engine) as session:
+                    stats = item.run(session)
+                    totals.accumulate(stats)
+                note = " (нет сохранённой fixture — пропущено)" if item.fixture_missing else ""
+                typer.secho(
+                    f"  ✓ {item.label}: {stats.summary()}{note}",
+                    fg=_stats_color(stats, skipped=item.fixture_missing),
                 )
-                totals.accumulate(stats)
-            note = " (нет сохранённой fixture — пропущено)" if fixture_missing else ""
-            typer.secho(
-                f"  ✓ {entry.id}: {stats.summary()}{note}",
-                fg=_stats_color(stats, skipped=fixture_missing),
-            )
-        except Exception as exc:
-            typer.secho(
-                f"  ✗ {entry.id}: ОШИБКА {type(exc).__name__}: {exc}",
-                fg=typer.colors.RED,
-                bold=True,
-                err=True,
-            )
-            totals.failed += 1
+            except Exception as exc:
+                typer.secho(
+                    f"  ✗ {item.label}: ОШИБКА {type(exc).__name__}: {exc}",
+                    fg=typer.colors.RED,
+                    bold=True,
+                    err=True,
+                )
+                totals.failed += 1
 
     typer.secho("\n=== Итого: fetch + parse ===", fg=typer.colors.CYAN, bold=True)
     totals_color = typer.colors.YELLOW if totals.needs_attention else typer.colors.GREEN

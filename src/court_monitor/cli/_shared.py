@@ -13,10 +13,6 @@ from court_monitor.storage.migrations import revision_status
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-# Default fixture location for a registry telegram source (no-network mode).
-# Anchored to the repo rather than the CWD so the command works from anywhere.
-FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "telegram"
-
 
 def bootstrap_logging() -> None:
     configure_logging(settings.log_level)
