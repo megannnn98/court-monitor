@@ -57,7 +57,13 @@ class LlmUnavailable(RuntimeError):
 
 
 class LlmClient:
-    """Chat-completions client for an OpenAI-compatible endpoint."""
+    """Chat-completions client for an OpenAI-compatible endpoint.
+
+    The underlying ``httpx.Client`` is held for the lifetime of the instance
+    rather than created per-request, which keeps the TCP connection (and TLS
+    session) to the endpoint alive across calls. At ``--limit 20`` with
+    MAX_ATTEMPTS=3 that saves ~60 handshakes per ``judge-matches`` run.
+    """
 
     def __init__(
         self,
@@ -70,7 +76,11 @@ class LlmClient:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._model = model
-        self._transport = transport
+        self._client = httpx.Client(timeout=TIMEOUT_SECONDS, transport=transport)
+
+    def close(self) -> None:
+        """Release the underlying connection pool."""
+        self._client.close()
 
     def complete_json(self, prompt: str, *, schema: type[Schema]) -> Schema:
         """Ask for one JSON object and return it validated against ``schema``.
@@ -112,15 +122,14 @@ class LlmClient:
             "response_format": {"type": "json_object"},
         }
         try:
-            with httpx.Client(timeout=TIMEOUT_SECONDS, transport=self._transport) as client:
-                response = client.post(
-                    f"{self._base_url}/chat/completions",
-                    json=body,
-                    headers={
-                        "Authorization": f"Bearer {self._api_key}",
-                        "Content-Type": "application/json",
-                    },
-                )
+            response = self._client.post(
+                f"{self._base_url}/chat/completions",
+                json=body,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
         except httpx.HTTPError as exc:
             # str(exc) on httpx errors carries the request URL but never headers,
             # so the key cannot leak through here.
@@ -156,12 +165,28 @@ def _extract_content(payload: dict[str, Any], *, attempt: int, model: str) -> st
 
 
 def _strip_code_fence(content: str) -> str:
-    """Unwrap ```json fences some backends add despite JSON mode."""
+    """Unwrap ```json fences some backends add despite JSON mode.
+
+    Works line by line rather than by ``rsplit`` on backticks: a ````` inside the
+    body (a citation quoting output, say) would otherwise cut the fence at the
+    wrong spot.
+    """
     text = content.strip()
     if not text.startswith("```"):
         return text
-    body = text.split("\n", 1)[1] if "\n" in text else ""
-    return body.rsplit("```", 1)[0].strip()
+    lines = text.split("\n")
+    if len(lines) == 1:
+        return ""
+    body_lines = lines[1:]
+    # A closing fence is a line made entirely of backtick characters (3+).
+    while body_lines and _is_closing_fence(body_lines[-1]):
+        body_lines.pop()
+    return "\n".join(body_lines).strip()
+
+
+def _is_closing_fence(line: str) -> bool:
+    stripped = line.strip()
+    return bool(stripped) and stripped.strip("`") == ""
 
 
 def _schema_hint(schema: type[BaseModel]) -> dict[str, Any]:

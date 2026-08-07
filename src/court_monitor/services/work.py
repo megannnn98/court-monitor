@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -77,18 +78,36 @@ def plan_all_work(monitoring: MonitoringConfig, *, live: bool = False) -> list[S
         SourceGroup(
             title="Sudrf-источники",
             empty_note="нет включённых источников в config/sources.yaml",
-            items=[_sudrf_work(src, monitoring) for src in load_sources() if src.enabled],
+            items=[_sudrf_work(src, monitoring) for src in _cached_sources() if src.enabled],
         ),
         SourceGroup(
             title="Telegram-каналы",
             empty_note="нет включённых каналов в config/source_registry.yaml",
             items=[
                 _registry_work(entry, monitoring, live=live)
-                for entry in load_registry()
+                for entry in _cached_registry()
                 if entry.enabled
             ],
         ),
     ]
+
+
+@lru_cache(maxsize=1)
+def _cached_sources():
+    """load_sources() with a per-process cache — the YAML never changes at runtime."""
+    return load_sources()
+
+
+@lru_cache(maxsize=1)
+def _cached_registry():
+    """load_registry() with a per-process cache — the YAML never changes at runtime."""
+    return load_registry()
+
+
+def clear_source_caches() -> None:
+    """Invalidate the source/registry caches (used by tests that monkeypatch)."""
+    _cached_sources.cache_clear()
+    _cached_registry.cache_clear()
 
 
 def _sudrf_work(src, monitoring: MonitoringConfig) -> SourceWork:

@@ -258,7 +258,14 @@ def test_the_judgement_is_stored_on_the_candidate(db_session):
         )
     )
 
-    LlmDisambiguator(stub).judge(db_session, cand)
+    verdict = LlmDisambiguator(stub).judge(cand)
+
+    assert verdict is not None
+    # Persistence is the caller's job — simulate what review.py does.
+    cand.llm_verdict = str(verdict.verdict)
+    cand.llm_quote = verdict.quote
+    cand.llm_reasoning = verdict.reasoning
+    db_session.flush()
 
     assert cand.llm_verdict == "contradicts"
     assert cand.llm_quote == "Совбеза Дмитрий Медведев"
@@ -269,7 +276,7 @@ def test_the_prompt_carries_the_document_the_name_and_the_record(db_session):
     cand = _candidate(db_session)
     stub = _StubClient(Disambiguation(verdict=Verdict.insufficient, quote="q", reasoning="r"))
 
-    LlmDisambiguator(stub).judge(db_session, cand)
+    LlmDisambiguator(stub).judge(cand)
 
     prompt = stub.prompts[0]
     assert "Дмитрий Медведев" in prompt
@@ -284,7 +291,7 @@ def test_the_status_is_never_changed_by_the_model(db_session):
     cand = _candidate(db_session)
     stub = _StubClient(Disambiguation(verdict=Verdict.consistent, quote="q", reasoning="r"))
 
-    LlmDisambiguator(stub).judge(db_session, cand)
+    LlmDisambiguator(stub).judge(cand)
 
     assert cand.status == "pending"
     assert cand.score == 0.5, "score stays a deterministic statement about name/date/place"
@@ -296,8 +303,8 @@ def test_an_unavailable_model_leaves_the_candidate_untouched(db_session):
     cand = _candidate(db_session)
     stub = _StubClient(error=LlmUnavailable("нет связи"))
 
-    judged = LlmDisambiguator(stub).judge(db_session, cand)
+    judged = LlmDisambiguator(stub).judge(cand)
 
-    assert judged is False
+    assert judged is None
     assert cand.llm_verdict is None
     assert cand.status == "pending"

@@ -48,6 +48,7 @@ def stub_config(monkeypatch):
     """Drive the planner off in-memory config instead of the repo's YAML."""
 
     def _apply(sources, entries):
+        work_module.clear_source_caches()
         monkeypatch.setattr(work_module, "load_sources", lambda: list(sources))
         monkeypatch.setattr(work_module, "load_registry", lambda: list(entries))
 

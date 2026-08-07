@@ -356,11 +356,16 @@ def judge_matches_cmd(
             if candidate is None:  # удалён между планированием и разбором
                 typer.secho(" → исчез", fg=typer.colors.YELLOW)
                 continue
-            if disambiguator.judge(session, candidate):
+            verdict = disambiguator.judge(candidate)
+            if verdict is not None:
+                candidate.llm_verdict = str(verdict.verdict)
+                candidate.llm_quote = verdict.quote
+                candidate.llm_reasoning = verdict.reasoning
+                session.flush()
                 judged += 1
                 typer.secho(
                     f" → {candidate.llm_verdict}",
-                    fg=_VERDICT_COLOR.get(candidate.llm_verdict or ""),
+                    fg=_VERDICT_COLOR.get(candidate.llm_verdict, typer.colors.WHITE),
                 )
             else:
                 failed += 1

@@ -19,7 +19,6 @@ from enum import StrEnum
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.orm import Session
 
 from court_monitor.llm.client import LlmUnavailable
 from court_monitor.observability import get_logger
@@ -97,32 +96,32 @@ class LlmDisambiguator:
     def __init__(self, client: SupportsJsonCompletion) -> None:
         self._client = client
 
-    def judge(self, session: Session, candidate: MatchCandidate) -> bool:
-        """Judge one candidate. Returns whether a judgement was recorded.
+    def judge(self, candidate: MatchCandidate) -> Disambiguation | None:
+        """Judge one candidate. Returns the model's answer, or ``None`` on failure.
 
-        An unavailable model degrades to "no judgement" rather than raising —
-        the same contract the NER extractor follows, and for the same reason: an
-        optional component being down must not cost the operator the work the
-        pipeline already did.
+        An unavailable model degrades to ``None`` rather than raising — the same
+        contract the NER extractor follows, and for the same reason: an optional
+        component being down must not cost the operator the work the pipeline
+        already did.
+
+        Persistence (writing ``llm_verdict``, ``llm_quote``, ``llm_reasoning``
+        and flushing) is the caller's responsibility — this module only talks to
+        the model, it does not open a session.
         """
         fact = candidate.extracted_fact
         record = candidate.person_record
         if fact is None or record is None or fact.document is None:
             _log.warning("llm.disambiguate.incomplete", candidate_id=candidate.id)
-            return False
+            return None
 
         try:
             result = self._client.complete_json(_build_prompt(candidate), schema=Disambiguation)
         except LlmUnavailable as exc:
             _log.error("llm.disambiguate.unavailable", candidate_id=candidate.id, error=str(exc))
-            return False
+            return None
 
-        candidate.llm_verdict = str(result.verdict)
-        candidate.llm_quote = result.quote
-        candidate.llm_reasoning = result.reasoning
-        session.flush()
         _log.info("llm.disambiguate.done", candidate_id=candidate.id, verdict=str(result.verdict))
-        return True
+        return result
 
 
 def _build_prompt(candidate: MatchCandidate) -> str:
