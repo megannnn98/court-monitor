@@ -2,7 +2,11 @@
 {% block title %}Совпадения — court-monitor{% endblock %}
 {% block content %}
 
-<h1>Совпадения</h1>
+<h1>Очередь решений</h1>
+<p class="muted">
+  Каждая строка — кандидат на совпадение имени в документе с записью реестра.
+  Скор 0.50 означает, что совпали только фамилия и имя. Решение принимает оператор.
+</p>
 
 <div class="filters">
   <a href="{{ url_for('matches') }}?status=pending" class="{{ 'active' if status == 'pending' }}">Ждут решения ({{ counts.pending }})</a>
@@ -12,31 +16,75 @@
 </div>
 
 {% if rows %}
-<table class="bordered">
+<table class="bordered match-queue">
   <thead>
-    <tr><th>Score</th><th title="Сколько записей реестра носят эту фамилию. Чем меньше — тем сильнее сигнал.">Однофамильцев</th><th title="В скольких других документах встречается это же имя.">Упоминаний</th><th title="Суждение модели. Не решение — подтверждает оператор.">Модель</th><th>Имя в тексте</th><th>Запись реестра</th><th>Дата рожд.</th><th>Статус</th><th></th></tr>
+    <tr>
+      <th>Сравнение</th>
+      <th>Сигналы</th>
+      <th>Статус</th>
+      <th></th>
+    </tr>
   </thead>
   <tbody>
   {% for c in rows %}
     <tr>
-      <td class="num score">{{ '%.2f' | format(c.score) }}</td>
-      <td class="num">{{ c.namesakes if c.namesakes is not none else '—' }}</td>
-      <td class="num">{{ c.other_mentions if c.other_mentions else '—' }}</td>
-      <td>
-        {% if c.llm_verdict == 'consistent' %}<span class="tag warn" title="{{ c.llm_reasoning }}">совпадает</span>
-        {% elif c.llm_verdict == 'contradicts' %}<span class="tag ok" title="{{ c.llm_reasoning }}">опровергнуто</span>
-        {% elif c.llm_verdict == 'insufficient' %}<span class="tag muted" title="{{ c.llm_reasoning }}">мало данных</span>
-        {% else %}<span class="muted">—</span>{% endif %}
+      <td class="match-comparison">
+        <div class="match-sides">
+          <div class="match-side">
+            <span class="match-label">В документе</span>
+            <strong>{{ c.extracted_fact.value if c.extracted_fact else '—' }}</strong>
+          </div>
+          <span class="match-arrow muted">→</span>
+          <div class="match-side">
+            <span class="match-label">В реестре</span>
+            <strong>{{ c.person_record.raw_name if c.person_record else '—' }}</strong>
+            <span class="muted">
+              {% if c.person_record and c.person_record.birth_date %}
+                {{ c.person_record.birth_date }}
+              {% else %}
+                дата не указана
+              {% endif %}
+            </span>
+          </div>
+        </div>
+        {% if c.birth_date_score == 0.0 and c.birthplace_score == 0.0 %}
+        <div class="match-hint">
+          Совпали только фамилия и имя. Даты рождения в тексте нет.
+        </div>
+        {% endif %}
       </td>
-      <td>{{ c.extracted_fact.value if c.extracted_fact else '—' }}</td>
-      <td>{{ c.person_record.raw_name if c.person_record else '—' }}</td>
-      <td class="muted">{{ c.person_record.birth_date if c.person_record and c.person_record.birth_date else '—' }}</td>
-      <td>
+      <td class="match-signals">
+        {% if c.namesakes is none %}
+          <span class="tag muted">однофамильцев: не измерено</span>
+        {% elif c.namesakes <= 1 %}
+          <span class="tag ok">однофамильцев: {{ c.namesakes }}</span>
+        {% elif c.namesakes <= 5 %}
+          <span class="tag warn">однофамильцев: {{ c.namesakes }}</span>
+        {% else %}
+          <span class="tag danger">однофамильцев: {{ c.namesakes }}</span>
+        {% endif %}
+        {% if c.other_mentions %}
+          <span class="tag ok">упоминаний: {{ c.other_mentions }}</span>
+        {% else %}
+          <span class="tag muted">упоминание: 1</span>
+        {% endif %}
+        {% if c.llm_verdict == 'consistent' %}
+          <span class="tag warn" title="{{ c.llm_reasoning }}">модель: совпадает</span>
+        {% elif c.llm_verdict == 'contradicts' %}
+          <span class="tag ok" title="{{ c.llm_reasoning }}">модель: опровергнуто</span>
+        {% elif c.llm_verdict == 'insufficient' %}
+          <span class="tag muted" title="{{ c.llm_reasoning }}">модель: мало данных</span>
+        {% endif %}
+      </td>
+      <td class="match-status">
         {% if c.status == 'pending' %}<span class="tag warn">ждёт</span>
         {% elif c.status == 'confirmed' %}<span class="tag ok">подтверждён</span>
         {% else %}<span class="tag muted">отклонён</span>{% endif %}
       </td>
-      <td><a href="{{ url_for('match_detail', candidate_id=c.id) }}">разобрать →</a></td>
+      <td class="match-action">
+        <a href="{{ url_for('match_detail', candidate_id=c.id) }}" class="match-action-link">Принять решение →</a>
+        <span class="score-muted">{{ '%.2f' | format(c.score) }}</span>
+      </td>
     </tr>
   {% endfor %}
   </tbody>

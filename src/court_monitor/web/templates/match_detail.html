@@ -2,15 +2,63 @@
 {% block title %}Кандидат {{ c.id }} — court-monitor{% endblock %}
 {% block content %}
 
-<p class="muted"><a href="{{ url_for('matches') }}?status=pending">← к совпадениям</a></p>
+<p class="muted"><a href="{{ url_for('matches') }}?status=pending">← к очереди решений</a></p>
 
 <h1>
   Кандидат {{ c.id }}
-  <span class="score">{{ '%.2f' | format(c.score) }}</span>
   {% if c.status == 'pending' %}<span class="tag warn">ждёт решения</span>
   {% elif c.status == 'confirmed' %}<span class="tag ok">подтверждён</span>
   {% else %}<span class="tag muted">отклонён</span>{% endif %}
 </h1>
+
+{% if c.status == 'pending' %}
+<div class="card decision-summary">
+  <h2 style="margin-top:0">Что нужно решить</h2>
+  <p>
+    Это тот же человек или однофамилец?
+    Скоринг сказал только что совпали фамилия и имя — этого недостаточно для подтверждения.
+  </p>
+  <div class="evidence-checklist">
+    <div class="evidence-item">
+      <strong>Имя в документе:</strong> {{ fact.value if fact else '—' }}
+    </div>
+    <div class="evidence-item">
+      <strong>Имя в реестре:</strong> {{ record.raw_name if record else '—' }}
+    </div>
+    <div class="evidence-item">
+      <strong>Дата рождения в реестре:</strong>
+      {% if record and record.birth_date %}
+        {{ record.birth_date }}
+      {% else %}
+        <span class="muted">не указана</span>
+      {% endif %}
+    </div>
+    <div class="evidence-item">
+      <strong>Дата рождения в документе:</strong>
+      {% if c.birth_date_score > 0.0 %}
+        <span class="tag ok">совпадает</span>
+      {% else %}
+        <span class="tag warn">в тексте нет</span>
+      {% endif %}
+    </div>
+    <div class="evidence-item">
+      <strong>Место рождения:</strong>
+      {% if c.birthplace_score > 0.0 %}
+        <span class="tag ok">совпадает</span>
+      {% else %}
+        <span class="tag warn">в тексте нет</span>
+      {% endif %}
+    </div>
+  </div>
+  {% if c.birth_date_score == 0.0 and c.birthplace_score == 0.0 %}
+  <p class="match-guidance">
+    <strong>По одному имени подтвердить нельзя.</strong>
+    Если в документе нет дополнительных указаний на того же человека (должность,
+    дата, обстоятельства), безопасное решение — отклонить или оставить в ожидании.
+  </p>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="two-col">
   <div class="card">
@@ -51,11 +99,6 @@
 
 <h2>Контекст для решения</h2>
 <div class="card">
-  <p class="muted">
-    Скоринг здесь сказать больше не может: совпали только фамилия и имя,
-    ни даты, ни места рождения в тексте нет. Ниже — то, что помогает решить вручную.
-  </p>
-
   {% if c.llm_verdict %}
   <div class="card">
     <strong>Суждение модели</strong>
@@ -109,8 +152,8 @@
   </div>
 </div>
 
-<h2>Из чего сложился score</h2>
-<div class="card">
+<details class="card diagnostic">
+  <summary>Диагностика: из чего сложился score</summary>
   <p class="muted">
     имя {{ '%.2f' | format(c.name_score) }} ·
     дата рождения {{ '%.2f' | format(c.birth_date_score) }} ·
@@ -141,15 +184,11 @@
   {% endfor %}
 
   {% if not reasons and not conflicts %}<p class="empty">Разбор не сохранён.</p>{% endif %}
-</div>
+</details>
 
 {% if c.status == 'pending' %}
 <div class="card">
   <h2 style="margin-top:0">Решение</h2>
-  <p class="muted">
-    Совпадение фамилии и имени даёт 0.50 и само по себе не отличает человека от однофамильца.
-    Проверьте дату и место рождения, прежде чем подтверждать.
-  </p>
   <form method="post" action="{{ url_for('match_decide', candidate_id=c.id) }}">
     <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}">
     <input type="text" name="comment" placeholder="Комментарий (попадёт в журнал аудита)">

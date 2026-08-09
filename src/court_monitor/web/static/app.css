@@ -154,3 +154,40 @@ pre.error {
   white-space: pre-wrap; overflow-x: auto; margin: 0;
   font-size: 0.82rem; color: var(--danger);
 }
+
+/* ---------- match queue ---------- */
+
+.match-queue td { vertical-align: top; }
+.match-comparison { min-width: 280px; }
+.match-sides { display: flex; align-items: flex-start; gap: 0.6rem; flex-wrap: wrap; }
+.match-side { display: flex; flex-direction: column; gap: 0.15rem; }
+.match-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.match-arrow { padding-top: 1.2rem; }
+.match-hint { font-size: 0.85rem; color: var(--warn); margin-top: 0.4rem; }
+.match-signals { display: flex; flex-direction: column; gap: 0.3rem; }
+.match-status { white-space: nowrap; }
+.match-action { white-space: nowrap; text-align: right; }
+.match-action-link { display: block; font-weight: 500; }
+.score-muted { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------- decision summary ---------- */
+
+.decision-summary { border-left: 3px solid var(--warn); }
+.evidence-checklist { display: grid; gap: 0.4rem; margin: 0.8rem 0; }
+.evidence-item { padding: 0.3rem 0; border-bottom: 1px dashed var(--border); }
+.evidence-item:last-child { border-bottom: none; }
+.match-guidance {
+  background: #fdf6ec;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  margin-top: 0.8rem;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* ---------- diagnostic details ---------- */
+
+details.diagnostic { padding: 0.8rem 1.15rem; }
+details.diagnostic summary { cursor: pointer; font-weight: 500; color: var(--muted); }
+details.diagnostic[open] summary { margin-bottom: 0.6rem; }

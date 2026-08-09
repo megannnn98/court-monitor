@@ -475,3 +475,68 @@ def test_candidate_page_links_to_the_original_source(client: TestClient, session
     body = client.get(f"/matches/{candidate.id}").text
     assert "https://example.invalid/a" in body
     assert "открыть оригинал" in body
+
+
+# ---------------------------------------------------------------------------
+# Manual review UX — /matches queue
+# ---------------------------------------------------------------------------
+
+
+def test_matches_queue_shows_comparison_labels(client: TestClient, session: Session):
+    """The queue must say what is being compared, not just show raw columns."""
+    _seed(session)
+    body = client.get("/matches?status=pending").text
+    assert "В документе" in body
+    assert "В реестре" in body
+
+
+def test_matches_queue_action_text_is_clear(client: TestClient, session: Session):
+    """'разобрать →' was opaque for a non-technical operator."""
+    _seed(session)
+    body = client.get("/matches?status=pending").text
+    assert "Принять решение" in body
+    assert "разобрать" not in body
+
+
+def test_matches_queue_shows_namesakes_as_human_readable(client: TestClient, session: Session):
+    _seed(session, namesakes=3)
+    body = client.get("/matches?status=pending").text
+    assert "однофамильцев: 3" in body
+
+
+def test_matches_queue_shows_mentions_as_human_readable(client: TestClient, session: Session):
+    _seed(session, other_mentions=2)
+    body = client.get("/matches?status=pending").text
+    assert "упоминаний: 2" in body
+
+
+def test_matches_queue_warns_when_only_name_matched(client: TestClient, session: Session):
+    """A candidate with birth_date_score == 0 and birthplace_score == 0
+    must say plainly that only name matched."""
+    _seed(session)
+    body = client.get("/matches?status=pending").text
+    assert "Совпали только фамилия и имя" in body
+
+
+def test_match_detail_shows_decision_summary(client: TestClient, session: Session):
+    """The detail page must tell the operator what to decide."""
+    candidate = _seed(session)
+    body = client.get(f"/matches/{candidate.id}").text
+    assert "Что нужно решить" in body
+    assert "Имя в документе" in body
+    assert "Имя в реестре" in body
+
+
+def test_match_detail_warns_when_only_name_matched(client: TestClient, session: Session):
+    """When only name matched, the safe default must be stated explicitly."""
+    candidate = _seed(session)
+    body = client.get(f"/matches/{candidate.id}").text
+    assert "По одному имени подтвердить нельзя" in body
+
+
+def test_match_detail_score_breakdown_is_under_details(client: TestClient, session: Session):
+    """Score internals are diagnostic, not the first thing an operator reads."""
+    candidate = _seed(session)
+    body = client.get(f"/matches/{candidate.id}").text
+    assert "Диагностика" in body
+    assert "full_name_morphological_match" in body
