@@ -33,16 +33,23 @@ make doctor      # проверка, что всё на месте
 но Firefox использует своё хранилище NSS. Чтобы открывать сайт в Firefox:
 
 ```bash
-# Вариант 1: Импорт в Firefox profiles (рекомендуется)
+# Импорт CA в Firefox profiles
 uv run python scripts/import_fedsfm_ca_firefox.py
-# Перезапустите Firefox
-
-# Вариант 2: Установка в системное хранилище (Arch Linux)
-sudo scripts/install_fedsfm_ca.sh
 # Перезапустите Firefox
 ```
 
-После импорта сайт будет открываться без предупреждений о сертификате.
+Скрипт импортирует CA во все Firefox profiles через `certutil`. После импорта
+сайт будет открываться без предупреждений о сертификате.
+
+Для других приложений (curl, wget, Python без pinned CA) можно установить CA
+в системное хранилище:
+
+```bash
+sudo scripts/install_fedsfm_ca.sh
+```
+
+**Важно:** на Arch Linux Firefox не использует системное хранилище по умолчанию,
+поэтому для Firefox нужен именно первый способ.
 
 ---
 
