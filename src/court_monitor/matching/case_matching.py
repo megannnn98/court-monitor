@@ -345,13 +345,15 @@ def _is_decision_event(event_type: str) -> bool:
 
 
 def _check_court_match(court: str, case_card: ParsedCaseCard) -> str | None:
-    """Check if court matches case card court.
+    """Check if court matches case card court (provenance).
+
+    Uses case_card.court (the court where this case card was obtained from),
+    NOT first_instance_court (which is a different court in appeal cases).
 
     Returns the matched court string or None.
     """
-    # Case card doesn't have court field directly, but we can check first_instance_court
-    if case_card.first_instance_court and court.lower() in case_card.first_instance_court.lower():
-        return case_card.first_instance_court
+    if case_card.court and court.lower() in case_card.court.lower():
+        return case_card.court
 
     return None
 

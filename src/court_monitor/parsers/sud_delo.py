@@ -64,18 +64,23 @@ class ParsedCaseCard:
     parser_version: str = PARSER_VERSION
 
 
-def parse_case_card(html: str, case_uid: str | None = None) -> ParsedCaseCard:
+def parse_case_card(
+    html: str,
+    case_uid: str | None = None,
+    court: str | None = None,
+) -> ParsedCaseCard:
     """Parse a sud_delo case card HTML page.
 
     Args:
-        html: HTML content of the case card page
-        case_uid: Optional case UID from URL parameters
+        html: HTML content of the case card
+        case_uid: Optional case UID from URL
+        court: Court name (provenance — which court's website this card came from)
 
     Returns:
         ParsedCaseCard with extracted data
     """
     tree = HTMLParser(html)
-    result = ParsedCaseCard(case_uid=case_uid)
+    result = ParsedCaseCard(case_uid=case_uid, court=court)
 
     # Extract case number
     case_number_node = tree.css_first(".casenumber")

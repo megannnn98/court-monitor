@@ -91,6 +91,70 @@ def test_match_by_date_with_tolerance() -> None:
     assert result.signals[0].signal_type == "date"
 
 
+def test_match_by_court() -> None:
+    """Test matching by court provenance."""
+    case_card = ParsedCaseCard(
+        case_number="1-123/2026",
+        case_uid="test-uid-court",
+        court="2-й Западный окружной военный суд",
+        persons=[],
+    )
+
+    result = match_press_release_to_case(
+        article=None,
+        decision_date=None,
+        court="2-й Западный окружной военный суд",
+        person_name=None,
+        case_card=case_card,
+    )
+
+    assert result.confidence > 0
+    assert len(result.signals) == 1
+    assert result.signals[0].signal_type == "court"
+
+
+def test_match_court_not_first_instance() -> None:
+    """Test that court matching uses case_card.court, not first_instance_court.
+
+    Regression test: first_instance_court is a different court (lower instance),
+    not the court where the case card was obtained.
+    """
+    case_card = ParsedCaseCard(
+        case_number="22К-123/2026",
+        case_uid="test-uid-court-strict",
+        court="2-й Западный окружной военный суд",  # Appeal court
+        first_instance_court="Ярославский гарнизонный военный суд",  # Different court!
+        persons=[],
+    )
+
+    # Search for the appeal court
+    result = match_press_release_to_case(
+        article=None,
+        decision_date=None,
+        court="2-й Западный окружной военный суд",
+        person_name=None,
+        case_card=case_card,
+    )
+
+    # Should match by court (case_card.court)
+    assert result.confidence > 0
+    assert len(result.signals) == 1
+    assert result.signals[0].signal_type == "court"
+
+    # Search for the first instance court (should NOT match)
+    result = match_press_release_to_case(
+        article=None,
+        decision_date=None,
+        court="Ярославский гарнизонный военный суд",
+        person_name=None,
+        case_card=case_card,
+    )
+
+    # Should NOT match because case_card.court is different
+    assert result.confidence == 0
+    assert len(result.signals) == 0
+
+
 def test_match_decision_date_not_received() -> None:
     """Test that decision_date does NOT match received_at.
 
