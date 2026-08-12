@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 
 from court_monitor.config.settings import settings
-from court_monitor.observability import configure_logging
+from court_monitor.observability import configure_logging, configure_logging_with_mode
 from court_monitor.storage.migrations import revision_status
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -16,6 +16,22 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def bootstrap_logging() -> None:
     configure_logging(settings.log_level)
+
+
+def bootstrap_logging_with_mode(*, verbose: bool = False, json_logs: bool = False) -> None:
+    """Bootstrap structlog with the appropriate output mode.
+
+    Parameters:
+        verbose: If True, use verbose human-readable mode.
+        json_logs: If True, use raw JSON mode (machine-readable).
+                   Overrides verbose. Default (both False): human mode.
+    """
+    if json_logs:
+        configure_logging_with_mode(settings.log_level, mode="json")
+    elif verbose:
+        configure_logging_with_mode(settings.log_level, mode="verbose")
+    else:
+        configure_logging_with_mode("WARNING", mode="human")
 
 
 def safe_url(url: str) -> str:

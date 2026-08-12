@@ -22,28 +22,11 @@ from typer.testing import CliRunner
 import court_monitor.cli._shared as shared
 import court_monitor.cli.app as cli_module
 import court_monitor.cli.commands.db as db_commands
-from court_monitor.cli.app import _fetch_source_legacy, _stats_color
+from court_monitor.cli.app import _fetch_source_legacy
 from court_monitor.cli.commands.db import _doctor_check_alembic, _doctor_check_tables
 from court_monitor.config.registry import SourceRegistryEntry
-from court_monitor.services import SourceStats
 from court_monitor.storage import repository as repo
 from court_monitor.storage.orm import Base
-
-
-def test_stats_color_clean_is_green():
-    assert _stats_color(SourceStats(fetched=2, parsed=2)) == typer.colors.GREEN
-
-
-def test_stats_color_failed_is_yellow():
-    assert _stats_color(SourceStats(failed=1)) == typer.colors.YELLOW
-
-
-def test_stats_color_blocked_is_yellow():
-    assert _stats_color(SourceStats(blocked=1)) == typer.colors.YELLOW
-
-
-def test_stats_color_skipped_is_yellow_even_if_clean():
-    assert _stats_color(SourceStats(), skipped=True) == typer.colors.YELLOW
 
 
 def _make_engine():

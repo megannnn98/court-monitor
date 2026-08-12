@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time as _time
 from typing import Annotated
 
 import typer
@@ -24,7 +25,8 @@ from court_monitor.config.registry import (
 from court_monitor.config.settings import settings
 from court_monitor.domain.models import SourceBackend
 from court_monitor.matching.candidates import generate_matches
-from court_monitor.observability import configure_logging, get_logger
+from court_monitor.observability import get_logger
+from court_monitor.presentation.console import ConsoleReporter
 from court_monitor.services import (
     SourceStats,
     process_registry_source,
@@ -43,6 +45,7 @@ from court_monitor.storage.db import make_engine, make_session_factory, session_
 
 from ._shared import (
     bootstrap_logging,
+    bootstrap_logging_with_mode,
     db_display_path,
     maybe_dry_run_session,
     require_current_schema,
@@ -349,12 +352,19 @@ def fetch_all() -> None:
     typer.echo(f"TOTAL {totals.summary()}")
 
 
-def _stats_color(stats, *, skipped: bool = False) -> str:
-    """Green = clean, yellow = needs a look (blocked/failed/skipped), never red here —
-    red is reserved for hard exceptions (a source that crashed, not just found nothing)."""
-    if stats.failed > 0 or stats.blocked > 0 or skipped:
-        return typer.colors.YELLOW
-    return typer.colors.GREEN
+def _print_source_summary(
+    reporter: ConsoleReporter, stats: SourceStats, *, elapsed: float | None = None
+) -> None:
+    reporter.source_summary(
+        fetched=stats.fetched,
+        new_documents=stats.new_documents,
+        duplicates=stats.duplicates,
+        parsed=stats.parsed,
+        irrelevant=stats.irrelevant,
+        failed=stats.failed,
+        blocked=stats.blocked,
+        elapsed=elapsed,
+    )
 
 
 @app.command(name="run-all")
@@ -365,114 +375,84 @@ def run_all(
     ] = False,
     verbose: Annotated[
         bool,
+        typer.Option("--verbose", "-v", help="Show detailed human-readable per-document logs."),
+    ] = False,
+    json_logs: Annotated[
+        bool,
         typer.Option(
-            "--verbose", "-v", help="Show detailed per-document JSON logs (normal log level)."
+            "--json-logs",
+            help="Output raw structured JSON log lines (machine-readable). Overrides --verbose.",
         ),
     ] = False,
 ) -> None:
     """Fetch everything (sudrf sources + Telegram registry channels), then generate matches.
 
-    Fixtures by default (no network); pass --live to hit real sources. By
-    default, per-document INFO/WARNING logs are suppressed (only genuine
-    errors, with traceback, still print) so the per-source summary lines
-    below are actually readable — pass --verbose to see the full structured
-    JSON log.
+    Fixtures by default (no network); pass --live to hit real sources.
+
+    Default output is human-readable with headings and summaries.
+    Use --verbose for per-document detail still readable by a human.
+    Use --json-logs for raw structured JSON (machine-readable).
     """
-    configure_logging(settings.log_level if verbose else "ERROR")
+    bootstrap_logging_with_mode(verbose=verbose, json_logs=json_logs)
     require_current_schema()
     monitoring = load_monitoring()
     engine = make_engine()
     totals = SourceStats()
 
-    typer.secho(
-        f"База данных: {db_display_path(settings.database_url)}",
-        fg=typer.colors.WHITE,
-        bold=True,
-    )
+    reporter = ConsoleReporter(verbose=verbose)
+    reporter.db_path(db_display_path(settings.database_url))
+    reporter.live_mode(live)
 
-    for index, group in enumerate(plan_all_work(monitoring, live=live)):
-        if index:
-            typer.echo()
-        typer.secho(f"=== {group.title} ===", fg=typer.colors.CYAN, bold=True)
+    for group in plan_all_work(monitoring, live=live):
+        reporter.heading(group.title)
         if not group.items:
-            typer.secho(f"  ({group.empty_note})", dim=True)
+            reporter.empty_group(group.empty_note)
             continue
         for item in group.items:
-            # Use rich spinner for visual feedback during processing
-            from rich.console import Console  # noqa: PLC0415
-            from rich.progress import (  # noqa: PLC0415
-                Progress,
-                SpinnerColumn,
-                TextColumn,
-                TimeElapsedColumn,
-            )
-
-            console = Console()
-            with Progress(
-                SpinnerColumn("dots"),
-                TextColumn("[cyan]{task.description}"),
-                TimeElapsedColumn(),
-                console=console,
-                transient=True,
-            ) as progress:
-                task = progress.add_task(f"Обрабатываю {item.label}...", total=None)
+            t0 = _time.monotonic()
+            with reporter.spinner(f"Обрабатываю {item.label}..."):
                 try:
-                    # One session per source: a source that blows up must not roll
-                    # back what the previous ones already wrote.
                     with session_scope(engine) as session:
                         stats = item.run(session)
                         totals.accumulate(stats)
-                    progress.update(task, description=f"✓ {item.label}")
                 except Exception as exc:
-                    progress.update(task, description=f"✗ {item.label}")
-                    console.print(
-                        f"  [red bold]ОШИБКА[/] {type(exc).__name__}: {exc}",
-                        highlight=False,
-                    )
+                    reporter.spinner_failed(item.label)
+                    reporter.error(str(exc), exception_type=type(exc).__name__)
                     totals.failed += 1
                     continue
+                reporter.spinner_done(item.label)
 
-            # Print final result after spinner disappears
-            note = " (нет сохранённой fixture — пропущено)" if item.fixture_missing else ""
-            typer.secho(
-                f"  ✓ {item.label}: {stats.summary()}{note}",
-                fg=_stats_color(stats, skipped=item.fixture_missing),
-            )
+            elapsed = _time.monotonic() - t0
+            if item.fixture_missing:
+                reporter.warning(f"{item.label}: нет сохранённой fixture — пропущено")
+            _print_source_summary(reporter, stats, elapsed=elapsed)
 
-    typer.secho("\n=== Итого: fetch + parse ===", fg=typer.colors.CYAN, bold=True)
-    totals_color = typer.colors.YELLOW if totals.needs_attention else typer.colors.GREEN
-    typer.secho(f"  {totals.summary()}", fg=totals_color, bold=True)
+    reporter.heading("Итого: fetch + parse")
+    _print_source_summary(reporter, totals)
 
     with session_scope(engine) as session:
         match_stats = generate_matches(session)
-    typer.secho("\n=== Совпадения (generate-matches) ===", fg=typer.colors.CYAN, bold=True)
-    matches_color = typer.colors.RED if match_stats.errors else typer.colors.GREEN
-    typer.secho(
-        f"  создано={match_stats.candidates_created} "
-        f"уже_было={match_stats.already_existed} "
-        f"без_кандидата={match_stats.no_candidates} "
-        f"ошибок={match_stats.errors}",
-        fg=matches_color,
-        bold=True,
+    reporter.match_stats(
+        created=match_stats.candidates_created,
+        already_existed=match_stats.already_existed,
+        no_candidates=match_stats.no_candidates,
+        errors=match_stats.errors,
     )
 
-    _run_court_stage(engine, live=live)
+    _run_court_stage(engine, live=live, reporter=reporter)
 
-    typer.secho(
-        f"\nДанные сохранены в БД: {db_display_path(settings.database_url)}",
-        fg=typer.colors.WHITE,
-        bold=True,
+    reporter.blank_line()
+    reporter.detail(
+        "Данные сохранены в БД",
+        db_display_path(settings.database_url),
     )
 
 
-def _run_court_stage(engine, *, live: bool) -> None:
-    """Court case monitoring stage inside ``run-all`` (task §16).
+def _run_court_stage(engine, *, live: bool, reporter: ConsoleReporter) -> None:
+    """Court case monitoring stage inside ``run-all``.
 
     Iterates configured ``sudrf`` sources and runs the case-matching pipeline
-    for pending press documents. The ``live`` flag is forwarded to the
-    orchestrator so fixture vs. HTTP semantics stay consistent with the rest
-    of ``run-all``. Errors from individual courts are captured per-source —
-    they never roll up into the generic fetch counters.
+    for pending press documents.
     """
     from court_monitor.config import loader as cfg_loader  # noqa: PLC0415
     from court_monitor.domain.models import SourceType  # noqa: PLC0415
@@ -480,12 +460,18 @@ def _run_court_stage(engine, *, live: bool) -> None:
         process_all_pending_court_documents,
     )
 
-    typer.secho("\n=== Судебные дела ===", fg=typer.colors.CYAN, bold=True)
+    reporter.heading("Судебные дела")
 
     courts = [s for s in cfg_loader.load_sources() if s.type == SourceType.sudrf]
     if not courts:
-        typer.secho("  (нет настроенных судов)", dim=True)
+        reporter.empty_group("нет настроенных судов")
         return
+
+    total_court_processed = 0
+    total_review = 0
+    total_no_match = 0
+    total_temp = 0
+    total_failed = 0
 
     for court in courts:
         try:
@@ -493,18 +479,23 @@ def _run_court_stage(engine, *, live: bool) -> None:
                 stats = process_all_pending_court_documents(
                     session, court_name=court.name, force_live=live
                 )
-            typer.secho(f"  {court.name}:", bold=True)
-            typer.secho(f"    processed={stats.processed}")
-            typer.secho(f"    review={stats.review_created}")
-            typer.secho(f"    no_match={stats.no_match}")
-            typer.secho(f"    temporary_failure={stats.temporary_failures}")
-            typer.secho(f"    failed={stats.failed}")
+            reporter.court_summary(
+                court.name,
+                processed=stats.processed,
+                review_created=stats.review_created,
+                no_match=stats.no_match,
+                temporary_failures=stats.temporary_failures,
+                failed=stats.failed,
+            )
+            total_court_processed += stats.processed
+            total_review += stats.review_created
+            total_no_match += stats.no_match
+            total_temp += stats.temporary_failures
+            total_failed += stats.failed
         except Exception as exc:
-            typer.secho(
-                f"  ✗ {court.name}: ОШИБКА {type(exc).__name__}: {exc}",
-                fg=typer.colors.RED,
-                bold=True,
-                err=True,
+            reporter.error(
+                f"{court.name}: {exc}",
+                exception_type=type(exc).__name__,
             )
 
 
@@ -813,7 +804,18 @@ def process_court_cases(
         bool,
         typer.Option(
             "--reprocess",
-            help="Re-run documents already marked as processed_no_match (task §14).",
+            help="Re-run documents already marked as processed_no_match.",
+        ),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed human-readable per-document logs."),
+    ] = False,
+    json_logs: Annotated[
+        bool,
+        typer.Option(
+            "--json-logs",
+            help="Output raw structured JSON log lines (machine-readable).",
         ),
     ] = False,
 ) -> None:
@@ -824,23 +826,28 @@ def process_court_cases(
     Documents already marked ``processed_no_match`` are skipped unless
     ``--reprocess`` is given.
     """
-    bootstrap_logging()
+    bootstrap_logging_with_mode(verbose=verbose, json_logs=json_logs)
     require_current_schema()
     from court_monitor.services.court_orchestrator import (  # noqa: PLC0415
         process_all_pending_court_documents,
     )
     from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
 
+    reporter = ConsoleReporter(verbose=verbose)
+
     engine = make_engine()
     with session_scope(engine) as session:
         stats = process_all_pending_court_documents(
             session, court_name=court, force_live=live, reprocess=reprocess
         )
-    typer.echo(f"Обработано документов: {stats.processed}")
-    typer.echo(f"  review_created={stats.review_created}")
-    typer.echo(f"  no_match={stats.no_match}")
-    typer.echo(f"  temporary_failure={stats.temporary_failures}")
-    typer.echo(f"  failed={stats.failed}")
+    reporter.court_summary(
+        court,
+        processed=stats.processed,
+        review_created=stats.review_created,
+        no_match=stats.no_match,
+        temporary_failures=stats.temporary_failures,
+        failed=stats.failed,
+    )
 
 
 @app.command(name="run-web")
