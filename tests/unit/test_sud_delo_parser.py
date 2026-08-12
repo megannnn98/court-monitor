@@ -35,7 +35,7 @@ def test_parse_case_card_example() -> None:
     person = result.persons[0]
     assert person.name == "Иванов Никита Сергеевич"
     assert len(person.articles) == 1
-    assert "ст.111 ч.1 УК РФ" in person.articles[0]
+    assert "ст.205.1 УК РФ" in person.articles[0]
     assert "заключения под стражу" in person.material
 
     # Events

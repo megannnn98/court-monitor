@@ -10,11 +10,12 @@ from datetime import date, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from court_monitor.config.loader import SourceConfig, get_source
+from court_monitor.config.loader import MonitoringConfig, SourceConfig, get_source, load_monitoring
 from court_monitor.domain.models import ParserStatus, SourceBackend
 from court_monitor.extraction.articles import extract_articles
 from court_monitor.extraction.dates import extract_dates
 from court_monitor.extraction.event_classifier import PressEventType, classify_press_event
+from court_monitor.extraction.filtering import _article_in
 from court_monitor.extraction.names import extract_name_candidates
 from court_monitor.matching.case_matching import match_press_release_to_case
 from court_monitor.observability import get_logger
@@ -72,8 +73,75 @@ class PipelineOutcome:
     cards_evaluated: int = 0
     cards_transport_failed: int = 0
     cards_parse_failed: int = 0
+    weak_candidates_skipped: int = 0
     last_transport_error: SudrfTransportError | None = None
     search_succeeded: bool = False
+
+
+MEANINGFUL_CASE_SIGNALS: frozenset[str] = frozenset({"article", "date", "person_name"})
+
+
+def _has_meaningful_signal(signals: list) -> bool:
+    """True if at least one signal is case-specific (not merely court scope)."""
+    return any(s.signal_type in MEANINGFUL_CASE_SIGNALS for s in signals)
+
+
+def select_search_articles(
+    document_id: int,
+    article_facts: list,
+    monitoring: MonitoringConfig,
+) -> tuple[list[str], str]:
+    """Select monitored articles from extracted article facts.
+
+    Uses the monitoring config to filter extracted articles to only those
+    that match the project's monitored criminal articles. Falls back to
+    all extracted articles if none match monitoring.
+
+    Returns:
+        (selected_articles, method)
+        method is one of: "monitoring_relevance", "all_extracted_fallback"
+    """
+    monitored = monitoring.article_set()
+    extracted_all: list[str] = []
+    for fact in article_facts:
+        val = fact.value
+        art = str(val.get("article", "")) if isinstance(val, dict) else str(val)
+        if art:
+            extracted_all.append(art)
+
+    # Filter to monitored articles using same logic as evaluate_relevance
+    matched: list[str] = []
+    for art in extracted_all:
+        if _article_in(art, monitored) and art not in matched:
+            matched.append(art)
+
+    if matched:
+        _log.info(
+            "court.search_articles",
+            document_id=document_id,
+            extracted=extracted_all,
+            matched=matched,
+            selected=matched,
+            method="monitoring_relevance",
+        )
+        return matched, "monitoring_relevance"
+
+    # Fallback: use all extracted articles (document contains articles
+    # but none matched monitoring config — e.g., config mismatch).
+    deduped: list[str] = []
+    for art in extracted_all:
+        if art not in deduped:
+            deduped.append(art)
+
+    _log.info(
+        "court.search_articles",
+        document_id=document_id,
+        extracted=extracted_all,
+        matched=[],
+        selected=deduped,
+        method="all_extracted_fallback",
+    )
+    return deduped, "all_extracted_fallback"
 
 
 def process_court_press_document(
@@ -191,7 +259,7 @@ def _apply_outcome_to_state(
     )
 
 
-def _run_press_pipeline(
+def _run_press_pipeline(  # noqa: PLR0915
     session: Session,
     document: SourceDocument,
     court_config: SourceConfig,
@@ -206,7 +274,10 @@ def _run_press_pipeline(
 
     event_classification = classify_press_event(extraction_text)
 
-    article = article_facts[0].value.get("article") if article_facts else None
+    # Use monitoring config to select relevant articles, NOT raw article_facts[0].
+    monitoring = load_monitoring()
+    search_articles, article_method = select_search_articles(document.id, article_facts, monitoring)
+
     person_name = _pick_person_name(name_facts, article_facts, extraction_text)
 
     result_date = _pick_result_date(event_classification, date_facts, extraction_text)
@@ -215,14 +286,15 @@ def _run_press_pipeline(
     _log.info(
         "orchestrator.extracted",
         document_id=document.id,
-        article=article,
+        articles=search_articles,
         result_date=result_date,
         publication_date_hint=publication_date_hint,
         event_type=event_classification.event_type,
         person_name=person_name,
+        article_method=article_method,
     )
 
-    if article is None and person_name is None:
+    if not search_articles and person_name is None:
         _log.warning(
             "orchestrator.no_search_criteria",
             document_id=document.id,
@@ -231,32 +303,62 @@ def _run_press_pipeline(
         return outcome
 
     adapter = SudrfCaseSearchAdapter(court_config)
-    search_results, attempts = progressive_search(
-        adapter=adapter,
-        court=court_config.name,
-        article=article,
-        result_date=result_date,
-        publication_date_hint=publication_date_hint,
-        person_name=person_name if _should_search_by_person(event_classification) else None,
-    )
+    # Search by each monitored article, deduplicating results.
+    all_search_results: list[SudrfCaseSearchResult] = []
+    all_attempts: list[SearchAttempt] = []
+    seen_keys: set[tuple[str | None, str | None]] = set()
+    any_successful_search = False
+    last_transport_error: Exception | None = None
+
+    for article in search_articles if search_articles else [None]:
+        try:
+            search_results, attempts = progressive_search(
+                adapter=adapter,
+                court=court_config.name,
+                article=article,
+                result_date=result_date,
+                publication_date_hint=publication_date_hint,
+                person_name=(
+                    person_name if _should_search_by_person(event_classification) else None
+                ),
+            )
+            any_successful_search = True
+            all_attempts.extend(attempts)
+            for r in search_results:
+                key = (r.case_uid, None) if r.case_uid else (court_config.name, r.case_number)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_search_results.append(r)
+        except Exception as exc:
+            last_transport_error = exc
+            _log.warning(
+                "court.search.error",
+                document_id=document.id,
+                article=article,
+                error=str(exc),
+            )
+
+    if not any_successful_search and last_transport_error is not None:
+        raise last_transport_error
 
     outcome.search_succeeded = True
-    outcome.search_result_count = len(search_results)
+    outcome.search_result_count = len(all_search_results)
 
     _log.info(
         "orchestrator.search_results",
         document_id=document.id,
-        count=len(search_results),
-        attempts=len(attempts),
+        count=len(all_search_results),
+        attempts=len(all_attempts),
+        articles=search_articles,
     )
 
-    if not search_results:
+    if not all_search_results:
         _log.warning("orchestrator.no_results", document_id=document.id)
         return outcome
 
     court_name = court_config.court_name or court_config.name
 
-    for result in search_results[:MAX_RESULTS]:
+    for result in all_search_results[:MAX_RESULTS]:
         try:
             with session.begin_nested():
                 case = _process_search_result(
@@ -265,10 +367,11 @@ def _run_press_pipeline(
                     adapter=adapter,
                     court_config=court_config,
                     court_name=court_name,
-                    article=article,
+                    article=search_articles[0] if search_articles else None,
                     result_date=result_date,
                     person_name=person_name,
                     press_doc=document,
+                    outcome=outcome,
                 )
                 outcome.cards_evaluated += 1
                 if case is not None:
@@ -300,6 +403,7 @@ def _run_press_pipeline(
         evaluated=outcome.cards_evaluated,
         transport_failed=outcome.cards_transport_failed,
         parse_failed=outcome.cards_parse_failed,
+        weak_candidates_skipped=outcome.weak_candidates_skipped,
     )
     return outcome
 
@@ -445,6 +549,7 @@ def _process_search_result(
     result_date,
     person_name,
     press_doc,
+    outcome=None,
 ):
     case_html = adapter.fetch_case_card_html(result)
     if not case_html:
@@ -478,6 +583,22 @@ def _process_search_result(
 
     if not match_result.signals:
         _log.info("orchestrator.zero_signals", document_id=press_doc.id, case_uid=result.case_uid)
+        return None
+
+    # Reject candidates that have only court scope signal — court alone
+    # never identifies a case; it only narrows the search space.
+    if not _has_meaningful_signal(match_result.signals):
+        signal_types = [s.signal_type for s in match_result.signals]
+        _log.info(
+            "orchestrator.case_rejected_as_candidate",
+            document_id=press_doc.id,
+            case_uid=result.case_uid,
+            score=match_result.confidence,
+            signals=signal_types,
+            reason="no_meaningful_signal",
+        )
+        if outcome is not None:
+            outcome.weak_candidates_skipped += 1
         return None
 
     _create_match_and_review(session, press_doc, case, match_result)
