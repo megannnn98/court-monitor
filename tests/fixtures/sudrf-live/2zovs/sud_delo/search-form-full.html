@@ -1,0 +1,738 @@
+<div class='box box_common m-all_m'><style type="text/css">
+	.contentt {background-color:#fafafa;border:1px solid #818181;padding:0; margin:0;}
+	.contentt A {font: 13px/1.3 'Times New Roman', Times, serif; color: #005AA4; text-decoration: underline;}
+	.contentt A:hover	{ font: 13px/1.3 'Times New Roman', Times, serif; color: #005AA4; text-decoration: none;}
+	ul.tabs {font: 14px Verdana, Arial;list-style-type:none;padding-bottom:4px;border-bottom:none;margin-bottom:2px; z-index:1; height:32px;margin-top:5px;padding-left:0;margin-left: 0;}
+	*+html ul#tabs {padding-bottom:0;margin-bottom:0;}
+	.tabs li {float:left;height:25px;margin:2px 0 0 0;}
+	.tabs li a {display:block;color:#005AA4;text-decoration:none !important;padding:5px;font: 14px Verdana, Arial !important;}
+	.tabs li.nonsel {background-color:#EFEFEF;border:1px solid; border-color:#99c #99c #818181 #99c; margin-top:12px;margin-right: -1px;}
+	.tabs li.nonsel a:hover {background-color:#B5BED6;height:15px;}
+	.tabs li.sel {background-color:#fafafa;border:1px solid;border-color:#818181 #818181 #fafafa #818181;font-size:18px;height:31px;margin-top:6px;}
+	#modSdpContent td span.tooltipShow span {
+		z-index: 10;
+		display: none;
+		padding: 14px 20px;
+		margin-top: -60px;
+		margin-left: -510px;
+		width: 450px;
+		line-height: 16px;
+		cursor: pointer;
+	}
+	#modSdpContent td span.tooltipShow:hover span {
+		display: inline;
+		position: absolute;
+		color: #111;
+		border: 1px solid #069;
+		background: #fffAF0;
+		font-weight: bold;
+		text-align: center;
+	}
+	.error-mask {
+		display: none;
+		margin-top: 5px;
+		color: #FF0000;
+		font-size: 12px;
+		font-weight: bold;
+		text-align: justify;
+	}
+</style>
+<div id=header>
+	<form id='calformH' name='calformH' method='get' action='/modules.php'>
+		<input name="name" type="hidden" value="sud_delo">
+		<input name="srv_num" type="hidden" value=1>
+		<table id=top_menu cellSpacing=0 cellPadding=1>
+ 			<tr>
+ 				<td>Вывести список дел, назначенных на дату</td>
+ 				<td id=calendar>
+ 					<img title="Вызвать календарь" onclick="javascript:show_calendar('calformH.H_date');" src='/modules/sud_delo/images/top_calc.gif'/>
+ 				</td>
+ 				<td>
+ 					<input name='H_date' class='text' id='H_date' style='width: 66px;' type='text' maxLength='10' value=12.08.2026>
+ 			    </td>
+ 			    <td id=calendar style='padding-left: 0px; padding-right: 0px'>
+ 			    	<img title="Вывести список дел" onclick="javascript:hearing_list();" src='/modules/sud_delo/images/doSearch.gif'/>
+ 			    </td>
+ 			</tr>
+ 			 		</table>
+	 </form>
+</div>
+<div id='content'>
+	<form action="" method="get" name="calform" id="calform">
+	<input name="name" type="hidden" value="sud_delo">
+	<input name="srv_num" type="hidden" value="1">
+	<input name="name_op" type="hidden" value="r">
+	<input name="delo_id" type="hidden" value="1540006">
+	<input name="case_type" type="hidden" value="0">
+	<input name="new" type="hidden" value="0">
+  	  	<table width="100%" cellpadding=0 cellspacing=0 border=0>  	    	
+		<tr>
+      		<td style="width:50%; border: 1px solid #CECECE;" align="center">
+      			<div id="case_type" style="font: 14px Tahoma; color: #555;">
+    	  			Выбрана картотека поиска:<br>
+        			<div style="color:#006699; font-size:20px">
+	        			Уголовные дела - первая инстанция    				</div>
+       				<div style="text-align: right; padding:0 10px 6px 0"><a href="#" onclick="showCatalogInst(550,500,2,1);">Изменить</a></div>
+    			</div>
+    		</td>
+  		</tr>
+  		<tr>
+  	 		<td style="font: 14px Tahoma; color: #555; text-align: center">Поиск по делам
+      			<table width="100%" cellpadding=0 cellspacing=2 border=0>
+        			<tr>
+    	 				<td style="width:10%;" align="right">Фамилия</td>
+    	   				<td style="width:40%;">
+							<input name='U1_DEFENDANT__NAMESS' type='text' class='Lookup' size=70>          				</td>
+        			</tr>
+			                			<tr>
+         				<td style="width:10%;" align="right">Номер дела (материала)</td>
+   	    				<td style="width:40%;">
+							<input name='u1_case__CASE_NUMBERSS' type='text' class='Lookup' size=70>    	  				</td>
+    	  			</tr>
+			                			<tr>
+         				<td style="width:10%;" align="right">Уникальный идентификатор дела</td>
+   	    				<td style="width:40%;">
+							<input name='u1_case__JUDICIAL_UIDSS' type='text' class='Lookup masked' size=70
+									id='case__JUDICIAL_UIDSS'
+									data-placeholder='XXXXXXXX-XX-YYYY-XXXXXX-XX' 
+									pattern='^\d{2}(VS|KJ|AJ|OS|RS|KV|AV|OV|GV|AO|AA|AS|UD|KS|US|GU|MS|IC)\d{4}-0[1-9]{1}-(19|20)\d{2}-\d{6}-\d{2}$' 
+									data-charset='XX__XXXX-XX-XXXX-XXXXXX-XX' 
+									title='Формат УИД: XXWWXXXX-XX-XXXX-XXXXXX-XX'
+									data-valid-example='26RS0023-01-2020-000159-48'
+									>    	  				</td>
+    	  			</tr>
+						  			</table>
+    		</td>    		
+   		</tr>
+    </table>
+	  	<input name="delo_table" type="hidden" value="u1_case">
+    <div id=line></div>
+    <div style="font: 14px Tahoma; color: #555; text-align: center;">Дополнительные параметры поиска</div>
+    <div id=line></div>
+    <table width="100%" cellpadding=1 cellspacing=2 border=0>
+		<tr><td colspan='2' class='title'>ДАННЫЕ ПО ДЕЛУ<br></td></tr>        <tr>
+        	<td style="width:30%" valign="bottom" align="right">Дата поступления</td>
+	        <td style="width:70%">
+				с <nobr><input name='u1_case__ENTRY_DATE1D' type='text' size=10 class='Lookup'>					<img src="/images/b_calc.gif" onclick="show_calendar('calform.u1_case__ENTRY_DATE1D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+					 по <input name='u1_case__ENTRY_DATE2D' type='text'  size=10 class='Lookup'>					<img src="/images/b_calc.gif" onclick="show_calendar('calform.u1_case__ENTRY_DATE2D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top"></nobr>
+					       		</td>
+     	</tr>
+       	        <tr>
+        	<td style="width:30%" valign="bottom" align="right">Судья</td>
+	        <td style="width:70%">
+									<input name='U1_CASE__JUDGE' type='hidden' value=''>
+					<input type="text" name="textfield" class="Lookup" size=70 disabled>
+					<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_CASE','JUDGE');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+					       		</td>
+     	</tr>
+       	        <tr>
+        	<td style="width:30%" valign="bottom" align="right">Дата рассмотрения</td>
+	        <td style="width:70%">
+				с <nobr><input name='u1_case__RESULT_DATE1D' type='text' size=10 class='Lookup'>					<img src="/images/b_calc.gif" onclick="show_calendar('calform.u1_case__RESULT_DATE1D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+					 по <input name='u1_case__RESULT_DATE2D' type='text'  size=10 class='Lookup'>					<img src="/images/b_calc.gif" onclick="show_calendar('calform.u1_case__RESULT_DATE2D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top"></nobr>
+					       		</td>
+     	</tr>
+       	        <tr>
+        	<td style="width:30%" valign="bottom" align="right">Результат рассмотрения</td>
+	        <td style="width:70%">
+									<input name='U1_CASE__RESULT' type='hidden' value=''>
+					<input type="text" name="textfield" class="Lookup" size=70 disabled>
+					<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_CASE','RESULT');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+					       		</td>
+     	</tr>
+       	        <tr>
+        	<td style="width:30%" valign="bottom" align="right">Номер здания, название обособленного подразделения</td>
+	        <td style="width:70%">
+									<input name='U1_CASE__BUILDING_ID' type='hidden' value=''>
+					<input type="text" name="textfield" class="Lookup" size=70 disabled>
+					<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_CASE','BUILDING_ID');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+					       		</td>
+     	</tr>
+       	        <tr>
+        	<td style="width:30%" valign="bottom" align="right">Признак рассмотрения дела</td>
+	        <td style="width:70%">
+									<input name='U1_CASE__COURT_STRUCT' type='hidden' value=''>
+					<input type="text" name="textfield" class="Lookup" size=70 disabled>
+					<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_CASE','COURT_STRUCT');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+					       		</td>
+     	</tr>
+       	<tr><td colspan=2>&nbsp;</td></tr><tr ><td colspan=2 ><span class=title>ДВИЖЕНИЕ ДЕЛА</span><br></td></tr>			<tr>
+				<td style="width:40%" align="right">Наименование события</td>
+				<td style="width:60%">
+											<input name='U1_EVENT__EVENT_NAME' type='hidden' value=''>
+						<input type="text" name="textfield" class="Lookup" size=70 disabled  >
+						<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_EVENT','EVENT_NAME');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+										</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Дата</td>
+				<td style="width:60%">
+					<input name='U1_EVENT__EVENT_DATEDD' type='text' size=10 class='Lookup'>						<a href="javascript:show_calendar('calform.U1_EVENT__EVENT_DATEDD');" onMouseOver="window.status='Date Picker';return true;" onMouseOut="window.status='';return true;">
+							<img src="/images/b_calc.gif" width=15 height=17 border=0 align="top"></a>
+										</td>
+			</tr>
+			<tr><td colspan=2>&nbsp;</td></tr><tr ><td colspan=2 ><span class=title>ЛИЦА</span><br></td></tr>			<tr>
+				<td style="width:40%" align="right">Перечень статей</td>
+				<td style="width:60%">
+											<input name='U1_DEFENDANT__LAW_ARTICLESS' type='text' class='Lookup' size=70>
+						<tr>
+							<td></td>
+							<td>
+								<input name='dic' type='button' style='border-color:#006699; color:#006699 ' value='Выбрать из справочника' onclick=getDicRow(01,this);>
+							</td>
+						</tr>
+										</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Дата рассмотрения дела в отношении лица</td>
+				<td style="width:60%">
+					с <nobr><input name='U1_DEFENDANT__RESULT_DATE1D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_DEFENDANT__RESULT_DATE1D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						 по <input name='U1_DEFENDANT__RESULT_DATE2D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_DEFENDANT__RESULT_DATE2D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						</nobr>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Результат в отношении лица</td>
+				<td style="width:60%">
+											<input name='U1_DEFENDANT__RESULT' type='hidden' value=''>
+						<input type="text" name="textfield" class="Lookup" size=70 disabled  >
+						<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_DEFENDANT','RESULT');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+										</td>
+			</tr>
+			<tr><td colspan=2>&nbsp;</td></tr><tr ><td colspan=2 ><span class=title>СТОРОНЫ</span><br></td></tr>			<tr>
+				<td style="width:40%" align="right">Вид лица, участвующего в деле</td>
+				<td style="width:60%">
+											<input name='U1_PARTS__PARTS_TYPE' type='hidden' value=''>
+						<input type="text" name="textfield" class="Lookup" size=70 disabled  >
+						<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_PARTS','PARTS_TYPE');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+										</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">ИНН</td>
+				<td style="width:60%">
+					<input name='U1_PARTS__INN_STRSS' type='text' class='Lookup' size=70>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">КПП</td>
+				<td style="width:60%">
+					<input name='U1_PARTS__KPP_STRSS' type='text' class='Lookup' size=70>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">ОГРН</td>
+				<td style="width:60%">
+					<input name='U1_PARTS__OGRN_STRSS' type='text' class='Lookup' size=70>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">ОГРНИП</td>
+				<td style="width:60%">
+					<input name='U1_PARTS__OGRNIP_STRSS' type='text' class='Lookup' size=70>				</td>
+			</tr>
+			<tr><td colspan=2>&nbsp;</td></tr><tr ><td colspan=2 ><span class=title>РЕШЕНИЯ</span><br></td></tr>			<tr>
+				<td style="width:40%" align="right">Дата публикации</td>
+				<td style="width:60%">
+					с <nobr><input name='U1_DOCUMENT__PUBL_DATE1D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_DOCUMENT__PUBL_DATE1D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						 по <input name='U1_DOCUMENT__PUBL_DATE2D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_DOCUMENT__PUBL_DATE2D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						</nobr>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Дата вступления в законную силу</td>
+				<td style="width:60%">
+					с <nobr><input name='U1_CASE__VALIDITY_DATE1D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_CASE__VALIDITY_DATE1D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						 по <input name='U1_CASE__VALIDITY_DATE2D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_CASE__VALIDITY_DATE2D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						</nobr>				</td>
+			</tr>
+			<tr><td colspan=2>&nbsp;</td></tr><tr ><td colspan=2 ><span class=title>ИСПОЛНИТЕЛЬНЫЕ ЛИСТЫ</span><br></td></tr>			<tr>
+				<td style="width:40%" align="right">Дата выдачи</td>
+				<td style="width:60%">
+					с <nobr><input name='U1_ORDER_INFO__ORDER_DATE1D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_ORDER_INFO__ORDER_DATE1D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						 по <input name='U1_ORDER_INFO__ORDER_DATE2D' type='text' size=10 class='Lookup'>						<img src="/images/b_calc.gif" onclick="show_calendar('calform.U1_ORDER_INFO__ORDER_DATE2D');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+						</nobr>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Серия, номер бланка</td>
+				<td style="width:60%">
+					<input name='U1_ORDER_INFO__ORDER_NUMSS' type='text' class='Lookup' size=70>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Номер электронного ИД</td>
+				<td style="width:60%">
+					<input name='U1_ORDER_INFO__EXTERNALKEYSS' type='text' class='Lookup' size=70>				</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Статус</td>
+				<td style="width:60%">
+											<input name='U1_ORDER_INFO__STATE_ID' type='hidden' value=''>
+						<input type="text" name="textfield" class="Lookup" size=70 disabled  >
+						<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_ORDER_INFO','STATE_ID');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+										</td>
+			</tr>
+						<tr>
+				<td style="width:40%" align="right">Кому выдан / направлен</td>
+				<td style="width:60%">
+											<input name='U1_ORDER_INFO__RECIP_ID' type='hidden' value=''>
+						<input type="text" name="textfield" class="Lookup" size=70 disabled  >
+						<img src="/images/arow.gif" onclick="showCatalog(500,450,'U1_ORDER_INFO','RECIP_ID');" style="width: 15px; height: 17px; border: 0; cursor: pointer;" align="top">
+										</td>
+			</tr>
+				    <tr>
+	    	<td align=center colspan=2>
+		    				    	<br>
+			        <input name='list' type='checkbox' class='checkbox' value='ON'>&nbsp;Отобразить полный список
+		        		    </td>
+		</tr>
+	</table>
+	<div id=line></div>
+	<div align="center" style="font-size: 11px; color: #555; margin-top:10px;'">
+		<input name="Submit" type="submit" class="booton" value="Найти" onclick="checkForm(event);">
+	    <input name="Reset" type="reset" class="booton" value="Очистить" onclick="clearErrors(); clearFieldN();">
+	    <br>
+	</div>
+</form></div>
+<script charset="utf-8" src="/672349fc084a15183dc31c93.js?1772134016792"></script>
+<script type="text/javascript">
+	function select_delo_id_new(d_i, c_t) {
+
+		var delo_id;
+		var case_type;
+		var popupDivB = document.getElementById('divFSPopupBottom');
+		var popupDivT = document.getElementById('divFSPopupTop');
+
+		delo_id = d_i;
+		case_type = c_t;
+		if(popupDivB && popupDivT) {
+			//alert(delo_id);
+			var url;
+			if(delo_id !== '0') {
+				switch(delo_id) {
+					case 1540006:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1540006';
+								break;
+						}
+						break;
+					case 4:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=4';
+								break;
+							case 4:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=4&new=4';
+								break;
+							case 2450001:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=4&new=2450001';
+								break;
+						}
+						break;
+					case 2450001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=2450001';
+								break;
+						}
+						break;
+					case 1540005:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1540005';
+								break;
+						}
+						break;
+					case 5:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=5';
+								break;
+							case 5:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=5&new=5';
+								break;
+							case 2800001:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=5&new=2800001';
+								break;
+						}
+						break;
+					case 2800001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=2800001';
+								break;
+						}
+						break;
+					case 41:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=41';
+								break;
+						}
+						break;
+					case 42:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=42';
+								break;
+						}
+						break;
+					case 43:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=43';
+								break;
+						}
+						break;
+					case 1500001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1500001';
+								break;
+						}
+						break;
+					case 1502001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1502001';
+								break;
+						}
+						break;
+					case 1513001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1513001';
+								break;
+						}
+						break;
+					case 2550001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=2550001';
+								break;
+						}
+						break;
+					case 1610001:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1610001';
+								break;
+						}
+						break;
+					case 1610002:
+						switch(case_type) {
+							case 1:
+								url = '/modules.php?name=sud_delo&srv_num=' + 1 + '&name_op=sf&nc=1&delo_id=1610002';
+								break;
+						}
+						break;
+				}
+				loadXMLDoc1(url);
+			}
+			else {
+				alert("Не выбран вид производства");
+				document.getElementById('inst1').innerHTML = 'Для поиска по решениям необходимо выбрать вид производства';
+				if(document.getElementById('case_type1').options[document.getElementById('case_type1').selectedIndex].value === 0)
+					document.getElementById('inst').style.display = 'block';
+				else
+					document.getElementById('inst').style.display = 'none';
+				document.getElementById('inst2').style.display = 'block';
+				document.getElementById('search_content').style.display = 'none';
+			}
+			hidePopupDiv();
+
+		}
+
+	}
+	function index_docs(n, m) {
+		for(i = 1; i <= m; i++) {
+			document.getElementById('tab_doc'+i).className = 'nonsel';
+			document.getElementById('cont_doc'+i).style.display = 'none'
+		}
+		document.getElementById('tab_doc'+n).className = 'sel';
+		document.getElementById('cont_doc'+n).style.display = 'block';
+	}
+	
+	//--Проверка УИД--
+	function calcMod97(code) {
+		const modulus = 97;
+		const maxS = 999999999;
+		var a, s, c;
+		
+		s = 0;
+		for(var i = 0; i < code.length; i++) {
+			c = code[i];
+			if(/\d/.test(c)) {
+				a = c.charCodeAt() - '0'.charCodeAt();
+			}
+			else if(/[A-Z]/.test(c)) {
+				a = c.charCodeAt() - 'A'.charCodeAt() + 10;
+			}
+			else if(/[a-z]/.test(c)) {
+				a = c.charCodeAt() - 'a'.charCodeAt() + 10;
+			}
+			else {
+				a = 0;
+			}
+	
+			// Сдвигаем частичную сумму и "дописываем" очередную цифру
+			if (a >= 10) {
+				s = s * 100 + a
+			}
+			else {
+				s = s * 10 + a;
+			}
+		
+			// Чтобы избежать переполнения - берём остаток по модулю от частичной суммы
+			if (s > maxS) {
+				s = s % modulus
+			}
+		}
+	
+		var result = s % modulus;
+		
+		return result;
+	}
+	
+	function validateJuid(juid) {
+		const minJuidLen = 2;
+
+		var code = juid.replace(/\W/g, '');
+		if(code.length < minJuidLen) {
+			return false;
+		}
+		var checksum = code.substring(-2);
+		
+		// 0 <= (X % 97) <= 96
+		// 2 <= (98 - Х % 97) <= 98
+		if (checksum == '00' || checksum == '01' || checksum == '99') {
+			return false;
+		}
+		
+		if (calcMod97(code) == 1) {
+			return true;
+		}
+		
+		return false;			
+	}
+
+	//---Маска--
+	var masking = {
+		// User defined Values
+		//maskedInputs : document.getElementsByClassName('masked'), // add with IE 8's death
+		maskedInputs : document.querySelectorAll('.masked'), // kill with IE 8's death
+		maskedNumber : 'XdDmMyY9',
+		maskedLetter : '_',
+	  
+		init: function () {
+		  	masking.setUpMasks(masking.maskedInputs);
+		  	masking.maskedInputs = document.querySelectorAll('.masked'); // Repopulating. Needed b/c static node list was created above.
+		  	masking.activateMasking(masking.maskedInputs);
+		},
+	  
+		setUpMasks: function (inputs) {
+		  	var i, l = inputs.length;
+	  
+		  	for(i = 0; i < l; i++) {
+				masking.createShell(inputs[i]);
+		 	}
+		},
+		
+		// replaces each masked input with a shall containing the input and it's mask.
+		createShell : function (input) {
+		  	var text = '', 
+			  	placeholder = input.getAttribute('data-placeholder');
+	  
+			input.setAttribute('maxlength', placeholder.length);
+			/*input.setAttribute('data-placeholder', placeholder);
+			input.removeAttribute('placeholder');
+		
+			text = '<span class="shell">' +
+				'<span aria-hidden="true" id="' + input.id + 
+				'Mask"><i></i>' + placeholder + '</span>' + 
+				input.outerHTML +
+				'</span>';*/
+			text = '<span class="shell">' +
+			input.outerHTML +
+				'<span aria-hidden="true" id="' + input.id + 
+				'MaskError" class="error-mask">Неверный формат ввода</span>' +			
+				'</span>';
+				
+			input.outerHTML = text;
+		},
+	  
+		setValueOfMask : function (e) {
+		 	var value = e.target.value,
+			  	placeholder = e.target.getAttribute('data-placeholder');
+	  
+		  	return "<i>" + value + "</i>" + placeholder.substr(value.length);
+		},
+		
+		// add event listeners
+		activateMasking : function (inputs) {
+		  	var i, l;
+	  
+			for (i = 0, l = inputs.length; i < l; i++) {
+				if (masking.maskedInputs[i].addEventListener) { // remove "if" after death of IE 8
+					masking.maskedInputs[i].addEventListener('keyup', function(e) {
+						masking.handleValueChange(e);
+					}, false); 
+				} else if (masking.maskedInputs[i].attachEvent) { // For IE 8
+					masking.maskedInputs[i].attachEvent("onkeyup", function(e) {
+						e.target = e.srcElement; 
+						masking.handleValueChange(e);
+					});
+				}
+			}
+		},
+		
+		handleValueChange : function (e) {
+		  	var id = e.target.getAttribute('id');
+			  
+		  	switch (e.keyCode) { // allows navigating thru input
+				case 20: // caplocks
+				case 17: // control
+				case 18: // option
+				case 16: // shift
+				case 37: // arrow keys
+				case 38:
+				case 39:
+				case 40:
+				case  9: // tab (let blur handle tab)
+					return;
+				}
+	  
+		  	document.getElementById(id).value = masking.handleCurrentValue(e);
+		  	//document.getElementById(id + 'Mask').innerHTML = masking.setValueOfMask(e);	  
+		},
+	  
+		handleCurrentValue : function (e) {
+		  	var isCharsetPresent = e.target.getAttribute('data-charset'), 
+			  	placeholder = isCharsetPresent || e.target.getAttribute('data-placeholder'),
+			  	value = e.target.value, l = placeholder.length, newValue = '', 
+			  	i, j, isInt, isLetter, strippedValue;
+	  
+		  	// strip special characters
+		  	strippedValue = isCharsetPresent ? value.replace(/\W/g, "") : value.replace(/\D/g, "");
+	  
+		  	for (i = 0, j = 0; i < l; i++) {
+				var x = 
+				isInt = !isNaN(parseInt(strippedValue[j]));
+				isLetter = strippedValue[j] ? strippedValue[j].match(/[A-Z]/i) : false;
+				matchesNumber = masking.maskedNumber.indexOf(placeholder[i]) >= 0;
+				matchesLetter = masking.maskedLetter.indexOf(placeholder[i]) >= 0;
+	  
+				if ((matchesNumber && isInt) || (isCharsetPresent && matchesLetter && isLetter)) {	  
+						newValue += strippedValue[j++];	  
+					} else if ((!isCharsetPresent && !isInt && matchesNumber) || (isCharsetPresent && ((matchesLetter && !isLetter) || (matchesNumber && !isInt)))) {
+						//masking.errorOnKeyEntry(e); // write your own error handling function
+						return newValue; 	  
+				} else {
+					newValue += placeholder[i];
+				} 
+				// break if no characters left and the pattern is non-special character
+				if (strippedValue[j] == undefined) { 
+					break;
+				}			  
+			}
+			if (e.target.getAttribute('data-valid-example')) {
+				return masking.validateProgress(e, newValue);
+			}
+			return newValue;
+		},
+	  
+		validateProgress : function (e, value) {
+		  	var validExample = e.target.getAttribute('data-valid-example'),
+				pattern = new RegExp(e.target.getAttribute('pattern')),
+				placeholder = e.target.getAttribute('data-placeholder'),
+				l = value.length, testValue = '',
+				id = e.target.getAttribute('id'),
+				maskErrorId = document.getElementById(id + 'MaskError');
+			  
+			maskErrorId.style.display = 'block';
+			//convert to months
+			if (l == 1 && placeholder.toUpperCase().substr(0,2) == 'MM') {
+				if(value > 1 && value < 10) {
+					value = '0' + value;
+				}
+				return value;
+			}
+			// test the value, removing the last character, until what you have is a submatch
+			for ( i = l; i >= 0; i--) {
+				testValue = value + validExample.substr(value.length);
+				if(id == 'case__JUDICIAL_UIDSS' && l == 13 && placeholder.toUpperCase().substr(12,4) == 'YYYY') {
+					if(value.substr(12,1) == 1) {
+						testValue = value + '9' + validExample.substr(value.length + 1);
+					}
+					if(value.substr(12,1) == 2) {
+						testValue = value + '0' + validExample.substr(value.length + 1);
+					}
+				}
+				
+				if (pattern.test(testValue)) {
+					if(l == placeholder.length) {
+						if(id == 'case__JUDICIAL_UIDSS' && !validateJuid(value)) {
+							maskErrorId.innerHTML = 'Введеное значение УИД не прошло проверку на КЧ';
+						}
+						else {
+							maskErrorId.innerHTML = 'Неверный формат ввода';					
+							maskErrorId.style.display = 'none';
+						}
+					}
+					if(l != placeholder.length && placeholder[l] == '-') {
+						value = value + '-';
+					}
+					return value;
+				} else {
+					value = value.substr(0, value.length-1);
+				}
+			}
+			
+			return value;
+		},
+	  
+		errorOnKeyEntry : function (e) {
+		  // Write your own error handling
+		}
+	}
+	  
+	masking.init();
+	
+	function clearErrors() {
+		document.getElementById('case__JUDICIAL_UIDSSMaskError').innerHTML = 'Неверный формат ввода';
+		document.getElementById('case__JUDICIAL_UIDSSMaskError').style.display = 'none';
+	}
+	
+	function checkForm() {
+		if(document.getElementById('case__JUDICIAL_UIDSS').value !== "") {
+			pattern = new RegExp(document.getElementById('case__JUDICIAL_UIDSS').getAttribute('pattern'));
+			if(!pattern.test(document.getElementById('case__JUDICIAL_UIDSS').value)) {
+				document.getElementById('case__JUDICIAL_UIDSSMaskError').innerHTML = 'Неверный формат ввода';
+				document.getElementById('case__JUDICIAL_UIDSSMaskError').style.display = 'block';
+				event.preventDefault();
+				event.stopImmediatePropagation();
+			}
+			else if(!validateJuid(document.getElementById('case__JUDICIAL_UIDSS').value)) {
+				document.getElementById('case__JUDICIAL_UIDSSMaskError').innerHTML = 'Введеное значение УИД не прошло проверку на КЧ';
+				document.getElementById('case__JUDICIAL_UIDSSMaskError').style.display = 'block';
+				event.preventDefault();
+				event.stopImmediatePropagation();
+			}
+		}
+	}
+
+	function getInfoAndUpdateId(_n, _n1, _field) {
+		var popupDivB = document.getElementById('divFSPopupBottom');
+		var popupDivT = document.getElementById('divFSPopupTop');
+		if(popupDivB && popupDivT) {
+			fieldnam = _field;
+			n = _n;
+			n1 = _n1;
+			for(var e = 0; e < document.getElementById('calform').elements.length; e++) {//alert(fieldnam);
+				if(document.getElementById('calform').elements[e].name === fieldnam) {
+					document.getElementById('calform').elements[e].value = urlencode(n);
+					document.getElementById('calform').elements[e + 1].value = n1;
+				}
+			}
+			if(popupDivB) {
+				popupDivB.style.display = 'none';
+			}
+			popupDivT.style.display = 'none';
+			popupDivT.innerHTML = '<img src=\'/images/ajax-loader.gif\' hspace=\'217\' vspace=\'193\'>';
+		}
+	}
+</script></div>
