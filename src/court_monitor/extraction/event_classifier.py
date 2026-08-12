@@ -45,6 +45,19 @@ _SENTENCE_PATTERNS = (
     (re.compile(r"назначил наказание", re.IGNORECASE), 0.85),
 )
 
+# High-specificity appeal phrases that describe the CURRENT event.
+# These must be checked BEFORE sentence patterns because texts like
+# "Ранее осужден на 8 лет. Рассмотрена апелляционная жалоба" describe a past
+# sentence (background) and a current appeal event — the appeal is the
+# actual subject of the publication.
+_HIGH_PRIORITY_APPEAL_PATTERNS = (
+    (re.compile(r"рассмотрена апелляционная жалоба", re.IGNORECASE), 0.95),
+    (re.compile(r"апелляционный суд рассмотрел", re.IGNORECASE), 0.95),
+    (re.compile(r"апелляционная жалоба оставлена без удовлетворения", re.IGNORECASE), 0.95),
+    (re.compile(r"приговор оставлен без изменения", re.IGNORECASE), 0.95),
+    (re.compile(r"жалоба оставлена без удовлетворения", re.IGNORECASE), 0.90),
+)
+
 # "вынес постановление" без контекста — НЕ sentence. Only when followed by
 # "приговор" / "обвинительный" does it become sentence_delivered. Otherwise
 # it will be matched by _PREVENTIVE_PATTERNS or _HEARING_PATTERNS if they
@@ -76,24 +89,35 @@ _APPEAL_PATTERNS = (
 _CASE_RECEIVED_PATTERNS = ((re.compile(r"поступило уголовное дело", re.IGNORECASE), 0.95),)
 
 
-def classify_press_event(text: str) -> EventClassification:  # noqa: PLR0911
+def classify_press_event(text: str) -> EventClassification:  # noqa: PLR0911, PLR0912
     """Classify the type of court event described in a press release text.
 
     The order matters:
-      1. sentence patterns that explicitly state a verdict ("вынесен
+      1. High-priority appeal patterns — describe the CURRENT event and win
+         over background sentence references ("Ранее осужден… Рассмотрена
+         апелляционная жалоба" → appeal_decided).
+      2. Sentence patterns that explicitly state a verdict ("вынесен
          приговор", "приговорил к...", "осудил").
-      2. preventive-measure patterns — matched BEFORE "вынес постановление"
+      3. Preventive-measure patterns — matched BEFORE "вынес постановление"
          because a "постановление об избрании меры пресечения" is NOT a
          sentence (task §7).
-      3. "вынес постановление" only counts as a sentence when followed by
+      4. "вынес постановление" only counts as a sentence when followed by
          "приговор"/"обвинительный приговор".
-      4. hearing patterns ("назначено судебное заседание").
-      5. appeal patterns.
-      6. case-received patterns.
+      5. Hearing patterns ("назначено судебное заседание").
+      6. Appeal patterns (lower-specificity).
+      7. Case-received patterns.
 
     If nothing matches, return ``unknown`` — the caller treats this as
     "no confirmed decision date available".
     """
+    # High-priority appeal first — these describe the CURRENT event.
+    for pattern, confidence in _HIGH_PRIORITY_APPEAL_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            return EventClassification(
+                PressEventType.appeal_decided, confidence, m.group(0), "regex"
+            )
+
     for pattern, confidence in _SENTENCE_PATTERNS:
         m = pattern.search(text)
         if m:

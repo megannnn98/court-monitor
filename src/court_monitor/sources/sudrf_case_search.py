@@ -26,7 +26,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from court_monitor.config.loader import SourceConfig
-from court_monitor.domain.models import SourceBackend
+from court_monitor.domain.models import FetchHealth, SourceBackend
 from court_monitor.observability import get_logger
 from court_monitor.parsers.sud_delo_list import parse_case_list
 from court_monitor.sources.fixture_transport import FixtureTransport
@@ -34,6 +34,19 @@ from court_monitor.sources.http_client import HttpClient, HttpResponse
 from court_monitor.sources.sudrf_dto import SudrfCaseSearchCriteria, SudrfCaseSearchResult
 
 _log = get_logger(__name__)
+
+
+class SudrfTransportError(Exception):
+    """Base for transport-level failures during case search / card fetch."""
+
+
+class SudrfBlockedError(SudrfTransportError):
+    """The remote site returned a captcha / anti-bot wall (FetchHealth.blocked)."""
+
+
+class SudrfTemporaryError(SudrfTransportError):
+    """Transient failure (timeout, HTTP 5xx) — retry may succeed."""
+
 
 # Hidden form fields required for sud_delo search to return results.
 # Verified live on yovs.ros.sudrf.ru; required even for empty criteria.
@@ -72,6 +85,11 @@ class SudrfCaseSearchAdapter:
 
         Sends a GET request to ``/modules.php`` with form parameters matching
         the browser form submission.
+
+        Raises:
+            SudrfBlockedError: site returned CAPTCHA / anti-bot wall.
+            SudrfTemporaryError: timeout or transient HTTP error.
+            SudrfTransportError: other non-200 or non-ok responses.
         """
         _log.info(
             "sudrf.search.start",
@@ -89,6 +107,7 @@ class SudrfCaseSearchAdapter:
 
         with self._make_http_client() as client:
             response = client.get(f"{search_url}?{urlencode(params)}")
+            _raise_on_transport_error(response, context="search")
             results = self._parse_search_response(response)
 
         _log.info(
@@ -99,7 +118,13 @@ class SudrfCaseSearchAdapter:
         return results[: criteria.limit]
 
     def fetch_case_card_html(self, result: SudrfCaseSearchResult) -> str | None:
-        """Fetch HTML content of a case card."""
+        """Fetch HTML content of a case card.
+
+        Raises:
+            SudrfBlockedError: site returned CAPTCHA / anti-bot wall.
+            SudrfTemporaryError: timeout or transient HTTP error.
+            SudrfTransportError: other non-200 or non-ok responses.
+        """
         _log.info(
             "sudrf.case_card.fetch",
             backend=self.config.backend.value,
@@ -109,6 +134,8 @@ class SudrfCaseSearchAdapter:
 
         with self._make_http_client() as client:
             response = client.get(result.url.replace(" ", "%20"))
+
+        _raise_on_transport_error(response, context="case_card")
 
         if response.status != 200:
             _log.error(
@@ -180,3 +207,23 @@ class SudrfCaseSearchAdapter:
             params["U1_EVENT__EVENT_DATEDD"] = criteria.event_date.strftime("%d.%m.%Y")
 
         return params
+
+
+def _raise_on_transport_error(response: HttpResponse, *, context: str) -> None:
+    """Raise a typed exception if the response indicates a transport failure.
+
+    Only ``status == 200`` AND ``health == FetchHealth.ok`` is considered a
+    successful response. Everything else maps to a typed exception so that
+    callers (orchestrator, progressive_search) can distinguish transport
+    failures from legitimate empty results.
+    """
+    if response.health == FetchHealth.blocked:
+        raise SudrfBlockedError(f"sudrf.{context}: blocked (captcha/anti-bot) at {response.url}")
+    if response.health == FetchHealth.timeout:
+        raise SudrfTemporaryError(f"sudrf.{context}: timeout at {response.url}")
+    if response.health == FetchHealth.http_error:
+        raise SudrfTemporaryError(f"sudrf.{context}: HTTP {response.status} at {response.url}")
+    if response.status != 200:
+        raise SudrfTransportError(
+            f"sudrf.{context}: unexpected status {response.status} at {response.url}"
+        )

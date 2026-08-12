@@ -92,6 +92,31 @@ def test_press_unknown_when_no_match():
     assert cls.confidence == 0.0
 
 
+# ── mixed appeal/sentence regression (task §8) ──
+
+
+def test_press_appeal_wins_over_past_sentence():
+    """'Ранее осужден' is background; 'рассмотрена апелляционная жалоба' is current."""
+    cls = classify_press_event(
+        "Ранее Иванов был осужден на 8 лет. Рассмотрена апелляционная жалоба."
+    )
+    assert cls.event_type == PressEventType.appeal_decided
+
+
+def test_press_appeal_left_without_satisfaction():
+    """'осужден' + 'апелляционная жалоба оставлена без удовлетворения' → appeal."""
+    cls = classify_press_event(
+        "Приговором суда Иванов осужден. Апелляционная жалоба оставлена без удовлетворения."
+    )
+    assert cls.event_type == PressEventType.appeal_decided
+
+
+def test_press_plain_sentence_still_works():
+    """Regression: plain sentence without appeal context stays sentence_delivered."""
+    cls = classify_press_event("Суд осудил Иванова на 8 лет.")
+    assert cls.event_type == PressEventType.sentence_delivered
+
+
 # ── case card classification ──
 
 

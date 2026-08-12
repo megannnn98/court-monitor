@@ -81,29 +81,26 @@ class FixtureTransport:
             candidate = f"case-card-{case_uid}.html"
             if (self.root / candidate).exists():
                 return candidate
-            return "case-card-example.html"
+            # Strict: unknown case_uid → 404, NOT case-card-example fallback.
+            return None
 
-        # Article search
+        # Article search — exact match only.
         article_match = _ARTICLE_RE.search(qs or "")
         if article_match:
             article = article_match.group(1).replace(".", "-")
             candidate = f"search-result-article-{article}.html"
             if (self.root / candidate).exists():
                 return candidate
+            # Strict: unknown article → no match (will be 404).
 
-        # Case-number search
+        # Case-number search — exact match only.
         case_number_match = _CASE_NUMBER_RE.search(qs or "")
         if case_number_match:
             case_number = case_number_match.group(1).replace("/", "_")
             candidate = f"search-result-case-{case_number}.html"
             if (self.root / candidate).exists():
                 return candidate
+            # Strict: unknown case_number → no match (will be 404).
 
-        # Empty default
-        if (self.root / "search-result-empty.html").exists():
-            return "search-result-empty.html"
-
-        # Last-resort: any search-result fixture
-        for p in sorted(self.root.glob("search-result-*.html")):
-            return p.name
+        # No fallback to arbitrary search-result-*.html or case-card-example.html.
         return None

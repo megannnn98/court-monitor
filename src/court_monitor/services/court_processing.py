@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -12,6 +13,24 @@ from court_monitor.observability import get_logger
 from court_monitor.storage.orm import CourtDocumentProcessing
 
 _log = get_logger(__name__)
+
+
+@dataclass
+class CourtProcessingStats:
+    """Counters for a single court's processing batch.
+
+    Returned by ``process_all_pending_court_documents`` so callers (CLI, API)
+    can display the breakdown instead of just ``processed=N``.
+    """
+
+    processed: int = 0
+    review_created: int = 0
+    no_match: int = 0
+    temporary_failures: int = 0
+    failed: int = 0
+
+    def __int__(self) -> int:
+        return self.processed
 
 
 class ProcessingStatus:
@@ -86,11 +105,19 @@ def mark_processing_temporary_failure(
     *,
     error: str,
 ) -> None:
-    """Retryable failure. Caller should retry up to ``MAX_ATTEMPTS``."""
-    state.status = ProcessingStatus.TEMPORARY_FAILURE
+    """Retryable failure. Caller should retry up to ``MAX_ATTEMPTS``.
+
+    When ``attempt_count`` reaches ``MAX_ATTEMPTS`` the state auto-transitions
+    to ``failed`` — no more automatic retries after that.
+    """
     state.last_attempt_at = datetime.now(UTC)
     state.attempt_count += 1
     state.last_error = error
+
+    if state.attempt_count >= ProcessingStatus.MAX_ATTEMPTS:
+        state.status = ProcessingStatus.FAILED
+    else:
+        state.status = ProcessingStatus.TEMPORARY_FAILURE
     session.flush()
 
 

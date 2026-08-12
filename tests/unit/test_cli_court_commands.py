@@ -2,11 +2,29 @@
 
 from __future__ import annotations
 
+import pytest
 from typer.testing import CliRunner
 
 from court_monitor.cli.app import app
+from court_monitor.storage.orm import Base
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _isolated_db(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    """Point settings at an isolated temp SQLite DB for every CLI test."""
+    from court_monitor.config import settings as _settings_mod  # noqa: PLC0415
+
+    db_path = tmp_path / "test_cli.db"
+    db_url = f"sqlite:///{db_path}"
+    monkeypatch.setattr(_settings_mod.settings, "database_url", db_url)
+
+    from sqlalchemy import create_engine  # noqa: PLC0415
+
+    engine = create_engine(db_url, future=True)
+    Base.metadata.create_all(engine)
+    engine.dispose()
 
 
 def test_find_case_bad_date_returns_error_not_traceback() -> None:

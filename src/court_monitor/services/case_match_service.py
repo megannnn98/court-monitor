@@ -180,9 +180,9 @@ def review_case_match_candidate(
     Atomic effects on decision:
         * ``confirm``     — candidate.status = confirmed, linked ReviewItem resolved.
         * ``reject``      — candidate.status = rejected, linked ReviewItem resolved.
-        * ``insufficient`` — candidate.status stays pending, linked ReviewItem
-          resolved with a note; the candidate surfaces again the next time
-          ``list_pending_case_match_candidates`` is called.
+        * ``insufficient`` — candidate.status = insufficient, linked ReviewItem
+          resolved with a note; the candidate does NOT resurface automatically
+          (reopening requires an explicit operation).
 
     No decision auto-confirms any status from the pipeline side; only the
     operator can move a candidate out of ``pending``. Even a confidence of
@@ -202,7 +202,8 @@ def review_case_match_candidate(
         candidate.status = "confirmed"
     elif decision == CaseMatchDecision.REJECT:
         candidate.status = "rejected"
-    # INSUFFICIENT intentionally leaves ``status`` as "pending".
+    elif decision == CaseMatchDecision.INSUFFICIENT:
+        candidate.status = "insufficient"
 
     candidate.reviewed_by = actor
     candidate.reviewed_at = now

@@ -11,7 +11,7 @@ FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "sudrf-live" / "2zovs"
 
 def test_parse_case_card_example() -> None:
     """Test parsing a real case card from 2ZOV."""
-    fixture_file = FIXTURE_DIR / "case-card-example.html"
+    fixture_file = FIXTURE_DIR / "case-card-7c5401a4-de1d-497e-a034-7d6d3f6886a4.html"
     html = fixture_file.read_text(encoding="utf-8")
 
     result = parse_case_card(html, case_uid="ec9975ee-3df8-4c00-8ab0-c6620d4ffd1b")

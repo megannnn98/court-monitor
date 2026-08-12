@@ -84,7 +84,8 @@ def test_reject_sets_status_and_audit(session: Session, seed):
     assert audits[0].action == "case_match.reject"
 
 
-def test_insufficient_leaves_pending(session: Session, seed):
+def test_insufficient_sets_status_insufficient_and_resolves_review(session: Session, seed):
+    """decision=insufficient → candidate.status='insufficient', review resolved."""
     candidate = review_case_match_candidate(
         session,
         candidate_id=seed["candidate"].id,
@@ -94,9 +95,15 @@ def test_insufficient_leaves_pending(session: Session, seed):
     )
     session.commit()
 
-    # Status stays pending so the candidate resurfaces later.
-    assert candidate.status == "pending"
+    assert candidate.status == "insufficient"
+    assert candidate.reviewed_by == "op"
     assert candidate.review_comment == "Недостаточно данных"
+
+    audits = session.execute(select(AuditLog)).scalars().all()
+    assert any(a.action == "case_match.insufficient" for a in audits)
+
+    reviews = session.execute(select(ReviewItem)).scalars().all()
+    assert all(r.status == "resolved" for r in reviews)
 
 
 def test_confidence_one_still_requires_review(session: Session, seed):

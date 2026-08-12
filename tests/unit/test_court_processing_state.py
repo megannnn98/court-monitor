@@ -111,24 +111,34 @@ def test_failed_is_permanent(session: Session, doc):
 
 
 def test_temporary_failure_exhausted_transitions_to_failed(session: Session, doc):
-    """TEMPORARY_FAILURE beyond MAX_ATTEMPTS → FAILED (review §findings)."""
+    """TEMPORARY_FAILURE beyond MAX_ATTEMPTS → FAILED automatically."""
     state = get_or_create_processing_state(session, document_id=doc.id, court="2zovs")
-    for _ in range(ProcessingStatus.MAX_ATTEMPTS):
-        mark_processing_temporary_failure(session, state, error="HTTP 500")
 
+    # First two attempts: temporary_failure.
+    mark_processing_temporary_failure(session, state, error="HTTP 500")
     assert state.status == ProcessingStatus.TEMPORARY_FAILURE
+    assert state.attempt_count == 1
+
+    mark_processing_temporary_failure(session, state, error="HTTP 500")
+    assert state.status == ProcessingStatus.TEMPORARY_FAILURE
+    assert state.attempt_count == 2
+
+    # Third attempt (MAX_ATTEMPTS=3): auto-transition to FAILED.
+    mark_processing_temporary_failure(session, state, error="HTTP 500")
+    assert state.status == ProcessingStatus.FAILED
     assert state.attempt_count == ProcessingStatus.MAX_ATTEMPTS
+    assert "HTTP 500" in (state.last_error or "")
     assert should_process(state) is False
 
-    # Simulate what the orchestrator does when processing this state again:
-    if (
-        state.status == ProcessingStatus.TEMPORARY_FAILURE
-        and state.attempt_count >= ProcessingStatus.MAX_ATTEMPTS
-    ):
-        mark_processing_failed(session, state, error="max retries exhausted")
+
+def test_temporary_failure_auto_failed_prevents_fourth_attempt(session: Session, doc):
+    """After auto-failed, should_process returns False — no more retries."""
+    state = get_or_create_processing_state(session, document_id=doc.id, court="2zovs")
+    for _ in range(ProcessingStatus.MAX_ATTEMPTS):
+        mark_processing_temporary_failure(session, state, error="timeout")
 
     assert state.status == ProcessingStatus.FAILED
-    assert "max retries exhausted" in (state.last_error or "")
+    assert should_process(state) is False
 
 
 def test_document_scoped_per_version(session: Session, doc):

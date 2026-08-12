@@ -142,27 +142,27 @@ def test_press_release_creates_case_pipeline_without_manual_models(
     # Case was created (press fixture search → case card fixture).
     assert after["cases"] > before["cases"], "pipeline did not create a Case"
     # CaseParticipant was created (from case card persons section).
-    assert (
-        after["case_participants"] > before["case_participants"]
-    ), "pipeline did not create a CaseParticipant"
+    assert after["case_participants"] > before["case_participants"], (
+        "pipeline did not create a CaseParticipant"
+    )
     # CourtEvent(s) were created (from case card events section).
     assert after["court_events"] > before["court_events"], "pipeline did not create a CourtEvent"
     # At least one candidate + review item (score=0.2 on fixture, but non-zero
     # because article 205.1 matches via signal).
     assert after["case_match_candidates"] >= 1, "pipeline did not create any CaseMatchCandidate"
-    assert (
-        after["review_items"] >= 1
-    ), "pipeline did not create any ReviewItem linked to the candidate"
+    assert after["review_items"] >= 1, (
+        "pipeline did not create any ReviewItem linked to the candidate"
+    )
     # Candidate status stays pending (task §13).
     candidates = db.execute(select(CaseMatchCandidate)).scalars().all()
-    assert all(
-        c.status == "pending" for c in candidates
-    ), "candidate auto-confirmed — violates task §13"
+    assert all(c.status == "pending" for c in candidates), (
+        "candidate auto-confirmed — violates task §13"
+    )
     # ReviewItem has case_match_candidate_id populated (task §10).
     reviews = db.execute(select(ReviewItem)).scalars().all()
-    assert any(
-        r.case_match_candidate_id is not None for r in reviews
-    ), "ReviewItem not linked to CaseMatchCandidate — task §10 regression"
+    assert any(r.case_match_candidate_id is not None for r in reviews), (
+        "ReviewItem not linked to CaseMatchCandidate — task §10 regression"
+    )
 
 
 # ── task §19: second run idempotency ──
@@ -186,15 +186,15 @@ def test_second_pipeline_run_creates_no_duplicates(db: Session, court_cfg: Sourc
     # (The source_documents table may grow by the per-case-card
     # SourceDocument, but it is idempotent on content_hash.)
     assert after_second["cases"] == after_first["cases"], "duplicate Cases on second run"
-    assert (
-        after_second["case_participants"] == after_first["case_participants"]
-    ), "duplicate CaseParticipant rows on second run"
-    assert (
-        after_second["court_events"] == after_first["court_events"]
-    ), "duplicate CourtEvent rows on second run"
-    assert (
-        after_second["case_match_candidates"] == after_first["case_match_candidates"]
-    ), "duplicate CaseMatchCandidate rows on second run"
+    assert after_second["case_participants"] == after_first["case_participants"], (
+        "duplicate CaseParticipant rows on second run"
+    )
+    assert after_second["court_events"] == after_first["court_events"], (
+        "duplicate CourtEvent rows on second run"
+    )
+    assert after_second["case_match_candidates"] == after_first["case_match_candidates"], (
+        "duplicate CaseMatchCandidate rows on second run"
+    )
 
 
 # ── task §14/§15: processing state end-to-end ──
@@ -209,7 +209,7 @@ def test_process_all_creates_processing_state_and_marks_success(
     processed = process_all_pending_court_documents(db, court_name="2zovs", force_live=False)
     db.commit()
 
-    assert processed >= 1
+    assert processed.processed >= 1
     states = db.execute(select(CourtDocumentProcessing)).scalars().all()
     assert states
     state = states[0]

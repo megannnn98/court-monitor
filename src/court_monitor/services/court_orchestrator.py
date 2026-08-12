@@ -21,6 +21,7 @@ from court_monitor.parsers.sud_delo import parse_case_card
 from court_monitor.services.case_match_service import create_case_match_candidate
 from court_monitor.services.case_persistence import persist_case_card
 from court_monitor.services.court_processing import (
+    CourtProcessingStats,
     ProcessingStatus,
     get_or_create_processing_state,
     mark_processing_failed,
@@ -198,6 +199,9 @@ def progressive_search(
     function returns the ordered list of results plus the list of attempts so
     the orchestrator can emit the audit trail.
     """
+    from court_monitor.sources.sudrf_case_search import (  # noqa: PLC0415
+        SudrfTransportError,
+    )
     from court_monitor.sources.sudrf_dto import (  # noqa: PLC0415
         SudrfCaseSearchCriteria,
     )
@@ -205,6 +209,8 @@ def progressive_search(
     attempts: list[SearchAttempt] = []
     seen_keys: set[tuple[str | None, str | None]] = set()
     results: list[SudrfCaseSearchResult] = []
+    any_successful_search = False
+    last_transport_error: Exception | None = None
 
     strategies: list[tuple[str, SudrfCaseSearchCriteria]] = []
 
@@ -226,16 +232,6 @@ def progressive_search(
                     SudrfCaseSearchCriteria(court=court, article=article),
                 )
             )
-            strategies.append(
-                (
-                    "article_publication_date",
-                    SudrfCaseSearchCriteria(
-                        court=court,
-                        article=article,
-                        result_date=publication_date_hint,
-                    ),
-                )
-            )
 
     if person_name and article is not None:
         strategies.append(
@@ -252,15 +248,17 @@ def progressive_search(
     for strategy_name, criteria in strategies:
         try:
             found = adapter.search(criteria)
-        except Exception as e:  # pragma: no cover - transport-level failure
+        except SudrfTransportError as e:
             _log.warning(
                 "progressive_search.error",
                 strategy=strategy_name,
                 error=str(e),
             )
             attempts.append(SearchAttempt(strategy_name, criteria, 0, error=str(e)))
+            last_transport_error = e
             continue
 
+        any_successful_search = True
         attempts.append(SearchAttempt(strategy_name, criteria, len(found)))
 
         for r in found:
@@ -272,6 +270,9 @@ def progressive_search(
 
         if results:
             break
+
+    if not any_successful_search and last_transport_error is not None:
+        raise last_transport_error
 
     _log.info(
         "progressive_search.summary",
@@ -471,7 +472,7 @@ def process_all_pending_court_documents(
     *,
     force_live: bool = False,
     reprocess: bool = False,
-) -> int:
+) -> CourtProcessingStats:
     """Process all pending court press release documents.
 
     With ``force_live=True`` the court source's backend is switched to ``http``
@@ -480,11 +481,14 @@ def process_all_pending_court_documents(
 
     With ``reprocess=True`` documents in ``processed_no_match`` are re-run;
     otherwise they are skipped (task §14).
+
+    Returns:
+        :class:`CourtProcessingStats` with per-status counters.
     """
     court_config = get_source(court_name)
     if not court_config:
         _log.error("orchestrator.court_not_found", court=court_name)
-        return 0
+        return CourtProcessingStats()
 
     if force_live and court_config.backend != SourceBackend.http:
         court_config = _dcreplace(court_config, backend=SourceBackend.http)
@@ -512,27 +516,40 @@ def process_all_pending_court_documents(
 
     _log.info("orchestrator.pending", court=court_name, count=len(to_process))
 
-    processed = 0
+    stats = CourtProcessingStats()
     for doc, state in to_process:
         try:
             process_court_press_document(session, doc, court_config, processing_state=state)
-            processed += 1
+            stats.processed += 1
+            if state.status == ProcessingStatus.REVIEW_CREATED:
+                stats.review_created += 1
+            elif state.status == ProcessingStatus.PROCESSED_NO_MATCH:
+                stats.no_match += 1
         except Exception as exc:
             _log.exception(
                 "orchestrator.document_error",
                 document_id=doc.id,
                 error=str(exc),
             )
-            if (
+            if state.status == ProcessingStatus.FAILED:
+                stats.failed += 1
+            elif state.status == ProcessingStatus.TEMPORARY_FAILURE:
+                stats.temporary_failures += 1
+            elif (
                 state.status not in ProcessingStatus.TERMINAL
                 and state.status != ProcessingStatus.TEMPORARY_FAILURE
             ):
                 mark_processing_failed(session, state, error=str(exc))
+                stats.failed += 1
 
     _log.info(
         "orchestrator.batch_complete",
         court=court_name,
-        processed=processed,
+        processed=stats.processed,
+        review_created=stats.review_created,
+        no_match=stats.no_match,
+        temporary_failures=stats.temporary_failures,
+        failed=stats.failed,
         total=len(to_process),
     )
-    return processed
+    return stats

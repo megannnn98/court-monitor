@@ -469,14 +469,15 @@ def _run_court_stage(engine, *, live: bool) -> None:
     for court in courts:
         try:
             with session_scope(engine) as session:
-                processed = process_all_pending_court_documents(
+                stats = process_all_pending_court_documents(
                     session, court_name=court.name, force_live=live
                 )
-            typer.secho(
-                f"  ✓ {court.name}: processed={processed}",
-                fg=typer.colors.GREEN,
-                bold=True,
-            )
+            typer.secho(f"  {court.name}:", bold=True)
+            typer.secho(f"    processed={stats.processed}")
+            typer.secho(f"    review={stats.review_created}")
+            typer.secho(f"    no_match={stats.no_match}")
+            typer.secho(f"    temporary_failure={stats.temporary_failures}")
+            typer.secho(f"    failed={stats.failed}")
         except Exception as exc:
             typer.secho(
                 f"  ✗ {court.name}: ОШИБКА {type(exc).__name__}: {exc}",
@@ -811,10 +812,14 @@ def process_court_cases(
 
     engine = make_engine()
     with session_scope(engine) as session:
-        processed = process_all_pending_court_documents(
+        stats = process_all_pending_court_documents(
             session, court_name=court, force_live=live, reprocess=reprocess
         )
-    typer.echo(f"Обработано документов: {processed}")
+    typer.echo(f"Обработано документов: {stats.processed}")
+    typer.echo(f"  review_created={stats.review_created}")
+    typer.echo(f"  no_match={stats.no_match}")
+    typer.echo(f"  temporary_failure={stats.temporary_failures}")
+    typer.echo(f"  failed={stats.failed}")
 
 
 @app.command(name="run-web")
