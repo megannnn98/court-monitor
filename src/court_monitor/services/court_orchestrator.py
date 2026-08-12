@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 from datetime import datetime
 
 from sqlalchemy import select
@@ -67,10 +66,17 @@ def process_court_press_document(
         # Try to parse date
         date_str = date_facts[0].value.get("date")
         if date_str:
-            with contextlib.suppress(ValueError, TypeError):
+            try:
                 decision_date = datetime.fromisoformat(date_str).date()
+            except (ValueError, TypeError):
+                _log.warning(
+                    "orchestrator.date_parse_failed",
+                    document_id=document.id,
+                    date_str=date_str,
+                )
 
-    person_name = name_facts[0].value if name_facts else None
+    # Prefer name closest to article mention in text, fall back to first name
+    person_name = _pick_person_name(name_facts, article_facts, extraction_text)
 
     _log.info(
         "orchestrator.extracted",
@@ -104,10 +110,12 @@ def process_court_press_document(
         )
         return []
 
-    # Step 3-6: Process each search result
+    # Step 3-6: Process each search result (limit to prevent excessive fetches)
+    MAX_RESULTS = 5
     matched_cases: list[Case] = []
+    court_name = court_config.court_name or court_config.name
 
-    for result in search_results:
+    for result in search_results[:MAX_RESULTS]:
         try:
             # Fetch case card HTML
             case_html = adapter.fetch_case_card_html(result)
@@ -118,7 +126,7 @@ def process_court_press_document(
             parsed_card = parse_case_card(
                 case_html,
                 case_uid=result.case_uid,
-                court=court_config.court_name,
+                court=court_name,
             )
 
             # Persist case and events
@@ -126,14 +134,14 @@ def process_court_press_document(
                 session,
                 parsed_card,
                 source_url=result.url,
-                court_name=court_config.court_name,
+                court_name=court_name,
             )
 
             # Match press release to case
             match_result = match_press_release_to_case(
                 article=article,
                 decision_date=decision_date,
-                court=court_config.court_name,
+                court=court_name,
                 person_name=person_name,
                 case_card=parsed_card,
             )
@@ -145,6 +153,9 @@ def process_court_press_document(
                 case=case,
                 match_result=match_result,
             )
+
+            # Commit after each completed case to isolate failures
+            session.commit()
 
             _log.info(
                 "orchestrator.case_matched",
@@ -234,3 +245,42 @@ def process_all_pending_court_documents(
     )
 
     return processed
+
+
+def _pick_person_name(
+    name_facts: list,
+    article_facts: list,
+    text: str,
+) -> str | None:
+    """Pick the person name most likely to be the defendant.
+
+    Heuristic: prefers the name closest to the first article mention in text.
+    Falls back to the first extracted name if no article context is available.
+    """
+    if not name_facts:
+        return None
+
+    if not article_facts:
+        return name_facts[0].value if name_facts else None
+
+    article_quote = article_facts[0].quote
+    if not article_quote:
+        return name_facts[0].value
+
+    article_pos = text.find(article_quote)
+    if article_pos < 0:
+        return name_facts[0].value
+
+    best_name: str | None = None
+    best_distance = float("inf")
+
+    for nf in name_facts:
+        name_str = str(nf.value) if nf.value else ""
+        name_pos = text.find(name_str)
+        if name_pos >= 0:
+            dist = abs(name_pos - article_pos)
+            if dist < best_distance:
+                best_distance = dist
+                best_name = name_str
+
+    return best_name or (name_facts[0].value if name_facts else None)

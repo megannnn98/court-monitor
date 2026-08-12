@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from court_monitor.config.loader import SourceConfig
+from court_monitor.domain.models import FetchHealth
 from court_monitor.observability import get_logger
 from court_monitor.parsers.sud_delo_list import parse_case_list
 from court_monitor.sources.http_client import HttpClient
@@ -45,16 +46,20 @@ class SudrfCaseSearchAdapter:
         )
 
         # Fetch case list from main sud_delo page
+        # NOTE: This is a workaround — the page only shows cases scheduled for
+        # today. Past decisions will not be found. Full search requires
+        # Playwright (see docs/sudrf-case-search-discovery.md).
         case_list_url = f"{self.base_url}/modules.php?name=sud_delo&srv_num=1"
 
         with HttpClient() as client:
             response = client.get(case_list_url)
 
-            if response.status != 200:
+            if response.status != 200 or response.health != FetchHealth.ok:
                 _log.error(
                     "sudrf.search.http_error",
                     url=case_list_url,
                     status=response.status,
+                    health=str(response.health),
                 )
                 return []
 
@@ -119,11 +124,12 @@ class SudrfCaseSearchAdapter:
         with HttpClient() as client:
             response = client.get(result.url)
 
-            if response.status != 200:
+            if response.status != 200 or response.health != FetchHealth.ok:
                 _log.error(
                     "sudrf.case_card.http_error",
                     url=result.url,
                     status=response.status,
+                    health=str(response.health),
                 )
                 return None
 

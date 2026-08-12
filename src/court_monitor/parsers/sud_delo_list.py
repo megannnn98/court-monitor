@@ -9,11 +9,11 @@ from selectolax.parser import HTMLParser
 
 from court_monitor.sources.sudrf_dto import SudrfCaseSearchResult
 
-# Regex to extract case card URL parameters
-_CASE_URL_RE = re.compile(
-    r"name=sud_delo.*?case_id=(\d+).*?case_uid=([a-f0-9-]+).*?delo_id=(\d+)",
-    re.IGNORECASE,
-)
+# Regex to extract case card URL parameters (order-independent)
+_CASE_ID_RE = re.compile(r"case_id=(\d+)", re.IGNORECASE)
+_CASE_UID_RE = re.compile(r"case_uid=([a-f0-9-]+)", re.IGNORECASE)
+_DELO_ID_RE = re.compile(r"delo_id=(\d+)", re.IGNORECASE)
+_SRV_NUM_RE = re.compile(r"srv_num=(\d+)", re.IGNORECASE)
 
 # Regex to extract case number from link text
 _CASE_NUMBER_RE = re.compile(r"(\d+-\d+/\d+|\d+К-\d+/\d+)")
@@ -46,17 +46,19 @@ def parse_case_list(html: str, base_url: str) -> ParsedCaseList:
         if not href:
             continue
 
-        # Extract parameters from URL
-        match = _CASE_URL_RE.search(href)
-        if not match:
+        # Extract parameters from URL (order-independent)
+        case_id_match = _CASE_ID_RE.search(href)
+        case_uid_match = _CASE_UID_RE.search(href)
+        delo_id_match = _DELO_ID_RE.search(href)
+        if not case_id_match or not case_uid_match or not delo_id_match:
             continue
 
-        case_id = match.group(1)
-        case_uid = match.group(2)
-        delo_id = match.group(3)
+        case_id = case_id_match.group(1)
+        case_uid = case_uid_match.group(1)
+        delo_id = delo_id_match.group(1)
 
         # Extract srv_num from URL (usually 1)
-        srv_num_match = re.search(r"srv_num=(\d+)", href)
+        srv_num_match = _SRV_NUM_RE.search(href)
         srv_num = srv_num_match.group(1) if srv_num_match else "1"
 
         # Extract case number from link text

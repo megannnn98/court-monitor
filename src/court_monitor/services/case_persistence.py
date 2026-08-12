@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from court_monitor.matching.case_matching import _is_decision_event
@@ -53,13 +55,12 @@ def persist_case_card(
     created = case is None
 
     if created:
-        # Create new case
         case = Case(
             court=court_name,
             case_number=parsed_card.case_number or "",
             case_uid=parsed_card.case_uid,
             received_at=parsed_card.received_at,
-            decision_at=None,  # Will be set from events
+            decision_at=None,
             source_url=source_url,
             judge=parsed_card.judge,
             first_instance_court=parsed_card.first_instance_court,
@@ -68,7 +69,7 @@ def persist_case_card(
             status="active",
         )
         session.add(case)
-        session.flush()  # Get case.id
+        session.flush()
 
         _log.info(
             "case.persisted.created",
@@ -78,8 +79,9 @@ def persist_case_card(
             court=case.court,
         )
     else:
-        # Update existing case
-        case.received_at = parsed_card.received_at or case.received_at
+        assert case is not None  # created=False implies case was found
+        if parsed_card.received_at:
+            case.received_at = datetime.combine(parsed_card.received_at, datetime.min.time())
         case.source_url = source_url
         case.judge = parsed_card.judge or case.judge
         case.first_instance_court = parsed_card.first_instance_court or case.first_instance_court
@@ -95,15 +97,11 @@ def persist_case_card(
             case_number=case.case_number,
         )
 
-    # Persist events
-    persist_case_events(session, case, parsed_card)
-
-    # Determine decision_at from events
-    _update_decision_at(session, case)
-
-    session.commit()
-
-    return case, created
+    case_db: Case = case
+    persist_case_events(session, case_db, parsed_card)
+    _update_decision_at(session, case_db)
+    session.flush()
+    return case_db, created
 
 
 def persist_case_events(
@@ -127,14 +125,22 @@ def persist_case_events(
     skipped_count = 0
 
     for event in parsed_card.events:
-        # Check if event already exists (using composite key)
+        # Check if event already exists (using composite key with NULL-safe comparison)
+        dedup_conditions: list = [
+            CourtEvent.case_id == case.id,
+            CourtEvent.event_type == event.event_type,
+        ]
+        if event.event_date is not None:
+            dedup_conditions.append(CourtEvent.event_date == event.event_date)
+        else:
+            dedup_conditions.append(CourtEvent.event_date.is_(None))
+        if event.event_time is not None:
+            dedup_conditions.append(CourtEvent.event_time == event.event_time)
+        else:
+            dedup_conditions.append(CourtEvent.event_time.is_(None))
+
         existing = session.execute(
-            select(CourtEvent).where(
-                CourtEvent.case_id == case.id,
-                CourtEvent.event_type == event.event_type,
-                CourtEvent.event_date == event.event_date,
-                CourtEvent.event_time == event.event_time,
-            )
+            select(CourtEvent).where(and_(*dedup_conditions))
         ).scalar_one_or_none()
 
         if existing:

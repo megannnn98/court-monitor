@@ -71,7 +71,6 @@ def create_case_match_candidate(
     conflicts_json = json.dumps(match_result.conflicts)
 
     if created:
-        # Create new candidate
         candidate = CaseMatchCandidate(
             source_document_id=source_document.id,
             case_id=case.id,
@@ -91,23 +90,22 @@ def create_case_match_candidate(
             score=candidate.score,
         )
     else:
-        # Update existing candidate
+        assert existing is not None
         existing.score = match_result.confidence
         existing.signals_json = signals_json
         existing.missing_json = missing_json
         existing.conflicts_json = conflicts_json
+        candidate = existing
 
         _log.info(
             "case_match_candidate.updated",
-            candidate_id=existing.id,
+            candidate_id=candidate.id,
             source_document_id=source_document.id,
             case_id=case.id,
-            score=existing.score,
+            score=candidate.score,
         )
 
-        candidate = existing
-
-    session.commit()
+    session.flush()
 
     return candidate, created
 
