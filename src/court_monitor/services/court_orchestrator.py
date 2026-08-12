@@ -163,8 +163,9 @@ def _apply_outcome_to_state(
         return
 
     # Cards were fetched — check if any were evaluated vs failed.
-    all_cards_failed = outcome.cards_evaluated == 0 and outcome.cards_transport_failed > 0
-    partial_failure = outcome.cards_transport_failed > 0 and outcome.cards_evaluated > 0
+    total_card_failures = outcome.cards_transport_failed + outcome.cards_parse_failed
+    all_cards_failed = outcome.cards_evaluated == 0 and total_card_failures > 0
+    partial_failure = total_card_failures > 0 and outcome.cards_evaluated > 0
 
     if all_cards_failed:
         error = str(outcome.last_transport_error or "all case cards failed")
@@ -177,7 +178,7 @@ def _apply_outcome_to_state(
     if partial_failure and candidate_count == 0:
         error = (
             f"partial card failure: {outcome.cards_evaluated} evaluated, "
-            f"{outcome.cards_transport_failed} failed, no candidate found"
+            f"{total_card_failures} failed, no candidate found"
         )
         mark_processing_temporary_failure(session, state, error=error)
         return

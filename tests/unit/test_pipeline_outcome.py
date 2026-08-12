@@ -121,3 +121,32 @@ def test_no_search_criteria(session: Session, doc):
     _apply_outcome_to_state(session, state, outcome, doc.id)
     assert state.status == ProcessingStatus.FAILED
     assert state.status != ProcessingStatus.PROCESSED_NO_MATCH
+
+
+def test_all_cards_parse_failed(session: Session, doc):
+    """All cards failed with parse errors → temporary_failure, NOT no_match."""
+    state = get_or_create_processing_state(session, document_id=doc.id, court="2zovs")
+    outcome = PipelineOutcome(
+        search_succeeded=True,
+        search_result_count=3,
+        cards_evaluated=0,
+        cards_transport_failed=0,
+        cards_parse_failed=3,
+    )
+    _apply_outcome_to_state(session, state, outcome, doc.id)
+    assert state.status == ProcessingStatus.TEMPORARY_FAILURE
+    assert state.status != ProcessingStatus.PROCESSED_NO_MATCH
+
+
+def test_partial_parse_failure_no_candidate(session: Session, doc):
+    """Partial parse failure, no candidate → temporary_failure."""
+    state = get_or_create_processing_state(session, document_id=doc.id, court="2zovs")
+    outcome = PipelineOutcome(
+        search_succeeded=True,
+        search_result_count=3,
+        cards_evaluated=2,
+        cards_transport_failed=0,
+        cards_parse_failed=1,
+    )
+    _apply_outcome_to_state(session, state, outcome, doc.id)
+    assert state.status == ProcessingStatus.TEMPORARY_FAILURE
