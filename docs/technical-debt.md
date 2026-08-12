@@ -161,3 +161,107 @@
   `tests/integration/test_source_blocked_review_item.py` (wiring в
   `process_source`/`process_registry_source`, идемпотентность), плюс
   расширенные тесты `upsert_review_item` на dedup по `source_id`.
+
+## Court case monitoring — deferred correctness issues
+
+> Эти пункты сознательно отложены. Они не являются blockers для текущего merge
+> court-case-monitoring. Возвращаться к ним следует отдельным этапом после merge,
+> если не появится regression, делающий один из пунктов production blocker.
+
+### CM-KI-001 — Search not attempted can be confused with no-match
+
+- **Описание.** Edge case: `article=None`, `person_name!=None`. `_run_press_pipeline()`
+  считает что поисковые критерии потенциально есть, но `progressive_search()` может
+  не создать ни одной стратегии, потому что person search используется только вместе
+  с article.
+- **Влияние.** 0 реальных search requests → empty result → потенциально `processed_no_match`.
+- **Приоритет.** Medium.
+- **Решение.** Добавить person-only search, либо explicit `insufficient_search_criteria`,
+  либо `SearchOutcome.attempted`.
+- **Инвариант.** `processed_no_match` допустим только если минимум один remote search
+  действительно успешно выполнен.
+
+### CM-KI-002 — Search-result truncation / incomplete result set
+
+- **Описание.** Remote search DTO допускает limit до 20, а orchestrator исторически
+  имел ограничение количества обрабатываемых case cards.
+- **Влияние.** `processed_no_match` нельзя ставить если часть найденной выдачи не
+  была проверена.
+- **Приоритет.** Medium.
+- **Решение.** Проверить pagination `sud_delo`: есть ли pager, `has_more`, total count,
+  возвращается ли вся выдача одной страницей.
+- **Инвариант.** `processed_no_match` = search exhaustive AND all returned candidates
+  evaluated AND no card failures AND no match candidates.
+
+### CM-KI-003 — Unknown HTTP 200 search HTML may be interpreted as empty result
+
+- **Описание.** `parse_case_list()` сейчас в основном извлекает ссылки на карточки.
+  Если сайт вернёт HTTP 200, FetchHealth.ok, но изменившийся/неожиданный HTML и case
+  links не будут найдены, это может выглядеть как пустая выдача.
+- **Влияние.** Structural HTML changes могут маскироваться под "ничего не найдено".
+- **Приоритет.** Medium.
+- **Решение.** Различать: (1) recognized empty result page, (2) recognized non-empty
+  result page, (3) unrecognized/structurally changed HTML. Третий вариант должен быть
+  parser/structural failure, а не no-match.
+- **API.** `ParsedCaseList` с полями `recognized`, `empty_confirmed`, `has_more`, `results`,
+  или typed parser exception.
+
+### CM-KI-004 — Case-card parser lacks strong structural validation
+
+- **Описание.** `parse_case_card()` может вернуть почти пустой `ParsedCaseCard`, если
+  HTML структуры ГАС изменятся.
+- **Влияние.** Невалидные карточки могут быть помечены как "успешно обработанные".
+- **Приоритет.** Medium.
+- **Решение.** Добавить recognition/invariants перед тем как считать карточку успешно
+  evaluated. Не требовать наличие ФИО или events (могут быть скрыты), но проверять
+  хотя бы признаки настоящей `sud_delo` case card.
+- **Тесты.** valid real card → recognized; generic HTML → structural failure;
+  search-result HTML passed as card → structural failure.
+
+### CM-KI-005 — Court processing statistics semantics
+
+- **Описание.** CLI counters должны однозначно различать: attempted, review_created,
+  processed_no_match, temporary_failure, failed.
+- **Влияние.** Особенно сценарии где `_apply_outcome_to_state()` меняет state без
+  выбрасывания exception.
+- **Приоритет.** Low.
+- **Решение.** CLI/statistics должны отражать фактический final processing state, а не
+  только факт возврата функции.
+
+### CM-KI-006 — Case-card version update regression test
+
+- **Описание.** Добавить E2E тест: card version 1 (result отсутствует) → card version 2
+  (result = "Вынесен приговор").
+- **Ожидание.** Case остаётся один, CourtEvent identity остаётся одна, mutable result
+  обновляется, decision_at обновляется, новая SourceDocument version сохраняется,
+  дублей нет.
+- **Приоритет.** Medium.
+- **Решение.** Логика уже частично реализована, но regression test отсутствует.
+
+### CM-KI-007 — Participant structural change review
+
+- **Описание.** Сценарий: version 1 ("Информация скрыта") → version 2 ("Иванов Иван Иванович").
+  Нельзя автоматически утверждать что это один и тот же participant.
+- **Влияние.** Автоматическое слияние может привести к некорректным данным.
+- **Приоритет.** Medium.
+- **Решение.** Создавать human-review item с diff участников, а не автоматически сливать.
+
+### CM-KI-008 — Press crawler fixture parity / incremental traversal
+
+- **Описание.** Отложенные проблемы press crawler:
+  - fixture mode не полностью повторяет live archive traversal;
+  - incremental traversal / watermark требует отдельной проверки порядка archive;
+  - нельзя делать unsafe `break` на первом known ID без доказанного ordering.
+- **Влияние.** Не относится напрямую к готовности текущего court-case vertical slice.
+- **Приоритет.** Low/medium.
+
+## Checklist — deferred court monitoring issues
+
+- [ ] CM-KI-001 — Search not attempted vs no-match
+- [ ] CM-KI-002 — Search-result truncation
+- [ ] CM-KI-003 — Unknown HTML as empty result
+- [ ] CM-KI-004 — Case-card structural validation
+- [ ] CM-KI-005 — Processing statistics semantics
+- [ ] CM-KI-006 — Case-card version update test
+- [ ] CM-KI-007 — Participant structural change review
+- [ ] CM-KI-008 — Press crawler fixture parity

@@ -1,4 +1,4 @@
-"""Domain enums.
+"""Domain enums and constants.
 
 These are the only "shared vocabulary" allowed to cross layer boundaries.
 Storage, sources, extraction and review layers import from here; the reverse
@@ -14,6 +14,15 @@ from enum import StrEnum
 # It lives here rather than next to any one of them because all three would
 # otherwise have to import from each other's layer.
 PERSON_NAME_FIELD = "full_name_original"
+
+# Date tolerance for matching (in days). Used by case matching and search.
+DATE_TOLERANCE_DAYS = 7
+
+# Version tag stamped on every CourtDocumentProcessing row. Bump when the
+# matching/extraction logic changes enough to make older decisions obsolete
+# (``court-v2``, etc.) — a different version re-runs the pipeline on the same
+# document instead of treating older results as current.
+COURT_PIPELINE_VERSION = "court-v1"
 
 
 class VerificationStatus(StrEnum):

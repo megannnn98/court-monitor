@@ -4,6 +4,11 @@ Generic selectors covering the common platform layout and our synthetic
 fixtures. Selectors are deliberately multi-candidate with safe fallbacks so a
 minor markup change does not break extraction outright; full structural-change
 handling (versioned parser + ReviewItem) is layered on top in Etap 2.
+
+Real sudrf HTML structure (ГАС "Правосудие"):
+  - Title: ``#tdNewsDetailedTitle.printVersionTitle``
+  - Body: ``td.printVersionBody``
+  - Date: ``div.outputArea.publishInfo`` containing "опубликовано DD.MM.YYYY HH:MM (МСК)"
 """
 
 from __future__ import annotations
@@ -16,10 +21,12 @@ from selectolax.parser import HTMLParser
 
 from court_monitor.extraction.dates import parse_russian_date
 
-PARSER_VERSION = "sudrf-press-0.1"
+PARSER_VERSION = "sudrf-press-0.2"
 
 # Candidate selectors, tried in order. First match wins.
 _TITLE_SELECTORS = (
+    "#tdNewsDetailedTitle",
+    "td.printVersionTitle",
     "h1.press-title",
     "h1",
     ".press_title",
@@ -27,6 +34,7 @@ _TITLE_SELECTORS = (
     "title",
 )
 _DATE_SELECTORS = (
+    "div.outputArea.publishInfo",
     "time.press-date",
     ".press-date",
     ".press_date",
@@ -34,6 +42,7 @@ _DATE_SELECTORS = (
     "time[datetime]",
 )
 _BODY_SELECTORS = (
+    "td.printVersionBody",
     ".press-body",
     ".press_body",
     "#news .b-text",
@@ -41,6 +50,8 @@ _BODY_SELECTORS = (
     "article",
     "body",
 )
+
+_PUBLISH_DATE_RE = re.compile(r"опубликовано\s+(\d{2}\.\d{2}\.\d{4})")
 
 
 @dataclass
@@ -62,7 +73,8 @@ def parse_press_release(html: str) -> ParsedPressRelease:
     if dt_attr:
         published_at = parse_russian_date(dt_attr)
     if published_at is None and date_raw:
-        published_at = parse_russian_date(date_raw)
+        match = _PUBLISH_DATE_RE.search(date_raw)
+        published_at = parse_russian_date(match.group(1)) if match else parse_russian_date(date_raw)
 
     body_node = _first_node(tree, _BODY_SELECTORS)
     if body_node is not None:

@@ -5,25 +5,36 @@
 sources:
   - name: "2zovs"
     type: "sudrf"
-    backend: "fixture"
-    base_url: "https://2zovs.sudrf.ru"
-    # Module paths to probe (platform ГАС "Правосудие"). Confirm per-court.
+    backend: "fixture"  # TODO: change to "http" after press crawler implementation
+    base_url: "https://2zovs.msk.sudrf.ru"
+    # Module paths to probe (platform ГАС "Правосудие").
+    # press_dep = Пресс-служба (новости), sud_delo = Судебное делопроизводство
     paths:
-      - "/modules.php?name=press"
+      - "/modules.php?name=press_dep&op=1"  # Новости
     # Fixture mode: directory with *.html sample pages.
-    fixture_path: "tests/fixtures/html"
+    fixture_path: "tests/fixtures/sudrf-live/2zovs/press"
     parser: "sudrf_press"
     enabled: true
+    # Court metadata
+    court_name: "2-й Западный окружной военный суд"
+    court_region: "Москва"
+    press_module: "press_dep"
+    case_module: "sud_delo"
 
-  - name: "uovs"
+  - name: "yovs"
     type: "sudrf"
-    backend: "fixture"
-    base_url: "https://uovs.sudrf.ru"
+    backend: "fixture"  # TODO: change to "http" after press crawler implementation
+    base_url: "https://yovs.ros.sudrf.ru"
     paths:
-      - "/modules.php?name=press"
-    fixture_path: "tests/fixtures/html"
+      - "/modules.php?name=press_dep&op=1"  # Новости
+    fixture_path: "tests/fixtures/sudrf-live/yovs/press"
     parser: "sudrf_press"
     enabled: true
+    # Court metadata
+    court_name: "Южный окружной военный суд"
+    court_region: "Ростов-на-Дону"
+    press_module: "press_dep"
+    case_module: "sud_delo"
 
 # Airtable integration. read_only until mapping is validated (see docs/airtable-discovery.md).
 airtable:

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import PERSON_NAME_FIELD, ParserStatus
 from court_monitor.normalization import normalize_fio
+from court_monitor.sources.base import content_hash, normalize_text
 from court_monitor.storage.orm import (
     AuditLog,
     ExtractedFact,
@@ -109,6 +110,39 @@ def upsert_document(session: Session, doc: SourceDocument) -> SourceDocument:
     return doc
 
 
+def upsert_document_html(
+    session: Session,
+    *,
+    url: str,
+    html: str,
+    source_name: str,
+    source_type: str,
+) -> SourceDocument:
+    """Save case card HTML as a SourceDocument. Idempotent by URL+content_hash."""
+    ch = content_hash(html)
+    existing = session.execute(
+        select(SourceDocument).where(
+            SourceDocument.url == url,
+            SourceDocument.content_hash == ch,
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+    doc = SourceDocument(
+        url=url,
+        source_type=source_type,
+        source_name=source_name,
+        content=html,
+        text=normalize_text(html),
+        content_hash=ch,
+        parser_status=ParserStatus.parsed.value,
+        parser_version="sud-delo-0.1",
+    )
+    session.add(doc)
+    session.flush()
+    return doc
+
+
 def add_facts_from_dtos(
     session: Session, document_id: int, dtos: list[ExtractedFactDTO]
 ) -> list[ExtractedFact]:
@@ -148,6 +182,22 @@ def count_pending_documents(session: Session) -> int:
             )
         ).scalar_one()
     )
+
+
+def list_known_external_ids(session: Session, *, source_id: str) -> list[str]:
+    """Return all non-null external_ids for a given source.
+
+    Used by incremental crawlers to skip already-fetched documents.
+    """
+    stmt = (
+        select(SourceDocument.external_id)
+        .where(
+            SourceDocument.source_id == source_id,
+            SourceDocument.external_id.isnot(None),
+        )
+        .distinct()
+    )
+    return [row[0] for row in session.execute(stmt).all() if row[0]]
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +449,7 @@ def create_review_item(
     source_id: str | None = None,
     source_url: str | None = None,
     data: dict[str, Any] | None = None,
+    case_match_candidate_id: int | None = None,
 ) -> ReviewItem:
     item = ReviewItem(
         item_type=item_type,
@@ -408,6 +459,7 @@ def create_review_item(
         source_url=source_url,
         data_json=json.dumps(data, ensure_ascii=False) if data is not None else None,
         status="pending",
+        case_match_candidate_id=case_match_candidate_id,
     )
     session.add(item)
     session.flush()
@@ -423,6 +475,7 @@ def upsert_review_item(
     source_id: str | None = None,
     source_url: str | None = None,
     data: dict[str, Any] | None = None,
+    case_match_candidate_id: int | None = None,
 ) -> ReviewItem:
     """Create a review item, or refresh a still-open one for the same key.
 
@@ -433,13 +486,25 @@ def upsert_review_item(
     pending-candidate check in ``matching/candidates.py`` for MatchCandidate.
     Once an item is resolved/dismissed, the next occurrence opens a new one.
 
-    Dedup key: ``document_id`` when present (document-level problems, e.g.
-    ``parser_failed``); otherwise ``source_id`` (source-level problems, e.g.
-    ``source_blocked``, which have no document). With neither, every call
-    creates a new item — there is no key to dedup on.
+    Dedup key precedence:
+      1. ``case_match_candidate_id`` — one candidate = one review task
+         (task §10). Used for ``court_case_match`` items.
+      2. ``document_id`` + ``item_type`` — document-level problems
+         (``parser_failed``).
+      3. ``source_id`` + ``item_type`` — source-level problems
+         (``source_blocked``).
+      4. None — every call creates a new item.
     """
     existing: ReviewItem | None = None
-    if document_id is not None:
+    if case_match_candidate_id is not None:
+        existing = session.execute(
+            select(ReviewItem).where(
+                ReviewItem.case_match_candidate_id == case_match_candidate_id,
+                ReviewItem.item_type == item_type,
+                ReviewItem.status == "pending",
+            )
+        ).scalar_one_or_none()
+    elif document_id is not None:
         stmt = select(ReviewItem).where(
             ReviewItem.document_id == document_id,
             ReviewItem.item_type == item_type,
@@ -460,6 +525,7 @@ def upsert_review_item(
         existing.source_id = source_id
         existing.source_url = source_url
         existing.data_json = json.dumps(data, ensure_ascii=False) if data is not None else None
+        existing.case_match_candidate_id = case_match_candidate_id
         session.flush()
         return existing
 
@@ -471,6 +537,7 @@ def upsert_review_item(
         source_id=source_id,
         source_url=source_url,
         data=data,
+        case_match_candidate_id=case_match_candidate_id,
     )
 
 

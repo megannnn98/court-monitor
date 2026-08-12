@@ -225,6 +225,12 @@ class ReviewItem(Base):
     §24.2). ``item_type`` is intentionally a free-form string, not an enum:
     there is exactly one producer today (``parser_failed``); a closed enum
     would be premature until a second one exists.
+
+    For ``court_case_match`` review items, the canonical owner is
+    ``case_match_candidate_id`` — one candidate produces one review task.
+    Enforced at the application layer (not via a DB unique constraint),
+    because a candidate can legitimately cycle through ``pending →
+    rejected → pending`` if an operator reopens it.
     """
 
     __tablename__ = "review_items"
@@ -239,6 +245,13 @@ class ReviewItem(Base):
     source_url: Mapped[str | None] = mapped_column(String(1024))
     data_json: Mapped[str | None] = mapped_column(Text)
 
+    # Points at the CaseMatchCandidate this review task was produced for, for
+    # the ``court_case_match`` item_type. Other item_types leave it NULL.
+    # Nullable because historical rows predate this column.
+    case_match_candidate_id: Mapped[int | None] = mapped_column(
+        ForeignKey("case_match_candidates.id", ondelete="SET NULL"), index=True
+    )
+
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -246,6 +259,9 @@ class ReviewItem(Base):
     resolution_comment: Mapped[str | None] = mapped_column(Text)
 
     document: Mapped[SourceDocument | None] = relationship()
+    case_match_candidate: Mapped[CaseMatchCandidate | None] = relationship(
+        "CaseMatchCandidate", foreign_keys=[case_match_candidate_id]
+    )
 
 
 class AuditLog(Base):
@@ -297,3 +313,219 @@ class Job(Base):
     @property
     def is_active(self) -> bool:
         return self.status in {"queued", "running"}
+
+
+class Case(Base):
+    """A court case with metadata from sud_delo."""
+
+    __tablename__ = "cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    court: Mapped[str] = mapped_column(String(255), index=True)
+    case_number: Mapped[str] = mapped_column(String(100), index=True)
+    case_uid: Mapped[str | None] = mapped_column(String(100), index=True)
+    instance_type: Mapped[str | None] = mapped_column(String(50))
+    status: Mapped[str | None] = mapped_column(String(50))
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decision_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_url: Mapped[str | None] = mapped_column(String(500))
+    judge: Mapped[str | None] = mapped_column(String(255))
+    first_instance_court: Mapped[str | None] = mapped_column(String(255))
+    first_instance_case_number: Mapped[str | None] = mapped_column(String(100))
+    first_instance_judge: Mapped[str | None] = mapped_column(String(255))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    persons: Mapped[list[PersonCase]] = relationship(
+        back_populates="case", cascade="all, delete-orphan"
+    )
+    events: Mapped[list[CourtEvent]] = relationship(
+        back_populates="case", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (UniqueConstraint("court", "case_number", name="uq_case_court_number"),)
+
+
+class PersonCase(Base):
+    """Links a person to a case with role and articles."""
+
+    __tablename__ = "person_cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # NOTE: person_id links to person_records (RFM registry). This is a temporary
+    # coupling — not every case person is in the RFM list. In the future, either
+    # make person_id nullable and store raw_name directly, or add a separate
+    # case_persons table for non-RFM persons.
+    person_id: Mapped[int] = mapped_column(
+        ForeignKey("person_records.id", ondelete="CASCADE"), index=True
+    )
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str | None] = mapped_column(String(100))
+    articles: Mapped[str | None] = mapped_column(Text)
+    material: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    verified_by: Mapped[str | None] = mapped_column(String(100))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    person: Mapped[PersonRecord] = relationship()
+    case: Mapped[Case] = relationship(back_populates="persons")
+
+    __table_args__ = (UniqueConstraint("person_id", "case_id", name="uq_person_case"),)
+
+
+class CourtEvent(Base):
+    """An event in a case's lifecycle (hearing, decision, etc.)."""
+
+    __tablename__ = "court_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    event_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    event_time: Mapped[str | None] = mapped_column(String(10))
+    result: Mapped[str | None] = mapped_column(Text)
+    location: Mapped[str | None] = mapped_column(String(255))
+    source_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="SET NULL"), index=True
+    )
+    confidence: Mapped[float | None] = mapped_column(Float)
+    verified_by: Mapped[str | None] = mapped_column(String(100))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    case: Mapped[Case] = relationship(back_populates="events")
+    source_document: Mapped[SourceDocument | None] = relationship()
+
+
+class CaseParticipant(Base):
+    """A participant in a court case (defendant, judge, lawyer, etc.).
+
+    Stored from the case card — NOT linked to PersonRecord (RFM registry).
+    Uses its own identity, not requiring a pre-existing PersonRecord.
+    """
+
+    __tablename__ = "case_participants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+
+    name_original: Mapped[str] = mapped_column(String(512))
+    normalized_name: Mapped[str | None] = mapped_column(String(512), index=True)
+    articles: Mapped[str | None] = mapped_column(Text)
+    material: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[str | None] = mapped_column(Text)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    source_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="SET NULL"), index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    case: Mapped[Case] = relationship()
+    source_document: Mapped[SourceDocument | None] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("case_id", "name_original", name="uq_case_participant_name"),
+    )
+
+
+class CaseMatchCandidate(Base):
+    """A candidate match between a press release and a court case.
+
+    Created by the matching pipeline, reviewed by operator.
+    Status: pending -> confirmed/rejected
+    """
+
+    __tablename__ = "case_match_candidates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_document_id: Mapped[int] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="CASCADE"), index=True
+    )
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+
+    # Matching score and explanation
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    signals_json: Mapped[str | None] = mapped_column(Text)  # JSON array of match signals
+    missing_json: Mapped[str | None] = mapped_column(Text)  # JSON array of missing fields
+    conflicts_json: Mapped[str | None] = mapped_column(Text)  # JSON array of conflicts
+
+    # Review status
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_comment: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    # Relationships
+    source_document: Mapped[SourceDocument] = relationship()
+    case: Mapped[Case] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("source_document_id", "case_id", name="uq_case_match_candidate"),
+    )
+
+
+class CourtDocumentProcessing(Base):
+    """Tracks the state of processing a court press document through the pipeline.
+
+    Without this row, a document with zero search results would be re-processed
+    on every ``run-all`` invocation (no candidate means no signal it was seen).
+
+    Rows are scoped by ``pipeline_version`` so a future matching change
+    (``court-v2``) can safely reprocess historical documents without colliding
+    with the original run.
+
+    Status lifecycle:
+      pending ──▶ review_created   (candidate made, awaiting operator)
+                ├─▶ processed_no_match  (search returned 0 results)
+                ├─▶ temporary_failure   (transient HTTP error; retry allowed)
+                └─▶ failed              (permanent; needs manual intervention)
+    """
+
+    __tablename__ = "court_document_processing"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="CASCADE"), index=True
+    )
+    court: Mapped[str] = mapped_column(String(128), index=True)
+    pipeline_version: Mapped[str] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    result_count: Mapped[int | None] = mapped_column(Integer)
+    candidate_count: Mapped[int | None] = mapped_column(Integer)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    document: Mapped[SourceDocument] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("document_id", "pipeline_version", name="uq_court_processing_doc_version"),
+    )

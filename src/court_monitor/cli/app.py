@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time as _time
 from typing import Annotated
 
 import typer
@@ -22,8 +23,10 @@ from court_monitor.config.registry import (
     set_entry_status,
 )
 from court_monitor.config.settings import settings
+from court_monitor.domain.models import SourceBackend
 from court_monitor.matching.candidates import generate_matches
-from court_monitor.observability import configure_logging, get_logger
+from court_monitor.observability import get_logger
+from court_monitor.presentation.console import ConsoleReporter
 from court_monitor.services import (
     SourceStats,
     process_registry_source,
@@ -42,6 +45,7 @@ from court_monitor.storage.db import make_engine, make_session_factory, session_
 
 from ._shared import (
     bootstrap_logging,
+    bootstrap_logging_with_mode,
     db_display_path,
     maybe_dry_run_session,
     require_current_schema,
@@ -232,6 +236,13 @@ def fetch_source(
         bool,
         typer.Option("--force", help="With --replace: proceed even if it discards decisions."),
     ] = False,
+    full_rescan: Annotated[
+        bool,
+        typer.Option(
+            "--full-rescan",
+            help="Sudrf sources only: re-fetch all documents, ignoring incremental state.",
+        ),
+    ] = False,
 ) -> None:
     """Fetch data from a source (RFM, sudrf, etc.)."""
     bootstrap_logging()
@@ -248,7 +259,14 @@ def fetch_source(
         typer.echo("--replace применим только к источникам-перечням (fedsfm).", err=True)
         raise typer.Exit(code=1)
 
-    _fetch_source_legacy(name, live=live, no_parse=no_parse, limit=limit, dry_run=dry_run)
+    _fetch_source_legacy(
+        name,
+        live=live,
+        no_parse=no_parse,
+        limit=limit,
+        dry_run=dry_run,
+        full_rescan=full_rescan,
+    )
 
 
 def _fetch_source_legacy(
@@ -258,6 +276,7 @@ def _fetch_source_legacy(
     no_parse: bool = False,
     limit: int | None = None,
     dry_run: bool = False,
+    full_rescan: bool = False,
 ) -> None:
     monitoring = load_monitoring()
 
@@ -295,6 +314,8 @@ def _fetch_source_legacy(
             monitoring,
             parse_immediately=not no_parse,
             limit=limit,
+            full_rescan=full_rescan,
+            live=live,
         )
     typer.echo(
         f"{name}: fetched={stats.fetched} new={stats.new_documents} "
@@ -331,12 +352,19 @@ def fetch_all() -> None:
     typer.echo(f"TOTAL {totals.summary()}")
 
 
-def _stats_color(stats, *, skipped: bool = False) -> str:
-    """Green = clean, yellow = needs a look (blocked/failed/skipped), never red here —
-    red is reserved for hard exceptions (a source that crashed, not just found nothing)."""
-    if stats.failed > 0 or stats.blocked > 0 or skipped:
-        return typer.colors.YELLOW
-    return typer.colors.GREEN
+def _print_source_summary(
+    reporter: ConsoleReporter, stats: SourceStats, *, elapsed: float | None = None
+) -> None:
+    reporter.source_summary(
+        fetched=stats.fetched,
+        new_documents=stats.new_documents,
+        duplicates=stats.duplicates,
+        parsed=stats.parsed,
+        irrelevant=stats.irrelevant,
+        failed=stats.failed,
+        blocked=stats.blocked,
+        elapsed=elapsed,
+    )
 
 
 @app.command(name="run-all")
@@ -347,81 +375,128 @@ def run_all(
     ] = False,
     verbose: Annotated[
         bool,
+        typer.Option("--verbose", "-v", help="Show detailed human-readable per-document logs."),
+    ] = False,
+    json_logs: Annotated[
+        bool,
         typer.Option(
-            "--verbose", "-v", help="Show detailed per-document JSON logs (normal log level)."
+            "--json-logs",
+            help="Output raw structured JSON log lines (machine-readable). Overrides --verbose.",
         ),
     ] = False,
 ) -> None:
     """Fetch everything (sudrf sources + Telegram registry channels), then generate matches.
 
-    Fixtures by default (no network); pass --live to hit real sources. By
-    default, per-document INFO/WARNING logs are suppressed (only genuine
-    errors, with traceback, still print) so the per-source summary lines
-    below are actually readable — pass --verbose to see the full structured
-    JSON log.
+    Fixtures by default (no network); pass --live to hit real sources.
+
+    Default output is human-readable with headings and summaries.
+    Use --verbose for per-document detail still readable by a human.
+    Use --json-logs for raw structured JSON (machine-readable).
     """
-    configure_logging(settings.log_level if verbose else "ERROR")
+    bootstrap_logging_with_mode(verbose=verbose, json_logs=json_logs)
     require_current_schema()
     monitoring = load_monitoring()
     engine = make_engine()
     totals = SourceStats()
 
-    typer.secho(
-        f"База данных: {db_display_path(settings.database_url)}",
-        fg=typer.colors.WHITE,
-        bold=True,
-    )
+    reporter = ConsoleReporter(verbose=verbose)
+    reporter.db_path(db_display_path(settings.database_url))
+    reporter.live_mode(live)
 
-    for index, group in enumerate(plan_all_work(monitoring, live=live)):
-        if index:
-            typer.echo()
-        typer.secho(f"=== {group.title} ===", fg=typer.colors.CYAN, bold=True)
+    for group in plan_all_work(monitoring, live=live):
+        reporter.heading(group.title)
         if not group.items:
-            typer.secho(f"  ({group.empty_note})", dim=True)
+            reporter.empty_group(group.empty_note)
             continue
         for item in group.items:
-            try:
-                # One session per source: a source that blows up must not roll
-                # back what the previous ones already wrote.
-                with session_scope(engine) as session:
-                    stats = item.run(session)
-                    totals.accumulate(stats)
-                note = " (нет сохранённой fixture — пропущено)" if item.fixture_missing else ""
-                typer.secho(
-                    f"  ✓ {item.label}: {stats.summary()}{note}",
-                    fg=_stats_color(stats, skipped=item.fixture_missing),
-                )
-            except Exception as exc:
-                typer.secho(
-                    f"  ✗ {item.label}: ОШИБКА {type(exc).__name__}: {exc}",
-                    fg=typer.colors.RED,
-                    bold=True,
-                    err=True,
-                )
-                totals.failed += 1
+            t0 = _time.monotonic()
+            with reporter.spinner(f"Обрабатываю {item.label}..."):
+                try:
+                    with session_scope(engine) as session:
+                        stats = item.run(session)
+                        totals.accumulate(stats)
+                except Exception as exc:
+                    reporter.spinner_failed(item.label)
+                    reporter.error(str(exc), exception_type=type(exc).__name__)
+                    totals.failed += 1
+                    continue
+                reporter.spinner_done(item.label)
 
-    typer.secho("\n=== Итого: fetch + parse ===", fg=typer.colors.CYAN, bold=True)
-    totals_color = typer.colors.YELLOW if totals.needs_attention else typer.colors.GREEN
-    typer.secho(f"  {totals.summary()}", fg=totals_color, bold=True)
+            elapsed = _time.monotonic() - t0
+            if item.fixture_missing:
+                reporter.warning(f"{item.label}: нет сохранённой fixture — пропущено")
+            _print_source_summary(reporter, stats, elapsed=elapsed)
+
+    reporter.heading("Итого: fetch + parse")
+    _print_source_summary(reporter, totals)
 
     with session_scope(engine) as session:
         match_stats = generate_matches(session)
-    typer.secho("\n=== Совпадения (generate-matches) ===", fg=typer.colors.CYAN, bold=True)
-    matches_color = typer.colors.RED if match_stats.errors else typer.colors.GREEN
-    typer.secho(
-        f"  создано={match_stats.candidates_created} "
-        f"уже_было={match_stats.already_existed} "
-        f"без_кандидата={match_stats.no_candidates} "
-        f"ошибок={match_stats.errors}",
-        fg=matches_color,
-        bold=True,
+    reporter.match_stats(
+        created=match_stats.candidates_created,
+        already_existed=match_stats.already_existed,
+        no_candidates=match_stats.no_candidates,
+        errors=match_stats.errors,
     )
 
-    typer.secho(
-        f"\nДанные сохранены в БД: {db_display_path(settings.database_url)}",
-        fg=typer.colors.WHITE,
-        bold=True,
+    _run_court_stage(engine, live=live, reporter=reporter)
+
+    reporter.blank_line()
+    reporter.detail(
+        "Данные сохранены в БД",
+        db_display_path(settings.database_url),
     )
+
+
+def _run_court_stage(engine, *, live: bool, reporter: ConsoleReporter) -> None:
+    """Court case monitoring stage inside ``run-all``.
+
+    Iterates configured ``sudrf`` sources and runs the case-matching pipeline
+    for pending press documents.
+    """
+    from court_monitor.config import loader as cfg_loader  # noqa: PLC0415
+    from court_monitor.domain.models import SourceType  # noqa: PLC0415
+    from court_monitor.services.court_orchestrator import (  # noqa: PLC0415
+        process_all_pending_court_documents,
+    )
+
+    reporter.heading("Судебные дела")
+
+    courts = [s for s in cfg_loader.load_sources() if s.type == SourceType.sudrf]
+    if not courts:
+        reporter.empty_group("нет настроенных судов")
+        return
+
+    total_court_processed = 0
+    total_review = 0
+    total_no_match = 0
+    total_temp = 0
+    total_failed = 0
+
+    for court in courts:
+        try:
+            with session_scope(engine) as session:
+                stats = process_all_pending_court_documents(
+                    session, court_name=court.name, force_live=live
+                )
+            reporter.court_summary(
+                court.name,
+                processed=stats.processed,
+                review_created=stats.review_created,
+                no_match=stats.no_match,
+                temporary_failures=stats.temporary_failures,
+                failed=stats.failed,
+            )
+            total_court_processed += stats.processed
+            total_review += stats.review_created
+            total_no_match += stats.no_match
+            total_temp += stats.temporary_failures
+            total_failed += stats.failed
+        except Exception as exc:
+            reporter.error(
+                f"{court.name}: {exc}",
+                exception_type=type(exc).__name__,
+            )
 
 
 @app.command(name="list-audit-log")
@@ -449,6 +524,330 @@ def list_audit_log_cmd(
         obj = f"{e.object_type}#{e.object_id}"
         change = f"{e.old_value_json or '-'} -> {e.new_value_json or '-'}"
         typer.echo(f"{when:20}  {e.actor[:16]:16}  {e.action[:22]:22}  {obj[:24]:24}  {change}")
+
+
+@app.command(name="list-case-matches")
+def list_case_matches(
+    status: Annotated[
+        str | None,
+        typer.Option(
+            "--status", help="Filter: pending (default), confirmed, rejected, insufficient."
+        ),
+    ] = "pending",
+    limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
+) -> None:
+    """List case match candidates awaiting operator review (task §12)."""
+    bootstrap_logging()
+    from sqlalchemy import select  # noqa: PLC0415
+
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        list_pending_case_match_candidates,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+    from court_monitor.storage.orm import Case, CaseMatchCandidate  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        if status == "pending":
+            candidates = list_pending_case_match_candidates(session, limit=limit)
+        else:
+            stmt = (
+                select(CaseMatchCandidate)
+                .where(CaseMatchCandidate.status == status)
+                .order_by(CaseMatchCandidate.score.desc())
+                .limit(limit)
+            )
+            candidates = list(session.execute(stmt).scalars().all())
+
+        typer.echo(f"Всего кандидатов: {len(candidates)}")
+        typer.echo(f"{'id':>6}  {'score':>5}  {'status':10}  {'case':25}  {'court':20}  press_doc")
+        typer.echo("-" * 100)
+        for c in candidates:
+            case = session.get(Case, c.case_id)
+            case_str = (case.case_number or "?") if case else "?"
+            court_str = (case.court or "?") if case else "?"
+            typer.echo(
+                f"{c.id:>6}  "
+                f"{c.score:>5.2f}  "
+                f"{c.status[:10]:10}  "
+                f"{case_str[:25]:25}  "
+                f"{court_str[:20]:20}  "
+                f"{c.source_document_id}"
+            )
+
+
+@app.command(name="show-case-match")
+def show_case_match(
+    candidate_id: Annotated[int, typer.Argument(help="CaseMatchCandidate id.")],
+) -> None:
+    """Show a single candidate with the match signals (task §12)."""
+    bootstrap_logging()
+    import json  # noqa: PLC0415
+
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        get_case_match_candidate,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+    from court_monitor.storage.orm import Case, SourceDocument  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        candidate = get_case_match_candidate(session, candidate_id)
+        if candidate is None:
+            typer.echo(f"Кандидат id={candidate_id} не найден.", err=True)
+            raise typer.Exit(code=1)
+
+        case = session.get(Case, candidate.case_id)
+        press_doc = session.get(SourceDocument, candidate.source_document_id)
+        signals = json.loads(candidate.signals_json) if candidate.signals_json else []
+
+        typer.secho("\nPRESS RELEASE", fg=typer.colors.CYAN, bold=True)
+        if press_doc:
+            typer.echo(f"  title:       {press_doc.title or '-'}")
+            typer.echo(f"  url:         {press_doc.url}")
+            typer.echo(f"  published:   {press_doc.published_at or '-'}")
+        else:
+            typer.echo("  (пресс-релиз не найден)")
+
+        typer.secho("\nCASE", fg=typer.colors.CYAN, bold=True)
+        if case:
+            typer.echo(f"  case number: {case.case_number}")
+            typer.echo(f"  court:       {case.court}")
+            typer.echo(f"  case url:    {case.source_url or '-'}")
+            typer.echo(f"  received:    {case.received_at or '-'}")
+            typer.echo(f"  decision_at: {case.decision_at or '-'}")
+        else:
+            typer.echo("  (дело не найдено)")
+
+        typer.secho("\nMATCH EXPLANATION", fg=typer.colors.CYAN, bold=True)
+        typer.echo(f"  score:       {candidate.score:.2f}")
+        typer.echo(f"  status:      {candidate.status}")
+        typer.echo(f"  signals:     {len(signals)}")
+        for s in signals:
+            marker = "✓" if s.get("weight", 0) > 0 else "⚠"
+            typer.echo(
+                f"    {marker} {s.get('signal_type'):22} "
+                f"criteria={s.get('criteria_value')}  case={s.get('case_value')}  "
+                f"w={s.get('weight')}"
+            )
+
+
+@app.command(name="confirm-case-match")
+def confirm_case_match(
+    candidate_id: Annotated[int, typer.Argument(help="CaseMatchCandidate id.")],
+    comment: Annotated[str, typer.Option("--comment", help="Operator comment.")],
+    operator: Annotated[str, typer.Option("--operator", help="Operator identifier.")] = "cli",
+) -> None:
+    """Confirm a case match candidate (task §12)."""
+    bootstrap_logging()
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        CaseMatchDecision,
+        review_case_match_candidate,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        try:
+            candidate = review_case_match_candidate(
+                session,
+                candidate_id=candidate_id,
+                decision=CaseMatchDecision.CONFIRM,
+                actor=operator,
+                comment=comment,
+            )
+        except (ValueError, LookupError) as exc:
+            typer.echo(f"Ошибка: {exc}", err=True)
+            raise typer.Exit(code=2) from None
+        session.commit()
+    typer.echo(f"Кандидат {candidate.id}: status → {candidate.status}")
+
+
+@app.command(name="reject-case-match")
+def reject_case_match(
+    candidate_id: Annotated[int, typer.Argument(help="CaseMatchCandidate id.")],
+    comment: Annotated[str, typer.Option("--comment", help="Operator comment.")],
+    operator: Annotated[str, typer.Option("--operator", help="Operator identifier.")] = "cli",
+) -> None:
+    """Reject a case match candidate (task §12)."""
+    bootstrap_logging()
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        CaseMatchDecision,
+        review_case_match_candidate,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        try:
+            candidate = review_case_match_candidate(
+                session,
+                candidate_id=candidate_id,
+                decision=CaseMatchDecision.REJECT,
+                actor=operator,
+                comment=comment,
+            )
+        except (ValueError, LookupError) as exc:
+            typer.echo(f"Ошибка: {exc}", err=True)
+            raise typer.Exit(code=2) from None
+        session.commit()
+    typer.echo(f"Кандидат {candidate.id}: status → {candidate.status}")
+
+
+@app.command(name="find-case")
+def find_case(  # noqa: PLR0917
+    court: Annotated[str, typer.Option("--court", help="Court identifier (e.g. 2zovs).")] = "2zovs",
+    article: Annotated[
+        str | None, typer.Option("--article", help="Article number (e.g. 205.1).")
+    ] = None,
+    result_date: Annotated[
+        str | None, typer.Option("--result-date", help="Decision/result date DD.MM.YYYY.")
+    ] = None,
+    event_date: Annotated[
+        str | None, typer.Option("--event-date", help="Event date DD.MM.YYYY (any event).")
+    ] = None,
+    date: Annotated[
+        str | None,
+        typer.Option(
+            "--date",
+            help="Deprecated alias for --result-date (kept for back-compat).",
+            hidden=True,
+        ),
+    ] = None,
+    case_number: Annotated[str | None, typer.Option("--case-number", help="Case number.")] = None,
+    person: Annotated[str | None, typer.Option("--person", help="Person surname.")] = None,
+    limit: Annotated[int, typer.Option("--limit", help="Max results.")] = 20,
+    live: Annotated[bool, typer.Option("--live", help="Use live HTTP.")] = False,
+    full: Annotated[bool, typer.Option("--full", help="Fetch and parse each case card.")] = False,
+) -> None:
+    """Search for cases on sud_delo (diagnostic command)."""
+    from court_monitor.sources.sudrf_case_search import SudrfCaseSearchAdapter  # noqa: PLC0415
+    from court_monitor.sources.sudrf_dto import SudrfCaseSearchCriteria  # noqa: PLC0415
+
+    src = get_source(court)
+    if src is None:
+        typer.echo(f"Источник «{court}» не найден.", err=True)
+        raise typer.Exit(code=1)
+
+    if live and src.backend != SourceBackend.http:
+        from dataclasses import replace as dcreplace  # noqa: PLC0415
+
+        src = dcreplace(src, backend=SourceBackend.http)
+
+    result_date_value = _parse_cli_date(result_date or date)
+    event_date_value = _parse_cli_date(event_date)
+
+    criteria = SudrfCaseSearchCriteria(
+        court=src.name,
+        article=article,
+        result_date=result_date_value,
+        event_date=event_date_value,
+        case_number=case_number,
+        person_name=person,
+        limit=limit,
+    )
+    adapter = SudrfCaseSearchAdapter(src)
+    results = adapter.search(criteria)
+
+    if not results:
+        typer.echo("Результатов не найдено.")
+        return
+
+    typer.echo(f"Найдено результатов: {len(results)}\n")
+    for i, r in enumerate(results):
+        typer.echo(f"{i + 1:3}. [{r.case_number or '?'}] {r.url}")
+
+    if full:
+        from court_monitor.parsers.sud_delo import parse_case_card  # noqa: PLC0415
+
+        for r in results:
+            html = adapter.fetch_case_card_html(r)
+            if not html:
+                continue
+            card = parse_case_card(html, case_uid=r.case_uid, court=src.court_name)
+            typer.echo(f"\n--- {r.case_number} ---")
+            typer.echo(f"  Суд: {card.court}")
+            typer.echo(f"  Судья: {card.judge}")
+            typer.echo(f"  Поступило: {card.received_at}")
+            typer.echo(f"  Участники: {[p.name for p in card.persons]}")
+            typer.echo(f"  События: {len(card.events)}")
+
+
+def _parse_cli_date(raw: str | None):
+    """Parse DD.MM.YYYY into :class:`datetime.date`, or exit with a clear error.
+
+    Centralised so that invalid dates never produce raw Python tracebacks
+    anywhere in the CLI — a wrong date is a user error, not a stack trace.
+    """
+    if not raw:
+        return None
+    from datetime import datetime as dt  # noqa: PLC0415
+
+    try:
+        return dt.strptime(raw, "%d.%m.%Y").date()
+    except ValueError:
+        typer.echo(
+            f"Ошибка: дата «{raw}» должна быть в формате DD.MM.YYYY",
+            err=True,
+        )
+        raise typer.Exit(code=2) from None
+
+
+@app.command(name="process-court-cases")
+def process_court_cases(
+    court: Annotated[str, typer.Option("--court", help="Court identifier.")] = "2zovs",
+    live: Annotated[
+        bool,
+        typer.Option("--live", help="Use live HTTP. Without --live, fixture backend only."),
+    ] = False,
+    reprocess: Annotated[
+        bool,
+        typer.Option(
+            "--reprocess",
+            help="Re-run documents already marked as processed_no_match.",
+        ),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed human-readable per-document logs."),
+    ] = False,
+    json_logs: Annotated[
+        bool,
+        typer.Option(
+            "--json-logs",
+            help="Output raw structured JSON log lines (machine-readable).",
+        ),
+    ] = False,
+) -> None:
+    """Process pending court press releases through case matching pipeline.
+
+    Without ``--live``: backend stays ``fixture`` (no network).
+    With ``--live``: backend switches to ``http`` and real requests hit sudrf.
+    Documents already marked ``processed_no_match`` are skipped unless
+    ``--reprocess`` is given.
+    """
+    bootstrap_logging_with_mode(verbose=verbose, json_logs=json_logs)
+    require_current_schema()
+    from court_monitor.services.court_orchestrator import (  # noqa: PLC0415
+        process_all_pending_court_documents,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+
+    reporter = ConsoleReporter(verbose=verbose)
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        stats = process_all_pending_court_documents(
+            session, court_name=court, force_live=live, reprocess=reprocess
+        )
+    reporter.court_summary(
+        court,
+        processed=stats.processed,
+        review_created=stats.review_created,
+        no_match=stats.no_match,
+        temporary_failures=stats.temporary_failures,
+        failed=stats.failed,
+    )
 
 
 @app.command(name="run-web")

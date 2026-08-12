@@ -8,11 +8,53 @@
 - Telegram: `process_registry_source` + `TelegramChannelAdapter` полностью подключены к pipeline (fetch fixture/`--live` → ingest → parse → extract). Ранее `parse_and_extract` безусловно прогонял контент через sudrf-специфичный `parse_press_release`, из-за чего в текст для экстракции подмешивался Telegram UI-мусор (имя канала, "VIEW IN TELEGRAM", плейсхолдеры медиа) — исправлено: для source_type != sudrf используется уже очищенный `doc.text`, sudrf-парсер вызывается только для sudrf-документов. Regression-тесты: `tests/integration/test_telegram_pipeline.py`.
 - Etap 4, срез 1: добавлены `ReviewItem` (generic очередь проверки оператора) и `AuditLog` (append-only аудит решений) — миграции `0006_review_items`, `0007_audit_log`. `ReviewItem` создаётся при `parser_status=parser_failed`; `AuditLog` пишется из `update_match_status` (confirm/reject-match) и `resolve_review_item`. CLI: `list-review-items`, `resolve-review-item --dismiss`, `--operator` флаг у `confirm-match`/`reject-match`/`resolve-review-item`. `Person`/`Case`/`CourtEvent` намеренно не введены в этом срезе — см. `technical-debt.md` D-001.
 - D-011 (закрыт): `SudrfAdapter`/`TelegramChannelAdapter` теперь возвращают `Iterator[FetchResult | FetchProblem]` вместо молчаливого `continue`/`return None` при блокировке/ошибке/таймауте. `process_source`/`process_registry_source` на `FetchProblem` создают `ReviewItem(item_type="source_blocked")` через `repo.upsert_review_item`, дедуп по `source_id` (не по `document_id`, которого для source-level проблемы нет).
+- **Etап 5 (2026-08-12): Реализован мониторинг судебных дел.** См. `docs/ai-context/court-case-monitoring-implementation.md`. Кратко:
+  - ✅ Исправлены URL судебных источников (добавлен региональный поддомен `.msk`, `.ros`)
+  - ✅ Реализован `SudrfPressCrawler` для обхода архивов пресс-релизов
+  - ✅ Реализован парсер карточек дел `sud_delo`
+  - ✅ Добавлены модели БД: `Case`, `PersonCase`, `CourtEvent` (миграция 0014)
+  - ✅ Реализован explainable matching для связывания пресс-релизов с делами
+  - ✅ Инкрементальный сбор (watermark по `external_id`)
+  - ✅ 472 теста проходят, полное покрытие pipeline
 
 ## Ограничения
 
 - **Airtable** — `read_only` режим; PAT не предоставлен. Shared-view читается из fixture.
-- **Судебные источники мертвы, и `config/sources.yaml` это маскирует.** Оба sudrf-источника стоят на `backend: fixture`, так что конфигурация выглядит рабочей, хотя живых источников за ней нет: из 379 документов в базе 375 — Telegram, 4 — из сохранённых fixture. Проект называется court-monitor, но суды не мониторит. Разведка 2026-07-30:
+- **Судебные источники:** См. раздел "Судебные источники" ниже. Кратко: **источники работают**, реализован полный pipeline от пресс-релизов до карточек дел.
+
+### Судебные источники (обновлено 2026-08-12)
+
+**Статус: ✅ Работают**
+
+Предыдущая документация (2026-07-30) содержала ошибочное утверждение о недоступности судебных источников. Использовались неправильные URL без регионального поддомена.
+
+**Правильные URL:**
+- 2-й Западный окружной военный суд: `https://2zovs.msk.sudrf.ru`
+- Южный окружной военный суд: `https://yovs.ros.sudrf.ru`
+
+**Старые (неправильные) URL:**
+- ❌ `https://2zovs.sudrf.ru` → 404
+- ❌ `https://uovs.sudrf.ru` → 404
+
+**Что реализовано:**
+1. **Press crawler** (`SudrfPressCrawler`) — обход архивов пресс-релизов, извлечение публикаций
+2. **Case card parser** (`parse_case_card`) — парсинг карточек дел из `sud_delo`
+3. **Explainable matching** — связывание пресс-релизов с карточками дел по статье, дате, суду, ФИО
+4. **Database models** — `Case`, `PersonCase`, `CourtEvent` для хранения дел
+5. **Incremental fetch** — watermark по `external_id` для избежания повторной загрузки
+
+**Подробности:** `docs/sudrf-live-discovery.md`, `docs/ai-context/court-case-monitoring-implementation.md`
+
+**Ограничения:**
+- Карточки дел могут иметь скрытое ФИО ("Информация скрыта") — это нормальный сценарий
+- Поиск дел по форме `sud_delo` требует JavaScript (пока не автоматизирован)
+- Person name matching упрощён, нужна интеграция с `PersonRecord`
+
+---
+
+### Историческая справка (2026-07-30, устарело)
+
+**Судебные источники мертвы, и `config/sources.yaml` это маскирует.** Оба sudrf-источника стоят на `backend: fixture`, так что конфигурация выглядит рабочей, хотя живых источников за ней нет: из 379 документов в базе 375 — Telegram, 4 — из сохранённых fixture. Проект называется court-monitor, но суды не мониторит. Разведка 2026-07-30:
 
 | Адрес | Результат |
 |---|---|

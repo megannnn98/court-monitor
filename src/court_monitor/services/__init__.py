@@ -7,7 +7,7 @@ Sources, parsers and extractors are pure / side-effect free.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from court_monitor.config.loader import MonitoringConfig, SourceConfig, load_monitoring
 from court_monitor.config.settings import settings
 from court_monitor.domain.facts import ExtractedFactDTO
-from court_monitor.domain.models import ParserStatus, SourceType, VerificationStatus
+from court_monitor.domain.models import ParserStatus, SourceBackend, SourceType, VerificationStatus
 from court_monitor.extraction.articles import extract_articles
 from court_monitor.extraction.dates import extract_dates
 from court_monitor.extraction.filtering import evaluate_relevance, relevance_as_facts
@@ -384,13 +384,40 @@ def process_source(
     *,
     parse_immediately: bool = True,
     limit: int | None = None,
+    full_rescan: bool = False,
+    live: bool = False,
 ) -> SourceStats:
+    # If --live is specified and backend is not already http, create runtime copy with http backend
+    if live and source_cfg.backend != SourceBackend.http:
+        source_cfg = replace(source_cfg, backend=SourceBackend.http)
+        _log.info("pipeline.source.live_override", source=source_cfg.name, backend="http")
+
     stats = SourceStats()
     with correlation_scope() as cid:
         _log.info("pipeline.source.start", source=source_cfg.name, correlation_id=cid)
+
+        # Use SudrfPressCrawler for sudrf sources, legacy adapter for others
+        if source_cfg.type == SourceType.sudrf:
+            from court_monitor.sources.sudrf import SudrfPressCrawler  # noqa: PLC0415
+
+            # Load known external_ids for incremental fetch
+            known_ids = None
+            if not full_rescan:
+                known_ids = set(repo.list_known_external_ids(session, source_id=source_cfg.name))
+                _log.info("sudrf.known_ids_loaded", source=source_cfg.name, count=len(known_ids))
+
+            crawler = SudrfPressCrawler(
+                source_cfg,
+                known_ids=known_ids,
+                full_rescan=full_rescan,
+            )
+            results = crawler.fetch_new()
+        else:
+            results = get_adapter(source_cfg).fetch_new()
+
         _consume_fetch_results(
             session,
-            get_adapter(source_cfg).fetch_new(),
+            results,
             monitoring,
             stats,
             parse_immediately=parse_immediately,
