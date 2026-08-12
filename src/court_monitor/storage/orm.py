@@ -297,3 +297,98 @@ class Job(Base):
     @property
     def is_active(self) -> bool:
         return self.status in {"queued", "running"}
+
+
+class Case(Base):
+    """A court case with metadata from sud_delo."""
+
+    __tablename__ = "cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    court: Mapped[str] = mapped_column(String(255), index=True)
+    case_number: Mapped[str] = mapped_column(String(100), index=True)
+    case_uid: Mapped[str | None] = mapped_column(String(100), index=True)
+    instance_type: Mapped[str | None] = mapped_column(String(50))
+    status: Mapped[str | None] = mapped_column(String(50))
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decision_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_url: Mapped[str | None] = mapped_column(String(500))
+    judge: Mapped[str | None] = mapped_column(String(255))
+    first_instance_court: Mapped[str | None] = mapped_column(String(255))
+    first_instance_case_number: Mapped[str | None] = mapped_column(String(100))
+    first_instance_judge: Mapped[str | None] = mapped_column(String(255))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    persons: Mapped[list[PersonCase]] = relationship(
+        back_populates="case", cascade="all, delete-orphan"
+    )
+    events: Mapped[list[CourtEvent]] = relationship(
+        back_populates="case", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (UniqueConstraint("court", "case_number", name="uq_case_court_number"),)
+
+
+class PersonCase(Base):
+    """Links a person to a case with role and articles."""
+
+    __tablename__ = "person_cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # NOTE: person_id links to person_records (RFM registry). This is a temporary
+    # coupling — not every case person is in the RFM list. In the future, either
+    # make person_id nullable and store raw_name directly, or add a separate
+    # case_persons table for non-RFM persons.
+    person_id: Mapped[int] = mapped_column(
+        ForeignKey("person_records.id", ondelete="CASCADE"), index=True
+    )
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str | None] = mapped_column(String(100))
+    articles: Mapped[str | None] = mapped_column(Text)
+    material: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    verified_by: Mapped[str | None] = mapped_column(String(100))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    person: Mapped[PersonRecord] = relationship()
+    case: Mapped[Case] = relationship(back_populates="persons")
+
+    __table_args__ = (UniqueConstraint("person_id", "case_id", name="uq_person_case"),)
+
+
+class CourtEvent(Base):
+    """An event in a case's lifecycle (hearing, decision, etc.)."""
+
+    __tablename__ = "court_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    event_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    event_time: Mapped[str | None] = mapped_column(String(10))
+    result: Mapped[str | None] = mapped_column(Text)
+    location: Mapped[str | None] = mapped_column(String(255))
+    source_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="SET NULL"), index=True
+    )
+    confidence: Mapped[float | None] = mapped_column(Float)
+    verified_by: Mapped[str | None] = mapped_column(String(100))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    case: Mapped[Case] = relationship(back_populates="events")
+    source_document: Mapped[SourceDocument | None] = relationship()

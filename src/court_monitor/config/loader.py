@@ -36,6 +36,10 @@ class SourceConfig:
     fixture_path: str | None = None
     parser: str | None = None
     enabled: bool = True
+    court_name: str | None = None
+    court_region: str | None = None
+    press_module: str | None = None
+    case_module: str | None = None
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,10 @@ def load_sources(path: Path | str | None = None) -> list[SourceConfig]:
                 fixture_path=item.get("fixture_path"),
                 parser=item.get("parser"),
                 enabled=bool(item.get("enabled", True)),
+                court_name=item.get("court_name"),
+                court_region=item.get("court_region"),
+                press_module=item.get("press_module"),
+                case_module=item.get("case_module"),
             )
         )
     return result

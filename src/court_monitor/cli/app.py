@@ -232,6 +232,13 @@ def fetch_source(
         bool,
         typer.Option("--force", help="With --replace: proceed even if it discards decisions."),
     ] = False,
+    full_rescan: Annotated[
+        bool,
+        typer.Option(
+            "--full-rescan",
+            help="Sudrf sources only: re-fetch all documents, ignoring incremental state.",
+        ),
+    ] = False,
 ) -> None:
     """Fetch data from a source (RFM, sudrf, etc.)."""
     bootstrap_logging()
@@ -248,7 +255,14 @@ def fetch_source(
         typer.echo("--replace применим только к источникам-перечням (fedsfm).", err=True)
         raise typer.Exit(code=1)
 
-    _fetch_source_legacy(name, live=live, no_parse=no_parse, limit=limit, dry_run=dry_run)
+    _fetch_source_legacy(
+        name,
+        live=live,
+        no_parse=no_parse,
+        limit=limit,
+        dry_run=dry_run,
+        full_rescan=full_rescan,
+    )
 
 
 def _fetch_source_legacy(
@@ -258,6 +272,7 @@ def _fetch_source_legacy(
     no_parse: bool = False,
     limit: int | None = None,
     dry_run: bool = False,
+    full_rescan: bool = False,
 ) -> None:
     monitoring = load_monitoring()
 
@@ -295,6 +310,7 @@ def _fetch_source_legacy(
             monitoring,
             parse_immediately=not no_parse,
             limit=limit,
+            full_rescan=full_rescan,
         )
     typer.echo(
         f"{name}: fetched={stats.fetched} new={stats.new_documents} "

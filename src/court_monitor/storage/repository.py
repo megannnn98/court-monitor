@@ -150,6 +150,22 @@ def count_pending_documents(session: Session) -> int:
     )
 
 
+def list_known_external_ids(session: Session, *, source_id: str) -> list[str]:
+    """Return all non-null external_ids for a given source.
+
+    Used by incremental crawlers to skip already-fetched documents.
+    """
+    stmt = (
+        select(SourceDocument.external_id)
+        .where(
+            SourceDocument.source_id == source_id,
+            SourceDocument.external_id.isnot(None),
+        )
+        .distinct()
+    )
+    return [row[0] for row in session.execute(stmt).all() if row[0]]
+
+
 # ---------------------------------------------------------------------------
 # PersonRecord (Rosfinmonitoring / external registries)
 # ---------------------------------------------------------------------------

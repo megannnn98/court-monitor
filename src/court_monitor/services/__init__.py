@@ -384,13 +384,34 @@ def process_source(
     *,
     parse_immediately: bool = True,
     limit: int | None = None,
+    full_rescan: bool = False,
 ) -> SourceStats:
     stats = SourceStats()
     with correlation_scope() as cid:
         _log.info("pipeline.source.start", source=source_cfg.name, correlation_id=cid)
+
+        # Use SudrfPressCrawler for sudrf sources, legacy adapter for others
+        if source_cfg.type == SourceType.sudrf:
+            from court_monitor.sources.sudrf import SudrfPressCrawler  # noqa: PLC0415
+
+            # Load known external_ids for incremental fetch
+            known_ids = None
+            if not full_rescan:
+                known_ids = set(repo.list_known_external_ids(session, source_id=source_cfg.name))
+                _log.info("sudrf.known_ids_loaded", source=source_cfg.name, count=len(known_ids))
+
+            crawler = SudrfPressCrawler(
+                source_cfg,
+                known_ids=known_ids,
+                full_rescan=full_rescan,
+            )
+            results = crawler.fetch_new()
+        else:
+            results = get_adapter(source_cfg).fetch_new()
+
         _consume_fetch_results(
             session,
-            get_adapter(source_cfg).fetch_new(),
+            results,
             monitoring,
             stats,
             parse_immediately=parse_immediately,
