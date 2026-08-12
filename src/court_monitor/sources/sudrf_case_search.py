@@ -136,14 +136,6 @@ class SudrfCaseSearchAdapter:
             response = client.get(result.url.replace(" ", "%20"))
 
         _raise_on_transport_error(response, context="case_card")
-
-        if response.status != 200:
-            _log.error(
-                "sudrf.case_card.http_error",
-                url=result.url,
-                status=response.status,
-            )
-            return None
         return response.text
 
     def _make_http_client(self) -> HttpClient | FixtureTransport:

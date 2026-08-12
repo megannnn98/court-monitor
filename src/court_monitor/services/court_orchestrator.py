@@ -188,11 +188,12 @@ def progressive_search(
     ``.cache/sudrf-live-discovery-2026-08-12.md`` for evidence):
       A. article + result_date    (tightest plausible match for a verdict)
       B. article                  (fallback: drop the date if A returns 0)
-      C. article + pub_date_hint  (publication date of the press release,
-                                   weak signal — used only when A and B missed)
-      D. person + article         (used as a last resort; modern cards often
-                                   hide the defendant name, so this is rarely
-                                   useful)
+      C. person + article         (last resort; modern cards often hide the
+                                   defendant name, so this is rarely useful)
+
+    If ALL attempts fail with transport errors, the last error is re-raised
+    (caller should NOT interpret this as "no cases found"). If at least one
+    attempt succeeds and returns 0 results, that is a legitimate no-match.
 
     Each attempt is logged as :class:`SearchAttempt` and the collected results
     are deduplicated on ``case_uid`` (fallback: ``court + case_number``). The
