@@ -206,6 +206,7 @@ class SudrfPressCrawler:
         press_module = self.config.press_module or "press_dep"
         archive_url = f"{base}/modules.php?name={press_module}&op=12"
 
+        _log.info("sudrf.crawler.fetching", source=self.config.name, url=archive_url)
         with HttpClient() as client:
             resp = client.get(archive_url)
             if resp.health != FetchHealth.ok or not resp.text:
@@ -232,8 +233,10 @@ class SudrfPressCrawler:
             _log.warning("sudrf.crawler.no_months", source=self.config.name)
             return
 
+        _log.info("sudrf.crawler.months_found", source=self.config.name, count=len(months))
         for month in months:
             month_url = f"{base_url}/modules.php?name={press_module}&op=12&arc_list={month}"
+            _log.info("sudrf.crawler.fetching_month", source=self.config.name, month=month)
             resp = client.get(month_url)
             if resp.health != FetchHealth.ok or not resp.text:
                 yield FetchProblem(
@@ -271,6 +274,7 @@ class SudrfPressCrawler:
                 release_url = (
                     f"{base_url}/modules.php?name={press_module or 'press_dep'}&op=1&did={did}"
                 )
+                _log.info("sudrf.crawler.fetching_release", source=self.config.name, did=did)
                 resp = client.get(release_url)
                 if resp.health != FetchHealth.ok or not resp.text:
                     yield FetchProblem(

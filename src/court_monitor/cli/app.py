@@ -398,6 +398,7 @@ def run_all(
             typer.secho(f"  ({group.empty_note})", dim=True)
             continue
         for item in group.items:
+            typer.secho(f"  → {item.label}...", dim=True)
             try:
                 # One session per source: a source that blows up must not roll
                 # back what the previous ones already wrote.
