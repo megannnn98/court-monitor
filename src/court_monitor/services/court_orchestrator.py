@@ -205,13 +205,13 @@ def _pick_decision_date(event_classification, date_facts, text, published_at):
     if date_facts:
         for df in date_facts:
             date_type = df.value.get("type") if isinstance(df.value, dict) else None
-            if date_type in ("verdict_date", "decision_date"):
+            if date_type in ("verdict_date", "effective_date"):
                 date_str = df.value.get("date")
                 if date_str:
                     try:
                         return datetime.fromisoformat(date_str).date()
                     except (ValueError, TypeError):
-                        pass
+                        _log.warning("orchestrator.date_parse_failed", date_str=date_str)
 
     if published_at:
         if hasattr(published_at, "date"):

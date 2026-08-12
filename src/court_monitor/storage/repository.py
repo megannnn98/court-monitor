@@ -136,6 +136,7 @@ def upsert_document_html(
         text=normalize_text(html),
         content_hash=ch,
         parser_status=ParserStatus.parsed.value,
+        parser_version="sud-delo-0.1",
     )
     session.add(doc)
     session.flush()

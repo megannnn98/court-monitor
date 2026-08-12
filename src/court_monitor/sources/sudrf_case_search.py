@@ -5,6 +5,8 @@ Uses the standard GET search form — JavaScript is NOT required.
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from court_monitor.config.loader import SourceConfig
 from court_monitor.domain.models import FetchHealth
 from court_monitor.observability import get_logger
@@ -55,7 +57,7 @@ class SudrfCaseSearchAdapter:
         search_url = f"{self.base_url}/modules.php"
 
         with HttpClient() as client:
-            response = client.get(f"{search_url}?{'&'.join(f'{k}={v}' for k, v in params.items())}")
+            response = client.get(f"{search_url}?{urlencode(params)}")
 
             if response.status != 200 or response.health != FetchHealth.ok:
                 _log.error(
@@ -102,7 +104,7 @@ class SudrfCaseSearchAdapter:
         )
 
         with HttpClient() as client:
-            response = client.get(result.url)
+            response = client.get(result.url.replace(" ", "%20"))
 
             if response.status != 200 or response.health != FetchHealth.ok:
                 _log.error(

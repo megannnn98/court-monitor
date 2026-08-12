@@ -8,6 +8,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from court_monitor.extraction.event_classifier import CaseEventType, classify_case_event
+from court_monitor.normalization import normalize_fio
 from court_monitor.observability import get_logger
 from court_monitor.parsers.sud_delo import CaseEvent, CasePerson, ParsedCaseCard
 from court_monitor.storage.orm import Case, CaseParticipant, CourtEvent, SourceDocument
@@ -240,7 +241,7 @@ def _is_hidden_name(name: str) -> bool:
 
 
 def _normalize_person_name(name: str) -> str:
-    return " ".join(name.lower().split())
+    return normalize_fio(name) or " ".join(name.lower().split())
 
 
 def _update_decision_at(session: Session, case: Case) -> None:
