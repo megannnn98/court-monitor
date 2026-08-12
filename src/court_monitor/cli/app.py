@@ -398,26 +398,46 @@ def run_all(
             typer.secho(f"  ({group.empty_note})", dim=True)
             continue
         for item in group.items:
-            typer.secho(f"  → {item.label}...", dim=True)
-            try:
-                # One session per source: a source that blows up must not roll
-                # back what the previous ones already wrote.
-                with session_scope(engine) as session:
-                    stats = item.run(session)
-                    totals.accumulate(stats)
-                note = " (нет сохранённой fixture — пропущено)" if item.fixture_missing else ""
-                typer.secho(
-                    f"  ✓ {item.label}: {stats.summary()}{note}",
-                    fg=_stats_color(stats, skipped=item.fixture_missing),
-                )
-            except Exception as exc:
-                typer.secho(
-                    f"  ✗ {item.label}: ОШИБКА {type(exc).__name__}: {exc}",
-                    fg=typer.colors.RED,
-                    bold=True,
-                    err=True,
-                )
-                totals.failed += 1
+            # Use rich spinner for visual feedback during processing
+            from rich.console import Console  # noqa: PLC0415
+            from rich.progress import (  # noqa: PLC0415
+                Progress,
+                SpinnerColumn,
+                TextColumn,
+                TimeElapsedColumn,
+            )
+
+            console = Console()
+            with Progress(
+                SpinnerColumn("dots"),
+                TextColumn("[cyan]{task.description}"),
+                TimeElapsedColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                task = progress.add_task(f"Обрабатываю {item.label}...", total=None)
+                try:
+                    # One session per source: a source that blows up must not roll
+                    # back what the previous ones already wrote.
+                    with session_scope(engine) as session:
+                        stats = item.run(session)
+                        totals.accumulate(stats)
+                    progress.update(task, description=f"✓ {item.label}")
+                except Exception as exc:
+                    progress.update(task, description=f"✗ {item.label}")
+                    console.print(
+                        f"  [red bold]ОШИБКА[/] {type(exc).__name__}: {exc}",
+                        highlight=False,
+                    )
+                    totals.failed += 1
+                    continue
+
+            # Print final result after spinner disappears
+            note = " (нет сохранённой fixture — пропущено)" if item.fixture_missing else ""
+            typer.secho(
+                f"  ✓ {item.label}: {stats.summary()}{note}",
+                fg=_stats_color(stats, skipped=item.fixture_missing),
+            )
 
     typer.secho("\n=== Итого: fetch + parse ===", fg=typer.colors.CYAN, bold=True)
     totals_color = typer.colors.YELLOW if totals.needs_attention else typer.colors.GREEN
