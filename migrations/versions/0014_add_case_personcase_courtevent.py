@@ -63,7 +63,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["case_id"], ["cases.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["person_id"], ["persons.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["person_id"], ["person_records.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("person_id", "case_id", name="uq_person_case"),
     )
     op.create_index("ix_person_cases_person_id", "person_cases", ["person_id"], unique=False)
