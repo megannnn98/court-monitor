@@ -96,6 +96,7 @@ def _ingest_press_release(session: Session, *, external_id: str = "234") -> Sour
     doc, _ = ingest_fetch_result(session, fetch_result)
     doc.text = parsed.text
     doc.parser_status = "parsed"
+    doc.parser_version = "sudrf-press-0.2"
     session.flush()
     return doc
 
@@ -236,3 +237,63 @@ def test_process_all_skips_already_processed_no_match(db: Session, court_cfg: So
     db.commit()
     states_after = db.execute(select(CourtDocumentProcessing)).scalars().all()
     assert states_after[0].attempt_count == 1  # unchanged
+
+
+# ── batch-level idempotency: case-card docs must NOT become press ──
+
+
+def test_batch_second_run_does_not_process_case_card_as_press(
+    db: Session, court_cfg: SourceConfig
+) -> None:
+    """Case-card SourceDocuments must not be re-processed as press releases.
+
+    Regression: process_all_pending_court_documents selects by
+    (source_type=sudrf, parser_status=parsed) which also matches case-card
+    documents (parser_version='sud-delo-0.1'). The query must restrict to
+    press parser versions only.
+    """
+    _ingest_press_release(db)
+
+    # Run #1 — processes the press release, creates case-card SourceDocument.
+    process_all_pending_court_documents(db, court_name="2zovs", force_live=False)
+    db.commit()
+
+    after_first = _counts(db)
+    states_after_first = list(db.execute(select(CourtDocumentProcessing)).scalars().all())
+    assert after_first["cases"] >= 1, "first run must create at least one Case"
+
+    # Verify case-card SourceDocument exists.
+    case_card_docs = list(
+        db.execute(
+            select(SourceDocument).where(
+                SourceDocument.parser_version == "sud-delo-0.1",
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert case_card_docs, "first run must create a case-card SourceDocument"
+
+    # Run #2 — must NOT create new CourtDocumentProcessing for case-card docs.
+    process_all_pending_court_documents(db, court_name="2zovs", force_live=False)
+    db.commit()
+
+    states_after_second = list(db.execute(select(CourtDocumentProcessing)).scalars().all())
+    assert len(states_after_second) == len(states_after_first), (
+        f"second run created extra CourtDocumentProcessing rows: "
+        f"{len(states_after_second)} vs {len(states_after_first)}"
+    )
+
+    after_second = _counts(db)
+    assert after_second["cases"] == after_first["cases"], "Cases changed on second run"
+    assert after_second["case_participants"] == after_first["case_participants"]
+    assert after_second["court_events"] == after_first["court_events"]
+    assert after_second["case_match_candidates"] == after_first["case_match_candidates"]
+    assert after_second["review_items"] == after_first["review_items"]
+
+    # Verify case-card docs did NOT get their own CourtDocumentProcessing.
+    case_card_doc_ids = {d.id for d in case_card_docs}
+    for state in states_after_second:
+        assert state.document_id not in case_card_doc_ids, (
+            f"case-card doc id={state.document_id} got CourtDocumentProcessing"
+        )

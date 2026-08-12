@@ -241,8 +241,8 @@ from court_monitor.domain.models import FetchHealth  # noqa: E402
 from court_monitor.sources.http_client import HttpResponse  # noqa: E402
 from court_monitor.sources.sudrf_case_search import (  # noqa: E402
     SudrfBlockedError,
+    SudrfPermanentError,
     SudrfTemporaryError,
-    SudrfTransportError,
 )
 
 
@@ -304,12 +304,32 @@ def test_search_timeout_raises_not_empty():
 
 
 def test_search_http_500_raises_not_empty():
-    """HTTP 500 → SudrfTransportError, NOT []."""
+    """HTTP 500 → SudrfTemporaryError, NOT []."""
     resp = HttpResponse(
         status=500, text="", url="https://example.test/modules.php", health=FetchHealth.http_error
     )
     adapter = _adapter_with_transport(resp)
-    with pytest.raises(SudrfTransportError):
+    with pytest.raises(SudrfTemporaryError):
+        adapter.search(SudrfCaseSearchCriteria(court="c", article="205.1"))
+
+
+def test_search_http_404_raises_permanent():
+    """HTTP 404 → SudrfPermanentError (not retryable)."""
+    resp = HttpResponse(
+        status=404, text="", url="https://example.test/modules.php", health=FetchHealth.http_error
+    )
+    adapter = _adapter_with_transport(resp)
+    with pytest.raises(SudrfPermanentError):
+        adapter.search(SudrfCaseSearchCriteria(court="c", article="205.1"))
+
+
+def test_search_http_400_raises_permanent():
+    """HTTP 400 → SudrfPermanentError (not retryable)."""
+    resp = HttpResponse(
+        status=400, text="", url="https://example.test/modules.php", health=FetchHealth.http_error
+    )
+    adapter = _adapter_with_transport(resp)
+    with pytest.raises(SudrfPermanentError):
         adapter.search(SudrfCaseSearchCriteria(court="c", article="205.1"))
 
 
@@ -477,7 +497,7 @@ def test_fixture_transport_unknown_article_returns_404():
     url = "https://x/modules.php?" + urlencode(
         {
             "name": "sud_delo",
-            "U1_DEFENDANT__LAW_ARTICLESS": "999.999",
+            "U1_DEFENDANT__LAW_ARTICLESS": "123.456",
         }
     )
     resp = transport.get(url)
@@ -555,11 +575,55 @@ def test_fixture_transport_known_case_uid_returns_exact_fixture():
     assert len(resp.text) > 100
 
 
-def test_fixture_transport_empty_result_fixture_exists():
-    """search-result-empty.html fixture must exist for explicit empty searches."""
+def test_fixture_transport_case_number_via_urlencode():
+    """Case number with slash → correct fixture via urlencode/parse_qs.
+
+    ``urlencode({"U1_CASE__CASE_NUMBERSS": "1-1688/2026"})`` encodes the
+    slash as ``%2F``. The fixture transport must decode it and map to
+    ``search-result-case-1-1688_2026.html``.
+    """
+    from urllib.parse import urlencode  # noqa: PLC0415
+
+    from court_monitor.sources.fixture_transport import FixtureTransport  # noqa: PLC0415
+
     fixtures = Path("tests/fixtures/sudrf-live/2zovs/sud_delo")
     if not fixtures.exists():
         pytest.skip("2zovs sud_delo fixtures not available")
 
-    empty_fixture = fixtures / "search-result-empty.html"
-    assert empty_fixture.exists(), "search-result-empty.html fixture is missing"
+    transport = FixtureTransport(fixtures)
+    url = "https://x/modules.php?" + urlencode(
+        {
+            "name": "sud_delo",
+            "U1_CASE__CASE_NUMBERSS": "1-1688/2026",
+        }
+    )
+    resp = transport.get(url)
+    assert resp.status == 200
+    assert resp.health == FetchHealth.ok
+
+
+def test_fixture_transport_known_empty_article_returns_empty():
+    """Known article with empty-result fixture → HTTP 200 with empty table.
+
+    This is different from unknown article (→ 404). A known empty fixture
+    means "we searched and found nothing" — a legitimate no-match.
+    """
+    from urllib.parse import urlencode  # noqa: PLC0415
+
+    from court_monitor.sources.fixture_transport import FixtureTransport  # noqa: PLC0415
+
+    fixtures = Path("tests/fixtures/sudrf-live/2zovs/sud_delo")
+    if not fixtures.exists():
+        pytest.skip("2zovs sud_delo fixtures not available")
+
+    transport = FixtureTransport(fixtures)
+    url = "https://x/modules.php?" + urlencode(
+        {
+            "name": "sud_delo",
+            "U1_DEFENDANT__LAW_ARTICLESS": "999.999",
+        }
+    )
+    resp = transport.get(url)
+    assert resp.status == 200
+    assert resp.health == FetchHealth.ok
+    assert "ничего не найдено" in resp.text.lower() or len(resp.text) > 0

@@ -6,8 +6,11 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from court_monitor.matching.case_matching import CaseMatchResult, MatchSignal
+from court_monitor.parsers.sud_delo import ParsedCaseCard
 from court_monitor.services.case_match_service import (
     CaseMatchDecision,
+    create_case_match_candidate,
     get_case_match_candidate,
     review_case_match_candidate,
 )
@@ -164,3 +167,57 @@ def test_review_resolves_linked_review_item(session: Session, seed):
     assert reloaded is not None
     assert reloaded.status == "resolved"
     assert reloaded.resolved_by == "op"
+
+
+# ── reviewed evidence immutability ──
+
+
+def test_reviewed_candidate_evidence_not_overwritten(session: Session, seed):
+    """Reprocessing must NOT overwrite score/signals for reviewed candidates."""
+    # Review the candidate first.
+    review_case_match_candidate(
+        session,
+        candidate_id=seed["candidate"].id,
+        decision=CaseMatchDecision.CONFIRM,
+        actor="op",
+        comment="confirmed",
+    )
+    session.flush()
+
+    original_score = seed["candidate"].score
+    original_signals = seed["candidate"].signals_json
+
+    # Simulate reprocessing with a different match result.
+    new_match = CaseMatchResult(
+        case_card=ParsedCaseCard(),
+        confidence=0.99,
+        signals=[MatchSignal("new_signal", "new desc", "cv", "cav", 1.0)],
+        missing=[],
+        conflicts=[],
+    )
+    candidate, created = create_case_match_candidate(session, seed["doc"], seed["case"], new_match)
+    session.flush()
+
+    assert not created, "should find existing candidate"
+    assert candidate.status == "confirmed"
+    assert candidate.score == original_score, "score must not change for confirmed candidate"
+    assert candidate.signals_json == original_signals, "signals must not change"
+
+
+def test_pending_candidate_evidence_can_be_refreshed(session: Session, seed):
+    """Pending candidates CAN have their evidence refreshed on reprocessing."""
+    assert seed["candidate"].status == "pending"
+
+    new_match = CaseMatchResult(
+        case_card=ParsedCaseCard(),
+        confidence=0.5,
+        signals=[MatchSignal("new_signal", "new desc", "cv", "cav", 1.0)],
+        missing=[],
+        conflicts=[],
+    )
+    candidate, created = create_case_match_candidate(session, seed["doc"], seed["case"], new_match)
+    session.flush()
+
+    assert not created
+    assert candidate.status == "pending"
+    assert candidate.score == 0.5, "pending candidate score should be updated"

@@ -108,19 +108,32 @@ def create_case_match_candidate(
         )
     else:
         assert existing is not None
-        existing.score = match_result.confidence
-        existing.signals_json = signals_json
-        existing.missing_json = missing_json
-        existing.conflicts_json = conflicts_json
         candidate = existing
 
-        _log.info(
-            "case_match_candidate.updated",
-            candidate_id=candidate.id,
-            source_document_id=source_document.id,
-            case_id=case.id,
-            score=candidate.score,
-        )
+        # Do NOT overwrite evidence for reviewed candidates (confirmed/rejected/
+        # insufficient). An operator already reviewed this evidence — silently
+        # replacing it on reprocessing would break auditability.
+        if existing.status == "pending":
+            existing.score = match_result.confidence
+            existing.signals_json = signals_json
+            existing.missing_json = missing_json
+            existing.conflicts_json = conflicts_json
+
+            _log.info(
+                "case_match_candidate.updated",
+                candidate_id=candidate.id,
+                source_document_id=source_document.id,
+                case_id=case.id,
+                score=candidate.score,
+            )
+        else:
+            _log.info(
+                "case_match_candidate.reviewed_immutable",
+                candidate_id=candidate.id,
+                status=candidate.status,
+                source_document_id=source_document.id,
+                case_id=case.id,
+            )
 
     session.flush()
 

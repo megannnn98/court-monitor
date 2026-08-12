@@ -40,12 +40,20 @@ class SudrfTransportError(Exception):
     """Base for transport-level failures during case search / card fetch."""
 
 
-class SudrfBlockedError(SudrfTransportError):
-    """The remote site returned a captcha / anti-bot wall (FetchHealth.blocked)."""
-
-
 class SudrfTemporaryError(SudrfTransportError):
     """Transient failure (timeout, HTTP 5xx) — retry may succeed."""
+
+
+class SudrfPermanentError(SudrfTransportError):
+    """Non-retryable failure (HTTP 4xx except 403/429) — retry won't help."""
+
+
+class SudrfBlockedError(SudrfTemporaryError):
+    """The remote site returned a captcha / anti-bot wall (FetchHealth.blocked).
+
+    Subclass of SudrfTemporaryError: blocked responses are retried up to
+    MAX_ATTEMPTS (the site may clear the block).
+    """
 
 
 # Hidden form fields required for sud_delo search to return results.
@@ -208,14 +216,26 @@ def _raise_on_transport_error(response: HttpResponse, *, context: str) -> None:
     successful response. Everything else maps to a typed exception so that
     callers (orchestrator, progressive_search) can distinguish transport
     failures from legitimate empty results.
+
+    Error classification:
+      * timeout / status=0 → SudrfTemporaryError (retry may succeed)
+      * HTTP 5xx → SudrfTemporaryError
+      * 403 / 429 / blocked → SudrfBlockedError (retry up to MAX_ATTEMPTS)
+      * other 4xx (400, 404…) → SudrfPermanentError (retry won't help)
+      * other non-200 → SudrfPermanentError
     """
     if response.health == FetchHealth.blocked:
         raise SudrfBlockedError(f"sudrf.{context}: blocked (captcha/anti-bot) at {response.url}")
     if response.health == FetchHealth.timeout:
         raise SudrfTemporaryError(f"sudrf.{context}: timeout at {response.url}")
     if response.health == FetchHealth.http_error:
-        raise SudrfTemporaryError(f"sudrf.{context}: HTTP {response.status} at {response.url}")
+        status = response.status
+        if status >= 500:
+            raise SudrfTemporaryError(f"sudrf.{context}: HTTP {status} at {response.url}")
+        if status in (403, 429):
+            raise SudrfBlockedError(f"sudrf.{context}: HTTP {status} at {response.url}")
+        raise SudrfPermanentError(f"sudrf.{context}: HTTP {status} at {response.url}")
     if response.status != 200:
-        raise SudrfTransportError(
+        raise SudrfPermanentError(
             f"sudrf.{context}: unexpected status {response.status} at {response.url}"
         )

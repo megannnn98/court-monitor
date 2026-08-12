@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from dataclasses import dataclass, field
 from dataclasses import replace as _dcreplace
 from datetime import date, datetime
 
@@ -29,7 +30,12 @@ from court_monitor.services.court_processing import (
     mark_processing_temporary_failure,
     should_process,
 )
-from court_monitor.sources.sudrf_case_search import SudrfCaseSearchAdapter
+from court_monitor.sources.sudrf_case_search import (
+    SudrfCaseSearchAdapter,
+    SudrfPermanentError,
+    SudrfTemporaryError,
+    SudrfTransportError,
+)
 from court_monitor.sources.sudrf_dto import (
     SearchAttempt,
     SudrfCaseSearchCriteria,
@@ -48,6 +54,28 @@ _log = get_logger(__name__)
 MAX_RESULTS = 10
 
 
+@dataclass
+class PipelineOutcome:
+    """Outcome of processing a single press document through the pipeline.
+
+    Tracks both successful matches and failure modes so that the caller can
+    make correct state-transition decisions:
+
+    * ``search_result_count == 0`` after a successful search → no_match
+    * all cards failed → temporary_failure (or permanent if permanent error)
+    * partial card failure without candidates → temporary_failure (not no_match)
+    * candidates found → review_created
+    """
+
+    matched_cases: list[Case] = field(default_factory=list)
+    search_result_count: int = 0
+    cards_evaluated: int = 0
+    cards_transport_failed: int = 0
+    cards_parse_failed: int = 0
+    last_transport_error: SudrfTransportError | None = None
+    search_succeeded: bool = False
+
+
 def process_court_press_document(
     session: Session,
     document: SourceDocument,
@@ -60,14 +88,37 @@ def process_court_press_document(
     When ``processing_state`` is passed, status transitions are recorded into it
     (task §14):
       * success with candidates → ``review_created``
-      * success with 0 candidates → ``processed_no_match``
+      * success with 0 candidates (all cards evaluated, none matched) →
+        ``processed_no_match``
+      * search succeeded but ALL cards failed → ``temporary_failure``
+      * search succeeded, partial card failure, no candidates →
+        ``temporary_failure`` (not no_match — not all cards were checked)
+      * permanent transport error → ``failed``
+      * no search criteria available → ``failed``
       * transient exception → ``temporary_failure`` (caller may retry)
-      * permanent error → ``failed``
     """
     _log.info("orchestrator.start", document_id=document.id, court=court_config.name)
 
     try:
-        matched = _run_press_pipeline(session, document, court_config)
+        outcome = _run_press_pipeline(session, document, court_config)
+    except SudrfPermanentError as exc:
+        _log.exception(
+            "orchestrator.document_permanent_error",
+            document_id=document.id,
+            error=str(exc),
+        )
+        if processing_state is not None:
+            mark_processing_failed(session, processing_state, error=str(exc))
+        raise
+    except SudrfTemporaryError as exc:
+        _log.exception(
+            "orchestrator.document_error",
+            document_id=document.id,
+            error=str(exc),
+        )
+        if processing_state is not None:
+            mark_processing_temporary_failure(session, processing_state, error=str(exc))
+        raise
     except Exception as exc:
         _log.exception(
             "orchestrator.document_error",
@@ -79,29 +130,73 @@ def process_court_press_document(
         raise
 
     if processing_state is not None:
-        from sqlalchemy import func as _func  # noqa: PLC0415
+        _apply_outcome_to_state(session, processing_state, outcome, document.id)
 
-        candidate_count = session.execute(
-            select(_func.count(CaseMatchCandidate.id)).where(
-                CaseMatchCandidate.source_document_id == document.id,
-            )
-        ).scalar_one()
-        mark_processing_success(
-            session,
-            processing_state,
-            result_count=len(matched),
-            candidate_count=candidate_count,
+    return outcome.matched_cases
+
+
+def _apply_outcome_to_state(
+    session: Session,
+    state: CourtDocumentProcessing,
+    outcome: PipelineOutcome,
+    document_id: int,
+) -> None:
+    """Decide the processing state based on the pipeline outcome."""
+    from sqlalchemy import func as _func  # noqa: PLC0415
+
+    candidate_count = session.execute(
+        select(_func.count(CaseMatchCandidate.id)).where(
+            CaseMatchCandidate.source_document_id == document_id,
         )
+    ).scalar_one()
 
-    return matched
+    # No search criteria → cannot determine match → failed.
+    if not outcome.search_succeeded and outcome.search_result_count == 0:
+        mark_processing_failed(
+            session, state, error="no search criteria (article and person both absent)"
+        )
+        return
+
+    # Search returned 0 results → legitimate no-match.
+    if outcome.search_result_count == 0:
+        mark_processing_success(session, state, result_count=0, candidate_count=0)
+        return
+
+    # Cards were fetched — check if any were evaluated vs failed.
+    all_cards_failed = outcome.cards_evaluated == 0 and outcome.cards_transport_failed > 0
+    partial_failure = outcome.cards_transport_failed > 0 and outcome.cards_evaluated > 0
+
+    if all_cards_failed:
+        error = str(outcome.last_transport_error or "all case cards failed")
+        if isinstance(outcome.last_transport_error, SudrfPermanentError):
+            mark_processing_failed(session, state, error=error)
+        else:
+            mark_processing_temporary_failure(session, state, error=error)
+        return
+
+    if partial_failure and candidate_count == 0:
+        error = (
+            f"partial card failure: {outcome.cards_evaluated} evaluated, "
+            f"{outcome.cards_transport_failed} failed, no candidate found"
+        )
+        mark_processing_temporary_failure(session, state, error=error)
+        return
+
+    mark_processing_success(
+        session,
+        state,
+        result_count=outcome.search_result_count,
+        candidate_count=candidate_count,
+    )
 
 
 def _run_press_pipeline(
     session: Session,
     document: SourceDocument,
     court_config: SourceConfig,
-) -> list[Case]:
+) -> PipelineOutcome:
     """Inner pipeline — pure logic, no processing-state I/O."""
+    outcome = PipelineOutcome()
     extraction_text = document.text or ""
 
     article_facts = extract_articles(extraction_text, source_url=document.url)
@@ -126,6 +221,14 @@ def _run_press_pipeline(
         person_name=person_name,
     )
 
+    if article is None and person_name is None:
+        _log.warning(
+            "orchestrator.no_search_criteria",
+            document_id=document.id,
+            event_type=event_classification.event_type,
+        )
+        return outcome
+
     adapter = SudrfCaseSearchAdapter(court_config)
     search_results, attempts = progressive_search(
         adapter=adapter,
@@ -136,6 +239,9 @@ def _run_press_pipeline(
         person_name=person_name if _should_search_by_person(event_classification) else None,
     )
 
+    outcome.search_succeeded = True
+    outcome.search_result_count = len(search_results)
+
     _log.info(
         "orchestrator.search_results",
         document_id=document.id,
@@ -145,9 +251,8 @@ def _run_press_pipeline(
 
     if not search_results:
         _log.warning("orchestrator.no_results", document_id=document.id)
-        return []
+        return outcome
 
-    matched_cases: list[Case] = []
     court_name = court_config.court_name or court_config.name
 
     for result in search_results[:MAX_RESULTS]:
@@ -164,13 +269,38 @@ def _run_press_pipeline(
                     person_name=person_name,
                     press_doc=document,
                 )
+                outcome.cards_evaluated += 1
                 if case is not None:
-                    matched_cases.append(case)
+                    outcome.matched_cases.append(case)
+        except SudrfTemporaryError as e:
+            outcome.cards_transport_failed += 1
+            outcome.last_transport_error = e
+            _log.warning(
+                "orchestrator.card_transport_error",
+                document_id=document.id,
+                error=str(e),
+            )
+        except SudrfPermanentError as e:
+            outcome.cards_transport_failed += 1
+            outcome.last_transport_error = e
+            _log.warning(
+                "orchestrator.card_permanent_error",
+                document_id=document.id,
+                error=str(e),
+            )
         except Exception as e:
+            outcome.cards_parse_failed += 1
             _log.exception("orchestrator.case_error", document_id=document.id, error=str(e))
 
-    _log.info("orchestrator.complete", document_id=document.id, matched=len(matched_cases))
-    return matched_cases
+    _log.info(
+        "orchestrator.complete",
+        document_id=document.id,
+        matched=len(outcome.matched_cases),
+        evaluated=outcome.cards_evaluated,
+        transport_failed=outcome.cards_transport_failed,
+        parse_failed=outcome.cards_parse_failed,
+    )
+    return outcome
 
 
 def progressive_search(
@@ -500,6 +630,7 @@ def process_all_pending_court_documents(
                 SourceDocument.source_type == "sudrf",
                 SourceDocument.source_name == court_name,
                 SourceDocument.parser_status == ParserStatus.parsed.value,
+                SourceDocument.parser_version.like("sudrf-press-%"),
             )
         )
         .scalars()

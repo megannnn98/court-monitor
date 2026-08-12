@@ -4,22 +4,23 @@ Used when ``SourceConfig.backend == "fixture"``. The fixture layout follows the
 press crawler convention: a directory with named HTML files that correspond to
 well-known search outcomes.
 
-Files are matched to request URLs by filename:
+Files are matched to request URLs by exact filename:
 
 * ``search-result-article-{article}.html`` — article search result
+  (article ``205.1`` → ``search-result-article-205-1.html``)
 * ``search-result-case-{case_number}.html`` — case_number search result
+  (case number ``1-1688/2026`` → ``search-result-case-1-1688_2026.html``)
 * ``case-card-{case_uid}.html`` — individual case card
-* ``search-result-empty.html`` — fallback for no-match scenarios
-* ``search-result-*.html`` — any other result, chosen by suffix match
+* ``search-result-article-{article}.html`` — can serve as a known-empty result
+  if it contains no case rows
 
-This is the same pattern used for press fixtures: deterministic, offline,
-reproducible. The fixture is selected purely by the request URL; the
+Unknown requests return 404 — there are NO fallbacks to arbitrary fixtures.
+The fixture is selected purely by the decoded request URL parameters; the
 transport never inspects hidden state.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -28,10 +29,6 @@ from court_monitor.observability import get_logger
 from court_monitor.sources.http_client import HttpResponse
 
 _log = get_logger(__name__)
-
-
-_ARTICLE_RE = re.compile(r"U1_DEFENDANT__LAW_ARTICLESS=([^&]+)", re.IGNORECASE)
-_CASE_NUMBER_RE = re.compile(r"U1_CASE__CASE_NUMBERSS=([^&]+)", re.IGNORECASE)
 
 
 class FixtureTransport:
@@ -72,6 +69,13 @@ class FixtureTransport:
         return
 
     def _select_filename(self, url: str) -> str | None:  # noqa: PLR0911
+        """Select a fixture file by exact match on decoded URL parameters.
+
+        Uses ``parse_qs`` to decode percent-encoded values (e.g. ``%2F`` →
+        ``/``) before matching, so ``urlencode({"U1_CASE__CASE_NUMBERSS":
+        "1-1688/2026"})`` correctly maps to
+        ``search-result-case-1-1688_2026.html``.
+        """
         qs = urlparse(url).query
         params = {k.lower(): v[0] for k, v in parse_qs(qs).items()} if qs else {}
 
@@ -81,26 +85,24 @@ class FixtureTransport:
             candidate = f"case-card-{case_uid}.html"
             if (self.root / candidate).exists():
                 return candidate
-            # Strict: unknown case_uid → 404, NOT case-card-example fallback.
             return None
 
         # Article search — exact match only.
-        article_match = _ARTICLE_RE.search(qs or "")
-        if article_match:
-            article = article_match.group(1).replace(".", "-")
-            candidate = f"search-result-article-{article}.html"
+        article = params.get("u1_defendant__law_articless")
+        if article:
+            normalised = article.replace(".", "-")
+            candidate = f"search-result-article-{normalised}.html"
             if (self.root / candidate).exists():
                 return candidate
-            # Strict: unknown article → no match (will be 404).
+            return None
 
         # Case-number search — exact match only.
-        case_number_match = _CASE_NUMBER_RE.search(qs or "")
-        if case_number_match:
-            case_number = case_number_match.group(1).replace("/", "_")
-            candidate = f"search-result-case-{case_number}.html"
+        case_number = params.get("u1_case__case_numberss")
+        if case_number:
+            normalised = case_number.replace("/", "_")
+            candidate = f"search-result-case-{normalised}.html"
             if (self.root / candidate).exists():
                 return candidate
-            # Strict: unknown case_number → no match (will be 404).
+            return None
 
-        # No fallback to arbitrary search-result-*.html or case-card-example.html.
         return None
