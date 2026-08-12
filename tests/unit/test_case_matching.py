@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from datetime import date
 
-from court_monitor.matching.case_matching import format_match_result, match_press_release_to_case
+import pytest
+
+from court_monitor.matching.case_matching import (
+    _is_decision_event,
+    format_match_result,
+    match_press_release_to_case,
+)
 from court_monitor.parsers.sud_delo import CaseEvent, CasePerson, ParsedCaseCard
 
 
@@ -434,3 +440,28 @@ def test_match_result_format() -> None:
     assert "signals" in formatted
     assert "missing" in formatted
     assert len(formatted["signals"]) == 3
+
+
+@pytest.mark.parametrize(
+    "event_type,expected",
+    [
+        ("Приговор", True),
+        ("Вынесение приговора", True),
+        ("Решение", True),
+        ("Постановление", True),
+        ("Определение", True),
+        ("Апелляционное определение", True),
+        ("Обжалование приговора", False),  # appeal, not decision
+        ("Отмена постановления", False),  # reversal, not decision
+        ("Изменение решения", False),  # modification, not decision
+        ("Судебное заседание", False),
+        ("Передача дела судье", False),
+        ("", False),
+    ],
+)
+def test_is_decision_event(event_type: str, expected: bool) -> None:
+    """Test that _is_decision_event correctly identifies decision events.
+
+    Excludes appeal/reversal events to avoid false positives.
+    """
+    assert _is_decision_event(event_type) == expected

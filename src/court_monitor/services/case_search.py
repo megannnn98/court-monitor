@@ -267,10 +267,15 @@ def _check_date_match(case: Case, criteria: CaseSearchCriteria) -> str | None:
     """Check if case date matches criteria (with tolerance).
 
     Strict semantics:
-    - decision_date matches only decision_at (sentence/decision date)
-    - received_date matches only received_at (case receipt date)
+    - decision_date matches ONLY decision_at (sentence/decision date)
+    - received_date matches ONLY received_at (case receipt date)
 
-    Never match decision_date with received_at or vice versa.
+    Never cross-match: decision_date with received_at or vice versa.
+    These are different events in the case lifecycle.
+
+    The hasattr check is defence-in-depth — after migration 0014, columns are
+    DateTime, but if someone runs an old migration or creates columns manually
+    as Date, the code won't crash.
 
     Returns the matched date string or None.
     """

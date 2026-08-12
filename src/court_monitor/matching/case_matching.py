@@ -315,8 +315,13 @@ def _normalize_article(article: str) -> str:
 def _check_date_match(decision_date: date, case_card: ParsedCaseCard) -> str | None:
     """Check if decision_date matches case card events.
 
-    Strict semantics: decision_date matches only sentence/decision events,
-    never received_at (case receipt date is a different event).
+    Strict semantics: decision_date matches only sentence/decision events.
+    NEVER matches case_card.received_at — that's the case receipt date,
+    a completely different event in the case lifecycle (when the case arrived
+    at the court, not when the decision was made).
+
+    If the case card has no events (cont3 is empty), date matching is impossible.
+    This is intentional — we don't want to match decision dates with receipt dates.
 
     Returns the matched date string or None.
     """
@@ -330,18 +335,25 @@ def _check_date_match(decision_date: date, case_card: ParsedCaseCard) -> str | N
     return None
 
 
+# Keywords that indicate a decision/sentence event
+_DECISION_KEYWORDS = ("приговор", "решение", "постановление", "определение")
+
+# Keywords that indicate appeal/reversal events (NOT decisions)
+_EXCLUDE_KEYWORDS = ("обжалование", "отмена", "изменение")
+
+
 def _is_decision_event(event_type: str) -> bool:
-    """Check if event type indicates a decision/sentence."""
+    """Check if event type indicates a decision/sentence.
+
+    Excludes appeal/reversal events to avoid false positives.
+    For example, "Обжалование приговора" contains "приговор" but is an appeal,
+    not a decision.
+    """
     event_lower = event_type.lower()
-    return any(
-        keyword in event_lower
-        for keyword in [
-            "приговор",
-            "решение",
-            "постановление",
-            "определение",
-        ]
-    )
+    # First check exclusions to avoid false positives on appeal events
+    if any(excl in event_lower for excl in _EXCLUDE_KEYWORDS):
+        return False
+    return any(keyword in event_lower for keyword in _DECISION_KEYWORDS)
 
 
 def _check_court_match(court: str, case_card: ParsedCaseCard) -> str | None:
