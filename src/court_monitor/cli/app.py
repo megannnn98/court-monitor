@@ -311,6 +311,7 @@ def _fetch_source_legacy(
             parse_immediately=not no_parse,
             limit=limit,
             full_rescan=full_rescan,
+            live=live,
         )
     typer.echo(
         f"{name}: fetched={stats.fetched} new={stats.new_documents} "

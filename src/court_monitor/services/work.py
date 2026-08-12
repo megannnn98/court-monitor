@@ -78,7 +78,9 @@ def plan_all_work(monitoring: MonitoringConfig, *, live: bool = False) -> list[S
         SourceGroup(
             title="Sudrf-источники",
             empty_note="нет включённых источников в config/sources.yaml",
-            items=[_sudrf_work(src, monitoring) for src in _cached_sources() if src.enabled],
+            items=[
+                _sudrf_work(src, monitoring, live=live) for src in _cached_sources() if src.enabled
+            ],
         ),
         SourceGroup(
             title="Telegram-каналы",
@@ -110,11 +112,11 @@ def clear_source_caches() -> None:
     _cached_registry.cache_clear()
 
 
-def _sudrf_work(src, monitoring: MonitoringConfig) -> SourceWork:
+def _sudrf_work(src, monitoring: MonitoringConfig, *, live: bool = False) -> SourceWork:
     # Called positionally rather than bound with keywords: the plan should not
     # depend on what the service happens to name its parameters.
     def _run(session: Session) -> SourceStats:
-        return process_source(session, src, monitoring)
+        return process_source(session, src, monitoring, live=live)
 
     return SourceWork(label=src.name, fixture_missing=False, run=_run)
 
