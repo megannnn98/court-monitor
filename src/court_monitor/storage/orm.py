@@ -392,3 +392,44 @@ class CourtEvent(Base):
 
     case: Mapped[Case] = relationship(back_populates="events")
     source_document: Mapped[SourceDocument | None] = relationship()
+
+
+class CaseMatchCandidate(Base):
+    """A candidate match between a press release and a court case.
+
+    Created by the matching pipeline, reviewed by operator.
+    Status: pending -> confirmed/rejected
+    """
+
+    __tablename__ = "case_match_candidates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_document_id: Mapped[int] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="CASCADE"), index=True
+    )
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+
+    # Matching score and explanation
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    signals_json: Mapped[str | None] = mapped_column(Text)  # JSON array of match signals
+    missing_json: Mapped[str | None] = mapped_column(Text)  # JSON array of missing fields
+    conflicts_json: Mapped[str | None] = mapped_column(Text)  # JSON array of conflicts
+
+    # Review status
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_comment: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    # Relationships
+    source_document: Mapped[SourceDocument] = relationship()
+    case: Mapped[Case] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("source_document_id", "case_id", name="uq_case_match_candidate"),
+    )
