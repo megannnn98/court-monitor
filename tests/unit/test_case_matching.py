@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from court_monitor.matching.case_matching import format_match_result, match_press_release_to_case
-from court_monitor.parsers.sud_delo import CasePerson, ParsedCaseCard
+from court_monitor.parsers.sud_delo import CaseEvent, CasePerson, ParsedCaseCard
 
 
 def test_match_by_article() -> None:
@@ -36,11 +36,17 @@ def test_match_by_article() -> None:
 
 
 def test_match_by_date() -> None:
-    """Test matching by date."""
+    """Test matching by decision date from events."""
+
     case_card = ParsedCaseCard(
         case_number="1-123/2026",
         case_uid="test-uid-2",
-        received_at=date(2026, 4, 2),
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 2),
+            )
+        ],
         persons=[],
     )
 
@@ -59,10 +65,16 @@ def test_match_by_date() -> None:
 
 def test_match_by_date_with_tolerance() -> None:
     """Test that date matching works within tolerance."""
+
     case_card = ParsedCaseCard(
         case_number="1-123/2026",
         case_uid="test-uid-3",
-        received_at=date(2026, 4, 5),  # 3 days after
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 5),  # 3 days after
+            )
+        ],
         persons=[],
     )
 
@@ -77,6 +89,34 @@ def test_match_by_date_with_tolerance() -> None:
     assert result.confidence > 0
     assert len(result.signals) == 1
     assert result.signals[0].signal_type == "date"
+
+
+def test_match_decision_date_not_received() -> None:
+    """Test that decision_date does NOT match received_at.
+
+    Regression test: decision_date should only match sentence/decision events,
+    not case receipt date.
+    """
+    case_card = ParsedCaseCard(
+        case_number="1-123/2026",
+        case_uid="test-uid-date-strict",
+        received_at=date(2026, 4, 2),  # Only received_at, no decision events
+        persons=[],
+    )
+
+    result = match_press_release_to_case(
+        article=None,
+        decision_date=date(2026, 4, 2),
+        court=None,
+        person_name=None,
+        case_card=case_card,
+    )
+
+    # Should NOT match because received_at is not a decision event
+    assert result.confidence == 0
+    assert len(result.signals) == 0
+    assert len(result.missing) == 1
+    assert result.missing[0].field_name == "date"
 
 
 def test_match_by_person_name() -> None:
@@ -107,10 +147,16 @@ def test_match_by_person_name() -> None:
 
 def test_match_combined_signals() -> None:
     """Test matching with multiple signals."""
+
     case_card = ParsedCaseCard(
         case_number="1-123/2026",
         case_uid="test-uid-5",
-        received_at=date(2026, 4, 2),
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 2),
+            )
+        ],
         persons=[
             CasePerson(
                 name="Разлуго Виталий Викторович",
@@ -135,10 +181,16 @@ def test_match_combined_signals() -> None:
 
 def test_match_hidden_person() -> None:
     """Test matching when person name is hidden in case card."""
+
     case_card = ParsedCaseCard(
         case_number="1-123/2026",
         case_uid="test-uid-6",
-        received_at=date(2026, 4, 2),
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 2),
+            )
+        ],
         persons=[
             CasePerson(
                 name="Информация скрыта",
@@ -165,11 +217,17 @@ def test_match_hidden_person() -> None:
 
 def test_match_hidden_person_variations() -> None:
     """Test matching with different hidden person patterns."""
+
     for hidden_name in ["Информация скрыта", "Данные скрыты", "Сведения скрыты"]:
         case_card = ParsedCaseCard(
             case_number="1-123/2026",
             case_uid="test-uid-6",
-            received_at=date(2026, 4, 2),
+            events=[
+                CaseEvent(
+                    event_type="Приговор",
+                    event_date=date(2026, 4, 2),
+                )
+            ],
             persons=[
                 CasePerson(
                     name=hidden_name,
@@ -280,10 +338,16 @@ def test_match_article_exact_match() -> None:
 
 def test_match_result_format() -> None:
     """Test that match result can be formatted for display."""
+
     case_card = ParsedCaseCard(
         case_number="1-123/2026",
         case_uid="test-uid-9",
-        received_at=date(2026, 4, 2),
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 2),
+            )
+        ],
         persons=[
             CasePerson(
                 name="Разлуго Виталий Викторович",

@@ -313,24 +313,35 @@ def _normalize_article(article: str) -> str:
 
 
 def _check_date_match(decision_date: date, case_card: ParsedCaseCard) -> str | None:
-    """Check if date matches case card dates.
+    """Check if decision_date matches case card events.
+
+    Strict semantics: decision_date matches only sentence/decision events,
+    never received_at (case receipt date is a different event).
 
     Returns the matched date string or None.
     """
-    # Check received_at
-    if case_card.received_at:
-        diff = abs((case_card.received_at - decision_date).days)
-        if diff <= DATE_TOLERANCE_DAYS:
-            return case_card.received_at.isoformat()
-
-    # Check events for decision date
+    # Check events for decision/sentence date
     for event in case_card.events:
-        if event.event_date and "приговор" in event.event_type.lower():
+        if event.event_date and _is_decision_event(event.event_type):
             diff = abs((event.event_date - decision_date).days)
             if diff <= DATE_TOLERANCE_DAYS:
                 return event.event_date.isoformat()
 
     return None
+
+
+def _is_decision_event(event_type: str) -> bool:
+    """Check if event type indicates a decision/sentence."""
+    event_lower = event_type.lower()
+    return any(
+        keyword in event_lower
+        for keyword in [
+            "приговор",
+            "решение",
+            "постановление",
+            "определение",
+        ]
+    )
 
 
 def _check_court_match(court: str, case_card: ParsedCaseCard) -> str | None:

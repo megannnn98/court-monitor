@@ -91,16 +91,15 @@ def search_cases(
         )
 
     if criteria.decision_date:
+        # decision_date matches only decision_at (sentence/decision date)
         date_min = criteria.decision_date - timedelta(days=DATE_TOLERANCE_DAYS)
         date_max = criteria.decision_date + timedelta(days=DATE_TOLERANCE_DAYS)
         conditions.append(
-            or_(
-                and_(Case.decision_at.isnot(None), Case.decision_at.between(date_min, date_max)),
-                and_(Case.received_at.isnot(None), Case.received_at.between(date_min, date_max)),
-            )
+            and_(Case.decision_at.isnot(None), Case.decision_at.between(date_min, date_max))
         )
 
     if criteria.received_date:
+        # received_date matches only received_at (case receipt date)
         date_min = criteria.received_date - timedelta(days=DATE_TOLERANCE_DAYS)
         date_max = criteria.received_date + timedelta(days=DATE_TOLERANCE_DAYS)
         conditions.append(
@@ -267,23 +266,29 @@ def _check_article_match(case: Case, article: str, person_cases: list[PersonCase
 def _check_date_match(case: Case, criteria: CaseSearchCriteria) -> str | None:
     """Check if case date matches criteria (with tolerance).
 
+    Strict semantics:
+    - decision_date matches only decision_at (sentence/decision date)
+    - received_date matches only received_at (case receipt date)
+
+    Never match decision_date with received_at or vice versa.
+
     Returns the matched date string or None.
     """
-    target_date = criteria.decision_date or criteria.received_date
-    if not target_date:
-        return None
+    # Check decision_date against decision_at only
+    if criteria.decision_date and case.decision_at:
+        case_date_raw = case.decision_at
+        case_date: date = case_date_raw.date() if hasattr(case_date_raw, "date") else case_date_raw
+        diff = abs((case_date - criteria.decision_date).days)
+        if diff <= DATE_TOLERANCE_DAYS:
+            return case_date.isoformat()
 
-    case_date_raw = case.decision_at or case.received_at
-    if not case_date_raw:
-        return None
-
-    # Convert datetime to date if needed
-    case_date: date = case_date_raw.date() if hasattr(case_date_raw, "date") else case_date_raw
-
-    # Check tolerance
-    diff = abs((case_date - target_date).days)
-    if diff <= DATE_TOLERANCE_DAYS:
-        return case_date.isoformat()
+    # Check received_date against received_at only
+    if criteria.received_date and case.received_at:
+        case_date_raw = case.received_at
+        case_date = case_date_raw.date() if hasattr(case_date_raw, "date") else case_date_raw
+        diff = abs((case_date - criteria.received_date).days)
+        if diff <= DATE_TOLERANCE_DAYS:
+            return case_date.isoformat()
 
     return None
 

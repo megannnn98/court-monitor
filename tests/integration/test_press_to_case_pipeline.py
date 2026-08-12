@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from court_monitor.config.loader import SourceConfig, load_monitoring
 from court_monitor.domain.models import SourceBackend, SourceType
 from court_monitor.matching.case_matching import match_press_release_to_case
-from court_monitor.parsers.sud_delo import CasePerson, ParsedCaseCard
+from court_monitor.parsers.sud_delo import CaseEvent, CasePerson, ParsedCaseCard
 from court_monitor.services import process_source
 from court_monitor.services.case_search import CaseSearchCriteria, search_cases
 from court_monitor.storage import repository as repo
@@ -59,7 +59,8 @@ def _create_test_case(
     *,
     case_number: str,
     court: str,
-    received_at: date,
+    received_at: date | None = None,
+    decision_at: date | None = None,
     person_name: str,
     articles: list[str],
 ) -> Case:
@@ -71,7 +72,8 @@ def _create_test_case(
         court=court,
         case_number=case_number,
         case_uid=f"test-uid-{case_number}",
-        received_at=datetime.combine(received_at, datetime.min.time()),
+        received_at=datetime.combine(received_at, datetime.min.time()) if received_at else None,
+        decision_at=datetime.combine(decision_at, datetime.min.time()) if decision_at else None,
         status="active",
     )
     session.add(case)
@@ -155,20 +157,24 @@ def test_case_search_by_article(db_session: Session) -> None:
 
 
 def test_case_search_by_date(db_session: Session) -> None:
-    """Test searching cases by date with tolerance."""
-    # Create test case
+    """Test searching cases by decision date with tolerance.
+
+    Verifies strict semantics: decision_date matches only decision_at,
+    not received_at.
+    """
+    # Create test case with decision_at
     case = _create_test_case(
         db_session,
         case_number="1-200/2026",
         court="2-й Западный окружной военный суд",
-        received_at=date(2026, 4, 2),
+        decision_at=date(2026, 4, 2),
         person_name="Сидоров Сидор Сидорович",
         articles=["ст.205 УК РФ"],
     )
 
     db_session.commit()
 
-    # Search for exact date
+    # Search for exact decision date
     criteria = CaseSearchCriteria(decision_date=date(2026, 4, 2))
     candidates = search_cases(db_session, criteria)
 
@@ -181,6 +187,32 @@ def test_case_search_by_date(db_session: Session) -> None:
 
     assert len(candidates) >= 1
     assert any(c.case.case_number == case.case_number for c in candidates)
+
+
+def test_case_search_decision_date_not_received(db_session: Session) -> None:
+    """Test that decision_date does NOT match received_at.
+
+    This is a regression test for the bug where decision_date would
+    incorrectly match received_at.
+    """
+    # Create case with only received_at (no decision_at)
+    case = _create_test_case(
+        db_session,
+        case_number="1-201/2026",
+        court="2-й Западный окружной военный суд",
+        received_at=date(2026, 4, 2),
+        person_name="Петров Петр Петрович",
+        articles=["ст.205 УК РФ"],
+    )
+
+    db_session.commit()
+
+    # Search by decision_date should NOT find this case
+    criteria = CaseSearchCriteria(decision_date=date(2026, 4, 2))
+    candidates = search_cases(db_session, criteria)
+
+    # Should not find the case because decision_at is None
+    assert not any(c.case.case_number == case.case_number for c in candidates)
 
 
 def test_case_search_by_person_name(db_session: Session) -> None:
@@ -224,6 +256,7 @@ def test_case_search_by_person_name(db_session: Session) -> None:
 
 def test_end_to_end_matching() -> None:
     """Test complete matching flow with parsed case card."""
+
     # Simulate extracted data from press release
     article = "205.1"
     decision_date = date(2026, 4, 2)
@@ -233,7 +266,12 @@ def test_end_to_end_matching() -> None:
     case_card = ParsedCaseCard(
         case_number="1-456/2026",
         case_uid="real-uid-456",
-        received_at=date(2026, 4, 2),
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 2),
+            )
+        ],
         persons=[
             CasePerson(
                 name="Разлуго Виталий Викторович",
@@ -267,6 +305,7 @@ def test_end_to_end_matching() -> None:
 
 def test_end_to_end_matching_hidden_person() -> None:
     """Test matching when person name is hidden in case card."""
+
     # Simulate extracted data from press release
     article = "205.1"
     decision_date = date(2026, 4, 2)
@@ -276,7 +315,12 @@ def test_end_to_end_matching_hidden_person() -> None:
     case_card = ParsedCaseCard(
         case_number="1-789/2026",
         case_uid="real-uid-789",
-        received_at=date(2026, 4, 2),
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 4, 2),
+            )
+        ],
         persons=[
             CasePerson(
                 name="Информация скрыта",
@@ -306,6 +350,7 @@ def test_end_to_end_matching_hidden_person() -> None:
 
 def test_end_to_end_no_match() -> None:
     """Test matching when there's no match."""
+
     # Simulate extracted data from press release
     article = "205.1"
     decision_date = date(2026, 4, 2)
@@ -315,7 +360,12 @@ def test_end_to_end_no_match() -> None:
     case_card = ParsedCaseCard(
         case_number="1-999/2026",
         case_uid="real-uid-999",
-        received_at=date(2026, 1, 1),  # Different date
+        events=[
+            CaseEvent(
+                event_type="Приговор",
+                event_date=date(2026, 1, 1),  # Different date
+            )
+        ],
         persons=[
             CasePerson(
                 name="Петров Петр Петрович",  # Different person
