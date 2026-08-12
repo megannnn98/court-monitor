@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from court_monitor.domain.facts import ExtractedFactDTO
 from court_monitor.domain.models import PERSON_NAME_FIELD, ParserStatus
 from court_monitor.normalization import normalize_fio
+from court_monitor.sources.base import content_hash, normalize_text
 from court_monitor.storage.orm import (
     AuditLog,
     ExtractedFact,
@@ -104,6 +105,38 @@ def count_relevant_documents(session: Session) -> int:
 
 def upsert_document(session: Session, doc: SourceDocument) -> SourceDocument:
     """Insert a document. Caller is responsible for dedup pre-check."""
+    session.add(doc)
+    session.flush()
+    return doc
+
+
+def upsert_document_html(
+    session: Session,
+    *,
+    url: str,
+    html: str,
+    source_name: str,
+    source_type: str,
+) -> SourceDocument:
+    """Save case card HTML as a SourceDocument. Idempotent by URL+content_hash."""
+    ch = content_hash(html)
+    existing = session.execute(
+        select(SourceDocument).where(
+            SourceDocument.url == url,
+            SourceDocument.content_hash == ch,
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+    doc = SourceDocument(
+        url=url,
+        source_type=source_type,
+        source_name=source_name,
+        content=html,
+        text=normalize_text(html),
+        content_hash=ch,
+        parser_status=ParserStatus.parsed.value,
+    )
     session.add(doc)
     session.flush()
     return doc

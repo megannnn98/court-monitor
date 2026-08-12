@@ -394,6 +394,42 @@ class CourtEvent(Base):
     source_document: Mapped[SourceDocument | None] = relationship()
 
 
+class CaseParticipant(Base):
+    """A participant in a court case (defendant, judge, lawyer, etc.).
+
+    Stored from the case card — NOT linked to PersonRecord (RFM registry).
+    Uses its own identity, not requiring a pre-existing PersonRecord.
+    """
+
+    __tablename__ = "case_participants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
+
+    name_original: Mapped[str] = mapped_column(String(512))
+    normalized_name: Mapped[str | None] = mapped_column(String(512), index=True)
+    articles: Mapped[str | None] = mapped_column(Text)
+    material: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[str | None] = mapped_column(Text)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    source_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("source_documents.id", ondelete="SET NULL"), index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc
+    )
+
+    case: Mapped[Case] = relationship()
+    source_document: Mapped[SourceDocument | None] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("case_id", "name_original", name="uq_case_participant_name"),
+    )
+
+
 class CaseMatchCandidate(Base):
     """A candidate match between a press release and a court case.
 

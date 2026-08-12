@@ -6,7 +6,9 @@
 
 ## Статус
 
-⚠️ **Поиск дел требует JavaScript** - форма поиска использует динамическую загрузку через JavaScript, что делает невозможным прямой HTTP-поиск без браузера.
+✅ **Поиск дел НЕ требует JavaScript** — форма использует стандартный HTTP GET.
+
+Фактический browser request подтверждён через `curl` с browser-like заголовками.
 
 ## Найденная структура
 
@@ -99,82 +101,38 @@ function show_search(n_n, c_t) {
 
 **Прямой HTTP-запрос не возвращает результаты поиска.**
 
-### Проверенные подходы
+## Проверенные подходы
 
-❌ **GET запрос с параметрами поиска:**
+✅ **GET запрос со всеми hidden fields:**
+
 ```bash
-curl "https://2zovs.msk.sudrf.ru/modules.php?name=sud_delo&srv_num=1&name_op=r&delo_id=1540006&U1_DEFENDANT__LAW_ARTICLESS=205.1"
-```
-Возвращает страницу без результатов.
-
-❌ **POST запрос:**
-Не тестировался, но форма использует `method="get"`.
-
-## Предлагаемые решения
-
-### Вариант 1: Обходной путь через список дел
-
-Вместо поиска использовать список дел на главной странице sud_delo:
-
-```
-/modules.php?name=sud_delo&srv_num=1
+curl -sL "https://2zovs.msk.sudrf.ru/modules.php" \
+  -H "User-Agent: Mozilla/5.0 ..." \
+  -G \
+  --data-urlencode "name=sud_delo" \
+  --data-urlencode "srv_num=1" \
+  --data-urlencode "name_op=r" \
+  --data-urlencode "delo_id=1540006" \
+  --data-urlencode "case_type=0" \
+  --data-urlencode "new=0" \
+  --data-urlencode "delo_table=u1_case" \
+  --data-urlencode "U1_DEFENDANT__LAW_ARTICLESS=205.1"
 ```
 
-Эта страница показывает "Список дел, назначенных к слушанию на дату" и содержит ссылки на case cards.
+**Результат:** 200 OK, 25 результатов поиска.
 
-**Преимущества:**
-- Работает через обычный HTTP
-- Не требует JavaScript
-- Можно парсить HTML
+**Ключевое отличие от предыдущей неудачной попытки:** в запросе должны присутствовать ВСЕ hidden fields: `case_type=0`, `new=0`, `delo_table=u1_case`.
 
-**Недостатки:**
-- Показывает только дела, назначенные на дату
-- Нельзя искать по статье, ФИО, дате
-- Ограниченный набор дел
+Фикстура сохранена: `tests/fixtures/sudrf-live/2zovs/sud_delo/search-result-article-205-1.html`
 
-### Вариант 2: Playwright для поиска
+## Итоговое заключение
 
-Использовать Playwright для рендеринга JavaScript и взаимодействия с формой поиска.
+JavaScript НЕ требуется. Поиск работает через обычный HTTP GET.
+Причина предыдущего ложного вывода: были пропущены critical hidden fields.
 
-**Преимущества:**
-- Полный доступ к поиску
-- Все поля поиска доступны
+## Реализация
 
-**Недостатки:**
-- Требует Playwright (тяжёлая зависимость)
-- Медленнее HTTP
-- Требует браузер
-
-### Вариант 3: Эмуляция JavaScript запросов
-
-Проанализировать JavaScript код и эмулировать AJAX-запросы, которые делает форма поиска.
-
-**Преимущества:**
-- Работает через HTTP
-- Не требует Playwright
-
-**Недостатки:**
-- Сложноreverse-engineer JavaScript
-- Может измениться при обновлении сайта
-- Нестабильно
-
-## Рекомендация
-
-Для текущей задачи использовать **Вариант 1** (обходной путь через список дел) как временное решение, с планом перехода на **Вариант 2** (Playwright) для полноценного поиска в будущем.
-
-**Обоснование:**
-- Задание требует "Не использовать Playwright, если форму можно воспроизвести обычным HTTP"
-- Форма поиска НЕ может быть воспроизведена обычным HTTP (требует JavaScript)
-- Вариант 1 позволяет получить case cards для дальнейшего парсинга
-- Это минимальное рабочее решение для демонстрации pipeline
-
-## Следующие шаги
-
-1. Реализовать парсер списка дел (Вариант 1)
-2. Извлекать case_id, case_uid, delo_id из ссылок
-3. Загружать case cards через известные URL
-4. Парсить case cards через существующий `parse_case_card()`
-5. В будущем: добавить Playwright для полноценного поиска
+Реализовано в `SudrfCaseSearchAdapter.search()` — использует полный набор параметров формы.
 
 ## Fixtures
 
@@ -182,3 +140,4 @@ curl "https://2zovs.msk.sudrf.ru/modules.php?name=sud_delo&srv_num=1&name_op=r&d
 - `tests/fixtures/sudrf-live/2zovs/sud_delo/search-form.html` - главная страница sud_delo
 - `tests/fixtures/sudrf-live/2zovs/sud_delo/search-form-full.html` - форма поиска (737 строк)
 - `tests/fixtures/sudrf-live/2zovs/sud_delo/case-card-example.html` - пример case card
+- `tests/fixtures/sudrf-live/2zovs/sud_delo/search-result-article-205-1.html` - результаты поиска по статье 205.1

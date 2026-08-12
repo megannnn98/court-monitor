@@ -1,4 +1,7 @@
-"""Adapter for searching cases on sudrf.ru courts."""
+"""Adapter for searching cases on sudrf.ru courts via real HTTP search.
+
+Uses the standard GET search form — JavaScript is NOT required.
+"""
 
 from __future__ import annotations
 
@@ -11,14 +14,21 @@ from court_monitor.sources.sudrf_dto import SudrfCaseSearchCriteria, SudrfCaseSe
 
 _log = get_logger(__name__)
 
+# Hidden form fields required for the search to work
+_SEARCH_BASE_PARAMS = {
+    "name": "sud_delo",
+    "srv_num": "1",
+    "name_op": "r",
+    "case_type": "0",
+    "delo_table": "u1_case",
+}
+
 
 class SudrfCaseSearchAdapter:
-    """Adapter for searching cases on sudrf.ru courts.
+    """Adapter for searching cases on sudrf.ru courts via HTTP GET.
 
-    Current implementation: parses case list from main sud_delo page.
-    This is a workaround because the search form requires JavaScript.
-
-    Future: implement full search via Playwright or JavaScript emulation.
+    The sud_delo search form works with standard HTTP GET — no JavaScript
+    required. Hidden fields must be included for the search to return results.
     """
 
     def __init__(self, config: SourceConfig) -> None:
@@ -27,94 +37,64 @@ class SudrfCaseSearchAdapter:
         self.court_name = config.court_name or config.name
 
     def search(self, criteria: SudrfCaseSearchCriteria) -> list[SudrfCaseSearchResult]:
-        """Search for cases matching criteria.
+        """Search for cases matching criteria via real sud_delo HTTP search.
 
-        Current implementation: fetches case list from main sud_delo page
-        and filters by criteria locally.
-
-        Args:
-            criteria: Search criteria
-
-        Returns:
-            List of matching case search results
+        Sends a GET request to /modules.php with form parameters matching
+        the browser form submission.
         """
         _log.info(
             "sudrf.search.start",
             court=self.court_name,
             article=criteria.article,
             decision_date=criteria.decision_date,
+            case_number=criteria.case_number,
+            person_name=criteria.person_name,
         )
 
-        # Fetch case list from main sud_delo page
-        # NOTE: This is a workaround — the page only shows cases scheduled for
-        # today. Past decisions will not be found. Full search requires
-        # Playwright (see docs/sudrf-case-search-discovery.md).
-        case_list_url = f"{self.base_url}/modules.php?name=sud_delo&srv_num=1"
+        params = self._build_search_params(criteria)
+        search_url = f"{self.base_url}/modules.php"
 
         with HttpClient() as client:
-            response = client.get(case_list_url)
+            response = client.get(f"{search_url}?{'&'.join(f'{k}={v}' for k, v in params.items())}")
 
             if response.status != 200 or response.health != FetchHealth.ok:
                 _log.error(
                     "sudrf.search.http_error",
-                    url=case_list_url,
+                    url=search_url,
                     status=response.status,
                     health=str(response.health),
                 )
                 return []
 
-            # Parse case list
             parsed = parse_case_list(response.text, self.base_url)
 
             _log.info(
-                "sudrf.search.parsed",
+                "sudrf.search.results",
                 court=self.court_name,
-                total_cases=len(parsed.results),
+                total=len(parsed.results),
             )
 
-            # Filter by criteria (local filtering for now)
-            filtered = self._filter_results(parsed.results, criteria)
+            return parsed.results[: criteria.limit]
 
-            _log.info(
-                "sudrf.search.filtered",
-                court=self.court_name,
-                filtered_count=len(filtered),
-            )
+    def _build_search_params(self, criteria: SudrfCaseSearchCriteria) -> dict[str, str]:
+        """Build search query parameters matching the browser form."""
+        params: dict[str, str] = dict(_SEARCH_BASE_PARAMS)
+        params["delo_id"] = criteria.delo_id or "1540006"
+        params["new"] = criteria.new_flag or "0"
 
-            return filtered[: criteria.limit]
-
-    def _filter_results(
-        self,
-        results: list[SudrfCaseSearchResult],
-        criteria: SudrfCaseSearchCriteria,
-    ) -> list[SudrfCaseSearchResult]:
-        """Filter results by criteria.
-
-        Current implementation: basic filtering by case number.
-        Full filtering requires fetching and parsing case cards.
-        """
-        filtered = results
-
-        # Filter by case number if specified
+        if criteria.article:
+            params["U1_DEFENDANT__LAW_ARTICLESS"] = criteria.article
         if criteria.case_number:
-            filtered = [
-                r for r in filtered if r.case_number and criteria.case_number in r.case_number
-            ]
+            params["U1_CASE__CASE_NUMBERSS"] = criteria.case_number
+        if criteria.person_name:
+            params["U1_DEFENDANT__NAMESS"] = criteria.person_name
+        if criteria.decision_date:
+            params["U1_EVENT__EVENT_DATEDD"] = criteria.decision_date.strftime("%d.%m.%Y")
 
-        # Note: article and date filtering require fetching case cards,
-        # which is done in the orchestrator after this search.
-
-        return filtered
+        return params
 
     def fetch_case_card_html(self, result: SudrfCaseSearchResult) -> str | None:
-        """Fetch HTML content of a case card.
-
-        Args:
-            result: Search result with case card URL
-
-        Returns:
-            HTML content or None if fetch failed
-        """
+        """Fetch HTML content of a case card."""
         _log.info(
             "sudrf.case_card.fetch",
             case_uid=result.case_uid,

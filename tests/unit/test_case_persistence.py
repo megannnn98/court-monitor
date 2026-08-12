@@ -6,6 +6,27 @@ from datetime import date
 
 from court_monitor.parsers.sud_delo import CaseEvent, CasePerson, ParsedCaseCard
 from court_monitor.services.case_persistence import persist_case_card
+from court_monitor.storage.orm import SourceDocument
+
+_DOC_COUNTER = 0
+
+
+def _next_hash() -> str:
+    global _DOC_COUNTER  # noqa: PLW0603
+    _DOC_COUNTER += 1
+    return f"hash-{date.today().isoformat()}-{_DOC_COUNTER}"
+
+
+def _make_doc(db_session, *, url: str = "https://court.local/card/1") -> SourceDocument:
+    doc = SourceDocument(
+        url=url,
+        source_type="sudrf",
+        source_name="test",
+        content_hash=_next_hash(),
+    )
+    db_session.add(doc)
+    db_session.flush()
+    return doc
 
 
 def _make_parsed_card(
@@ -36,7 +57,11 @@ def test_persist_case_card_creates(db_session):
     card = _make_parsed_card()
 
     case, created = persist_case_card(
-        db_session, card, "https://court.local/card", "2-й Западный окружной военный суд"
+        db_session,
+        card,
+        "https://court.local/card",
+        "2-й Западный окружной военный суд",
+        _make_doc(db_session),
     )
     db_session.commit()
 
@@ -56,7 +81,7 @@ def test_persist_case_card_idempotent_by_uid(db_session):
     card = _make_parsed_card()
 
     case1, created1 = persist_case_card(
-        db_session, card, "url1", "2-й Западный окружной военный суд"
+        db_session, card, "url1", "2-й Западный окружной военный суд", _make_doc(db_session)
     )
     db_session.commit()
     assert created1 is True
@@ -64,7 +89,7 @@ def test_persist_case_card_idempotent_by_uid(db_session):
     # Second call with same case_uid
     card2 = _make_parsed_card(case_uid="test-uid-001", case_number="1-200/2026")
     case2, created2 = persist_case_card(
-        db_session, card2, "url2", "2-й Западный окружной военный суд"
+        db_session, card2, "url2", "2-й Западный окружной военный суд", _make_doc(db_session)
     )
     db_session.commit()
 
@@ -79,7 +104,7 @@ def test_persist_case_card_idempotent_by_number(db_session):
     card1 = _make_parsed_card(case_uid=None)  # No UID
 
     case1, created1 = persist_case_card(
-        db_session, card1, "url1", "2-й Западный окружной военный суд"
+        db_session, card1, "url1", "2-й Западный окружной военный суд", _make_doc(db_session)
     )
     db_session.commit()
     assert created1 is True
@@ -87,7 +112,7 @@ def test_persist_case_card_idempotent_by_number(db_session):
     # Second call with same court+case_number but different UID
     card2 = _make_parsed_card(case_uid="new-uid-later", case_number="1-100/2026")
     case2, created2 = persist_case_card(
-        db_session, card2, "url2", "2-й Западный окружной военный суд"
+        db_session, card2, "url2", "2-й Западный окружной военный суд", _make_doc(db_session)
     )
     db_session.commit()
 
@@ -106,7 +131,9 @@ def test_persist_case_events(db_session):
         ],
     )
 
-    case, created = persist_case_card(db_session, card, "url", "2-й Западный окружной военный суд")
+    case, created = persist_case_card(
+        db_session, card, "url", "2-й Западный окружной военный суд", _make_doc(db_session)
+    )
     db_session.commit()
 
     assert len(case.events) == 2
@@ -129,12 +156,16 @@ def test_persist_case_events_idempotent(db_session):
         ],
     )
 
-    case1, _ = persist_case_card(db_session, card, "url", "2-й Западный окружной военный суд")
+    case1, _ = persist_case_card(
+        db_session, card, "url", "2-й Западный окружной военный суд", _make_doc(db_session)
+    )
     db_session.commit()
     assert len(case1.events) == 1
 
     # Second persist with same events
-    case2, _ = persist_case_card(db_session, card, "url2", "2-й Западный окружной военный суд")
+    case2, _ = persist_case_card(
+        db_session, card, "url2", "2-й Западный окружной военный суд", _make_doc(db_session)
+    )
     db_session.commit()
 
     assert case2.id == case1.id
@@ -149,12 +180,16 @@ def test_persist_case_events_null_safe_dedup(db_session):
         ],
     )
 
-    case1, _ = persist_case_card(db_session, card, "url", "2-й Западный окружной военный суд")
+    case1, _ = persist_case_card(
+        db_session, card, "url", "2-й Западный окружной военный суд", _make_doc(db_session)
+    )
     db_session.commit()
     assert len(case1.events) == 1
 
     # Second persist with same NULL-field event
-    case2, _ = persist_case_card(db_session, card, "url2", "2-й Западный окружной военный суд")
+    case2, _ = persist_case_card(
+        db_session, card, "url2", "2-й Западный окружной военный суд", _make_doc(db_session)
+    )
     db_session.commit()
 
     assert case2.id == case1.id
@@ -170,7 +205,9 @@ def test_persist_case_card_no_decision_events(db_session):
         ],
     )
 
-    case, _ = persist_case_card(db_session, card, "url", "2-й Западный окружной военный суд")
+    case, _ = persist_case_card(
+        db_session, card, "url", "2-й Западный окружной военный суд", _make_doc(db_session)
+    )
     db_session.commit()
 
     assert case.decision_at is None

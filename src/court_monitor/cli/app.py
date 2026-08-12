@@ -22,6 +22,7 @@ from court_monitor.config.registry import (
     set_entry_status,
 )
 from court_monitor.config.settings import settings
+from court_monitor.domain.models import SourceBackend
 from court_monitor.matching.candidates import generate_matches
 from court_monitor.observability import configure_logging, get_logger
 from court_monitor.services import (
@@ -466,6 +467,90 @@ def list_audit_log_cmd(
         obj = f"{e.object_type}#{e.object_id}"
         change = f"{e.old_value_json or '-'} -> {e.new_value_json or '-'}"
         typer.echo(f"{when:20}  {e.actor[:16]:16}  {e.action[:22]:22}  {obj[:24]:24}  {change}")
+
+
+@app.command(name="find-case")
+def find_case(  # noqa: PLR0917
+    court: Annotated[str, typer.Option("--court", help="Court identifier (e.g. 2zovs).")] = "2zovs",
+    article: Annotated[
+        str | None, typer.Option("--article", help="Article number (e.g. 205.1).")
+    ] = None,
+    date: Annotated[str | None, typer.Option("--date", help="Decision date DD.MM.YYYY.")] = None,
+    case_number: Annotated[str | None, typer.Option("--case-number", help="Case number.")] = None,
+    person: Annotated[str | None, typer.Option("--person", help="Person surname.")] = None,
+    limit: Annotated[int, typer.Option("--limit", help="Max results.")] = 20,
+    live: Annotated[bool, typer.Option("--live", help="Use live HTTP.")] = False,
+    full: Annotated[bool, typer.Option("--full", help="Fetch and parse each case card.")] = False,
+) -> None:
+    """Search for cases on sud_delo (diagnostic command)."""
+    from datetime import datetime as dt  # noqa: PLC0415
+
+    from court_monitor.sources.sudrf_case_search import SudrfCaseSearchAdapter  # noqa: PLC0415
+    from court_monitor.sources.sudrf_dto import SudrfCaseSearchCriteria  # noqa: PLC0415
+
+    src = get_source(court)
+    if src is None:
+        typer.echo(f"Источник «{court}» не найден.", err=True)
+        raise typer.Exit(code=1)
+
+    if live and src.backend != SourceBackend.http:
+        from dataclasses import replace as dcreplace  # noqa: PLC0415
+
+        src = dcreplace(src, backend=SourceBackend.http)
+
+    decision_date = dt.strptime(date, "%d.%m.%Y").date() if date else None
+
+    criteria = SudrfCaseSearchCriteria(
+        court=src.name,
+        article=article,
+        decision_date=decision_date,
+        case_number=case_number,
+        person_name=person,
+        limit=limit,
+    )
+    adapter = SudrfCaseSearchAdapter(src)
+    results = adapter.search(criteria)
+
+    if not results:
+        typer.echo("Результатов не найдено.")
+        return
+
+    typer.echo(f"Найдено результатов: {len(results)}\n")
+    for i, r in enumerate(results):
+        typer.echo(f"{i + 1:3}. [{r.case_number or '?'}] {r.url}")
+
+    if full:
+        from court_monitor.parsers.sud_delo import parse_case_card  # noqa: PLC0415
+
+        for r in results:
+            html = adapter.fetch_case_card_html(r)
+            if not html:
+                continue
+            card = parse_case_card(html, case_uid=r.case_uid, court=src.court_name)
+            typer.echo(f"\n--- {r.case_number} ---")
+            typer.echo(f"  Суд: {card.court}")
+            typer.echo(f"  Судья: {card.judge}")
+            typer.echo(f"  Поступило: {card.received_at}")
+            typer.echo(f"  Участники: {[p.name for p in card.persons]}")
+            typer.echo(f"  События: {len(card.events)}")
+
+
+@app.command(name="process-court-cases")
+def process_court_cases(
+    court: Annotated[str, typer.Option("--court", help="Court identifier.")] = "2zovs",
+) -> None:
+    """Process pending court press releases through case matching pipeline."""
+    bootstrap_logging()
+    require_current_schema()
+    from court_monitor.services.court_orchestrator import (  # noqa: PLC0415
+        process_all_pending_court_documents,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        processed = process_all_pending_court_documents(session, court_name=court)
+    typer.echo(f"Обработано документов: {processed}")
 
 
 @app.command(name="run-web")
