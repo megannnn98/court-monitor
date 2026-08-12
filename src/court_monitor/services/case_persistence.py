@@ -91,18 +91,31 @@ def persist_case_events(
     parsed_card: ParsedCaseCard,
     source_document: SourceDocument | None = None,
 ) -> tuple[int, int, int]:
-    """Persist court events. Idempotent with mutable field updates."""
+    """Persist court events. Idempotent with mutable field updates.
+
+    CaseEvent.event_date is a timezone-aware DateTime, but ParsedCaseCard
+    hands us a plain ``date``. SQLite's DateTime column compares against the
+    datetime as ``YYYY-MM-DD HH:MM:SS``, so comparing a bare ``date``
+    (``YYYY-MM-DD``) never matches — dedup silently misses and the same
+    event is inserted on every run (task §19 regression). Coerce to
+    datetime before querying.
+    """
     created_count = 0
     updated_count = 0
     skipped_count = 0
 
     for event in parsed_card.events:
+        event_date_dt = (
+            datetime.combine(event.event_date, datetime.min.time())
+            if event.event_date is not None
+            else None
+        )
         dedup_conditions: list = [
             CourtEvent.case_id == case.id,
             CourtEvent.event_type == event.event_type,
         ]
-        if event.event_date is not None:
-            dedup_conditions.append(CourtEvent.event_date == event.event_date)
+        if event_date_dt is not None:
+            dedup_conditions.append(CourtEvent.event_date == event_date_dt)
         else:
             dedup_conditions.append(CourtEvent.event_date.is_(None))
         if event.event_time is not None:
@@ -124,7 +137,7 @@ def persist_case_events(
         ce = CourtEvent(
             case_id=case.id,
             event_type=event.event_type,
-            event_date=event.event_date,
+            event_date=event_date_dt,
             event_time=event.event_time,
             result=event.result,
             location=event.location,

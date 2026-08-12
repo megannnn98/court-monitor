@@ -435,11 +435,55 @@ def run_all(
         bold=True,
     )
 
+    _run_court_stage(engine, live=live)
+
     typer.secho(
         f"\nДанные сохранены в БД: {db_display_path(settings.database_url)}",
         fg=typer.colors.WHITE,
         bold=True,
     )
+
+
+def _run_court_stage(engine, *, live: bool) -> None:
+    """Court case monitoring stage inside ``run-all`` (task §16).
+
+    Iterates configured ``sudrf`` sources and runs the case-matching pipeline
+    for pending press documents. The ``live`` flag is forwarded to the
+    orchestrator so fixture vs. HTTP semantics stay consistent with the rest
+    of ``run-all``. Errors from individual courts are captured per-source —
+    they never roll up into the generic fetch counters.
+    """
+    from court_monitor.config import loader as cfg_loader  # noqa: PLC0415
+    from court_monitor.domain.models import SourceType  # noqa: PLC0415
+    from court_monitor.services.court_orchestrator import (  # noqa: PLC0415
+        process_all_pending_court_documents,
+    )
+
+    typer.secho("\n=== Судебные дела ===", fg=typer.colors.CYAN, bold=True)
+
+    courts = [s for s in cfg_loader.load_sources() if s.type == SourceType.sudrf]
+    if not courts:
+        typer.secho("  (нет настроенных судов)", dim=True)
+        return
+
+    for court in courts:
+        try:
+            with session_scope(engine) as session:
+                processed = process_all_pending_court_documents(
+                    session, court_name=court.name, force_live=live
+                )
+            typer.secho(
+                f"  ✓ {court.name}: processed={processed}",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+        except Exception as exc:
+            typer.secho(
+                f"  ✗ {court.name}: ОШИБКА {type(exc).__name__}: {exc}",
+                fg=typer.colors.RED,
+                bold=True,
+                err=True,
+            )
 
 
 @app.command(name="list-audit-log")
@@ -469,13 +513,194 @@ def list_audit_log_cmd(
         typer.echo(f"{when:20}  {e.actor[:16]:16}  {e.action[:22]:22}  {obj[:24]:24}  {change}")
 
 
+@app.command(name="list-case-matches")
+def list_case_matches(
+    status: Annotated[
+        str | None,
+        typer.Option(
+            "--status", help="Filter: pending (default), confirmed, rejected, insufficient."
+        ),
+    ] = "pending",
+    limit: Annotated[int, typer.Option(help="Max rows to print.")] = 50,
+) -> None:
+    """List case match candidates awaiting operator review (task §12)."""
+    bootstrap_logging()
+    from sqlalchemy import select  # noqa: PLC0415
+
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        list_pending_case_match_candidates,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+    from court_monitor.storage.orm import Case, CaseMatchCandidate  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        if status == "pending":
+            candidates = list_pending_case_match_candidates(session, limit=limit)
+        else:
+            stmt = (
+                select(CaseMatchCandidate)
+                .where(CaseMatchCandidate.status == status)
+                .order_by(CaseMatchCandidate.score.desc())
+                .limit(limit)
+            )
+            candidates = list(session.execute(stmt).scalars().all())
+
+        typer.echo(f"Всего кандидатов: {len(candidates)}")
+        typer.echo(f"{'id':>6}  {'score':>5}  {'status':10}  {'case':25}  {'court':20}  press_doc")
+        typer.echo("-" * 100)
+        for c in candidates:
+            case = session.get(Case, c.case_id)
+            case_str = (case.case_number or "?") if case else "?"
+            court_str = (case.court or "?") if case else "?"
+            typer.echo(
+                f"{c.id:>6}  "
+                f"{c.score:>5.2f}  "
+                f"{c.status[:10]:10}  "
+                f"{case_str[:25]:25}  "
+                f"{court_str[:20]:20}  "
+                f"{c.source_document_id}"
+            )
+
+
+@app.command(name="show-case-match")
+def show_case_match(
+    candidate_id: Annotated[int, typer.Argument(help="CaseMatchCandidate id.")],
+) -> None:
+    """Show a single candidate with the match signals (task §12)."""
+    bootstrap_logging()
+    import json  # noqa: PLC0415
+
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        get_case_match_candidate,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+    from court_monitor.storage.orm import Case, SourceDocument  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        candidate = get_case_match_candidate(session, candidate_id)
+        if candidate is None:
+            typer.echo(f"Кандидат id={candidate_id} не найден.", err=True)
+            raise typer.Exit(code=1)
+
+        case = session.get(Case, candidate.case_id)
+        press_doc = session.get(SourceDocument, candidate.source_document_id)
+        signals = json.loads(candidate.signals_json) if candidate.signals_json else []
+
+        typer.secho("\nPRESS RELEASE", fg=typer.colors.CYAN, bold=True)
+        if press_doc:
+            typer.echo(f"  title:       {press_doc.title or '-'}")
+            typer.echo(f"  url:         {press_doc.url}")
+            typer.echo(f"  published:   {press_doc.published_at or '-'}")
+        else:
+            typer.echo("  (пресс-релиз не найден)")
+
+        typer.secho("\nCASE", fg=typer.colors.CYAN, bold=True)
+        if case:
+            typer.echo(f"  case number: {case.case_number}")
+            typer.echo(f"  court:       {case.court}")
+            typer.echo(f"  case url:    {case.source_url or '-'}")
+            typer.echo(f"  received:    {case.received_at or '-'}")
+            typer.echo(f"  decision_at: {case.decision_at or '-'}")
+        else:
+            typer.echo("  (дело не найдено)")
+
+        typer.secho("\nMATCH EXPLANATION", fg=typer.colors.CYAN, bold=True)
+        typer.echo(f"  score:       {candidate.score:.2f}")
+        typer.echo(f"  status:      {candidate.status}")
+        typer.echo(f"  signals:     {len(signals)}")
+        for s in signals:
+            marker = "✓" if s.get("weight", 0) > 0 else "⚠"
+            typer.echo(
+                f"    {marker} {s.get('signal_type'):22} "
+                f"criteria={s.get('criteria_value')}  case={s.get('case_value')}  "
+                f"w={s.get('weight')}"
+            )
+
+
+@app.command(name="confirm-case-match")
+def confirm_case_match(
+    candidate_id: Annotated[int, typer.Argument(help="CaseMatchCandidate id.")],
+    comment: Annotated[str, typer.Option("--comment", help="Operator comment.")],
+    operator: Annotated[str, typer.Option("--operator", help="Operator identifier.")] = "cli",
+) -> None:
+    """Confirm a case match candidate (task §12)."""
+    bootstrap_logging()
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        CaseMatchDecision,
+        review_case_match_candidate,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        try:
+            candidate = review_case_match_candidate(
+                session,
+                candidate_id=candidate_id,
+                decision=CaseMatchDecision.CONFIRM,
+                actor=operator,
+                comment=comment,
+            )
+        except (ValueError, LookupError) as exc:
+            typer.echo(f"Ошибка: {exc}", err=True)
+            raise typer.Exit(code=2) from None
+        session.commit()
+    typer.echo(f"Кандидат {candidate.id}: status → {candidate.status}")
+
+
+@app.command(name="reject-case-match")
+def reject_case_match(
+    candidate_id: Annotated[int, typer.Argument(help="CaseMatchCandidate id.")],
+    comment: Annotated[str, typer.Option("--comment", help="Operator comment.")],
+    operator: Annotated[str, typer.Option("--operator", help="Operator identifier.")] = "cli",
+) -> None:
+    """Reject a case match candidate (task §12)."""
+    bootstrap_logging()
+    from court_monitor.services.case_match_service import (  # noqa: PLC0415
+        CaseMatchDecision,
+        review_case_match_candidate,
+    )
+    from court_monitor.storage.db import make_engine, session_scope  # noqa: PLC0415
+
+    engine = make_engine()
+    with session_scope(engine) as session:
+        try:
+            candidate = review_case_match_candidate(
+                session,
+                candidate_id=candidate_id,
+                decision=CaseMatchDecision.REJECT,
+                actor=operator,
+                comment=comment,
+            )
+        except (ValueError, LookupError) as exc:
+            typer.echo(f"Ошибка: {exc}", err=True)
+            raise typer.Exit(code=2) from None
+        session.commit()
+    typer.echo(f"Кандидат {candidate.id}: status → {candidate.status}")
+
+
 @app.command(name="find-case")
 def find_case(  # noqa: PLR0917
     court: Annotated[str, typer.Option("--court", help="Court identifier (e.g. 2zovs).")] = "2zovs",
     article: Annotated[
         str | None, typer.Option("--article", help="Article number (e.g. 205.1).")
     ] = None,
-    date: Annotated[str | None, typer.Option("--date", help="Decision date DD.MM.YYYY.")] = None,
+    result_date: Annotated[
+        str | None, typer.Option("--result-date", help="Decision/result date DD.MM.YYYY.")
+    ] = None,
+    event_date: Annotated[
+        str | None, typer.Option("--event-date", help="Event date DD.MM.YYYY (any event).")
+    ] = None,
+    date: Annotated[
+        str | None,
+        typer.Option(
+            "--date",
+            help="Deprecated alias for --result-date (kept for back-compat).",
+            hidden=True,
+        ),
+    ] = None,
     case_number: Annotated[str | None, typer.Option("--case-number", help="Case number.")] = None,
     person: Annotated[str | None, typer.Option("--person", help="Person surname.")] = None,
     limit: Annotated[int, typer.Option("--limit", help="Max results.")] = 20,
@@ -483,8 +708,6 @@ def find_case(  # noqa: PLR0917
     full: Annotated[bool, typer.Option("--full", help="Fetch and parse each case card.")] = False,
 ) -> None:
     """Search for cases on sud_delo (diagnostic command)."""
-    from datetime import datetime as dt  # noqa: PLC0415
-
     from court_monitor.sources.sudrf_case_search import SudrfCaseSearchAdapter  # noqa: PLC0415
     from court_monitor.sources.sudrf_dto import SudrfCaseSearchCriteria  # noqa: PLC0415
 
@@ -498,12 +721,14 @@ def find_case(  # noqa: PLR0917
 
         src = dcreplace(src, backend=SourceBackend.http)
 
-    decision_date = dt.strptime(date, "%d.%m.%Y").date() if date else None
+    result_date_value = _parse_cli_date(result_date or date)
+    event_date_value = _parse_cli_date(event_date)
 
     criteria = SudrfCaseSearchCriteria(
         court=src.name,
         article=article,
-        decision_date=decision_date,
+        result_date=result_date_value,
+        event_date=event_date_value,
         case_number=case_number,
         person_name=person,
         limit=limit,
@@ -535,11 +760,48 @@ def find_case(  # noqa: PLR0917
             typer.echo(f"  События: {len(card.events)}")
 
 
+def _parse_cli_date(raw: str | None):
+    """Parse DD.MM.YYYY into :class:`datetime.date`, or exit with a clear error.
+
+    Centralised so that invalid dates never produce raw Python tracebacks
+    anywhere in the CLI — a wrong date is a user error, not a stack trace.
+    """
+    if not raw:
+        return None
+    from datetime import datetime as dt  # noqa: PLC0415
+
+    try:
+        return dt.strptime(raw, "%d.%m.%Y").date()
+    except ValueError:
+        typer.echo(
+            f"Ошибка: дата «{raw}» должна быть в формате DD.MM.YYYY",
+            err=True,
+        )
+        raise typer.Exit(code=2) from None
+
+
 @app.command(name="process-court-cases")
 def process_court_cases(
     court: Annotated[str, typer.Option("--court", help="Court identifier.")] = "2zovs",
+    live: Annotated[
+        bool,
+        typer.Option("--live", help="Use live HTTP. Without --live, fixture backend only."),
+    ] = False,
+    reprocess: Annotated[
+        bool,
+        typer.Option(
+            "--reprocess",
+            help="Re-run documents already marked as processed_no_match (task §14).",
+        ),
+    ] = False,
 ) -> None:
-    """Process pending court press releases through case matching pipeline."""
+    """Process pending court press releases through case matching pipeline.
+
+    Without ``--live``: backend stays ``fixture`` (no network).
+    With ``--live``: backend switches to ``http`` and real requests hit sudrf.
+    Documents already marked ``processed_no_match`` are skipped unless
+    ``--reprocess`` is given.
+    """
     bootstrap_logging()
     require_current_schema()
     from court_monitor.services.court_orchestrator import (  # noqa: PLC0415
@@ -549,7 +811,9 @@ def process_court_cases(
 
     engine = make_engine()
     with session_scope(engine) as session:
-        processed = process_all_pending_court_documents(session, court_name=court)
+        processed = process_all_pending_court_documents(
+            session, court_name=court, force_live=live, reprocess=reprocess
+        )
     typer.echo(f"Обработано документов: {processed}")
 
 

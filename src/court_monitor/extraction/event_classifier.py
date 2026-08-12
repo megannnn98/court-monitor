@@ -37,17 +37,30 @@ class EventClassification:
 
 
 _SENTENCE_PATTERNS = (
-    (re.compile(r"вынесен приговор", re.IGNORECASE), 0.95),
+    (re.compile(r"вынесен(?:о)?\s+приговор", re.IGNORECASE), 0.95),
+    (re.compile(r"вынес(?:ла|ли)?\s+приговор", re.IGNORECASE), 0.95),
     (re.compile(r"приговорил", re.IGNORECASE), 0.90),
+    (re.compile(r"осужден(?:а|ы|о)?", re.IGNORECASE), 0.85),
     (re.compile(r"осудил", re.IGNORECASE), 0.85),
     (re.compile(r"назначил наказание", re.IGNORECASE), 0.85),
-    (re.compile(r"вынес постановление", re.IGNORECASE), 0.80),
+)
+
+# "вынес постановление" без контекста — НЕ sentence. Only when followed by
+# "приговор" / "обвинительный" does it become sentence_delivered. Otherwise
+# it will be matched by _PREVENTIVE_PATTERNS or _HEARING_PATTERNS if they
+# appear nearby.
+_SENTENCE_POSTANOVLENIE_CONTEXT = (
+    re.compile(r"вынес\s+постановление\s+(?:об\s+)?(?:обвинительном\s+)?приговор", re.IGNORECASE),
 )
 
 _PREVENTIVE_PATTERNS = (
-    (re.compile(r"избрана мера пресечения", re.IGNORECASE), 0.95),
-    (re.compile(r"заключен под стражу", re.IGNORECASE), 0.95),
-    (re.compile(r"продлен срок содержания под стражей", re.IGNORECASE), 0.95),
+    (re.compile(r"избран[аоы]?\s+мера\s+пресечения", re.IGNORECASE), 0.95),
+    (re.compile(r"избрание\s+меры\s+пресечения", re.IGNORECASE), 0.95),
+    (re.compile(r"заключен(?:а)?\s+под\s+стражу", re.IGNORECASE), 0.95),
+    (re.compile(r"заключение\s+под\s+стражу", re.IGNORECASE), 0.95),
+    (re.compile(r"продлен\s+срок\s+содержания\s+под\s+стражей", re.IGNORECASE), 0.95),
+    (re.compile(r"постановление\s+(?:об\s+)?избрании\s+меры\s+пресечения", re.IGNORECASE), 0.95),
+    (re.compile(r"мер[аы]\s+пресечения", re.IGNORECASE), 0.80),
 )
 
 _HEARING_PATTERNS = (
@@ -63,20 +76,43 @@ _APPEAL_PATTERNS = (
 _CASE_RECEIVED_PATTERNS = ((re.compile(r"поступило уголовное дело", re.IGNORECASE), 0.95),)
 
 
-def classify_press_event(text: str) -> EventClassification:
-    """Classify the type of court event described in a press release text."""
+def classify_press_event(text: str) -> EventClassification:  # noqa: PLR0911
+    """Classify the type of court event described in a press release text.
+
+    The order matters:
+      1. sentence patterns that explicitly state a verdict ("вынесен
+         приговор", "приговорил к...", "осудил").
+      2. preventive-measure patterns — matched BEFORE "вынес постановление"
+         because a "постановление об избрании меры пресечения" is NOT a
+         sentence (task §7).
+      3. "вынес постановление" only counts as a sentence when followed by
+         "приговор"/"обвинительный приговор".
+      4. hearing patterns ("назначено судебное заседание").
+      5. appeal patterns.
+      6. case-received patterns.
+
+    If nothing matches, return ``unknown`` — the caller treats this as
+    "no confirmed decision date available".
+    """
     for pattern, confidence in _SENTENCE_PATTERNS:
         m = pattern.search(text)
         if m:
             return EventClassification(
                 PressEventType.sentence_delivered, confidence, m.group(0), "regex"
             )
+
     for pattern, confidence in _PREVENTIVE_PATTERNS:
         m = pattern.search(text)
         if m:
             return EventClassification(
                 PressEventType.preventive_measure_selected, confidence, m.group(0), "regex"
             )
+
+    for pattern in _SENTENCE_POSTANOVLENIE_CONTEXT:
+        m = pattern.search(text)
+        if m:
+            return EventClassification(PressEventType.sentence_delivered, 0.80, m.group(0), "regex")
+
     for pattern, confidence in _HEARING_PATTERNS:
         m = pattern.search(text)
         if m:
@@ -101,18 +137,23 @@ def classify_press_event(text: str) -> EventClassification:
 # ── case card event classification ──
 
 _SENTENCE_EVENT_PATTERNS = (
-    re.compile(r"вынесен(ие|о) приговор", re.IGNORECASE),
+    re.compile(r"вынесен(?:ие|ы|о)?\s+приговор", re.IGNORECASE),
+    re.compile(r"вынес(?:ла|ли)?\s+приговор", re.IGNORECASE),
     re.compile(r"^приговор", re.IGNORECASE),
 )
 
 _APPEAL_FILED_PATTERNS = (
-    re.compile(r"обжалован(ие|о) приговор", re.IGNORECASE),
-    re.compile(r"подана апелляцион", re.IGNORECASE),
+    re.compile(r"обжалован(?:ие|о)?\s+приговор", re.IGNORECASE),
+    re.compile(r"подана\s+апелляцион", re.IGNORECASE),
+    re.compile(r"поступила\s+апелляционн", re.IGNORECASE),
+    re.compile(r"пода[лпя]\s+апелляционн", re.IGNORECASE),
 )
 
 _OVERTURNED_PATTERNS = (
-    re.compile(r"отмен(а|ен) приговор", re.IGNORECASE),
-    re.compile(r"отмен(а|ено) постановление", re.IGNORECASE),
+    re.compile(r"отменен[аоы]?\s+приговор", re.IGNORECASE),
+    re.compile(r"отмен[аеяи]?\s+приговор", re.IGNORECASE),
+    re.compile(r"отменен[аоы]?\s+(?:постановление|определение)", re.IGNORECASE),
+    re.compile(r"отмен[аеяи]?\s+(?:постановление|определение)", re.IGNORECASE),
 )
 
 _MODIFIED_PATTERNS = (re.compile(r"изменен(ие|о) приговор", re.IGNORECASE),)
@@ -150,7 +191,10 @@ def classify_case_event(event_type: str, result: str | None = None) -> EventClas
     if any(kw in combined.lower() for kw in ("заседание", "слушание")):
         return EventClassification(CaseEventType.hearing, 0.70, combined.strip(), "regex")
 
-    if any(kw in combined.lower() for kw in ("мера пресечения", "содержан", "заключен", "арест")):
+    if any(
+        kw in combined.lower()
+        for kw in ("мера пресечения", "меры пресечения", "содержан", "заключен", "арест")
+    ) or re.search(r"мер[аы]\s+пресечени[яе]", combined, re.IGNORECASE):
         return EventClassification(
             CaseEventType.preventive_measure, 0.80, combined.strip(), "regex"
         )

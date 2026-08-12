@@ -18,6 +18,12 @@ PERSON_NAME_FIELD = "full_name_original"
 # Date tolerance for matching (in days). Used by case matching and search.
 DATE_TOLERANCE_DAYS = 7
 
+# Version tag stamped on every CourtDocumentProcessing row. Bump when the
+# matching/extraction logic changes enough to make older decisions obsolete
+# (``court-v2``, etc.) — a different version re-runs the pipeline on the same
+# document instead of treating older results as current.
+COURT_PIPELINE_VERSION = "court-v1"
+
 
 class VerificationStatus(StrEnum):
     """Status of an extracted value — see spec §3.1."""
