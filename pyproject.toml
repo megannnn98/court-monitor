@@ -5,9 +5,12 @@ description = "Recovered first vertical slice of court-monitor"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.19.1",
     "httpx>=0.28.1",
+    "psycopg[binary]>=3.2",
     "pydantic>=2.11.0",
     "selectolax>=0.3.29",
+    "sqlalchemy>=2.0,<3.0",
 ]
 
 [tool.ruff]
