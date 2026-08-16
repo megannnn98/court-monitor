@@ -27,3 +27,8 @@ class ParsedArticle(BaseModel):
 class ArticleChunk(BaseModel):
     ordinal: int
     text: str
+
+
+class IngestionResult(BaseModel):
+    article: ParsedArticle
+    chunks: list[ArticleChunk]

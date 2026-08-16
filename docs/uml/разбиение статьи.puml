@@ -1,0 +1,17 @@
+@startuml
+title Разбиение статьи на chunks
+
+rectangle "ParsedArticle\ntext с разделителем \\n\\n" as Article
+component "Chunker.split()" as Chunker
+rectangle "list[ArticleChunk]" as Chunks
+rectangle "ArticleChunk 0" as Chunk0
+rectangle "ArticleChunk 1" as Chunk1
+rectangle "ArticleChunk 2" as Chunk2
+
+Article --> Chunker
+Chunker --> Chunks
+Chunks --> Chunk0
+Chunks --> Chunk1
+Chunks --> Chunk2
+
+@enduml
