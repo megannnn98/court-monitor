@@ -1,11 +1,14 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from selectolax.parser import HTMLParser
+from selectolax.parser import HTMLParser, Node
 
 from models import ParsedArticle, RawDocument
 
+OVD_INFO_TIMEZONE = ZoneInfo("Europe/Moscow")
 
-def _extract_text(node) -> str:
+
+def _extract_text(node: Node) -> str:
     return " ".join(node.text().split())
 
 
@@ -34,7 +37,7 @@ class OvdInfoArticleParser:
             published_at = datetime.strptime(
                 date_text,
                 "%d.%m.%Y, %H:%M",
-            )
+            ).replace(tzinfo=OVD_INFO_TIMEZONE)
 
         title = _extract_text(title_node)
 

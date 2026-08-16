@@ -1,6 +1,6 @@
-from models import SourceReference, IngestionResult
 from article_parser import OvdInfoArticleParser
 from chunker import Chunker
+from models import IngestionResult, SourceReference
 from website_adapter import WebsiteAdapter
 
 

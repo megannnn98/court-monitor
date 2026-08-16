@@ -1,0 +1,28 @@
+@startuml
+title Первый вертикальный срез court-monitor
+
+rectangle "CLI\nURL" as CLI
+rectangle "SourceReference" as Reference
+component "IngestionPipeline" as Pipeline
+component "WebsiteAdapter" as Adapter
+rectangle "RawDocument\nHTML bytes" as Raw
+component "OvdInfoArticleParser" as Parser
+rectangle "ParsedArticle" as Article
+component "Chunker" as Chunker
+rectangle "ArticleChunk[]" as Chunks
+rectangle "IngestionResult" as Result
+rectangle "Терминал" as Terminal
+
+CLI --> Reference
+Reference --> Pipeline : run(reference)
+Pipeline --> Adapter : await fetch()
+Adapter --> Raw
+Pipeline --> Parser : parse(raw)
+Parser --> Article
+Pipeline --> Chunker : split(article)
+Chunker --> Chunks
+Article --> Result
+Chunks --> Result
+Result --> Terminal
+
+@enduml

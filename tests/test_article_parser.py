@@ -1,5 +1,6 @@
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, UTC
+from zoneinfo import ZoneInfo
 
 from article_parser import OvdInfoArticleParser
 from models import RawDocument
@@ -7,7 +8,7 @@ from models import RawDocument
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "ovd_info_article.html"
 
 
-def test_parser_extracts_article():
+def test_parser_extracts_article() -> None:
     html_bytes = FIXTURE_PATH.read_bytes()
     assert html_bytes
 
@@ -32,6 +33,7 @@ def test_parser_extracts_article():
         13,
         17,
         57,
+        tzinfo=ZoneInfo("Europe/Moscow"),
     )
 
     assert len(paragraphs) == 3

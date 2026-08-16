@@ -1,10 +1,10 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-from models import ParsedArticle
 from chunker import Chunker
+from models import ParsedArticle
 
 
-def test_chunker():
+def test_chunker() -> None:
     text = """  Первый
 
                 Второй

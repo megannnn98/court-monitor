@@ -1,4 +1,4 @@
-from models import ParsedArticle, ArticleChunk
+from models import ArticleChunk, ParsedArticle
 
 
 class Chunker:

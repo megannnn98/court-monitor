@@ -1,22 +1,23 @@
+import argparse
 import asyncio
 
 from article_parser import OvdInfoArticleParser
-from models import SourceReference
-from website_adapter import WebsiteAdapter
 from chunker import Chunker
 from ingestion_pipeline import IngestionPipeline
-
-URL = (
-    "https://ovd.info/express-news/2026/08/13/"
-    "na-komika-sashu-dolgopolova-zaveli-delo-"
-    "o-reabilitacii-nacizma"
-)
+from models import SourceReference
+from website_adapter import WebsiteAdapter
 
 
 def main() -> None:
+    argument_parser = argparse.ArgumentParser(
+        description="Load and parse an OVD-Info express news article"
+    )
+    argument_parser.add_argument("url")
+    args = argument_parser.parse_args()
+
     reference = SourceReference(
-        external_id=URL,
-        url=URL,
+        external_id=args.url,
+        url=args.url,
     )
 
     ingestion_pipeline = IngestionPipeline(
@@ -28,15 +29,10 @@ def main() -> None:
     result = asyncio.run(ingestion_pipeline.run(reference))
 
     print("title:", result.article.title)
+    print("published_at:", result.article.published_at)
 
     for chunk in result.chunks:
         print(f"chunk {chunk.ordinal}:", chunk.text)
-
-    # print("external_id:", article.external_id)
-    # print("url:", article.url)
-    # print("article.title:", article.title)
-    # print("article.published_at:", article.published_at)
-    # print("article.text:", article.text)
 
 
 if __name__ == "__main__":
