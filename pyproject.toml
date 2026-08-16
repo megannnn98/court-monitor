@@ -1,0 +1,15 @@
+[project]
+name = "court-monitor-recovered"
+version = "0.1.0"
+description = "Recovered first vertical slice of court-monitor"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.11.0",
+    "selectolax>=0.3.29",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
