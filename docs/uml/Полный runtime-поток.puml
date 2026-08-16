@@ -1,0 +1,25 @@
+@startuml
+title Полный runtime-поток
+
+rectangle "main()" as Main
+rectangle "SourceReference" as Reference
+component "IngestionPipeline.run()" as Pipeline
+component "WebsiteAdapter.fetch()" as Adapter
+rectangle "RawDocument" as Raw
+component "OvdInfoArticleParser.parse()" as Parser
+rectangle "ParsedArticle" as Article
+component "Chunker.split()" as Chunker
+rectangle "IngestionResult" as Result
+
+Main --> Reference : создаёт
+Main --> Pipeline : asyncio.run()
+Pipeline --> Adapter : await fetch(reference)
+Adapter --> Raw : возвращает
+Pipeline --> Parser : parse(raw)
+Parser --> Article : возвращает
+Pipeline --> Chunker : split(article)
+Chunker --> Result : ArticleChunk[]
+Pipeline --> Result : article + chunks
+Result --> Main : возвращается
+
+@enduml

@@ -4,6 +4,7 @@ from article_parser import OvdInfoArticleParser
 from models import SourceReference
 from website_adapter import WebsiteAdapter
 from chunker import Chunker
+from ingestion_pipeline import IngestionPipeline
 
 URL = (
     "https://ovd.info/express-news/2026/08/13/"
@@ -18,17 +19,18 @@ def main() -> None:
         url=URL,
     )
 
-    website_adapter = WebsiteAdapter()
-    parser = OvdInfoArticleParser()
-    chunker = Chunker()
+    ingestion_pipeline = IngestionPipeline(
+        website_adapter=WebsiteAdapter(),
+        parser=OvdInfoArticleParser(),
+        chunker=Chunker(),
+    )
 
-    raw_document = asyncio.run(website_adapter.fetch(reference))
-    article = parser.parse(raw_document)
-    chunks = chunker.split(article)
+    result = asyncio.run(ingestion_pipeline.run(reference))
 
-    for chunk in chunks:
-        print("chunk.ordinal:", chunk.ordinal)
-        print("chunk.text:", chunk.text)
+    print("title:", result.article.title)
+
+    for chunk in result.chunks:
+        print(f"chunk {chunk.ordinal}:", chunk.text)
 
     # print("external_id:", article.external_id)
     # print("url:", article.url)
