@@ -1,0 +1,73 @@
+@startuml
+top to bottom direction
+
+hide methods
+hide stereotypes
+
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+entity "sources" as sources {
+    * id : INTEGER <<PK>>
+    --
+    name : VARCHAR(255) NOT NULL
+    base_url : VARCHAR(2048) NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    --
+    UNIQUE(base_url)
+}
+
+entity "source_documents" as source_documents {
+    * id : INTEGER <<PK>>
+    --
+    source_id : INTEGER NOT NULL <<FK>>
+    external_id : VARCHAR(255) NOT NULL
+    canonical_url : VARCHAR(2048) NOT NULL
+    discovered_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    --
+    UNIQUE(source_id, external_id)
+}
+
+entity "document_snapshots" as document_snapshots {
+    * id : INTEGER <<PK>>
+    --
+    document_id : INTEGER NOT NULL <<FK>>
+    fetched_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    content_type : VARCHAR(255) NOT NULL
+    raw_content : BYTEA NOT NULL
+    content_hash : VARCHAR(64) NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    --
+    UNIQUE(document_id, content_hash)
+}
+
+entity "parsed_articles" as parsed_articles {
+    * id : INTEGER <<PK>>
+    --
+    snapshot_id : INTEGER NOT NULL <<FK>>
+    title : TEXT NOT NULL
+    published_at : TIMESTAMP WITH TIME ZONE NULL
+    text : TEXT NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    --
+    UNIQUE(snapshot_id)
+}
+
+entity "article_chunks" as article_chunks {
+    * id : INTEGER <<PK>>
+    --
+    parsed_article_id : INTEGER NOT NULL <<FK>>
+    ordinal : INTEGER NOT NULL
+    text : TEXT NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    --
+    UNIQUE(parsed_article_id, ordinal)
+}
+
+sources ||--o{ source_documents : source_id
+source_documents ||--o{ document_snapshots : document_id
+document_snapshots ||--o| parsed_articles : snapshot_id
+parsed_articles ||--o{ article_chunks : parsed_article_id
+
+@enduml
