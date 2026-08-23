@@ -3,5 +3,5 @@ __pycache__/
 .ruff_cache/
 *.pyc
 article.html
-/uv.lock
 /.vscode
+/.env
