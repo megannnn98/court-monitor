@@ -29,13 +29,14 @@ class ArticleChunk(BaseModel):
     text: str
 
 
-class IngestionResult(BaseModel):
-    article: ParsedArticle
-    chunks: list[ArticleChunk]
-
-
 class PersistenceResult(BaseModel):
     document_id: int
     snapshot_id: int
     chunks_saved: int
     created_new_snapshot: bool
+
+
+class IngestionResult(BaseModel):
+    article: ParsedArticle
+    chunks: list[ArticleChunk]
+    persistence: PersistenceResult
