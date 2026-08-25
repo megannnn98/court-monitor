@@ -53,12 +53,7 @@ def main() -> None:
         print(f"chunk {chunk.ordinal}:", chunk.text)
 
     print("document_id:", result.persistence.document_id)
-    print("snapshot_id:", result.persistence.snapshot_id)
     print("chunks_saved:", result.persistence.chunks_saved)
-    print(
-        "created_new_snapshot:",
-        str(result.persistence.created_new_snapshot).lower(),
-    )
 
 
 if __name__ == "__main__":
