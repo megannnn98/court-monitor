@@ -31,9 +31,7 @@ class ArticleChunk(BaseModel):
 
 class PersistenceResult(BaseModel):
     document_id: int
-    snapshot_id: int
     chunks_saved: int
-    created_new_snapshot: bool
 
 
 class IngestionResult(BaseModel):

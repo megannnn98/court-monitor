@@ -16,7 +16,6 @@ def _truncate_test_tables(engine: Engine) -> None:
                 TRUNCATE TABLE
                     article_chunks,
                     parsed_articles,
-                    document_snapshots,
                     source_documents,
                     sources
                 RESTART IDENTITY CASCADE

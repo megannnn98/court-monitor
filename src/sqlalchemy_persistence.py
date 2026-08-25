@@ -1,21 +1,15 @@
 from collections.abc import Sequence
-from hashlib import sha256
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from models import ArticleChunk, ParsedArticle, PersistenceResult, RawDocument
 from orm_models import (
     ArticleChunkRecord,
-    DocumentSnapshot,
     ParsedArticleRecord,
     Source,
     SourceDocument,
 )
-
-
-def _calculate_content_hash(content: bytes) -> str:
-    return sha256(content).hexdigest()
 
 
 class SqlAlchemyIngestionPersistence:
@@ -58,12 +52,19 @@ class SqlAlchemyIngestionPersistence:
         )
 
         if document is not None:
+            document.canonical_url = raw_document.url
+            document.fetched_at = raw_document.fetched_at
+            document.content_type = raw_document.content_type
+            document.raw_content = raw_document.content
             return document
 
         document = SourceDocument(
             source_id=source.id,
             external_id=raw_document.external_id,
             canonical_url=raw_document.url,
+            fetched_at=raw_document.fetched_at,
+            content_type=raw_document.content_type,
+            raw_content=raw_document.content,
         )
         session.add(document)
         session.flush()
@@ -71,60 +72,43 @@ class SqlAlchemyIngestionPersistence:
         return document
 
     @staticmethod
-    def _find_snapshot(
+    def _get_or_create_parsed_article(
         session: Session,
         document: SourceDocument,
-        content_hash: str,
-    ) -> DocumentSnapshot | None:
-        return session.scalar(
-            select(DocumentSnapshot).where(
-                DocumentSnapshot.document_id == document.id,
-                DocumentSnapshot.content_hash == content_hash,
-            )
-        )
-
-    @staticmethod
-    def _create_snapshot(
-        session: Session,
-        document: SourceDocument,
-        raw_document: RawDocument,
-        content_hash: str,
-    ) -> DocumentSnapshot:
-        snapshot = DocumentSnapshot(
-            document_id=document.id,
-            fetched_at=raw_document.fetched_at,
-            content_type=raw_document.content_type,
-            raw_content=raw_document.content,
-            content_hash=content_hash,
-        )
-        session.add(snapshot)
-        session.flush()
-
-        return snapshot
-
-    @staticmethod
-    def _create_parsed_article(
-        session: Session,
-        snapshot: DocumentSnapshot,
         article: ParsedArticle,
     ) -> ParsedArticleRecord:
-        record = ParsedArticleRecord(
-            snapshot_id=snapshot.id,
+        parsed_article = session.scalar(
+            select(ParsedArticleRecord).where(ParsedArticleRecord.document_id == document.id)
+        )
+
+        if parsed_article is not None:
+            parsed_article.title = article.title
+            parsed_article.published_at = article.published_at
+            parsed_article.text = article.text
+            return parsed_article
+
+        parsed_article = ParsedArticleRecord(
+            document_id=document.id,
             title=article.title,
             published_at=article.published_at,
             text=article.text,
         )
-        session.add(record)
+        session.add(parsed_article)
         session.flush()
 
-        return record
+        return parsed_article
 
     @staticmethod
-    def _create_chunks(
+    def _replace_chunks(
         session: Session,
         parsed_article: ParsedArticleRecord,
         chunks: Sequence[ArticleChunk],
     ) -> int:
+        session.execute(
+            delete(ArticleChunkRecord).where(
+                ArticleChunkRecord.parsed_article_id == parsed_article.id
+            )
+        )
         records = [
             ArticleChunkRecord(
                 parsed_article_id=parsed_article.id,
@@ -145,8 +129,6 @@ class SqlAlchemyIngestionPersistence:
         article: ParsedArticle,
         chunks: Sequence[ArticleChunk],
     ) -> PersistenceResult:
-        content_hash = _calculate_content_hash(raw_document.content)
-
         with self._session_factory.begin() as session:
             source = self._get_or_create_source(session)
             document = self._get_or_create_document(
@@ -155,32 +137,12 @@ class SqlAlchemyIngestionPersistence:
                 raw_document,
             )
 
-            existing_snapshot = self._find_snapshot(
+            parsed_article = self._get_or_create_parsed_article(
                 session,
                 document,
-                content_hash,
-            )
-
-            if existing_snapshot is not None:
-                return PersistenceResult(
-                    document_id=document.id,
-                    snapshot_id=existing_snapshot.id,
-                    chunks_saved=0,
-                    created_new_snapshot=False,
-                )
-
-            snapshot = self._create_snapshot(
-                session,
-                document,
-                raw_document,
-                content_hash,
-            )
-            parsed_article = self._create_parsed_article(
-                session,
-                snapshot,
                 article,
             )
-            chunks_saved = self._create_chunks(
+            chunks_saved = self._replace_chunks(
                 session,
                 parsed_article,
                 chunks,
@@ -188,7 +150,5 @@ class SqlAlchemyIngestionPersistence:
 
             return PersistenceResult(
                 document_id=document.id,
-                snapshot_id=snapshot.id,
                 chunks_saved=chunks_saved,
-                created_new_snapshot=True,
             )
