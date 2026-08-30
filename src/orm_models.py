@@ -1,14 +1,17 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Computed,
     DateTime,
     ForeignKey,
+    Index,
     LargeBinary,
     String,
     Text,
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -75,10 +78,23 @@ class ArticleChunkRecord(Base):
             "ordinal",
             name="uq_article_chunks_parsed_article_id_ordinal",
         ),
+        Index(
+            "ix_article_chunks_search_vector_gin",
+            "search_vector",
+            postgresql_using="gin",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     parsed_article_id: Mapped[int] = mapped_column(ForeignKey("parsed_articles.id"), nullable=False)
     ordinal: Mapped[int] = mapped_column(nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('russian'::regconfig, text)",
+            persisted=True,
+        ),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

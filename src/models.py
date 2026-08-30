@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class SourceReference(BaseModel):
@@ -38,3 +38,26 @@ class IngestionResult(BaseModel):
     article: ParsedArticle
     chunks: list[ArticleChunk]
     persistence: PersistenceResult
+
+
+class SearchQuery(BaseModel):
+    text: str
+    limit: int = Field(default=10, ge=1, le=100)
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("search text must not be blank")
+        return value
+
+
+class SearchHit(BaseModel):
+    chunk_id: int
+    article_id: int
+    title: str
+    published_at: datetime | None
+    url: str
+    text: str
+    score: float
