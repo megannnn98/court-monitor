@@ -2,7 +2,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from models import SearchHit, SearchQuery
-from orm_models import ArticleChunkRecord, ParsedArticleRecord, SourceDocument
+from orm_models import (
+    ArticleChunkRecord,
+    ParsedArticleRecord,
+    Source,
+    SourceDocument,
+)
 
 
 class PostgresLexicalSearch:
@@ -20,6 +25,9 @@ class PostgresLexicalSearch:
                 select(
                     ArticleChunkRecord.id.label("chunk_id"),
                     ParsedArticleRecord.id.label("article_id"),
+                    Source.base_url.label("source_base_url"),
+                    SourceDocument.external_id.label("external_id"),
+                    ArticleChunkRecord.ordinal.label("ordinal"),
                     ParsedArticleRecord.title.label("title"),
                     ParsedArticleRecord.published_at.label("published_at"),
                     SourceDocument.canonical_url.label("url"),
@@ -32,6 +40,10 @@ class PostgresLexicalSearch:
                     ArticleChunkRecord.parsed_article_id == ParsedArticleRecord.id,
                 )
                 .join(SourceDocument, ParsedArticleRecord.document_id == SourceDocument.id)
+                .join(
+                    Source,
+                    SourceDocument.source_id == Source.id,
+                )
                 .where(search_vector.op("@@")(search_query))
                 .order_by(score.desc(), ArticleChunkRecord.id.asc())
                 .limit(query.limit)

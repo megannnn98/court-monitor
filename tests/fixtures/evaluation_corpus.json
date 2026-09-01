@@ -1,0 +1,62 @@
+[
+  {
+    "source_base_url": "https://ovd.info",
+    "external_id": "rehabilitation-nazism",
+    "canonical_url": "https://ovd.info/evaluation/rehabilitation-nazism",
+    "title": "Дело о реабилитации нацизма",
+    "chunks": [
+      "Следственный комитет возбудил уголовное дело против комика.",
+      "Его обвиняют в реабилитации нацизма из-за высказывания во время выступления."
+    ]
+  },
+  {
+    "source_base_url": "https://ovd.info",
+    "external_id": "military-fakes",
+    "canonical_url": "https://ovd.info/evaluation/military-fakes",
+    "title": "Журналиста обвинили в военных фейках",
+    "chunks": [
+      "Против журналиста возбудили уголовное дело о распространении недостоверной информации.",
+      "Поводом стала публикация о действиях российской армии."
+    ]
+  },
+  {
+    "source_base_url": "https://ovd.info",
+    "external_id": "antiwar-protest",
+    "canonical_url": "https://ovd.info/evaluation/antiwar-protest",
+    "title": "Задержание на антивоенной акции",
+    "chunks": [
+      "Полиция задержала участника одиночного пикета против войны.",
+      "Суд назначил ему административный арест на десять суток."
+    ]
+  },
+  {
+    "source_base_url": "https://ovd.info",
+    "external_id": "extremism-case",
+    "canonical_url": "https://ovd.info/evaluation/extremism-case",
+    "title": "Активиста обвинили в экстремизме",
+    "chunks": [
+      "В отношении гражданского активиста расследуется уголовное дело.",
+      "Следствие считает опубликованный им материал призывом к экстремистской деятельности."
+    ]
+  },
+  {
+    "source_base_url": "https://ovd.info",
+    "external_id": "court-acquittal",
+    "canonical_url": "https://ovd.info/evaluation/court-acquittal",
+    "title": "Суд оправдал обвиняемого",
+    "chunks": [
+      "Районный суд рассмотрел материалы уголовного дела.",
+      "Подсудимого оправдали из-за отсутствия состава преступления."
+    ]
+  },
+  {
+    "source_base_url": "https://ovd.info",
+    "external_id": "weather-report",
+    "canonical_url": "https://ovd.info/evaluation/weather-report",
+    "title": "Прогноз погоды",
+    "chunks": [
+      "В выходные ожидается тёплая погода без осадков.",
+      "Температура воздуха поднимется до двадцати пяти градусов."
+    ]
+  }
+]

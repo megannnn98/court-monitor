@@ -46,7 +46,18 @@ def main() -> None:
     database_engine = create_database_engine(database_url)
     session_factory = create_session_factory(database_engine)
 
+    """
+    блок обрабатывает CLI-команду search:
+    создаёт поисковый сервис, выполняет запрос к PostgreSQL,
+    печатает найденные фрагменты и завершает main(),
+    чтобы программа не перешла к загрузке статьи.
+    """
     if args.command == "search":
+        """
+        Создаётся объект, выполняющий лексический поиск в PostgreSQL.
+        Ему передаётся session_factory — фабрика SQLAlchemy-сессий.
+        Благодаря ей PostgresLexicalSearch сможет открыть соединение с базой данных.
+        """
         search = PostgresLexicalSearch(session_factory)
         hits = search.search(
             SearchQuery(
@@ -56,9 +67,9 @@ def main() -> None:
         )
 
         for hit in hits:
-            print(f"[{hit.score:.4f}] {hit.title}")
-            print(hit.url)
-            print(hit.text)
+            print(f"[{hit.score:.4f}] {hit.title}")  # Печатаются оценка релевантности и заголовок.
+            print(hit.url)  # печатает адрес исходной публикации
+            print(hit.text)  # печатает не всю статью, а конкретный найденный chunk
             print()
 
         return

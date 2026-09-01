@@ -59,6 +59,9 @@ def test_search_finds_russian_word_form(
     assert hit.published_at == published_at
     assert hit.score > 0
     assert all(chunk.text != chunks[1].text for chunk in hits)
+    assert hit.source_base_url == "https://ovd.info"
+    assert hit.external_id == raw_document.external_id
+    assert hit.ordinal == 0
 
 
 def test_search_respects_limit(

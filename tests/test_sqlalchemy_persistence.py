@@ -20,7 +20,7 @@ def _create_persistence(
     )
 
 
-def test_save_creates_and_updates_current_document(
+def test_save_does_not_update_existing_document(
     session_factory: sessionmaker[Session],
 ) -> None:
     persistence = _create_persistence(session_factory)

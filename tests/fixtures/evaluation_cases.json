@@ -1,0 +1,11 @@
+[
+  {
+    "query_id": "rehabilitation-of-nazism",
+    "query_text": "реабилитация нацизма",
+    "expected_chunk": {
+      "source_base_url": "https://ovd.info",
+      "external_id": "rehabilitation-nazism",
+      "ordinal": 1
+    }
+  }
+]
