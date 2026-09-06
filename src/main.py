@@ -1,15 +1,23 @@
 import argparse
 import asyncio
 import os
+from datetime import UTC, datetime
+from pathlib import Path
 
 from article_parser import OvdInfoArticleParser
 from chunker import Chunker
 from database import create_database_engine, create_session_factory
+from evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from ingestion_pipeline import IngestionPipeline
-from models import SearchQuery, SourceReference
+from models import ArticleChunk, ParsedArticle, RawDocument, SearchQuery, SourceReference
 from postgres_lexical_search import PostgresLexicalSearch
+from search_evaluator import SearchEvaluator
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from website_adapter import WebsiteAdapter
+
+DEFAULT_EVALUATION_CORPUS_PATH = Path("tests/fixtures/evaluation_corpus.json")
+DEFAULT_EVALUATION_CASES_PATH = Path("tests/fixtures/evaluation_cases.json")
+FIXED_EVALUATION_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def main() -> None:
@@ -36,6 +44,31 @@ def main() -> None:
         default=10,
     )
 
+    evaluate_search_parser = subparsers.add_parser(
+        "evaluate-search",
+        help="Evaluate PostgreSQL lexical search against fixed cases",
+    )
+    evaluate_search_parser.add_argument(
+        "--corpus-path",
+        type=Path,
+        default=DEFAULT_EVALUATION_CORPUS_PATH,
+    )
+    evaluate_search_parser.add_argument(
+        "--cases-path",
+        type=Path,
+        default=DEFAULT_EVALUATION_CASES_PATH,
+    )
+    evaluate_search_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+    )
+    evaluate_search_parser.add_argument(
+        "--output-path",
+        type=Path,
+        default=None,
+    )
+
     args = argument_parser.parse_args()
 
     database_url = os.environ.get("DATABASE_URL")
@@ -46,18 +79,7 @@ def main() -> None:
     database_engine = create_database_engine(database_url)
     session_factory = create_session_factory(database_engine)
 
-    """
-    блок обрабатывает CLI-команду search:
-    создаёт поисковый сервис, выполняет запрос к PostgreSQL,
-    печатает найденные фрагменты и завершает main(),
-    чтобы программа не перешла к загрузке статьи.
-    """
     if args.command == "search":
-        """
-        Создаётся объект, выполняющий лексический поиск в PostgreSQL.
-        Ему передаётся session_factory — фабрика SQLAlchemy-сессий.
-        Благодаря ей PostgresLexicalSearch сможет открыть соединение с базой данных.
-        """
         search = PostgresLexicalSearch(session_factory)
         hits = search.search(
             SearchQuery(
@@ -67,10 +89,66 @@ def main() -> None:
         )
 
         for hit in hits:
-            print(f"[{hit.score:.4f}] {hit.title}")  # Печатаются оценка релевантности и заголовок.
-            print(hit.url)  # печатает адрес исходной публикации
-            print(hit.text)  # печатает не всю статью, а конкретный найденный chunk
+            print(f"[{hit.score:.4f}] {hit.title}")
+            print(hit.url)
+            print(hit.text)
             print()
+
+        return
+
+    if args.command == "evaluate-search":
+        documents = load_evaluation_documents(args.corpus_path)
+
+        persistence = SqlAlchemyIngestionPersistence(
+            session_factory=session_factory,
+            source_name="ОВД-Инфо evaluation",
+            source_base_url="https://ovd.info",
+        )
+
+        for document in documents:
+            chunks = [
+                ArticleChunk(
+                    ordinal=ordinal,
+                    text=text,
+                )
+                for ordinal, text in enumerate(document.chunks)
+            ]
+
+            raw_document = RawDocument(
+                external_id=document.external_id,
+                url=document.canonical_url,
+                fetched_at=FIXED_EVALUATION_FETCHED_AT,
+                content_type="text/plain",
+                content=document.title.encode("utf-8"),
+            )
+
+            article = ParsedArticle(
+                external_id=document.external_id,
+                url=document.canonical_url,
+                title=document.title,
+                published_at=None,
+                text="\n\n".join(document.chunks),
+            )
+
+            persistence.save(
+                raw_document=raw_document,
+                article=article,
+                chunks=chunks,
+            )
+
+        cases = load_evaluation_cases(args.cases_path)
+        search = PostgresLexicalSearch(session_factory)
+        evaluator = SearchEvaluator(search=search, limit=args.limit)
+
+        report = evaluator.evaluate(cases)
+
+        report_json = report.model_dump_json(indent=2)
+
+        if args.output_path is not None:
+            args.output_path.parent.mkdir(parents=True, exist_ok=True)
+            args.output_path.write_text(report_json + "\n", encoding="utf-8")
+        else:
+            print(report_json)
 
         return
 

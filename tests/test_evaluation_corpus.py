@@ -20,8 +20,8 @@ def test_evaluation_corpus_is_valid() -> None:
 def test_evaluation_cases_are_valid() -> None:
     cases = load_evaluation_cases(CASES_PATH)
 
-    assert len(cases) == 1
-    assert len({case.query_id for case in cases}) == 1
+    assert len(cases) == 4
+    assert len({case.query_id for case in cases}) == len(cases)
 
 
 def test_expected_chunks_exist_in_corpus() -> None:

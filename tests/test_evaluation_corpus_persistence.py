@@ -9,9 +9,10 @@ from evaluation_loader import (
     load_evaluation_documents,
 )
 from evaluation_models import ChunkReference
-from models import ArticleChunk, ParsedArticle, RawDocument, SearchQuery
+from models import ArticleChunk, ParsedArticle, RawDocument
 from orm_models import ArticleChunkRecord, ParsedArticleRecord, SourceDocument
 from postgres_lexical_search import PostgresLexicalSearch
+from search_evaluator import SearchEvaluator
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 CORPUS_PATH = Path(__file__).parent / "fixtures" / "evaluation_corpus.json"
@@ -78,34 +79,23 @@ def test_evaluation_corpus_can_be_persisted(
 
     cases = load_evaluation_cases(CASES_PATH)
     search = PostgresLexicalSearch(session_factory)
+    evaluator = SearchEvaluator(search=search, limit=10)
 
-    retrieved_by_query: dict[str, list[ChunkReference]] = {}
+    report = evaluator.evaluate(cases)
 
-    for case in cases:
-        hits = search.search(
-            SearchQuery(
-                text=case.query_text,
-                limit=10,
-            )
-        )
-
-        retrieved_by_query[case.query_id] = [
-            ChunkReference(
-                source_base_url=hit.source_base_url,
-                external_id=hit.external_id,
-                ordinal=hit.ordinal,
-            )
-            for hit in hits
-        ]
-
-    assert set(retrieved_by_query) == {
+    assert report.mean_reciprocal_rank == 0.5
+    assert [result.query_id for result in report.results] == [
         "rehabilitation-of-nazism",
         "military-fakes",
         "picket-detention",
         "extremist-activity",
-    }
+    ]
 
-    assert retrieved_by_query["rehabilitation-of-nazism"] == [
+    rehabilitation_result = next(
+        result for result in report.results if result.query_id == "rehabilitation-of-nazism"
+    )
+
+    assert rehabilitation_result.retrieved_chunks == [
         ChunkReference(
             source_base_url="https://ovd.info",
             external_id="rehabilitation-nazism",
@@ -114,17 +104,23 @@ def test_evaluation_corpus_can_be_persisted(
     ]
 
     existing_chunks = {
-        ChunkReference(
-            source_base_url=document.source_base_url,
-            external_id=document.external_id,
-            ordinal=ordinal,
+        (
+            document.source_base_url,
+            document.external_id,
+            ordinal,
         )
         for document in documents
         for ordinal, _ in enumerate(document.chunks)
     }
 
     retrieved_chunks = {
-        reference for references in retrieved_by_query.values() for reference in references
+        (
+            reference.source_base_url,
+            reference.external_id,
+            reference.ordinal,
+        )
+        for result in report.results
+        for reference in result.retrieved_chunks
     }
 
     assert retrieved_chunks <= existing_chunks

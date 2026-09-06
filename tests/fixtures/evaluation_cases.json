@@ -7,5 +7,32 @@
       "external_id": "rehabilitation-nazism",
       "ordinal": 1
     }
+  },
+  {
+    "query_id": "military-fakes",
+    "query_text": "фейки об армии",
+    "expected_chunk": {
+      "source_base_url": "https://ovd.info",
+      "external_id": "military-fakes",
+      "ordinal": 1
+    }
+  },
+  {
+    "query_id": "picket-detention",
+    "query_text": "задержание пикет",
+    "expected_chunk": {
+      "source_base_url": "https://ovd.info",
+      "external_id": "antiwar-protest",
+      "ordinal": 0
+    }
+  },
+  {
+    "query_id": "extremist-activity",
+    "query_text": "экстремистская деятельность",
+    "expected_chunk": {
+      "source_base_url": "https://ovd.info",
+      "external_id": "extremism-case",
+      "ordinal": 1
+    }
   }
 ]

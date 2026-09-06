@@ -29,3 +29,16 @@ class EvaluationDocument(BaseModel):
     canonical_url: StrippedNonEmptyString
     title: StrippedNonEmptyString
     chunks: list[StrippedNonEmptyString] = Field(min_length=1)
+
+
+class EvaluationCaseResult(BaseModel):
+    query_id: StrippedNonEmptyString
+    query_text: StrippedNonEmptyString
+    expected_chunk: ChunkReference
+    retrieved_chunks: list[ChunkReference]
+    reciprocal_rank: float = Field(ge=0.0, le=1.0)
+
+
+class EvaluationReport(BaseModel):
+    results: list[EvaluationCaseResult]
+    mean_reciprocal_rank: float = Field(ge=0.0, le=1.0)
