@@ -11,6 +11,19 @@ from orm_models import (
     SourceDocument,
 )
 
+"""
+Сохраняет результат обработки одной публикации в PostgreSQL.
+Он получает исходный документ, распарсенную статью и её chunks,
+а затем согласованно записывает их в несколько связанных таблиц.
+
+RawDocument + ParsedArticle + ArticleChunk[]
+                    ↓
+      SqlAlchemyIngestionPersistence.save()
+                    ↓
+ sources → source_documents → parsed_articles → article_chunks
+
+"""
+
 
 class SqlAlchemyIngestionPersistence:
     def __init__(
@@ -129,19 +142,26 @@ class SqlAlchemyIngestionPersistence:
         article: ParsedArticle,
         chunks: Sequence[ArticleChunk],
     ) -> PersistenceResult:
+        # Сначала открывается транзакция
         with self._session_factory.begin() as session:
+            # Находит источник по base_url и создает его, если его нет
             source = self._get_or_create_source(session)
+
+            # Ищет документ по паре source_id и external_id
             document = self._get_or_create_document(
                 session,
                 source,
                 raw_document,
             )
 
+            # Ищет распарсенную статью, связанную с документом и создает ее, если ее нет
             parsed_article = self._get_or_create_parsed_article(
                 session,
                 document,
                 article,
             )
+
+            # Удаляет все старые chunks статьи и заменяет их новыми
             chunks_saved = self._replace_chunks(
                 session,
                 parsed_article,
