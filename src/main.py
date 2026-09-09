@@ -4,6 +4,8 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from qdrant_client import QdrantClient
+
 from article_parser import OvdInfoArticleParser
 from chunker import Chunker
 from database import create_database_engine, create_session_factory
@@ -11,8 +13,12 @@ from evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from ingestion_pipeline import IngestionPipeline
 from models import ArticleChunk, ParsedArticle, RawDocument, SearchQuery, SourceReference
 from postgres_lexical_search import PostgresLexicalSearch
+from qdrant_chunk_indexer import QdrantChunkIndexer
+from qdrant_dense_search import QdrantDenseSearch
+from search_backend import SearchBackend
 from search_evaluator import SearchEvaluator
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from text_embedder import TextEmbedder
 from website_adapter import WebsiteAdapter
 
 DEFAULT_EVALUATION_CORPUS_PATH = Path("tests/fixtures/evaluation_corpus.json")
@@ -68,6 +74,16 @@ def main() -> None:
         type=Path,
         default=None,
     )
+    evaluate_search_parser.add_argument(
+        "--backend",
+        choices=["lexical", "dense"],
+        default="lexical",
+    )
+    search_parser.add_argument(
+        "--backend",
+        choices=["lexical", "dense"],
+        default="lexical",
+    )
 
     args = argument_parser.parse_args()
 
@@ -78,9 +94,20 @@ def main() -> None:
 
     database_engine = create_database_engine(database_url)
     session_factory = create_session_factory(database_engine)
+    search: SearchBackend
 
     if args.command == "search":
-        search = PostgresLexicalSearch(session_factory)
+        if args.backend == "lexical":
+            search = PostgresLexicalSearch(session_factory)
+        else:
+            client = QdrantClient(url=os.environ["QDRANT_URL"])
+            embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
+
+            search = QdrantDenseSearch(
+                client=client,
+                collection_name=os.environ["QDRANT_COLLECTION"],
+                embedder=embedder,
+            )
         hits = search.search(
             SearchQuery(
                 text=args.text,
@@ -137,7 +164,29 @@ def main() -> None:
             )
 
         cases = load_evaluation_cases(args.cases_path)
-        search = PostgresLexicalSearch(session_factory)
+
+        if args.backend == "lexical":
+            search = PostgresLexicalSearch(session_factory)
+        else:
+            client = QdrantClient(url=os.environ["QDRANT_URL"])
+            embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
+
+            indexer = QdrantChunkIndexer(
+                client=client,
+                collection_name=os.environ["QDRANT_COLLECTION"],
+                vector_size=768,
+                session_factory=session_factory,
+                embedder=embedder,
+            )
+            indexer.recreate_collection()
+            indexer.index_all()
+
+            search = QdrantDenseSearch(
+                client=client,
+                collection_name=os.environ["QDRANT_COLLECTION"],
+                embedder=embedder,
+            )
+
         evaluator = SearchEvaluator(search=search, limit=args.limit)
 
         report = evaluator.evaluate(cases)
