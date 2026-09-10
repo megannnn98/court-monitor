@@ -11,13 +11,13 @@ from evaluation_models import (
     EvaluationReport,
 )
 from models import SearchQuery
-from postgres_lexical_search import PostgresLexicalSearch
+from search_backend import SearchBackend
 
 
 class SearchEvaluator:
     def __init__(
         self,
-        search: PostgresLexicalSearch,
+        search: SearchBackend,
         limit: int = 3,
     ) -> None:
         self._search = search

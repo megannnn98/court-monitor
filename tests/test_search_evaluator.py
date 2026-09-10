@@ -4,7 +4,7 @@ import pytest
 
 from evaluation_models import ChunkReference, EvaluationCase
 from models import SearchHit, SearchQuery
-from postgres_lexical_search import PostgresLexicalSearch
+from search_backend import SearchBackend
 from search_evaluator import SearchEvaluator
 
 
@@ -29,7 +29,7 @@ def make_hit(
 
 
 def test_evaluate_case_returns_reciprocal_rank() -> None:
-    search = Mock(spec=PostgresLexicalSearch)
+    search = Mock(spec=SearchBackend)
     search.search.return_value = [
         make_hit(
             external_id="weather-report",
@@ -83,7 +83,7 @@ def test_evaluate_case_returns_reciprocal_rank() -> None:
 
 
 def test_evaluate_returns_mean_reciprocal_rank() -> None:
-    search = Mock(spec=PostgresLexicalSearch)
+    search = Mock(spec=SearchBackend)
 
     correct_first = make_hit(
         external_id="rehabilitation-nazism",
