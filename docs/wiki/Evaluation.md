@@ -1,36 +1,220 @@
 # Evaluation
 
-Оценка качества поиска на фиксированном наборе запросов, метрика — **Mean Reciprocal Rank (MRR)**.
+Оценка качества поиска выполняется на фиксированном корпусе и наборе запросов.
 
-## Модели (`evaluation_models.py`)
+Основная метрика — **Mean Reciprocal Rank (MRR)**.
 
-- **`EvaluationDocument`** — тестовая публикация для загрузки в БД перед оценкой (`source_base_url`, `external_id`, `canonical_url`, `title`, `chunks` — уже готовые тексты фрагментов, без реального парсинга HTML).
-- **`EvaluationCase`** — тестовый запрос: `query_text` + `expected_chunk` (`ChunkReference`: `source_base_url` + `external_id` + `ordinal`).
-- **`EvaluationCaseResult`** — фактический результат одного кейса: найденные чанки + `reciprocal_rank`.
-- **`EvaluationReport`** — все результаты + `mean_reciprocal_rank`.
+## Evaluation Corpus
 
-Загружаются из JSON (`evaluation_loader.py`, Pydantic `TypeAdapter`) — фикстуры: `tests/fixtures/evaluation_corpus.json`, `tests/fixtures/evaluation_cases.json`.
+Фикстуры:
 
-## Метрика (`evaluation_metrics.py`)
+```text
+tests/fixtures/evaluation_corpus.json
+tests/fixtures/evaluation_cases.json
+```
 
-- `reciprocal_rank(retrieved, expected)` — `1/rank` первого совпадения с `expected_chunk` по списку найденных, `0.0` если не найден.
-- `mean_reciprocal_rank(ranks)` — среднее по всем кейсам, `0.0` на пустом списке.
+`EvaluationDocument` описывает тестовую публикацию и её chunks.
 
-## Прогон (`SearchEvaluator`, `src/search_evaluator.py`)
+`EvaluationCase` содержит:
 
-Принимает любой `SearchBackend` (lexical или dense — см. [Search](Search.md)) и `limit` (по умолчанию 3). Для каждого `EvaluationCase` вызывает `search.search(...)`, сравнивает по `ChunkReference` (не по `chunk_id` — сравнение устойчиво к разным ID в разных backend'ах/БД).
+```text
+query_text
+expected_chunk
+```
 
-## CLI: `evaluate-search`
+`expected_chunk` определяется через:
 
-`main.py`, команда `evaluate-search --backend lexical|dense`:
+```text
+source_base_url
+external_id
+ordinal
+```
 
-1. Загружает `EvaluationDocument` из `--corpus-path`, сохраняет их через `SqlAlchemyIngestionPersistence` (используя `document.chunks` как готовые `ArticleChunk`, минуя `Chunker`/парсер).
-2. Для `--backend dense` — дополнительно пересоздаёт коллекцию Qdrant и переиндексирует.
-3. Прогоняет `EvaluationCase` из `--cases-path`, печатает или пишет (`--output-path`) `EvaluationReport` как JSON.
+Поэтому evaluation не зависит от конкретных database IDs.
 
-## Baseline-отчёты (`reports/`)
+## Метрики
 
-- `postgres_lexical_baseline.json` — `mean_reciprocal_rank: 0.5` (2 из 4 запросов не нашли совпадение — lexical чувствителен к точности словоформ/фраз).
-- `qdrant_dense_baseline.json` — `mean_reciprocal_rank: 1.0` (все 4 запроса нашли ожидаемый чанк первым).
+Для одного запроса используется Reciprocal Rank:
 
-Это baseline на текущем небольшом тестовом корпусе (4 кейса) — не гарантия на реальных данных, но фиксирует текущее поведение для регрессии при изменении моделей/запросов.
+```text
+RR = 1 / rank
+```
+
+где `rank` — позиция первого ожидаемого chunk в результатах.
+
+Если ожидаемый chunk не найден:
+
+```text
+RR = 0
+```
+
+Mean Reciprocal Rank:
+
+```text
+MRR = mean(RR)
+```
+
+по всем evaluation cases.
+
+## SearchEvaluator
+
+`src/search_evaluator.py`.
+
+`SearchEvaluator` зависит только от общего:
+
+```text
+SearchBackend
+```
+
+Поэтому один evaluator используется для всех backend'ов:
+
+```text
+lexical
+dense
+hybrid
+reranked-hybrid
+```
+
+Специальной evaluation-логики для cross-encoder reranking нет.
+
+Это позволяет сравнивать разные retrieval/ranking pipelines через один и тот же набор cases.
+
+## CLI
+
+Evaluation запускается командой:
+
+```bash
+uv run python src/main.py evaluate-search \
+  --backend BACKEND
+```
+
+Доступные значения:
+
+```text
+lexical
+dense
+hybrid
+reranked-hybrid
+```
+
+Пример:
+
+```bash
+uv run python src/main.py evaluate-search \
+  --backend reranked-hybrid \
+  --output-path reports/reranked_hybrid_baseline.json
+```
+
+Для dense-based backend'ов evaluation использует отдельную Qdrant collection:
+
+```text
+QDRANT_EVALUATION_COLLECTION
+```
+
+Она должна отличаться от:
+
+```text
+QDRANT_COLLECTION
+```
+
+Перед evaluation collection пересоздаётся и заполняется фиксированным evaluation corpus.
+
+## Baseline
+
+Текущий evaluation corpus содержит 4 search cases.
+
+Полученные baseline:
+
+| Backend | MRR |
+|---|---:|
+| lexical | 0.5 |
+| dense | 1.0 |
+| hybrid | 1.0 |
+| reranked-hybrid | 1.0 |
+
+Отчёты:
+
+```text
+reports/postgres_lexical_baseline.json
+reports/qdrant_dense_baseline.json
+reports/hybrid_baseline.json
+reports/reranked_hybrid_baseline.json
+```
+
+### Lexical
+
+```text
+MRR = 0.5
+```
+
+Ожидаемый chunk стоит первым для:
+
+```text
+rehabilitation-of-nazism
+extremist-activity
+```
+
+Для:
+
+```text
+military-fakes
+picket-detention
+```
+
+ожидаемый chunk lexical backend не находит.
+
+### Dense
+
+```text
+MRR = 1.0
+```
+
+Все четыре expected chunks находятся на первой позиции.
+
+### Hybrid
+
+```text
+MRR = 1.0
+```
+
+На текущем небольшом corpus все четыре expected chunks также находятся на первой позиции.
+
+По MRR hybrid пока не улучшает dense baseline.
+
+### Reranked Hybrid
+
+```text
+MRR = 1.0
+```
+
+Все четыре expected chunks остаются на первой позиции после cross-encoder reranking.
+
+Cross-encoder при этом меняет порядок части остальных hybrid candidates, то есть reranking действительно выполняется.
+
+Однако MRR не увеличивается, поскольку dense и hybrid уже достигают максимального:
+
+```text
+MRR = 1.0
+```
+
+на текущих evaluation cases.
+
+## Интерпретация
+
+Текущий evaluation corpus подходит для regression testing поискового pipeline, но слишком мал и прост для объективного сравнения dense, hybrid и reranked-hybrid.
+
+Полученный результат не означает, что hybrid retrieval или cross-encoder reranking не улучшают поиск на реальных данных.
+
+Он означает только следующее:
+
+```text
+на текущих 4 evaluation cases улучшение MRR измерить невозможно,
+потому что dense baseline уже достигает MRR = 1.0
+```
+
+Для дальнейшего сравнения ranking quality понадобится более сложный evaluation corpus с:
+
+- неоднозначными запросами;
+- лексически похожими нерелевантными chunks;
+- семантически близкими документами;
+- cases, где expected chunk находится ниже первой позиции у baseline retrieval.

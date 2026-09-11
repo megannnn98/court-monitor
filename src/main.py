@@ -8,6 +8,7 @@ from qdrant_client import QdrantClient
 
 from article_parser import OvdInfoArticleParser
 from chunker import Chunker
+from cross_encoder_reranker import CrossEncoderReranker
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from ingestion_pipeline import IngestionPipeline
@@ -90,12 +91,12 @@ def main() -> None:
     )
     evaluate_search_parser.add_argument(
         "--backend",
-        choices=["lexical", "dense", "hybrid"],
+        choices=["lexical", "dense", "hybrid", "reranked-hybrid"],
         default="lexical",
     )
     search_parser.add_argument(
         "--backend",
-        choices=["lexical", "dense", "hybrid"],
+        choices=["lexical", "dense", "hybrid", "reranked-hybrid"],
         default="lexical",
     )
 
@@ -125,10 +126,16 @@ def main() -> None:
                 embedder=embedder,
             )
 
+        search_reranker: CrossEncoderReranker | None = None
+
+        if args.backend == "reranked-hybrid":
+            search_reranker = CrossEncoderReranker.from_model_id(os.environ["RERANKER_MODEL_ID"])
+
         search = select_search_backend(
             args.backend,
             lexical_backend=lexical_search,
             dense_backend=regular_dense_search,
+            reranker=search_reranker,
         )
 
         hits = search.search(
@@ -220,10 +227,18 @@ def main() -> None:
                 embedder=embedder,
             )
 
+        evaluation_reranker: CrossEncoderReranker | None = None
+
+        if args.backend == "reranked-hybrid":
+            evaluation_reranker = CrossEncoderReranker.from_model_id(
+                os.environ["RERANKER_MODEL_ID"]
+            )
+
         search = select_search_backend(
             args.backend,
             lexical_backend=lexical_search,
             dense_backend=evaluation_dense_search,
+            reranker=evaluation_reranker,
         )
 
         evaluator = SearchEvaluator(
