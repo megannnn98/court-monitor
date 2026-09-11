@@ -10,14 +10,22 @@ from article_parser import OvdInfoArticleParser
 from chunker import Chunker
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
-from hybrid_search import HybridSearch
 from ingestion_pipeline import IngestionPipeline
-from models import ArticleChunk, ParsedArticle, RawDocument, SourceReference
-from postgres_lexical_search import PostgresLexicalSearch
+from models import (
+    ArticleChunk,
+    ParsedArticle,
+    RawDocument,
+    SearchQuery,
+    SourceReference,
+)
 from qdrant_chunk_indexer import QdrantChunkIndexer
-from qdrant_dense_search import QdrantDenseSearch
 from search_backend import SearchBackend
 from search_evaluator import SearchEvaluator
+from search_factory import (
+    create_dense_search,
+    create_lexical_search,
+    select_search_backend,
+)
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from text_embedder import TextEmbedder
 from website_adapter import WebsiteAdapter
@@ -39,6 +47,11 @@ def main() -> None:
         help="Load and save an OVD-Info article",
     )
     ingest_parser.add_argument("url")
+
+    subparsers.add_parser(
+        "rebuild-dense-index",
+        help="Rebuild the regular Qdrant index from PostgreSQL",
+    )
 
     search_parser = subparsers.add_parser(
         "search",
@@ -98,45 +111,40 @@ def main() -> None:
     search: SearchBackend
 
     if args.command == "search":
-        lexical_search = PostgresLexicalSearch(session_factory)
+        lexical_search = create_lexical_search(session_factory)
 
-        if args.backend == "lexical":
-            search = lexical_search
-        else:
+        regular_dense_search: SearchBackend | None = None
+
+        if args.backend != "lexical":
             client = QdrantClient(url=os.environ["QDRANT_URL"])
             embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
 
-            evaluation_collection = os.environ["QDRANT_EVALUATION_COLLECTION"]
-            regular_collection = os.environ["QDRANT_COLLECTION"]
-
-            if evaluation_collection == regular_collection:
-                raise RuntimeError(
-                    "QDRANT_EVALUATION_COLLECTION must differ from QDRANT_COLLECTION"
-                )
-
-            indexer = QdrantChunkIndexer(
+            regular_dense_search = create_dense_search(
                 client=client,
-                collection_name=evaluation_collection,
-                vector_size=768,
-                session_factory=session_factory,
-                embedder=embedder,
-            )
-            indexer.recreate_collection()
-            indexer.index_all()
-
-            dense_search = QdrantDenseSearch(
-                client=client,
-                collection_name=evaluation_collection,
+                collection_name=os.environ["QDRANT_COLLECTION"],
                 embedder=embedder,
             )
 
-            if args.backend == "dense":
-                search = dense_search
-            else:
-                search = HybridSearch(
-                    lexical_backend=lexical_search,
-                    dense_backend=dense_search,
-                )
+        search = select_search_backend(
+            args.backend,
+            lexical_backend=lexical_search,
+            dense_backend=regular_dense_search,
+        )
+
+        hits = search.search(
+            SearchQuery(
+                text=args.text,
+                limit=args.limit,
+            )
+        )
+
+        for hit in hits:
+            print(f"[{hit.score:.4f}] {hit.title}")
+            print(hit.url)
+            print(hit.text)
+            print()
+
+        return
 
     if args.command == "evaluate-search":
         documents = load_evaluation_documents(args.corpus_path)
@@ -180,12 +188,11 @@ def main() -> None:
 
         cases = load_evaluation_cases(args.cases_path)
 
-        if args.backend == "lexical":
-            search = PostgresLexicalSearch(session_factory)
-        else:
-            client = QdrantClient(url=os.environ["QDRANT_URL"])
-            embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
+        lexical_search = create_lexical_search(session_factory)
 
+        evaluation_dense_search: SearchBackend | None = None
+
+        if args.backend != "lexical":
             evaluation_collection = os.environ["QDRANT_EVALUATION_COLLECTION"]
             regular_collection = os.environ["QDRANT_COLLECTION"]
 
@@ -193,6 +200,9 @@ def main() -> None:
                 raise RuntimeError(
                     "QDRANT_EVALUATION_COLLECTION must differ from QDRANT_COLLECTION"
                 )
+
+            client = QdrantClient(url=os.environ["QDRANT_URL"])
+            embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
 
             indexer = QdrantChunkIndexer(
                 client=client,
@@ -204,13 +214,22 @@ def main() -> None:
             indexer.recreate_collection()
             indexer.index_all()
 
-            search = QdrantDenseSearch(
+            evaluation_dense_search = create_dense_search(
                 client=client,
                 collection_name=evaluation_collection,
                 embedder=embedder,
             )
 
-        evaluator = SearchEvaluator(search=search, limit=args.limit)
+        search = select_search_backend(
+            args.backend,
+            lexical_backend=lexical_search,
+            dense_backend=evaluation_dense_search,
+        )
+
+        evaluator = SearchEvaluator(
+            search=search,
+            limit=args.limit,
+        )
 
         report = evaluator.evaluate(cases)
 
@@ -224,6 +243,23 @@ def main() -> None:
 
         return
 
+    if args.command == "rebuild-dense-index":
+        client = QdrantClient(url=os.environ["QDRANT_URL"])
+        embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
+
+        indexer = QdrantChunkIndexer(
+            client=client,
+            collection_name=os.environ["QDRANT_COLLECTION"],
+            vector_size=768,
+            session_factory=session_factory,
+            embedder=embedder,
+        )
+
+        indexer.recreate_collection()
+        indexer.index_all()
+
+        print("Dense index rebuilt")
+        return
     reference = SourceReference(
         external_id=args.url,
         url=args.url,
