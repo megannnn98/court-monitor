@@ -2,53 +2,161 @@
 
 ## Переменные окружения
 
-Обязательные (падают с `KeyError`/`RuntimeError`, если не заданы):
+Основные переменные:
 
 | Переменная | Использование |
 |---|---|
-| `DATABASE_URL` | `main.py` — строка подключения SQLAlchemy к Postgres, обязательна для всех команд |
-| `QDRANT_URL` | адрес Qdrant, только для `--backend dense` |
-| `QDRANT_COLLECTION` | имя коллекции Qdrant, только для `--backend dense` |
-| `EMBEDDING_MODEL_ID` | ID модели `sentence-transformers`, только для `--backend dense` |
+| `DATABASE_URL` | PostgreSQL connection URL |
+| `QDRANT_URL` | адрес Qdrant |
+| `QDRANT_COLLECTION` | рабочая dense collection |
+| `QDRANT_EVALUATION_COLLECTION` | отдельная collection для evaluation |
+| `EMBEDDING_MODEL_ID` | sentence-transformers embedding model |
+| `RERANKER_MODEL_ID` | sentence-transformers CrossEncoder model |
 
-Для `docker compose` (`compose.yaml`) дополнительно: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`. Пример переменных — `.env.example` в корне репозитория (не читался этим агентом — файл в директории с ограничением доступа; смотри вручную).
+Пример reranker:
 
-## Инфраструктура (`compose.yaml`)
+```env
+RERANKER_MODEL_ID=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
+```
 
-- **postgres** — `postgres:18.6-bookworm`, порт хоста `5433 → 5432`, volume `postgres_data`, healthcheck `pg_isready`.
-- **qdrant** — `qdrant/qdrant:v1.19.0`, порт `127.0.0.1:6333` (только localhost), volume `qdrant_data`.
+Для Docker Compose также используются:
+
+```text
+POSTGRES_DB
+POSTGRES_USER
+POSTGRES_PASSWORD
+```
+
+Пример конфигурации находится в:
+
+```text
+.env.example
+```
+
+Если `.env` загружается через shell:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+`set -a` нужен, чтобы переменные из `.env` экспортировались в окружение дочернего Python-процесса.
+
+## Инфраструктура
+
+Запуск:
 
 ```bash
 docker compose up -d
 ```
 
-## Миграции (Alembic)
+Используются:
+
+```text
+PostgreSQL
+Qdrant
+```
+
+## Миграции
 
 ```bash
 alembic upgrade head
 ```
 
-Цепочка миграций (`migrations/versions/`):
-1. `fdac899276a2_create_ingestion_tables` — 4 базовые таблицы
-2. `df2c42a78b48_add_article_chunk_search_vector` → зависит от (1) — добавляет `search_vector` + GIN-индекс
+## Dense Index
 
-Конфигурация — `alembic.ini` + `migrations/env.py`.
-
-## CLI (`src/main.py`, `pythonpath = src`)
+Обычный рабочий dense index перестраивается явно:
 
 ```bash
-# загрузить и сохранить одну публикацию
-python -m main ingest https://ovd.info/express-news/...
-
-# lexical-поиск (по умолчанию)
-python -m main search "реабилитация нацизма" --limit 5
-
-# dense-поиск
-python -m main search "реабилитация нацизма" --backend dense
-
-# оценка качества поиска
-python -m main evaluate-search --backend lexical
-python -m main evaluate-search --backend dense --output-path reports/my_run.json
+uv run python src/main.py rebuild-dense-index
 ```
 
-`evaluate-search` сам загружает тестовый корпус в БД перед прогоном (см. [Evaluation](Evaluation.md)) — предполагает БД, отдельную от продовых данных, либо готовность к побочным записям.
+Обычная команда `search` индекс автоматически не пересоздаёт.
+
+## Search
+
+Lexical:
+
+```bash
+uv run python src/main.py search \
+  "реабилитация нацизма" \
+  --backend lexical \
+  --limit 5
+```
+
+Dense:
+
+```bash
+uv run python src/main.py search \
+  "реабилитация нацизма" \
+  --backend dense \
+  --limit 5
+```
+
+Hybrid:
+
+```bash
+uv run python src/main.py search \
+  "реабилитация нацизма" \
+  --backend hybrid \
+  --limit 5
+```
+
+Hybrid + cross-encoder reranking:
+
+```bash
+uv run python src/main.py search \
+  "реабилитация нацизма" \
+  --backend reranked-hybrid \
+  --limit 5
+```
+
+## Evaluation
+
+Lexical:
+
+```bash
+uv run python src/main.py evaluate-search \
+  --backend lexical \
+  --output-path reports/postgres_lexical_baseline.json
+```
+
+Dense:
+
+```bash
+uv run python src/main.py evaluate-search \
+  --backend dense \
+  --output-path reports/qdrant_dense_baseline.json
+```
+
+Hybrid:
+
+```bash
+uv run python src/main.py evaluate-search \
+  --backend hybrid \
+  --output-path reports/hybrid_baseline.json
+```
+
+Reranked hybrid:
+
+```bash
+uv run python src/main.py evaluate-search \
+  --backend reranked-hybrid \
+  --output-path reports/reranked_hybrid_baseline.json
+```
+
+Для evaluation рекомендуется отдельная PostgreSQL database, например:
+
+```bash
+DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/court_monitor_test" \
+uv run python src/main.py evaluate-search \
+  --backend reranked-hybrid \
+  --output-path reports/reranked_hybrid_baseline.json
+```
+
+Evaluation загружает фиксированный test corpus в PostgreSQL.
+
+Dense-based evaluation также пересоздаёт `QDRANT_EVALUATION_COLLECTION`.
+
+Рабочая и evaluation Qdrant collections должны иметь разные имена.

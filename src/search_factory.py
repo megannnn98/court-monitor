@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from hybrid_search import HybridSearch
 from postgres_lexical_search import PostgresLexicalSearch
 from qdrant_dense_search import QdrantDenseSearch
+from reranker import Reranker
+from reranking_search import RerankingSearch
 from search_backend import SearchBackend
 from text_embedder import TextEmbedder
 
@@ -13,6 +15,7 @@ SearchBackendName = Literal[
     "lexical",
     "dense",
     "hybrid",
+    "reranked-hybrid",
 ]
 
 
@@ -51,6 +54,7 @@ def select_search_backend(
     *,
     lexical_backend: SearchBackend,
     dense_backend: SearchBackend | None = None,
+    reranker: Reranker | None = None,
 ) -> SearchBackend:
     if backend == "lexical":
         return lexical_backend
@@ -61,10 +65,32 @@ def select_search_backend(
     if backend == "dense":
         return dense_backend
 
+    hybrid_backend = create_hybrid_search(
+        lexical_backend=lexical_backend,
+        dense_backend=dense_backend,
+    )
+
     if backend == "hybrid":
-        return create_hybrid_search(
-            lexical_backend=lexical_backend,
-            dense_backend=dense_backend,
+        return hybrid_backend
+
+    if backend == "reranked-hybrid":
+        if reranker is None:
+            raise ValueError("reranker is required for reranked-hybrid search")
+
+        return create_reranking_search(
+            base_backend=hybrid_backend,
+            reranker=reranker,
         )
 
     raise ValueError(f"unknown search backend: {backend}")
+
+
+def create_reranking_search(
+    *,
+    base_backend: SearchBackend,
+    reranker: Reranker,
+) -> RerankingSearch:
+    return RerankingSearch(
+        base_backend=base_backend,
+        reranker=reranker,
+    )
