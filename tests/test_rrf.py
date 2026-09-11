@@ -92,3 +92,26 @@ def test_non_positive_rrf_k_is_rejected() -> None:
         match="rrf_k must be greater than 0",
     ):
         reciprocal_rank_fusion([], [], limit=10, rrf_k=0)
+
+
+def test_equal_scores_are_resolved_by_lexical_rank() -> None:
+    lexical_hits = [
+        make_hit(1),
+        make_hit(2),
+        make_hit(3),
+    ]
+    dense_hits = [
+        make_hit(3),
+        make_hit(4),
+        make_hit(1),
+    ]
+
+    result = reciprocal_rank_fusion(
+        lexical_hits,
+        dense_hits,
+        limit=4,
+        rrf_k=10,
+    )
+
+    assert result[0].score == pytest.approx(result[1].score)
+    assert [hit.chunk_id for hit in result] == [1, 3, 2, 4]
