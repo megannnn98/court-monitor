@@ -10,8 +10,9 @@ from article_parser import OvdInfoArticleParser
 from chunker import Chunker
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
+from hybrid_search import HybridSearch
 from ingestion_pipeline import IngestionPipeline
-from models import ArticleChunk, ParsedArticle, RawDocument, SearchQuery, SourceReference
+from models import ArticleChunk, ParsedArticle, RawDocument, SourceReference
 from postgres_lexical_search import PostgresLexicalSearch
 from qdrant_chunk_indexer import QdrantChunkIndexer
 from qdrant_dense_search import QdrantDenseSearch
@@ -52,7 +53,7 @@ def main() -> None:
 
     evaluate_search_parser = subparsers.add_parser(
         "evaluate-search",
-        help="Evaluate PostgreSQL lexical search against fixed cases",
+        help="Evaluate search backends against fixed cases",
     )
     evaluate_search_parser.add_argument(
         "--corpus-path",
@@ -76,12 +77,12 @@ def main() -> None:
     )
     evaluate_search_parser.add_argument(
         "--backend",
-        choices=["lexical", "dense"],
+        choices=["lexical", "dense", "hybrid"],
         default="lexical",
     )
     search_parser.add_argument(
         "--backend",
-        choices=["lexical", "dense"],
+        choices=["lexical", "dense", "hybrid"],
         default="lexical",
     )
 
@@ -97,31 +98,45 @@ def main() -> None:
     search: SearchBackend
 
     if args.command == "search":
+        lexical_search = PostgresLexicalSearch(session_factory)
+
         if args.backend == "lexical":
-            search = PostgresLexicalSearch(session_factory)
+            search = lexical_search
         else:
             client = QdrantClient(url=os.environ["QDRANT_URL"])
             embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
 
-            search = QdrantDenseSearch(
+            evaluation_collection = os.environ["QDRANT_EVALUATION_COLLECTION"]
+            regular_collection = os.environ["QDRANT_COLLECTION"]
+
+            if evaluation_collection == regular_collection:
+                raise RuntimeError(
+                    "QDRANT_EVALUATION_COLLECTION must differ from QDRANT_COLLECTION"
+                )
+
+            indexer = QdrantChunkIndexer(
                 client=client,
-                collection_name=os.environ["QDRANT_COLLECTION"],
+                collection_name=evaluation_collection,
+                vector_size=768,
+                session_factory=session_factory,
                 embedder=embedder,
             )
-        hits = search.search(
-            SearchQuery(
-                text=args.text,
-                limit=args.limit,
+            indexer.recreate_collection()
+            indexer.index_all()
+
+            dense_search = QdrantDenseSearch(
+                client=client,
+                collection_name=evaluation_collection,
+                embedder=embedder,
             )
-        )
 
-        for hit in hits:
-            print(f"[{hit.score:.4f}] {hit.title}")
-            print(hit.url)
-            print(hit.text)
-            print()
-
-        return
+            if args.backend == "dense":
+                search = dense_search
+            else:
+                search = HybridSearch(
+                    lexical_backend=lexical_search,
+                    dense_backend=dense_search,
+                )
 
     if args.command == "evaluate-search":
         documents = load_evaluation_documents(args.corpus_path)
@@ -171,9 +186,17 @@ def main() -> None:
             client = QdrantClient(url=os.environ["QDRANT_URL"])
             embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
 
+            evaluation_collection = os.environ["QDRANT_EVALUATION_COLLECTION"]
+            regular_collection = os.environ["QDRANT_COLLECTION"]
+
+            if evaluation_collection == regular_collection:
+                raise RuntimeError(
+                    "QDRANT_EVALUATION_COLLECTION must differ from QDRANT_COLLECTION"
+                )
+
             indexer = QdrantChunkIndexer(
                 client=client,
-                collection_name=os.environ["QDRANT_COLLECTION"],
+                collection_name=evaluation_collection,
                 vector_size=768,
                 session_factory=session_factory,
                 embedder=embedder,
@@ -183,7 +206,7 @@ def main() -> None:
 
             search = QdrantDenseSearch(
                 client=client,
-                collection_name=os.environ["QDRANT_COLLECTION"],
+                collection_name=evaluation_collection,
                 embedder=embedder,
             )
 
