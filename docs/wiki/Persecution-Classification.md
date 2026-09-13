@@ -10,7 +10,12 @@ The persecution classification system analyzes extracted entities and events to 
 
 The `PersecutionClassificationService` uses a rule-based approach to classify persons:
 
-1. **Collect Evidence**: Gather all events and articles associated with a person
+1. **Collect Evidence**: Gather this person's own events/mentions and a
+   window of text around each (`EVIDENCE_WINDOW_CHARS`, currently 400
+   chars each side) — not the whole article, so a different person's
+   context in the same article (e.g. one person charged for theft, another
+   detained at an anti-war protest, in the same news item) doesn't leak
+   onto this person
 2. **Analyze Patterns**: Check for indicators of political persecution
 3. **Compute Confidence**: Assign confidence score based on evidence strength
 4. **Generate Reasons**: Provide human-readable explanations
@@ -65,7 +70,8 @@ def classify_person(person_id: int) -> PersecutionClassification:
     # Get all events for this person
     events = get_person_events(person_id)
 
-    # Get all articles mentioning this person
+    # Get windowed text around this person's own mentions/events only —
+    # NOT the full article (see persecution_classification_service.py)
     articles = get_person_articles(person_id)
 
     # Collect evidence
@@ -191,7 +197,7 @@ Output:
       "persecution_status": "political",
       "persecution_confidence": 0.95,
       "persecution_reasons": ["Charged under political article 280"],
-      "rosfinmonitoring_status": "not_in_list",
+      "rosfinmonitoring_status": "not_matched",
       "rosfinmonitoring_match_confidence": null,
       "event_count": 3,
       "alias_count": 5,

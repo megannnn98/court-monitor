@@ -56,8 +56,12 @@ A match result links a canonical person to a Rosfinmonitoring entry:
 class RosfinMatchResult:
     person_id: int  # Canonical person
     snapshot_id: int  # Which snapshot was used
-    status: str  # matched/not_matched/ambiguous/needs_review
-    confidence: float  # 0.0 to 1.0
+    status: str  # matched/not_matched/ambiguous/needs_review/insufficient_data
+    confidence: float  # 0.0 to 1.0 — not_matched reports NOT_MATCHED_CONFIDENCE
+    # (0.8), not 1.0: finding zero candidates in a snapshot search supports
+    # absence probabilistically, not with certainty. insufficient_data means
+    # the person's own name is too thin (< 2 words) to search reliably at
+    # all — a bare surname finding nothing says nothing about presence.
     matched_entry_id: int | None  # Which entry (if matched)
     matched_entry_name: str | None  # Name from the entry
     candidate_entries: list  # Top candidate entries
@@ -339,7 +343,9 @@ court-monitor list-candidates --snapshot-id 1
 This query:
 1. Finds all persons with political persecution classification
 2. Checks their Rosfinmonitoring match status
-3. Returns only those with status `not_in_list` or `no_match_record`
+3. Returns only those with a **confirmed** `not_matched` result by default —
+   `no_match_record` (matching never ran), `ambiguous`, `needs_review` and
+   `insufficient_data` are excluded, since none of them mean "absent"
 
 ### API
 
@@ -359,7 +365,7 @@ Response:
       "persecution_status": "political",
       "persecution_confidence": 0.9,
       "persecution_reasons": ["Charged under article 280"],
-      "rosfinmonitoring_status": "not_in_list",
+      "rosfinmonitoring_status": "not_matched",
       "rosfinmonitoring_match_confidence": null,
       "event_count": 3,
       "alias_count": 5

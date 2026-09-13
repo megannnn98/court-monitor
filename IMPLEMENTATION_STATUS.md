@@ -1,123 +1,114 @@
 # Court-Monitor Implementation Status
 
+Last verified against code: full pipeline (steps 1-10 + person resolution,
+persecution classification, Rosfinmonitoring matching, main product query,
+API, CLI) is implemented end-to-end. 257 tests passing (`uv run pytest -q`).
+
 ## Completed Components ✅
 
 ### 1. Source Layer (Steps 1-9)
-- ✅ Multi-source ingestion (ОВД-Инфо, SOTA)
-- ✅ Article parsing and persistence
-- ✅ PostgreSQL lexical search
-- ✅ Search evaluation framework
-- ✅ 142 existing tests passing
+- Multi-source ingestion (ОВД-Инфо, SOTA)
+- Article parsing and persistence
+- PostgreSQL lexical search
+- Search evaluation framework
 
 ### 2. Extraction Pipeline (Step 10)
-- ✅ Deterministic rule-based entity extraction
-- ✅ Person, organization, court, location, legal reference extraction
-- ✅ Event extraction (detention, arrest, charge, sentence, etc.)
-- ✅ Normalization with typed data models
-- ✅ Offset validation and provenance tracking
-- ✅ Extraction persistence with idempotency
-- ✅ Extraction evaluation with golden corpus
-- ✅ 23 extraction tests passing
+- Deterministic rule-based entity extraction: person, organization, court,
+  location, legal reference
+- Event extraction (detention, arrest, charge, sentence, etc.)
+- Normalization with typed data models
+- Offset validation and provenance tracking
+- Extraction persistence: transactional, idempotent per
+  `(article_id, content_hash, extractor_version, normalizer_version)`
+- Extraction evaluation with golden corpus (see `docs/wiki/Extraction.md`)
 
-### 3. Canonical Person Model (Foundation for Steps 11+)
-- ✅ Person domain model with canonical_name, normalized_name, matching_key
-- ✅ PersonAlias model with origin tracking (extraction/manual/resolution/merge)
-- ✅ ResolutionResult with status tracking
-- ✅ MergeRecord and ReviewRecord for audit trail
-- ✅ ORM models: PersonRecord, PersonAliasRecord, PersonMergeRecord, ReviewRecordModel
-- ✅ Alembic migration with proper indexes
-- ✅ SqlAlchemyPersonPersistence: CRUD operations, merge functionality
-- ✅ RuleBasedPersonResolver: matching_key-based resolution
-- ✅ 23 new tests for person models, persistence, and resolution
+### 3. Canonical Person Model + Entity Resolution
+- Person domain model with `canonical_name`, `normalized_name`, `matching_key`
+- PersonAlias with origin tracking (extraction/manual/resolution/merge)
+- `RuleBasedPersonResolver`: **exact deterministic `matching_key` baseline**
+  — not fuzzy, not ML (see `docs/adr/0005-entity-resolution-strategy.md`)
+- `uq_persons_matching_key_active` (partial unique index) prevents duplicate
+  canonical persons from a concurrent-resolution race; `resolve_and_create`
+  backs off to the winner on conflict instead of raising or duplicating
+- Person ↔ mention/event linking integrated into the extraction pipeline
+  (`extraction_resolution_service.py`)
+- Merge with audit trail (`PersonMergeRecord`)
 
-**Total Tests: 165 passing**
+### 4. Political Persecution Classification
+- `RuleBasedPersecutionClassifier`: rule-based baseline (legal article
+  codes, keyword signals for human-rights/journalism/anti-war/religious/
+  LGBT persecution)
+- Evidence is **scoped to the specific person**: only their own
+  mentions/events plus a window around each (`EVIDENCE_WINDOW_CHARS`,
+  `persecution_classification_service.py`) — not the whole article, so a
+  different person's context in the same article doesn't leak onto them
+- Legal-reference mentions near a person's event are wired into that
+  event's `charge` evidence
+- `PersecutionClassificationStatus.UNCERTAIN` is reachable: a single weak
+  keyword-only signal (no political charge, no second corroborating
+  signal) is UNCERTAIN, not an automatic POLITICAL
 
-## Remaining Components 🔧
+### 5. Rosfinmonitoring Integration
+- Snapshot ingestion pipeline + entry normalization
+- `RuleBasedRosfinmonitoringMatcher`: matching_key/name-word retrieval +
+  Jaccard name similarity, plus an optional (currently always-`None`,
+  since `PersonRecord` has no birth date yet) `person_birth_date` signal
+  with conservative rules (matching known birth date → small boost;
+  differing known birth date → capped well below auto-MATCHED)
+- Match statuses: `MATCHED`, `NOT_MATCHED`, `AMBIGUOUS`, `NEEDS_REVIEW`,
+  `INSUFFICIENT_DATA` (name too thin to search reliably — a bare surname
+  finding zero candidates is not a confident NOT_MATCHED)
+- `NOT_MATCHED` reports `NOT_MATCHED_CONFIDENCE` (0.8), not 1.0 — absence
+  of evidence in a snapshot is not certainty of absence
+- Matching evaluation framework (`rosfin_match_evaluation.py`)
 
-### High Priority
-1. **Integration Layer**
-   - Connect extraction pipeline to person resolution
-   - Link person mentions to canonical persons automatically
-   - Link events to resolved persons
+### 6. Main Product Query
+- `CandidateQueryService.get_candidates`: political persecution candidates
+  **confirmed absent** from a Rosfinmonitoring snapshot
+- By default only `NOT_MATCHED` counts as "absent" — `NO_MATCH_RECORD`
+  (matching never run), `AMBIGUOUS`, `NEEDS_REVIEW` and
+  `INSUFFICIENT_DATA` are excluded, since none of them are a confirmed
+  absence. `include_rf_statuses` lets a caller opt into a broader
+  manual-review view explicitly.
 
-2. **Political Persecution Classification**
-   - PersecutionClassifier Protocol
-   - Rule-based baseline implementation
-   - Classification evaluation framework
+### 7. API Layer
+- FastAPI read-only endpoints: persons, aliases, persecution, candidates,
+  Rosfinmonitoring snapshots/entries, reviews, health check
 
-3. **Rosfinmonitoring Integration**
-   - Snapshot ingestion pipeline
-   - Entry normalization
-   - Person ↔ Rosfinmonitoring matching
-   - Matching evaluation
+### 8. CLI
+- `extract-entities`, `resolve-people`, `classify-persecution`,
+  `import-rosfinmonitoring`, `match-rosfinmonitoring`, `list-candidates`,
+  `evaluate-extraction`, `evaluate-er`, `evaluate-persecution`,
+  `evaluate-rosfin-match`
 
-4. **Main Product Query**
-   - Query: "political but absent from RF"
-   - Result aggregation with provenance
-
-### Medium Priority
-5. **API Layer**
-   - FastAPI read-only endpoints
-   - Person, event, candidate queries
-
-6. **CLI Extensions**
-   - resolve-people
-   - ingest-rosfinmonitoring
-   - match-rosfinmonitoring
-   - classify-persecution
-   - list-candidates
-   - show-person
-
-7. **Evaluation Frameworks**
-   - Entity resolution evaluation (pairwise F1)
-   - Rosfinmonitoring matching evaluation
-   - Political classification evaluation
-
-8. **Documentation**
-   - Wiki pages for new components
-   - ADRs for key decisions
-   - Updated README with full pipeline
-
-## Architecture Decisions Made
-
-1. **Canonical Person Model**
-   - matching_key for fast lookups (normalized, lowercased, no spaces/punctuation)
-   - Multiple aliases per person with origin tracking
-   - Status: active/merged/needs_review
-
-2. **Entity Resolution Strategy**
-   - Deterministic baseline using matching_key
-   - Extensible via PersonResolver Protocol
-   - Future: can add ML-based resolution without changing interface
-
-3. **Merge Strategy**
-   - Transactional merge with audit trail
-   - Preserves all aliases and mentions
-   - Tracks merge history
-
-## Next Steps (Priority Order)
-
-1. Create PersonResolutionService that integrates extraction + resolution
-2. Implement political persecution classifier
-3. Add Rosfinmonitoring snapshot ingestion
-4. Implement Person ↔ RF matching
-5. Build main product query
-6. Add FastAPI endpoints
-7. Extend CLI
-8. Create evaluation frameworks
-9. End-to-end golden test
-10. Documentation
+### 9. Manual Review Infrastructure
+- Generic `review_records` table + `ManualReviewService` for ambiguous
+  merges/matches/classifications pending human decision
 
 ## Known Limitations
 
-- Rule-based entity resolution is simple (matching_key only)
-- No fuzzy matching for names yet
-- Political classification not yet implemented
-- Rosfinmonitoring integration not yet started
-- No API layer yet (CLI only)
+- Entity resolution is exact `matching_key` matching only — no fuzzy
+  matching (typos, transliteration), no ML. This is a deliberate baseline,
+  not a gap to silently work around (see ADR 0005).
+- `PersonRecord` has no birth date field — nothing in extraction/
+  normalization currently produces one, so the matcher's
+  `person_birth_date` signal is always `None` in real pipeline runs today.
+  The parameter and its conservative rules exist so this is a one-line
+  wiring change, not a redesign, once a birth-date source exists.
+- Persecution classification is keyword/rule-based, not NLP — it can
+  still miss phrasing or misfire on incidental keyword matches inside a
+  person's own evidence window.
+- Rosfinmonitoring name-word retrieval (for Jaccard similarity) uses
+  `ILIKE` substring search per word, not an index — fine at current
+  snapshot sizes, would need revisiting at much larger scale.
+- API has no authentication/authorization and no rate limiting (read-only
+  by design for now).
+- No automatic re-classification/re-matching when new articles arrive for
+  an already-classified person — it's an explicit CLI/API step.
 
-## Technical Debt
+## Explicitly Out of Scope (per project constraints)
 
-- Need to integrate person resolution into extraction pipeline
-- Need to add person_id to extraction results
-- Need to link events to persons
+- Fuzzy/ML entity resolution, embeddings, cross-encoder re-ranking
+- LLM-based classification, NER models, GraphRAG
+- New UI, new ingestion sources
+- Full Clean Architecture restructuring of `src/`

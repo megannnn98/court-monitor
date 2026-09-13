@@ -231,7 +231,9 @@ court-monitor list-candidates --snapshot-id 5 --output-path candidates.json
 1. Find all persons with political persecution classification
 2. Filter by minimum confidence threshold
 3. Check Rosfinmonitoring match status
-4. Return only those with status `not_in_list` or `no_match_record`
+4. Return only those with a **confirmed** `not_matched` result by default —
+   `no_match_record` (matching never ran), `ambiguous`, `needs_review` and
+   `insufficient_data` are excluded, since none of them mean "absent"
 
 ## Running the Full Pipeline
 
