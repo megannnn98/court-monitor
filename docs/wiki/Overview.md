@@ -65,8 +65,15 @@ end note
 | `search_backend.py` | `Protocol SearchBackend` |
 | `postgres_lexical_search.py` | Lexical-поиск (tsvector) по `parsed_articles.text` |
 | `search_evaluator.py`, `evaluation_*.py` | Оценка качества поиска (MRR) |
+| `extraction_models.py` | Pydantic-модели extraction: document, raw/normalized mentions, events, save result |
+| `extraction_extractors.py` | Deterministic rule-based entity extraction без LLM и внешних API |
+| `extraction_normalizers.py` | Нормализация людей, организаций/судов, мест, правовых ссылок |
+| `extraction_events.py` | Rule-based события и роли связей с mentions |
+| `extraction_pipeline.py` | Оркестратор extraction: validate spans → normalize → deduplicate → events → persistence |
+| `extraction_persistence.py` | SQLAlchemy persistence для runs, mentions, events, links |
+| `extraction_metrics.py` | Golden corpus loader и метрики extraction |
 
-Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Search](Search.md), [Evaluation](Evaluation.md).
+Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Extraction](Extraction.md), [Search](Search.md), [Evaluation](Evaluation.md).
 
 Dense/hybrid/reranked-hybrid поиск (Qdrant, `sentence-transformers`) и chunking были удалены — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
 

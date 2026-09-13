@@ -91,3 +91,37 @@ uv run python src/main.py evaluate-search \
 ```
 
 Evaluation загружает фиксированный test corpus в PostgreSQL.
+
+## Extraction
+
+Extraction одной сохранённой статьи:
+
+```bash
+uv run python src/main.py extract-entities --article-id 123
+```
+
+Пакетный режим по источнику:
+
+```bash
+uv run python src/main.py extract-entities --source ovd-info --limit 100
+uv run python src/main.py extract-entities --source sota-vision --limit 100
+```
+
+Команда печатает JSON-статистику:
+
+```text
+articles_processed
+articles_skipped
+articles_failed
+mentions_created
+events_created
+```
+
+Golden evaluation:
+
+```bash
+uv run python src/main.py evaluate-extraction \
+  --corpus-path tests/fixtures/extraction_golden_corpus.json
+```
+
+Основной extractor deterministic, CPU-only, без LLM, внешних API и скачивания моделей.

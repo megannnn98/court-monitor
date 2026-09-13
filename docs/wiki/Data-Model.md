@@ -54,6 +54,69 @@ entity "parsed_articles" as parsed_articles {
 sources ||--o{ source_documents : source_id
 source_documents ||--o| parsed_articles : document_id
 
+entity "article_extraction_runs" as extraction_runs {
+    * id : INTEGER <<PK>>
+    --
+    article_id : INTEGER NOT NULL <<FK>>
+    article_content_hash : VARCHAR(64) NOT NULL
+    extractor_name : VARCHAR(255) NOT NULL
+    extractor_version : VARCHAR(64) NOT NULL
+    normalizer_version : VARCHAR(64) NOT NULL
+    status : VARCHAR(32) NOT NULL
+    started_at : TIMESTAMP WITH TIME ZONE NOT NULL
+    finished_at : TIMESTAMP WITH TIME ZONE NULL
+    error_message : TEXT NULL
+    created_at : TIMESTAMP WITH TIME ZONE
+    --
+    UNIQUE(article_id, article_content_hash, extractor_name, extractor_version, normalizer_version)
+}
+
+entity "entity_mentions" as entity_mentions {
+    * id : INTEGER <<PK>>
+    --
+    extraction_run_id : INTEGER NOT NULL <<FK>>
+    entity_type : VARCHAR(64) NOT NULL
+    surface_text : TEXT NOT NULL
+    normalized_text : TEXT NOT NULL
+    start_offset : INTEGER NOT NULL
+    end_offset : INTEGER NOT NULL
+    confidence : FLOAT NOT NULL
+    normalized_data : JSONB NOT NULL
+    extractor_name : VARCHAR(255) NOT NULL
+    extractor_version : VARCHAR(64) NOT NULL
+    normalizer_version : VARCHAR(64) NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE
+    --
+    UNIQUE(extraction_run_id, entity_type, start_offset, end_offset)
+}
+
+entity "extracted_events" as extracted_events {
+    * id : INTEGER <<PK>>
+    --
+    extraction_run_id : INTEGER NOT NULL <<FK>>
+    event_type : VARCHAR(64) NOT NULL
+    event_date : TIMESTAMP WITH TIME ZONE NULL
+    start_offset : INTEGER NOT NULL
+    end_offset : INTEGER NOT NULL
+    confidence : FLOAT NOT NULL
+    attributes : JSONB NOT NULL
+    extractor_name : VARCHAR(255) NOT NULL
+    extractor_version : VARCHAR(64) NOT NULL
+    created_at : TIMESTAMP WITH TIME ZONE
+}
+
+entity "event_entity_mentions" as event_entity_mentions {
+    * event_id : INTEGER <<PK, FK>>
+    * mention_id : INTEGER <<PK, FK>>
+    * role : VARCHAR(64) <<PK>>
+}
+
+parsed_articles ||--o{ extraction_runs : article_id
+extraction_runs ||--o{ entity_mentions : extraction_run_id
+extraction_runs ||--o{ extracted_events : extraction_run_id
+extracted_events ||--o{ event_entity_mentions : event_id
+entity_mentions ||--o{ event_entity_mentions : mention_id
+
 @enduml
 ```
 
@@ -63,6 +126,7 @@ source_documents ||--o| parsed_articles : document_id
 - `fdac899276a2_create_ingestion_tables.py` — `sources`, `source_documents`, `parsed_articles`, `article_chunks`
 - `df2c42a78b48_add_article_chunk_search_vector.py` — добавляет `search_vector` (generated column) + GIN-индекс на `article_chunks`
 - `a3f7c9d21b44_drop_article_chunks_add_article_search_vector.py` — удаляет `article_chunks`, переносит `search_vector` (generated column) + GIN-индекс на `parsed_articles`
+- `f0b1c2d3e4f5_add_extraction_tables.py` — добавляет `article_extraction_runs`, `entity_mentions`, `extracted_events`, `event_entity_mentions`
 
 `article_chunks` — это уже история: таблица существовала до удаления `ArticleChunk` из домена, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md). Старые миграции не переписаны задним числом.
 
@@ -75,3 +139,13 @@ source_documents ||--o| parsed_articles : document_id
 3. **ParsedArticleRecord** — ищется по `document_id` (1:1 с документом); при повторном разборе `title`/`published_at`/`text` перезаписываются, `search_vector` пересчитывается автоматически (generated column).
 
 Таким образом повторный `ingest` той же публикации — не добавление новой версии, а замена: одна строка `source_documents`/`parsed_articles` на публикацию.
+
+## Extraction persistence
+
+`SqlAlchemyExtractionPersistence.save()` сохраняет результат extraction одной транзакцией. Идемпотентность задаёт ключ:
+
+```text
+article_id + article_content_hash + extractor_name + extractor_version + normalizer_version
+```
+
+Повторный запуск той же версии возвращает существующий successful run и не создаёт дубликаты. Если `ParsedArticle.text` изменился, `content_hash` меняется и создаётся новый run. Старые результаты не смешиваются с новыми.
