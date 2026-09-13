@@ -1,5 +1,7 @@
 """Tests for manual review service."""
 
+import uuid
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -12,11 +14,16 @@ from orm_models import PersonRecord
 
 
 def _create_person(session: Session) -> int:
-    """Helper to create a test person."""
+    """Helper to create a test person.
+
+    matching_key is unique per call (uq_persons_matching_key_active) —
+    these tests don't care about its value, only that the person row
+    exists as a review subject.
+    """
     person = PersonRecord(
         canonical_name="Test Person",
         normalized_name="test person",
-        matching_key="testperson",
+        matching_key=f"testperson-{uuid.uuid4().hex}",
         status="active",
     )
     session.add(person)
