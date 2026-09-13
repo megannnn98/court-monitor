@@ -1,5 +1,12 @@
 # Person Resolution
 
+**Baseline status:** entity resolution here is an exact, deterministic
+`matching_key` lookup (see `RuleBasedPersonResolver`) — not fuzzy matching,
+not ML. Two mentions only resolve to the same person when their normalized
+names produce the identical `matching_key`. See
+`docs/adr/0005-entity-resolution-strategy.md` for the full rationale and
+what a future fuzzy/ML phase would add.
+
 ## Overview
 
 The person resolution system extracts person mentions from articles, normalizes them, and resolves them to canonical person entities. This enables tracking individuals across multiple articles and sources.

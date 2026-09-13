@@ -4,6 +4,12 @@
 
 Accepted
 
+**What is actually implemented today: an exact, deterministic matching_key
+baseline (`RuleBasedPersonResolver` in `src/person_resolver.py`).** It does
+not do fuzzy matching, phonetic matching, or ML-based resolution — "Phase
+2"/"Phase 3" below are future extension points, not implemented behavior.
+Do not describe this resolver as "fuzzy entity resolution" — it isn't.
+
 ## Context
 
 After implementing canonical person model (ADR 0004), we need a strategy to resolve person mentions to canonical persons. The challenge is:

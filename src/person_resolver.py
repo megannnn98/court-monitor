@@ -25,9 +25,18 @@ class RuleBasedPersonResolver:
         context: ResolutionContext | None = None,
         session: Session | None = None,
     ) -> ResolutionResult:
-        del context
-        del surface_text
+        """Resolve a mention to a canonical person by exact `matching_key`
+        lookup — this is an exact deterministic baseline, not fuzzy entity
+        resolution (see docs/adr/0005-entity-resolution-strategy.md).
 
+        `surface_text` and `context` are accepted (and required by the
+        `PersonResolver` protocol other resolvers may implement) but unused
+        here: this baseline only needs `matching_key` to decide MATCHED vs.
+        NEW_PERSON. `context` (article/city/court/event_types) is a ready
+        extension point for a future context-aware resolver — e.g. two
+        namesakes disambiguated by which court or city they're associated
+        with — not a currently-used signal.
+        """
         if session is None:
             existing_person_id = self._persistence.find_person_by_matching_key(matching_key)
         else:
