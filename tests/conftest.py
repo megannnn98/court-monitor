@@ -14,7 +14,6 @@ def _truncate_test_tables(engine: Engine) -> None:
             text(
                 """
                 TRUNCATE TABLE
-                    article_chunks,
                     parsed_articles,
                     source_documents,
                     sources

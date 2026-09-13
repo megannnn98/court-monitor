@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from evaluation_models import ChunkReference, EvaluationCase
+from evaluation_models import ArticleReference, EvaluationCase
 from models import SearchHit, SearchQuery
 from search_backend import SearchBackend
 from search_evaluator import SearchEvaluator
@@ -11,19 +11,16 @@ from search_evaluator import SearchEvaluator
 def make_hit(
     *,
     external_id: str,
-    ordinal: int,
-    chunk_id: int,
+    article_id: int,
 ) -> SearchHit:
     return SearchHit(
-        chunk_id=chunk_id,
-        article_id=chunk_id,
+        article_id=article_id,
         source_base_url="https://ovd.info",
         external_id=external_id,
-        ordinal=ordinal,
         title="Тестовая статья",
         published_at=None,
         url=f"https://ovd.info/{external_id}",
-        text="Текст чанка",
+        text="Текст статьи",
         score=1.0,
     )
 
@@ -33,23 +30,20 @@ def test_evaluate_case_returns_reciprocal_rank() -> None:
     search.search.return_value = [
         make_hit(
             external_id="weather-report",
-            ordinal=0,
-            chunk_id=1,
+            article_id=1,
         ),
         make_hit(
             external_id="rehabilitation-nazism",
-            ordinal=1,
-            chunk_id=2,
+            article_id=2,
         ),
     ]
 
     case = EvaluationCase(
         query_id="rehabilitation-of-nazism",
         query_text="реабилитация нацизма",
-        expected_chunk=ChunkReference(
+        expected_article=ArticleReference(
             source_base_url="https://ovd.info",
             external_id="rehabilitation-nazism",
-            ordinal=1,
         ),
     )
 
@@ -59,19 +53,17 @@ def test_evaluate_case_returns_reciprocal_rank() -> None:
 
     assert result.query_id == "rehabilitation-of-nazism"
     assert result.query_text == "реабилитация нацизма"
-    assert result.expected_chunk == case.expected_chunk
+    assert result.expected_article == case.expected_article
     assert result.reciprocal_rank == pytest.approx(0.5)
 
-    assert result.retrieved_chunks == [
-        ChunkReference(
+    assert result.retrieved_articles == [
+        ArticleReference(
             source_base_url="https://ovd.info",
             external_id="weather-report",
-            ordinal=0,
         ),
-        ChunkReference(
+        ArticleReference(
             source_base_url="https://ovd.info",
             external_id="rehabilitation-nazism",
-            ordinal=1,
         ),
     ]
     search.search.assert_called_once_with(
@@ -87,13 +79,11 @@ def test_evaluate_returns_mean_reciprocal_rank() -> None:
 
     correct_first = make_hit(
         external_id="rehabilitation-nazism",
-        ordinal=1,
-        chunk_id=1,
+        article_id=1,
     )
     irrelevant = make_hit(
         external_id="weather-report",
-        ordinal=0,
-        chunk_id=2,
+        article_id=2,
     )
 
     search.search.side_effect = [
@@ -105,19 +95,17 @@ def test_evaluate_returns_mean_reciprocal_rank() -> None:
         EvaluationCase(
             query_id="rehabilitation-of-nazism",
             query_text="реабилитация нацизма",
-            expected_chunk=ChunkReference(
+            expected_article=ArticleReference(
                 source_base_url="https://ovd.info",
                 external_id="rehabilitation-nazism",
-                ordinal=1,
             ),
         ),
         EvaluationCase(
             query_id="military-fakes",
             query_text="фейки об армии",
-            expected_chunk=ChunkReference(
+            expected_article=ArticleReference(
                 source_base_url="https://ovd.info",
                 external_id="military-fakes",
-                ordinal=0,
             ),
         ),
     ]

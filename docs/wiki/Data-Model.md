@@ -44,36 +44,27 @@ entity "parsed_articles" as parsed_articles {
     title : TEXT NOT NULL
     published_at : TIMESTAMP WITH TIME ZONE NULL
     text : TEXT NOT NULL
-    created_at : TIMESTAMP WITH TIME ZONE NOT NULL
-    --
-    UNIQUE(document_id)
-}
-
-entity "article_chunks" as article_chunks {
-    * id : INTEGER <<PK>>
-    --
-    parsed_article_id : INTEGER NOT NULL <<FK>>
-    ordinal : INTEGER NOT NULL
-    text : TEXT NOT NULL
     search_vector : TSVECTOR GENERATED ALWAYS AS (to_tsvector('russian', text)) STORED
     created_at : TIMESTAMP WITH TIME ZONE NOT NULL
     --
-    UNIQUE(parsed_article_id, ordinal)
+    UNIQUE(document_id)
     GIN INDEX(search_vector)
 }
 
 sources ||--o{ source_documents : source_id
 source_documents ||--o| parsed_articles : document_id
-parsed_articles ||--o{ article_chunks : parsed_article_id
 
 @enduml
 ```
 
-> **Внимание, расхождение:** файл `docs/uml/top to bottom direction.puml` в репозитории описывает **другую**, более раннюю схему — с таблицей `document_snapshots` (снапшоты по `content_hash`) между `source_documents` и `parsed_articles`, и `raw_content` в `document_snapshots`, а не в `source_documents`. Ни миграции (`migrations/versions/`), ни `orm_models.py` такой таблицы не содержат — судя по всему, это след утраченного/незавершённого функционала версионирования снапшотов. Диаграмма выше построена заново по фактическим миграциям (`fdac899276a2`, `df2c42a78b48`) и коду; старый `.puml`-файл не тронут, но как источник правды для текущей схемы использовать нельзя.
+> **Внимание, расхождение:** файл `docs/uml/top to bottom direction.puml` в репозитории описывает **другую**, более раннюю схему — с таблицей `document_snapshots` (снапшоты по `content_hash`) между `source_documents` и `parsed_articles`, `raw_content` в `document_snapshots`, а не в `source_documents`, и с таблицей `article_chunks`, которой в текущей схеме больше нет. Ни миграции (`migrations/versions/`), ни `orm_models.py` такой таблицы/структуры не содержат. Диаграмма выше построена заново по фактическим миграциям и коду; старый `.puml`-файл не тронут, но как источник правды для текущей схемы использовать нельзя.
 
-Таблицы созданы миграциями:
+Таблицы созданы/изменены миграциями:
 - `fdac899276a2_create_ingestion_tables.py` — `sources`, `source_documents`, `parsed_articles`, `article_chunks`
-- `df2c42a78b48_add_article_chunk_search_vector.py` — добавляет `search_vector` (generated column) + GIN-индекс
+- `df2c42a78b48_add_article_chunk_search_vector.py` — добавляет `search_vector` (generated column) + GIN-индекс на `article_chunks`
+- `a3f7c9d21b44_drop_article_chunks_add_article_search_vector.py` — удаляет `article_chunks`, переносит `search_vector` (generated column) + GIN-индекс на `parsed_articles`
+
+`article_chunks` — это уже история: таблица существовала до удаления `ArticleChunk` из домена, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md). Старые миграции не переписаны задним числом.
 
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`
 
@@ -81,7 +72,6 @@ parsed_articles ||--o{ article_chunks : parsed_article_id
 
 1. **Source** — ищется по `base_url`, создаётся при отсутствии.
 2. **SourceDocument** — ищется по `(source_id, external_id)`; при повторной загрузке той же публикации обновляются `canonical_url`, `fetched_at`, `content_type`, `raw_content` (перезапись, не версионирование — старое содержимое не хранится).
-3. **ParsedArticleRecord** — ищется по `document_id` (1:1 с документом); при повторном разборе текст/заголовок перезаписываются.
-4. **ArticleChunkRecord** — старые chunks статьи **удаляются** (`DELETE ... WHERE parsed_article_id = ...`) и вставляются заново. Это делает переиндексацию в Qdrant после повторного ingestion обязательной (id чанков меняются) — см. [Search](Search.md).
+3. **ParsedArticleRecord** — ищется по `document_id` (1:1 с документом); при повторном разборе `title`/`published_at`/`text` перезаписываются, `search_vector` пересчитывается автоматически (generated column).
 
-Таким образом повторный `ingest` той же публикации — не добавление новой версии, а замена: одна строка `source_documents`/`parsed_articles` на публикацию, актуальные chunks.
+Таким образом повторный `ingest` той же публикации — не добавление новой версии, а замена: одна строка `source_documents`/`parsed_articles` на публикацию.

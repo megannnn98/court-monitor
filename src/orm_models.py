@@ -57,6 +57,11 @@ class ParsedArticleRecord(Base):
             "document_id",
             name="uq_parsed_articles_document_id",
         ),
+        Index(
+            "ix_parsed_articles_search_vector_gin",
+            "search_vector",
+            postgresql_using="gin",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -66,28 +71,6 @@ class ParsedArticleRecord(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class ArticleChunkRecord(Base):
-    __tablename__ = "article_chunks"
-    __table_args__ = (
-        UniqueConstraint(
-            "parsed_article_id",
-            "ordinal",
-            name="uq_article_chunks_parsed_article_id_ordinal",
-        ),
-        Index(
-            "ix_article_chunks_search_vector_gin",
-            "search_vector",
-            postgresql_using="gin",
-        ),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    parsed_article_id: Mapped[int] = mapped_column(ForeignKey("parsed_articles.id"), nullable=False)
-    ordinal: Mapped[int] = mapped_column(nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     search_vector: Mapped[str] = mapped_column(
         TSVECTOR,

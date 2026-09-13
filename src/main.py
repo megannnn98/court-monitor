@@ -4,31 +4,14 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
-from qdrant_client import QdrantClient
-
 from article_parser import OvdInfoArticleParser
-from chunker import Chunker
-from cross_encoder_reranker import CrossEncoderReranker
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from ingestion_pipeline import IngestionPipeline
-from models import (
-    ArticleChunk,
-    ParsedArticle,
-    RawDocument,
-    SearchQuery,
-    SourceReference,
-)
-from qdrant_chunk_indexer import QdrantChunkIndexer
-from search_backend import SearchBackend
+from models import ParsedArticle, RawDocument, SearchQuery, SourceReference
+from postgres_lexical_search import PostgresLexicalSearch
 from search_evaluator import SearchEvaluator
-from search_factory import (
-    create_dense_search,
-    create_lexical_search,
-    select_search_backend,
-)
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
-from text_embedder import TextEmbedder
 from website_adapter import WebsiteAdapter
 
 DEFAULT_EVALUATION_CORPUS_PATH = Path("tests/fixtures/evaluation_corpus.json")
@@ -49,14 +32,9 @@ def main() -> None:
     )
     ingest_parser.add_argument("url")
 
-    subparsers.add_parser(
-        "rebuild-dense-index",
-        help="Rebuild the regular Qdrant index from PostgreSQL",
-    )
-
     search_parser = subparsers.add_parser(
         "search",
-        help="Search saved article chunks",
+        help="Search saved articles",
     )
     search_parser.add_argument("text")
     search_parser.add_argument(
@@ -67,7 +45,7 @@ def main() -> None:
 
     evaluate_search_parser = subparsers.add_parser(
         "evaluate-search",
-        help="Evaluate search backends against fixed cases",
+        help="Evaluate lexical search against fixed cases",
     )
     evaluate_search_parser.add_argument(
         "--corpus-path",
@@ -89,16 +67,6 @@ def main() -> None:
         type=Path,
         default=None,
     )
-    evaluate_search_parser.add_argument(
-        "--backend",
-        choices=["lexical", "dense", "hybrid", "reranked-hybrid"],
-        default="lexical",
-    )
-    search_parser.add_argument(
-        "--backend",
-        choices=["lexical", "dense", "hybrid", "reranked-hybrid"],
-        default="lexical",
-    )
 
     args = argument_parser.parse_args()
 
@@ -109,34 +77,9 @@ def main() -> None:
 
     database_engine = create_database_engine(database_url)
     session_factory = create_session_factory(database_engine)
-    search: SearchBackend
 
     if args.command == "search":
-        lexical_search = create_lexical_search(session_factory)
-
-        regular_dense_search: SearchBackend | None = None
-
-        if args.backend != "lexical":
-            client = QdrantClient(url=os.environ["QDRANT_URL"])
-            embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
-
-            regular_dense_search = create_dense_search(
-                client=client,
-                collection_name=os.environ["QDRANT_COLLECTION"],
-                embedder=embedder,
-            )
-
-        search_reranker: CrossEncoderReranker | None = None
-
-        if args.backend == "reranked-hybrid":
-            search_reranker = CrossEncoderReranker.from_model_id(os.environ["RERANKER_MODEL_ID"])
-
-        search = select_search_backend(
-            args.backend,
-            lexical_backend=lexical_search,
-            dense_backend=regular_dense_search,
-            reranker=search_reranker,
-        )
+        search = PostgresLexicalSearch(session_factory)
 
         hits = search.search(
             SearchQuery(
@@ -163,14 +106,6 @@ def main() -> None:
         )
 
         for document in documents:
-            chunks = [
-                ArticleChunk(
-                    ordinal=ordinal,
-                    text=text,
-                )
-                for ordinal, text in enumerate(document.chunks)
-            ]
-
             raw_document = RawDocument(
                 external_id=document.external_id,
                 url=document.canonical_url,
@@ -184,62 +119,17 @@ def main() -> None:
                 url=document.canonical_url,
                 title=document.title,
                 published_at=None,
-                text="\n\n".join(document.chunks),
+                text=document.text,
             )
 
             persistence.save(
                 raw_document=raw_document,
                 article=article,
-                chunks=chunks,
             )
 
         cases = load_evaluation_cases(args.cases_path)
 
-        lexical_search = create_lexical_search(session_factory)
-
-        evaluation_dense_search: SearchBackend | None = None
-
-        if args.backend != "lexical":
-            evaluation_collection = os.environ["QDRANT_EVALUATION_COLLECTION"]
-            regular_collection = os.environ["QDRANT_COLLECTION"]
-
-            if evaluation_collection == regular_collection:
-                raise RuntimeError(
-                    "QDRANT_EVALUATION_COLLECTION must differ from QDRANT_COLLECTION"
-                )
-
-            client = QdrantClient(url=os.environ["QDRANT_URL"])
-            embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
-
-            indexer = QdrantChunkIndexer(
-                client=client,
-                collection_name=evaluation_collection,
-                vector_size=768,
-                session_factory=session_factory,
-                embedder=embedder,
-            )
-            indexer.recreate_collection()
-            indexer.index_all()
-
-            evaluation_dense_search = create_dense_search(
-                client=client,
-                collection_name=evaluation_collection,
-                embedder=embedder,
-            )
-
-        evaluation_reranker: CrossEncoderReranker | None = None
-
-        if args.backend == "reranked-hybrid":
-            evaluation_reranker = CrossEncoderReranker.from_model_id(
-                os.environ["RERANKER_MODEL_ID"]
-            )
-
-        search = select_search_backend(
-            args.backend,
-            lexical_backend=lexical_search,
-            dense_backend=evaluation_dense_search,
-            reranker=evaluation_reranker,
-        )
+        search = PostgresLexicalSearch(session_factory)
 
         evaluator = SearchEvaluator(
             search=search,
@@ -258,23 +148,6 @@ def main() -> None:
 
         return
 
-    if args.command == "rebuild-dense-index":
-        client = QdrantClient(url=os.environ["QDRANT_URL"])
-        embedder = TextEmbedder(os.environ["EMBEDDING_MODEL_ID"])
-
-        indexer = QdrantChunkIndexer(
-            client=client,
-            collection_name=os.environ["QDRANT_COLLECTION"],
-            vector_size=768,
-            session_factory=session_factory,
-            embedder=embedder,
-        )
-
-        indexer.recreate_collection()
-        indexer.index_all()
-
-        print("Dense index rebuilt")
-        return
     reference = SourceReference(
         external_id=args.url,
         url=args.url,
@@ -289,7 +162,6 @@ def main() -> None:
     ingestion_pipeline = IngestionPipeline(
         website_adapter=WebsiteAdapter(),
         parser=OvdInfoArticleParser(),
-        chunker=Chunker(),
         persistence=persistence,
     )
 
@@ -297,12 +169,8 @@ def main() -> None:
 
     print("title:", result.article.title)
     print("published_at:", result.article.published_at)
-
-    for chunk in result.chunks:
-        print(f"chunk {chunk.ordinal}:", chunk.text)
-
+    print("text:", result.article.text)
     print("document_id:", result.persistence.document_id)
-    print("chunks_saved:", result.persistence.chunks_saved)
 
 
 if __name__ == "__main__":

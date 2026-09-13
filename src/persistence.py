@@ -1,7 +1,6 @@
-from collections.abc import Sequence
 from typing import Protocol
 
-from models import ArticleChunk, ParsedArticle, PersistenceResult, RawDocument
+from models import ParsedArticle, PersistenceResult, RawDocument
 
 
 class IngestionPersistence(Protocol):
@@ -9,5 +8,4 @@ class IngestionPersistence(Protocol):
         self,
         raw_document: RawDocument,
         article: ParsedArticle,
-        chunks: Sequence[ArticleChunk],
     ) -> PersistenceResult: ...

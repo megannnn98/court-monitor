@@ -13,24 +13,23 @@ tests/fixtures/evaluation_corpus.json
 tests/fixtures/evaluation_cases.json
 ```
 
-`EvaluationDocument` описывает тестовую публикацию и её chunks.
+`EvaluationDocument` описывает тестовую публикацию: `source_base_url`, `external_id`, `canonical_url`, `title`, полный `text` (раньше — список `chunks`, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md)).
 
 `EvaluationCase` содержит:
 
 ```text
 query_text
-expected_chunk
+expected_article
 ```
 
-`expected_chunk` определяется через:
+`expected_article` (`ArticleReference`) определяется через:
 
 ```text
 source_base_url
 external_id
-ordinal
 ```
 
-Поэтому evaluation не зависит от конкретных database IDs.
+`ordinal` (позиция фрагмента) убран вместе с `ArticleChunk` — идентичность результата теперь на уровне статьи, а не фрагмента. Evaluation по-прежнему не зависит от конкретных database IDs.
 
 ## Метрики
 
@@ -40,9 +39,9 @@ ordinal
 RR = 1 / rank
 ```
 
-где `rank` — позиция первого ожидаемого chunk в результатах.
+где `rank` — позиция первой ожидаемой статьи в результатах.
 
-Если ожидаемый chunk не найден:
+Если ожидаемая статья не найдена:
 
 ```text
 RR = 0
@@ -60,161 +59,34 @@ MRR = mean(RR)
 
 `src/search_evaluator.py`.
 
-`SearchEvaluator` зависит только от общего:
-
-```text
-SearchBackend
-```
-
-Поэтому один evaluator используется для всех backend'ов:
-
-```text
-lexical
-dense
-hybrid
-reranked-hybrid
-```
-
-Специальной evaluation-логики для cross-encoder reranking нет.
-
-Это позволяет сравнивать разные retrieval/ranking pipelines через один и тот же набор cases.
+`SearchEvaluator` зависит только от общего `SearchBackend` — сейчас это `PostgresLexicalSearch` (единственная реализация).
 
 ## CLI
 
 Evaluation запускается командой:
 
 ```bash
-uv run python src/main.py evaluate-search \
-  --backend BACKEND
+uv run python src/main.py evaluate-search
 ```
 
-Доступные значения:
+Опции:
 
 ```text
-lexical
-dense
-hybrid
-reranked-hybrid
+--corpus-path   путь к evaluation corpus (по умолчанию tests/fixtures/evaluation_corpus.json)
+--cases-path    путь к evaluation cases (по умолчанию tests/fixtures/evaluation_cases.json)
+--limit         лимит выдачи на один запрос
+--output-path   путь для сохранения отчёта; без него отчёт печатается в stdout
 ```
 
-Пример:
-
-```bash
-uv run python src/main.py evaluate-search \
-  --backend reranked-hybrid \
-  --output-path reports/reranked_hybrid_baseline.json
-```
-
-Для dense-based backend'ов evaluation использует отдельную Qdrant collection:
-
-```text
-QDRANT_EVALUATION_COLLECTION
-```
-
-Она должна отличаться от:
-
-```text
-QDRANT_COLLECTION
-```
-
-Перед evaluation collection пересоздаётся и заполняется фиксированным evaluation corpus.
+Выбора backend'а через `--backend` больше нет — dense/hybrid/reranked-hybrid удалены, `evaluate-search` всегда использует lexical поиск.
 
 ## Baseline
 
-Текущий evaluation corpus содержит 4 search cases.
+Прежний baseline (`reports/*.json`) был построен на chunk-based evaluation corpus и удалён вместе с `ArticleChunk` — числа `MRR` для lexical/dense/hybrid/reranked-hybrid, которые здесь раньше приводились, относились к старой (chunk-level) схеме данных и не переносятся автоматически на новую.
 
-Полученные baseline:
+Актуальный baseline для article-level lexical search в этой сессии не перегенерирован — не было доступа к `DATABASE_URL`/`TEST_DATABASE_URL` (см. [Setup](Setup.md)). Перегенерировать:
 
-| Backend | MRR |
-|---|---:|
-| lexical | 0.5 |
-| dense | 1.0 |
-| hybrid | 1.0 |
-| reranked-hybrid | 1.0 |
-
-Отчёты:
-
-```text
-reports/postgres_lexical_baseline.json
-reports/qdrant_dense_baseline.json
-reports/hybrid_baseline.json
-reports/reranked_hybrid_baseline.json
+```bash
+uv run python src/main.py evaluate-search \
+  --output-path reports/postgres_lexical_baseline.json
 ```
-
-### Lexical
-
-```text
-MRR = 0.5
-```
-
-Ожидаемый chunk стоит первым для:
-
-```text
-rehabilitation-of-nazism
-extremist-activity
-```
-
-Для:
-
-```text
-military-fakes
-picket-detention
-```
-
-ожидаемый chunk lexical backend не находит.
-
-### Dense
-
-```text
-MRR = 1.0
-```
-
-Все четыре expected chunks находятся на первой позиции.
-
-### Hybrid
-
-```text
-MRR = 1.0
-```
-
-На текущем небольшом corpus все четыре expected chunks также находятся на первой позиции.
-
-По MRR hybrid пока не улучшает dense baseline.
-
-### Reranked Hybrid
-
-```text
-MRR = 1.0
-```
-
-Все четыре expected chunks остаются на первой позиции после cross-encoder reranking.
-
-Cross-encoder при этом меняет порядок части остальных hybrid candidates, то есть reranking действительно выполняется.
-
-Однако MRR не увеличивается, поскольку dense и hybrid уже достигают максимального:
-
-```text
-MRR = 1.0
-```
-
-на текущих evaluation cases.
-
-## Интерпретация
-
-Текущий evaluation corpus подходит для regression testing поискового pipeline, но слишком мал и прост для объективного сравнения dense, hybrid и reranked-hybrid.
-
-Полученный результат не означает, что hybrid retrieval или cross-encoder reranking не улучшают поиск на реальных данных.
-
-Он означает только следующее:
-
-```text
-на текущих 4 evaluation cases улучшение MRR измерить невозможно,
-потому что dense baseline уже достигает MRR = 1.0
-```
-
-Для дальнейшего сравнения ranking quality понадобится более сложный evaluation corpus с:
-
-- неоднозначными запросами;
-- лексически похожими нерелевантными chunks;
-- семантически близкими документами;
-- cases, где expected chunk находится ниже первой позиции у baseline retrieval.
