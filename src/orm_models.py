@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     Computed,
@@ -334,4 +335,53 @@ class PersecutionClassificationRecord(Base):
     classifier_name: Mapped[str] = mapped_column(String(255), nullable=False)
     classifier_version: Mapped[str] = mapped_column(String(64), nullable=False)
     classified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RosfinmonitoringSnapshotRecord(Base):
+    __tablename__ = "rosfinmonitoring_snapshots"
+    __table_args__ = (
+        Index("ix_rosfinmonitoring_snapshots_snapshot_date", "snapshot_date"),
+        UniqueConstraint("content_hash", name="uq_rosfinmonitoring_snapshots_content_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    snapshot_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    entry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RosfinmonitoringEntryRecord(Base):
+    __tablename__ = "rosfinmonitoring_entries"
+    __table_args__ = (
+        Index("ix_rosfinmonitoring_entries_snapshot_id", "snapshot_id"),
+        Index("ix_rosfinmonitoring_entries_matching_key", "matching_key"),
+        Index("ix_rosfinmonitoring_entries_normalized_name", "normalized_name"),
+        UniqueConstraint(
+            "snapshot_id",
+            "full_name",
+            "birth_date",
+            name="uq_rosfinmonitoring_entries_snapshot_name_birth",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("rosfinmonitoring_snapshots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    full_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    matching_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    birth_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    birth_place: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    snils: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    inn: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    inclusion_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inclusion_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    raw_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
