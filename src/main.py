@@ -9,6 +9,14 @@ import httpx
 from article_parser import OvdInfoArticleParser
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
+from extraction_documents import SqlAlchemyExtractionDocumentRepository
+from extraction_events import RuleBasedEventExtractor
+from extraction_extractors import RuleBasedEntityExtractor
+from extraction_metrics import evaluate_golden_dataset
+from extraction_models import BatchExtractionResult, ExtractionRunStatus
+from extraction_normalizers import RuleBasedMentionNormalizer
+from extraction_persistence import SqlAlchemyExtractionPersistence
+from extraction_pipeline import ExtractionPipeline
 from ingestion_pipeline import IngestionPipeline
 from models import ParsedArticle, RawDocument, SearchQuery
 from ovd_info_reference import canonicalize_ovd_info_reference
@@ -23,6 +31,7 @@ from website_adapter import WebsiteAdapter
 
 DEFAULT_EVALUATION_CORPUS_PATH = Path("tests/fixtures/evaluation_corpus.json")
 DEFAULT_EVALUATION_CASES_PATH = Path("tests/fixtures/evaluation_cases.json")
+DEFAULT_EXTRACTION_CORPUS_PATH = Path("tests/fixtures/extraction_golden_corpus.json")
 FIXED_EVALUATION_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -126,8 +135,40 @@ def main() -> None:
         type=Path,
         default=None,
     )
+    extract_entities_parser = subparsers.add_parser(
+        "extract-entities",
+        help="Extract entity mentions and events from saved articles",
+    )
+    extract_entities_parser.add_argument("--article-id", type=int, default=None)
+    extract_entities_parser.add_argument("--source", choices=sorted(SOURCES), default=None)
+    extract_entities_parser.add_argument("--limit", type=int, default=100)
+
+    evaluate_extraction_parser = subparsers.add_parser(
+        "evaluate-extraction",
+        help="Evaluate extraction against a fixed golden corpus",
+    )
+    evaluate_extraction_parser.add_argument(
+        "--corpus-path",
+        type=Path,
+        default=DEFAULT_EXTRACTION_CORPUS_PATH,
+    )
+    evaluate_extraction_parser.add_argument(
+        "--output-path",
+        type=Path,
+        default=None,
+    )
 
     args = argument_parser.parse_args()
+
+    if args.command == "evaluate-extraction":
+        extraction_report = evaluate_golden_dataset(args.corpus_path)
+        report_json = extraction_report.model_dump_json(indent=2)
+        if args.output_path is not None:
+            args.output_path.parent.mkdir(parents=True, exist_ok=True)
+            args.output_path.write_text(report_json + "\n", encoding="utf-8")
+        else:
+            print(report_json)
+        return
 
     database_url = os.environ.get("DATABASE_URL")
 
@@ -205,6 +246,44 @@ def main() -> None:
         else:
             print(report_json)
 
+        return
+
+    if args.command == "extract-entities":
+        document_repository = SqlAlchemyExtractionDocumentRepository(session_factory)
+        extraction_persistence = SqlAlchemyExtractionPersistence(session_factory)
+        extraction_pipeline = ExtractionPipeline(
+            extractors=[RuleBasedEntityExtractor()],
+            normalizers=[RuleBasedMentionNormalizer()],
+            event_extractor=RuleBasedEventExtractor(),
+            persistence=extraction_persistence,
+        )
+        if args.article_id is not None:
+            extraction_documents = [document_repository.get_by_article_id(args.article_id)]
+        else:
+            source_name = (
+                get_source_definition(args.source).source_name if args.source is not None else None
+            )
+            extraction_documents = document_repository.list_documents(
+                source_name=source_name,
+                limit=args.limit,
+            )
+
+        batch_result = BatchExtractionResult()
+        for extraction_document in extraction_documents:
+            save_result = extraction_pipeline.run(extraction_document)
+            if save_result.status is ExtractionRunStatus.SUCCEEDED:
+                if save_result.skipped_existing:
+                    batch_result.articles_skipped += 1
+                else:
+                    batch_result.articles_processed += 1
+                batch_result.mentions_created += save_result.mentions_created
+                batch_result.events_created += save_result.events_created
+            else:
+                batch_result.articles_failed += 1
+                batch_result.failures.append(
+                    f"article_id={extraction_document.article_id}: {save_result.error_message}"
+                )
+        print(batch_result.model_dump_json(indent=2))
         return
 
     if args.command == "discover-and-ingest":
