@@ -11,7 +11,7 @@ from orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from rosfinmonitoring_matcher import RuleBasedRosfinmonitoringMatcher
+from rosfinmonitoring_matcher import NOT_MATCHED_CONFIDENCE, RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring_matcher_models import (
     RosfinCandidateEntry,
     RosfinMatchResult,
@@ -185,9 +185,42 @@ def test_match_person_no_match(
     assert result.person_id == person_id
     assert result.snapshot_id == snapshot_id
     assert result.status == RosfinMatchStatus.NOT_MATCHED
-    assert result.confidence == 1.0
+    assert result.confidence == NOT_MATCHED_CONFIDENCE
+    assert result.confidence < 1.0
     assert result.matched_entry_id is None
     assert len(result.candidate_entries) == 0
+
+
+def test_match_person_with_single_word_name_is_insufficient_data(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """A single-word normalized_name can't reliably rule a person in or out.
+
+    Zero retrieved candidates for a bare surname/first name must not be
+    reported as a confident NOT_MATCHED.
+    """
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Петров",
+            "петров",
+            "петров",
+        )
+
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        _create_rf_entry(
+            session,
+            snapshot_id,
+            "Сидоров Сидор Сидорович",
+            "сидоров сидор сидорович",
+            "сидоровсидорсидорович",
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status == RosfinMatchStatus.INSUFFICIENT_DATA
+    assert result.matched_entry_id is None
 
 
 def test_match_person_multiple_aliases(

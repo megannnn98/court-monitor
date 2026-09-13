@@ -13,6 +13,11 @@ class RosfinMatchStatus(StrEnum):
     NOT_MATCHED = "not_matched"
     AMBIGUOUS = "ambiguous"
     NEEDS_REVIEW = "needs_review"
+    # The person's own name data is too thin (e.g. a single word) to reliably
+    # search a snapshot at all — finding zero candidates says nothing about
+    # whether they're actually absent, so this must not be reported as
+    # NOT_MATCHED.
+    INSUFFICIENT_DATA = "insufficient_data"
 
 
 class RosfinCandidateEntry(BaseModel):

@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -348,19 +349,15 @@ def main() -> None:
                 snapshot_id=args.snapshot_id,
                 limit=args.limit,
             )
-            matched_count = 0
-            ambiguous_count = 0
+            status_counts: Counter[str] = Counter()
             for match_result_item in results:
                 match_persistence.save_match_result(match_result_item)
-                if match_result_item.status == "matched":
-                    matched_count += 1
-                elif match_result_item.status == "ambiguous":
-                    ambiguous_count += 1
+                status_counts[match_result_item.status.value] += 1
 
-            print(
-                f"Matched {len(results)} persons: "
-                f"{matched_count} matched, {ambiguous_count} ambiguous"
+            breakdown = ", ".join(
+                f"{count} {status}" for status, count in sorted(status_counts.items())
             )
+            print(f"Matched {len(results)} persons: {breakdown}")
         return
 
     if args.command == "classify-persecution":

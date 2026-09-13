@@ -25,6 +25,19 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+# Below this many words, a normalized_name (e.g. a bare surname) is too thin
+# to reliably rule a person in or out of a snapshot — zero retrieved
+# candidates then means the check was insufficient, not that the person is
+# confirmed absent.
+MIN_NAME_WORDS_FOR_RELIABLE_CHECK = 2
+
+# Absence-of-evidence is not evidence of absence: even a reliable check that
+# finds zero candidates only supports NOT_MATCHED probabilistically, not with
+# certainty (a spelling variant or non-Cyrillic name never asked for, birth
+# dates not on file, etc.).
+NOT_MATCHED_CONFIDENCE = 0.8
+
+
 class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     """Rule-based matcher for persons against Rosfinmonitoring entries."""
 
@@ -111,11 +124,20 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             candidates.sort(key=lambda c: c.similarity_score, reverse=True)
 
             if not candidates:
+                if len(person.normalized_name.split()) < MIN_NAME_WORDS_FOR_RELIABLE_CHECK:
+                    return RosfinMatchResult(
+                        person_id=person_id,
+                        snapshot_id=snapshot_id,
+                        status=RosfinMatchStatus.INSUFFICIENT_DATA,
+                        confidence=0.0,
+                        reasons=["Person's normalized_name has too few words to search reliably"],
+                        matched_at=datetime.now(UTC),
+                    )
                 return RosfinMatchResult(
                     person_id=person_id,
                     snapshot_id=snapshot_id,
                     status=RosfinMatchStatus.NOT_MATCHED,
-                    confidence=1.0,
+                    confidence=NOT_MATCHED_CONFIDENCE,
                     reasons=["No matching Rosfinmonitoring entries found"],
                     matched_at=datetime.now(UTC),
                 )
