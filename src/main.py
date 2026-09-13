@@ -11,6 +11,7 @@ from article_parser import OvdInfoArticleParser
 from candidate_query_service import CandidateQueryService
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
+from extraction_documents import SqlAlchemyExtractionDocumentRepository
 from extraction_events import RuleBasedEventExtractor
 from extraction_extractors import RuleBasedEntityExtractor
 from extraction_metrics import evaluate_golden_dataset
@@ -287,8 +288,6 @@ def main() -> None:
         return
 
     if args.command == "resolve-people":
-        from extraction_documents import SqlAlchemyExtractionDocumentRepository
-
         document_repository = SqlAlchemyExtractionDocumentRepository(session_factory)
         extraction_persistence = SqlAlchemyExtractionPersistence(session_factory)
         person_persistence = SqlAlchemyPersonPersistence(session_factory)
