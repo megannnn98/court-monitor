@@ -5,7 +5,7 @@ from evaluation_metrics import (
 )
 from evaluation_metrics import reciprocal_rank
 from evaluation_models import (
-    ChunkReference,
+    ArticleReference,
     EvaluationCase,
     EvaluationCaseResult,
     EvaluationReport,
@@ -34,25 +34,24 @@ class SearchEvaluator:
             )
         )
 
-        retrieved_chunks = [
-            ChunkReference(
+        retrieved_articles = [
+            ArticleReference(
                 source_base_url=hit.source_base_url,
                 external_id=hit.external_id,
-                ordinal=hit.ordinal,
             )
             for hit in hits
         ]
 
         score = reciprocal_rank(
-            retrieved=retrieved_chunks,
-            expected_chunk=case.expected_chunk,
+            retrieved=retrieved_articles,
+            expected_article=case.expected_article,
         )
 
         return EvaluationCaseResult(
             query_id=case.query_id,
             query_text=case.query_text,
-            expected_chunk=case.expected_chunk,
-            retrieved_chunks=retrieved_chunks,
+            expected_article=case.expected_article,
+            retrieved_articles=retrieved_articles,
             reciprocal_rank=score,
         )
 

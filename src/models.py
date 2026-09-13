@@ -24,19 +24,12 @@ class ParsedArticle(BaseModel):
     text: str
 
 
-class ArticleChunk(BaseModel):
-    ordinal: int
-    text: str
-
-
 class PersistenceResult(BaseModel):
     document_id: int
-    chunks_saved: int
 
 
 class IngestionResult(BaseModel):
     article: ParsedArticle
-    chunks: list[ArticleChunk]
     persistence: PersistenceResult
 
 
@@ -54,11 +47,9 @@ class SearchQuery(BaseModel):
 
 
 class SearchHit(BaseModel):
-    chunk_id: int
     article_id: int
     source_base_url: str
     external_id: str
-    ordinal: int
     title: str
     published_at: datetime | None
     url: str

@@ -1,11 +1,8 @@
-from collections.abc import Sequence
-
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from models import ArticleChunk, ParsedArticle, PersistenceResult, RawDocument
+from models import ParsedArticle, PersistenceResult, RawDocument
 from orm_models import (
-    ArticleChunkRecord,
     ParsedArticleRecord,
     Source,
     SourceDocument,
@@ -13,14 +10,14 @@ from orm_models import (
 
 """
 Сохраняет результат обработки одной публикации в PostgreSQL.
-Он получает исходный документ, распарсенную статью и её chunks,
+Он получает исходный документ и распарсенную статью,
 а затем согласованно записывает их в несколько связанных таблиц.
 
-RawDocument + ParsedArticle + ArticleChunk[]
+RawDocument + ParsedArticle
                     ↓
       SqlAlchemyIngestionPersistence.save()
                     ↓
- sources → source_documents → parsed_articles → article_chunks
+ sources → source_documents → parsed_articles
 
 """
 
@@ -111,36 +108,10 @@ class SqlAlchemyIngestionPersistence:
 
         return parsed_article
 
-    @staticmethod
-    def _replace_chunks(
-        session: Session,
-        parsed_article: ParsedArticleRecord,
-        chunks: Sequence[ArticleChunk],
-    ) -> int:
-        session.execute(
-            delete(ArticleChunkRecord).where(
-                ArticleChunkRecord.parsed_article_id == parsed_article.id
-            )
-        )
-        records = [
-            ArticleChunkRecord(
-                parsed_article_id=parsed_article.id,
-                ordinal=chunk.ordinal,
-                text=chunk.text,
-            )
-            for chunk in chunks
-        ]
-
-        session.add_all(records)
-        session.flush()
-
-        return len(records)
-
     def save(
         self,
         raw_document: RawDocument,
         article: ParsedArticle,
-        chunks: Sequence[ArticleChunk],
     ) -> PersistenceResult:
         # Сначала открывается транзакция
         with self._session_factory.begin() as session:
@@ -154,21 +125,13 @@ class SqlAlchemyIngestionPersistence:
                 raw_document,
             )
 
-            # Ищет распарсенную статью, связанную с документом и создает ее, если ее нет
-            parsed_article = self._get_or_create_parsed_article(
+            # Ищет распарсенную статью, связанную с документом, и создает ее, если ее нет
+            self._get_or_create_parsed_article(
                 session,
                 document,
                 article,
             )
 
-            # Удаляет все старые chunks статьи и заменяет их новыми
-            chunks_saved = self._replace_chunks(
-                session,
-                parsed_article,
-                chunks,
-            )
-
             return PersistenceResult(
                 document_id=document.id,
-                chunks_saved=chunks_saved,
             )

@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from models import ArticleChunk, ParsedArticle, RawDocument
-from orm_models import ArticleChunkRecord, ParsedArticleRecord, Source, SourceDocument
+from models import ParsedArticle, RawDocument
+from orm_models import ParsedArticleRecord, Source, SourceDocument
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 
@@ -38,12 +38,8 @@ def test_save_does_not_update_existing_document(
         published_at=None,
         text="First paragraph\n\nSecond paragraph",
     )
-    chunks_v1 = [
-        ArticleChunk(ordinal=0, text="First paragraph"),
-        ArticleChunk(ordinal=1, text="Second paragraph"),
-    ]
 
-    first = persistence.save(raw_v1, article_v1, chunks_v1)
+    first = persistence.save(raw_v1, article_v1)
 
     raw_v2 = RawDocument(
         external_id=raw_v1.external_id,
@@ -59,30 +55,19 @@ def test_save_does_not_update_existing_document(
         published_at=datetime(2026, 8, 23, 9, 30, tzinfo=UTC),
         text="Updated first\n\nUpdated second\n\nNew third",
     )
-    chunks_v2 = [
-        ArticleChunk(ordinal=0, text="Updated first"),
-        ArticleChunk(ordinal=1, text="Updated second"),
-        ArticleChunk(ordinal=2, text="New third"),
-    ]
 
-    updated = persistence.save(raw_v2, article_v2, chunks_v2)
+    updated = persistence.save(raw_v2, article_v2)
 
-    assert first.chunks_saved == 2
     assert updated.document_id == first.document_id
-    assert updated.chunks_saved == 3
 
     with session_factory() as session:
         sources = session.scalars(select(Source)).all()
         documents = session.scalars(select(SourceDocument)).all()
         articles = session.scalars(select(ParsedArticleRecord)).all()
-        chunks = session.scalars(
-            select(ArticleChunkRecord).order_by(ArticleChunkRecord.ordinal)
-        ).all()
 
         assert len(sources) == 1
         assert len(documents) == 1
         assert len(articles) == 1
-        assert len(chunks) == 3
         assert documents[0].canonical_url == raw_v2.url
         assert documents[0].fetched_at == raw_v2.fetched_at
         assert documents[0].content_type == raw_v2.content_type
@@ -91,9 +76,6 @@ def test_save_does_not_update_existing_document(
         assert articles[0].title == article_v2.title
         assert articles[0].published_at == article_v2.published_at
         assert articles[0].text == article_v2.text
-        assert [(chunk.ordinal, chunk.text) for chunk in chunks] == [
-            (chunk.ordinal, chunk.text) for chunk in chunks_v2
-        ]
 
 
 def test_parsed_article_document_id_is_unique(
@@ -115,7 +97,7 @@ def test_parsed_article_document_id_is_unique(
         text="Text",
     )
 
-    persistence.save(raw_document, article, [])
+    persistence.save(raw_document, article)
 
     with pytest.raises(IntegrityError), session_factory.begin() as session:
         document = session.scalar(select(SourceDocument))
@@ -133,6 +115,7 @@ def test_parsed_article_document_id_is_unique(
 
 def test_save_rolls_back_existing_document_update(
     session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     persistence = _create_persistence(session_factory)
     raw_v1 = RawDocument(
@@ -149,11 +132,7 @@ def test_save_rolls_back_existing_document_update(
         published_at=datetime(2026, 8, 23, 10, 30, tzinfo=UTC),
         text="Original first\n\nOriginal second",
     )
-    chunks_v1 = [
-        ArticleChunk(ordinal=0, text="Original first"),
-        ArticleChunk(ordinal=1, text="Original second"),
-    ]
-    persistence.save(raw_v1, article_v1, chunks_v1)
+    persistence.save(raw_v1, article_v1)
 
     raw_v2 = RawDocument(
         external_id=raw_v1.external_id,
@@ -169,20 +148,31 @@ def test_save_rolls_back_existing_document_update(
         published_at=datetime(2026, 8, 23, 11, 30, tzinfo=UTC),
         text="Updated first\n\nUpdated second",
     )
-    invalid_chunks = [
-        ArticleChunk(ordinal=0, text="Updated first"),
-        ArticleChunk(ordinal=0, text="Updated second"),
-    ]
 
-    with pytest.raises(IntegrityError):
-        persistence.save(raw_v2, article_v2, invalid_chunks)
+    original_get_or_create_parsed_article = (
+        SqlAlchemyIngestionPersistence._get_or_create_parsed_article
+    )
+
+    def _fail_after_document_update(
+        session: Session,
+        document: SourceDocument,
+        article: ParsedArticle,
+    ) -> ParsedArticleRecord:
+        original_get_or_create_parsed_article(session, document, article)
+        raise RuntimeError("simulated failure while saving the parsed article")
+
+    monkeypatch.setattr(
+        SqlAlchemyIngestionPersistence,
+        "_get_or_create_parsed_article",
+        staticmethod(_fail_after_document_update),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated failure"):
+        persistence.save(raw_v2, article_v2)
 
     with session_factory() as session:
         document = session.scalar(select(SourceDocument))
         parsed_article = session.scalar(select(ParsedArticleRecord))
-        chunks = session.scalars(
-            select(ArticleChunkRecord).order_by(ArticleChunkRecord.ordinal)
-        ).all()
 
         assert document is not None
         assert parsed_article is not None
@@ -193,6 +183,3 @@ def test_save_rolls_back_existing_document_update(
         assert parsed_article.title == article_v1.title
         assert parsed_article.published_at == article_v1.published_at
         assert parsed_article.text == article_v1.text
-        assert [(chunk.ordinal, chunk.text) for chunk in chunks] == [
-            (chunk.ordinal, chunk.text) for chunk in chunks_v1
-        ]

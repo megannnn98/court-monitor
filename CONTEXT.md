@@ -1,6 +1,6 @@
 # court-monitor
 
-Пайплайн загрузки статей ОВД-Инфо (ovd.info), их разбора, сохранения и полнотекстового/семантического поиска по фрагментам.
+Пайплайн загрузки статей ОВД-Инфо (ovd.info), их разбора, сохранения и полнотекстового поиска.
 
 ## Language
 
@@ -13,12 +13,8 @@ _Avoid_: URL, ссылка
 _Avoid_: HTML, ответ
 
 **ParsedArticle**:
-Статья после разбора HTML: заголовок, дата публикации, полный текст. Одна статья соответствует одному `RawDocument`.
+Статья после разбора HTML: заголовок, дата публикации, полный очищенный текст. Одна статья соответствует одному `RawDocument`. `text` — единственный source of truth содержимого статьи; разбиение на фрагменты (chunking) в доменную модель и в БД не входит — если конкретному алгоритму понадобятся фрагменты, они вычисляются временно в памяти (`split(article.text)`) и не сохраняются.
 _Avoid_: документ, статья (без уточнения стадии)
-
-**ArticleChunk**:
-Один фрагмент текста статьи — параграф, полученный разбиением `ParsedArticle.text` по `\n\n`, с порядковым номером (`ordinal`).
-_Avoid_: фрагмент, параграф (используй только в описательном тексте, не как термин)
 
 **Source**:
 Источник публикаций верхнего уровня (например, ovd.info) — имя и базовый URL. Хранится в таблице `sources`.
@@ -28,21 +24,17 @@ _Avoid_: фрагмент, параграф (используй только в 
 _Avoid_: документ (без уточнения — используй только когда стадия ясна из контекста)
 
 **IngestionPipeline**:
-Оркестратор конвейера: `WebsiteAdapter.fetch` → `OvdInfoArticleParser.parse` → `Chunker.split` → `IngestionPersistence.save`. Результат — `IngestionResult`.
+Оркестратор конвейера: `WebsiteAdapter.fetch` → `OvdInfoArticleParser.parse` → `IngestionPersistence.save`. Результат — `IngestionResult`.
 
 **SearchQuery / SearchHit**:
-`SearchQuery` — текст запроса и лимит выдачи, общий для обоих поисковых backend'ов. `SearchHit` — один найденный `ArticleChunk` с оценкой релевантности (`score`), общий формат для lexical и dense поиска.
+`SearchQuery` — текст запроса и лимит выдачи. `SearchHit` — одна найденная статья (`ParsedArticle`) целиком с оценкой релевантности (`score`); идентичность — `source_base_url` + `external_id`.
 
 **SearchBackend**:
-Общий протокол (`Protocol`) поиска: принимает `SearchQuery`, возвращает `list[SearchHit]`. Две реализации: `PostgresLexicalSearch` (lexical) и `QdrantDenseSearch` (dense). См. [ADR 0001](docs/adr/0001-dual-search-backend.md).
+Протокол (`Protocol`) поиска: принимает `SearchQuery`, возвращает `list[SearchHit]`. Единственная текущая реализация — `PostgresLexicalSearch`. Ранее в проекте также были dense/hybrid/reranked-hybrid backend'ы поверх Qdrant — удалены вместе с `ArticleChunk`, см. [ADR 0002](docs/adr/0002-drop-dense-hybrid-search.md).
 
 **Lexical search**:
-Поиск по `tsvector`-индексу PostgreSQL (`websearch_to_tsquery`, конфигурация `russian`). Точное совпадение словоформ/лемм, без учёта семантики.
+Поиск по `tsvector`-индексу PostgreSQL (`websearch_to_tsquery`, конфигурация `russian`) по полю `ParsedArticle.text`. Точное совпадение словоформ/лемм, без учёта семантики.
 _Avoid_: полнотекстовый поиск (используй только описательно)
 
-**Dense search**:
-Семантический поиск по векторам эмбеддингов в Qdrant (косинусная близость). Находит смысловые совпадения без точного совпадения слов.
-_Avoid_: векторный поиск (используй только описательно)
-
 **Evaluation case / Evaluation report**:
-`EvaluationCase` — тестовый запрос с ожидаемым `ChunkReference`. `EvaluationReport` — результат прогона всех кейсов через `SearchBackend` с метрикой `mean_reciprocal_rank`.
+`EvaluationCase` — тестовый запрос с ожидаемым `ArticleReference` (`source_base_url` + `external_id`). `EvaluationReport` — результат прогона всех кейсов через `SearchBackend` с метрикой `mean_reciprocal_rank`.

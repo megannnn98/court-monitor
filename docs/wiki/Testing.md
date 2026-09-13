@@ -2,9 +2,11 @@
 
 ## Тесты (`tests/`)
 
-По одному файлу на модуль `src/`, суффикс `test_<module>.py` — покрыты все модули: `article_parser`, `chunker`, `dense_config`, `evaluation_corpus` (+`_persistence`), `evaluation_metrics`, `evaluation_models`, `postgres_lexical_search`, `qdrant_chunk_indexer`, `qdrant_dense_search`, `search_evaluator`, `search_models`, `sqlalchemy_persistence`, `text_embedder`.
+По одному файлу на модуль `src/`, суффикс `test_<module>.py` — покрыты все модули: `article_parser`, `evaluation_corpus` (+`_persistence`), `evaluation_metrics`, `evaluation_models`, `postgres_lexical_search`, `search_evaluator`, `search_models`, `sqlalchemy_persistence`.
 
-`tests/conftest.py` — фикстура `test_engine` на `TEST_DATABASE_URL`, `TRUNCATE ... RESTART IDENTITY CASCADE` по всем 4 таблицам между тестами (реальная Postgres, не мок).
+`chunker`, `dense_config`, `qdrant_chunk_indexer`, `qdrant_dense_search`, `text_embedder`, `hybrid_search`, `reranking_search`, `rrf`, `cross_encoder_reranker`, `reranker`, `search_factory` и их тесты удалены вместе с `ArticleChunk` и dense/hybrid поиском — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
+
+`tests/conftest.py` — фикстура `test_engine` на `TEST_DATABASE_URL`, `TRUNCATE ... RESTART IDENTITY CASCADE` по 3 таблицам (`parsed_articles`, `source_documents`, `sources`) между тестами (реальная Postgres, не мок).
 
 `tests/fixtures/` — `evaluation_corpus.json`, `evaluation_cases.json` (см. [Evaluation](Evaluation.md)), `ovd_info_article.html` (реальная HTML-страница для теста `article_parser`).
 
@@ -34,4 +36,4 @@ pre-commit run --all-files
 
 ## Baseline-отчёты как регрессионный сигнал
 
-`reports/postgres_lexical_baseline.json` и `reports/qdrant_dense_baseline.json` — не часть тестового набора (не проверяются автоматически), а зафиксированный результат `evaluate-search` на момент коммита. Расхождение с ними при следующем прогоне — сигнал деградации поиска или намеренного изменения корпуса/модели, требует явной проверки, не CI-гейт.
+`reports/postgres_lexical_baseline.json` — не часть тестового набора (не проверяется автоматически), а зафиксированный результат `evaluate-search` на момент коммита. Расхождение с ним при следующем прогоне — сигнал деградации поиска или намеренного изменения корпуса, требует явной проверки, не CI-гейт. Прежний baseline был на chunk-based corpus и удалён вместе с `ArticleChunk` — см. [Evaluation](Evaluation.md#baseline).

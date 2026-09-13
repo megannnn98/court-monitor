@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from models import ArticleChunk, ParsedArticle, RawDocument, SearchQuery
+from models import ParsedArticle, RawDocument, SearchQuery
 from postgres_lexical_search import PostgresLexicalSearch
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
@@ -24,16 +24,10 @@ def test_search_finds_russian_word_form(
         content=b"<html>search article</html>",
     )
 
-    chunks = [
-        ArticleChunk(
-            ordinal=0,
-            text="Дело возбудили по статье о реабилитации нацизма.",
-        ),
-        ArticleChunk(
-            ordinal=1,
-            text="Совершенно нерелевантный текст о погоде.",
-        ),
-    ]
+    text = (
+        "Дело возбудили по статье о реабилитации нацизма.\n\n"
+        "Совершенно нерелевантный текст о погоде."
+    )
 
     published_at = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
     article = ParsedArticle(
@@ -41,10 +35,10 @@ def test_search_finds_russian_word_form(
         url=raw_document.url,
         title="Дело о реабилитации нацизма",
         published_at=published_at,
-        text="\n\n".join(chunk.text for chunk in chunks),
+        text=text,
     )
 
-    persistence.save(raw_document, article, chunks)
+    persistence.save(raw_document, article)
 
     search = PostgresLexicalSearch(session_factory)
     hits = search.search(SearchQuery(text="реабилитация нацизма"))
@@ -55,13 +49,11 @@ def test_search_finds_russian_word_form(
 
     assert hit.title == "Дело о реабилитации нацизма"
     assert hit.url == raw_document.url
-    assert hit.text == chunks[0].text
+    assert hit.text == text
     assert hit.published_at == published_at
     assert hit.score > 0
-    assert all(chunk.text != chunks[1].text for chunk in hits)
     assert hit.source_base_url == "https://ovd.info"
     assert hit.external_id == raw_document.external_id
-    assert hit.ordinal == 0
 
 
 def test_search_respects_limit(
@@ -81,19 +73,15 @@ def test_search_respects_limit(
             content_type="text/html",
             content=b"<html>article</html>",
         )
-        chunk = ArticleChunk(
-            ordinal=0,
-            text="Дело возбудили по статье о реабилитации нацизма.",
-        )
         article = ParsedArticle(
             external_id=raw_document.external_id,
             url=raw_document.url,
             title=f"Статья {index}",
             published_at=datetime(2026, 8, 13, 12, index, tzinfo=UTC),
-            text=chunk.text,
+            text="Дело возбудили по статье о реабилитации нацизма.",
         )
 
-        persistence.save(raw_document, article, [chunk])
+        persistence.save(raw_document, article)
 
     search = PostgresLexicalSearch(session_factory)
 
@@ -141,11 +129,7 @@ def test_search_orders_hits_by_relevance(
             text=text,
         )
 
-        persistence.save(
-            raw_document,
-            article,
-            [ArticleChunk(ordinal=0, text=text)],
-        )
+        persistence.save(raw_document, article)
 
     search = PostgresLexicalSearch(session_factory)
     hits = search.search(SearchQuery(text="реабилитация нацизма"))

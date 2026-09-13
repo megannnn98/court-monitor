@@ -8,7 +8,6 @@ component "WebsiteAdapter.fetch()" as Adapter
 rectangle "RawDocument" as Raw
 component "OvdInfoArticleParser.parse()" as Parser
 rectangle "ParsedArticle" as Article
-component "Chunker.split()" as Chunker
 rectangle "IngestionResult" as Result
 
 Main --> Reference : создаёт
@@ -17,9 +16,7 @@ Pipeline --> Adapter : await fetch(reference)
 Adapter --> Raw : возвращает
 Pipeline --> Parser : parse(raw)
 Parser --> Article : возвращает
-Pipeline --> Chunker : split(article)
-Chunker --> Result : ArticleChunk[]
-Pipeline --> Result : article + chunks
+Pipeline --> Result : article
 Result --> Main : возвращается
 
 @enduml

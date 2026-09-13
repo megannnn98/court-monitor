@@ -1,15 +1,15 @@
 from collections.abc import Sequence
 
-from evaluation_models import ChunkReference
+from evaluation_models import ArticleReference
 
 
-# на каком месте поисковой выдачи находится правильный чанк
+# на каком месте поисковой выдачи находится правильная статья
 def reciprocal_rank(
-    retrieved: Sequence[ChunkReference],
-    expected_chunk: ChunkReference,
+    retrieved: Sequence[ArticleReference],
+    expected_article: ArticleReference,
 ) -> float:
-    for rank, chunk in enumerate(retrieved, start=1):
-        if chunk == expected_chunk:
+    for rank, article in enumerate(retrieved, start=1):
+        if article == expected_article:
             return 1.0 / rank
 
     return 0.0

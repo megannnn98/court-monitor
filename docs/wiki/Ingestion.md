@@ -14,9 +14,7 @@ component "IngestionPipeline" as Pipeline
 component "WebsiteAdapter" as Adapter
 rectangle "RawDocument\nHTML bytes" as Raw
 component "OvdInfoArticleParser" as Parser
-rectangle "ParsedArticle" as Article
-component "Chunker" as Chunker
-rectangle "ArticleChunk[]" as Chunks
+rectangle "ParsedArticle\ntext целиком" as Article
 rectangle "IngestionResult" as Result
 rectangle "Терминал" as Terminal
 
@@ -26,10 +24,7 @@ Pipeline --> Adapter : await fetch()
 Adapter --> Raw
 Pipeline --> Parser : parse(raw)
 Parser --> Article
-Pipeline --> Chunker : split(article)
-Chunker --> Chunks
 Article --> Result
-Chunks --> Result
 Result --> Terminal
 
 @enduml
@@ -49,38 +44,14 @@ Result --> Terminal
 - дата публикации: `#article_published`, формат `%d.%m.%Y, %H:%M`, таймзона `Europe/Moscow`
 - параграфы текста: `.field--name-field-express-text > p`
 
-Бросает `ValueError`, если не найден заголовок или нет ни одного параграфа — т.е. парсер жёстко завязан на структуру одного сайта (не универсальный HTML-экстрактор).
+Параграфы соединяются через `"\n\n".join(...)` в `ParsedArticle.text` — единственный source of truth содержимого статьи. Chunking (разбиение на фрагменты) в pipeline не входит: если алгоритму понадобятся фрагменты, они вычисляются временно в памяти (`split(article.text)`) и не сохраняются в БД.
 
-### 3. `Chunker.split()`
+Парсер бросает `ValueError`, если не найден заголовок или нет ни одного параграфа — т.е. жёстко завязан на структуру одного сайта (не универсальный HTML-экстрактор).
 
-`src/chunker.py`. Делит `ParsedArticle.text` по `\n\n` (граница параграфов, выставленная парсером), отбрасывает пустые строки, нумерует результат как `ArticleChunk(ordinal=...)`.
+### 3. Persistence
 
-```plantuml
-@startuml
-title Разбиение статьи на chunks
-
-rectangle "ParsedArticle\ntext с разделителем \\n\\n" as Article
-component "Chunker.split()" as Chunker
-rectangle "list[ArticleChunk]" as Chunks
-rectangle "ArticleChunk 0" as Chunk0
-rectangle "ArticleChunk 1" as Chunk1
-rectangle "ArticleChunk 2" as Chunk2
-
-Article --> Chunker
-Chunker --> Chunks
-Chunks --> Chunk0
-Chunks --> Chunk1
-Chunks --> Chunk2
-
-@enduml
-```
-
-*(взято из `docs/uml/разбиение статьи.puml`)*
-
-### 4. Persistence
-
-`IngestionPipeline.run()` передаёт `raw_document`, `parsed`, `chunks` в `IngestionPersistence.save()` — подробности на странице [Data-Model](Data-Model.md).
+`IngestionPipeline.run()` передаёт `raw_document` и `parsed` в `IngestionPersistence.save()` — подробности на странице [Data-Model](Data-Model.md).
 
 ## Идемпотентность
 
-`IngestionPipeline` не проверяет, была ли публикация уже загружена — идемпотентность (upsert по `external_id`, замена chunks) реализована на уровне persistence, не здесь.
+`IngestionPipeline` не проверяет, была ли публикация уже загружена — идемпотентность (upsert по `external_id`) реализована на уровне persistence, не здесь.

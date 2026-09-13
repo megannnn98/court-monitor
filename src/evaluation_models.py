@@ -11,16 +11,15 @@ StrippedNonEmptyString = Annotated[
 ]
 
 
-class ChunkReference(BaseModel):
+class ArticleReference(BaseModel):
     source_base_url: StrippedNonEmptyString
     external_id: StrippedNonEmptyString
-    ordinal: int = Field(ge=0)
 
 
 class EvaluationCase(BaseModel):
     query_id: StrippedNonEmptyString
     query_text: StrippedNonEmptyString
-    expected_chunk: ChunkReference
+    expected_article: ArticleReference
 
 
 class EvaluationDocument(BaseModel):
@@ -28,14 +27,14 @@ class EvaluationDocument(BaseModel):
     external_id: StrippedNonEmptyString
     canonical_url: StrippedNonEmptyString
     title: StrippedNonEmptyString
-    chunks: list[StrippedNonEmptyString] = Field(min_length=1)
+    text: StrippedNonEmptyString
 
 
 class EvaluationCaseResult(BaseModel):
     query_id: StrippedNonEmptyString
     query_text: StrippedNonEmptyString
-    expected_chunk: ChunkReference
-    retrieved_chunks: list[ChunkReference]
+    expected_article: ArticleReference
+    retrieved_articles: list[ArticleReference]
     reciprocal_rank: float = Field(ge=0.0, le=1.0)
 
 

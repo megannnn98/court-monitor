@@ -24,27 +24,14 @@ def test_evaluation_cases_are_valid() -> None:
     assert len({case.query_id for case in cases}) == len(cases)
 
 
-def test_expected_chunks_exist_in_corpus() -> None:
+def test_expected_articles_exist_in_corpus() -> None:
     documents = load_evaluation_documents(CORPUS_PATH)
     cases = load_evaluation_cases(CASES_PATH)
 
-    existing_chunks = {
-        (
-            document.source_base_url,
-            document.external_id,
-            ordinal,
-        )
-        for document in documents
-        for ordinal, _ in enumerate(document.chunks)
+    existing_articles = {(document.source_base_url, document.external_id) for document in documents}
+
+    expected_articles = {
+        (case.expected_article.source_base_url, case.expected_article.external_id) for case in cases
     }
 
-    expected_chunks = {
-        (
-            case.expected_chunk.source_base_url,
-            case.expected_chunk.external_id,
-            case.expected_chunk.ordinal,
-        )
-        for case in cases
-    }
-
-    assert expected_chunks <= existing_chunks
+    assert expected_articles <= existing_articles

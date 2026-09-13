@@ -1,34 +1,33 @@
 import pytest
 
 from evaluation_metrics import mean_reciprocal_rank, reciprocal_rank
-from evaluation_models import ChunkReference
+from evaluation_models import ArticleReference
 
 
-# быстро создаёт ChunkReference, чтобы не повторять один и тот же код в каждом тесте.
-def make_chunk(external_id: str, ordinal: int = 0) -> ChunkReference:
-    return ChunkReference(
+# быстро создаёт ArticleReference, чтобы не повторять один и тот же код в каждом тесте.
+def make_article(external_id: str) -> ArticleReference:
+    return ArticleReference(
         source_base_url="https://ovd.info",
         external_id=external_id,
-        ordinal=ordinal,
     )
 
 
-def test_reciprocal_rank_when_expected_chunk_is_first() -> None:
-    expected = make_chunk("article-1")
+def test_reciprocal_rank_when_expected_article_is_first() -> None:
+    expected = make_article("article-1")
     retrieved = [
         expected,
-        make_chunk("article-2"),
-        make_chunk("weather"),
+        make_article("article-2"),
+        make_article("weather"),
     ]
 
     assert reciprocal_rank(retrieved, expected) == 1.0
 
 
-def test_reciprocal_rank_uses_expected_chunk_position() -> None:
-    expected = make_chunk("article-1", ordinal=1)
+def test_reciprocal_rank_uses_expected_article_position() -> None:
+    expected = make_article("article-1")
     retrieved = [
-        make_chunk("weather"),
-        make_chunk("article-2"),
+        make_article("weather"),
+        make_article("article-2"),
         expected,
     ]
 
@@ -37,11 +36,11 @@ def test_reciprocal_rank_uses_expected_chunk_position() -> None:
     assert result == pytest.approx(1 / 3)
 
 
-def test_reciprocal_rank_is_zero_when_expected_chunk_is_missing() -> None:
-    expected = make_chunk("article-1")
+def test_reciprocal_rank_is_zero_when_expected_article_is_missing() -> None:
+    expected = make_article("article-1")
     retrieved = [
-        make_chunk("article-2"),
-        make_chunk("weather"),
+        make_article("article-2"),
+        make_article("weather"),
     ]
 
     assert reciprocal_rank(retrieved, expected) == 0.0
