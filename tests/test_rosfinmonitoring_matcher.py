@@ -151,6 +151,98 @@ def test_match_person_exact_match(
     assert len(result.candidate_entries) >= 1
 
 
+def test_match_person_without_aliases_still_matches_on_canonical_identity(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Scenario A: a canonical person with zero PersonAliasRecord rows must
+    still be scored against RF entries using their own matching_key/
+    normalized_name — retrieval already considers them, scoring must too.
+    """
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+        # Deliberately no _create_alias call.
+
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        _create_rf_entry(
+            session,
+            snapshot_id,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status == RosfinMatchStatus.MATCHED
+    assert result.matched_entry_id is not None
+
+
+def test_match_person_without_aliases_and_no_rf_match_is_not_matched(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Scenario B: a canonical person with zero aliases and a full (2+ word)
+    name, no matching RF entries -> a confident NOT_MATCHED, same as a
+    person with aliases would get.
+    """
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        _create_rf_entry(
+            session,
+            snapshot_id,
+            "Сидоров Сидор Сидорович",
+            "сидоров сидор сидорович",
+            "сидоровсидорсидорович",
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status == RosfinMatchStatus.NOT_MATCHED
+    assert result.confidence == NOT_MATCHED_CONFIDENCE
+
+
+def test_match_person_without_aliases_and_single_word_name_is_insufficient_data(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Scenario C: a canonical person with zero aliases and a single-word
+    name -> INSUFFICIENT_DATA, not a falsely confident NOT_MATCHED.
+    """
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Иванов",
+            "иванов",
+            "иванов",
+        )
+
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        _create_rf_entry(
+            session,
+            snapshot_id,
+            "Сидоров Сидор Сидорович",
+            "сидоров сидор сидорович",
+            "сидоровсидорсидорович",
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status == RosfinMatchStatus.INSUFFICIENT_DATA
+
+
 def test_match_person_no_match(
     session_factory: sessionmaker[Session],
     matcher: RuleBasedRosfinmonitoringMatcher,

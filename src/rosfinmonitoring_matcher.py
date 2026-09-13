@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -23,6 +24,14 @@ from rosfinmonitoring_matcher_models import (
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+class _MatchIdentity(NamedTuple):
+    """One name/key pair to score against RF entries — the canonical
+    person's own identity, or one of their aliases."""
+
+    normalized_text: str
+    matching_key: str
 
 
 # Below this many words, a normalized_name (e.g. a bare surname) is too thin
@@ -95,25 +104,37 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             aliases = session.scalars(
                 select(PersonAliasRecord).where(PersonAliasRecord.person_id == person_id)
             ).all()
-            alias_keys = {alias.matching_key for alias in aliases}
-            alias_names = {alias.normalized_text for alias in aliases}
-            alias_keys.add(person.matching_key)
-            alias_names.add(person.normalized_name)
+            # The canonical person is always at least one identity to score
+            # against, whether or not they have any aliases yet — aliases
+            # extend this set, they aren't required for it to be non-empty.
+            identities = [
+                _MatchIdentity(
+                    normalized_text=person.normalized_name, matching_key=person.matching_key
+                )
+            ]
+            identities.extend(
+                _MatchIdentity(
+                    normalized_text=alias.normalized_text, matching_key=alias.matching_key
+                )
+                for alias in aliases
+            )
+            identity_keys = {identity.matching_key for identity in identities}
+            identity_names = {identity.normalized_text for identity in identities}
             # Individual name words too, so a reordered/partial name (not an
             # exact matching_key/normalized_name match) is still fetched for
             # the Jaccard similarity scoring below instead of being excluded
             # before it ever runs.
-            alias_words = {
-                word for name in alias_names for word in name.lower().split() if len(word) >= 3
+            identity_words = {
+                word for name in identity_names for word in name.lower().split() if len(word) >= 3
             }
 
             rf_entries = []
-            if alias_keys or alias_names or alias_words:
+            if identity_keys or identity_names or identity_words:
                 word_conditions = [
                     RosfinmonitoringEntryRecord.normalized_name.ilike(
                         f"%{_escape_like(word)}%",
                     )
-                    for word in alias_words
+                    for word in identity_words
                 ]
                 rf_entries = list(
                     session.scalars(
@@ -121,8 +142,8 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                         .where(
                             RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
                             or_(
-                                RosfinmonitoringEntryRecord.matching_key.in_(alias_keys),
-                                RosfinmonitoringEntryRecord.normalized_name.in_(alias_names),
+                                RosfinmonitoringEntryRecord.matching_key.in_(identity_keys),
+                                RosfinmonitoringEntryRecord.normalized_name.in_(identity_names),
                                 *word_conditions,
                             ),
                         )
@@ -132,11 +153,11 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
 
             candidates: list[RosfinCandidateEntry] = []
 
-            for alias in aliases:
+            for identity in identities:
                 for entry in rf_entries:
                     similarity, reasons = self._compute_similarity(
-                        alias.normalized_text,
-                        alias.matching_key,
+                        identity.normalized_text,
+                        identity.matching_key,
                         entry.normalized_name,
                         entry.matching_key,
                         entry.birth_date,
@@ -155,6 +176,18 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                                 reasons=reasons,
                             )
                         )
+
+            # Multiple identities (canonical + aliases) can each score
+            # against the same RF entry — keep only the best-scoring
+            # candidate per entry_id, so one real entry never counts as two
+            # "different" candidates and falsely triggers the AMBIGUOUS
+            # tie-break below.
+            best_by_entry_id: dict[int, RosfinCandidateEntry] = {}
+            for candidate in candidates:
+                existing = best_by_entry_id.get(candidate.entry_id)
+                if existing is None or candidate.similarity_score > existing.similarity_score:
+                    best_by_entry_id[candidate.entry_id] = candidate
+            candidates = list(best_by_entry_id.values())
 
             candidates.sort(key=lambda c: c.similarity_score, reverse=True)
 
