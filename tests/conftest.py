@@ -14,6 +14,7 @@ def _truncate_test_tables(engine: Engine) -> None:
             text(
                 """
                 TRUNCATE TABLE
+                    persecution_classifications,
                     person_event_links,
                     review_records,
                     person_merges,
