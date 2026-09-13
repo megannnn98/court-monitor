@@ -141,6 +141,10 @@ class EntityMentionRecord(Base):
     extractor_name: Mapped[str] = mapped_column(String(255), nullable=False)
     extractor_version: Mapped[str] = mapped_column(String(64), nullable=False)
     normalizer_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("persons.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -276,3 +280,30 @@ class ReviewRecordModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+class PersonEventLinkRecord(Base):
+    __tablename__ = "person_event_links"
+    __table_args__ = (
+        Index("ix_person_event_links_person_id", "person_id"),
+        Index("ix_person_event_links_event_id", "event_id"),
+        UniqueConstraint(
+            "person_id",
+            "event_id",
+            "role",
+            name="uq_person_event_links_person_event_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    person_id: Mapped[int] = mapped_column(
+        ForeignKey("persons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_id: Mapped[int] = mapped_column(
+        ForeignKey("extracted_events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
