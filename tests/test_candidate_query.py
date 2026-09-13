@@ -8,12 +8,18 @@ from sqlalchemy.orm import Session, sessionmaker
 from candidate_query_models import RosfinmonitoringStatus
 from candidate_query_service import CandidateQueryService
 from orm_models import (
+    ArticleExtractionRunRecord,
+    ExtractedEventRecord,
+    ParsedArticleRecord,
     PersecutionClassificationRecord,
     PersonAliasRecord,
+    PersonEventLinkRecord,
     PersonRecord,
     RosfinMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
+    Source,
+    SourceDocument,
 )
 
 
@@ -182,6 +188,30 @@ def test_get_candidates_returns_political_persons_not_in_rf(
     candidate = result.candidates[0]
     assert candidate.person_id == person1_id
     assert candidate.rosfinmonitoring_status == RosfinmonitoringStatus.NO_MATCH_RECORD
+
+
+def test_get_candidates_rejects_missing_snapshot(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """Test that nonexistent snapshots do not mean "not in RF"."""
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+        _create_persecution_classification(
+            session,
+            person_id,
+            status="political",
+            confidence=0.9,
+            reasons=["Political activity"],
+        )
+
+    with pytest.raises(ValueError, match="Rosfinmonitoring snapshot 999999 not found"):
+        service.get_candidates(999999)
 
 
 def test_get_candidates_excludes_matched_persons(
@@ -384,6 +414,91 @@ def test_get_candidates_includes_event_and_alias_counts(
     assert candidate.alias_count == 2
     assert candidate.event_count == 0  # No events created in this test
     assert candidate.last_event_date is None
+
+
+def test_get_candidates_uses_event_date_for_last_event_date(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """Test that last_event_date comes from extracted event, not link creation time."""
+    event_date = datetime(2020, 1, 2, tzinfo=UTC)
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Event Person",
+            "event person",
+            "eventperson",
+        )
+        _create_persecution_classification(
+            session,
+            person_id,
+            status="political",
+            confidence=0.9,
+            reasons=["Political activity"],
+        )
+        snapshot_id = _create_snapshot(session)
+
+        source = Source(name="test", base_url="https://example.com")
+        session.add(source)
+        session.flush()
+        document = SourceDocument(
+            source_id=source.id,
+            external_id="event-date",
+            canonical_url="https://example.com/event-date",
+            fetched_at=datetime.now(UTC),
+            content_type="text/html",
+            raw_content=b"",
+        )
+        session.add(document)
+        session.flush()
+        article = ParsedArticleRecord(
+            document_id=document.id,
+            title="Test",
+            published_at=event_date,
+            text="Text",
+        )
+        session.add(article)
+        session.flush()
+        run = ArticleExtractionRunRecord(
+            article_id=article.id,
+            article_content_hash="hash",
+            extractor_name="test",
+            extractor_version="1",
+            normalizer_version="1",
+            status="succeeded",
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+        )
+        session.add(run)
+        session.flush()
+        event = ExtractedEventRecord(
+            extraction_run_id=run.id,
+            event_type="arrest",
+            event_date=event_date,
+            start_offset=0,
+            end_offset=4,
+            confidence=0.9,
+            attributes={},
+            extractor_name="test",
+            extractor_version="1",
+        )
+        session.add(event)
+        session.flush()
+        session.add(
+            PersonEventLinkRecord(
+                person_id=person_id,
+                event_id=event.id,
+                role="target",
+                confidence=0.9,
+            )
+        )
+        session.commit()
+
+    result = service.get_candidates(snapshot_id)
+
+    assert result.total_count == 1
+    assert result.candidates[0].event_count == 1
+    assert result.candidates[0].last_event_date == event_date
 
 
 def test_get_candidates_excludes_non_political_persons(

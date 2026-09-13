@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from orm_models import RosfinMatchRecord
@@ -26,43 +27,42 @@ class RosfinMatchPersistence:
 
         Returns the ID of the saved match record.
         """
-        with self._session_factory() as session:
-            existing = session.scalar(
-                select(RosfinMatchRecord).where(
-                    RosfinMatchRecord.person_id == result.person_id,
-                    RosfinMatchRecord.snapshot_id == result.snapshot_id,
+        candidate_entries = [
+            candidate.model_dump(mode="json") for candidate in result.candidate_entries
+        ]
+        matched_at = result.matched_at or datetime.now(UTC)
+        values = {
+            "person_id": result.person_id,
+            "snapshot_id": result.snapshot_id,
+            "status": result.status.value,
+            "confidence": result.confidence,
+            "matched_entry_id": result.matched_entry_id,
+            "matched_entry_name": result.matched_entry_name,
+            "candidate_entries": candidate_entries,
+            "reasons": result.reasons,
+            "matched_at": matched_at,
+        }
+
+        with self._session_factory.begin() as session:
+            statement = (
+                insert(RosfinMatchRecord)
+                .values(**values)
+                .on_conflict_do_update(
+                    constraint="uq_rosfin_matches_person_snapshot",
+                    set_={
+                        "status": result.status.value,
+                        "confidence": result.confidence,
+                        "matched_entry_id": result.matched_entry_id,
+                        "matched_entry_name": result.matched_entry_name,
+                        "candidate_entries": candidate_entries,
+                        "reasons": result.reasons,
+                        "matched_at": matched_at,
+                    },
                 )
+                .returning(RosfinMatchRecord.id)
             )
-
-            if existing is not None:
-                existing.status = result.status.value
-                existing.confidence = result.confidence
-                existing.matched_entry_id = result.matched_entry_id
-                existing.matched_entry_name = result.matched_entry_name
-                existing.candidate_entries = [
-                    candidate.model_dump(mode="json") for candidate in result.candidate_entries
-                ]
-                existing.reasons = result.reasons
-                existing.matched_at = result.matched_at or datetime.now(UTC)
-                session.commit()
-                return existing.id
-
-            record = RosfinMatchRecord(
-                person_id=result.person_id,
-                snapshot_id=result.snapshot_id,
-                status=result.status.value,
-                confidence=result.confidence,
-                matched_entry_id=result.matched_entry_id,
-                matched_entry_name=result.matched_entry_name,
-                candidate_entries=[
-                    candidate.model_dump(mode="json") for candidate in result.candidate_entries
-                ],
-                reasons=result.reasons,
-                matched_at=result.matched_at or datetime.now(UTC),
-            )
-            session.add(record)
-            session.commit()
-            return record.id
+            match_id = session.execute(statement).scalar_one()
+            return int(match_id)
 
     def get_match_result(
         self,

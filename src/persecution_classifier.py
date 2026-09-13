@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -156,7 +157,8 @@ class RuleBasedPersecutionClassifier:
             return False
 
         for article in POLITICAL_ARTICLES:
-            if article in charge:
+            pattern = rf"(?<![\d.]){re.escape(article)}(?![\d.])"
+            if re.search(pattern, charge):
                 return True
 
         return False

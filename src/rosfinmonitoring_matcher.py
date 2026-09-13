@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from orm_models import PersonAliasRecord, PersonRecord, RosfinmonitoringEntryRecord
+from orm_models import (
+    PersonAliasRecord,
+    PersonRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+)
 from rosfinmonitoring_matcher_models import (
     RosfinCandidateEntry,
     RosfinMatchResult,
@@ -32,16 +37,33 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             person = session.scalar(select(PersonRecord).where(PersonRecord.id == person_id))
             if person is None:
                 raise ValueError(f"Person {person_id} not found")
+            snapshot = session.get(RosfinmonitoringSnapshotRecord, snapshot_id)
+            if snapshot is None:
+                raise ValueError(f"Rosfinmonitoring snapshot {snapshot_id} not found")
 
             aliases = session.scalars(
                 select(PersonAliasRecord).where(PersonAliasRecord.person_id == person_id)
             ).all()
+            alias_keys = {alias.matching_key for alias in aliases}
+            alias_names = {alias.normalized_text for alias in aliases}
+            alias_keys.add(person.matching_key)
+            alias_names.add(person.normalized_name)
 
-            rf_entries = session.scalars(
-                select(RosfinmonitoringEntryRecord).where(
-                    RosfinmonitoringEntryRecord.snapshot_id == snapshot_id
+            rf_entries = []
+            if alias_keys or alias_names:
+                rf_entries = list(
+                    session.scalars(
+                        select(RosfinmonitoringEntryRecord)
+                        .where(
+                            RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
+                            or_(
+                                RosfinmonitoringEntryRecord.matching_key.in_(alias_keys),
+                                RosfinmonitoringEntryRecord.normalized_name.in_(alias_names),
+                            ),
+                        )
+                        .order_by(RosfinmonitoringEntryRecord.id)
+                    ).all()
                 )
-            ).all()
 
             candidates: list[RosfinCandidateEntry] = []
 

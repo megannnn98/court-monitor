@@ -11,11 +11,13 @@ from candidate_query_models import (
     RosfinmonitoringStatus,
 )
 from orm_models import (
+    ExtractedEventRecord,
     PersecutionClassificationRecord,
     PersonAliasRecord,
     PersonEventLinkRecord,
     PersonRecord,
     RosfinMatchRecord,
+    RosfinmonitoringSnapshotRecord,
 )
 
 
@@ -75,6 +77,10 @@ class CandidateQueryService:
         limit: int,
     ) -> CandidateQueryResult:
         """Internal implementation that works with an existing session."""
+        snapshot = session.get(RosfinmonitoringSnapshotRecord, snapshot_id)
+        if snapshot is None:
+            raise ValueError(f"Rosfinmonitoring snapshot {snapshot_id} not found")
+
         # Get all persons with political persecution classification
         persecution_query = (
             select(
@@ -136,8 +142,13 @@ class CandidateQueryService:
             event_stats = session.execute(
                 select(
                     func.count(PersonEventLinkRecord.id).label("event_count"),
-                    func.max(PersonEventLinkRecord.created_at).label("last_event_date"),
-                ).where(PersonEventLinkRecord.person_id == person_id)
+                    func.max(ExtractedEventRecord.event_date).label("last_event_date"),
+                )
+                .join(
+                    ExtractedEventRecord,
+                    PersonEventLinkRecord.event_id == ExtractedEventRecord.id,
+                )
+                .where(PersonEventLinkRecord.person_id == person_id)
             ).one()
 
             # Get alias count

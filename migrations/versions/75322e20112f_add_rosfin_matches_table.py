@@ -6,17 +6,17 @@ Create Date: 2026-09-13 16:56:17.480842
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "75322e20112f"
-down_revision: Union[str, Sequence[str], None] = "j4k5l6m7n8o9"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "j4k5l6m7n8o9"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -30,8 +30,8 @@ def upgrade() -> None:
         sa.Column("confidence", sa.Float(), nullable=False),
         sa.Column("matched_entry_id", sa.Integer(), nullable=True),
         sa.Column("matched_entry_name", sa.String(512), nullable=True),
-        sa.Column("candidate_entries", sa.JSON(), nullable=False),
-        sa.Column("reasons", sa.JSON(), nullable=False),
+        sa.Column("candidate_entries", postgresql.JSONB(), nullable=False),
+        sa.Column("reasons", postgresql.JSONB(), nullable=False),
         sa.Column("matched_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
             "created_at",

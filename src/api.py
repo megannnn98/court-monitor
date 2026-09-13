@@ -2,10 +2,11 @@
 
 import os
 from collections.abc import Iterator
+from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from candidate_query_service import CandidateQueryService
 from database import create_database_engine, create_session_factory
@@ -26,14 +27,22 @@ app = FastAPI(
 
 
 # Database dependency
-def get_db() -> Iterator[Session]:
-    """Get database session."""
+@lru_cache(maxsize=1)
+def _get_session_factory() -> sessionmaker[Session]:
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         raise RuntimeError("DATABASE_URL environment variable is not set")
 
     engine = create_database_engine(database_url)
-    session_factory = create_session_factory(engine)
+    return create_session_factory(engine)
+
+
+def get_db() -> Iterator[Session]:
+    """Get database session."""
+    try:
+        session_factory = _get_session_factory()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     with session_factory() as session:
         try:
@@ -258,12 +267,15 @@ def list_candidates(
 ) -> list[CandidateResponse]:
     """List politically persecuted persons absent from Rosfinmonitoring."""
     service = CandidateQueryService(db)
-    result = service.get_candidates(
-        snapshot_id=snapshot_id,
-        min_persecution_confidence=min_persecution_confidence,
-        limit=limit,
-        session=db,
-    )
+    try:
+        result = service.get_candidates(
+            snapshot_id=snapshot_id,
+            min_persecution_confidence=min_persecution_confidence,
+            limit=limit,
+            session=db,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return [
         CandidateResponse(

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -138,6 +139,58 @@ def test_resolve_links_events_to_persons(
         links = session.scalars(select(PersonEventLinkRecord)).all()
 
     assert len(links) >= 1
+
+
+def test_resolve_rolls_back_created_person_when_linking_fails(
+    session_factory: sessionmaker[Session],
+) -> None:
+    article_id = _save_article(
+        session_factory,
+        text="Басманный суд арестовал Александра Иванова.",
+        external_id="article-res-rollback",
+    )
+    run_id = _run_extraction(session_factory, article_id)
+    person_persistence = SqlAlchemyPersonPersistence(session_factory)
+
+    class RaisingResolver:
+        def resolve_and_create(
+            self,
+            *,
+            normalized_text: str,
+            matching_key: str,
+            surface_text: str,
+            origin: object,
+            confidence: float,
+            source_mention_id: int | None = None,
+            session: Session | None = None,
+            **kwargs: object,
+        ) -> object:
+            del surface_text, origin, confidence, source_mention_id, kwargs
+            if session is None:
+                raise AssertionError("resolver must receive current transaction session")
+            person_persistence.create_person_in_session(
+                session,
+                canonical_name=normalized_text,
+                normalized_name=normalized_text,
+                matching_key=matching_key,
+            )
+            raise RuntimeError("forced failure after person creation")
+
+    service = ExtractionResolutionService(
+        persistence=person_persistence,
+        resolver=cast(Any, RaisingResolver()),
+        session_factory=session_factory,
+    )
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="forced failure"):
+        service.resolve_extraction_run(run_id)
+
+    with session_factory() as session:
+        persons = session.scalars(select(PersonRecord)).all()
+
+    assert persons == []
 
 
 def test_resolve_is_idempotent(

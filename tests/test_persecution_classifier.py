@@ -35,6 +35,28 @@ def test_classifier_detects_political_charge() -> None:
     assert len(classification.reasons) > 0
 
 
+def test_classifier_does_not_match_article_number_substrings() -> None:
+    """Test that article 280 does not match unrelated numeric substrings."""
+    classifier = RuleBasedPersecutionClassifier()
+
+    classification = classifier.classify(
+        person_id=1,
+        events=[
+            {
+                "id": 1,
+                "event_type": "charge",
+                "event_date": datetime(2026, 1, 1, tzinfo=UTC),
+                "confidence": 0.9,
+                "attributes": {"charge": "ст. 1280 УК РФ"},
+            }
+        ],
+        articles=[],
+    )
+
+    assert classification.status == PersecutionClassificationStatus.NON_POLITICAL
+    assert PersecutionEvidenceType.POLITICAL_CHARGE not in classification.evidence_types
+
+
 def test_classifier_detects_political_keywords_in_article() -> None:
     """Test that classifier detects political keywords in article text."""
     classifier = RuleBasedPersecutionClassifier()

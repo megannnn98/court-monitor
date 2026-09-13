@@ -240,6 +240,23 @@ def test_match_person_nonexistent_person(
         matcher.match_person(99999, 1)
 
 
+def test_match_person_nonexistent_snapshot(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Test matching against a nonexistent snapshot raises an error."""
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+
+    with pytest.raises(ValueError, match="Rosfinmonitoring snapshot 99999 not found"):
+        matcher.match_person(person_id, 99999)
+
+
 def test_match_all_persons(
     session_factory: sessionmaker[Session],
     matcher: RuleBasedRosfinmonitoringMatcher,

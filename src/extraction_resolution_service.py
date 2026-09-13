@@ -72,6 +72,7 @@ class ExtractionResolutionService:
                     origin=AliasOrigin.EXTRACTION,
                     confidence=mention.confidence,
                     source_mention_id=mention.id,
+                    session=session,
                 )
 
                 if resolution.person_id is not None:
