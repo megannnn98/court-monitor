@@ -183,3 +183,96 @@ class EventEntityMentionRecord(Base):
         primary_key=True,
     )
     role: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+
+class PersonRecord(Base):
+    __tablename__ = "persons"
+    __table_args__ = (
+        Index("ix_persons_matching_key", "matching_key"),
+        Index("ix_persons_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    canonical_name: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_name: Mapped[str] = mapped_column(Text, nullable=False)
+    matching_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    merged_into_id: Mapped[int | None] = mapped_column(
+        ForeignKey("persons.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        nullable=True,
+    )
+
+
+class PersonAliasRecord(Base):
+    __tablename__ = "person_aliases"
+    __table_args__ = (
+        Index("ix_person_aliases_person_id", "person_id"),
+        Index("ix_person_aliases_matching_key", "matching_key"),
+        UniqueConstraint(
+            "person_id",
+            "surface_text",
+            name="uq_person_aliases_person_surface",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    person_id: Mapped[int] = mapped_column(
+        ForeignKey("persons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    surface_text: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
+    matching_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    origin: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    source_mention_id: Mapped[int | None] = mapped_column(
+        ForeignKey("entity_mentions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PersonMergeRecord(Base):
+    __tablename__ = "person_merges"
+    __table_args__ = (Index("ix_person_merges_target", "target_person_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_person_id: Mapped[int] = mapped_column(
+        ForeignKey("persons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_person_id: Mapped[int] = mapped_column(
+        ForeignKey("persons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReviewRecordModel(Base):
+    __tablename__ = "review_records"
+    __table_args__ = (Index("ix_review_records_subject", "subject_type", "subject_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    subject_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
