@@ -6,6 +6,7 @@ from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from candidate_query_service import CandidateQueryService
@@ -145,11 +146,9 @@ def list_persons(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     status: str | None = Query(default=None),
-    db: Session = Depends(get_db),  # noqa: B008,  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> list[PersonResponse]:
     """List all persons."""
-    from sqlalchemy import select
-
     query = select(PersonRecord).offset(offset).limit(limit)
 
     if status:
@@ -197,8 +196,6 @@ def get_person_aliases(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[PersonAliasResponse]:
     """Get all aliases for a person."""
-    from sqlalchemy import select
-
     person = db.get(PersonRecord, person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -230,8 +227,6 @@ def get_person_persecution(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> PersecutionClassificationResponse | None:
     """Get persecution classification for a person."""
-    from sqlalchemy import select
-
     person = db.get(PersonRecord, person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -263,7 +258,7 @@ def list_candidates(
     snapshot_id: int = Query(..., description="Rosfinmonitoring snapshot ID"),
     min_persecution_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
     limit: int = Query(default=100, ge=1, le=1000),
-    db: Session = Depends(get_db),  # noqa: B008,
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> list[CandidateResponse]:
     """List politically persecuted persons absent from Rosfinmonitoring."""
     service = CandidateQueryService(db)
@@ -301,11 +296,9 @@ def list_candidates(
 )
 def list_rosfinmonitoring_snapshots(
     limit: int = Query(default=10, ge=1, le=100),
-    db: Session = Depends(get_db),  # noqa: B008,
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> list[RosfinmonitoringSnapshotResponse]:
     """List Rosfinmonitoring snapshots."""
-    from sqlalchemy import select
-
     snapshots = db.scalars(
         select(RosfinmonitoringSnapshotRecord)
         .order_by(RosfinmonitoringSnapshotRecord.snapshot_date.desc())
@@ -355,11 +348,9 @@ def list_rosfinmonitoring_entries(
     snapshot_id: int,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
-    db: Session = Depends(get_db),  # noqa: B008,
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> list[RosfinmonitoringEntryResponse]:
     """List entries in a Rosfinmonitoring snapshot."""
-    from sqlalchemy import select
-
     snapshot = db.get(RosfinmonitoringSnapshotRecord, snapshot_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
@@ -391,11 +382,9 @@ def list_reviews(
     status: str | None = Query(default=None),
     subject_type: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000),
-    db: Session = Depends(get_db),  # noqa: B008,
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> list[ReviewResponse]:
     """List reviews."""
-    from sqlalchemy import select
-
     from orm_models import ReviewRecordModel
 
     query = select(ReviewRecordModel).limit(limit)

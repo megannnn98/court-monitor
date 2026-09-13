@@ -37,10 +37,27 @@ MIN_NAME_WORDS_FOR_RELIABLE_CHECK = 2
 # dates not on file, etc.).
 NOT_MATCHED_CONFIDENCE = 0.8
 
+# Scoring weights: an exact matching_key match alone is strong evidence;
+# high name-word overlap (Jaccard) adds a smaller amount on top, and only
+# once it's already fairly high itself.
+EXACT_KEY_MATCH_SCORE = 0.8
+NAME_SIMILARITY_THRESHOLD = 0.8
+NAME_SIMILARITY_WEIGHT = 0.2
+
+# A candidate needs at least this combined score to be considered at all.
+CANDIDATE_SCORE_THRESHOLD = 0.5
+
+# At or above this score, a single unambiguous top candidate is MATCHED.
+MATCHED_SCORE_THRESHOLD = 0.95
+
+# Two candidates within this margin of each other are too close to call —
+# AMBIGUOUS, not an arbitrary pick of whichever sorted first.
+AMBIGUITY_SCORE_MARGIN = 0.1
+
 # A matching birth date on top of an already-strong name/key match makes the
 # match more certain; a known, differing birth date on the same name means
-# it's more likely a namesake than the same person, so it must not reach the
-# auto-MATCHED threshold (0.95) on name alone.
+# it's more likely a namesake than the same person, so it must not reach
+# MATCHED_SCORE_THRESHOLD (above) on name alone.
 BIRTH_DATE_MATCH_BONUS = 0.05
 BIRTH_DATE_MISMATCH_SCORE_CAP = 0.5
 
@@ -126,7 +143,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                         person_birth_date,
                     )
 
-                    if similarity > 0.5:
+                    if similarity > CANDIDATE_SCORE_THRESHOLD:
                         candidates.append(
                             RosfinCandidateEntry(
                                 entry_id=entry.id,
@@ -167,7 +184,8 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             # not an arbitrary pick of "whichever sorted first".
             if (
                 len(candidates) > 1
-                and candidates[0].similarity_score - candidates[1].similarity_score < 0.1
+                and candidates[0].similarity_score - candidates[1].similarity_score
+                < AMBIGUITY_SCORE_MARGIN
             ):
                 return RosfinMatchResult(
                     person_id=person_id,
@@ -179,7 +197,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                     matched_at=datetime.now(UTC),
                 )
 
-            if top_candidate.similarity_score >= 0.95:
+            if top_candidate.similarity_score >= MATCHED_SCORE_THRESHOLD:
                 return RosfinMatchResult(
                     person_id=person_id,
                     snapshot_id=snapshot_id,
@@ -244,12 +262,12 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         score = 0.0
 
         if person_key == rf_key:
-            score += 0.8
+            score += EXACT_KEY_MATCH_SCORE
             reasons.append("Exact matching_key match")
 
         name_similarity = self._name_similarity(person_name, rf_name)
-        if name_similarity > 0.8:
-            score += 0.2 * name_similarity
+        if name_similarity > NAME_SIMILARITY_THRESHOLD:
+            score += NAME_SIMILARITY_WEIGHT * name_similarity
             reasons.append(f"High name similarity: {name_similarity:.2f}")
 
         if score > 0.0:
