@@ -38,7 +38,12 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
         (
             "e2e-1",
             "Политическое задержание",
-            "В Москве полиция задержала Ивана Иванова на антивоенном митинге. Правозащитники сообщают о политическом преследовании.",
+            # Same word order ("Иванова Ивана") as e2e-2 deliberately — the
+            # exact matching_key baseline resolves person mentions by
+            # concatenating normalized words in the order they appear, so a
+            # different case/order (e.g. "Ивана Иванова") would resolve to a
+            # second, distinct canonical person instead of merging with it.
+            "В Москве полиция задержала Иванова Ивана на антивоенном митинге. Правозащитники сообщают о политическом преследовании.",
         ),
         (
             "e2e-2",
@@ -49,6 +54,14 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
             "e2e-3",
             "Обычное задержание",
             "Полиция задержала Петра Петрова за мелкое хулиганство. Составлен протокол по КоАП.",
+        ),
+        (
+            "e2e-4",
+            "Преследование правозащитника",
+            (
+                "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге. "
+                "Активисты считают дело политически мотивированным."
+            ),
         ),
     ]
 
@@ -99,6 +112,18 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
         if run_id:
             resolution_service.resolve_extraction_run(run_id)
 
+    # Identify the one person the dataset expects to survive every filter:
+    # political persecution AND confirmed absent from Rosfinmonitoring.
+    # Ivanov is political but IS in the RF snapshot below (-> MATCHED, not a
+    # candidate); Petrov is absent from RF but NOT political (-> filtered out
+    # by persecution status); only Sidorov is both.
+    with session_factory() as session:
+        sidorov = session.scalar(
+            select(PersonRecord).where(PersonRecord.canonical_name.ilike("%Сидоров%"))
+        )
+    assert sidorov is not None, "Сергей Сидоров must have been resolved to a canonical person"
+    sidorov_person_id = sidorov.id
+
     # Step 4: Classify persecution
     classification_service = PersecutionClassificationService(session_factory)
     with session_factory() as session:
@@ -107,7 +132,10 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
             classification_service.classify_person(person.id)
 
     # Step 5: Ingest Rosfinmonitoring data
-    rosfin_csv = "full_name,birth_date,inclusion_reason\nИванов Иван Иванович,01.01.1980,Тестовое включение\n".encode()
+    # "Иванов Иван" (2 words, no patronymic) matches what the extraction/
+    # normalization pipeline actually produces for the mentions above —
+    # see the word-order comment on e2e-1.
+    rosfin_csv = "full_name,birth_date,inclusion_reason\nИванов Иван,01.01.1980,Тестовое включение\n".encode()
     rosfin_persistence = RosfinmonitoringPersistence(session_factory)
     rosfin_ingestion = RosfinmonitoringIngestionPipeline(
         persistence=rosfin_persistence,
@@ -131,17 +159,18 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
     candidate_service = CandidateQueryService(session_factory)
     candidates_result = candidate_service.get_candidates(snapshot_id=snapshot_id)
 
-    # Verify the pipeline ran successfully
+    # Business-significant check: the dataset has three deliberately distinct
+    # cases (POLITICAL+MATCHED, NON_POLITICAL+NOT_MATCHED, POLITICAL+
+    # NOT_MATCHED) and only the last one is a real candidate. A loop over
+    # `candidates_result.candidates` with no length/identity check would
+    # pass just as well on an empty list, so assert the exact set instead.
     assert candidates_result.snapshot_id == snapshot_id
-    assert hasattr(candidates_result, "candidates")
-    assert hasattr(candidates_result, "query_timestamp")
+    assert candidates_result.total_count == 1
+    assert {candidate.person_id for candidate in candidates_result.candidates} == {
+        sidorov_person_id
+    }
 
-    # Each candidate should have required fields
-    for candidate in candidates_result.candidates:
-        assert candidate.person_id is not None
-        assert candidate.canonical_name
-        # get_candidates now includes only confirmed NOT_MATCHED by default —
-        # NO_MATCH_RECORD/AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA are not
-        # confirmed absences and must not appear here.
-        assert candidate.rosfinmonitoring_status == "not_matched"
-        assert candidate.persecution_status == "political"
+    candidate = candidates_result.candidates[0]
+    assert candidate.canonical_name
+    assert candidate.rosfinmonitoring_status == "not_matched"
+    assert candidate.persecution_status == "political"
