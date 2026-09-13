@@ -37,6 +37,13 @@ MIN_NAME_WORDS_FOR_RELIABLE_CHECK = 2
 # dates not on file, etc.).
 NOT_MATCHED_CONFIDENCE = 0.8
 
+# A matching birth date on top of an already-strong name/key match makes the
+# match more certain; a known, differing birth date on the same name means
+# it's more likely a namesake than the same person, so it must not reach the
+# auto-MATCHED threshold (0.95) on name alone.
+BIRTH_DATE_MATCH_BONUS = 0.05
+BIRTH_DATE_MISMATCH_SCORE_CAP = 0.5
+
 
 class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     """Rule-based matcher for persons against Rosfinmonitoring entries."""
@@ -48,8 +55,18 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         self,
         person_id: int,
         snapshot_id: int,
+        *,
+        person_birth_date: datetime | None = None,
     ) -> RosfinMatchResult:
-        """Match a person against Rosfinmonitoring entries in a snapshot."""
+        """Match a person against Rosfinmonitoring entries in a snapshot.
+
+        `person_birth_date` is an optional signal the caller can supply when
+        it has one. `PersonRecord` does not carry a birth date today (nothing
+        in extraction/normalization currently produces one), so real
+        pipeline calls always pass `None` here; this parameter exists so the
+        conservative birth-date rules below are ready the moment that
+        changes, without another signature change.
+        """
         with self._session_factory() as session:
             person = session.scalar(select(PersonRecord).where(PersonRecord.id == person_id))
             if person is None:
@@ -106,6 +123,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                         entry.normalized_name,
                         entry.matching_key,
                         entry.birth_date,
+                        person_birth_date,
                     )
 
                     if similarity > 0.5:
@@ -144,19 +162,9 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
 
             top_candidate = candidates[0]
 
-            if top_candidate.similarity_score >= 0.95:
-                return RosfinMatchResult(
-                    person_id=person_id,
-                    snapshot_id=snapshot_id,
-                    status=RosfinMatchStatus.MATCHED,
-                    confidence=top_candidate.similarity_score,
-                    matched_entry_id=top_candidate.entry_id,
-                    matched_entry_name=top_candidate.full_name,
-                    candidate_entries=candidates[:5],
-                    reasons=top_candidate.reasons,
-                    matched_at=datetime.now(UTC),
-                )
-
+            # Checked before the MATCHED threshold: two distinct entries tied
+            # (or near-tied) at a high score are namesakes to disambiguate,
+            # not an arbitrary pick of "whichever sorted first".
             if (
                 len(candidates) > 1
                 and candidates[0].similarity_score - candidates[1].similarity_score < 0.1
@@ -168,6 +176,19 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                     confidence=candidates[0].similarity_score,
                     candidate_entries=candidates[:5],
                     reasons=["Multiple candidates with similar scores"],
+                    matched_at=datetime.now(UTC),
+                )
+
+            if top_candidate.similarity_score >= 0.95:
+                return RosfinMatchResult(
+                    person_id=person_id,
+                    snapshot_id=snapshot_id,
+                    status=RosfinMatchStatus.MATCHED,
+                    confidence=top_candidate.similarity_score,
+                    matched_entry_id=top_candidate.entry_id,
+                    matched_entry_name=top_candidate.full_name,
+                    candidate_entries=candidates[:5],
+                    reasons=top_candidate.reasons,
                     matched_at=datetime.now(UTC),
                 )
 
@@ -207,8 +228,18 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         rf_name: str,
         rf_key: str,
         rf_birth_date: datetime | None,
+        person_birth_date: datetime | None = None,
     ) -> tuple[float, list[str]]:
-        """Compute similarity between person alias and RF entry."""
+        """Compute similarity between person alias and RF entry.
+
+        Conservative birth-date handling (only applied when both dates are
+        known — see `match_person`'s docstring on why `person_birth_date` is
+        usually `None` today):
+        - same name + same birth date -> small confidence boost
+        - same name + different known birth date -> score capped well below
+          the auto-MATCHED threshold (likely a namesake, not a match)
+        - birth date unknown on either side -> behavior unchanged
+        """
         reasons: list[str] = []
         score = 0.0
 
@@ -223,6 +254,14 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
 
         if score > 0.0:
             score = min(score, 1.0)
+
+        if person_birth_date is not None and rf_birth_date is not None and score > 0.0:
+            if person_birth_date.date() == rf_birth_date.date():
+                score = min(1.0, score + BIRTH_DATE_MATCH_BONUS)
+                reasons.append("Birth date matches")
+            else:
+                score = min(score, BIRTH_DATE_MISMATCH_SCORE_CAP)
+                reasons.append("Birth date differs — likely a namesake, not a match")
 
         return score, reasons
 

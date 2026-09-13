@@ -344,6 +344,143 @@ def test_match_all_persons(
     assert person2_result.status == RosfinMatchStatus.NOT_MATCHED
 
 
+def test_compute_similarity_same_name_same_birth_date_boosts_score(
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Same full name + same birth date -> a small confidence boost.
+
+    Uses mismatched matching_keys (as if normalization diverged slightly)
+    so the name-only baseline score has headroom below 1.0 for the boost
+    to be observable — an exact matching_key match alone already saturates
+    the score at 1.0.
+    """
+    birth_date = datetime(1990, 5, 1, tzinfo=UTC)
+
+    without_birth_date, _ = matcher._compute_similarity(
+        "иванов иван иванович",
+        "person-key",
+        "иванов иван иванович",
+        "rf-key",
+        None,
+        None,
+    )
+    with_matching_birth_date, reasons = matcher._compute_similarity(
+        "иванов иван иванович",
+        "person-key",
+        "иванов иван иванович",
+        "rf-key",
+        birth_date,
+        birth_date,
+    )
+
+    assert with_matching_birth_date > without_birth_date
+    assert any("Birth date matches" in reason for reason in reasons)
+
+
+def test_compute_similarity_same_name_different_birth_date_is_capped(
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Same full name + different known birth date -> not auto-MATCHED."""
+    score, reasons = matcher._compute_similarity(
+        "иванов иван иванович",
+        "ивановиваниванович",
+        "иванов иван иванович",
+        "ивановиваниванович",
+        datetime(1990, 5, 1, tzinfo=UTC),
+        datetime(1975, 11, 20, tzinfo=UTC),
+    )
+
+    assert score < 0.95
+    assert any("likely a namesake" in reason for reason in reasons)
+
+
+def test_compute_similarity_unknown_birth_date_is_unaffected(
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Same full name, birth date unknown on one side -> behavior unchanged."""
+    baseline, _ = matcher._compute_similarity(
+        "иванов иван иванович",
+        "ивановиваниванович",
+        "иванов иван иванович",
+        "ивановиваниванович",
+        None,
+        None,
+    )
+    rf_unknown, reasons_rf_unknown = matcher._compute_similarity(
+        "иванов иван иванович",
+        "ивановиваниванович",
+        "иванов иван иванович",
+        "ивановиваниванович",
+        None,
+        datetime(1990, 5, 1, tzinfo=UTC),
+    )
+    person_unknown, reasons_person_unknown = matcher._compute_similarity(
+        "иванов иван иванович",
+        "ивановиваниванович",
+        "иванов иван иванович",
+        "ивановиваниванович",
+        datetime(1990, 5, 1, tzinfo=UTC),
+        None,
+    )
+
+    assert rf_unknown == baseline
+    assert person_unknown == baseline
+    assert not any("Birth date" in reason for reason in reasons_rf_unknown)
+    assert not any("Birth date" in reason for reason in reasons_person_unknown)
+
+
+def test_match_person_disambiguates_namesakes_by_birth_date(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    """Two namesakes/tезки in one snapshot: an unknown person birth date stays
+    AMBIGUOUS between them, but a known matching birth date resolves it.
+    """
+    with session_factory() as session:
+        person_id = _create_person(
+            session,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+        _create_alias(
+            session,
+            person_id,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        entry1_id = _create_rf_entry(
+            session,
+            snapshot_id,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+            birth_date=datetime(1990, 5, 1, tzinfo=UTC),
+        )
+        _create_rf_entry(
+            session,
+            snapshot_id,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+            birth_date=datetime(1975, 11, 20, tzinfo=UTC),
+        )
+
+    without_birth_date = matcher.match_person(person_id, snapshot_id)
+    assert without_birth_date.status == RosfinMatchStatus.AMBIGUOUS
+
+    with_birth_date = matcher.match_person(
+        person_id,
+        snapshot_id,
+        person_birth_date=datetime(1990, 5, 1, tzinfo=UTC),
+    )
+    assert with_birth_date.status == RosfinMatchStatus.MATCHED
+    assert with_birth_date.matched_entry_id == entry1_id
+
+
 def test_persistence_save_and_retrieve(
     session_factory: sessionmaker[Session],
     persistence: RosfinMatchPersistence,

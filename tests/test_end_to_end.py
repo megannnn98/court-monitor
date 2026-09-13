@@ -140,9 +140,8 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
     for candidate in candidates_result.candidates:
         assert candidate.person_id is not None
         assert candidate.canonical_name
-        assert candidate.rosfinmonitoring_status in [
-            "not_in_list",
-            "no_match_record",
-            "ambiguous",
-        ]
+        # get_candidates now includes only confirmed NOT_MATCHED by default —
+        # NO_MATCH_RECORD/AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA are not
+        # confirmed absences and must not appear here.
+        assert candidate.rosfinmonitoring_status == "not_matched"
         assert candidate.persecution_status == "political"
