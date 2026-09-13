@@ -129,15 +129,18 @@ class RuleBasedPersecutionClassifier:
                 evidence_types.append(PersecutionEvidenceType.LGBT_PERSECUTION)
                 reasons.append("Преследование по признаку ЛГБТ")
 
-        evidence_types = list(set(evidence_types))
+        evidence_types = list(dict.fromkeys(evidence_types))
 
         if not evidence_types:
             status = PersecutionClassificationStatus.NON_POLITICAL
             confidence = 0.0
-        elif len(evidence_types) >= 1:
+        elif PersecutionEvidenceType.POLITICAL_CHARGE in evidence_types or len(evidence_types) >= 2:
             status = PersecutionClassificationStatus.POLITICAL
             confidence = min(0.9, 0.7 + (len(evidence_types) - 1) * 0.1)
         else:
+            # A single soft keyword signal (no political charge, no
+            # corroborating second signal) isn't strong enough to call
+            # POLITICAL on its own — flag for review instead.
             status = PersecutionClassificationStatus.UNCERTAIN
             confidence = 0.6
 
