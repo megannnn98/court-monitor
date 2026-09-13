@@ -129,15 +129,15 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
 
     # Step 7: Query candidates
     candidate_service = CandidateQueryService(session_factory)
-    result = candidate_service.get_candidates(snapshot_id=snapshot_id)
+    candidates_result = candidate_service.get_candidates(snapshot_id=snapshot_id)
 
     # Verify the pipeline ran successfully
-    assert result.snapshot_id == snapshot_id
-    assert hasattr(result, "candidates")
-    assert hasattr(result, "query_timestamp")
+    assert candidates_result.snapshot_id == snapshot_id
+    assert hasattr(candidates_result, "candidates")
+    assert hasattr(candidates_result, "query_timestamp")
 
     # Each candidate should have required fields
-    for candidate in result.candidates:
+    for candidate in candidates_result.candidates:
         assert candidate.person_id is not None
         assert candidate.canonical_name
         assert candidate.rosfinmonitoring_status in [
