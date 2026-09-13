@@ -8,9 +8,9 @@ import httpx
 from sqlalchemy.exc import NoResultFound
 
 from article_parser import OvdInfoArticleParser
+from candidate_query_service import CandidateQueryService
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
-from extraction_documents import SqlAlchemyExtractionDocumentRepository
 from extraction_events import RuleBasedEventExtractor
 from extraction_extractors import RuleBasedEntityExtractor
 from extraction_metrics import evaluate_golden_dataset
@@ -18,11 +18,17 @@ from extraction_models import BatchExtractionResult, ExtractionRunStatus
 from extraction_normalizers import RuleBasedMentionNormalizer
 from extraction_persistence import SqlAlchemyExtractionPersistence
 from extraction_pipeline import ExtractionPipeline
+from extraction_resolution_service import ExtractionResolutionService
 from ingestion_pipeline import IngestionPipeline
 from models import ParsedArticle, RawDocument, SearchQuery
 from ovd_info_reference import canonicalize_ovd_info_reference
+from persecution_classification_service import PersecutionClassificationService
+from person_persistence import SqlAlchemyPersonPersistence
+from person_resolver import RuleBasedPersonResolver
 from postgres_lexical_search import PostgresLexicalSearch
 from retrying_fetcher import RetryingDocumentFetcher
+from rosfinmonitoring_matcher import RuleBasedRosfinmonitoringMatcher
+from rosfinmonitoring_matcher_persistence import RosfinMatchPersistence
 from search_evaluator import SearchEvaluator
 from source_adapter import DocumentFetcher
 from source_ingestion import ArticleIngestionPipeline, SourceIngestion
@@ -159,6 +165,92 @@ def main() -> None:
         default=None,
     )
 
+    resolve_people_parser = subparsers.add_parser(
+        "resolve-people",
+        help="Resolve extracted person mentions to canonical persons",
+    )
+    resolve_people_parser.add_argument(
+        "--article-id",
+        type=int,
+        default=None,
+        help="Resolve mentions from a specific article",
+    )
+    resolve_people_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Maximum number of articles to process",
+    )
+
+    match_rosfin_parser = subparsers.add_parser(
+        "match-rosfinmonitoring",
+        help="Match canonical persons against Rosfinmonitoring entries",
+    )
+    match_rosfin_parser.add_argument(
+        "--snapshot-id",
+        type=int,
+        required=True,
+        help="Rosfinmonitoring snapshot ID to match against",
+    )
+    match_rosfin_parser.add_argument(
+        "--person-id",
+        type=int,
+        default=None,
+        help="Match a specific person",
+    )
+    match_rosfin_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Maximum number of persons to process",
+    )
+
+    classify_persecution_parser = subparsers.add_parser(
+        "classify-persecution",
+        help="Classify persons for political persecution",
+    )
+    classify_persecution_parser.add_argument(
+        "--person-id",
+        type=int,
+        default=None,
+        help="Classify a specific person",
+    )
+    classify_persecution_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Maximum number of persons to process",
+    )
+
+    list_candidates_parser = subparsers.add_parser(
+        "list-candidates",
+        help="List politically persecuted persons absent from Rosfinmonitoring",
+    )
+    list_candidates_parser.add_argument(
+        "--snapshot-id",
+        type=int,
+        required=True,
+        help="Rosfinmonitoring snapshot ID to check against",
+    )
+    list_candidates_parser.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.7,
+        help="Minimum persecution confidence threshold",
+    )
+    list_candidates_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Maximum number of candidates to return",
+    )
+    list_candidates_parser.add_argument(
+        "--output-path",
+        type=Path,
+        default=None,
+        help="Output file path (JSON format)",
+    )
+
     args = argument_parser.parse_args()
 
     if args.command == "evaluate-extraction":
@@ -178,6 +270,129 @@ def main() -> None:
 
     database_engine = create_database_engine(database_url)
     session_factory = create_session_factory(database_engine)
+
+    if args.command == "list-candidates":
+        service = CandidateQueryService(session_factory)
+        candidates_result = service.get_candidates(
+            snapshot_id=args.snapshot_id,
+            min_persecution_confidence=args.min_confidence,
+            limit=args.limit,
+        )
+        report_json = candidates_result.model_dump_json(indent=2)
+        if args.output_path is not None:
+            args.output_path.parent.mkdir(parents=True, exist_ok=True)
+            args.output_path.write_text(report_json + "\n", encoding="utf-8")
+        else:
+            print(report_json)
+        return
+
+    if args.command == "resolve-people":
+        from extraction_documents import SqlAlchemyExtractionDocumentRepository
+
+        document_repository = SqlAlchemyExtractionDocumentRepository(session_factory)
+        extraction_persistence = SqlAlchemyExtractionPersistence(session_factory)
+        person_persistence = SqlAlchemyPersonPersistence(session_factory)
+        person_resolver = RuleBasedPersonResolver(person_persistence)
+        resolution_service = ExtractionResolutionService(
+            persistence=person_persistence,
+            resolver=person_resolver,
+            session_factory=session_factory,
+        )
+
+        if args.article_id is not None:
+            extraction_documents = [document_repository.get_by_article_id(args.article_id)]
+        else:
+            extraction_documents = document_repository.list_documents(
+                source_name=None,
+                limit=args.limit,
+            )
+
+        total_resolved = 0
+        total_new_persons = 0
+        total_events_linked = 0
+
+        for doc in extraction_documents:
+            run_id = extraction_persistence.get_latest_run_by_article_id(doc.article_id)
+            if run_id is None:
+                print(f"No extraction run found for article {doc.article_id}, skipping")
+                continue
+
+            stats = resolution_service.resolve_extraction_run(run_id)
+            total_resolved += stats.mentions_resolved
+            total_new_persons += stats.new_persons_created
+            total_events_linked += stats.events_linked
+
+        print(
+            f"Resolved {total_resolved} mentions, "
+            f"created {total_new_persons} persons, "
+            f"linked {total_events_linked} events"
+        )
+        return
+
+    if args.command == "match-rosfinmonitoring":
+        person_persistence = SqlAlchemyPersonPersistence(session_factory)
+        matcher = RuleBasedRosfinmonitoringMatcher(session_factory)
+        match_persistence = RosfinMatchPersistence(session_factory)
+
+        if args.person_id is not None:
+            match_result = matcher.match_person(
+                person_id=args.person_id,
+                snapshot_id=args.snapshot_id,
+            )
+            match_persistence.save_match_result(match_result)
+            print(f"Matched person {args.person_id}: {match_result.status}")
+            print(f"Confidence: {match_result.confidence:.2f}")
+            if match_result.matched_entry_id:
+                print(f"Matched entry ID: {match_result.matched_entry_id}")
+        else:
+            results = matcher.match_all_persons(
+                snapshot_id=args.snapshot_id,
+                limit=args.limit,
+            )
+            matched_count = 0
+            ambiguous_count = 0
+            for match_result_item in results:
+                match_persistence.save_match_result(match_result_item)
+                if match_result_item.status == "matched":
+                    matched_count += 1
+                elif match_result_item.status == "ambiguous":
+                    ambiguous_count += 1
+
+            print(
+                f"Matched {len(results)} persons: "
+                f"{matched_count} matched, {ambiguous_count} ambiguous"
+            )
+        return
+
+    if args.command == "classify-persecution":
+        person_persistence = SqlAlchemyPersonPersistence(session_factory)
+        classification_service = PersecutionClassificationService(session_factory)
+
+        if args.person_id is not None:
+            person = person_persistence.get_person(args.person_id)
+            if person is None:
+                raise SystemExit(f"Person not found: {args.person_id}")
+
+            classification = classification_service.classify_person(person.id)
+            print(f"Classified person {person.id}: {classification.status}")
+            print(f"Confidence: {classification.confidence:.2f}")
+            if classification.reasons:
+                print("Reasons:")
+                for reason in classification.reasons:
+                    print(f"  - {reason}")
+        else:
+            persons = person_persistence.list_active_persons(limit=args.limit)
+            classified_count = 0
+            political_count = 0
+
+            for person in persons:
+                classification = classification_service.classify_person(person.id)
+                classified_count += 1
+                if classification.status == "political":
+                    political_count += 1
+
+            print(f"Classified {classified_count} persons: {political_count} political persecution")
+        return
 
     if args.command == "search":
         search = PostgresLexicalSearch(session_factory)

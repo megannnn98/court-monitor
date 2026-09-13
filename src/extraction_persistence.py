@@ -193,3 +193,17 @@ class SqlAlchemyExtractionPersistence:
         session.execute(
             delete(EntityMentionRecord).where(EntityMentionRecord.extraction_run_id == run_id)
         )
+
+    def get_latest_run_by_article_id(self, article_id: int) -> int | None:
+        """Get the latest extraction run ID for a given article ID."""
+        with self._session_factory() as session:
+            run = session.scalar(
+                select(ArticleExtractionRunRecord)
+                .where(
+                    ArticleExtractionRunRecord.article_id == article_id,
+                    ArticleExtractionRunRecord.status == ExtractionRunStatus.SUCCEEDED.value,
+                )
+                .order_by(ArticleExtractionRunRecord.finished_at.desc())
+                .limit(1)
+            )
+            return run.id if run else None

@@ -122,12 +122,14 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     def match_all_persons(
         self,
         snapshot_id: int,
+        limit: int | None = None,
     ) -> list[RosfinMatchResult]:
         """Match all persons against Rosfinmonitoring entries in a snapshot."""
         with self._session_factory() as session:
-            person_ids = session.scalars(
-                select(PersonRecord.id).where(PersonRecord.merged_into_id.is_(None))
-            ).all()
+            query = select(PersonRecord.id).where(PersonRecord.merged_into_id.is_(None))
+            if limit is not None:
+                query = query.limit(limit)
+            person_ids = session.scalars(query).all()
 
         results: list[RosfinMatchResult] = []
         for person_id in person_ids:
