@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import Protocol
 from zoneinfo import ZoneInfo
 
 from selectolax.parser import HTMLParser, Node
 
+from ingestion_errors import ParseError
 from models import ParsedArticle, RawDocument
 
 OVD_INFO_TIMEZONE = ZoneInfo("Europe/Moscow")
@@ -10,6 +12,13 @@ OVD_INFO_TIMEZONE = ZoneInfo("Europe/Moscow")
 
 def _extract_text(node: Node) -> str:
     return " ".join(node.text().split())
+
+
+class ArticleParser(Protocol):
+    def parse(
+        self,
+        raw: RawDocument,
+    ) -> ParsedArticle: ...
 
 
 class OvdInfoArticleParser:
@@ -25,10 +34,10 @@ class OvdInfoArticleParser:
         paragraph_nodes = tree.css(self.PARAGRAPH_SELECTOR)
 
         if title_node is None:
-            raise ValueError("Title not found")
+            raise ParseError("Title not found")
 
         if not paragraph_nodes:
-            raise ValueError("Paragraphs not found")
+            raise ParseError("Paragraphs not found")
 
         published_at = None
 

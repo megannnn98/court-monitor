@@ -4,19 +4,68 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
+
 from article_parser import OvdInfoArticleParser
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from ingestion_pipeline import IngestionPipeline
 from models import ParsedArticle, RawDocument, SearchQuery, SourceReference
+from ovd_info_listing_parser import OvdInfoListingParser
+from ovd_info_source_adapter import OvdInfoSourceAdapter
 from postgres_lexical_search import PostgresLexicalSearch
+from retrying_fetcher import RetryingDocumentFetcher
 from search_evaluator import SearchEvaluator
+from source_adapter import DocumentFetcher
+from source_ingestion import ArticleIngestionPipeline, SourceIngestion
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from website_adapter import WebsiteAdapter
 
 DEFAULT_EVALUATION_CORPUS_PATH = Path("tests/fixtures/evaluation_corpus.json")
 DEFAULT_EVALUATION_CASES_PATH = Path("tests/fixtures/evaluation_cases.json")
 FIXED_EVALUATION_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+async def discover_and_ingest(
+    *,
+    limit: int,
+    pipeline: ArticleIngestionPipeline,
+    fetcher: DocumentFetcher,
+) -> None:
+    async with httpx.AsyncClient(
+        timeout=5.0,
+        headers={"User-Agent": "my-app/1.0"},
+    ) as client:
+        source_adapter = OvdInfoSourceAdapter(
+            client=client,
+            listing_parser=OvdInfoListingParser(),
+            document_fetcher=fetcher,
+            max_attempts=3,
+            base_delay_seconds=0.5,
+        )
+
+        source_ingestion = SourceIngestion(
+            source_adapter=source_adapter,
+            pipeline=pipeline,
+        )
+
+        result = await source_ingestion.run(limit=limit)
+
+    for ingestion_result in result.results:
+        print(
+            "saved:",
+            ingestion_result.article.url,
+            f"document_id={ingestion_result.persistence.document_id}",
+        )
+
+    for failure in result.failures:
+        print(
+            "failed:",
+            failure.reference.url,
+            str(failure.error),
+        )
+
+    print(f"completed: {len(result.results)} saved, {len(result.failures)} failed")
 
 
 def main() -> None:
@@ -31,6 +80,16 @@ def main() -> None:
         help="Load and save an OVD-Info article",
     )
     ingest_parser.add_argument("url")
+
+    discover_ingest_parser = subparsers.add_parser(
+        "discover-and-ingest",
+        help="Discover and save OVD-Info articles",
+    )
+    discover_ingest_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+    )
 
     search_parser = subparsers.add_parser(
         "search",
@@ -148,21 +207,39 @@ def main() -> None:
 
         return
 
-    reference = SourceReference(
-        external_id=args.url,
-        url=args.url,
-    )
-
     persistence = SqlAlchemyIngestionPersistence(
         session_factory=session_factory,
         source_name="ОВД-Инфо",
         source_base_url="https://ovd.info",
     )
 
+    website_adapter = WebsiteAdapter()
+
+    retrying_fetcher = RetryingDocumentFetcher(
+        website_adapter,
+        max_attempts=3,
+        base_delay_seconds=0.5,
+    )
+
     ingestion_pipeline = IngestionPipeline(
-        website_adapter=WebsiteAdapter(),
+        source_adapter=retrying_fetcher,
         parser=OvdInfoArticleParser(),
         persistence=persistence,
+    )
+
+    if args.command == "discover-and-ingest":
+        asyncio.run(
+            discover_and_ingest(
+                limit=args.limit,
+                pipeline=ingestion_pipeline,
+                fetcher=retrying_fetcher,
+            )
+        )
+        return
+
+    reference = SourceReference(
+        external_id=args.url,
+        url=args.url,
     )
 
     result = asyncio.run(ingestion_pipeline.run(reference))

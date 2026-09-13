@@ -1,6 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion_errors import PersistenceError
 from models import ParsedArticle, PersistenceResult, RawDocument
 from orm_models import (
     ParsedArticleRecord,
@@ -113,25 +115,24 @@ class SqlAlchemyIngestionPersistence:
         raw_document: RawDocument,
         article: ParsedArticle,
     ) -> PersistenceResult:
-        # Сначала открывается транзакция
-        with self._session_factory.begin() as session:
-            # Находит источник по base_url и создает его, если его нет
-            source = self._get_or_create_source(session)
+        try:
+            with self._session_factory.begin() as session:
+                source = self._get_or_create_source(session)
 
-            # Ищет документ по паре source_id и external_id
-            document = self._get_or_create_document(
-                session,
-                source,
-                raw_document,
-            )
+                document = self._get_or_create_document(
+                    session,
+                    source,
+                    raw_document,
+                )
 
-            # Ищет распарсенную статью, связанную с документом, и создает ее, если ее нет
-            self._get_or_create_parsed_article(
-                session,
-                document,
-                article,
-            )
+                self._get_or_create_parsed_article(
+                    session,
+                    document,
+                    article,
+                )
 
-            return PersistenceResult(
-                document_id=document.id,
-            )
+                return PersistenceResult(
+                    document_id=document.id,
+                )
+        except SQLAlchemyError as exc:
+            raise PersistenceError(f"Failed to persist {raw_document.external_id}") from exc

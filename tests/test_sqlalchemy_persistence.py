@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion_errors import PersistenceError
 from models import ParsedArticle, RawDocument
 from orm_models import ParsedArticleRecord, Source, SourceDocument
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
@@ -183,3 +184,52 @@ def test_save_rolls_back_existing_document_update(
         assert parsed_article.title == article_v1.title
         assert parsed_article.published_at == article_v1.published_at
         assert parsed_article.text == article_v1.text
+
+
+def test_save_wraps_sqlalchemy_error(
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    persistence = _create_persistence(session_factory)
+
+    raw_document = RawDocument(
+        external_id="sqlalchemy-error",
+        url="https://ovd.info/sqlalchemy-error",
+        fetched_at=datetime(2026, 8, 23, 12, 0, tzinfo=UTC),
+        content_type="text/html",
+        content=b"<html>test</html>",
+    )
+
+    article = ParsedArticle(
+        external_id=raw_document.external_id,
+        url=raw_document.url,
+        title="Test",
+        published_at=None,
+        text="Test article",
+    )
+
+    def _fail(
+        session: Session,
+    ) -> Source:
+        raise IntegrityError(
+            "INSERT",
+            {},
+            Exception("simulated database error"),
+        )
+
+    monkeypatch.setattr(
+        persistence,
+        "_get_or_create_source",
+        _fail,
+    )
+
+    with pytest.raises(
+        PersistenceError,
+        match="Failed to persist sqlalchemy-error",
+    ) as exc_info:
+        persistence.save(raw_document, article)
+
+    assert isinstance(
+        exc_info.value.__cause__,
+        IntegrityError,
+    )
