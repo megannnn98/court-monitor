@@ -385,3 +385,42 @@ class RosfinmonitoringEntryRecord(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     raw_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RosfinMatchRecord(Base):
+    """ORM model for storing Person ↔ Rosfinmonitoring match results."""
+
+    __tablename__ = "rosfin_matches"
+    __table_args__ = (
+        Index("ix_rosfin_matches_person_id", "person_id"),
+        Index("ix_rosfin_matches_snapshot_id", "snapshot_id"),
+        Index("ix_rosfin_matches_status", "status"),
+        UniqueConstraint(
+            "person_id",
+            "snapshot_id",
+            name="uq_rosfin_matches_person_snapshot",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    person_id: Mapped[int] = mapped_column(
+        ForeignKey("persons.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("rosfinmonitoring_snapshots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    matched_entry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rosfinmonitoring_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    matched_entry_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    candidate_entries: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

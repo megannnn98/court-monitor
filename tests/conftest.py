@@ -14,6 +14,9 @@ def _truncate_test_tables(engine: Engine) -> None:
             text(
                 """
                 TRUNCATE TABLE
+                    rosfin_matches,
+                    rosfinmonitoring_entries,
+                    rosfinmonitoring_snapshots,
                     persecution_classifications,
                     person_event_links,
                     review_records,
