@@ -157,13 +157,12 @@ def _create_alias(
     return alias.id
 
 
-def test_get_candidates_returns_political_persons_not_in_rf(
+def test_get_candidates_includes_not_matched_persons(
     session_factory: sessionmaker[Session],
     service: CandidateQueryService,
 ) -> None:
-    """Test that the query returns politically persecuted persons not in RF."""
+    """political + NOT_MATCHED (matching actually ran and found nothing) → included."""
     with session_factory() as session:
-        # Create a politically persecuted person without RF match
         person1_id = _create_person(
             session,
             "Иванов Иван Иванович",
@@ -177,9 +176,8 @@ def test_get_candidates_returns_political_persons_not_in_rf(
             confidence=0.9,
             reasons=["Political activity"],
         )
-
-        # Create a snapshot
         snapshot_id = _create_snapshot(session)
+        _create_match(session, person1_id, snapshot_id, status="not_matched", confidence=0.8)
 
     result = service.get_candidates(snapshot_id)
 
@@ -187,7 +185,65 @@ def test_get_candidates_returns_political_persons_not_in_rf(
     assert len(result.candidates) == 1
     candidate = result.candidates[0]
     assert candidate.person_id == person1_id
-    assert candidate.rosfinmonitoring_status == RosfinmonitoringStatus.NO_MATCH_RECORD
+    assert candidate.rosfinmonitoring_status == RosfinmonitoringStatus.NOT_MATCHED
+
+
+def test_get_candidates_excludes_persons_never_matched(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """political + NO_MATCH_RECORD (matching never ran) → excluded by default.
+
+    No match record is NOT the same as a confirmed absence from the list.
+    """
+    with session_factory() as session:
+        person1_id = _create_person(
+            session,
+            "Иванов Иван Иванович",
+            "иванов иван иванович",
+            "ивановиваниванович",
+        )
+        _create_persecution_classification(
+            session,
+            person1_id,
+            status="political",
+            confidence=0.9,
+            reasons=["Political activity"],
+        )
+        snapshot_id = _create_snapshot(session)
+
+    result = service.get_candidates(snapshot_id)
+
+    assert result.total_count == 0
+    assert result.candidates == []
+
+
+def test_get_candidates_excludes_needs_review_matches(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """political + NEEDS_REVIEW → excluded by default."""
+    with session_factory() as session:
+        person1_id = _create_person(
+            session,
+            "Нуждается Вобзоре Тестович",
+            "нуждается вобзоре тестович",
+            "нуждаетсявобзоретестович",
+        )
+        _create_persecution_classification(
+            session,
+            person1_id,
+            status="political",
+            confidence=0.9,
+            reasons=["Political activity"],
+        )
+        snapshot_id = _create_snapshot(session)
+        _create_match(session, person1_id, snapshot_id, status="needs_review", confidence=0.5)
+
+    result = service.get_candidates(snapshot_id)
+
+    assert result.total_count == 0
+    assert result.candidates == []
 
 
 def test_get_candidates_rejects_missing_snapshot(
@@ -261,13 +317,12 @@ def test_get_candidates_excludes_matched_persons(
     assert len(result.candidates) == 0
 
 
-def test_get_candidates_includes_ambiguous_matches(
+def test_get_candidates_excludes_ambiguous_matches(
     session_factory: sessionmaker[Session],
     service: CandidateQueryService,
 ) -> None:
-    """Test that the query includes persons with ambiguous RF matches."""
+    """political + AMBIGUOUS → excluded by default (needs manual review, not "absent")."""
     with session_factory() as session:
-        # Create a politically persecuted person with ambiguous RF match
         person1_id = _create_person(
             session,
             "Сидоров Сидор Сидорович",
@@ -281,11 +336,7 @@ def test_get_candidates_includes_ambiguous_matches(
             confidence=0.85,
             reasons=["Political activity"],
         )
-
-        # Create a snapshot
         snapshot_id = _create_snapshot(session)
-
-        # Create an ambiguous match
         _create_match(
             session,
             person1_id,
@@ -295,6 +346,45 @@ def test_get_candidates_includes_ambiguous_matches(
         )
 
     result = service.get_candidates(snapshot_id)
+
+    assert result.total_count == 0
+    assert result.candidates == []
+
+
+def test_get_candidates_can_widen_included_statuses_for_manual_review(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """include_rf_statuses lets a caller opt into reviewing AMBIGUOUS/NEEDS_REVIEW too."""
+    with session_factory() as session:
+        person1_id = _create_person(
+            session,
+            "Сидоров Сидор Сидорович",
+            "сидоров сидор сидорович",
+            "сидоровсидорович",
+        )
+        _create_persecution_classification(
+            session,
+            person1_id,
+            status="political",
+            confidence=0.85,
+            reasons=["Political activity"],
+        )
+        snapshot_id = _create_snapshot(session)
+        _create_match(
+            session,
+            person1_id,
+            snapshot_id,
+            status="ambiguous",
+            confidence=0.6,
+        )
+
+    result = service.get_candidates(
+        snapshot_id,
+        include_rf_statuses=frozenset(
+            {RosfinmonitoringStatus.NOT_MATCHED, RosfinmonitoringStatus.AMBIGUOUS}
+        ),
+    )
 
     assert result.total_count == 1
     candidate = result.candidates[0]
@@ -338,8 +428,11 @@ def test_get_candidates_respects_confidence_threshold(
             reasons=["High confidence"],
         )
 
-        # Create a snapshot
+        # Create a snapshot; both persons confirmed NOT_MATCHED so this test
+        # exercises only the confidence threshold, not RF-status inclusion.
         snapshot_id = _create_snapshot(session)
+        _create_match(session, person1_id, snapshot_id, status="not_matched", confidence=0.8)
+        _create_match(session, person2_id, snapshot_id, status="not_matched", confidence=0.8)
 
     # Query with high threshold
     result = service.get_candidates(snapshot_id, min_persecution_confidence=0.7)
@@ -354,7 +447,10 @@ def test_get_candidates_respects_limit(
 ) -> None:
     """Test that the query respects the limit parameter."""
     with session_factory() as session:
-        # Create multiple politically persecuted persons
+        # Create a snapshot up front so each person can get a confirmed
+        # NOT_MATCHED record — this test exercises only `limit`.
+        snapshot_id = _create_snapshot(session)
+
         for i in range(5):
             person_id = _create_person(
                 session,
@@ -369,9 +465,7 @@ def test_get_candidates_respects_limit(
                 confidence=0.9,
                 reasons=["Political activity"],
             )
-
-        # Create a snapshot
-        snapshot_id = _create_snapshot(session)
+            _create_match(session, person_id, snapshot_id, status="not_matched", confidence=0.8)
 
     result = service.get_candidates(snapshot_id, limit=3)
 
@@ -404,8 +498,9 @@ def test_get_candidates_includes_event_and_alias_counts(
         _create_alias(session, person_id, "Test Person", "test person", "testperson")
         _create_alias(session, person_id, "T. Person", "t person", "tperson")
 
-        # Create a snapshot
+        # Create a snapshot with a confirmed NOT_MATCHED record
         snapshot_id = _create_snapshot(session)
+        _create_match(session, person_id, snapshot_id, status="not_matched", confidence=0.8)
 
     result = service.get_candidates(snapshot_id)
 
@@ -437,6 +532,7 @@ def test_get_candidates_uses_event_date_for_last_event_date(
             reasons=["Political activity"],
         )
         snapshot_id = _create_snapshot(session)
+        _create_match(session, person_id, snapshot_id, status="not_matched", confidence=0.8)
 
         source = Source(name="test", base_url="https://example.com")
         session.add(source)

@@ -9,12 +9,19 @@ from pydantic import BaseModel, Field
 
 
 class RosfinmonitoringStatus(StrEnum):
-    """Status of a person in Rosfinmonitoring list."""
+    """Status of a person relative to a Rosfinmonitoring snapshot.
 
-    NOT_IN_LIST = "not_in_list"
+    Mirrors `RosfinMatchStatus` (the matcher's own status) plus
+    `NO_MATCH_RECORD` for "matching was never run for this person against
+    this snapshot" — that is NOT the same as a confirmed absence and must
+    never be treated as one.
+    """
+
+    NOT_MATCHED = "not_matched"
     MATCHED = "matched"
     AMBIGUOUS = "ambiguous"
     NEEDS_REVIEW = "needs_review"
+    INSUFFICIENT_DATA = "insufficient_data"
     NO_MATCH_RECORD = "no_match_record"
 
 
