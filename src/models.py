@@ -26,6 +26,7 @@ class ParsedArticle(BaseModel):
 
 class PersistenceResult(BaseModel):
     document_id: int
+    article_id: int
 
 
 class IngestionResult(BaseModel):

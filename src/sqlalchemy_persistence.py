@@ -125,7 +125,7 @@ class SqlAlchemyIngestionPersistence:
                     raw_document,
                 )
 
-                self._get_or_create_parsed_article(
+                parsed_article = self._get_or_create_parsed_article(
                     session,
                     document,
                     article,
@@ -133,6 +133,7 @@ class SqlAlchemyIngestionPersistence:
 
                 return PersistenceResult(
                     document_id=document.id,
+                    article_id=parsed_article.id,
                 )
         except SQLAlchemyError as exc:
             raise PersistenceError(f"Failed to persist {raw_document.external_id}") from exc

@@ -69,6 +69,7 @@ class FakePipeline:
             article=article,
             persistence=PersistenceResult(
                 document_id=len(self.references),
+                article_id=len(self.references),
             ),
         )
 
@@ -95,6 +96,7 @@ class FailingPipeline(FakePipeline):
             article=article,
             persistence=PersistenceResult(
                 document_id=len(self.references),
+                article_id=len(self.references),
             ),
         )
 

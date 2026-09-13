@@ -37,7 +37,7 @@ class FakePersistence:
         article: ParsedArticle,
     ) -> PersistenceResult:
         self.saved.append((raw_document, article))
-        return PersistenceResult(document_id=len(self.saved))
+        return PersistenceResult(document_id=len(self.saved), article_id=len(self.saved))
 
 
 class DictionaryDocumentFetcher:

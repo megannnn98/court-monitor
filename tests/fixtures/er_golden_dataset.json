@@ -1,0 +1,24 @@
+{
+  "cases": [
+    {
+      "person_id": "ivanov",
+      "mentions": [
+        {"article_id": 1001, "surface_text": "Александра Иванова"},
+        {"article_id": 1003, "surface_text": "Иванова Александра"}
+      ]
+    },
+    {
+      "person_id": "petrova",
+      "mentions": [
+        {"article_id": 1002, "surface_text": "Марию Петрову"},
+        {"article_id": 1004, "surface_text": "Петрова Мария"}
+      ]
+    },
+    {
+      "person_id": "sidorov",
+      "mentions": [
+        {"article_id": 1002, "surface_text": "Ивана Сидорова"}
+      ]
+    }
+  ]
+}
