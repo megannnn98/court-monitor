@@ -21,6 +21,10 @@ from rosfinmonitoring_matcher_models import (
 )
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     """Rule-based matcher for persons against Rosfinmonitoring entries."""
 
@@ -48,9 +52,22 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             alias_names = {alias.normalized_text for alias in aliases}
             alias_keys.add(person.matching_key)
             alias_names.add(person.normalized_name)
+            # Individual name words too, so a reordered/partial name (not an
+            # exact matching_key/normalized_name match) is still fetched for
+            # the Jaccard similarity scoring below instead of being excluded
+            # before it ever runs.
+            alias_words = {
+                word for name in alias_names for word in name.lower().split() if len(word) >= 3
+            }
 
             rf_entries = []
-            if alias_keys or alias_names:
+            if alias_keys or alias_names or alias_words:
+                word_conditions = [
+                    RosfinmonitoringEntryRecord.normalized_name.ilike(
+                        f"%{_escape_like(word)}%",
+                    )
+                    for word in alias_words
+                ]
                 rf_entries = list(
                     session.scalars(
                         select(RosfinmonitoringEntryRecord)
@@ -59,6 +76,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                             or_(
                                 RosfinmonitoringEntryRecord.matching_key.in_(alias_keys),
                                 RosfinmonitoringEntryRecord.normalized_name.in_(alias_names),
+                                *word_conditions,
                             ),
                         )
                         .order_by(RosfinmonitoringEntryRecord.id)
