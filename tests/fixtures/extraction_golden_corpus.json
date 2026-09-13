@@ -1,0 +1,163 @@
+{
+  "articles": [
+    {
+      "article_id": 1001,
+      "source_name": "ОВД-Инфо",
+      "source_url": "https://ovd.info/golden-1",
+      "title": "Заочный арест",
+      "text": "Басманный районный суд Москвы заочно арестовал Александра Иванова по ч. 2 ст. 207.3 УК РФ. Следственный комитет сообщил об уголовном деле.",
+      "mentions": [
+        {"entity_type": "court", "surface_text": "Басманный районный суд Москвы", "normalized_text": "Басманный районный суд Москвы"},
+        {"entity_type": "person", "surface_text": "Александра Иванова", "normalized_text": "Александр Иванов"},
+        {"entity_type": "legal_reference", "surface_text": "ч. 2 ст. 207.3 УК РФ", "normalized_text": "УК РФ ст. 207.3 ч. 2"},
+        {"entity_type": "organization", "surface_text": "Следственный комитет", "normalized_text": "Следственный комитет"},
+        {"entity_type": "location", "surface_text": "Москвы", "normalized_text": "Москва"}
+      ],
+      "events": [
+        {"event_type": "arrest", "surface_text": "Басманный районный суд Москвы заочно арестовал Александра Иванова по ч. 2 ст. 207.3 УК РФ."},
+        {"event_type": "case_opened", "surface_text": "Следственный комитет сообщил об уголовном деле."}
+      ]
+    },
+    {
+      "article_id": 1002,
+      "source_name": "ОВД-Инфо",
+      "source_url": "https://ovd.info/golden-2",
+      "title": "Задержание",
+      "text": "В Москве полиция задержала Марию Петрову и Ивана Сидорова. На них составили протоколы по КоАП РФ.",
+      "mentions": [
+        {"entity_type": "location", "surface_text": "Москве", "normalized_text": "Москва"},
+        {"entity_type": "organization", "surface_text": "полиция", "normalized_text": "полиция"},
+        {"entity_type": "person", "surface_text": "Марию Петрову", "normalized_text": "Марий Петров"},
+        {"entity_type": "person", "surface_text": "Ивана Сидорова", "normalized_text": "Иван Сидоров"},
+        {"entity_type": "legal_reference", "surface_text": "КоАП РФ", "normalized_text": "КоАП РФ"}
+      ],
+      "events": [
+        {"event_type": "detention", "surface_text": "В Москве полиция задержала Марию Петрову и Ивана Сидорова."}
+      ]
+    },
+    {
+      "article_id": 1003,
+      "source_name": "ОВД-Инфо",
+      "source_url": "https://ovd.info/golden-3",
+      "title": "Обыск",
+      "text": "ФСБ пришла с обыском к А. П. Смирнову в Казани. Дело связано со ст. 282 УК РФ.",
+      "mentions": [
+        {"entity_type": "organization", "surface_text": "ФСБ", "normalized_text": "ФСБ"},
+        {"entity_type": "person", "surface_text": "А. П. Смирнову", "normalized_text": "А. П. Смирнову"},
+        {"entity_type": "location", "surface_text": "Казани", "normalized_text": "Казань"},
+        {"entity_type": "legal_reference", "surface_text": "ст. 282 УК РФ", "normalized_text": "УК РФ ст. 282"}
+      ],
+      "events": [
+        {"event_type": "search", "surface_text": "ФСБ пришла с обыском к А. П. Смирнову в Казани."}
+      ]
+    },
+    {
+      "article_id": 1004,
+      "source_name": "ОВД-Инфо",
+      "source_url": "https://ovd.info/golden-4",
+      "title": "Приговор",
+      "text": "Московский городской суд приговорил Олега Кузнецова к штрафу по п. «а» ч. 2 ст. 282 УК РФ. Медиазона писала о заседании.",
+      "mentions": [
+        {"entity_type": "court", "surface_text": "Московский городской суд", "normalized_text": "Московский городской суд"},
+        {"entity_type": "person", "surface_text": "Олега Кузнецова", "normalized_text": "Олег Кузнецов"},
+        {"entity_type": "legal_reference", "surface_text": "п. «а» ч. 2 ст. 282 УК РФ", "normalized_text": "УК РФ ст. 282 ч. 2 п. а"},
+        {"entity_type": "organization", "surface_text": "Медиазона", "normalized_text": "Медиазона"}
+      ],
+      "events": [
+        {"event_type": "sentence", "surface_text": "Московский городской суд приговорил Олега Кузнецова к штрафу по п. «а» ч. 2 ст. 282 УК РФ."}
+      ]
+    },
+    {
+      "article_id": 1005,
+      "source_name": "ОВД-Инфо",
+      "source_url": "https://ovd.info/golden-5",
+      "title": "Обвинение",
+      "text": "СК РФ предъявил обвинение Елене Орловой по статье 280 Уголовного кодекса РФ. Заседание прошло в Санкт-Петербурге.",
+      "mentions": [
+        {"entity_type": "organization", "surface_text": "СК РФ", "normalized_text": "СК РФ"},
+        {"entity_type": "person", "surface_text": "Елене Орловой", "normalized_text": "Елен Орлова"},
+        {"entity_type": "legal_reference", "surface_text": "статье 280 Уголовного кодекса РФ", "normalized_text": "УК РФ ст. 280"},
+        {"entity_type": "location", "surface_text": "Санкт-Петербурге", "normalized_text": "Санкт-Петербург"}
+      ],
+      "events": [
+        {"event_type": "charge", "surface_text": "СК РФ предъявил обвинение Елене Орловой по статье 280 Уголовного кодекса РФ."}
+      ]
+    },
+    {
+      "article_id": 1006,
+      "source_name": "SOTA",
+      "source_url": "https://sota.vision/golden-6",
+      "title": "Освобождение",
+      "text": "В Екатеринбурге суд освободил Павла Морозова из-под стражи. Комитет против пыток помогал защите.",
+      "mentions": [
+        {"entity_type": "location", "surface_text": "Екатеринбурге", "normalized_text": "Екатеринбург"},
+        {"entity_type": "person", "surface_text": "Павла Морозова", "normalized_text": "Павел Морозов"},
+        {"entity_type": "organization", "surface_text": "Комитет против пыток", "normalized_text": "Комитет против пыток"}
+      ],
+      "events": [
+        {"event_type": "release", "surface_text": "В Екатеринбурге суд освободил Павла Морозова из-под стражи."}
+      ]
+    },
+    {
+      "article_id": 1007,
+      "source_name": "SOTA",
+      "source_url": "https://sota.vision/golden-7",
+      "title": "Два дела",
+      "text": "Прокуратура запросила арест для Николая Белова. Дело возбудили по статьи 280 и 282 УК РФ.",
+      "mentions": [
+        {"entity_type": "organization", "surface_text": "Прокуратура", "normalized_text": "Прокуратура"},
+        {"entity_type": "person", "surface_text": "Николая Белова", "normalized_text": "Николай Белов"},
+        {"entity_type": "legal_reference", "surface_text": "статьи 280 и 282 УК РФ", "normalized_text": "УК РФ ст. 280"}
+      ],
+      "events": [
+        {"event_type": "arrest", "surface_text": "Прокуратура запросила арест для Николая Белова."},
+        {"event_type": "case_opened", "surface_text": "Дело возбудили по статьи 280 и 282 УК РФ."}
+      ]
+    },
+    {
+      "article_id": 1008,
+      "source_name": "SOTA",
+      "source_url": "https://sota.vision/golden-8",
+      "title": "Штраф",
+      "text": "Суд в Казани оштрафовал Анну Ким по ч. 1 ст. 20.3 КоАП РФ. SOTA сообщила подробности.",
+      "mentions": [
+        {"entity_type": "location", "surface_text": "Казани", "normalized_text": "Казань"},
+        {"entity_type": "person", "surface_text": "Анну Ким", "normalized_text": "Анн Ким"},
+        {"entity_type": "legal_reference", "surface_text": "ч. 1 ст. 20.3 КоАП РФ", "normalized_text": "КоАП РФ ст. 20.3 ч. 1"},
+        {"entity_type": "organization", "surface_text": "SOTA", "normalized_text": "SOTA"}
+      ],
+      "events": [
+        {"event_type": "fine", "surface_text": "Суд в Казани оштрафовал Анну Ким по ч. 1 ст. 20.3 КоАП РФ."}
+      ]
+    },
+    {
+      "article_id": 1009,
+      "source_name": "SOTA",
+      "source_url": "https://sota.vision/golden-9",
+      "title": "Без сущностей",
+      "text": "Редакция выпустила короткую заметку о погоде и расписании трансляций.",
+      "mentions": [],
+      "events": []
+    },
+    {
+      "article_id": 1010,
+      "source_name": "SOTA",
+      "source_url": "https://sota.vision/golden-10",
+      "title": "Несколько фигурантов",
+      "text": "МВД задержало Сергея Лебедева, Дарью Волкову и John Smith в Новосибирске. Позже суд арестовал Дарью Волкову по ст. 207.3 УК РФ.",
+      "mentions": [
+        {"entity_type": "organization", "surface_text": "МВД", "normalized_text": "МВД"},
+        {"entity_type": "person", "surface_text": "Сергея Лебедева", "normalized_text": "Сергей Лебедев"},
+        {"entity_type": "person", "surface_text": "Дарью Волкову", "normalized_text": "Дарь Волков"},
+        {"entity_type": "person", "surface_text": "John Smith", "normalized_text": "John Smith"},
+        {"entity_type": "location", "surface_text": "Новосибирске", "normalized_text": "Новосибирск"},
+        {"entity_type": "person", "surface_text": "Дарью Волкову", "occurrence": 2, "normalized_text": "Дарь Волков"},
+        {"entity_type": "legal_reference", "surface_text": "ст. 207.3 УК РФ", "normalized_text": "УК РФ ст. 207.3"}
+      ],
+      "events": [
+        {"event_type": "detention", "surface_text": "МВД задержало Сергея Лебедева, Дарью Волкову и John Smith в Новосибирске."},
+        {"event_type": "arrest", "surface_text": "Позже суд арестовал Дарью Волкову по ст. 207.3 УК РФ."}
+      ]
+    }
+  ]
+}

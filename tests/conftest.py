@@ -14,6 +14,10 @@ def _truncate_test_tables(engine: Engine) -> None:
             text(
                 """
                 TRUNCATE TABLE
+                    event_entity_mentions,
+                    extracted_events,
+                    entity_mentions,
+                    article_extraction_runs,
                     parsed_articles,
                     source_documents,
                     sources
