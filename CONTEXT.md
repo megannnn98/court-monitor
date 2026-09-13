@@ -1,6 +1,6 @@
 # court-monitor
 
-Пайплайн загрузки статей ОВД-Инфо (ovd.info), их разбора, сохранения и полнотекстового поиска.
+Универсальный source layer: обнаружение и загрузка статей из нескольких источников (ОВД-Инфо, SOTA — sota.vision), их разбора, сохранения и полнотекстового поиска.
 
 ## Language
 
@@ -23,8 +23,14 @@ _Avoid_: документ, статья (без уточнения стадии)
 Запись о загруженной публикации в БД: внешний ID, канонический URL, сырое содержимое. Персистентный аналог `RawDocument`, связан с `Source`.
 _Avoid_: документ (без уточнения — используй только когда стадия ясна из контекста)
 
+**SourceAdapter**:
+Протокол источника: `discover(limit)` находит ссылки на статьи (листинг + pagination) → `list[SourceReference]`; `fetch(reference)` (унаследовано от `DocumentFetcher`) загружает одну статью → `RawDocument`. Один источник = один `SourceAdapter` + один `ArticleParser`, зарегистрированные в `source_registry.py`.
+
+**SourceIngestion**:
+Оркестратор пакетной загрузки: `SourceAdapter.discover` → по каждой ссылке `IngestionPipeline.run`. Ошибка одной статьи (`IngestionError`) не прерывает остальные — попадает в `SourceIngestionResult.failures`.
+
 **IngestionPipeline**:
-Оркестратор конвейера: `WebsiteAdapter.fetch` → `OvdInfoArticleParser.parse` → `IngestionPersistence.save`. Результат — `IngestionResult`.
+Оркестратор одной статьи: `DocumentFetcher.fetch` → `ArticleParser.parse` → `IngestionPersistence.save`. Результат — `IngestionResult`. Источник-агностичен — конкретный fetcher/parser передаются снаружи.
 
 **SearchQuery / SearchHit**:
 `SearchQuery` — текст запроса и лимит выдачи. `SearchHit` — одна найденная статья (`ParsedArticle`) целиком с оценкой релевантности (`score`); идентичность — `source_base_url` + `external_id`.

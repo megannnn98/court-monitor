@@ -2,17 +2,17 @@ import httpx
 
 from discovery_pagination import discover_paginated_references, fetch_listing_page_with_retry
 from models import RawDocument, SourceReference
-from ovd_info_listing_parser import OvdInfoListingParser
+from sota_vision_listing_parser import SotaVisionListingParser
 from source_adapter import DocumentFetcher
 
-OVD_INFO_LISTING_URL = "https://ovd.info/express-news"
+SOTA_VISION_LISTING_URL = "https://sota.vision/category/news/"
 
 
-class OvdInfoSourceAdapter:
+class SotaVisionSourceAdapter:
     def __init__(
         self,
         client: httpx.AsyncClient,
-        listing_parser: OvdInfoListingParser,
+        listing_parser: SotaVisionListingParser,
         document_fetcher: DocumentFetcher,
         *,
         max_attempts: int = 3,
@@ -33,9 +33,9 @@ class OvdInfoSourceAdapter:
     @staticmethod
     def _listing_url(page: int) -> str:
         if page == 0:
-            return OVD_INFO_LISTING_URL
+            return SOTA_VISION_LISTING_URL
 
-        return f"{OVD_INFO_LISTING_URL}?page={page}"
+        return f"{SOTA_VISION_LISTING_URL}page/{page + 1}/"
 
     async def discover(
         self,

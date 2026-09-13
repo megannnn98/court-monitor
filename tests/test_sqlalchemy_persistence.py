@@ -186,6 +186,66 @@ def test_save_rolls_back_existing_document_update(
         assert parsed_article.text == article_v1.text
 
 
+def test_external_id_may_collide_across_different_sources(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ovd_persistence = SqlAlchemyIngestionPersistence(
+        session_factory=session_factory,
+        source_name="ОВД-Инфо",
+        source_base_url="https://ovd.info",
+    )
+    sota_persistence = SqlAlchemyIngestionPersistence(
+        session_factory=session_factory,
+        source_name="SOTA",
+        source_base_url="https://sota.vision",
+    )
+
+    shared_external_id = "/shared-external-id/"
+
+    ovd_raw = RawDocument(
+        external_id=shared_external_id,
+        url="https://ovd.info/shared-external-id/",
+        fetched_at=datetime(2026, 8, 23, 8, 0, tzinfo=UTC),
+        content_type="text/html",
+        content=b"<html>ovd</html>",
+    )
+    ovd_article = ParsedArticle(
+        external_id=shared_external_id,
+        url=ovd_raw.url,
+        title="OVD article",
+        published_at=None,
+        text="OVD text",
+    )
+
+    sota_raw = RawDocument(
+        external_id=shared_external_id,
+        url="https://sota.vision/shared-external-id/",
+        fetched_at=datetime(2026, 8, 23, 8, 0, tzinfo=UTC),
+        content_type="text/html",
+        content=b"<html>sota</html>",
+    )
+    sota_article = ParsedArticle(
+        external_id=shared_external_id,
+        url=sota_raw.url,
+        title="SOTA article",
+        published_at=None,
+        text="SOTA text",
+    )
+
+    ovd_result = ovd_persistence.save(ovd_raw, ovd_article)
+    sota_result = sota_persistence.save(sota_raw, sota_article)
+
+    assert ovd_result.document_id != sota_result.document_id
+
+    with session_factory() as session:
+        sources = session.scalars(select(Source)).all()
+        documents = session.scalars(select(SourceDocument)).all()
+
+        assert len(sources) == 2
+        assert len(documents) == 2
+        assert {document.external_id for document in documents} == {shared_external_id}
+
+
 def test_save_wraps_sqlalchemy_error(
     session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,

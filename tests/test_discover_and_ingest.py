@@ -14,6 +14,7 @@ from models import (
     RawDocument,
     SourceReference,
 )
+from source_registry import SOTA_VISION
 
 LISTING_HTML = b"""
 <html>
@@ -301,6 +302,65 @@ def test_discover_and_ingest_respects_limit(
     assert [reference.external_id for reference in pipeline.references] == [
         "/express-news/2026/09/13/article-a",
         "/express-news/2026/09/12/article-b",
+    ]
+
+    output = capsys.readouterr().out
+
+    assert "completed: 2 saved, 0 failed" in output
+
+
+def test_discover_and_ingest_selects_source_by_definition(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    sota_listing_html = b"""
+    <html>
+        <body>
+            <h2 class="entry-title"><a href="/article-a/">A</a></h2>
+            <h2 class="entry-title"><a href="/article-b/">B</a></h2>
+        </body>
+    </html>
+    """
+
+    def handle_request(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == "https://sota.vision/category/news/"
+
+        return httpx.Response(
+            200,
+            content=sota_listing_html,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handle_request)
+    original_async_client = httpx.AsyncClient
+
+    def create_client(
+        *args: Any,
+        **kwargs: Any,
+    ) -> httpx.AsyncClient:
+        kwargs["transport"] = transport
+        return original_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "main.httpx.AsyncClient",
+        create_client,
+    )
+
+    pipeline = FakePipeline()
+    fetcher = FakeFetcher()
+
+    asyncio.run(
+        discover_and_ingest(
+            limit=2,
+            pipeline=pipeline,
+            fetcher=fetcher,
+            source=SOTA_VISION,
+        )
+    )
+
+    assert [reference.external_id for reference in pipeline.references] == [
+        "/article-a/",
+        "/article-b/",
     ]
 
     output = capsys.readouterr().out

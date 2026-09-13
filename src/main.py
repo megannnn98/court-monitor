@@ -10,14 +10,14 @@ from article_parser import OvdInfoArticleParser
 from database import create_database_engine, create_session_factory
 from evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from ingestion_pipeline import IngestionPipeline
-from models import ParsedArticle, RawDocument, SearchQuery, SourceReference
-from ovd_info_listing_parser import OvdInfoListingParser
-from ovd_info_source_adapter import OvdInfoSourceAdapter
+from models import ParsedArticle, RawDocument, SearchQuery
+from ovd_info_reference import canonicalize_ovd_info_reference
 from postgres_lexical_search import PostgresLexicalSearch
 from retrying_fetcher import RetryingDocumentFetcher
 from search_evaluator import SearchEvaluator
 from source_adapter import DocumentFetcher
 from source_ingestion import ArticleIngestionPipeline, SourceIngestion
+from source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition
 from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from website_adapter import WebsiteAdapter
 
@@ -31,18 +31,13 @@ async def discover_and_ingest(
     limit: int,
     pipeline: ArticleIngestionPipeline,
     fetcher: DocumentFetcher,
+    source: SourceDefinition = OVD_INFO,
 ) -> None:
     async with httpx.AsyncClient(
         timeout=5.0,
         headers={"User-Agent": "my-app/1.0"},
     ) as client:
-        source_adapter = OvdInfoSourceAdapter(
-            client=client,
-            listing_parser=OvdInfoListingParser(),
-            document_fetcher=fetcher,
-            max_attempts=3,
-            base_delay_seconds=0.5,
-        )
+        source_adapter = source.create_adapter(client, fetcher)
 
         source_ingestion = SourceIngestion(
             source_adapter=source_adapter,
@@ -89,6 +84,11 @@ def main() -> None:
         "--limit",
         type=int,
         default=10,
+    )
+    discover_ingest_parser.add_argument(
+        "--source",
+        choices=sorted(SOURCES),
+        default=OVD_INFO.name,
     )
 
     search_parser = subparsers.add_parser(
@@ -207,6 +207,39 @@ def main() -> None:
 
         return
 
+    if args.command == "discover-and-ingest":
+        source_definition = get_source_definition(args.source)
+
+        persistence = SqlAlchemyIngestionPersistence(
+            session_factory=session_factory,
+            source_name=source_definition.source_name,
+            source_base_url=source_definition.base_url,
+        )
+
+        website_adapter = WebsiteAdapter()
+
+        retrying_fetcher = RetryingDocumentFetcher(
+            website_adapter,
+            max_attempts=3,
+            base_delay_seconds=0.5,
+        )
+
+        ingestion_pipeline = IngestionPipeline(
+            source_adapter=retrying_fetcher,
+            parser=source_definition.create_parser(),
+            persistence=persistence,
+        )
+
+        asyncio.run(
+            discover_and_ingest(
+                limit=args.limit,
+                pipeline=ingestion_pipeline,
+                fetcher=retrying_fetcher,
+                source=source_definition,
+            )
+        )
+        return
+
     persistence = SqlAlchemyIngestionPersistence(
         session_factory=session_factory,
         source_name="ОВД-Инфо",
@@ -227,20 +260,10 @@ def main() -> None:
         persistence=persistence,
     )
 
-    if args.command == "discover-and-ingest":
-        asyncio.run(
-            discover_and_ingest(
-                limit=args.limit,
-                pipeline=ingestion_pipeline,
-                fetcher=retrying_fetcher,
-            )
-        )
-        return
+    reference = canonicalize_ovd_info_reference(args.url)
 
-    reference = SourceReference(
-        external_id=args.url,
-        url=args.url,
-    )
+    if reference is None:
+        raise SystemExit(f"Not a valid OVD-Info article URL: {args.url}")
 
     result = asyncio.run(ingestion_pipeline.run(reference))
 

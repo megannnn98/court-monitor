@@ -1,23 +1,23 @@
 from selectolax.parser import HTMLParser
 
 from models import SourceReference
-from ovd_info_reference import canonicalize_ovd_info_reference
+from sota_vision_reference import canonicalize_sota_vision_reference
 
 
-class OvdInfoListingParser:
+class SotaVisionListingParser:
     def parse(self, html: bytes) -> list[SourceReference]:
         tree = HTMLParser(html)
 
         references: list[SourceReference] = []
         seen_external_ids: set[str] = set()
 
-        for node in tree.css("a"):
+        for node in tree.css("h2.entry-title a"):
             href = node.attributes.get("href")
 
             if href is None:
                 continue
 
-            reference = canonicalize_ovd_info_reference(href)
+            reference = canonicalize_sota_vision_reference(href)
 
             if reference is None:
                 continue
