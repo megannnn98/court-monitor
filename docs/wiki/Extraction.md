@@ -37,7 +37,7 @@ Persistence --> DB
 
 ## Mention, не canonical entity
 
-Extraction создаёт только `PersonMention`, `OrganizationMention`, `CourtMention`, `LocationMention`, `LegalReferenceMention`. Оно не решает, что `Александр Иванов`, `Саша Иванов` и `А. П. Иванов` один человек. Нет таблицы `persons`, fuzzy matching между статьями, Росфинмониторинга или entity resolution.
+Extraction создаёт только mention-записи: `NormalizedMention` с `entity_type=person/organization/court/location/legal_reference` и typed `normalized_data`. Оно не решает, что `Александр Иванов`, `Саша Иванов` и `А. П. Иванов` один человек. Нет таблицы `persons`, fuzzy matching между статьями, Росфинмониторинга или entity resolution.
 
 ## Типы
 
@@ -93,6 +93,8 @@ document.text[start_offset:end_offset] == surface_text
 ```
 
 Нормализация не меняет `ParsedArticle.text`, поэтому offsets остаются offsets исходного полного текста.
+
+`content_hash` считается по `ParsedArticle.text`. `title`, `source_name` и `source_url` в текущем baseline не участвуют в extraction logic, поэтому их изменение само по себе не создаёт новую версию extraction.
 
 ## NLP-подход
 

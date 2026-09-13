@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+from sqlalchemy.exc import NoResultFound
 
 from article_parser import OvdInfoArticleParser
 from database import create_database_engine, create_session_factory
@@ -258,7 +259,10 @@ def main() -> None:
             persistence=extraction_persistence,
         )
         if args.article_id is not None:
-            extraction_documents = [document_repository.get_by_article_id(args.article_id)]
+            try:
+                extraction_documents = [document_repository.get_by_article_id(args.article_id)]
+            except NoResultFound:
+                raise SystemExit(f"Article not found: {args.article_id}") from None
         else:
             source_name = (
                 get_source_definition(args.source).source_name if args.source is not None else None
@@ -276,8 +280,8 @@ def main() -> None:
                     batch_result.articles_skipped += 1
                 else:
                     batch_result.articles_processed += 1
-                batch_result.mentions_created += save_result.mentions_created
-                batch_result.events_created += save_result.events_created
+                    batch_result.mentions_created += save_result.mentions_created
+                    batch_result.events_created += save_result.events_created
             else:
                 batch_result.articles_failed += 1
                 batch_result.failures.append(

@@ -139,6 +139,25 @@ class SqlAlchemyExtractionPersistence:
                 extractor_version=extractor_version,
                 normalizer_version=normalizer_version,
             )
+            if run is not None and run.status == ExtractionRunStatus.SUCCEEDED.value:
+                mentions_count = session.scalar(
+                    select(func.count(EntityMentionRecord.id)).where(
+                        EntityMentionRecord.extraction_run_id == run.id
+                    )
+                )
+                events_count = session.scalar(
+                    select(func.count(ExtractedEventRecord.id)).where(
+                        ExtractedEventRecord.extraction_run_id == run.id
+                    )
+                )
+                return ExtractionSaveResult(
+                    run_id=run.id,
+                    article_id=document.article_id,
+                    status=ExtractionRunStatus.SUCCEEDED,
+                    mentions_created=int(mentions_count or 0),
+                    events_created=int(events_count or 0),
+                    skipped_existing=True,
+                )
             if run is None:
                 run = ArticleExtractionRunRecord(
                     article_id=document.article_id,
