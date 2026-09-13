@@ -132,7 +132,8 @@ class RuleBasedEntityExtractor:
             return True
         lowered = surface.lower()
         return any(
-            marker in lowered for marker in ("суд", "кодекс", "область", "край", "республика")
+            re.search(rf"\b{marker}\b", lowered) is not None
+            for marker in ("суд", "кодекс", "область", "край", "республика")
         )
 
     @staticmethod

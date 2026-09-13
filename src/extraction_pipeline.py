@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from extraction_events import RuleBasedEventExtractor
@@ -13,7 +14,12 @@ from extraction_models import (
     NormalizedMention,
     RawMention,
 )
-from extraction_validation import validate_event, validate_normalized_mention, validate_raw_mention
+from extraction_validation import (
+    ExtractionValidationError,
+    validate_event,
+    validate_normalized_mention,
+    validate_raw_mention,
+)
 
 
 class ExtractionPipeline:
@@ -58,7 +64,7 @@ class ExtractionPipeline:
                 normalizer_version=normalizer_version,
             )
             return self._persistence.save(result)
-        except Exception as exc:  # noqa: BLE001 - article-level extraction failures become failed runs.
+        except (ExtractionValidationError, ValueError, re.error) as exc:
             return self._persistence.save_failed(
                 document,
                 extractor_name=extractor_name,

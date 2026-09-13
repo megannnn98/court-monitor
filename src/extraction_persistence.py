@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from extraction_models import (
@@ -33,22 +33,10 @@ class SqlAlchemyExtractionPersistence:
                 normalizer_version=result.normalizer_version,
             )
             if existing is not None and existing.status == ExtractionRunStatus.SUCCEEDED.value:
-                mentions_count = session.scalar(
-                    select(func.count(EntityMentionRecord.id)).where(
-                        EntityMentionRecord.extraction_run_id == existing.id
-                    )
-                )
-                events_count = session.scalar(
-                    select(func.count(ExtractedEventRecord.id)).where(
-                        ExtractedEventRecord.extraction_run_id == existing.id
-                    )
-                )
                 return ExtractionSaveResult(
                     run_id=existing.id,
                     article_id=result.document.article_id,
                     status=ExtractionRunStatus.SUCCEEDED,
-                    mentions_created=int(mentions_count or 0),
-                    events_created=int(events_count or 0),
                     skipped_existing=True,
                 )
 
@@ -140,22 +128,10 @@ class SqlAlchemyExtractionPersistence:
                 normalizer_version=normalizer_version,
             )
             if run is not None and run.status == ExtractionRunStatus.SUCCEEDED.value:
-                mentions_count = session.scalar(
-                    select(func.count(EntityMentionRecord.id)).where(
-                        EntityMentionRecord.extraction_run_id == run.id
-                    )
-                )
-                events_count = session.scalar(
-                    select(func.count(ExtractedEventRecord.id)).where(
-                        ExtractedEventRecord.extraction_run_id == run.id
-                    )
-                )
                 return ExtractionSaveResult(
                     run_id=run.id,
                     article_id=document.article_id,
                     status=ExtractionRunStatus.SUCCEEDED,
-                    mentions_created=int(mentions_count or 0),
-                    events_created=int(events_count or 0),
                     skipped_existing=True,
                 )
             if run is None:
@@ -206,12 +182,14 @@ class SqlAlchemyExtractionPersistence:
             select(ExtractedEventRecord.id).where(ExtractedEventRecord.extraction_run_id == run_id)
         ).all()
         if event_ids:
-            session.query(EventEntityMentionRecord).filter(
-                EventEntityMentionRecord.event_id.in_(event_ids)
-            ).delete(synchronize_session=False)
-        session.query(ExtractedEventRecord).filter(
-            ExtractedEventRecord.extraction_run_id == run_id
-        ).delete(synchronize_session=False)
-        session.query(EntityMentionRecord).filter(
-            EntityMentionRecord.extraction_run_id == run_id
-        ).delete(synchronize_session=False)
+            session.execute(
+                delete(EventEntityMentionRecord).where(
+                    EventEntityMentionRecord.event_id.in_(event_ids)
+                )
+            )
+        session.execute(
+            delete(ExtractedEventRecord).where(ExtractedEventRecord.extraction_run_id == run_id)
+        )
+        session.execute(
+            delete(EntityMentionRecord).where(EntityMentionRecord.extraction_run_id == run_id)
+        )

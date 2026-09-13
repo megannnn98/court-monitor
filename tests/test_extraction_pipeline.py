@@ -1,3 +1,5 @@
+import pytest
+
 from extraction_events import RuleBasedEventExtractor
 from extraction_models import (
     ArticleExtractionResult,
@@ -156,3 +158,25 @@ def test_pipeline_saves_failed_run_on_invalid_span() -> None:
 
     assert result.status is ExtractionRunStatus.FAILED
     assert "span does not match" in (persistence.failed or "")
+
+
+def test_pipeline_does_not_convert_programmer_error_to_failed_run() -> None:
+    class BrokenNormalizer(FakeNormalizer):
+        def normalize(
+            self,
+            mention: RawMention,
+            document: ExtractionDocument,
+        ) -> NormalizedMention:
+            raise RuntimeError("programmer bug")
+
+    persistence = FakePersistence()
+    pipeline = ExtractionPipeline(
+        extractors=[FakeExtractor()],
+        normalizers=[BrokenNormalizer()],
+        event_extractor=RuleBasedEventExtractor(),
+        persistence=persistence,
+    )
+
+    with pytest.raises(RuntimeError, match="programmer bug"):
+        pipeline.run(make_document())
+    assert persistence.failed is None

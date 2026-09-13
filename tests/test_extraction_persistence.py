@@ -105,6 +105,8 @@ def test_extraction_persistence_is_idempotent_for_same_content_hash(
 
     assert first.run_id == second.run_id
     assert second.skipped_existing is True
+    assert second.mentions_created == 0
+    assert second.events_created == 0
     with session_factory() as session:
         assert len(session.scalars(select(ArticleExtractionRunRecord)).all()) == 1
 
@@ -173,6 +175,42 @@ def test_save_failed_does_not_overwrite_existing_successful_run(
     assert failed.run_id == successful.run_id
     assert failed.status is ExtractionRunStatus.SUCCEEDED
     assert failed.skipped_existing is True
+    assert failed.mentions_created == 0
+    assert failed.events_created == 0
+    with session_factory() as session:
+        run = session.scalar(select(ArticleExtractionRunRecord))
+        mentions = session.scalars(select(EntityMentionRecord)).all()
+        events = session.scalars(select(ExtractedEventRecord)).all()
+    assert run is not None
+    assert run.status == ExtractionRunStatus.SUCCEEDED.value
+    assert run.error_message is None
+    assert mentions
+    assert events
+
+
+def test_save_replaces_existing_failed_run(
+    session_factory: sessionmaker[Session],
+) -> None:
+    article_id = _save_article(
+        session_factory,
+        text="Басманный районный суд Москвы арестовал Александра Иванова по ст. 207.3 УК РФ.",
+    )
+    document = SqlAlchemyExtractionDocumentRepository(session_factory).get_by_article_id(article_id)
+    persistence = SqlAlchemyExtractionPersistence(session_factory)
+    failed = persistence.save_failed(
+        document,
+        extractor_name="rule-based-entity-extractor",
+        extractor_version="1.0.0",
+        normalizer_version="1.0.0",
+        error_message="temporary failure",
+    )
+
+    successful = _pipeline(session_factory).run(document)
+
+    assert successful.run_id == failed.run_id
+    assert successful.status is ExtractionRunStatus.SUCCEEDED
+    assert successful.mentions_created > 0
+    assert successful.events_created > 0
     with session_factory() as session:
         run = session.scalar(select(ArticleExtractionRunRecord))
         mentions = session.scalars(select(EntityMentionRecord)).all()

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from extraction_metrics import evaluate_golden_dataset, load_golden_articles
+from extraction_metrics import _safe_div, evaluate_golden_dataset, load_golden_articles
 
 GOLDEN_PATH = Path("tests/fixtures/extraction_golden_corpus.json")
 
@@ -23,3 +23,7 @@ def test_evaluate_golden_dataset_returns_error_breakdown() -> None:
     assert 0 <= report.exact_span_recall <= 1
     assert isinstance(report.false_positive_mentions, list)
     assert isinstance(report.missed_mentions, list)
+
+
+def test_safe_div_returns_zero_for_empty_denominator() -> None:
+    assert _safe_div(0, 0) == 0.0

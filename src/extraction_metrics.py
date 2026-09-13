@@ -235,7 +235,7 @@ def _build_report(
 
 def _safe_div(numerator: float, denominator: float) -> float:
     if denominator == 0:
-        return 1.0
+        return 0.0
     return numerator / denominator
 
 
