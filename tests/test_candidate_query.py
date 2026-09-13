@@ -246,6 +246,38 @@ def test_get_candidates_excludes_needs_review_matches(
     assert result.candidates == []
 
 
+def test_get_candidates_excludes_insufficient_data_matches(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """political + INSUFFICIENT_DATA → excluded by default.
+
+    A too-thin name that couldn't be searched reliably is not a confirmed
+    absence, same as NO_MATCH_RECORD/AMBIGUOUS/NEEDS_REVIEW.
+    """
+    with session_factory() as session:
+        person1_id = _create_person(
+            session,
+            "Однословный",
+            "однословный",
+            "однословный",
+        )
+        _create_persecution_classification(
+            session,
+            person1_id,
+            status="political",
+            confidence=0.9,
+            reasons=["Political activity"],
+        )
+        snapshot_id = _create_snapshot(session)
+        _create_match(session, person1_id, snapshot_id, status="insufficient_data", confidence=0.0)
+
+    result = service.get_candidates(snapshot_id)
+
+    assert result.total_count == 0
+    assert result.candidates == []
+
+
 def test_get_candidates_rejects_missing_snapshot(
     session_factory: sessionmaker[Session],
     service: CandidateQueryService,

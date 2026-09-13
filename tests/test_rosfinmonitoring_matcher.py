@@ -627,6 +627,42 @@ def test_persistence_save_and_retrieve(
     assert len(retrieved.candidate_entries) == 1
 
 
+def test_persistence_save_and_retrieve_insufficient_data_status(
+    session_factory: sessionmaker[Session],
+    persistence: RosfinMatchPersistence,
+) -> None:
+    """INSUFFICIENT_DATA must round-trip through the DB like any other
+    status — it's a plain string column, not an enum type, so this only
+    breaks if the string value or the read-back mapping is wrong.
+    """
+    with session_factory() as session:
+        person_id = _create_person(session, "Иванов", "иванов", "иванов")
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+
+    result = RosfinMatchResult(
+        person_id=person_id,
+        snapshot_id=snapshot_id,
+        status=RosfinMatchStatus.INSUFFICIENT_DATA,
+        confidence=0.0,
+        reasons=["Person's normalized_name has too few words to search reliably"],
+        matched_at=datetime.now(UTC),
+    )
+
+    persistence.save_match_result(result)
+
+    retrieved = persistence.get_match_result(person_id, snapshot_id)
+    assert retrieved is not None
+    assert retrieved.status == RosfinMatchStatus.INSUFFICIENT_DATA
+    assert retrieved.matched_entry_id is None
+
+    listed = persistence.list_matches_for_snapshot(
+        snapshot_id,
+        status=RosfinMatchStatus.INSUFFICIENT_DATA,
+    )
+    assert len(listed) == 1
+    assert listed[0].person_id == person_id
+
+
 def test_persistence_update_existing(
     session_factory: sessionmaker[Session],
     persistence: RosfinMatchPersistence,
