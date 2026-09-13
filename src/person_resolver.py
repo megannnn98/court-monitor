@@ -85,40 +85,15 @@ class RuleBasedPersonResolver:
             )
             return resolution
 
-        if session is None:
-            person_id = self._persistence.create_person(
-                canonical_name=normalized_text,
-                normalized_name=normalized_text,
-                matching_key=matching_key,
-            )
-
-            self._persistence.create_alias(
-                person_id=person_id,
-                surface_text=surface_text,
-                normalized_text=normalized_text,
-                matching_key=matching_key,
-                origin=origin,
-                confidence=confidence,
-                source_mention_id=source_mention_id,
-            )
-        else:
-            person_id = self._persistence.create_person_in_session(
-                session,
-                canonical_name=normalized_text,
-                normalized_name=normalized_text,
-                matching_key=matching_key,
-            )
-
-            self._persistence.create_alias_in_session(
-                session,
-                person_id=person_id,
-                surface_text=surface_text,
-                normalized_text=normalized_text,
-                matching_key=matching_key,
-                origin=origin,
-                confidence=confidence,
-                source_mention_id=source_mention_id,
-            )
+        person_id = self._create_person_and_alias_racing_safe(
+            normalized_text=normalized_text,
+            matching_key=matching_key,
+            surface_text=surface_text,
+            origin=origin,
+            confidence=confidence,
+            source_mention_id=source_mention_id,
+            session=session,
+        )
 
         return ResolutionResult(
             person_id=person_id,
@@ -126,6 +101,81 @@ class RuleBasedPersonResolver:
             confidence=1.0,
             reasons=["created new person"],
         )
+
+    def _create_person_and_alias_racing_safe(
+        self,
+        *,
+        normalized_text: str,
+        matching_key: str,
+        surface_text: str,
+        origin: AliasOrigin,
+        confidence: float,
+        source_mention_id: int | None,
+        session: Session | None,
+    ) -> int:
+        """Create a new person + alias for a matching_key that `resolve()`
+        just reported as unseen.
+
+        `uq_persons_matching_key_active` can still reject the insert if a
+        concurrent resolver created the same person in the meantime; in
+        that case we back off to the winner instead of raising or leaving
+        a duplicate canonical person behind.
+        """
+        if session is None:
+            try:
+                return self._persistence.create_person_with_alias(
+                    canonical_name=normalized_text,
+                    normalized_name=normalized_text,
+                    matching_key=matching_key,
+                    surface_text=surface_text,
+                    alias_normalized_text=normalized_text,
+                    origin=origin,
+                    confidence=confidence,
+                    source_mention_id=source_mention_id,
+                )
+            except IntegrityError:
+                winner_id = self._persistence.find_person_by_matching_key(matching_key)
+                if winner_id is None:
+                    raise
+        else:
+            try:
+                with session.begin_nested():
+                    person_id = self._persistence.create_person_in_session(
+                        session,
+                        canonical_name=normalized_text,
+                        normalized_name=normalized_text,
+                        matching_key=matching_key,
+                    )
+                    self._persistence.create_alias_in_session(
+                        session,
+                        person_id=person_id,
+                        surface_text=surface_text,
+                        normalized_text=normalized_text,
+                        matching_key=matching_key,
+                        origin=origin,
+                        confidence=confidence,
+                        source_mention_id=source_mention_id,
+                    )
+                return person_id
+            except IntegrityError:
+                winner_id = self._persistence.find_person_by_matching_key_in_session(
+                    session,
+                    matching_key,
+                )
+                if winner_id is None:
+                    raise
+
+        self._add_alias_if_not_exists(
+            person_id=winner_id,
+            surface_text=surface_text,
+            normalized_text=normalized_text,
+            matching_key=matching_key,
+            origin=origin,
+            confidence=confidence,
+            source_mention_id=source_mention_id,
+            session=session,
+        )
+        return winner_id
 
     def _add_alias_if_not_exists(
         self,
@@ -151,15 +201,20 @@ class RuleBasedPersonResolver:
                     source_mention_id=source_mention_id,
                 )
             else:
-                self._persistence.create_alias_in_session(
-                    session,
-                    person_id=person_id,
-                    surface_text=surface_text,
-                    normalized_text=normalized_text,
-                    matching_key=matching_key,
-                    origin=origin,
-                    confidence=confidence,
-                    source_mention_id=source_mention_id,
-                )
+                # A SAVEPOINT so a duplicate-alias IntegrityError only rolls
+                # back this insert, not the caller's whole ambient
+                # transaction (Postgres aborts the entire transaction on an
+                # uncaught error otherwise).
+                with session.begin_nested():
+                    self._persistence.create_alias_in_session(
+                        session,
+                        person_id=person_id,
+                        surface_text=surface_text,
+                        normalized_text=normalized_text,
+                        matching_key=matching_key,
+                        origin=origin,
+                        confidence=confidence,
+                        source_mention_id=source_mention_id,
+                    )
         except IntegrityError:
             pass

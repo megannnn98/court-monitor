@@ -52,6 +52,37 @@ class SqlAlchemyPersonPersistence:
         session.flush()
         return person.id
 
+    def create_person_with_alias(
+        self,
+        *,
+        canonical_name: str,
+        normalized_name: str,
+        matching_key: str,
+        surface_text: str,
+        alias_normalized_text: str,
+        origin: AliasOrigin,
+        confidence: float,
+        source_mention_id: int | None = None,
+    ) -> int:
+        with self._session_factory.begin() as session:
+            person_id = self.create_person_in_session(
+                session,
+                canonical_name=canonical_name,
+                normalized_name=normalized_name,
+                matching_key=matching_key,
+            )
+            self.create_alias_in_session(
+                session,
+                person_id=person_id,
+                surface_text=surface_text,
+                normalized_text=alias_normalized_text,
+                matching_key=matching_key,
+                origin=origin,
+                confidence=confidence,
+                source_mention_id=source_mention_id,
+            )
+            return person_id
+
     def create_alias(
         self,
         *,

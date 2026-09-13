@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -193,7 +194,12 @@ class EventEntityMentionRecord(Base):
 class PersonRecord(Base):
     __tablename__ = "persons"
     __table_args__ = (
-        Index("ix_persons_matching_key", "matching_key"),
+        Index(
+            "uq_persons_matching_key_active",
+            "matching_key",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
         Index("ix_persons_status", "status"),
     )
 

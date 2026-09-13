@@ -1,8 +1,10 @@
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from orm_models import PersonAliasRecord, PersonRecord
-from person_models import AliasOrigin, ResolutionStatus
+from person_models import AliasOrigin, ResolutionResult, ResolutionStatus
 from person_persistence import SqlAlchemyPersonPersistence
 from person_resolver import RuleBasedPersonResolver
 
@@ -195,3 +197,45 @@ def test_resolver_does_not_duplicate_alias(
         ).all()
 
     assert len(aliases) == 1
+
+
+def test_resolver_recovers_from_concurrent_person_creation(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A concurrent resolver may create the same new person between this
+    resolver's `resolve()` lookup and its own create — simulated here by
+    injecting a competing insert right after that lookup reports NEW_PERSON.
+    `resolve_and_create` must back off to the winner instead of creating a
+    duplicate canonical person or raising.
+    """
+    persistence = SqlAlchemyPersonPersistence(session_factory)
+    resolver = RuleBasedPersonResolver(persistence)
+    original_resolve = resolver.resolve
+
+    def resolve_then_lose_race(*args: Any, **kwargs: Any) -> ResolutionResult:
+        result = original_resolve(*args, **kwargs)
+        if result.status is ResolutionStatus.NEW_PERSON:
+            persistence.create_person(
+                canonical_name="Иван Иванов",
+                normalized_name="Иван Иванов",
+                matching_key="иваниванов",
+            )
+        return result
+
+    resolver.resolve = resolve_then_lose_race  # type: ignore[method-assign]
+
+    result = resolver.resolve_and_create(
+        normalized_text="Иван Иванов",
+        matching_key="иваниванов",
+        surface_text="Ивана Иванова",
+        origin=AliasOrigin.EXTRACTION,
+        confidence=0.9,
+    )
+
+    with session_factory() as session:
+        persons = session.scalars(
+            select(PersonRecord).where(PersonRecord.matching_key == "иваниванов")
+        ).all()
+
+    assert len(persons) == 1
+    assert result.person_id == persons[0].id
