@@ -11,6 +11,7 @@
 - [Data-Model](Data-Model.md) — таблицы PostgreSQL, persistence
 - [Extraction](Extraction.md) — mention extraction, normalization, events, metrics
 - [Search](Search.md) — lexical (Postgres) поиск
+- [Research](Research.md) — детерминированный research layer: `ResearchRequest` → `ResearchService` → Person-результаты с evidence
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
 - [Testing](Testing.md) — тесты, линтеры, pre-commit

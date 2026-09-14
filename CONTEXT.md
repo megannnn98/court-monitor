@@ -44,3 +44,11 @@ _Avoid_: полнотекстовый поиск (используй тольк�
 
 **Evaluation case / Evaluation report**:
 `EvaluationCase` — тестовый запрос с ожидаемым `ArticleReference` (`source_base_url` + `external_id`). `EvaluationReport` — результат прогона всех кейсов через `SearchBackend` с метрикой `mean_reciprocal_rank`.
+
+**ResearchRequest / ResearchService**:
+`ResearchRequest` — структурированный детерминированный запрос: `object_type` (сейчас только `person`), `PersonResearchCriteria`, `limit`. `ResearchService.execute()` отвечает на него через существующие domain services (для `political` + RF-статуса — `CandidateQueryService`) и возвращает `ResearchResponse`. Natural language/LLM — выше, в адаптерах. См. [ADR 0008](docs/adr/0008-research-domain-and-research-service.md).
+_Avoid_: поиск (для research — это не lexical search), запрос к LLM
+
+**Research result / Evidence**:
+`PersonResearchResult` — результат по канонической `Person`: алиасы, связанные события, классификация, RF-статус по snapshot, `warnings` и `review_required`. `ResearchEvidence` — span статьи (offsets + текст span), подтверждающий факт именно об этом человеке; статья — только provenance (`ResearchSource`), не результат.
+_Avoid_: статья как результат

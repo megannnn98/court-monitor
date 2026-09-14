@@ -235,6 +235,23 @@ court-monitor list-candidates --snapshot-id 5 --output-path candidates.json
    `no_match_record` (matching never ran), `ambiguous`, `needs_review` and
    `insufficient_data` are excluded, since none of them mean "absent"
 
+### 8. Research
+
+**Purpose**: Deterministic structured research over canonical persons — the stable backend for CLI, API and the future natural-language (LangGraph) adapter.
+
+**Components**:
+- `ResearchService`: executes `ResearchRequest` → `ResearchResponse`
+- Reuses `CandidateQueryService` for `political` + Rosfinmonitoring status queries
+
+**CLI / API**:
+```bash
+court-monitor research --persecution-status political --rosfin-status not_matched --snapshot-id 5
+curl -X POST http://localhost:8000/research -H 'Content-Type: application/json' \
+  -d '{"object_type": "person", "criteria": {"persecution_status": "political", "rosfinmonitoring_status": "not_matched", "snapshot_id": 5}}'
+```
+
+See [Research](Research.md) and [ADR 0008](../adr/0008-research-domain-and-research-service.md).
+
 ## Running the Full Pipeline
 
 ### Option 1: Manual Execution

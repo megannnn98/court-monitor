@@ -80,6 +80,11 @@ Person
 → RosfinMatchResult
 → CandidateQueryService
 → list[Candidate]
+
+Research (deterministic, docs/wiki/Research.md):
+ResearchRequest
+→ ResearchService (reuses CandidateQueryService)
+→ ResearchResponse[PersonResearchResult: events, evidence, sources, review_required]
 ```
 
 ## Установка

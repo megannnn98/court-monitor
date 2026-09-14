@@ -72,8 +72,9 @@ end note
 | `extraction_pipeline.py` | Оркестратор extraction: validate spans → normalize → deduplicate → events → persistence |
 | `extraction_persistence.py` | SQLAlchemy persistence для runs, mentions, events, links |
 | `extraction_metrics.py` | Golden corpus loader и метрики extraction |
+| `research_models.py`, `research_service.py`, `research_repository.py`, `research_mapping.py`, `research_cli.py` | Research layer: `ResearchRequest` → `ResearchService` → `ResearchResponse` (Person + events + evidence + review warnings), см. [Research](Research.md) |
 
-Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Extraction](Extraction.md), [Search](Search.md), [Evaluation](Evaluation.md).
+Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Extraction](Extraction.md), [Search](Search.md), [Evaluation](Evaluation.md), [Research](Research.md).
 
 Dense/hybrid/reranked-hybrid поиск (Qdrant, `sentence-transformers`) и chunking были удалены — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
 
