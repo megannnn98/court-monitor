@@ -27,6 +27,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+          # Same as .python-version; makes the interpreter explicit in the log.
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -49,6 +51,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+          # Same as .python-version; makes the interpreter explicit in the log.
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -85,6 +89,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+          # Same as .python-version; makes the interpreter explicit in the log.
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --frozen
