@@ -15,6 +15,7 @@ from research_workflow.models import (
     WorkflowError,
 )
 from semantic_retrieval.models import RetrievalResult
+from semantic_retrieval.relevance import SemanticRetrievalDecision
 
 
 class ResearchGraphState(TypedDict, total=False):
@@ -30,7 +31,9 @@ class ResearchGraphState(TypedDict, total=False):
     request_payload: dict[str, Any] | None
     structured_request: ResearchRequest
     research_plan: ResearchPlan
+    # Retrieved candidates (ranking) and the relevance decision (acceptance).
     retrieval: RetrievalResult
+    semantic_decision: SemanticRetrievalDecision
     research_response: ResearchResponse
     evaluation: ResearchResultEvaluation
     report: ResearchReport

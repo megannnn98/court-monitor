@@ -36,8 +36,15 @@ def test_corpus_and_cases_are_large_enough_and_consistent() -> None:
     event_keys = {event.key for person in CORPUS.persons for event in person.events}
 
     assert len(person_keys) >= 10
-    assert 6 <= len(CASES) <= 20
+    ranking_cases = [case for case in CASES if not case.negative]
+    assert 6 <= len(ranking_cases) <= 20
     assert sum(case.semantic_only for case in CASES) >= 3
+    negatives = [case for case in CASES if case.negative]
+    assert len(negatives) >= 3
+    assert all(case.judgments == {} for case in negatives)
+    # A negative query sharing a word with the corpus ("суд"): lexical overlap
+    # alone must not make anything relevant.
+    assert any("суд" in case.query_text for case in negatives)
     assert {case.entity_type for case in CASES} == {
         RetrievalEntityType.PERSON,
         RetrievalEntityType.EVENT,
@@ -45,7 +52,7 @@ def test_corpus_and_cases_are_large_enough_and_consistent() -> None:
     for case in CASES:
         keys = person_keys if case.entity_type is RetrievalEntityType.PERSON else event_keys
         assert set(case.judgments) <= keys, case.query_id
-        assert sum(grade > 0 for grade in case.judgments.values()) >= 1
+        assert case.negative or sum(grade > 0 for grade in case.judgments.values()) >= 1
 
 
 def test_case_without_relevant_entity_is_invalid() -> None:
@@ -76,7 +83,7 @@ def test_semantic_only_labels_are_honest_lexical_finds_no_relevant_entity(
     lexical = PostgresLexicalEntityRetriever(session_factory)
 
     for case in CASES:
-        if not case.semantic_only:
+        if not case.semantic_only or case.negative:
             continue
         relevant = {
             ids.ids_for(case.entity_type)[key] for key, grade in case.judgments.items() if grade > 0
@@ -103,7 +110,7 @@ def test_backends_are_evaluated_separately_with_bounded_metrics(
     ]
 
     for evaluation in evaluations:
-        assert evaluation.overall.cases == len(CASES)
+        assert evaluation.overall.cases == sum(not case.negative for case in CASES)
         assert evaluation.semantic_only.cases == sum(case.semantic_only for case in CASES)
         for value in (
             evaluation.overall.mrr,

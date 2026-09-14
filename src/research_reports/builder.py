@@ -47,7 +47,7 @@ from research_reports.models import (
     ResearchReviewDecision,
     ResearchReviewReason,
 )
-from semantic_retrieval.models import RetrievalResult
+from semantic_retrieval.relevance import SemanticRetrievalDecision
 
 _PERSECUTION_TEXT: dict[PersecutionClassificationStatus, str] = {
     PersecutionClassificationStatus.POLITICAL: "Преследование классифицировано как политическое",
@@ -128,15 +128,19 @@ class ResearchReportBuilder:
         response: ResearchResponse,
         evaluation: ResearchResultEvaluation,
         plan: ResearchPlan | None = None,
-        retrieval: RetrievalResult | None = None,
+        semantic: SemanticRetrievalDecision | None = None,
     ) -> ResearchReport:
         decisions = evaluation.decisions_by_person()
-        ranks = {} if retrieval is None else {hit.entity_id: hit.rank for hit in retrieval.hits}
+        ranks = (
+            {} if semantic is None else {hit.entity_id: hit.rank for hit in semantic.accepted.hits}
+        )
         metadata = ResearchRetrievalMetadata(
             mode=ResearchRetrievalMode.STRUCTURED if plan is None else plan.retrieval_mode,
-            backend=None if retrieval is None else retrieval.backend,
+            backend=None if semantic is None else semantic.retrieved.backend,
             candidate_pool_size=0 if plan is None else plan.candidate_pool_size,
-            candidates_returned=0 if retrieval is None else len(retrieval.hits),
+            candidates_returned=0 if semantic is None else len(semantic.retrieved.hits),
+            candidates_accepted=0 if semantic is None else len(semantic.accepted.hits),
+            min_similarity=None if semantic is None else semantic.dense_min_score,
         )
         items: list[ResearchReportItem] = []
         for result in response.results:
@@ -149,15 +153,17 @@ class ResearchReportBuilder:
             items.append(item)
 
         warnings: list[ResearchReportWarning] = []
-        if retrieval is not None:
+        if semantic is not None:
             warnings.append(
                 ResearchReportWarning(
                     code=ResearchReportWarningCode.SEMANTIC_CANDIDATE_POOL,
                     message=(
-                        f"Люди отобраны семантическим поиском ({metadata.candidates_returned} "
-                        f"кандидатов из максимум {metadata.candidate_pool_size}); все критерии "
-                        "и факты проверены по PostgreSQL. Сходство формулировок не является "
-                        "фактом и не повышает уверенность ни одного утверждения."
+                        f"Семантический поиск нашёл {metadata.candidates_returned} ближайших "
+                        f"кандидатов (максимум {metadata.candidate_pool_size}); достаточно "
+                        f"похожими (сходство ≥ {semantic.dense_min_score:.2f}) признаны "
+                        f"{metadata.candidates_accepted}, только они проверялись по PostgreSQL. "
+                        "Сходство формулировок не является фактом и не повышает уверенность "
+                        "ни одного утверждения."
                     ),
                 )
             )
@@ -473,8 +479,8 @@ def _semantic_match_reason(
         criterion="semantic_query",
         requested=request.criteria.semantic_query,
         actual=(
-            f"кандидат семантического поиска ({backend}), позиция {rank} из "
-            f"{metadata.candidates_returned}; сходство, а не установленный факт"
+            f"семантически релевантный кандидат ({backend}), позиция {rank} из "
+            f"{metadata.candidates_accepted}; сходство, а не установленный факт"
         ),
     )
 
@@ -486,11 +492,27 @@ def _summary_text(
     routing: SourceRoutingDecision,
     retrieval: ResearchRetrievalMetadata,
 ) -> str:
+    structured = retrieval.mode is ResearchRetrievalMode.STRUCTURED
     scope = (
         "В текущей базе"
-        if retrieval.mode is ResearchRetrievalMode.STRUCTURED
-        else f"Среди {retrieval.candidates_returned} кандидатов семантического поиска"
+        if structured
+        else f"Среди {retrieval.candidates_accepted} семантически релевантных кандидатов"
     )
+    if not structured and retrieval.candidates_accepted == 0:
+        # Nearest neighbours were found but none is similar enough: say so, and
+        # never claim that such people do not exist.
+        refresh = (
+            f" Обновление источников ({', '.join(routing.sources)}) — рекомендация, "
+            "оно не выполнялось."
+            if routing.source_refresh_required
+            else ""
+        )
+        return (
+            "В текущем индексе не найдено сущностей с достаточной семантической "
+            f"релевантностью запросу (проверено ближайших кандидатов: "
+            f"{retrieval.candidates_returned}). Это не доказывает, что таких людей нет: "
+            "данные ограничены текущей базой и индексом." + refresh
+        )
     if status is ResearchReportStatus.INSUFFICIENT_DATA:
         return (
             f"{scope} найдено 0 подходящих людей. Это не доказывает, что таких людей нет: "

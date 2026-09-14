@@ -31,6 +31,7 @@ from semantic_retrieval.models import (
     RetrievalUnavailableError,
     VectorSizeMismatchError,
 )
+from semantic_retrieval.relevance import DenseSimilarityRelevancePolicy
 from source_registry import SOURCES
 
 LATEST = RosfinmonitoringSnapshotSummary(
@@ -56,6 +57,7 @@ def _graph(
         snapshot_lookup=FakeSnapshotLookup(latest=LATEST),
         planner=ResearchPlanner(SOURCES, candidate_pool_size=25),
         candidate_retriever=retriever,
+        relevance_policy=DenseSimilarityRelevancePolicy(dense_min_score=0.8),
     )
 
 
@@ -100,7 +102,9 @@ def test_semantic_request_retrieves_candidates_then_runs_research_on_them() -> N
             research_request, [person_result(person_id=12), person_result(person_id=5)]
         )
     )
-    retriever = StaticRetriever(RetrievalBackend.HYBRID, [12, 5, 40])
+    retriever = StaticRetriever(
+        RetrievalBackend.HYBRID, [12, 5, 40], dense_scores={i: 0.9 for i in [12, 5, 40]}
+    )
     graph = _graph(
         _parser({"semantic_query": "антивоенные публикации", "persecution_status": "political"}),
         service,
@@ -132,7 +136,8 @@ def test_semantic_request_retrieves_candidates_then_runs_research_on_them() -> N
     semantic_reason = report.items[0].why_matched[-1]
     assert semantic_reason.criterion == "semantic_query"
     assert "не установленный факт" in semantic_reason.actual
-    assert "Среди 3 кандидатов семантического поиска" in report.summary.text
+    assert "Среди 3 семантически релевантных кандидатов" in report.summary.text
+    assert (report.retrieval.candidates_accepted, report.retrieval.min_similarity) == (3, 0.8)
     # The report never exposes retrieval scores.
     assert "score" not in report.model_dump_json()
 
@@ -149,7 +154,7 @@ def test_retrieval_score_is_not_a_domain_confidence_and_does_not_waive_review() 
     graph = _graph(
         _parser({"semantic_query": "пикеты"}),
         service,
-        StaticRetriever(RetrievalBackend.HYBRID, [3]),
+        StaticRetriever(RetrievalBackend.HYBRID, [3], dense_scores={i: 0.9 for i in [3]}),
     )
 
     result = run_research_query(graph, "пикеты")
@@ -212,7 +217,7 @@ def test_semantic_request_without_configured_retriever_fails_explicitly() -> Non
 
 
 def test_unsupported_criteria_are_not_replaced_by_semantic_search() -> None:
-    retriever = StaticRetriever(RetrievalBackend.HYBRID, [1])
+    retriever = StaticRetriever(RetrievalBackend.HYBRID, [1], dense_scores={i: 0.9 for i in [1]})
     service = FakeResearchService()
     parser = _parser(
         {"semantic_query": "политически преследуемые"},
@@ -245,5 +250,87 @@ def test_empty_candidate_pool_completes_with_explicit_scope() -> None:
     assert service.candidate_calls[-1] == []
     assert result.report is not None
     assert result.report.summary.text.startswith(
-        "Среди 0 кандидатов семантического поиска найдено 0"
+        "В текущем индексе не найдено сущностей с достаточной семантической релевантностью"
     )
+
+
+# --- relevance acceptance ------------------------------------------------------------
+
+
+def test_all_rejected_candidates_complete_with_zero_matches_not_everyone() -> None:
+    # G: nearest neighbours exist but none is similar enough.
+    research_request = request(semantic_query="выращивание бананов на Марсе")
+    everyone = response(research_request, [person_result(person_id=1), person_result(person_id=2)])
+    service = FakeResearchService(response=everyone)
+    retriever = StaticRetriever(
+        RetrievalBackend.HYBRID, [1, 2, 3], dense_scores={1: 0.74, 2: 0.73, 3: 0.72}
+    )
+
+    result = run_research_query(
+        _graph(_parser({"semantic_query": "выращивание бананов на Марсе"}), service, retriever),
+        "Найди людей, которых преследовали за выращивание бананов на Марсе",
+    )
+
+    assert result.status is WorkflowStatus.COMPLETED
+    assert result.error is None
+    # [] reaches ResearchService: "no candidates", never "no restriction" (None).
+    assert service.candidate_calls[-1] == []
+    assert result.semantic_acceptance is not None
+    assert result.semantic_acceptance.rejected_count == 3
+    assert result.semantic_acceptance.accepted.hits == []
+    assert result.retrieval is not None and result.retrieval.entity_ids == [1, 2, 3]
+
+
+def test_only_accepted_candidates_are_researched_in_retrieval_order() -> None:
+    # D: one strong among weak neighbours.
+    research_request = request(semantic_query="антивоенная позиция")
+    service = FakeResearchService(response=response(research_request, [person_result(person_id=8)]))
+    retriever = StaticRetriever(
+        RetrievalBackend.HYBRID, [5, 8, 9], dense_scores={5: 0.78, 8: 0.84, 9: 0.79}
+    )
+
+    result = run_research_query(
+        _graph(_parser({"semantic_query": "антивоенная позиция"}), service, retriever), "x"
+    )
+
+    assert service.candidate_calls[-1] == [8]
+    assert result.report is not None
+    (item,) = result.report.items
+    assert item.retrieval_rank == 1
+    assert (
+        result.report.retrieval.candidates_returned,
+        result.report.retrieval.candidates_accepted,
+    ) == (3, 1)
+
+
+def test_graph_visits_accept_candidates_between_retrieval_and_research() -> None:
+    graph = _graph(
+        _parser({"semantic_query": "пикеты"}),
+        FakeResearchService(),
+        StaticRetriever(RetrievalBackend.HYBRID, [1], dense_scores={1: 0.9}),
+    )
+
+    visited = _visited(graph, "пикеты")
+
+    assert (
+        visited.index("retrieve_candidates")
+        < visited.index("accept_candidates")
+        < visited.index("research")
+    )
+
+
+def test_semantic_retriever_without_relevance_policy_is_not_configured() -> None:
+    service = FakeResearchService()
+    graph = build_research_graph(
+        request_parser=_parser({"semantic_query": "пикеты"}),
+        research_service=service,
+        snapshot_lookup=FakeSnapshotLookup(latest=LATEST),
+        planner=ResearchPlanner(SOURCES),
+        candidate_retriever=StaticRetriever(RetrievalBackend.HYBRID, [1], dense_scores={1: 0.9}),
+    )
+
+    result = run_research_query(graph, "пикеты")
+
+    assert result.error is not None
+    assert result.error.code is WorkflowErrorCode.SEMANTIC_RETRIEVAL_NOT_CONFIGURED
+    assert service.requests == []

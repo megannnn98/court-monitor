@@ -58,6 +58,7 @@ from semantic_retrieval.models import (
     RetrievalNotConfiguredError,
     RetrievalQuery,
 )
+from semantic_retrieval.relevance import SemanticRelevancePolicy
 from semantic_retrieval.retrievers import EntityRetriever
 
 logger = logging.getLogger("research_workflow")
@@ -155,9 +156,10 @@ def build_research_graph(
     review_policy: ResearchReviewPolicy | None = None,
     report_builder: ResearchReportBuilder | None = None,
     candidate_retriever: EntityRetriever | None = None,
+    relevance_policy: SemanticRelevancePolicy | None = None,
 ) -> ResearchGraph:
-    """`candidate_retriever` is needed only for plans with semantic retrieval;
-    structured requests never touch it (or Qdrant)."""
+    """`candidate_retriever` and `relevance_policy` are needed only for plans with
+    semantic retrieval; structured requests never touch them (or Qdrant)."""
     evaluator = ResearchResultEvaluator(
         planner=planner, review_policy=review_policy or ResearchReviewPolicy()
     )
@@ -342,7 +344,7 @@ def build_research_graph(
         semantic_query = request.criteria.semantic_query
         assert semantic_query is not None  # guaranteed by the planner's routing
         try:
-            if candidate_retriever is None:
+            if candidate_retriever is None or relevance_policy is None:
                 raise RetrievalNotConfiguredError(
                     "Semantic retrieval is not configured (set QDRANT_URL and build the index)"
                 )
@@ -381,15 +383,38 @@ def build_research_graph(
         )
         return {"retrieval": retrieval}
 
-    def route_after_retrieval(state: ResearchGraphState) -> Literal["failed", "research"]:
-        return "failed" if state.get("errors") else "research"
+    def route_after_retrieval(
+        state: ResearchGraphState,
+    ) -> Literal["failed", "accept_candidates"]:
+        return "failed" if state.get("errors") else "accept_candidates"
+
+    def accept_candidates(state: ResearchGraphState) -> ResearchGraphState:
+        """Semantic relevance acceptance: nearest neighbours are not automatically relevant.
+
+        Rejecting every candidate is a normal outcome (0 matches), not a failure.
+        """
+        assert relevance_policy is not None  # checked in retrieve_candidates
+        semantic_query = state["structured_request"].criteria.semantic_query
+        assert semantic_query is not None
+        retrieval = state["retrieval"]
+        decision = relevance_policy.accept(
+            RetrievalQuery(
+                text=semantic_query,
+                entity_type=retrieval.entity_type,
+                limit=max(len(retrieval.hits), 1),
+            ),
+            retrieval,
+        )
+        return {"semantic_decision": decision}
 
     def research(state: ResearchGraphState) -> ResearchGraphState:
         try:
-            retrieval = state.get("retrieval")
+            decision = state.get("semantic_decision")
+            # None: structured request, no restriction. []: semantic request with no
+            # accepted candidate, which must yield 0 results, never everyone.
             response = research_service.execute(
                 state["structured_request"],
-                candidate_person_ids=None if retrieval is None else retrieval.entity_ids,
+                candidate_person_ids=None if decision is None else decision.accepted.entity_ids,
             )
         except ResearchSnapshotNotFoundError as exc:
             return {
@@ -431,7 +456,7 @@ def build_research_graph(
             response=state["research_response"],
             evaluation=state["evaluation"],
             plan=state["research_plan"],
-            retrieval=state.get("retrieval"),
+            semantic=state.get("semantic_decision"),
         )
         logger.info("report_built status=%s items=%d", report.status.value, len(report.items))
         return {"report": report}
@@ -487,6 +512,7 @@ def build_research_graph(
     builder.add_node("validate_request", validate_request)
     builder.add_node("build_research_plan", build_research_plan)
     builder.add_node("retrieve_candidates", retrieve_candidates)
+    builder.add_node("accept_candidates", accept_candidates)
     builder.add_node("research", research)
     builder.add_node("evaluate_result", evaluate_result)
     builder.add_node("build_report", build_report)
@@ -530,8 +556,9 @@ def build_research_graph(
     builder.add_conditional_edges(
         "retrieve_candidates",
         route_after_retrieval,
-        {"failed": "workflow_failed", "research": "research"},
+        {"failed": "workflow_failed", "accept_candidates": "accept_candidates"},
     )
+    builder.add_edge("accept_candidates", "research")
     builder.add_conditional_edges(
         "research",
         route_after_research,

@@ -261,7 +261,13 @@ class ResearchRetrievalMetadata(BaseModel):
     mode: ResearchRetrievalMode
     backend: RetrievalBackend | None = None
     candidate_pool_size: int = 0
+    # Nearest neighbours found by retrieval (ranking only).
     candidates_returned: int = 0
+    # Candidates similar enough to satisfy semantic_query; only these were
+    # given to ResearchService.
+    candidates_accepted: int = 0
+    # Minimum dense cosine similarity used for acceptance.
+    min_similarity: float | None = None
 
 
 class ResearchReportSummary(BaseModel):

@@ -36,6 +36,7 @@ endif
 :build_research_plan\n(ResearchPlanner, source_registry);
 if (retrieval_mode != structured\n(semantic_query)?) then (да)
   :retrieve_candidates\n(hybrid: lexical + dense + RRF);
+  :accept_candidates\n(dense similarity ≥ порога);
   if (Qdrant/модель недоступны\nили не настроены?) then (да)
     :workflow_failed;
     stop
@@ -85,7 +86,7 @@ stop
 - **Отчёт и план** — `report` и `plan` добавлены рядом с `results` только для `completed`; при clarification/failed они `null`, planning и research не выполняются.
 - **Review** — `review_required` берётся из отчёта (`ResearchReviewPolicy`); условие review — это отчёт со статусом `review_required`, а не ошибка workflow. Review record при запросе не создаётся.
 - **Пустой результат** — `report.status` = `insufficient_data` (рекомендовано обновить источники) или `no_matches`; это не утверждение, что таких людей нет.
-- **Semantic query** — `criteria.semantic_query` (описание деятельности/обстоятельств) → узел `retrieve_candidates` отбирает до `SEMANTIC_CANDIDATE_POOL_SIZE` persons, затем `ResearchService` применяет все критерии по PostgreSQL в порядке кандидатов. Ошибка retrieval → `failed` / `semantic_retrieval_unavailable` или `semantic_retrieval_not_configured` (HTTP 503), не пустой результат. Retrieval score не является confidence ([Semantic-Retrieval](Semantic-Retrieval.md)).
+- **Semantic query** — `criteria.semantic_query` (описание деятельности/обстоятельств) → узел `retrieve_candidates` отбирает до `SEMANTIC_CANDIDATE_POOL_SIZE` ближайших persons, `accept_candidates` оставляет только достаточно похожих (dense similarity ≥ `SEMANTIC_DENSE_MIN_SCORE`), затем `ResearchService` применяет все критерии по PostgreSQL в порядке кандидатов. Ни один не принят → `completed` с 0 результатов, не ошибка. Ошибка retrieval → `failed` / `semantic_retrieval_unavailable` или `semantic_retrieval_not_configured` (HTTP 503), не пустой результат. Retrieval score не является confidence ([Semantic-Retrieval](Semantic-Retrieval.md)).
 
 ## `ResearchQueryResult`
 

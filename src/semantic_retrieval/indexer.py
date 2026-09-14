@@ -100,6 +100,8 @@ class SemanticIndexer:
         collection = self._collections[entity_type]
         if incremental:
             self._store.ensure_collection(collection, self._embedder.dimension)
+            # Mixing vectors of two models in one collection would corrupt it silently.
+            self._store.check_embedding_model(collection, self._embedder.model_id)
         else:
             self._store.recreate_collection(collection, self._embedder.dimension)
             self._repository.clear_indexed(entity_type)
@@ -134,6 +136,7 @@ class SemanticIndexer:
         """Incrementally (re)index the given entities; vanished ones are deleted."""
         builder = self._builder(entity_type)
         self._store.ensure_collection(self._collections[entity_type], self._embedder.dimension)
+        self._store.check_embedding_model(self._collections[entity_type], self._embedder.model_id)
         stats = IndexingStats(entity_type=entity_type)
         documents = builder.build(entity_ids)
         self._index_documents(documents, stats)
@@ -169,7 +172,10 @@ class SemanticIndexer:
         vectors = self._embedder.embed_documents([document.text for document in pending])
         self._store.upsert(
             self._collections[entity_type],
-            [VectorPoint(document=d, vector=v) for d, v in zip(pending, vectors, strict=True)],
+            [
+                VectorPoint(document=d, vector=v, embedding_model_id=self._embedder.model_id)
+                for d, v in zip(pending, vectors, strict=True)
+            ],
         )
         self._repository.mark_indexed(entity_type, [d.entity_id for d in pending], self._clock())
         stats.embedded += len(pending)

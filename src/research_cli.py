@@ -271,9 +271,15 @@ def format_research_report(report: ResearchReport) -> str:
     if retrieval.backend is None:
         lines.append(f"Retrieval: {retrieval.mode.value}")
     else:
+        threshold = (
+            f", min similarity {retrieval.min_similarity:.2f}"
+            if retrieval.min_similarity is not None
+            else ""
+        )
         lines.append(
-            f"Retrieval: {retrieval.mode.value} ({retrieval.candidates_returned} candidates, "
-            f"pool {retrieval.candidate_pool_size}) — candidates, not facts"
+            f"Retrieval: {retrieval.mode.value} (retrieved {retrieval.candidates_returned}, "
+            f"accepted {retrieval.candidates_accepted}, pool {retrieval.candidate_pool_size}"
+            f"{threshold}) — candidates, not facts"
         )
     routing = report.source_routing
     if routing.source_refresh_required:

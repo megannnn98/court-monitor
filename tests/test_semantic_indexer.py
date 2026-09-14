@@ -7,7 +7,11 @@ from qdrant_client import QdrantClient
 from semantic_fakes import HashingEmbedder, InMemoryBuilder, InMemoryDocumentRepository
 
 from semantic_retrieval.indexer import SemanticIndexer
-from semantic_retrieval.models import RetrievalEntityType, RetrievalNotConfiguredError
+from semantic_retrieval.models import (
+    IndexModelMismatchError,
+    RetrievalEntityType,
+    RetrievalNotConfiguredError,
+)
 from semantic_retrieval.vector_store import QdrantVectorStore
 
 PERSON = RetrievalEntityType.PERSON
@@ -126,3 +130,15 @@ def test_unconfigured_entity_type_is_an_error() -> None:
 
     with pytest.raises(RetrievalNotConfiguredError):
         indexer.rebuild(EVENT)
+
+
+def test_incremental_indexing_refuses_a_collection_of_another_model() -> None:
+    indexer, _, embedder, _, _ = _indexer({1: "a"})
+    indexer.rebuild(PERSON)
+    embedder.model_id = "another-model"
+
+    with pytest.raises(IndexModelMismatchError):
+        indexer.rebuild(PERSON, incremental=True)
+    with pytest.raises(IndexModelMismatchError):
+        indexer.index_entities(PERSON, [1])
+    assert indexer.rebuild(PERSON).embedded == 1  # a full rebuild replaces the index

@@ -35,8 +35,10 @@ def reciprocal_rank_fusion(
 
     scores: dict[_EntityKey, float] = {}
     ranks: dict[RetrievalBackend, dict[_EntityKey, int]] = {}
+    raw_scores: dict[RetrievalBackend, dict[_EntityKey, float]] = {}
     for list_backend, hits in ranked_lists.items():
         list_ranks = ranks.setdefault(list_backend, {})
+        list_scores = raw_scores.setdefault(list_backend, {})
         position = 0
         for hit in hits:
             key = (hit.entity_type, hit.entity_id)
@@ -44,6 +46,7 @@ def reciprocal_rank_fusion(
                 continue
             position += 1
             list_ranks[key] = position
+            list_scores[key] = hit.score
             scores[key] = scores.get(key, 0.0) + 1.0 / (rrf_k + position)
 
     missing_rank = max((len(hits) for hits in ranked_lists.values()), default=0) + 1
@@ -65,6 +68,11 @@ def reciprocal_rank_fusion(
                     list_backend.value: list_ranks[key]
                     for list_backend, list_ranks in ranks.items()
                     if key in list_ranks
+                },
+                component_scores={
+                    list_backend.value: list_scores[key]
+                    for list_backend, list_scores in raw_scores.items()
+                    if key in list_scores
                 },
             )
         )

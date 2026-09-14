@@ -27,11 +27,13 @@ from research_workflow.models import ResearchIntake, WorkflowStatus
 from rosfinmonitoring_snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from semantic_retrieval.factory import SemanticComponents
 from semantic_retrieval.models import RetrievalBackend, RetrievalEntityType
+from semantic_retrieval.relevance import DenseSimilarityRelevancePolicy
 from semantic_retrieval.vector_store import QdrantVectorStore, VectorPoint
 from source_registry import SOURCES
 
 pytestmark = pytest.mark.qdrant
 PERSON = RetrievalEntityType.PERSON
+MODEL = "fake-hashing-embedder"
 
 
 @pytest.fixture
@@ -64,18 +66,23 @@ def test_vector_store_round_trip_with_payload_filter(
     store.upsert(
         name,
         [
-            VectorPoint(document(1, "a"), [1.0, 0.0, 0.0]),
-            VectorPoint(document(2, "b"), [0.8, 0.2, 0.0]),
-            VectorPoint(document(3, "c"), [0.0, 0.0, 1.0]),
+            VectorPoint(document(1, "a"), [1.0, 0.0, 0.0], MODEL),
+            VectorPoint(document(2, "b"), [0.8, 0.2, 0.0], MODEL),
+            VectorPoint(document(3, "c"), [0.0, 0.0, 1.0], MODEL),
         ],
     )
-    store.upsert(name, [VectorPoint(document(1, "a2"), [1.0, 0.0, 0.0])])
+    store.upsert(name, [VectorPoint(document(1, "a2"), [1.0, 0.0, 0.0], MODEL)])
 
     assert store.count(name) == 3
-    assert [m.entity_id for m in store.search(name, [1.0, 0.0, 0.0], limit=2)] == [1, 2]
-    assert [m.entity_id for m in store.search(name, [1.0, 0.0, 0.0], limit=5, entity_ids=[3])] == [
-        3
-    ]
+    assert [
+        m.entity_id for m in store.search(name, [1.0, 0.0, 0.0], embedding_model_id=MODEL, limit=2)
+    ] == [1, 2]
+    assert [
+        m.entity_id
+        for m in store.search(
+            name, [1.0, 0.0, 0.0], embedding_model_id=MODEL, limit=5, entity_ids=[3]
+        )
+    ] == [3]
     store.delete(name, PERSON, [2])
     assert store.count(name) == 2
 
@@ -141,6 +148,8 @@ def test_indexed_postgres_persons_are_retrieved_and_researched_through_the_graph
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
         planner=ResearchPlanner(SOURCES, candidate_pool_size=10),
         candidate_retriever=components.retriever(RetrievalBackend.HYBRID),
+        # Hashing vectors are not E5 vectors: a threshold suited to the fake embedder.
+        relevance_policy=DenseSimilarityRelevancePolicy(dense_min_score=0.3),
     )
 
     result = run_research_query(graph, "Люди, преследуемые за пикеты против войны")

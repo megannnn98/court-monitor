@@ -61,3 +61,50 @@ def test_cross_encoder_ranks_the_semantically_relevant_document_first() -> None:
     reranked = reranker.rerank("преследование за антивоенные высказывания", candidates, limit=3)
 
     assert reranked[0].entity_id == 2
+
+
+def test_default_threshold_rejects_off_topic_queries_and_accepts_a_relevant_one() -> None:
+    from qdrant_client import QdrantClient
+
+    from semantic_retrieval.models import RetrievalQuery, SemanticDocument
+    from semantic_retrieval.relevance import DEFAULT_DENSE_MIN_SCORE, DenseSimilarityRelevancePolicy
+    from semantic_retrieval.retrievers import QdrantEntityRetriever
+    from semantic_retrieval.vector_store import QdrantVectorStore, VectorPoint
+
+    embedder = SentenceTransformerEmbedder(EmbeddingConfig.from_env())
+    store = QdrantVectorStore(QdrantClient(":memory:"))
+    store.ensure_collection("persons", embedder.dimension)
+    texts = {1: ANTI_WAR, 2: UNRELATED, 3: RELIGION}
+    vectors = embedder.embed_documents(list(texts.values()))
+    store.upsert(
+        "persons",
+        [
+            VectorPoint(
+                SemanticDocument(
+                    entity_type=RetrievalEntityType.PERSON,
+                    entity_id=entity_id,
+                    text=text,
+                    representation_version=1,
+                    content_hash=str(entity_id),
+                ),
+                vector,
+                embedder.model_id,
+            )
+            for (entity_id, text), vector in zip(texts.items(), vectors, strict=True)
+        ],
+    )
+    dense = QdrantEntityRetriever(
+        embedder=embedder, store=store, collections={RetrievalEntityType.PERSON: "persons"}
+    )
+    policy = DenseSimilarityRelevancePolicy(dense_min_score=DEFAULT_DENSE_MIN_SCORE)
+
+    for off_topic in ("выращивание бананов на Марсе", "рецепт борща"):
+        query = RetrievalQuery(text=off_topic, entity_type=RetrievalEntityType.PERSON)
+        decision = policy.accept(query, dense.retrieve(query))
+        assert decision.retrieved.hits  # nearest neighbours always exist
+        assert decision.accepted.hits == [], off_topic
+
+    query = RetrievalQuery(
+        text="выступал против вторжения в Украину", entity_type=RetrievalEntityType.PERSON
+    )
+    assert policy.accept(query, dense.retrieve(query)).accepted.entity_ids[:1] == [1]

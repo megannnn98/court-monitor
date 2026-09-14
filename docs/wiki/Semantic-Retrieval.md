@@ -12,6 +12,7 @@ component "retrieve_candidates\n(LangGraph node)" as Node
 component "PostgresLexicalEntityRetriever\n(semantic_documents tsvector)" as Lex
 component "QdrantEntityRetriever\n(E5 query → persons_semantic)" as Dense
 component "RRF k=60\n(dedup by entity)" as RRF
+component "accept_candidates\nSemanticRelevancePolicy\n(dense cosine ≥ threshold)" as Accept
 component "CrossEncoderReranker\n(opt-in)" as Rerank
 component "ResearchService.execute\n(candidate_person_ids)" as Service
 database "PostgreSQL" as PG
@@ -28,8 +29,9 @@ Dense --> Q
 Lex --> RRF
 Dense --> RRF
 RRF --> Rerank
-RRF --> Service : candidate ids
-Rerank --> Service : candidate ids
+RRF --> Accept : retrieved
+Rerank --> Accept : retrieved
+Accept --> Service : accepted ids (может быть [])
 Service --> PG
 Service --> Report
 @enduml
@@ -42,6 +44,18 @@ Service --> Report
 | `person_id`, `name`, `persecution_status`, `rosfinmonitoring_status`, `snapshot_id`, `event_types`, `date_from/date_to`, `source` | structured (Qdrant не нужен) |
 | `semantic_query` (описание деятельности/обстоятельств) | hybrid → кандидаты → те же structured-фильтры |
 | профессия, возраст, регион, … | `unsupported_criteria` → clarification; semantic search их не заменяет |
+
+## Ранжирование ≠ релевантность
+
+Ближайший сосед не означает релевантный: Qdrant вернёт кандидатов и на «выращивание бананов на Марсе». Поэтому после retrieval узел `accept_candidates` применяет `DenseSimilarityRelevancePolicy`:
+
+- кандидат принят, только если **dense cosine similarity ≥ `SEMANTIC_DENSE_MIN_SCORE`** (для hybrid/reranked берётся dense-компонента из `component_scores`);
+- RRF score, lexical rank и cross-encoder score кандидата не принимают; lexical-only hit отклоняется;
+- в `ResearchService` уходят только принятые id; `candidate_person_ids=[]` → 0 результатов (не поиск по всем), `None` — structured-запрос без ограничения;
+- все отклонены — нормальный `completed` с отчётом «В текущем индексе не найдено сущностей с достаточной семантической релевантностью запросу…», не ошибка;
+- `ResearchQueryResult.semantic_acceptance` хранит retrieved, accepted, число отклонённых, порог и модель.
+
+Порог привязан к модели: `0.80` откалиброван для `intfloat/multilingual-e5-base`. Для другой `EMBEDDING_MODEL_ID` без явного `SEMANTIC_DENSE_MIN_SCORE` — ошибка конфигурации. В payload Qdrant хранится `embedding_model_id`; индекс другой модели (или старый, без поля) → `IndexModelMismatchError` до полного rebuild.
 
 ## Semantic documents
 
@@ -110,7 +124,24 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 | hybrid | 0.920 | 0.780 | 0.851 | 0.527 | 0.825 | 0.700 | 0.755 |
 | hybrid_reranked | 0.875 | 0.632 | 0.650 | 0.418 | 0.825 | 0.500 | 0.483 |
 
-18 persons, 18 events, 11 запросов (5 semantic-only без лексического пересечения — это проверяется тестом). Reranker на этом корпусе ухудшает качество, поэтому по умолчанию выключен. Корпус маленький и синтетический.
+18 persons, 18 events, 11 ranking-запросов (5 semantic-only без лексического пересечения — это проверяется тестом) и 15 negative (off-topic) запросов, которые в ranking-метриках не участвуют. Reranker на этом корпусе ухудшает качество, поэтому по умолчанию выключен. Корпус маленький и синтетический.
+
+### Relevance acceptance (hybrid pools)
+
+Наблюдаемая dense similarity E5: 0.69–0.86; релевантные 0.76–0.86 пересекаются с нерелевантными внутри тематики, поэтому порог в основном отсекает off-topic запросы.
+
+| dense min score | relevant recall | grade-2 recall | semantic-only recall | precision | positive cases with relevant | negative rejection | negative false positives |
+|---|---|---|---|---|---|---|---|
+| 0.750 | 1.00 | 1.00 | 1.00 | 0.22 | 11/11 | 0.27 | 103 |
+| 0.760 | 1.00 | 1.00 | 1.00 | 0.25 | 11/11 | 0.47 | 65 |
+| 0.770 | 0.93 | 0.93 | 1.00 | 0.26 | 11/11 | 0.67 | 36 |
+| 0.780 | 0.64 | 0.72 | 0.69 | 0.24 | 11/11 | 0.73 | 17 |
+| 0.790 | 0.48 | 0.52 | 0.31 | 0.28 | 9/11 | 0.93 | 4 |
+| **0.800** (default) | 0.40 | 0.45 | 0.25 | 0.39 | 8/11 | 0.93 | 3 |
+| 0.810 | 0.33 | 0.34 | 0.19 | 0.61 | 6/11 | 0.93 | 1 |
+| 0.820 | 0.24 | 0.24 | 0.12 | 0.67 | 5/11 | 1.00 | 0 |
+
+Выбран `0.80`: 0 FP на 14 калибровочных negative (максимум 0.789), recall 0.40. Добавленный после калибровки «задержание кометы телескопом» пробивает порог (0.815, слово «задержание») — известное ограничение cosine-порога. Margin относительно фоновых off-topic документов проверен и не лучше.
 
 ## Ошибки
 
@@ -118,7 +149,8 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 |---|---|
 | нет `QDRANT_URL` при `semantic_query` | `failed` / `semantic_retrieval_not_configured` (HTTP 503) |
 | Qdrant недоступен, коллекции нет, модель не загружается, CUDA OOM, размер вектора не совпадает | `failed` / `semantic_retrieval_unavailable` (HTTP 503) |
-| 0 кандидатов | `completed`, «Среди 0 кандидатов семантического поиска найдено 0…» |
+| кандидаты найдены, но ни один не прошёл порог (или 0 кандидатов) | `completed`, 0 результатов, «В текущем индексе не найдено сущностей с достаточной семантической релевантностью запросу…» |
+| индекс построен другой моделью | `failed` / `semantic_retrieval_unavailable` (`IndexModelMismatchError`) |
 | запрос без `semantic_query` при недоступном Qdrant | работает как раньше |
 | некорректные semantic-переменные (`SEMANTIC_CANDIDATE_POOL_SIZE=abc`, `EMBEDDING_DEVICE=gpu`) | `SemanticConfigurationError`: API 503, CLI — сообщение и выход |
 
@@ -132,11 +164,13 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 | `RERANKER_MODEL_ID` / `RERANKER_DEVICE` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` / `auto` |
 | `SEMANTIC_RERANK` | выключен |
 | `SEMANTIC_CANDIDATE_POOL_SIZE` | `100` (1..200) |
+| `SEMANTIC_DENSE_MIN_SCORE` | `0.80` для `intfloat/multilingual-e5-base`; для другой модели обязателен |
 | `EVALUATION_DATABASE_URL` | для `evaluate-retrieval` |
 
 ## Ограничения
 
-- Нет порога релевантности: пул — top-N ближайших; результат означает «подходят под критерии среди N самых похожих».
+- Принять можно только кандидата из dense top-`SEMANTIC_CANDIDATE_POOL_SIZE`: lexical-hit вне dense-выдачи не имеет dense similarity и отклоняется (важно, если выше порога больше сущностей, чем размер пула).
+- Порог откалиброван на маленьком синтетическом корпусе; при 0.80 теряется ~60% релевантных сущностей корпуса, часть нерелевантных внутри тематики всё равно принимается, word-play негативы («задержание кометы») пробивают порог.
 - Индекс не обновляется автоматически после ingestion/классификации — `rebuild-semantic-index --incremental`.
 - Нет межпроцессной блокировки индексации: не запускайте полный rebuild параллельно с другим rebuild/index — он пересоздаёт коллекцию.
 - Загрузка моделей защищена lock'ом: параллельные первые запросы в FastAPI загружают модель один раз.

@@ -335,3 +335,34 @@ def test_failed_dimension_check_does_not_leave_a_half_loaded_model(
     for _ in range(2):
         with pytest.raises(EmbeddingError, match="does not report a dimension"):
             embedder.embed_query("x")
+
+
+def test_components_tie_the_dense_threshold_to_the_embedding_model(fake_models: None) -> None:
+    config = SemanticRetrievalConfig(qdrant_url="http://127.0.0.1:1")
+
+    default = create_semantic_components(None, config, {})  # type: ignore[arg-type]
+    explicit = create_semantic_components(
+        None,  # type: ignore[arg-type]
+        config,
+        {"EMBEDDING_MODEL_ID": "sentence-transformers/LaBSE", "SEMANTIC_DENSE_MIN_SCORE": "0.5"},
+    )
+
+    assert default.dense_min_score == 0.80
+    assert explicit.dense_min_score == 0.5
+    assert (
+        explicit.relevance_policy()
+        .accept(
+            RetrievalQuery(text="x", entity_type=RetrievalEntityType.PERSON),
+            StaticRetriever(RetrievalBackend.DENSE, []).retrieve(
+                RetrievalQuery(text="x", entity_type=RetrievalEntityType.PERSON)
+            ),
+        )
+        .embedding_model_id
+        == "sentence-transformers/LaBSE"
+    )
+    with pytest.raises(SemanticConfigurationError, match="SEMANTIC_DENSE_MIN_SCORE"):
+        create_semantic_components(
+            None,  # type: ignore[arg-type]
+            config,
+            {"EMBEDDING_MODEL_ID": "sentence-transformers/LaBSE"},
+        )

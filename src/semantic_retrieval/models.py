@@ -66,6 +66,9 @@ class RetrievalHit(BaseModel):
     rank: int = Field(ge=1)
     # Per-backend ranks for fused/reranked hits, e.g. {"lexical": 3, "dense": 1}.
     component_ranks: dict[str, int] = Field(default_factory=dict)
+    # Per-backend raw scores for fused/reranked hits, e.g. {"dense": 0.83}.
+    # Needed for relevance acceptance: an RRF score says nothing about relevance.
+    component_scores: dict[str, float] = Field(default_factory=dict)
 
 
 class RetrievalResult(BaseModel):
@@ -100,6 +103,10 @@ class RetrievalError(Exception):
 
 class RetrievalUnavailableError(RetrievalError):
     """The vector store (or another retrieval dependency) is unreachable."""
+
+
+class IndexModelMismatchError(RetrievalUnavailableError):
+    """The vector index was built with a different embedding model."""
 
 
 class RetrievalNotConfiguredError(RetrievalError):

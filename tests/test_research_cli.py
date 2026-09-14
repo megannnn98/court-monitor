@@ -396,6 +396,8 @@ def test_ask_report_shows_semantic_candidates_without_scores() -> None:
                     "backend": RetrievalBackend.HYBRID,
                     "candidate_pool_size": 100,
                     "candidates_returned": 7,
+                    "candidates_accepted": 3,
+                    "min_similarity": 0.8,
                 }
             ),
             "items": [result.report.items[0].model_copy(update={"retrieval_rank": 2})],
@@ -404,6 +406,9 @@ def test_ask_report_shows_semantic_candidates_without_scores() -> None:
 
     text = format_query_result(result.model_copy(update={"report": report}))
 
-    assert "Retrieval: hybrid (7 candidates, pool 100) — candidates, not facts" in text
+    assert (
+        "Retrieval: hybrid (retrieved 7, accepted 3, pool 100, min similarity 0.80) "
+        "— candidates, not facts"
+    ) in text
     assert "Retrieval rank: 2 (similarity, not a fact)" in text
     assert "score" not in text

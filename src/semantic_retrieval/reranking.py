@@ -65,6 +65,11 @@ def order_by_scores(
                     **candidates[position].hit.component_ranks,
                     candidates[position].hit.backend.value: candidates[position].hit.rank,
                 },
+                # Keep the dense similarity: acceptance never uses reranker scores.
+                "component_scores": {
+                    **candidates[position].hit.component_scores,
+                    candidates[position].hit.backend.value: candidates[position].hit.score,
+                },
             }
         )
         for rank, position in enumerate(ordered, start=1)

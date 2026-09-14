@@ -8,20 +8,20 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `feature-semantic-hybrid-retrieval` (part 4 and its review fixes), 2026-09-14, Python 3.13.
+Branch `fix/semantic-relevance-acceptance`, 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (179 files) |
-| Tests without services | `uv sync --frozen && uv run pytest` | 517 passed, 151 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 663 passed, 5 skipped |
-| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 665 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (182 files) |
+| Tests without services | `uv sync --frozen && uv run pytest` | 549 passed, 153 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 696 passed, 6 skipped |
+| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 699 passed, 3 skipped |
 
 Skipped in the last run: the three opt-in live Together AI tests
-(`TOGETHER_LIVE_TESTS=1`), not executed. CI (`.github/workflows/ci.yml`) runs
-the commands without the `semantic` group and without model tests; it has not
-run on GitHub for this branch (no push).
+(`TOGETHER_LIVE_TESTS=1`), not executed. CI has not run on GitHub for this
+branch (no push). Existing semantic indexes need a full
+`rebuild-semantic-index` (points now carry `embedding_model_id`).
 
 ## Completed Components ✅
 
@@ -187,9 +187,16 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
   (opt-in `SEMANTIC_RERANK=1`)
 - Structured requests never touch Qdrant; semantic failures are workflow
   failures (`semantic_retrieval_unavailable` / `_not_configured`, HTTP 503)
+- Retrieval ranking and semantic relevance acceptance are separate:
+  `accept_candidates` (`DenseSimilarityRelevancePolicy`) keeps only candidates
+  with dense cosine ≥ `SEMANTIC_DENSE_MIN_SCORE` (0.80, calibrated for
+  multilingual-e5-base; required for other models); RRF/lexical/reranker scores
+  never accept; all rejected → completed with 0 results (`candidate_person_ids=[]`,
+  never an unrestricted search); Qdrant points carry `embedding_model_id`
 - Retrieval score is never a domain confidence; report shows mode and rank only
 - Evaluation (18 persons, 11 cases, 5 semantic-only), k=5: lexical nDCG 0.408,
-  dense 0.823, hybrid 0.851, hybrid_reranked 0.650 — reranker off by default
+  dense 0.823, hybrid 0.851, hybrid_reranked 0.650 — reranker off by default; acceptance
+  sweep over 15 negative cases (0.80: negative rejection 14/15, recall 0.40)
 - CLI: `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`
 
 ### 11. API Layer
@@ -230,7 +237,9 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 - Research: no region/city, court, organization or occupation filters (not
   linked to persons); only active persons; no consistent read across the
   repository calls of one request (TODO in ADR 0008).
-- Semantic retrieval: no relevance threshold (pool = top-N nearest persons);
+- Semantic relevance threshold calibrated on a small synthetic corpus: at 0.80
+  relevant recall is 0.40 and a word-play negative («задержание кометы»)
+  still leaks; semantic retrieval:
   index is refreshed manually (`rebuild-semantic-index --incremental`); the
   evaluation corpus is small and synthetic; reranker hurt quality on it.
 - Reports: persecution reasons have no per-reason evidence spans (the

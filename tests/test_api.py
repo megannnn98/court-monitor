@@ -11,6 +11,7 @@ from research_report_fixtures import SNAPSHOT_ID, person_result, rosfin
 from research_report_fixtures import request as report_request
 from research_report_fixtures import response as report_response
 from research_workflow_fakes import FakeRequestParser, FakeResearchService, FakeSnapshotLookup
+from semantic_fakes import StaticRetriever
 from sqlalchemy.orm import Session, sessionmaker
 
 from api import (
@@ -40,6 +41,8 @@ from research_workflow.llm import (
     LlmUnavailableError,
 )
 from research_workflow.models import ResearchIntake, UnsupportedCriterion
+from semantic_retrieval.models import RetrievalBackend
+from semantic_retrieval.relevance import DenseSimilarityRelevancePolicy
 from source_registry import SOURCES
 
 
@@ -592,3 +595,43 @@ def test_research_query_with_invalid_semantic_config_returns_503_not_500(
 
     assert response.status_code == 503
     assert "SEMANTIC_CANDIDATE_POOL_SIZE" in response.json()["detail"]
+
+
+def test_unrelated_semantic_query_is_a_completed_zero_result_not_503(
+    override_query_graph: Callable[[ResearchGraph], TestClient],
+) -> None:
+    service = FakeResearchService()
+    graph = build_research_graph(
+        request_parser=FakeRequestParser(
+            intake=ResearchIntake(
+                request={
+                    "object_type": "person",
+                    "criteria": {"semantic_query": "выращивание бананов на Марсе"},
+                }
+            )
+        ),
+        research_service=service,
+        snapshot_lookup=FakeSnapshotLookup(),
+        planner=ResearchPlanner(SOURCES),
+        # Nearest neighbours exist, but none is similar enough.
+        candidate_retriever=StaticRetriever(
+            RetrievalBackend.HYBRID, [1, 2], dense_scores={1: 0.74, 2: 0.73}
+        ),
+        relevance_policy=DenseSimilarityRelevancePolicy(dense_min_score=0.80),
+    )
+    client = override_query_graph(graph)
+
+    response = client.post(
+        "/research/query",
+        json={"query": "Найди людей, которых преследовали за выращивание бананов на Марсе"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["error"], body["results"]) == ("completed", None, [])
+    assert service.candidate_calls == [[]]
+    assert body["semantic_acceptance"]["rejected_count"] == 2
+    assert body["report"]["retrieval"]["candidates_accepted"] == 0
+    assert body["report"]["summary"]["text"].startswith(
+        "В текущем индексе не найдено сущностей с достаточной семантической релевантностью"
+    )

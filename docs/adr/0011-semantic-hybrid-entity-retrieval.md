@@ -37,7 +37,10 @@ retrieve_candidates (LangGraph node → EntityRetriever)
       Lexical: PostgreSQL full-text over semantic_documents ─┐
       Dense:   E5 query embedding → Qdrant persons_semantic ─┼→ RRF (k=60) → [cross-encoder]
                                                              ┘
-      ↓ candidate person ids (≤ SEMANTIC_CANDIDATE_POOL_SIZE, default 100, max 200)
+      ↓ retrieved candidates (≤ SEMANTIC_CANDIDATE_POOL_SIZE, default 100, max 200)
+accept_candidates (LangGraph node → SemanticRelevancePolicy)
+      accepted only if dense cosine similarity ≥ SEMANTIC_DENSE_MIN_SCORE
+      ↓ accepted person ids (possibly [])
 ResearchService.execute(request, candidate_person_ids=…)
       every criterion applied from PostgreSQL; facts loaded from PostgreSQL
       ↓
@@ -103,6 +106,38 @@ cannot check. `POST /research` (structured endpoint, no retrieval) rejects
 `semantic_query` with 422 instead of ignoring it; `ResearchService.execute`
 raises if it gets `semantic_query` without candidate ids.
 
+### Retrieval ranking vs. semantic relevance acceptance
+
+**A nearest neighbour is not automatically relevant.** Qdrant always returns
+the closest vectors, also for a query unrelated to every entity («выращивание
+бананов на Марсе»). Treating that pool as "semantic criterion matched" would
+show unrelated people. Two separate steps:
+
+- *Retrieval* (lexical + dense + RRF) only ranks candidates.
+- *Acceptance* (`DenseSimilarityRelevancePolicy`) decides which candidates
+  satisfy `semantic_query`: a hit is accepted only if its dense cosine
+  similarity (the dense hit's own score, or the dense component kept on fused
+  and reranked hits in `component_scores`) is ≥ `SEMANTIC_DENSE_MIN_SCORE`.
+  RRF scores, lexical ranks and reranker scores never accept a candidate; a
+  lexical-only hit (no dense score) is rejected. Scores of different backends
+  are never compared to one threshold.
+- The decision keeps both levels (`SemanticRetrievalDecision`: retrieved,
+  accepted, rejected count, threshold, model) in
+  `ResearchQueryResult.semantic_acceptance`.
+- Only accepted ids reach `ResearchService`. `candidate_person_ids=None` means
+  "no restriction" (structured request); `[]` means "no semantic candidate" and
+  yields 0 results — never an unrestricted search. All candidates rejected is
+  a normal completed result, not a failure; the report says that no entity in
+  the current index is similar enough, never that such people do not exist.
+  Source routing may still recommend a refresh.
+
+The threshold belongs to the embedding model: the default 0.80 is calibrated
+for `intfloat/multilingual-e5-base` only; with another `EMBEDDING_MODEL_ID`,
+`SEMANTIC_DENSE_MIN_SCORE` must be set explicitly (configuration error
+otherwise). Qdrant points store `embedding_model_id`; searching or
+incrementally indexing a collection built by another model (or without that
+field) fails with `IndexModelMismatchError` until a full rebuild.
+
 ### Failures are not empty results
 
 If a plan needs semantic retrieval and Qdrant is unreachable, the collection is
@@ -150,6 +185,36 @@ Consequences for the design:
 - The corpus is small and written by the same authors as the queries; the
   numbers show relative behaviour, not production quality.
 
+### Acceptance calibration
+
+`evaluate-retrieval` also sweeps dense thresholds over hybrid pools (k-independent):
+positive cases measure recall/precision of accepted entities, 15 negative
+(off-topic) cases measure rejection and false positives. E5 cosine similarities
+are compressed (observed 0.69–0.86); relevant entities 0.76–0.86 overlap with
+in-domain irrelevant ones, so the threshold mainly rejects off-topic queries
+and cannot raise in-domain precision much. Result (real model, 2026-09-14):
+
+| dense min score | relevant recall | grade-2 recall | semantic-only recall | precision | positive cases with relevant | negative rejection | negative false positives |
+|---|---|---|---|---|---|---|---|
+| 0.750 | 1.00 | 1.00 | 1.00 | 0.22 | 11/11 | 0.27 | 103 |
+| 0.760 | 1.00 | 1.00 | 1.00 | 0.25 | 11/11 | 0.47 | 65 |
+| 0.770 | 0.93 | 0.93 | 1.00 | 0.26 | 11/11 | 0.67 | 36 |
+| 0.780 | 0.64 | 0.72 | 0.69 | 0.24 | 11/11 | 0.73 | 17 |
+| 0.790 | 0.48 | 0.52 | 0.31 | 0.28 | 9/11 | 0.93 | 4 |
+| **0.800** (default) | 0.40 | 0.45 | 0.25 | 0.39 | 8/11 | 0.93 | 3 |
+| 0.810 | 0.33 | 0.34 | 0.19 | 0.61 | 6/11 | 0.93 | 1 |
+| 0.820 | 0.24 | 0.24 | 0.12 | 0.67 | 5/11 | 1.00 | 0 |
+
+0.80 was chosen (project priority: better not to show a person than to show an
+unrelated one): no accepted entity for the 14 calibration negatives (highest
+similarity 0.789), relevant recall 0.40. A background-calibrated margin (score
+minus similarity to off-topic reference documents) was also tested and was not
+better (recall 0.40 at zero false positives). The 15th negative, added after
+calibration, «задержание кометы телескопом», still leaks (0.815 via the word
+«задержание»): shared-keyword nonsense cannot be rejected by a cosine threshold
+without losing most recall. Lexical-only acceptance and a reranker threshold
+were not introduced (no data supporting them; the reranker stays off).
+
 ## Relation to Entity Resolution v2
 
 Dense person retrieval is reusable for candidate generation in ER v2, but
@@ -172,6 +237,10 @@ links persons based on similarity.
   with another rebuild/index run (a full rebuild recreates the collection).
 - Model loading is guarded by a per-instance lock, so concurrent first
   semantic requests in the FastAPI thread pool load each model once.
-- Dense retrieval has no relevance threshold: the pool is the top-N nearest
-  entities, so with semantic_query the result means "matching criteria among
-  the N most similar persons", as the report states.
+- Relevance acceptance trades recall for precision: with the default
+  threshold roughly 60% of relevant entities in the evaluation corpus are not
+  accepted, and some in-domain but irrelevant entities still are. The threshold
+  is calibrated on a small synthetic corpus.
+- New config: `SEMANTIC_DENSE_MIN_SCORE` (required for models other than
+  `intfloat/multilingual-e5-base`). Indexes built before `embedding_model_id`
+  was stored need a full `rebuild-semantic-index`.

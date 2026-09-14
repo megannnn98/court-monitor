@@ -12,6 +12,7 @@ from research_models import PersonResearchResult, ResearchRequest
 from research_planning.models import ResearchPlan
 from research_reports.models import ResearchReport
 from semantic_retrieval.models import RetrievalResult
+from semantic_retrieval.relevance import SemanticRetrievalDecision
 
 
 class UnsupportedCriterion(BaseModel):
@@ -104,6 +105,9 @@ class ResearchQueryResult(BaseModel):
     # Debug: semantic candidates with backend ranks and retrieval scores.
     # Retrieval scores are not confidences of any fact.
     retrieval: RetrievalResult | None = None
+    # Which retrieved candidates passed semantic relevance acceptance and were
+    # given to ResearchService (accepted), and how many were rejected.
+    semantic_acceptance: SemanticRetrievalDecision | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

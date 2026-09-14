@@ -33,10 +33,8 @@ def create_research_graph(
     # Semantic retrieval is optional: without QDRANT_URL, structured requests
     # work and semantic ones fail with semantic_retrieval_not_configured.
     semantic = SemanticRetrievalConfig.from_env(env)
-    candidate_retriever = (
-        create_semantic_components(session_factory, semantic, env).retriever(
-            RetrievalBackend.HYBRID_RERANKED if semantic.rerank else RetrievalBackend.HYBRID
-        )
+    components = (
+        create_semantic_components(session_factory, semantic, env)
         if semantic.qdrant_url is not None
         else None
     )
@@ -52,5 +50,12 @@ def create_research_graph(
             rerank_semantic=semantic.rerank,
             candidate_pool_size=semantic.candidate_pool_size,
         ),
-        candidate_retriever=candidate_retriever,
+        candidate_retriever=(
+            components.retriever(
+                RetrievalBackend.HYBRID_RERANKED if semantic.rerank else RetrievalBackend.HYBRID
+            )
+            if components is not None
+            else None
+        ),
+        relevance_policy=components.relevance_policy() if components is not None else None,
     )

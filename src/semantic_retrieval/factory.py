@@ -28,6 +28,11 @@ from semantic_retrieval.models import (
     RetrievalEntityType,
     SemanticConfigurationError,
 )
+from semantic_retrieval.relevance import (
+    DEFAULT_DENSE_MIN_SCORE,
+    DenseSimilarityRelevancePolicy,
+    resolve_dense_min_score,
+)
 from semantic_retrieval.reranking import CrossEncoderReranker, Reranker, RerankerConfig
 from semantic_retrieval.retrievers import (
     EntityRetriever,
@@ -105,6 +110,12 @@ class SemanticComponents:
     collections: Mapping[RetrievalEntityType, str]
     reranker: Reranker | None = None
     rerank_candidates: int = 50
+    dense_min_score: float = DEFAULT_DENSE_MIN_SCORE
+
+    def relevance_policy(self) -> DenseSimilarityRelevancePolicy:
+        return DenseSimilarityRelevancePolicy(
+            dense_min_score=self.dense_min_score, embedding_model_id=self.embedder.model_id
+        )
 
     def retriever(self, backend: RetrievalBackend) -> EntityRetriever:
         lexical = PostgresLexicalEntityRetriever(self.session_factory)
@@ -152,11 +163,16 @@ def create_semantic_components(
     if config.qdrant_url is None:
         raise ValueError("QDRANT_URL is not set")
     use_reranker = config.rerank if with_reranker is None else with_reranker
+    embedding_config = EmbeddingConfig.from_env(env)
     return SemanticComponents(
         session_factory=session_factory,
         store=create_vector_store(config.qdrant_url),
-        embedder=SentenceTransformerEmbedder(EmbeddingConfig.from_env(env)),
+        embedder=SentenceTransformerEmbedder(embedding_config),
         collections=config.collections,
         reranker=CrossEncoderReranker(RerankerConfig.from_env(env)) if use_reranker else None,
         rerank_candidates=config.rerank_candidates,
+        # Threshold is tied to the embedding model (fails for an uncalibrated model).
+        dense_min_score=resolve_dense_min_score(
+            os.environ if env is None else env, embedding_config.model_id
+        ),
     )

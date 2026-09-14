@@ -141,6 +141,8 @@ class StaticRetriever:
     entity_ids: list[int] = field(default_factory=list)
     error: Exception | None = None
     queries: list[RetrievalQuery] = field(default_factory=list)
+    # Dense cosine similarity per entity id, stored as the dense component score.
+    dense_scores: dict[int, float] = field(default_factory=dict)
 
     def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
         self.queries.append(query)
@@ -161,6 +163,11 @@ class StaticRetriever:
                     score=1.0 / rank,
                     backend=self.backend,
                     rank=rank,
+                    component_scores=(
+                        {"dense": self.dense_scores[entity_id]}
+                        if entity_id in self.dense_scores
+                        else {}
+                    ),
                 )
                 for rank, entity_id in enumerate(ids, start=1)
             ],
@@ -210,10 +217,14 @@ class UnavailableStore:
         name: str,
         vector: Sequence[float],
         *,
+        embedding_model_id: str,
         limit: int,
         entity_ids: Sequence[int] | None = None,
     ) -> list[VectorMatch]:
         self._fail("search")
+
+    def check_embedding_model(self, name: str, embedding_model_id: str) -> None:
+        self._fail("check_embedding_model")
 
     def count(self, name: str) -> int:
         self._fail("count")

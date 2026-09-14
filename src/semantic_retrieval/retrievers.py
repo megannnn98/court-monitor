@@ -58,7 +58,11 @@ class QdrantEntityRetriever:
             )
         vector = self._embedder.embed_query(query.text)
         matches = self._store.search(
-            collection, vector, limit=query.limit, entity_ids=query.filters.entity_ids
+            collection,
+            vector,
+            embedding_model_id=self._embedder.model_id,
+            limit=query.limit,
+            entity_ids=query.filters.entity_ids,
         )
         ordered = sorted(matches, key=lambda match: (-match.score, match.entity_id))
         hits = [

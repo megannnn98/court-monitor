@@ -32,6 +32,7 @@ from semantic_retrieval.retrievers import (
 from semantic_retrieval.vector_store import QdrantVectorStore, VectorPoint
 
 PERSON = RetrievalEntityType.PERSON
+MODEL = "fake-hashing-embedder"
 LEXICAL = RetrievalBackend.LEXICAL
 DENSE = RetrievalBackend.DENSE
 
@@ -52,7 +53,7 @@ def _dense(texts: dict[int, str]) -> tuple[QdrantEntityRetriever, HashingEmbedde
     store.upsert(
         "persons_semantic",
         [
-            VectorPoint(doc, vector)
+            VectorPoint(doc, vector, MODEL)
             for doc, vector in zip(
                 docs, embedder.embed_documents([d.text for d in docs]), strict=True
             )

@@ -340,3 +340,36 @@ def test_report_for_empty_database_result_recommends_refresh(
     assert result.report is not None
     assert result.report.status is ResearchReportStatus.INSUFFICIENT_DATA
     assert set(result.report.recommended_sources) == {"ovd-info", "sota-vision"}
+
+
+def test_empty_accepted_candidates_never_turn_into_an_unrestricted_search(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Regression: candidate_person_ids=[] means "no semantic candidates", None means
+    "no restriction". Persons exist; the semantic request must still return nobody."""
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        for name in ("Иван Иванов", "Пётр Петров"):
+            person_id = seed.person(name)
+            seed.classification(person_id, "political", 0.9)
+        session.commit()
+    service = ResearchService(
+        repository=SqlAlchemyPersonResearchRepository(session_factory),
+        candidate_query=CandidateQueryService(session_factory),
+    )
+    structured = ResearchRequest.model_validate(
+        {"object_type": "person", "criteria": {"persecution_status": "political"}}
+    )
+    semantic = ResearchRequest.model_validate(
+        {
+            "object_type": "person",
+            "criteria": {
+                "persecution_status": "political",
+                "semantic_query": "выращивание бананов на Марсе",
+            },
+        }
+    )
+
+    assert service.execute(structured, candidate_person_ids=None).total_matched == 2
+    empty = service.execute(semantic, candidate_person_ids=[])
+    assert (empty.results, empty.total_matched) == ([], 0)

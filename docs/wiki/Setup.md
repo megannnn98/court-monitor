@@ -15,6 +15,7 @@
 | `EMBEDDING_MODEL_ID`, `EMBEDDING_DEVICE` | `intfloat/multilingual-e5-base`, `auto` (`cpu`/`cuda`) |
 | `RERANKER_MODEL_ID`, `RERANKER_DEVICE`, `SEMANTIC_RERANK` | cross-encoder, по умолчанию выключен (`SEMANTIC_RERANK=1`) |
 | `SEMANTIC_CANDIDATE_POOL_SIZE` | размер пула кандидатов, по умолчанию `100` (1..200) |
+| `SEMANTIC_DENSE_MIN_SCORE` | порог семантической релевантности (dense cosine), `0.80` откалиброван для `intfloat/multilingual-e5-base`; при другой `EMBEDDING_MODEL_ID` обязателен |
 | `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval` |
 
 Для Docker Compose также используются:
@@ -47,6 +48,8 @@ RERANKER_MODEL_ID=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
 RERANKER_DEVICE=auto
 SEMANTIC_RERANK=0
 SEMANTIC_CANDIDATE_POOL_SIZE=100
+# calibrated for EMBEDDING_MODEL_ID=intfloat/multilingual-e5-base
+SEMANTIC_DENSE_MIN_SCORE=0.80
 ```
 
 `TOGETHER_*` нужны только для natural-language запросов; без них `ask` и `POST /research/query` завершаются ошибкой конфигурации, остальной pipeline работает. Semantic-переменные нужны только для запросов с `semantic_query` и команд `rebuild-semantic-index`/`semantic-search`; модели требуют `uv sync --group semantic` ([Semantic-Retrieval](Semantic-Retrieval.md)).

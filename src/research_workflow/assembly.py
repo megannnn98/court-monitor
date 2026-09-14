@@ -26,6 +26,7 @@ def completed_result(state: ResearchGraphState) -> ResearchQueryResult:
         plan=state.get("research_plan"),
         report=state.get("report"),
         retrieval=state.get("retrieval"),
+        semantic_acceptance=state.get("semantic_decision"),
     )
 
 

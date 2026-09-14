@@ -8,6 +8,7 @@ Judgments reference corpus keys, never database ids.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -34,6 +35,7 @@ from semantic_retrieval.models import (
     RetrievalEntityType,
     RetrievalQuery,
 )
+from semantic_retrieval.relevance import DenseSimilarityRelevancePolicy, dense_similarity
 from semantic_retrieval.retrievers import EntityRetriever
 
 CORPUS_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)
@@ -105,10 +107,20 @@ class EntityRetrievalCase(BaseModel):
     judgments: dict[str, int]
     # No lexical (stemmed) overlap between the query and relevant documents.
     semantic_only: bool = False
+    # No entity of the corpus is relevant (off-topic query). Excluded from
+    # ranking metrics; used for relevance acceptance (should accept nothing).
+    negative: bool = False
 
     @model_validator(mode="after")
     def validate_grades(self) -> EntityRetrievalCase:
-        if not any(grade > 0 for grade in self.judgments.values()):
+        has_relevant = any(grade > 0 for grade in self.judgments.values())
+        if self.negative:
+            if has_relevant or self.semantic_only:
+                raise ValueError(
+                    f"negative case {self.query_id} cannot have relevant entities or be semantic_only"
+                )
+            return self
+        if not has_relevant:
             raise ValueError(f"case {self.query_id} has no relevant entity")
         if any(grade not in (0, 1, 2) for grade in self.judgments.values()):
             raise ValueError(f"case {self.query_id}: grades must be 0, 1 or 2")
@@ -318,7 +330,8 @@ def evaluate_backend(
     if k <= 0:
         raise ValueError("k must be greater than 0")
     results: list[CaseResult] = []
-    for case in cases:
+    # Ranking metrics are undefined without a relevant entity.
+    for case in (case for case in cases if not case.negative):
         key_by_id = {entity_id: key for key, entity_id in ids.ids_for(case.entity_type).items()}
         judgments: Mapping[int, int] = {
             ids.ids_for(case.entity_type)[key]: grade for key, grade in case.judgments.items()
@@ -366,5 +379,139 @@ def format_comparison(evaluations: Sequence[BackendEvaluation]) -> str:
             f"| {evaluation.backend.value} | {o.mrr:.3f} | {o.recall_at_k:.3f} | "
             f"{o.ndcg_at_k:.3f} | {o.precision_at_k:.3f} | {s.mrr:.3f} | {s.recall_at_k:.3f} | "
             f"{s.ndcg_at_k:.3f} |"
+        )
+    return "\n".join(lines)
+
+
+# --- relevance acceptance ----------------------------------------------------------
+
+ACCEPTANCE_POOL_SIZE = 100
+
+
+class AcceptanceRow(BaseModel):
+    threshold: float
+    is_default: bool
+    # Positive cases: accepted relevant / all relevant (grade > 0).
+    relevant_recall: float
+    grade2_recall: float
+    semantic_only_recall: float
+    # Positive cases: accepted relevant / accepted.
+    precision: float
+    positive_cases_with_accepted_relevant: int
+    positive_cases: int
+    # Negative cases: share with nothing accepted, and accepted entities in total.
+    negative_rejection_rate: float
+    negative_false_positives: int
+    negative_cases: int
+
+
+class AcceptanceEvaluation(BaseModel):
+    """Dense-similarity acceptance swept over thresholds on one retriever's pools."""
+
+    observed_min: float
+    observed_max: float
+    rows: list[AcceptanceRow]
+
+
+def evaluate_acceptance(
+    *,
+    retriever: EntityRetriever,
+    cases: Sequence[EntityRetrievalCase],
+    ids: CorpusIds,
+    thresholds: Sequence[float] | None,
+    default_threshold: float,
+) -> AcceptanceEvaluation:
+    """Retrieve each case once, then apply DenseSimilarityRelevancePolicy per threshold.
+
+    Without explicit thresholds the grid spans the observed dense similarities
+    (0.01 steps) plus the default threshold, because the useful range depends
+    on the embedding model.
+    """
+    pools = []
+    for case in cases:
+        query = RetrievalQuery(
+            text=case.query_text, entity_type=case.entity_type, limit=ACCEPTANCE_POOL_SIZE
+        )
+        pools.append((case, query, retriever.retrieve(query)))
+
+    similarities = [
+        similarity
+        for _, _, result in pools
+        for hit in result.hits
+        if (similarity := dense_similarity(hit)) is not None
+    ]
+    observed_min = min(similarities, default=0.0)
+    observed_max = max(similarities, default=0.0)
+    if thresholds is None:
+        low = math.floor(observed_min * 100)
+        high = math.ceil(observed_max * 100)
+        grid = {round(value / 100, 2) for value in range(low, high + 1)}
+        grid.add(round(default_threshold, 3))
+        thresholds = sorted(grid)
+
+    rows: list[AcceptanceRow] = []
+    for threshold in thresholds:
+        policy = DenseSimilarityRelevancePolicy(dense_min_score=threshold)
+        relevant = accepted_relevant = grade2 = accepted_grade2 = 0
+        semantic = accepted_semantic = accepted_total = positive_hit_cases = positive = 0
+        negative = rejected_negative = false_positives = 0
+        for case, query, result in pools:
+            accepted_ids = set(policy.accept(query, result).accepted.entity_ids)
+            if case.negative:
+                negative += 1
+                false_positives += len(accepted_ids)
+                rejected_negative += not accepted_ids
+                continue
+            positive += 1
+            id_by_key = ids.ids_for(case.entity_type)
+            relevant_ids = {id_by_key[k] for k, g in case.judgments.items() if g > 0}
+            grade2_ids = {id_by_key[k] for k, g in case.judgments.items() if g == 2}
+            hit_relevant = len(relevant_ids & accepted_ids)
+            relevant += len(relevant_ids)
+            accepted_relevant += hit_relevant
+            grade2 += len(grade2_ids)
+            accepted_grade2 += len(grade2_ids & accepted_ids)
+            accepted_total += len(accepted_ids)
+            positive_hit_cases += hit_relevant > 0
+            if case.semantic_only:
+                semantic += len(relevant_ids)
+                accepted_semantic += hit_relevant
+        rows.append(
+            AcceptanceRow(
+                threshold=threshold,
+                is_default=math.isclose(threshold, default_threshold),
+                relevant_recall=accepted_relevant / relevant if relevant else 0.0,
+                grade2_recall=accepted_grade2 / grade2 if grade2 else 0.0,
+                semantic_only_recall=accepted_semantic / semantic if semantic else 0.0,
+                precision=accepted_relevant / accepted_total if accepted_total else 0.0,
+                positive_cases_with_accepted_relevant=positive_hit_cases,
+                positive_cases=positive,
+                negative_rejection_rate=rejected_negative / negative if negative else 0.0,
+                negative_false_positives=false_positives,
+                negative_cases=negative,
+            )
+        )
+    return AcceptanceEvaluation(observed_min=observed_min, observed_max=observed_max, rows=rows)
+
+
+def format_acceptance(evaluation: AcceptanceEvaluation) -> str:
+    """Markdown table: relevance acceptance per dense similarity threshold."""
+    lines = [
+        (
+            "| dense min score | relevant recall | grade-2 recall | semantic-only recall | "
+            "precision | positive cases with relevant | negative rejection | "
+            "negative false positives |"
+        ),
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for row in evaluation.rows:
+        threshold = (
+            f"**{row.threshold:.3f}** (default)" if row.is_default else f"{row.threshold:.3f}"
+        )
+        lines.append(
+            f"| {threshold} | {row.relevant_recall:.2f} | {row.grade2_recall:.2f} | "
+            f"{row.semantic_only_recall:.2f} | {row.precision:.2f} | "
+            f"{row.positive_cases_with_accepted_relevant}/{row.positive_cases} | "
+            f"{row.negative_rejection_rate:.2f} | {row.negative_false_positives} |"
         )
     return "\n".join(lines)

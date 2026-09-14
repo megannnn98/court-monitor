@@ -18,6 +18,7 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
 from semantic_retrieval.models import (
+    IndexModelMismatchError,
     RetrievalEntityType,
     RetrievalUnavailableError,
     SemanticDocument,
@@ -32,6 +33,15 @@ POINT_ID_NAMESPACE = uuid.UUID("7d1b6a2e-3c1f-5b8e-9a4d-2f6c8e0b1a53")
 _CLIENT_ERRORS = (ResponseHandlingException, UnexpectedResponse, httpx.HTTPError, OSError)
 
 
+def _require_model(name: str, stored: object, expected: str) -> None:
+    if stored != expected:
+        # Points without the field predate model tracking: also incompatible.
+        raise IndexModelMismatchError(
+            f"Collection {name} was built with embedding model {stored or 'unknown'}, "
+            f"not {expected}; run rebuild-semantic-index (full rebuild)"
+        )
+
+
 def point_id(entity_type: RetrievalEntityType, entity_id: int) -> str:
     """Deterministic Qdrant point id: re-indexing an entity overwrites its point."""
     return str(uuid.uuid5(POINT_ID_NAMESPACE, f"{entity_type.value}:{entity_id}"))
@@ -41,6 +51,8 @@ def point_id(entity_type: RetrievalEntityType, entity_id: int) -> str:
 class VectorPoint:
     document: SemanticDocument
     vector: list[float]
+    # Model that produced `vector`; vectors of different models are not comparable.
+    embedding_model_id: str
 
 
 @dataclass(frozen=True)
@@ -65,9 +77,16 @@ class VectorStore(Protocol):
         name: str,
         vector: Sequence[float],
         *,
+        embedding_model_id: str,
         limit: int,
         entity_ids: Sequence[int] | None = None,
-    ) -> list[VectorMatch]: ...
+    ) -> list[VectorMatch]:
+        """Raises IndexModelMismatchError if matched points come from another model."""
+        ...
+
+    def check_embedding_model(self, name: str, embedding_model_id: str) -> None:
+        """Raise IndexModelMismatchError if the existing points use another model."""
+        ...
 
     def count(self, name: str) -> int: ...
 
@@ -145,6 +164,7 @@ class QdrantVectorStore:
                     "entity_type": point.document.entity_type.value,
                     "representation_version": point.document.representation_version,
                     "content_hash": point.document.content_hash,
+                    "embedding_model_id": point.embedding_model_id,
                 },
             )
             for point in points
@@ -168,6 +188,7 @@ class QdrantVectorStore:
         name: str,
         vector: Sequence[float],
         *,
+        embedding_model_id: str,
         limit: int,
         entity_ids: Sequence[int] | None = None,
     ) -> list[VectorMatch]:
@@ -198,16 +219,31 @@ class QdrantVectorStore:
                 query=list(vector),
                 query_filter=query_filter,
                 limit=limit,
-                with_payload=["entity_id"],
+                with_payload=["entity_id", "embedding_model_id"],
             ),
         )
         matches: list[VectorMatch] = []
         for point in response.points:
             payload = point.payload or {}
+            _require_model(name, payload.get("embedding_model_id"), embedding_model_id)
             entity_id = payload.get("entity_id")
             if isinstance(entity_id, int):
                 matches.append(VectorMatch(entity_id=entity_id, score=float(point.score)))
         return matches
+
+    def check_embedding_model(self, name: str, embedding_model_id: str) -> None:
+        if self._vector_size(name) is None:
+            return
+        records, _ = self._call(
+            "scroll",
+            lambda: self._client.scroll(
+                collection_name=name, limit=1, with_payload=["embedding_model_id"]
+            ),
+        )
+        for record in records:
+            _require_model(
+                name, (record.payload or {}).get("embedding_model_id"), embedding_model_id
+            )
 
     def count(self, name: str) -> int:
         if self._vector_size(name) is None:
