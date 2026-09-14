@@ -274,6 +274,6 @@ def merge_persons(source_id: int, target_id: int, reason: str):
 
 ## References
 
-- Implementation: `src/person_models.py`, `src/person_persistence.py`, `src/person_resolver.py`
-- Tests: `tests/test_person_models.py`, `tests/test_person_persistence.py`, `tests/test_person_resolver.py`
+- Implementation: `src/persons/models.py`, `src/persons/persistence.py`, `src/persons/resolver.py`
+- Tests: `tests/persons/test_person_models.py`, `tests/persons/test_person_persistence.py`, `tests/persons/test_person_resolver.py`
 - Migration: `migrations/versions/g1h2i3j4k5l6_add_person_and_resolution_tables.py`

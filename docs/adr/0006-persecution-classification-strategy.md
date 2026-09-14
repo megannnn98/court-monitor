@@ -302,7 +302,7 @@ Align with international standards:
 
 ## References
 
-- Implementation: `src/persecution_classification_service.py`, `src/persecution_classifier.py`
-- Tests: `tests/test_persecution_classification_service.py`, `tests/test_persecution_classifier.py`
-- Evaluation: `src/persecution_evaluation.py`, `tests/test_persecution_evaluation.py`
+- Implementation: `src/persecution/classification_service.py`, `src/persecution/classifier.py`
+- Tests: `tests/persecution/test_persecution_classification_service.py`, `tests/persecution/test_persecution_classifier.py`
+- Evaluation: `src/persecution/evaluation.py`, `tests/persecution/test_persecution_evaluation.py`
 - Related: `docs/wiki/Persecution-Classification.md`

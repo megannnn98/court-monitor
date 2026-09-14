@@ -33,7 +33,7 @@ semantic = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 markers = [
     "live_together: calls the real Together AI API; opt-in via TOGETHER_LIVE_TESTS=1",
     "qdrant: needs a running Qdrant service; opt-in via QDRANT_TEST_URL",

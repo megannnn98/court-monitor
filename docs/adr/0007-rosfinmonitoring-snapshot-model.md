@@ -364,7 +364,7 @@ def check_for_changes(person_id: int, old_snapshot_id: int, new_snapshot_id: int
 
 ## References
 
-- Implementation: `src/rosfinmonitoring_models.py`, `src/rosfinmonitoring_persistence.py`, `src/rosfinmonitoring_parser.py`, `src/rosfinmonitoring_ingestion.py`, `src/rosfinmonitoring_matcher.py`, `src/rosfinmonitoring_matcher_persistence.py`
-- Tests: `tests/test_rosfinmonitoring_parser.py`, `tests/test_rosfinmonitoring_matcher.py`
+- Implementation: `src/rosfinmonitoring/models.py`, `src/rosfinmonitoring/persistence.py`, `src/rosfinmonitoring/parser.py`, `src/rosfinmonitoring/ingestion.py`, `src/rosfinmonitoring/matcher.py`, `src/rosfinmonitoring/matcher_persistence.py`
+- Tests: `tests/rosfinmonitoring/test_rosfinmonitoring_parser.py`, `tests/rosfinmonitoring/test_rosfinmonitoring_matcher.py`
 - Migration: `migrations/versions/j4k5l6m7n8o9_add_rosfinmonitoring_tables.py`
 - Related: `docs/wiki/Rosfinmonitoring.md`

@@ -71,7 +71,7 @@ def classify_person(person_id: int) -> PersecutionClassification:
     events = get_person_events(person_id)
 
     # Get windowed text around this person's own mentions/events only —
-    # NOT the full article (see persecution_classification_service.py)
+    # NOT the full article (see persecution/classification_service.py)
     articles = get_person_articles(person_id)
 
     # Collect evidence

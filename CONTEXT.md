@@ -24,7 +24,7 @@ _Avoid_: документ, статья (без уточнения стадии)
 _Avoid_: документ (без уточнения — используй только когда стадия ясна из контекста)
 
 **SourceAdapter**:
-Протокол источника: `discover(limit)` находит ссылки на статьи (листинг + pagination) → `list[SourceReference]`; `fetch(reference)` (унаследовано от `DocumentFetcher`) загружает одну статью → `RawDocument`. Один источник = один `SourceAdapter` + один `ArticleParser`, зарегистрированные в `source_registry.py`.
+Протокол источника: `discover(limit)` находит ссылки на статьи (листинг + pagination) → `list[SourceReference]`; `fetch(reference)` (унаследовано от `DocumentFetcher`) загружает одну статью → `RawDocument`. Один источник = один `SourceAdapter` + один `ArticleParser`, зарегистрированные в `sources/source_registry.py`.
 
 **SourceIngestion**:
 Оркестратор пакетной загрузки: `SourceAdapter.discover` → по каждой ссылке `IngestionPipeline.run`. Ошибка одной статьи (`IngestionError`) не прерывает остальные — попадает в `SourceIngestionResult.failures`.

@@ -17,7 +17,7 @@ from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from orm_models import SemanticDocumentRecord
+from db.orm_models import SemanticDocumentRecord
 from semantic_retrieval.models import (
     RetrievalBackend,
     RetrievalEntityType,

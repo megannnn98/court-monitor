@@ -1,6 +1,6 @@
 # Search
 
-Общий контракт поиска — `SearchBackend` (`src/search_backend.py`):
+Общий контракт поиска — `SearchBackend` (`src/search/backend.py`):
 
 ```python
 search(SearchQuery) -> list[SearchHit]
@@ -14,7 +14,7 @@ search(SearchQuery) -> list[SearchHit]
 
 ## Lexical: `PostgresLexicalSearch`
 
-`src/postgres_lexical_search.py`.
+`src/search/postgres_lexical.py`.
 
 Использует generated-колонку `parsed_articles.search_vector`:
 

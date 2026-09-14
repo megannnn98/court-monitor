@@ -35,15 +35,15 @@ POST /research ─┘                          │
                                       PostgreSQL
 ```
 
-- `research_models.py` — `ResearchObjectType`, `ResearchRequest`,
+- `research/models.py` — `ResearchObjectType`, `ResearchRequest`,
   `PersonResearchCriteria` (strict Pydantic, `extra="forbid"`) and the
   normalized result (`PersonResearchResult`, `ResearchEvent`, `ResearchEvidence`,
   `ResearchSource`, `ResearchRosfinmonitoring`, `ResearchWarning`).
-- `research_service.py` — `ResearchService.execute(request) -> ResearchResponse`
+- `research/service.py` — `ResearchService.execute(request) -> ResearchResponse`
   plus the ports it depends on (`PersonResearchRepository`, `CandidateQuery`).
-- `research_repository.py` — PostgreSQL implementation of the repository port.
-- `research_mapping.py` — pure record → result mapping and review warnings.
-- `research_cli.py`, `api.py` — thin adapters.
+- `research/repository.py` — PostgreSQL implementation of the repository port.
+- `research/mapping.py` — pure record → result mapping and review warnings.
+- `research/cli.py`, `api.py` — thin adapters.
 
 ### 1. The research object is Person, not Article
 

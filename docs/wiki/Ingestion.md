@@ -14,13 +14,13 @@
 | ОВД-Инфо (`ovd-info`) | `OvdInfoSourceAdapter` | `https://ovd.info/express-news`, pagination `?page=N` (Drupal) | `OvdInfoArticleParser` |
 | SOTA (`sota-vision`) | `SotaVisionSourceAdapter` | `https://sota.vision/category/news/`, pagination `/page/N/` (WordPress) | `SotaVisionArticleParser` |
 
-Оба реализуют один и тот же `Protocol SourceAdapter` (`source_adapter.py`) и переиспользуют общий helper `discovery_pagination.py` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок, retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry).
+Оба реализуют один и тот же `Protocol SourceAdapter` (`sources/source_adapter.py`) и переиспользуют общий helper `sources/discovery_pagination.py` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок, retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry).
 
 `src/main.py discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление третьего источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
 
 ### Канонический `SourceReference`
 
-Каждый источник даёт единую функцию `canonicalize_<source>_reference(url) -> SourceReference | None` (`ovd_info_reference.py`, `sota_vision_reference.py`): убирает query/fragment, проверяет домен и путь, отдаёт стабильный `external_id`. Ей пользуются и listing-парсер (при discovery), и прямой CLI-ingest по URL — поэтому `ingest URL` и обнаруженная через `discover-and-ingest` та же статья дают один и тот же `SourceReference`, а не два разных документа в БД.
+Каждый источник даёт единую функцию `canonicalize_<source>_reference(url) -> SourceReference | None` (`sources/ovd_info/reference.py`, `sources/sota_vision/reference.py`): убирает query/fragment, проверяет домен и путь, отдаёт стабильный `external_id`. Ей пользуются и listing-парсер (при discovery), и прямой CLI-ingest по URL — поэтому `ingest URL` и обнаруженная через `discover-and-ingest` та же статья дают один и тот же `SourceReference`, а не два разных документа в БД.
 
 ## Шаги (одна статья)
 
@@ -54,11 +54,11 @@ Result --> Terminal
 
 ### 1. `WebsiteAdapter.fetch()`
 
-`src/website_adapter.py`. Асинхронный GET (`httpx`, timeout 5s, фиксированный `User-Agent`). Возвращает `RawDocument`: `content` (сырые байты), `content_type`, `fetched_at` (UTC, момент загрузки), `url` (после редиректов — `str(response.url)`).
+`src/sources/website_adapter.py`. Асинхронный GET (`httpx`, timeout 5s, фиксированный `User-Agent`). Возвращает `RawDocument`: `content` (сырые байты), `content_type`, `fetched_at` (UTC, момент загрузки), `url` (после редиректов — `str(response.url)`).
 
 ### 2. `OvdInfoArticleParser.parse()`
 
-`src/article_parser.py`. HTML-парсинг через `selectolax`, селекторы жёстко заданы под вёрстку ovd.info:
+`src/sources/article_parser.py`. HTML-парсинг через `selectolax`, селекторы жёстко заданы под вёрстку ovd.info:
 
 - заголовок: `h1.express-text-heading`
 - дата публикации: `#article_published`, формат `%d.%m.%Y, %H:%M`, таймзона `Europe/Moscow`

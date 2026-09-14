@@ -40,14 +40,14 @@ ReviewApi --> Reviews
 
 | Модуль | Роль |
 |---|---|
-| `research_reports/models.py` | `ResearchReport`, `ResearchReportItem`, `ResearchClaim`, `ResearchCitation`, `ResearchReportWarning`, `ResearchReportSummary`, `ResearchReportStatus`, `ResearchReviewDecision`, `ResearchReviewReason` |
-| `research_reports/citations.py` | citation = `ResearchEvidence` + `ResearchSource` (второго provenance-пайплайна нет) |
-| `research_reports/review_policy.py` | `ResearchReviewPolicy` — единственное место с условиями review |
-| `research_reports/evaluation.py` | `ResearchResultEvaluator`: review по каждому человеку + routing |
-| `research_reports/builder.py` | `ResearchReportBuilder.build(request=, response=, evaluation=)` |
-| `research_planning/models.py` | `ResearchPlan`, `ResearchPlanStep`, `ResearchDataRequirement`, `SourceCapability`, `SourceRoutingDecision` |
-| `research_planning/planner.py` | `ResearchPlanner.plan()` / `.route()`, `source_capabilities(SOURCES)` |
-| `research_review_tasks.py` | `ResearchReviewTaskService` — идемпотентное создание review task |
+| `research/reports/models.py` | `ResearchReport`, `ResearchReportItem`, `ResearchClaim`, `ResearchCitation`, `ResearchReportWarning`, `ResearchReportSummary`, `ResearchReportStatus`, `ResearchReviewDecision`, `ResearchReviewReason` |
+| `research/reports/citations.py` | citation = `ResearchEvidence` + `ResearchSource` (второго provenance-пайплайна нет) |
+| `research/reports/review_policy.py` | `ResearchReviewPolicy` — единственное место с условиями review |
+| `research/reports/evaluation.py` | `ResearchResultEvaluator`: review по каждому человеку + routing |
+| `research/reports/builder.py` | `ResearchReportBuilder.build(request=, response=, evaluation=)` |
+| `research/planning/models.py` | `ResearchPlan`, `ResearchPlanStep`, `ResearchDataRequirement`, `SourceCapability`, `SourceRoutingDecision` |
+| `research/planning/planner.py` | `ResearchPlanner.plan()` / `.route()`, `source_capabilities(SOURCES)` |
+| `research/review_tasks.py` | `ResearchReviewTaskService` — идемпотентное создание review task |
 
 ## Отчёт по человеку (`ResearchReportItem`)
 
@@ -122,7 +122,7 @@ curl -X POST http://localhost:8000/research/reviews \
 
 Database first: сначала всегда поиск в БД, рекомендация — только после него.
 
-- Кандидаты — источники из `source_registry` (`SourceCapability`); при `criteria.source` — только источник с таким `source_name`, неизвестное имя → кандидатов нет.
+- Кандидаты — источники из `sources.source_registry` (`SourceCapability`); при `criteria.source` — только источник с таким `source_name`, неизвестное имя → кандидатов нет.
 - `source_refresh_required=true` только если `total_matched == 0`, запрос не по `person_id` и кандидат поддерживает discovery.
 - Freshness (`fetched_at`) не используется: согласованного порога нет.
 - Это рекомендация: ingestion не запускается.
@@ -183,13 +183,13 @@ Source refresh: recommended (ovd-info, sota-vision) — not executed
 
 ## Тесты
 
-- `tests/test_research_review_policy.py` — условия review, severity, инвариант «policy ⊇ domain review».
-- `tests/test_research_report_builder.py` — сценарии A–E, provenance, `why_matched`, статусы отчёта.
-- `tests/test_research_planner.py` — capabilities из registry, database first, source filter.
-- `tests/test_research_graph_report.py` — скомпилированный граф: порядок узлов, review → report, clarification не доходит до planning.
-- `tests/test_research_review_tasks.py` — идемпотентность, проверка условия, неактивный person, конкурентная вставка, partial unique index (PostgreSQL).
-- `tests/test_review_pending_index_migration.py` — миграция на БД с дублями pending review останавливается с понятным сообщением.
-- `tests/test_research_workflow_integration.py` — граф + настоящий `ResearchService` + PostgreSQL → отчёт с реальными цитатами.
+- `tests/research/test_research_review_policy.py` — условия review, severity, инвариант «policy ⊇ domain review».
+- `tests/research/test_research_report_builder.py` — сценарии A–E, provenance, `why_matched`, статусы отчёта.
+- `tests/research/test_research_planner.py` — capabilities из registry, database first, source filter.
+- `tests/research/test_research_graph_report.py` — скомпилированный граф: порядок узлов, review → report, clarification не доходит до planning.
+- `tests/research/test_research_review_tasks.py` — идемпотентность, проверка условия, неактивный person, конкурентная вставка, partial unique index (PostgreSQL).
+- `tests/db/test_review_pending_index_migration.py` — миграция на БД с дублями pending review останавливается с понятным сообщением.
+- `tests/research/test_research_workflow_integration.py` — граф + настоящий `ResearchService` + PostgreSQL → отчёт с реальными цитатами.
 
 ## Ограничения
 

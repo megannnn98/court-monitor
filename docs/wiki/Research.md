@@ -35,11 +35,11 @@ Service --> Response
 
 | Модуль | Роль |
 |---|---|
-| `research_models.py` | `ResearchObjectType`, `ResearchRequest`, `PersonResearchCriteria`, `PersonResearchResult`, `ResearchEvent`, `ResearchEvidence`, `ResearchSource`, `ResearchRosfinmonitoring`, `ResearchWarning`, `ResearchResponse` |
-| `research_service.py` | `ResearchService`, порты `PersonResearchRepository` и `CandidateQuery`, `PersonResearchDetails`, `ResearchSnapshotNotFoundError` |
-| `research_repository.py` | PostgreSQL-реализация порта: отбор person id, последняя классификация, RF-статус, events/evidence/sources |
-| `research_mapping.py` | Чистый маппинг ORM → модели результата, `build_warnings` |
-| `research_cli.py` | argparse → `ResearchRequest`, текстовый вывод |
+| `research/models.py` | `ResearchObjectType`, `ResearchRequest`, `PersonResearchCriteria`, `PersonResearchResult`, `ResearchEvent`, `ResearchEvidence`, `ResearchSource`, `ResearchRosfinmonitoring`, `ResearchWarning`, `ResearchResponse` |
+| `research/service.py` | `ResearchService`, порты `PersonResearchRepository` и `CandidateQuery`, `PersonResearchDetails`, `ResearchSnapshotNotFoundError` |
+| `research/repository.py` | PostgreSQL-реализация порта: отбор person id, последняя классификация, RF-статус, events/evidence/sources |
+| `research/mapping.py` | Чистый маппинг ORM → модели результата, `build_warnings` |
+| `research/cli.py` | argparse → `ResearchRequest`, текстовый вывод |
 
 ## Критерии (`PersonResearchCriteria`)
 

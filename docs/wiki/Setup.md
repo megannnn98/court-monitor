@@ -146,7 +146,7 @@ uv run python src/main.py discover-and-ingest --source ovd-info --limit 10
 uv run python src/main.py discover-and-ingest --source sota-vision --limit 10
 ```
 
-`--source` выбирает источник из `src/source_registry.py` (по умолчанию `ovd-info`). Обнаруженные ссылки на статьи проходят через общие `SourceIngestion`/`IngestionPipeline` — не сохраняются дважды при повторном запуске (dedup по `source_id` + `external_id`), ошибка одной статьи не прерывает остальные.
+`--source` выбирает источник из `src/sources/source_registry.py` (по умолчанию `ovd-info`). Обнаруженные ссылки на статьи проходят через общие `SourceIngestion`/`IngestionPipeline` — не сохраняются дважды при повторном запуске (dedup по `source_id` + `external_id`), ошибка одной статьи не прерывает остальные.
 
 Разовая загрузка одной статьи ОВД-Инфо по прямому URL (не через discovery):
 

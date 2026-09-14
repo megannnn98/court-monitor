@@ -19,7 +19,7 @@ from typing import Protocol
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from orm_models import (
+from db.orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     EventEntityMentionRecord,
@@ -32,8 +32,8 @@ from orm_models import (
     Source,
     SourceDocument,
 )
-from persecution_queries import latest_persecution_classification_ids
-from person_models import PersonStatus
+from persecution.queries import latest_persecution_classification_ids
+from persons.models import PersonStatus
 from semantic_retrieval.models import RetrievalEntityType, SemanticDocument
 
 # Bump when the text format changes: every document is then re-embedded.

@@ -247,7 +247,7 @@ uv run python src/main.py evaluate-retrieval --backend all --database-url "$TEST
 
 ```bash
 # Запустить полный pipeline тест
-uv run pytest tests/test_end_to_end.py -v
+uv run pytest tests/app/test_end_to_end.py -v
 
 # Запустить все тесты
 uv run pytest
@@ -293,9 +293,9 @@ uv run ruff check src tests
 
 ```bash
 # Unit tests
-uv run pytest tests/test_person_models.py -v
-uv run pytest tests/test_persecution_classifier.py -v
-uv run pytest tests/test_rosfinmonitoring_matcher.py -v
+uv run pytest tests/persons/test_person_models.py -v
+uv run pytest tests/persecution/test_persecution_classifier.py -v
+uv run pytest tests/rosfinmonitoring/test_rosfinmonitoring_matcher.py -v
 
 # PostgreSQL integration tests (без TEST_DATABASE_URL пропускаются; база court_monitor_test)
 export TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
@@ -303,9 +303,9 @@ DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
 env -u DATABASE_URL uv run pytest
 
 # Evaluation
-uv run pytest tests/test_er_evaluation.py -v
-uv run pytest tests/test_persecution_evaluation.py -v
-uv run pytest tests/test_rosfin_match_evaluation.py -v
+uv run pytest tests/persons/test_er_evaluation.py -v
+uv run pytest tests/persecution/test_persecution_evaluation.py -v
+uv run pytest tests/rosfinmonitoring/test_rosfin_match_evaluation.py -v
 
 # All tests (live Together AI — только с TOGETHER_LIVE_TESTS=1)
 uv run pytest

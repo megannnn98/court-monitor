@@ -58,18 +58,18 @@ stop
 
 | Модуль | Роль |
 |---|---|
-| `research_workflow/state.py` | `ResearchGraphState` (TypedDict) — всё состояние workflow |
-| `research_workflow/graph.py` | `build_research_graph(request_parser=, research_service=, snapshot_lookup=, planner=, review_policy=, report_builder=)` (`planner` обязателен, создаётся в `research_workflow_factory.py`; `review_policy` и `report_builder` — опционально), узлы, `run_research_query()` |
-| `research_workflow/intake.py` | `ResearchRequestParser`, `LlmResearchRequestParser`, JSON schema intake, рендер промпта |
-| `research_workflow/prompts/request_intake.md` | system prompt request intake |
-| `research_workflow/llm.py` | `StructuredLlmClient`, типизированные ошибки провайдера |
-| `research_workflow/models.py` | `ResearchIntake`, `UnsupportedCriterion`, `ResearchQueryResult`, `WorkflowStatus`, `WorkflowErrorCode` |
-| `research_workflow/snapshot_references.py` | детерминированный поиск явных ссылок на snapshot в тексте |
-| `research_workflow/assembly.py` | детерминированная сборка результата |
-| `research_planning/`, `research_reports/` | план, оценка, review policy, отчёт — см. [Research-Reports](Research-Reports.md) |
-| `together_llm_client.py` | Together AI (`httpx`, `response_format: json_schema`) |
-| `rosfinmonitoring_snapshot_lookup.py` | последний snapshot с импортированными записями |
-| `research_workflow_factory.py` | сборка зависимостей для CLI и API |
+| `research/workflow/state.py` | `ResearchGraphState` (TypedDict) — всё состояние workflow |
+| `research/workflow/graph.py` | `build_research_graph(request_parser=, research_service=, snapshot_lookup=, planner=, review_policy=, report_builder=)` (`planner` обязателен, создаётся в `research/workflow_factory.py`; `review_policy` и `report_builder` — опционально), узлы, `run_research_query()` |
+| `research/workflow/intake.py` | `ResearchRequestParser`, `LlmResearchRequestParser`, JSON schema intake, рендер промпта |
+| `research/workflow/prompts/request_intake.md` | system prompt request intake |
+| `research/workflow/llm.py` | `StructuredLlmClient`, типизированные ошибки провайдера |
+| `research/workflow/models.py` | `ResearchIntake`, `UnsupportedCriterion`, `ResearchQueryResult`, `WorkflowStatus`, `WorkflowErrorCode` |
+| `research/workflow/snapshot_references.py` | детерминированный поиск явных ссылок на snapshot в тексте |
+| `research/workflow/assembly.py` | детерминированная сборка результата |
+| `research/planning/`, `research/reports/` | план, оценка, review policy, отчёт — см. [Research-Reports](Research-Reports.md) |
+| `llm/together_client.py` | Together AI (`httpx`, `response_format: json_schema`) |
+| `rosfinmonitoring/snapshot_lookup.py` | последний snapshot с импортированными записями |
+| `research/workflow_factory.py` | сборка зависимостей для CLI и API |
 
 ## Семантика
 
@@ -156,12 +156,12 @@ curl -X POST http://localhost:8000/research/query \
 
 ## Тесты
 
-- `tests/test_research_intake.py` — промпт, JSON schema, парсер с fake LLM.
-- `tests/test_research_graph.py` — скомпилированный граф с fakes: маршруты, snapshot, unsupported, ошибки, сохранение статусов/provenance, логи.
-- `tests/test_research_graph_report.py` — план, оценка, отчёт и review gate в скомпилированном графе.
-- `tests/test_together_llm_client.py` — Together через `httpx.MockTransport`.
-- `tests/test_research_workflow_integration.py` — fake parser + LangGraph + настоящий `ResearchService` + test PostgreSQL.
-- `tests/test_together_live.py` — реальный Together, только при `TOGETHER_LIVE_TESTS=1`.
+- `tests/research/test_research_intake.py` — промпт, JSON schema, парсер с fake LLM.
+- `tests/research/test_research_graph.py` — скомпилированный граф с fakes: маршруты, snapshot, unsupported, ошибки, сохранение статусов/provenance, логи.
+- `tests/research/test_research_graph_report.py` — план, оценка, отчёт и review gate в скомпилированном графе.
+- `tests/llm/test_together_llm_client.py` — Together через `httpx.MockTransport`.
+- `tests/research/test_research_workflow_integration.py` — fake parser + LangGraph + настоящий `ResearchService` + test PostgreSQL.
+- `tests/llm/test_together_live.py` — реальный Together, только при `TOGETHER_LIVE_TESTS=1`.
 
 ```bash
 TOGETHER_LIVE_TESTS=1 TOGETHER_API_KEY=... TOGETHER_MODEL=... uv run pytest -m live_together

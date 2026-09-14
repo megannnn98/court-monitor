@@ -287,7 +287,7 @@ Use the FastAPI endpoints:
 
 ```bash
 # Start API server
-uvicorn src.api:app --host 0.0.0.0 --port 8000
+uvicorn --app-dir src api:app --host 0.0.0.0 --port 8000
 
 # Ingest articles
 curl -X POST http://localhost:8000/api/ingest \
@@ -419,7 +419,7 @@ uv run pytest tests/ -v
 End-to-end tests verify the full pipeline:
 
 ```bash
-uv run pytest tests/test_end_to_end.py -v
+uv run pytest tests/app/test_end_to_end.py -v
 ```
 
 ### Evaluation
@@ -428,14 +428,14 @@ Evaluate quality of each stage:
 
 ```bash
 # Extraction quality
-uv run pytest tests/test_extraction_metrics.py -v
+uv run pytest tests/extraction/test_extraction_metrics.py -v
 
 # Person resolution quality
-uv run pytest tests/test_er_evaluation.py -v
+uv run pytest tests/persons/test_er_evaluation.py -v
 
 # Persecution classification quality
-uv run pytest tests/test_persecution_evaluation.py -v
+uv run pytest tests/persecution/test_persecution_evaluation.py -v
 
 # Rosfinmonitoring matching quality
-uv run pytest tests/test_rosfin_match_evaluation.py -v
+uv run pytest tests/rosfinmonitoring/test_rosfin_match_evaluation.py -v
 ```

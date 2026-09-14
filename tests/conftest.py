@@ -5,8 +5,8 @@ import pytest
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from database import create_database_engine, create_session_factory
-from database_maintenance import truncate_disposable_tables
+from db.database import create_database_engine, create_session_factory
+from db.maintenance import truncate_disposable_tables
 
 
 def _truncate_test_tables(engine: Engine) -> None:

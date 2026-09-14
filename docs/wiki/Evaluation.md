@@ -57,7 +57,7 @@ MRR = mean(RR)
 
 ## SearchEvaluator
 
-`src/search_evaluator.py`.
+`src/search/evaluator.py`.
 
 `SearchEvaluator` зависит только от общего `SearchBackend` — сейчас это `PostgresLexicalSearch` (единственная реализация).
 

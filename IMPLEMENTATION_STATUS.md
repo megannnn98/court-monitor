@@ -8,20 +8,25 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `fix/semantic-relevance-acceptance`, 2026-09-14, Python 3.13.
+Branch `refactor/package-layout`, 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (182 files) |
-| Tests without services | `uv sync --frozen && uv run pytest` | 549 passed, 153 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 696 passed, 6 skipped |
-| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 699 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (195 files) |
+| Tests without services | `uv sync --frozen && uv run pytest` | 551 passed, 153 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 698 passed, 6 skipped |
+| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 701 passed, 3 skipped |
 
 Skipped in the last run: the three opt-in live Together AI tests
 (`TOGETHER_LIVE_TESTS=1`), not executed. CI has not run on GitHub for this
 branch (no push). Existing semantic indexes need a full
 `rebuild-semantic-index` (points now carry `embedding_model_id`).
+
+Source layout: `src/` is split into packages (`db`, `sources`, `extraction`,
+`persons`, `persecution`, `rosfinmonitoring`, `candidates`, `search`, `llm`,
+`research`, `semantic_retrieval`); `main.py` and `api.py` stay in `src/`.
+`tests/` mirrors it, with shared fakes in `tests/support/`.
 
 ## Completed Components ✅
 
@@ -50,7 +55,7 @@ branch (no push). Existing semantic indexes need a full
   canonical persons from a concurrent-resolution race; `resolve_and_create`
   backs off to the winner on conflict instead of raising or duplicating
 - Person ↔ mention/event linking integrated into the extraction pipeline
-  (`extraction_resolution_service.py`)
+  (`extraction/resolution_service.py`)
 - Merge with audit trail (`PersonMergeRecord`)
 
 ### 4. Political Persecution Classification
@@ -59,7 +64,7 @@ branch (no push). Existing semantic indexes need a full
   LGBT persecution)
 - Evidence is **scoped to the specific person**: only their own
   mentions/events plus a window around each (`EVIDENCE_WINDOW_CHARS`,
-  `persecution_classification_service.py`) — not the whole article
+  `persecution/classification_service.py`) — not the whole article
 - `PersecutionClassificationStatus.UNCERTAIN` is reachable: a single weak
   keyword-only signal is UNCERTAIN, not an automatic POLITICAL
 - A person's classification is the **latest** one (`classified_at` desc, then
@@ -75,7 +80,7 @@ branch (no push). Existing semantic indexes need a full
   `INSUFFICIENT_DATA`; no match record for a snapshot is reported as
   `NO_MATCH_RECORD`
 - `NOT_MATCHED` reports `NOT_MATCHED_CONFIDENCE` (0.8), not 1.0
-- Matching evaluation framework (`rosfin_match_evaluation.py`)
+- Matching evaluation framework (`rosfinmonitoring/match_evaluation.py`)
 
 ### 6. Main Product Query
 - `CandidateQueryService.get_candidates`: persons whose latest classification
@@ -166,7 +171,7 @@ ResearchRequest → ResearchPlanner.plan → ResearchService → ResearchRespons
 - Review record only by explicit `POST /research/reviews`: re-checks the
   condition, reuses `review_records`, idempotent via partial unique index
   `uq_review_records_pending_subject`
-- Database-first `ResearchPlanner` over `source_registry` capabilities; refresh
+- Database-first `ResearchPlanner` over `sources.source_registry` capabilities; refresh
   is a recommendation after an empty result, ingestion is never started
 - No LLM after intake
 

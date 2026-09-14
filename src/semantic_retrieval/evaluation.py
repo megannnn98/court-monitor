@@ -16,7 +16,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from sqlalchemy.orm import Session, sessionmaker
 
-from orm_models import (
+from db.orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     EventEntityMentionRecord,

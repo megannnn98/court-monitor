@@ -39,7 +39,7 @@ PostgreSQL
 deterministic assembly ─→ ResearchQueryResult
 ```
 
-Graph topology (`src/research_workflow/graph.py`):
+Graph topology (`src/research/workflow/graph.py`):
 
 ```text
 START → request_intake ─┬─ provider error ───────────────→ workflow_failed → END
@@ -56,23 +56,23 @@ Any unexpected exception → ResearchQueryResult(failed, workflow_unexpected_err
 
 Components:
 
-- `research_workflow/intake.py` — `ResearchRequestParser` protocol and
+- `research/workflow/intake.py` — `ResearchRequestParser` protocol and
   `LlmResearchRequestParser`: system prompt (`prompts/request_intake.md`, enum
   values rendered from code) + JSON schema of the intake envelope, which embeds
   the real `ResearchRequest` schema.
-- `research_workflow/llm.py` — `StructuredLlmClient` protocol and typed provider
+- `research/workflow/llm.py` — `StructuredLlmClient` protocol and typed provider
   errors (timeout, unavailable, authentication, rate limit, request rejected,
   invalid response, not configured).
-- `together_llm_client.py` — the only Together-specific code: `httpx` call to
+- `llm/together_client.py` — the only Together-specific code: `httpx` call to
   `/v1/chat/completions` with `response_format: json_schema`, `temperature=0`,
   configuration from `TOGETHER_API_KEY`, `TOGETHER_MODEL`,
   `TOGETHER_TIMEOUT_SECONDS`.
-- `research_workflow/graph.py`, `state.py`, `assembly.py`, `models.py` — graph,
+- `research/workflow/graph.py`, `state.py`, `assembly.py`, `models.py` — graph,
   typed state (`ResearchGraphState`), deterministic result assembly
   (`ResearchQueryResult`).
-- `rosfinmonitoring_snapshot_lookup.py` — latest imported snapshot (has entries),
+- `rosfinmonitoring/snapshot_lookup.py` — latest imported snapshot (has entries),
   used by `resolve_snapshot`.
-- `research_workflow_factory.py` — composition root used by the CLI (`ask`) and
+- `research/workflow_factory.py` — composition root used by the CLI (`ask`) and
   FastAPI (`POST /research/query`).
 
 ### Why LangGraph does not execute SQL

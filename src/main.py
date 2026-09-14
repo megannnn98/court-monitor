@@ -9,27 +9,21 @@ from pathlib import Path
 import httpx
 from sqlalchemy.exc import NoResultFound
 
-from article_parser import OvdInfoArticleParser
-from candidate_query_service import CandidateQueryService
-from database import create_database_engine, create_session_factory
-from evaluation_loader import load_evaluation_cases, load_evaluation_documents
-from extraction_documents import SqlAlchemyExtractionDocumentRepository
-from extraction_events import RuleBasedEventExtractor
-from extraction_extractors import RuleBasedEntityExtractor
-from extraction_metrics import evaluate_golden_dataset
-from extraction_models import BatchExtractionResult, ExtractionRunStatus
-from extraction_normalizers import RuleBasedMentionNormalizer
-from extraction_persistence import SqlAlchemyExtractionPersistence
-from extraction_pipeline import ExtractionPipeline
-from extraction_resolution_service import ExtractionResolutionService
-from ingestion_pipeline import IngestionPipeline
-from models import ParsedArticle, RawDocument, SearchQuery
-from ovd_info_reference import canonicalize_ovd_info_reference
-from persecution_classification_service import PersecutionClassificationService
-from person_persistence import SqlAlchemyPersonPersistence
-from person_resolver import RuleBasedPersonResolver
-from postgres_lexical_search import PostgresLexicalSearch
-from research_cli import (
+from candidates.service import CandidateQueryService
+from db.database import create_database_engine, create_session_factory
+from extraction.documents import SqlAlchemyExtractionDocumentRepository
+from extraction.events import RuleBasedEventExtractor
+from extraction.extractors import RuleBasedEntityExtractor
+from extraction.metrics import evaluate_golden_dataset
+from extraction.models import BatchExtractionResult, ExtractionRunStatus
+from extraction.normalizers import RuleBasedMentionNormalizer
+from extraction.persistence import SqlAlchemyExtractionPersistence
+from extraction.pipeline import ExtractionPipeline
+from extraction.resolution_service import ExtractionResolutionService
+from persecution.classification_service import PersecutionClassificationService
+from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolver import RuleBasedPersonResolver
+from research.cli import (
     ResearchCliError,
     add_ask_arguments,
     add_research_arguments,
@@ -40,22 +34,32 @@ from research_cli import (
     format_research_response,
     format_structured_request,
 )
-from research_repository import SqlAlchemyPersonResearchRepository
-from research_service import ResearchService, ResearchSnapshotNotFoundError
-from research_workflow.graph import run_research_query
-from research_workflow.llm import LlmConfigurationError
-from research_workflow_factory import create_research_graph
-from retrying_fetcher import RetryingDocumentFetcher
-from rosfinmonitoring_matcher import RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring_matcher_persistence import RosfinMatchPersistence
-from search_evaluator import SearchEvaluator
-from semantic_cli import add_semantic_arguments, run_evaluate_retrieval, run_semantic_command
+from research.repository import SqlAlchemyPersonResearchRepository
+from research.service import ResearchService, ResearchSnapshotNotFoundError
+from research.workflow.graph import run_research_query
+from research.workflow.llm import LlmConfigurationError
+from research.workflow_factory import create_research_graph
+from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from search.evaluation_loader import load_evaluation_cases, load_evaluation_documents
+from search.evaluator import SearchEvaluator
+from search.postgres_lexical import PostgresLexicalSearch
+from semantic_retrieval.cli import (
+    add_semantic_arguments,
+    run_evaluate_retrieval,
+    run_semantic_command,
+)
 from semantic_retrieval.models import SemanticConfigurationError
-from source_adapter import DocumentFetcher
-from source_ingestion import ArticleIngestionPipeline, SourceIngestion
-from source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition
-from sqlalchemy_persistence import SqlAlchemyIngestionPersistence
-from website_adapter import WebsiteAdapter
+from sources.article_parser import OvdInfoArticleParser
+from sources.ingestion_pipeline import IngestionPipeline
+from sources.models import ParsedArticle, RawDocument, SearchQuery
+from sources.ovd_info.reference import canonicalize_ovd_info_reference
+from sources.retrying_fetcher import RetryingDocumentFetcher
+from sources.source_adapter import DocumentFetcher
+from sources.source_ingestion import ArticleIngestionPipeline, SourceIngestion
+from sources.source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition
+from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from sources.website_adapter import WebsiteAdapter
 
 DEFAULT_EVALUATION_CORPUS_PATH = Path("tests/fixtures/evaluation_corpus.json")
 DEFAULT_EVALUATION_CASES_PATH = Path("tests/fixtures/evaluation_cases.json")

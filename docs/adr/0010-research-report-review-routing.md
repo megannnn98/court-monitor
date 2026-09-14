@@ -47,7 +47,7 @@ human_review_gate             (marks review; persists nothing)
 ResearchQueryResult { results, plan, report }
 ```
 
-Graph topology (`src/research_workflow/graph.py`):
+Graph topology (`src/research/workflow/graph.py`):
 
 ```text
 START → request_intake → resolve_snapshot → validate_request
@@ -61,7 +61,7 @@ START → request_intake → resolve_snapshot → validate_request
 
 Facts are established by `ResearchService`, the persecution classifier, the
 Rosfinmonitoring matcher, entity resolution and PostgreSQL. The report layer
-(`src/research_reports/`) only presents them:
+(`src/research/reports/`) only presents them:
 
 - `ResearchReportItem` copies status and confidence values from
   `PersonResearchResult`; it never recomputes them.
@@ -149,10 +149,10 @@ queries cannot create duplicates. A persistent task is an explicit action:
 
 ### Research planning and source routing (database first)
 
-`ResearchPlanner` (`src/research_planning/`) is deterministic:
+`ResearchPlanner` (`src/research/planning/`) is deterministic:
 
 - `plan(request) -> ResearchPlan`: steps, data requirements of the applied
-  criteria, and candidate sources. Candidates come from `source_registry`
+  criteria, and candidate sources. Candidates come from `sources.source_registry`
   (`SourceCapability`: registry id, `sources.name`, base URL,
   `supports_discovery`, `supports_direct_fetch`, data types); source names are
   never hard-coded in the graph. With `criteria.source`, only the source whose
@@ -184,10 +184,10 @@ routing decision is the contract it can consume.
 ## Consequences
 
 - `build_research_graph()` requires a `planner`; the composition root
-  (`research_workflow_factory.py`) builds `ResearchPlanner(SOURCES)`, so the
-  graph module does not import `source_registry`.
-- New packages `research_reports` and `research_planning`; new module
-  `research_review_tasks.py`; `SourceDefinition` gains
+  (`research/workflow_factory.py`) builds `ResearchPlanner(SOURCES)`, so the
+  graph module does not import `sources.source_registry`.
+- New packages `research.reports` and `research.planning`; new module
+  `research/review_tasks.py`; `SourceDefinition` gains
   `supports_discovery`/`supports_direct_fetch`.
 - Migration `l6m7n8o9p0q1` adds the partial unique index on `review_records`.
   Before creating it, the migration checks for subjects with more than one

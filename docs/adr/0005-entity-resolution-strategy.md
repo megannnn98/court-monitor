@@ -5,7 +5,7 @@
 Accepted
 
 **What is actually implemented today: an exact, deterministic matching_key
-baseline (`RuleBasedPersonResolver` in `src/person_resolver.py`).** It does
+baseline (`RuleBasedPersonResolver` in `src/persons/resolver.py`).** It does
 not do fuzzy matching, phonetic matching, or ML-based resolution — "Phase
 2"/"Phase 3" below are future extension points, not implemented behavior.
 Do not describe this resolver as "fuzzy entity resolution" — it isn't.
@@ -299,7 +299,7 @@ class ActiveLearningResolver:
 
 ## References
 
-- Implementation: `src/person_resolver.py`
-- Tests: `tests/test_person_resolver.py`
-- Evaluation: `src/er_evaluation.py`, `tests/test_er_evaluation.py`
+- Implementation: `src/persons/resolver.py`
+- Tests: `tests/persons/test_person_resolver.py`
+- Evaluation: `src/persons/er_evaluation.py`, `tests/persons/test_er_evaluation.py`
 - Related ADR: ADR 0004 (Canonical Person Model)

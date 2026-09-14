@@ -42,7 +42,7 @@ uv run python src/main.py list-candidates --snapshot-id 1 --output-path candidat
 **API:**
 
 ```bash
-uvicorn src.api:app --reload
+uvicorn --app-dir src api:app --reload
 # http://localhost:8000/docs
 curl "http://localhost:8000/candidates?snapshot_id=1&min_confidence=0.8"
 ```

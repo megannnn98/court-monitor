@@ -10,34 +10,34 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidate_query_service import CandidateQueryService
-from database import create_database_engine, create_session_factory
-from orm_models import (
+from candidates.service import CandidateQueryService
+from db.database import create_database_engine, create_session_factory
+from db.orm_models import (
     PersecutionClassificationRecord,
     PersonAliasRecord,
     PersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from persecution_queries import latest_persecution_classification_ids
-from research_models import ResearchRequest, ResearchResponse
-from research_repository import SqlAlchemyPersonResearchRepository
-from research_review_tasks import (
+from persecution.queries import latest_persecution_classification_ids
+from research.models import ResearchRequest, ResearchResponse
+from research.repository import SqlAlchemyPersonResearchRepository
+from research.review_tasks import (
     ResearchReviewConditionNotMetError,
     ResearchReviewSubjectNotFoundError,
     ResearchReviewTask,
     ResearchReviewTaskRequest,
     ResearchReviewTaskService,
 )
-from research_service import (
+from research.service import (
     ResearchCandidatesRequiredError,
     ResearchService,
     ResearchSnapshotNotFoundError,
 )
-from research_workflow.graph import ResearchGraph, run_research_query
-from research_workflow.llm import LlmConfigurationError
-from research_workflow.models import ResearchQueryResult, WorkflowErrorCode, WorkflowStatus
-from research_workflow_factory import create_research_graph
+from research.workflow.graph import ResearchGraph, run_research_query
+from research.workflow.llm import LlmConfigurationError
+from research.workflow.models import ResearchQueryResult, WorkflowErrorCode, WorkflowStatus
+from research.workflow_factory import create_research_graph
 from semantic_retrieval.models import SemanticConfigurationError
 
 # Create FastAPI app
@@ -533,7 +533,7 @@ def list_reviews(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[ReviewResponse]:
     """List reviews."""
-    from orm_models import ReviewRecordModel
+    from db.orm_models import ReviewRecordModel
 
     query = select(ReviewRecordModel).limit(limit)
 
