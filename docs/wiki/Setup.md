@@ -7,6 +7,9 @@
 | Переменная | Использование |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection URL |
+| `TOGETHER_API_KEY` | ключ Together AI для natural-language запросов (`ask`, `POST /research/query`) |
+| `TOGETHER_MODEL` | id модели Together с поддержкой JSON schema; значения по умолчанию нет |
+| `TOGETHER_TIMEOUT_SECONDS` | таймаут запроса к Together, по умолчанию `30` |
 
 Для Docker Compose также используются:
 
@@ -20,6 +23,14 @@ POSTGRES_PASSWORD
 
 ```text
 .env.example
+```
+
+`.env.example` пока не содержит переменные Together — добавьте их в `.env` вручную:
+
+```text
+TOGETHER_API_KEY=
+TOGETHER_MODEL=
+TOGETHER_TIMEOUT_SECONDS=30
 ```
 
 Если `.env` загружается через shell:

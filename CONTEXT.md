@@ -52,3 +52,7 @@ _Avoid_: поиск (для research — это не lexical search), запро
 **Research result / Evidence**:
 `PersonResearchResult` — результат по канонической `Person`: алиасы, связанные события, классификация, RF-статус по snapshot, `warnings` и `review_required`. `ResearchEvidence` — span статьи (offsets + текст span), подтверждающий факт именно об этом человеке; статья — только provenance (`ResearchSource`), не результат.
 _Avoid_: статья как результат
+
+**Research workflow / Request intake**:
+LangGraph-граф, превращающий natural-language запрос в `ResearchRequest` и выполняющий его через `ResearchService`. Request intake — единственный шаг с LLM (Together AI): извлекает структурированный запрос, `unsupported_criteria` и вопрос для уточнения; факты не создаёт. Результат — `ResearchQueryResult` со статусом `completed` / `clarification_required` / `failed`. См. [ADR 0009](docs/adr/0009-langgraph-research-orchestration.md).
+_Avoid_: агент (автономного цикла нет), ответ LLM

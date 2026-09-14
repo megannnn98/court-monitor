@@ -8,7 +8,7 @@ title Research layer
 
 rectangle "CLI\nmain.py research" as CLI
 rectangle "FastAPI\nPOST /research" as API
-rectangle "LangGraph (часть 2)" as LG #line.dashed
+rectangle "LangGraph workflow\nPOST /research/query, ask" as LG
 rectangle "ResearchRequest" as Request
 component "ResearchService.execute()" as Service
 component "CandidateQueryService\n(POLITICAL + RF status)" as Candidate
@@ -19,7 +19,7 @@ rectangle "ResearchResponse" as Response
 
 CLI --> Request
 API --> Request
-LG ..> Request
+LG --> Request
 Request --> Service
 Service --> Candidate
 Service --> Repo

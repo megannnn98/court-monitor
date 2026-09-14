@@ -197,6 +197,22 @@ uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.8
 uv run python src/main.py list-candidates --snapshot-id 1 --output-path candidates.json
 ```
 
+### Natural-language запросы (LangGraph + Together AI)
+
+LLM только переводит вопрос в `ResearchRequest`; факты устанавливает `ResearchService`. Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` (опционально `TOGETHER_TIMEOUT_SECONDS=30`).
+
+```bash
+uv run python src/main.py ask \
+  "Найди людей, которых преследовали за антивоенную деятельность и которых нет в Росфинмониторинге" \
+  --show-request
+
+curl -X POST http://localhost:8000/research/query \
+  -H 'Content-Type: application/json' \
+  -d '{"query": "Найди политически преследуемых людей, которых нет в Росфинмониторинге"}'
+```
+
+Подробнее: [Research-Workflow](docs/wiki/Research-Workflow.md).
+
 ### End-to-end тестирование
 
 ```bash
@@ -224,6 +240,8 @@ uv run ruff check src tests
 - [Rosfinmonitoring](docs/wiki/Rosfinmonitoring.md) — интеграция с Росфинмониторингом
 - [Extraction](docs/wiki/Extraction.md) — извлечение сущностей
 - [Evaluation](docs/wiki/Evaluation.md) — оценка качества
+- [Research](docs/wiki/Research.md) — детерминированный research layer
+- [Research-Workflow](docs/wiki/Research-Workflow.md) — natural-language запросы через LangGraph
 
 Архитектурные решения в [docs/adr](docs/adr/):
 
@@ -234,6 +252,8 @@ uv run ruff check src tests
 - [ADR 0005](docs/adr/0005-entity-resolution-strategy.md) — стратегия разрешения сущностей
 - [ADR 0006](docs/adr/0006-persecution-classification-strategy.md) — стратегия классификации преследований
 - [ADR 0007](docs/adr/0007-rosfinmonitoring-snapshot-model.md) — модель snapshot'ов Росфинмониторинга
+- [ADR 0008](docs/adr/0008-research-domain-and-research-service.md) — research domain и ResearchService
+- [ADR 0009](docs/adr/0009-langgraph-research-orchestration.md) — LangGraph research orchestration
 
 ## Тестирование
 
