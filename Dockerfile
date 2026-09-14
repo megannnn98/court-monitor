@@ -1,0 +1,33 @@
+# Monitoring runtime image (Dagster webserver/daemon and run workers).
+FROM python:3.13-slim-bookworm
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /usr/local/bin/uv
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app/src \
+    DAGSTER_HOME=/opt/dagster/dagster_home
+
+WORKDIR /app
+
+# psycopg2 (a project dependency) builds from source.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc libc6-dev libpq-dev \
+    && apt-get clean
+
+# Semantic indexing needs sentence-transformers (large); opt in with
+# `docker compose build --build-arg INSTALL_SEMANTIC=1`.
+ARG INSTALL_SEMANTIC=0
+COPY pyproject.toml uv.lock ./
+RUN if [ "$INSTALL_SEMANTIC" = "1" ]; then \
+        uv sync --frozen --no-dev --no-install-project --group semantic; \
+    else \
+        uv sync --frozen --no-dev --no-install-project; \
+    fi
+
+COPY src ./src
+COPY migrations ./migrations
+COPY alembic.ini ./
+COPY docker/dagster/dagster.yaml docker/dagster/workspace.yaml /opt/dagster/dagster_home/

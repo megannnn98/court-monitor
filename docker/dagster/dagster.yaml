@@ -1,0 +1,36 @@
+# Dagster instance for the `monitoring` compose profile (ADR 0013).
+# Dagster's own tables live in a separate database, never in the domain database.
+storage:
+  postgres:
+    postgres_db:
+      username:
+        env: DAGSTER_PG_USERNAME
+      password:
+        env: DAGSTER_PG_PASSWORD
+      hostname:
+        env: DAGSTER_PG_HOST
+      db_name:
+        env: DAGSTER_PG_DB
+      port: 5432
+
+run_coordinator:
+  module: dagster._core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 4
+    tag_concurrency_limits:
+      # One queued-to-running monitoring run per source (the database guard
+      # in monitoring_runs is the ground truth; this avoids launching at all).
+      - key: "monitoring/source"
+        value:
+          applyLimitPerUniqueValue: true
+        limit: 1
+      - key: "monitoring/derived"
+        limit: 1
+
+run_launcher:
+  module: dagster._core.launcher
+  class: DefaultRunLauncher
+
+telemetry:
+  enabled: false

@@ -37,6 +37,72 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  # Automated monitoring (ADR 0013): docker compose --profile monitoring up -d
+  # Apply domain migrations first: uv run alembic upgrade head
+  # Dagster metadata goes to its own database (DAGSTER_PG_DB), created here if missing.
+  dagster-db-init:
+    image: postgres:18.6-bookworm
+    profiles:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      DAGSTER_PG_DB: ${DAGSTER_PG_DB:-court_monitor_dagster}
+    command:
+      - sh
+      - -c
+      - >-
+        psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$${DAGSTER_PG_DB}'" | grep -q 1
+        || psql -c "CREATE DATABASE \"$${DAGSTER_PG_DB}\""
+
+  dagster-webserver:
+    build: .
+    image: court-monitor-monitoring:local
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/dagster_home/workspace.yaml"]
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment: &monitoring-environment
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DAGSTER_PG_HOST: postgres
+      DAGSTER_PG_USERNAME: ${POSTGRES_USER}
+      DAGSTER_PG_PASSWORD: ${POSTGRES_PASSWORD}
+      DAGSTER_PG_DB: ${DAGSTER_PG_DB:-court_monitor_dagster}
+      # Empty: semantic stage reports not_configured. With --profile semantic and an
+      # image built with INSTALL_SEMANTIC=1, set MONITORING_QDRANT_URL=http://qdrant:6333.
+      QDRANT_URL: ${MONITORING_QDRANT_URL:-}
+      MONITORING_ENABLED_SOURCES: ${MONITORING_ENABLED_SOURCES:-ovd-info,sota-vision}
+      MONITORING_CRON: ${MONITORING_CRON:-0 * * * *}
+      MONITORING_DISCOVERY_LIMIT: ${MONITORING_DISCOVERY_LIMIT:-50}
+      MONITORING_STALE_RUN_AFTER_MINUTES: ${MONITORING_STALE_RUN_AFTER_MINUTES:-120}
+      ER_CANDIDATE_LIMIT: ${ER_CANDIDATE_LIMIT:-30}
+      ER_AUTO_LINK_MIN_SCORE: ${ER_AUTO_LINK_MIN_SCORE:-0.85}
+      ER_REVIEW_MIN_SCORE: ${ER_REVIEW_MIN_SCORE:-0.40}
+      ER_MIN_MARGIN: ${ER_MIN_MARGIN:-0.10}
+    depends_on:
+      dagster-db-init:
+        condition: service_completed_successfully
+
+  dagster-daemon:
+    image: court-monitor-monitoring:local
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    command: ["dagster-daemon", "run", "-w", "/opt/dagster/dagster_home/workspace.yaml"]
+    environment: *monitoring-environment
+    depends_on:
+      dagster-db-init:
+        condition: service_completed_successfully
+      dagster-webserver:
+        condition: service_started
+
 volumes:
   postgres_data:
   qdrant_data:
