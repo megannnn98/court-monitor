@@ -100,7 +100,9 @@ class QdrantVectorStore:
             return action()
         except _CLIENT_ERRORS as exc:
             logger.warning(
-                "vector_store_unavailable operation=%s error=%s", operation, type(exc).__name__
+                "event=vector_store_unavailable operation=%s error=%s",
+                operation,
+                type(exc).__name__,
             )
             raise RetrievalUnavailableError(f"Qdrant unavailable during {operation}") from exc
 

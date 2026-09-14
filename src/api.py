@@ -2,11 +2,12 @@
 
 import logging
 import os
-from collections.abc import AsyncIterator, Iterator
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -21,15 +22,25 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from health import (
+    LivenessReport,
+    ReadinessChecker,
+    ReadinessReport,
+    ReadinessStatus,
+    expected_schema_revision,
+    qdrant_probe,
+)
 from monitoring.findings import MonitoringFindingService
 from monitoring.models import (
     MonitoringFindingView,
     MonitoringRunDetails,
     MonitoringRunStatus,
     MonitoringRunView,
+    MonitoringSettings,
     MonitoringStatusView,
 )
 from monitoring.repository import SqlAlchemyMonitoringRepository
+from observability import REQUEST_ID_HEADER, configure_logging, normalize_request_id, request_id_var
 from persecution.queries import latest_persecution_classification_ids
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import (
@@ -58,6 +69,7 @@ from research.workflow.graph import ResearchGraph, run_research_query
 from research.workflow.llm import LlmConfigurationError
 from research.workflow.models import ResearchQueryResult, WorkflowErrorCode, WorkflowStatus
 from research.workflow_factory import create_research_graph
+from semantic_retrieval.factory import SemanticRetrievalConfig
 from semantic_retrieval.models import SemanticConfigurationError
 from settings import ApplicationConfigurationError, ApplicationSettings
 
@@ -71,12 +83,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     Dependencies are not required here: a database that is still starting makes
     `/health/ready` report unavailable instead of crashing the process.
     """
+    configure_logging()
     try:
         ApplicationSettings.from_env()
     except ApplicationConfigurationError as exc:
         logger.error("event=config_invalid problems=%s", exc.problems)
         raise
+    logger.info("event=api_started")
     yield
+    logger.info("event=api_stopped")
 
 
 # Create FastAPI app
@@ -86,6 +101,61 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+# No CORS middleware: the API is meant for private deployment behind a reverse
+# proxy (ADR 0014); browsers on other origins are not a supported client.
+
+
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    request_id: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorBody
+
+
+def error_response(status_code: int, code: str, message: str) -> JSONResponse:
+    request_id = request_id_var.get()
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse(
+            error=ErrorBody(code=code, message=message, request_id=request_id)
+        ).model_dump(),
+        headers={REQUEST_ID_HEADER: request_id},
+    )
+
+
+@app.middleware("http")
+async def request_context(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Request id for logs and responses; unhandled errors never leak a traceback."""
+    request_id = normalize_request_id(request.headers.get(REQUEST_ID_HEADER))
+    token = request_id_var.set(request_id)
+    started = time.monotonic()
+    try:
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            logger.exception(
+                "event=http_unhandled_error method=%s path=%s error_kind=%s",
+                request.method,
+                request.url.path,
+                type(exc).__name__,
+            )
+            response = error_response(500, "internal_error", "Internal server error")
+        response.headers[REQUEST_ID_HEADER] = request_id
+        logger.info(
+            "event=http_request method=%s path=%s status=%s duration_ms=%d",
+            request.method,
+            request.url.path,
+            response.status_code,
+            (time.monotonic() - started) * 1000,
+        )
+        return response
+    finally:
+        request_id_var.reset(token)
 
 
 # Database dependency
@@ -210,7 +280,8 @@ def list_persons(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[PersonResponse]:
     """List all persons."""
-    query = select(PersonRecord).offset(offset).limit(limit)
+    # Ordered: offset pagination must not skip or repeat rows between pages.
+    query = select(PersonRecord).order_by(PersonRecord.id).offset(offset).limit(limit)
 
     if status:
         query = query.where(PersonRecord.status == status)
@@ -546,6 +617,7 @@ def list_rosfinmonitoring_entries(
     entries = db.scalars(
         select(RosfinmonitoringEntryRecord)
         .where(RosfinmonitoringEntryRecord.snapshot_id == snapshot_id)
+        .order_by(RosfinmonitoringEntryRecord.id)
         .offset(offset)
         .limit(limit)
     ).all()
@@ -570,12 +642,13 @@ def list_reviews(
     status: str | None = Query(default=None),
     subject_type: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[ReviewResponse]:
     """List reviews."""
     from db.orm_models import ReviewRecordModel
 
-    query = select(ReviewRecordModel).limit(limit)
+    query = select(ReviewRecordModel).offset(offset).limit(limit)
 
     if status:
         query = query.where(ReviewRecordModel.decision == status)
@@ -583,7 +656,7 @@ def list_reviews(
     if subject_type:
         query = query.where(ReviewRecordModel.subject_type == subject_type)
 
-    query = query.order_by(ReviewRecordModel.created_at.desc())
+    query = query.order_by(ReviewRecordModel.created_at.desc(), ReviewRecordModel.id.desc())
 
     reviews = db.scalars(query).all()
 
@@ -689,9 +762,12 @@ def list_monitoring_runs(
     limit: int = Query(default=20, ge=1, le=200),
     source: str | None = None,
     status: MonitoringRunStatus | None = None,
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[MonitoringRunView]:
-    return _monitoring_repository(db).list_runs(limit=limit, source=source, status=status)
+    return _monitoring_repository(db).list_runs(
+        limit=limit, offset=offset, source=source, status=status
+    )
 
 
 @app.get(
@@ -714,15 +790,54 @@ def get_monitoring_run(
 def list_monitoring_findings(
     active_only: bool = True,
     limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[MonitoringFindingView]:
     return MonitoringFindingService(sessionmaker(bind=db.get_bind())).list_findings(
-        active_only=active_only, limit=limit
+        active_only=active_only, limit=limit, offset=offset
     )
 
 
-# Health check endpoint
+# Health endpoints (ADR 0014)
 @app.get("/health")
 def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+    """Liveness (kept for compatibility; prefer /health/live)."""
     return {"status": "ok"}
+
+
+@app.get("/health/live", response_model=LivenessReport)
+def health_live() -> LivenessReport:
+    """The process answers. Never checks dependencies."""
+    return LivenessReport()
+
+
+def get_readiness_checker() -> ReadinessChecker:
+    try:
+        session_factory: sessionmaker[Session] | None = _get_session_factory()
+    except RuntimeError:
+        session_factory = None
+    semantic = SemanticRetrievalConfig.from_env()
+    return ReadinessChecker(
+        session_factory,
+        expected_revision=expected_schema_revision(),
+        qdrant_probe=None if semantic.qdrant_url is None else qdrant_probe(semantic.qdrant_url),
+        together_configured=bool(
+            os.getenv("TOGETHER_API_KEY", "").strip() and os.getenv("TOGETHER_MODEL", "").strip()
+        ),
+        stale_run_after=MonitoringSettings.from_env().stale_run_after,
+    )
+
+
+@app.get(
+    "/health/ready",
+    response_model=ReadinessReport,
+    responses={503: {"model": ReadinessReport}},
+)
+def health_ready(
+    checker: ReadinessChecker = Depends(get_readiness_checker),  # noqa: B008
+) -> ReadinessReport | JSONResponse:
+    """Database and schema are required; Qdrant, Together AI and monitoring are reported."""
+    report = checker.check()
+    if report.status is ReadinessStatus.UNAVAILABLE:
+        return JSONResponse(status_code=503, content=report.model_dump(mode="json"))
+    return report

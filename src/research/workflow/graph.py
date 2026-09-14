@@ -170,11 +170,13 @@ def build_research_graph(
             intake = request_parser.parse(state["raw_query"])
         except LlmError as exc:
             code = _llm_error_code(exc)
-            logger.warning("request_intake_failed code=%s error=%s", code.value, type(exc).__name__)
+            logger.warning(
+                "event=request_intake_failed code=%s error=%s", code.value, type(exc).__name__
+            )
             return {"errors": [WorkflowError(code=code, message=str(exc))]}
 
         logger.info(
-            "request_parsed has_request=%s unsupported_criteria=%d clarification=%s",
+            "event=request_parsed has_request=%s unsupported_criteria=%d clarification=%s",
             intake.request is not None,
             len(intake.unsupported_criteria),
             intake.clarification_question is not None,
@@ -259,7 +261,7 @@ def build_research_graph(
                     f"Для snapshot #{snapshot.snapshot_id} сопоставление с Росфинмониторингом "
                     "ещё не запускалось: статусы будут no_match_record."
                 )
-            logger.info("snapshot_resolved snapshot_id=%d", snapshot.snapshot_id)
+            logger.info("event=snapshot_resolved snapshot_id=%d", snapshot.snapshot_id)
 
         return {"request_payload": payload, "warnings": warnings}
 
@@ -279,7 +281,8 @@ def build_research_graph(
             issues = classify_validation_errors(exc)
             if issues.contract_errors:
                 logger.warning(
-                    "request_validation status=invalid_schema errors=%d", issues.contract_errors
+                    "event=request_validation status=invalid_schema errors=%d",
+                    issues.contract_errors,
                 )
                 return {
                     "errors": [
@@ -293,7 +296,7 @@ def build_research_graph(
                     ]
                 }
             logger.info(
-                "request_validation status=needs_clarification unsupported=%d invalid_values=%d",
+                "event=request_validation status=needs_clarification unsupported=%d invalid_values=%d",
                 len(issues.unsupported_criteria),
                 len(issues.user_messages),
             )
@@ -309,7 +312,7 @@ def build_research_graph(
                     "Уточните критерии поиска."
                 )
             return update
-        logger.info("request_validation status=valid")
+        logger.info("event=request_validation status=valid")
         return {"structured_request": request}
 
     def route_after_validation(
@@ -326,7 +329,7 @@ def build_research_graph(
     def build_research_plan(state: ResearchGraphState) -> ResearchGraphState:
         plan = planner.plan(state["structured_request"])
         logger.info(
-            "research_plan_built requirements=%s candidate_sources=%d",
+            "event=research_plan_built requirements=%s candidate_sources=%d",
             ",".join(requirement.value for requirement in plan.data_requirements),
             len(plan.candidate_sources),
         )
@@ -362,7 +365,7 @@ def build_research_graph(
                 else WorkflowErrorCode.SEMANTIC_RETRIEVAL_UNAVAILABLE
             )
             logger.warning(
-                "candidate_retrieval_failed code=%s error=%s", code.value, type(exc).__name__
+                "event=candidate_retrieval_failed code=%s error=%s", code.value, type(exc).__name__
             )
             return {
                 "errors": [
@@ -376,7 +379,7 @@ def build_research_graph(
                 ]
             }
         logger.info(
-            "candidates_retrieved backend=%s count=%d pool_size=%d",
+            "event=candidates_retrieved backend=%s count=%d pool_size=%d",
             retrieval.backend.value,
             len(retrieval.hits),
             plan.candidate_pool_size,
@@ -424,7 +427,7 @@ def build_research_graph(
                 )
             }
         logger.info(
-            "research_executed result_count=%d total_matched=%d",
+            "event=research_executed result_count=%d total_matched=%d",
             len(response.results),
             response.total_matched,
         )
@@ -444,7 +447,7 @@ def build_research_graph(
             response=state["research_response"],
         )
         logger.info(
-            "result_evaluated review_required_count=%d source_refresh_required=%s",
+            "event=result_evaluated review_required_count=%d source_refresh_required=%s",
             sum(review.decision.required for review in evaluation.reviews),
             evaluation.routing.source_refresh_required,
         )
@@ -458,7 +461,7 @@ def build_research_graph(
             plan=state["research_plan"],
             semantic=state.get("semantic_decision"),
         )
-        logger.info("report_built status=%s items=%d", report.status.value, len(report.items))
+        logger.info("event=report_built status=%s items=%d", report.status.value, len(report.items))
         return {"report": report}
 
     def human_review_gate(state: ResearchGraphState) -> ResearchGraphState:
@@ -469,7 +472,7 @@ def build_research_graph(
         """
         report = state["report"]
         logger.info(
-            "human_review_gate review_required=%s review_required_count=%d",
+            "event=human_review_gate review_required=%s review_required_count=%d",
             report.review_required,
             report.summary.review_required_count,
         )
@@ -489,7 +492,7 @@ def build_research_graph(
             questions.append("Не удалось понять запрос. Уточните, кого или что нужно найти.")
 
         question = " ".join(questions)
-        logger.info("clarification_required unsupported_criteria=%d", len(unsupported))
+        logger.info("event=clarification_required unsupported_criteria=%d", len(unsupported))
         updated: ResearchGraphState = {
             **state,
             "clarification_required": True,
@@ -503,7 +506,7 @@ def build_research_graph(
 
     def workflow_failed(state: ResearchGraphState) -> ResearchGraphState:
         errors = state.get("errors", [])
-        logger.error("workflow_failed code=%s", errors[0].code.value if errors else "unknown")
+        logger.error("event=workflow_failed code=%s", errors[0].code.value if errors else "unknown")
         return {"final_result": failed_result(state)}
 
     builder = StateGraph(ResearchGraphState)
@@ -573,18 +576,18 @@ def build_research_graph(
 
 
 def run_research_query(graph: ResearchGraph, query: str) -> ResearchQueryResult:
-    logger.info("workflow_started query_chars=%d", len(query))
+    logger.info("event=workflow_started query_chars=%d", len(query))
     try:
         state = graph.invoke({"raw_query": query})
     except Exception as exc:
         # Exception text (e.g. SQLAlchemy "[parameters: ...]") can carry user
         # criteria; above DEBUG only the exception type is logged.
         logger.error(
-            "workflow_failed code=%s error=%s",
+            "event=workflow_failed code=%s error=%s",
             WorkflowErrorCode.WORKFLOW_UNEXPECTED_ERROR.value,
             type(exc).__name__,
         )
-        logger.debug("workflow_unexpected_error_traceback", exc_info=True)
+        logger.debug("event=workflow_unexpected_error_traceback", exc_info=True)
         return ResearchQueryResult(
             status=WorkflowStatus.FAILED,
             query=query,
@@ -595,7 +598,7 @@ def run_research_query(graph: ResearchGraph, query: str) -> ResearchQueryResult:
         )
     result: ResearchQueryResult = state["final_result"]
     logger.info(
-        "workflow_finished status=%s result_count=%d review_required=%s",
+        "event=workflow_finished status=%s result_count=%d review_required=%s",
         result.status.value,
         len(result.results),
         result.review_required,

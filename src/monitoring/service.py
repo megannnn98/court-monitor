@@ -189,10 +189,11 @@ class MonitoringService:
         metrics["duration_ms"] = round((time.monotonic() - started) * 1000)
         self._repository.set_stage_metrics(handle.run_id, stage, metrics)
         logger.info(
-            "monitoring_%s_completed run_id=%s source=%s metrics=%s",
+            "event=monitoring_%s_completed run_id=%s source=%s stage=%s metrics=%s",
             _LOG_STAGE_NAMES[stage],
             handle.run_id,
             handle.source,
+            stage.value,
             metrics,
         )
 
@@ -259,7 +260,7 @@ class MonitoringService:
         )
         logger.log(
             logging.ERROR if status is MonitoringRunStatus.FAILED else logging.INFO,
-            "%s run_id=%s source=%s status=%s duration_s=%s discovered=%d ingested=%d skipped=%d "
+            "event=%s run_id=%s source=%s status=%s duration_s=%s discovered=%d ingested=%d skipped=%d "
             "failed=%d persons_created=%d persons_linked=%d reviews=%d classified=%d "
             "rf_matched=%d semantic_indexed=%d findings_created=%d errors=%d",
             event,
@@ -301,10 +302,14 @@ class MonitoringService:
             self.resolve(handle)
             self._run_derived_stages(handle)
         except MonitoringRunAbortedError:
-            logger.warning("monitoring_run_fenced run_id=%s: aborted while running", handle.run_id)
+            logger.warning(
+                "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id
+            )
             return self.finish(handle)
         except Exception as exc:
-            logger.exception("monitoring_run_failed run_id=%s source=%s", handle.run_id, source)
+            logger.exception(
+                "event=monitoring_run_failed run_id=%s source=%s", handle.run_id, source
+            )
             return self.finish(handle, error=exc)
         except BaseException as exc:
             # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.
@@ -320,10 +325,12 @@ class MonitoringService:
         try:
             self._run_derived_stages(handle)
         except MonitoringRunAbortedError:
-            logger.warning("monitoring_run_fenced run_id=%s: aborted while running", handle.run_id)
+            logger.warning(
+                "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id
+            )
             return self.finish(handle)
         except Exception as exc:
-            logger.exception("monitoring_run_failed run_id=%s scope=derived", handle.run_id)
+            logger.exception("event=monitoring_run_failed run_id=%s scope=derived", handle.run_id)
             return self.finish(handle, error=exc)
         except BaseException as exc:
             # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.

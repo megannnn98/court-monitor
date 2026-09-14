@@ -101,7 +101,7 @@ class MonitoringFindingService:
         """
         if snapshot_id is None:
             logger.warning(
-                "monitoring_findings_skipped run_id=%s reason=%s", run_id, NO_RF_SNAPSHOT
+                "event=monitoring_findings_skipped run_id=%s reason=%s", run_id, NO_RF_SNAPSHOT
             )
             return FindingEvaluation(snapshot_id=None, skipped_reason=NO_RF_SNAPSHOT)
         evaluation = FindingEvaluation(snapshot_id=snapshot_id)
@@ -184,7 +184,7 @@ class MonitoringFindingService:
                 outcome.reactivated += 1
         outcome.deactivated = self._deactivate_missing(session, criterion, person_ids)
         logger.info(
-            "monitoring_findings_evaluated run_id=%s finding_type=%s criteria_version=%s "
+            "event=monitoring_findings_evaluated run_id=%s finding_type=%s criteria_version=%s "
             "snapshot_id=%s matched=%d created=%d reactivated=%d deactivated=%d",
             run_id,
             criterion.finding_type,
@@ -246,13 +246,14 @@ class MonitoringFindingService:
         return {person_id: match_id for person_id, match_id in rows}
 
     def list_findings(
-        self, *, active_only: bool = True, limit: int = 100
+        self, *, active_only: bool = True, limit: int = 100, offset: int = 0
     ) -> list[MonitoringFindingView]:
         query = (
             select(MonitoringFindingRecord)
             .order_by(
                 MonitoringFindingRecord.first_seen_at.desc(), MonitoringFindingRecord.id.desc()
             )
+            .offset(offset)
             .limit(limit)
         )
         if active_only:

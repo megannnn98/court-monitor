@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -17,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
+from observability import configure_logging
 
 MONITOR_EXIT_FAILED = 1
 MONITOR_EXIT_ALREADY_RUNNING = 3
@@ -100,11 +100,7 @@ def run_monitoring_command(
     """Handle a monitoring command; False when `args.command` is not one."""
     if args.command not in MONITORING_COMMANDS:
         return False
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        stream=sys.stderr,
-    )
+    configure_logging()
     services = build_services(session_factory)
     monitoring = services.monitoring
 

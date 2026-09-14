@@ -156,7 +156,10 @@ class SqlAlchemyMonitoringRepository:
                 )
             raise MonitoringAlreadyRunningError(scope, running_id) from None
         logger.info(
-            "monitoring_run_started run_id=%s scope=%s trigger=%s", run_id, scope, trigger.value
+            "event=monitoring_run_started run_id=%s scope=%s trigger=%s",
+            run_id,
+            scope,
+            trigger.value,
         )
         return run_id
 
@@ -181,7 +184,7 @@ class SqlAlchemyMonitoringRepository:
                 ).all()
             )
         for run_id in aborted:
-            logger.warning("monitoring_run_aborted_stale run_id=%s", run_id)
+            logger.warning("event=monitoring_run_aborted_stale run_id=%s", run_id)
         return aborted
 
     @staticmethod
@@ -274,8 +277,8 @@ class SqlAlchemyMonitoringRepository:
                 )
             )
         logger.warning(
-            "monitoring_item_failed run_id=%s stage=%s entity_type=%s entity_id=%s ref=%s "
-            "kind=%s error_type=%s error=%s",
+            "event=monitoring_item_failed run_id=%s stage=%s entity_type=%s entity_id=%s ref=%s "
+            "error_kind=%s error_type=%s error=%s",
             run_id,
             stage.value,
             entity_type,
@@ -323,7 +326,7 @@ class SqlAlchemyMonitoringRepository:
                     heartbeat_at=func.now(),
                 )
             )
-        logger.info("monitoring_run_finished run_id=%s status=%s", run_id, status.value)
+        logger.info("event=monitoring_run_finished run_id=%s status=%s", run_id, status.value)
         return status
 
     def update_checkpoint(self, source: str, *, run_id: int, discovered_count: int) -> None:
@@ -387,10 +390,16 @@ class SqlAlchemyMonitoringRepository:
         self,
         *,
         limit: int = 20,
+        offset: int = 0,
         source: str | None = None,
         status: MonitoringRunStatus | None = None,
     ) -> list[MonitoringRunView]:
-        query = select(MonitoringRunRecord).order_by(MonitoringRunRecord.id.desc()).limit(limit)
+        query = (
+            select(MonitoringRunRecord)
+            .order_by(MonitoringRunRecord.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         if source is not None:
             query = query.where(MonitoringRunRecord.source == source)
         if status is not None:
