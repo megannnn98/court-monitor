@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from candidate_query_models import RosfinmonitoringStatus
 from candidate_query_service import CandidateQueryService
+from research_models import ResearchRequest
 from research_repository import SqlAlchemyPersonResearchRepository
 from research_service import ResearchService
 from research_workflow.graph import ResearchGraph, build_research_graph, run_research_query
@@ -142,3 +143,117 @@ def test_no_imported_snapshot_fails_instead_of_returning_nothing(
     assert result.status is WorkflowStatus.FAILED
     assert result.error is not None
     assert result.error.code is WorkflowErrorCode.NO_ROSFINMONITORING_SNAPSHOT
+
+
+def test_graph_and_direct_research_service_agree_on_every_status(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Same ResearchRequest through ResearchService and through LangGraph.
+
+    The graph must not change latest classification, any Rosfinmonitoring
+    status (including NO_MATCH_RECORD) or review_required.
+    """
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("ОВД-Инфо", "https://ovd.info")
+        text = "Упомянуты Альфа, Бета, Гамма, Дельта, Эпсилон, Дзета, Эта."
+        _, run_id = seed.article(source_id, external_id="all-statuses", title="Все", text=text)
+        snapshot_id = seed.snapshot("statuses")
+        seed.entry(snapshot_id, "ЛЮБАЯ ЗАПИСЬ")
+
+        people: dict[str, int] = {}
+        for name, rf_status in [
+            ("Альфа", "matched"),
+            ("Бета", "not_matched"),
+            ("Гамма", "ambiguous"),
+            ("Дельта", "needs_review"),
+            ("Эпсилон", "insufficient_data"),
+            ("Дзета", None),  # never matched: NO_MATCH_RECORD
+        ]:
+            person_id = seed.person(name)
+            people[name] = person_id
+            seed.mention(run_id, name, person_id=person_id)
+            seed.classification(person_id, "political", 0.9)
+            if rf_status is not None:
+                seed.match(person_id, snapshot_id, rf_status, 0.7)
+        # Older POLITICAL superseded by a newer UNCERTAIN classification.
+        eta = seed.person("Эта")
+        people["Эта"] = eta
+        seed.mention(run_id, "Эта", person_id=eta)
+        seed.classification(
+            eta,
+            "political",
+            0.95,
+            classifier_version="1.0.0",
+            classified_at=datetime(2024, 1, 1, tzinfo=UTC),
+        )
+        seed.classification(
+            eta,
+            "uncertain",
+            0.5,
+            classifier_version="2.0.0",
+            classified_at=datetime(2024, 6, 1, tzinfo=UTC),
+        )
+        seed.match(eta, snapshot_id, "not_matched", 0.8)
+        session.commit()
+
+    service = ResearchService(
+        repository=SqlAlchemyPersonResearchRepository(session_factory),
+        candidate_query=CandidateQueryService(session_factory),
+    )
+    criteria = {"snapshot_id": snapshot_id}
+    direct = service.execute(
+        ResearchRequest.model_validate({"object_type": "person", "criteria": criteria})
+    )
+    graph = build_research_graph(
+        request_parser=FakeRequestParser(
+            intake=ResearchIntake(request={"object_type": "person", "criteria": criteria})
+        ),
+        research_service=service,
+        snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
+    )
+
+    via_graph = run_research_query(graph, f"Покажи всех по snapshot #{snapshot_id}")
+
+    assert via_graph.status is WorkflowStatus.COMPLETED
+    assert via_graph.request == direct.request
+    assert via_graph.results == direct.results
+    assert via_graph.total_matched == direct.total_matched
+    by_name = {
+        result.person.canonical_name: (
+            result.persecution.status.value if result.persecution else None,
+            result.rosfinmonitoring.status.value if result.rosfinmonitoring else None,
+            result.review_required,
+        )
+        for result in via_graph.results
+    }
+    assert by_name == {
+        "Альфа": ("political", "matched", False),
+        "Бета": ("political", "not_matched", False),
+        "Гамма": ("political", "ambiguous", True),
+        "Дельта": ("political", "needs_review", True),
+        "Эпсилон": ("political", "insufficient_data", True),
+        "Дзета": ("political", "no_match_record", False),
+        "Эта": ("uncertain", "not_matched", True),
+    }
+
+    # The product question: only a confirmed absence with a latest POLITICAL
+    # classification qualifies — same answer with and without the graph.
+    product = {"persecution_status": "political", "rosfinmonitoring_status": "not_matched"}
+    direct_product = service.execute(
+        ResearchRequest.model_validate(
+            {"object_type": "person", "criteria": {**product, "snapshot_id": snapshot_id}}
+        )
+    )
+    graph_product = run_research_query(
+        build_research_graph(
+            request_parser=FakeRequestParser(
+                intake=ResearchIntake(request={"object_type": "person", "criteria": product})
+            ),
+            research_service=service,
+            snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
+        ),
+        "Политически преследуемые, которых нет в перечне",
+    )
+    assert graph_product.results == direct_product.results
+    assert [r.person.id for r in graph_product.results] == [people["Бета"]]

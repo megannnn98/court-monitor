@@ -48,12 +48,19 @@ def test_api_has_persons_endpoint() -> None:
     assert response.status_code in (200, 503)
 
 
-def test_api_has_candidates_endpoint() -> None:
+def test_api_has_candidates_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that candidates endpoint exists."""
-    client = TestClient(app)
-    response = client.get("/candidates?snapshot_id=1")
-    # Should get 503 due to no DATABASE_URL, not 404
-    assert response.status_code in (200, 422, 503)
+    # Independent of an ambient DATABASE_URL: with a real database and no
+    # snapshot 1 the endpoint answers 404, which is indistinguishable from a
+    # missing route.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    _get_session_factory.cache_clear()
+    try:
+        response = TestClient(app).get("/candidates?snapshot_id=1")
+    finally:
+        _get_session_factory.cache_clear()
+    # 503 (no DATABASE_URL) proves the route exists; a missing route is 404.
+    assert response.status_code == 503
 
 
 def test_api_has_rosfinmonitoring_snapshots_endpoint() -> None:

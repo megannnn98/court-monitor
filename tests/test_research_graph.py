@@ -699,3 +699,89 @@ def test_unexpected_exception_traceback_only_at_debug(caplog: pytest.LogCaptureF
 
     debug_records = [r for r in caplog.records if r.exc_info is not None]
     assert [r.levelno for r in debug_records] == [logging.DEBUG]
+
+
+# --- regression phrases from the stabilization checklist ---------------------------
+
+
+def test_count_in_query_is_not_a_snapshot_id() -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "Найди 3 политически преследуемых человека, которых нет в Росфинмониторинге",
+        parser=FakeRequestParser(
+            intake=ResearchIntake(
+                request={
+                    "object_type": "person",
+                    "criteria": {
+                        "persecution_status": "political",
+                        "rosfinmonitoring_status": "not_matched",
+                        "snapshot_id": 3,
+                    },
+                    "limit": 3,
+                }
+            )
+        ),
+        service=service,
+    )
+
+    (executed,) = service.requests
+    assert (executed.criteria.snapshot_id, executed.limit) == (7, 3)
+    assert result.status is WorkflowStatus.COMPLETED
+
+
+def test_check_snapshot_hash_three_uses_snapshot_three() -> None:
+    service = FakeResearchService()
+    lookup = FakeSnapshotLookup(latest=LATEST_SNAPSHOT)
+
+    _run(
+        "проверь snapshot #3",
+        parser=FakeRequestParser(intake=_intake({"rosfinmonitoring_status": "not_matched"})),
+        service=service,
+        lookup=lookup,
+    )
+
+    assert service.requests[0].criteria.snapshot_id == 3
+    assert lookup.calls == 0
+
+
+def test_two_hash_snapshots_require_clarification() -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "snapshot #3 и snapshot #4",
+        parser=FakeRequestParser(intake=_intake({"rosfinmonitoring_status": "not_matched"})),
+        service=service,
+    )
+
+    assert result.status is WorkflowStatus.CLARIFICATION_REQUIRED
+    assert result.clarification_question == (
+        "В запросе указано несколько snapshot: #3, #4. Укажите один snapshot."
+    )
+    assert service.requests == []
+
+
+@pytest.mark.parametrize(
+    "request_payload",
+    [
+        # Required field missing.
+        {"criteria": {"persecution_status": "political"}},
+        # Wrong types.
+        {"object_type": "person", "limit": "много"},
+        {"object_type": "person", "criteria": {"event_types": "arrest"}},
+        {"object_type": "person", "criteria": "political"},
+    ],
+)
+def test_broken_llm_contract_fails_with_invalid_output(request_payload: dict[str, Any]) -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "…",
+        parser=FakeRequestParser(intake=ResearchIntake(request=request_payload)),
+        service=service,
+    )
+
+    assert result.status is WorkflowStatus.FAILED
+    assert result.error is not None
+    assert result.error.code is WorkflowErrorCode.LLM_INVALID_OUTPUT
+    assert service.requests == []

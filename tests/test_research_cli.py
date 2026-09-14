@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
+import sys
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 
@@ -235,3 +239,29 @@ def test_failure_and_clarification_have_distinct_output_and_exit_codes() -> None
     assert "Clarification required: Уберите регион." in format_query_result(clarification)
     assert "unsupported: region = из Казани" in format_query_result(clarification)
     assert (ask_exit_code(failed), ask_exit_code(clarification)) == (2, 3)
+
+
+def test_ask_without_together_config_exits_with_configuration_error() -> None:
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("TOGETHER_") and key not in {"DATABASE_URL", "TEST_DATABASE_URL"}
+    }
+    # The engine is created lazily; nothing connects to this URL.
+    env["DATABASE_URL"] = "postgresql+psycopg://nobody:nothing@127.0.0.1:1/none"
+
+    completed = subprocess.run(
+        [sys.executable, "src/main.py", "ask", "Найди политически преследуемых людей"],
+        cwd=Path(__file__).resolve().parent.parent,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stderr.strip().endswith(
+        "Together AI is not configured: set TOGETHER_API_KEY, TOGETHER_MODEL"
+    )
+    assert completed.stdout == ""
