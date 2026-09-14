@@ -23,9 +23,13 @@ services:
       retries: 5
       start_period: 10s
 
+  # Not used by the current code (dense/hybrid search was removed, ADR 0002).
+  # Optional: docker compose --profile semantic up -d
   qdrant:
     image: qdrant/qdrant:v1.19.0
     restart: unless-stopped
+    profiles:
+      - semantic
 
     ports:
       - "127.0.0.1:6333:6333"

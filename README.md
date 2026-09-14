@@ -92,20 +92,31 @@ ResearchRequest
 ```bash
 # Клонировать репозиторий
 git clone <repository-url>
-cd ebnv
+cd court-monitor
 
 # Установить зависимости
-uv sync
+uv sync --frozen
 
-# Создать базу данных PostgreSQL
-createdb court_monitor
+# Конфигурация (переменные описаны в docs/wiki/Setup.md)
+cp .env.example .env
+set -a; source .env; set +a
+
+# PostgreSQL (Qdrant не нужен; опционально: docker compose --profile semantic up -d)
+docker compose up -d
 
 # Применить миграции
-DATABASE_URL="postgresql://user:password@localhost:5432/court_monitor" uv run alembic upgrade head
-
-# Настроить переменные окружения
-export DATABASE_URL="postgresql://user:password@localhost:5432/court_monitor"
+uv run alembic upgrade head
 ```
+
+Переменные окружения:
+
+| Переменная | Назначение |
+|---|---|
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | PostgreSQL в Docker Compose |
+| `DATABASE_URL` | подключение к PostgreSQL (`postgresql+psycopg://…@localhost:5433/court_monitor`) |
+| `TOGETHER_API_KEY` | ключ Together AI (только для `ask` / `POST /research/query`) |
+| `TOGETHER_MODEL` | модель Together с поддержкой JSON schema |
+| `TOGETHER_TIMEOUT_SECONDS` | таймаут запроса к Together, по умолчанию `30` |
 
 ## Использование
 
@@ -199,7 +210,7 @@ uv run python src/main.py list-candidates --snapshot-id 1 --output-path candidat
 
 ### Natural-language запросы (LangGraph + Together AI)
 
-LLM только переводит вопрос в `ResearchRequest`; факты устанавливает `ResearchService`. Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` (опционально `TOGETHER_TIMEOUT_SECONDS=30`).
+LLM только переводит вопрос в `ResearchRequest`; факты устанавливает `ResearchService`. Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` в `.env`.
 
 ```bash
 uv run python src/main.py ask \
@@ -263,25 +274,30 @@ uv run pytest tests/test_person_models.py -v
 uv run pytest tests/test_persecution_classifier.py -v
 uv run pytest tests/test_rosfinmonitoring_matcher.py -v
 
-# Integration tests
-uv run pytest tests/test_end_to_end.py -v
+# PostgreSQL integration tests (без TEST_DATABASE_URL пропускаются; база court_monitor_test)
+DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run alembic upgrade head
+env -u DATABASE_URL TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run pytest
 
 # Evaluation
 uv run pytest tests/test_er_evaluation.py -v
 uv run pytest tests/test_persecution_evaluation.py -v
 uv run pytest tests/test_rosfin_match_evaluation.py -v
 
-# All tests
+# All tests (live Together AI — только с TOGETHER_LIVE_TESTS=1)
 uv run pytest
 
-# Coverage
-uv run pytest --cov=src --cov-report=html
+# Static checks (как в CI)
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run mypy --strict src tests
 ```
+
+CI: `.github/workflows/ci.yml` — jobs `quality`, `tests`, `integration` (PostgreSQL). Подробнее: [Setup](docs/wiki/Setup.md#тесты-и-ci).
 
 ## Требования
 
 - Python 3.13+
-- PostgreSQL 14+
+- PostgreSQL 18 (`docker compose up -d`)
 - uv (Python package manager)
 
 ## Лицензия

@@ -19,19 +19,21 @@ POSTGRES_USER
 POSTGRES_PASSWORD
 ```
 
-Пример конфигурации находится в:
+Актуальный набор переменных для локального запуска (шаблон — `.env.example`, скопируйте его в `.env`):
 
 ```text
-.env.example
-```
+POSTGRES_DB=court_monitor
+POSTGRES_USER=court_monitor
+POSTGRES_PASSWORD=court_monitor_dev
 
-`.env.example` пока не содержит переменные Together — добавьте их в `.env` вручную:
+DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor
 
-```text
 TOGETHER_API_KEY=
 TOGETHER_MODEL=
 TOGETHER_TIMEOUT_SECONDS=30
 ```
+
+`TOGETHER_*` нужны только для natural-language запросов; без них `ask` и `POST /research/query` завершаются ошибкой конфигурации, остальной pipeline работает.
 
 Если `.env` загружается через shell:
 
@@ -43,17 +45,48 @@ set +a
 
 `set -a` нужен, чтобы переменные из `.env` экспортировались в окружение дочернего Python-процесса.
 
-Переменные `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_EVALUATION_COLLECTION`, `EMBEDDING_MODEL_ID`, `RERANKER_MODEL_ID` использовались dense/hybrid/reranked-hybrid поиском — удалены вместе с ним, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md). `compose.yaml` всё ещё поднимает Qdrant — сейчас он кодом не используется.
+Переменные `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_EVALUATION_COLLECTION`, `EMBEDDING_MODEL_ID`, `RERANKER_MODEL_ID` использовались dense/hybrid/reranked-hybrid поиском — удалены вместе с ним, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md); текущий код их не читает.
 
 ## Инфраструктура
-
-Запуск:
 
 ```bash
 docker compose up -d
 ```
 
-Используется PostgreSQL.
+Поднимает только PostgreSQL (порт `5433` на хосте) — единственную инфраструктуру, которую использует текущий код.
+
+Qdrant оставлен в `compose.yaml` как опциональный сервис под profile `semantic` (кодом сейчас не используется, volume `qdrant_data` сохранён):
+
+```bash
+docker compose --profile semantic up -d
+```
+
+## Тесты и CI
+
+```bash
+uv sync --frozen
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run mypy --strict src tests
+uv run pytest                      # DB-тесты пропускаются без TEST_DATABASE_URL
+```
+
+PostgreSQL integration suite (база обязательно `court_monitor_test`):
+
+```bash
+docker compose up -d postgres
+set -a; source .env; set +a
+DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run alembic upgrade head
+env -u DATABASE_URL TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run pytest
+```
+
+Live-тест Together AI не запускается без явного opt-in:
+
+```bash
+TOGETHER_LIVE_TESTS=1 uv run pytest -m live_together
+```
+
+GitHub Actions (`.github/workflows/ci.yml`): `quality` (ruff, format, mypy), `tests` (pytest без БД), `integration` (PostgreSQL 18 service, `alembic upgrade head`, pytest с `TEST_DATABASE_URL`). Together AI в CI не вызывается.
 
 ## Миграции
 
