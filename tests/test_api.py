@@ -1,16 +1,34 @@
 """Tests for FastAPI application."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 from research_db_fixtures import ResearchSeeder
+from research_workflow_fakes import FakeRequestParser, FakeResearchService, FakeSnapshotLookup
 from sqlalchemy.orm import Session, sessionmaker
 
-from api import _get_session_factory, app, get_db, get_research_service
+from api import (
+    _get_research_graph,
+    _get_session_factory,
+    app,
+    get_db,
+    get_research_query_graph,
+    get_research_service,
+)
 from research_models import ResearchRequest, ResearchResponse
 from research_service import ResearchSnapshotNotFoundError
+from research_workflow.graph import ResearchGraph, build_research_graph
+from research_workflow.llm import (
+    LlmAuthenticationError,
+    LlmError,
+    LlmInvalidResponseError,
+    LlmRateLimitError,
+    LlmTimeoutError,
+    LlmUnavailableError,
+)
+from research_workflow.models import ResearchIntake, UnsupportedCriterion
 
 
 def test_api_health_check() -> None:
@@ -226,3 +244,132 @@ def test_person_persecution_is_null_without_classification(
 
     assert response.status_code == 200
     assert response.json() is None
+
+
+def _query_graph(
+    parser: FakeRequestParser, service: FakeResearchService | None = None
+) -> ResearchGraph:
+    return build_research_graph(
+        request_parser=parser,
+        research_service=service or FakeResearchService(),
+        snapshot_lookup=FakeSnapshotLookup(),
+    )
+
+
+@pytest.fixture
+def override_query_graph() -> Iterator[Callable[[ResearchGraph], TestClient]]:
+    def install(graph: ResearchGraph) -> TestClient:
+        app.dependency_overrides[get_research_query_graph] = lambda: graph
+        return TestClient(app)
+
+    try:
+        yield install
+    finally:
+        app.dependency_overrides.pop(get_research_query_graph, None)
+
+
+def test_research_query_runs_workflow_and_returns_structured_result(
+    override_query_graph: Callable[[ResearchGraph], TestClient],
+) -> None:
+    service = FakeResearchService()
+    client = override_query_graph(
+        _query_graph(
+            FakeRequestParser(
+                intake=ResearchIntake(
+                    request={
+                        "object_type": "person",
+                        "criteria": {"persecution_status": "political"},
+                    }
+                )
+            ),
+            service,
+        )
+    )
+
+    response = client.post("/research/query", json={"query": "  Найди политически преследуемых  "})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    assert body["request"]["criteria"]["persecution_status"] == "political"
+    assert (body["results"], body["warnings"]) == ([], [])
+    assert (body["clarification_required"], body["review_required"]) == (False, False)
+    assert (body["total_matched"], body["error"]) == (0, None)
+    assert len(service.requests) == 1
+
+
+def test_research_query_clarification_is_200_with_question(
+    override_query_graph: Callable[[ResearchGraph], TestClient],
+) -> None:
+    client = override_query_graph(
+        _query_graph(
+            FakeRequestParser(
+                intake=ResearchIntake(
+                    request={"object_type": "person"},
+                    unsupported_criteria=[UnsupportedCriterion(criterion="age", value="30 лет")],
+                )
+            )
+        )
+    )
+
+    response = client.post("/research/query", json={"query": "люди 30 лет"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "clarification_required"
+    assert body["clarification_required"] is True
+    assert body["unsupported_criteria"] == [{"criterion": "age", "value": "30 лет"}]
+
+
+@pytest.mark.parametrize(
+    ("error", "status_code", "code"),
+    [
+        (LlmTimeoutError("t"), 504, "llm_timeout"),
+        (LlmUnavailableError("u"), 503, "llm_unavailable"),
+        (LlmRateLimitError("r"), 503, "llm_rate_limited"),
+        (LlmAuthenticationError("a"), 502, "llm_authentication_failed"),
+        (LlmInvalidResponseError("i"), 502, "llm_invalid_output"),
+    ],
+)
+def test_research_query_provider_failure_is_not_an_empty_success(
+    override_query_graph: Callable[[ResearchGraph], TestClient],
+    error: LlmError,
+    status_code: int,
+    code: str,
+) -> None:
+    client = override_query_graph(_query_graph(FakeRequestParser(error=error)))
+
+    response = client.post("/research/query", json={"query": "что угодно"})
+
+    assert response.status_code == status_code
+    body = response.json()
+    assert (body["status"], body["error"]["code"], body["total_matched"]) == ("failed", code, None)
+
+
+@pytest.mark.parametrize("body", [{}, {"query": ""}, {"query": "   "}, {"query": "x", "limit": 5}])
+def test_research_query_rejects_invalid_body(
+    override_query_graph: Callable[[ResearchGraph], TestClient], body: dict[str, object]
+) -> None:
+    parser = FakeRequestParser(error=LlmTimeoutError("must not be called"))
+    client = override_query_graph(_query_graph(parser))
+
+    assert client.post("/research/query", json=body).status_code == 422
+    assert parser.queries == []
+
+
+def test_research_query_without_together_config_returns_503(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@localhost:1/none")
+    monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
+    monkeypatch.delenv("TOGETHER_MODEL", raising=False)
+    _get_session_factory.cache_clear()
+    _get_research_graph.cache_clear()
+    try:
+        response = TestClient(app).post("/research/query", json={"query": "x"})
+    finally:
+        _get_session_factory.cache_clear()
+        _get_research_graph.cache_clear()
+
+    assert response.status_code == 503
+    assert "TOGETHER_API_KEY" in response.json()["detail"]

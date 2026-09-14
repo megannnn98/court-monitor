@@ -7,6 +7,7 @@ review semantics belong to ResearchService.
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import date
 from typing import Any
 
@@ -22,6 +23,7 @@ from research_models import (
     ResearchRequest,
     ResearchResponse,
 )
+from research_workflow.models import ResearchQueryResult, WorkflowStatus
 from source_registry import SOURCES, get_source_definition
 
 
@@ -135,4 +137,74 @@ def format_research_response(response: ResearchResponse) -> str:
                 f"    [{source.article_id}] {source.source_name}: "
                 f"{source.article_title} {source.url}"
             )
+    return "\n".join(lines)
+
+
+def add_ask_arguments(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "ask",
+        help="Run a natural-language research query through the LangGraph workflow",
+    )
+    parser.add_argument("query", help="Research question in natural language")
+    parser.add_argument(
+        "--show-request",
+        action="store_true",
+        help="Print the structured ResearchRequest produced from the query",
+    )
+    parser.add_argument("--json", action="store_true", help="Print ResearchQueryResult JSON")
+    parser.add_argument("--verbose", action="store_true", help="Log workflow events to stderr")
+
+
+# Distinct exit codes so scripts can tell "failed" from "0 results".
+ASK_EXIT_FAILED = 2
+ASK_EXIT_CLARIFICATION = 3
+
+
+def ask_exit_code(result: ResearchQueryResult) -> int:
+    if result.status is WorkflowStatus.FAILED:
+        return ASK_EXIT_FAILED
+    if result.status is WorkflowStatus.CLARIFICATION_REQUIRED:
+        return ASK_EXIT_CLARIFICATION
+    return 0
+
+
+def format_structured_request(result: ResearchQueryResult) -> str:
+    """Only the parsed structure — never model reasoning."""
+    payload = {
+        "request": (
+            result.request.model_dump(mode="json", exclude_none=True)
+            if result.request is not None
+            else None
+        ),
+        "unsupported_criteria": [item.model_dump() for item in result.unsupported_criteria],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def format_query_result(result: ResearchQueryResult) -> str:
+    lines: list[str] = []
+    for warning in result.warnings:
+        lines.append(f"! {warning}")
+
+    if result.status is WorkflowStatus.FAILED:
+        assert result.error is not None
+        lines.append(f"Workflow failed [{result.error.code.value}]: {result.error.message}")
+        lines.append("This is an error, not an empty result.")
+    elif result.status is WorkflowStatus.CLARIFICATION_REQUIRED:
+        lines.append(f"Clarification required: {result.clarification_question}")
+        for item in result.unsupported_criteria:
+            lines.append(f"  unsupported: {item.criterion} = {item.value}")
+    else:
+        assert result.request is not None
+        lines.append(
+            format_research_response(
+                ResearchResponse(
+                    object_type=result.request.object_type,
+                    request=result.request,
+                    results=result.results,
+                    total_matched=result.total_matched or 0,
+                )
+            )
+        )
+        lines.append(f"review_required (any result): {'yes' if result.review_required else 'no'}")
     return "\n".join(lines)

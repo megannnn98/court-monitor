@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import logging
 import os
 from collections import Counter
 from datetime import UTC, datetime
@@ -30,12 +31,19 @@ from person_resolver import RuleBasedPersonResolver
 from postgres_lexical_search import PostgresLexicalSearch
 from research_cli import (
     ResearchCliError,
+    add_ask_arguments,
     add_research_arguments,
+    ask_exit_code,
     build_research_request,
+    format_query_result,
     format_research_response,
+    format_structured_request,
 )
 from research_repository import SqlAlchemyPersonResearchRepository
 from research_service import ResearchService, ResearchSnapshotNotFoundError
+from research_workflow.graph import run_research_query
+from research_workflow.llm import LlmConfigurationError
+from research_workflow_factory import create_research_graph
 from retrying_fetcher import RetryingDocumentFetcher
 from rosfinmonitoring_matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring_matcher_persistence import RosfinMatchPersistence
@@ -262,6 +270,7 @@ def main() -> None:
     )
 
     add_research_arguments(subparsers)
+    add_ask_arguments(subparsers)
 
     args = argument_parser.parse_args()
 
@@ -296,6 +305,27 @@ def main() -> None:
             args.output_path.write_text(report_json + "\n", encoding="utf-8")
         else:
             print(report_json)
+        return
+
+    if args.command == "ask":
+        logging.basicConfig(
+            level=logging.INFO if args.verbose else logging.WARNING,
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+        try:
+            research_graph = create_research_graph(session_factory)
+        except LlmConfigurationError as exc:
+            raise SystemExit(str(exc)) from None
+        query_result = run_research_query(research_graph, args.query)
+        if args.show_request:
+            print(format_structured_request(query_result))
+        if args.json:
+            print(query_result.model_dump_json(indent=2))
+        else:
+            print(format_query_result(query_result))
+        exit_code = ask_exit_code(query_result)
+        if exit_code:
+            raise SystemExit(exit_code)
         return
 
     if args.command == "research":

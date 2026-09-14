@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import UTC, date, datetime
 
 import pytest
@@ -13,12 +14,17 @@ from persecution_models import PersecutionClassification, PersecutionClassificat
 from person_models import Person
 from research_cli import (
     ResearchCliError,
+    add_ask_arguments,
     add_research_arguments,
+    ask_exit_code,
     build_research_request,
+    format_query_result,
     format_research_response,
+    format_structured_request,
 )
 from research_mapping import build_warnings
 from research_models import (
+    PersonResearchCriteria,
     PersonResearchResult,
     ResearchEvent,
     ResearchObjectType,
@@ -26,6 +32,13 @@ from research_models import (
     ResearchResponse,
     ResearchRosfinmonitoring,
     ResearchSource,
+)
+from research_workflow.models import (
+    ResearchQueryResult,
+    UnsupportedCriterion,
+    WorkflowError,
+    WorkflowErrorCode,
+    WorkflowStatus,
 )
 
 
@@ -139,3 +152,86 @@ def test_text_output_shows_person_statuses_events_sources_and_review() -> None:
     assert "rosfin_ambiguous" in text
     assert "2024-03-05 arrest [subject] article 4" in text
     assert "[4] ОВД-Инфо: Хроника https://ovd.info/news/1" in text
+
+
+def _ask_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_ask_arguments(subparsers)
+    return parser.parse_args(["ask", *argv])
+
+
+def test_ask_arguments() -> None:
+    args = _ask_args(["Найди Иванова", "--show-request", "--json"])
+
+    assert (args.query, args.show_request, args.json, args.verbose) == (
+        "Найди Иванова",
+        True,
+        True,
+        False,
+    )
+
+
+def _completed(results: list[PersonResearchResult]) -> ResearchQueryResult:
+    return ResearchQueryResult(
+        status=WorkflowStatus.COMPLETED,
+        query="q",
+        request=ResearchRequest(
+            object_type=ResearchObjectType.PERSON,
+            criteria=PersonResearchCriteria(
+                persecution_status=PersecutionClassificationStatus.POLITICAL,
+                rosfinmonitoring_status=RosfinmonitoringStatus.NOT_MATCHED,
+                snapshot_id=7,
+            ),
+        ),
+        results=results,
+        total_matched=len(results),
+        warnings=["Snapshot не указан пользователем; использован последний доступный snapshot #7"],
+    )
+
+
+def test_show_request_prints_only_structured_request() -> None:
+    text = format_structured_request(_completed([]))
+
+    assert json.loads(text) == {
+        "request": {
+            "object_type": "person",
+            "criteria": {
+                "persecution_status": "political",
+                "rosfinmonitoring_status": "not_matched",
+                "snapshot_id": 7,
+            },
+            "limit": 20,
+        },
+        "unsupported_criteria": [],
+    }
+
+
+def test_completed_output_shows_warnings_results_and_exit_zero() -> None:
+    result = _completed([])
+
+    text = format_query_result(result)
+
+    assert "! Snapshot не указан пользователем" in text
+    assert "Matched 0 person(s), showing 0" in text
+    assert ask_exit_code(result) == 0
+
+
+def test_failure_and_clarification_have_distinct_output_and_exit_codes() -> None:
+    failed = ResearchQueryResult(
+        status=WorkflowStatus.FAILED,
+        query="q",
+        error=WorkflowError(code=WorkflowErrorCode.LLM_TIMEOUT, message="timed out"),
+    )
+    clarification = ResearchQueryResult(
+        status=WorkflowStatus.CLARIFICATION_REQUIRED,
+        query="q",
+        unsupported_criteria=[UnsupportedCriterion(criterion="region", value="из Казани")],
+        clarification_question="Уберите регион.",
+    )
+
+    assert "Workflow failed [llm_timeout]: timed out" in format_query_result(failed)
+    assert "not an empty result" in format_query_result(failed)
+    assert "Clarification required: Уберите регион." in format_query_result(clarification)
+    assert "unsupported: region = из Казани" in format_query_result(clarification)
+    assert (ask_exit_code(failed), ask_exit_code(clarification)) == (2, 3)

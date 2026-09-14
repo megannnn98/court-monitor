@@ -5,7 +5,8 @@ from collections.abc import Iterator
 from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -22,6 +23,10 @@ from persecution_queries import latest_persecution_classification_ids
 from research_models import ResearchRequest, ResearchResponse
 from research_repository import SqlAlchemyPersonResearchRepository
 from research_service import ResearchService, ResearchSnapshotNotFoundError
+from research_workflow.graph import ResearchGraph, run_research_query
+from research_workflow.llm import LlmConfigurationError
+from research_workflow.models import ResearchQueryResult, WorkflowErrorCode, WorkflowStatus
+from research_workflow_factory import create_research_graph
 
 # Create FastAPI app
 app = FastAPI(
@@ -318,6 +323,65 @@ def research(
         return service.execute(request)
     except ResearchSnapshotNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+# Natural-language research endpoints
+class ResearchQueryBody(BaseModel):
+    """Natural-language research query."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    query: str = Field(min_length=1, max_length=2000)
+
+
+# A failed workflow is never reported as an empty 200 result.
+_WORKFLOW_ERROR_HTTP_STATUS: dict[WorkflowErrorCode, int] = {
+    WorkflowErrorCode.LLM_NOT_CONFIGURED: 503,
+    WorkflowErrorCode.LLM_TIMEOUT: 504,
+    WorkflowErrorCode.LLM_UNAVAILABLE: 503,
+    WorkflowErrorCode.LLM_RATE_LIMITED: 503,
+    WorkflowErrorCode.LLM_AUTHENTICATION_FAILED: 502,
+    WorkflowErrorCode.LLM_REQUEST_REJECTED: 502,
+    WorkflowErrorCode.LLM_INVALID_OUTPUT: 502,
+    WorkflowErrorCode.NO_ROSFINMONITORING_SNAPSHOT: 409,
+}
+
+
+@lru_cache(maxsize=1)
+def _get_research_graph() -> ResearchGraph:
+    return create_research_graph(_get_session_factory())
+
+
+def get_research_query_graph() -> ResearchGraph:
+    """Build (once) the LangGraph research workflow."""
+    try:
+        return _get_research_graph()
+    except (RuntimeError, LlmConfigurationError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post(
+    "/research/query",
+    response_model=ResearchQueryResult,
+    responses={
+        409: {"model": ResearchQueryResult},
+        502: {"model": ResearchQueryResult},
+        503: {"model": ResearchQueryResult},
+        504: {"model": ResearchQueryResult},
+    },
+)
+def research_query(
+    body: ResearchQueryBody,
+    graph: ResearchGraph = Depends(get_research_query_graph),  # noqa: B008
+) -> ResearchQueryResult | JSONResponse:
+    """Run a natural-language query through the LangGraph research workflow."""
+    result = run_research_query(graph, body.query)
+    if result.status is WorkflowStatus.FAILED:
+        status_code = (
+            _WORKFLOW_ERROR_HTTP_STATUS.get(result.error.code, 502) if result.error else 502
+        )
+        return JSONResponse(status_code=status_code, content=result.model_dump(mode="json"))
+    return result
 
 
 # Rosfinmonitoring endpoints
