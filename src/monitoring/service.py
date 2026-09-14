@@ -674,12 +674,7 @@ class MonitoringService:
     # -- read side -------------------------------------------------------------------------
 
     def status(self) -> MonitoringStatusView:
-        return MonitoringStatusView(
-            running=self._repository.list_runs(status=MonitoringRunStatus.RUNNING, limit=50),
-            latest_runs=self._repository.list_runs(limit=10),
-            sources=self._repository.list_source_states(),
-            active_findings=self._repository.count_active_findings(),
-        )
+        return self._repository.status()
 
 
 _LOG_STAGE_NAMES = {

@@ -32,6 +32,7 @@ from monitoring.models import (
     MonitoringRunStatus,
     MonitoringRunView,
     MonitoringStage,
+    MonitoringStatusView,
     MonitoringTrigger,
     SourceMonitoringStateView,
     classify_failure,
@@ -403,3 +404,11 @@ class SqlAlchemyMonitoringRepository:
                 )
                 or 0
             )
+
+    def status(self) -> MonitoringStatusView:
+        return MonitoringStatusView(
+            running=self.list_runs(status=MonitoringRunStatus.RUNNING, limit=50),
+            latest_runs=self.list_runs(limit=10),
+            sources=self.list_source_states(),
+            active_findings=self.count_active_findings(),
+        )
