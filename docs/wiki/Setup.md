@@ -91,6 +91,15 @@ uv sync --group semantic
 uv run python src/main.py rebuild-semantic-index --entity all
 ```
 
+Automated monitoring ([Monitoring](Monitoring.md), ADR 0013) — profile `monitoring` (Dagster webserver на `127.0.0.1:3000`, daemon, отдельная БД `DAGSTER_PG_DB`); перед запуском применить миграции:
+
+```bash
+uv run alembic upgrade head
+docker compose --profile monitoring up -d --build
+```
+
+Переменные: `MONITORING_ENABLED_SOURCES`, `MONITORING_CRON`, `MONITORING_DISCOVERY_LIMIT`, `MONITORING_STALE_RUN_AFTER_MINUTES`, `DAGSTER_PG_DB`, `MONITORING_QDRANT_URL` (см. `.env.example`).
+
 ## Тесты и CI
 
 ```bash

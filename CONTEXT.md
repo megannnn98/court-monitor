@@ -56,3 +56,11 @@ _Avoid_: статья как результат
 **Research workflow / Request intake**:
 LangGraph-граф, превращающий natural-language запрос в `ResearchRequest` и выполняющий его через `ResearchService`. Request intake — единственный шаг с LLM (Together AI): извлекает структурированный запрос, `unsupported_criteria` и вопрос для уточнения; факты не создаёт. Результат — `ResearchQueryResult` со статусом `completed` / `clarification_required` / `failed`. См. [ADR 0009](docs/adr/0009-langgraph-research-orchestration.md).
 _Avoid_: агент (автономного цикла нет), ответ LLM
+
+**MonitoringRun**:
+Один прогон automated monitoring (ADR 0013) по источнику (`scope = source:<name>`) или только derived-этапов (`scope = derived`): статус, счётчики, метрики этапов, упавшие объекты (`monitoring_run_items`). Orchestration state, не доменные данные; одновременно не больше одного `running` на scope.
+_Avoid_: job, задача
+
+**MonitoringFinding**:
+Факт «в monitoring workflow появился actionable результат» — Person впервые удовлетворил критерию monitoring (MVP: `political_persecution_not_in_rf` / `enbv-v1`). Дедуплицируется по типу, Person и версии критерия; хранит `first_seen_run_id` и `active`. Не статус Person.
+_Avoid_: alert, кандидат (кандидат — результат `CandidateQueryService` в моменте)

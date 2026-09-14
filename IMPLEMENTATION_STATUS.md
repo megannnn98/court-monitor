@@ -8,28 +8,24 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `fix/er-namesake-matching-key`, 2026-09-16, Python 3.13.
+Branch `feature-automated-monitoring`, 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
+| Dependencies | `uv sync --frozen` | ok (Dagster 1.13.22, dagster-postgres, dagster-webserver) |
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` | no issues (215 files) |
-| Tests without services | `uv run pytest` | 608 passed, 190 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 792 passed, 6 skipped |
-| Migration | `alembic upgrade head` / `downgrade n8o9p0q1r2s3` / `upgrade head` on `court_monitor_test` | ok; downgrade refuses with active namesakes (tested) |
-| ER evaluation | `evaluate-er --sweep --semantic` (real E5) | 0 false links, precision 1.00, recall 0.58, review rate 0.43 |
+| mypy | `uv run mypy --strict src tests` | no issues (239 files) |
+| Tests without services | `uv run pytest` | 630 passed, 235 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 859 passed, 6 skipped |
+| Migration | `alembic upgrade head` / `downgrade o9p0q1r2s3t4` / `upgrade head` on `court_monitor_test` | ok (also covered by `tests/db/test_monitoring_tables_migration.py`) |
+| Dagster | `dagster definitions validate -m monitoring.dagster.definitions`; in-process job tests | ok |
+| Compose `monitoring` profile | `docker compose --profile monitoring up -d --build`; `dagster job launch -j monitoring_derived_job` | webserver + daemon up, Dagster run SUCCESS, monitoring run `completed`, Dagster tables only in `court_monitor_dagster` |
+| Live smoke | `monitor --source ovd-info --dry-run --limit 2` | 2 discovered, 1 new, nothing written |
 
-The real-model semantic test group (`SEMANTIC_MODEL_TESTS=1`) was not re-run on
-this branch; the dev database `court_monitor` is still at revision
-`75322e20112f` and was not migrated.
-
-Skipped in the last run: the three opt-in live Together AI tests
-(`TOGETHER_LIVE_TESTS=1`), not executed. CI has not run on GitHub for this
-branch (no push). Existing semantic indexes need a full
-`rebuild-semantic-index` (points now carry `embedding_model_id`). ER v2 needs
-`alembic upgrade head` (creates the `pg_trgm` extension, a trusted extension the
-database owner may create). `evaluate-er --semantic` was run once with the real
-E5 model (recall@5 unchanged, no decision changed).
+The dev database `court_monitor` was migrated to `p0q1r2s3t4u5` for the compose
+check. No live (non-dry-run) ingestion was executed. The real-model semantic
+test group (`SEMANTIC_MODEL_TESTS=1`) and the opt-in live Together AI tests were
+not run. CI has not run on GitHub for this branch (no push).
 
 Source layout: `src/` is split into packages (`db`, `sources`, `extraction`,
 `persons`, `persecution`, `rosfinmonitoring`, `candidates`, `search`, `llm`,
@@ -232,11 +228,32 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
   sweep over 15 negative cases (0.80: negative rejection 14/15, recall 0.40)
 - CLI: `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`
 
+### 15. Automated Monitoring (ADR 0013)
+- `src/monitoring/`: `MonitoringService` stages over the existing services
+  (discover → ingest → extract → ER v2 → classify → RF → semantic → findings);
+  work selected from PostgreSQL (`selection.py`), so reruns and crash recovery
+  never duplicate or skip domain rows
+- Tables (migration `p0q1r2s3t4u5`): `monitoring_runs` (status, trigger,
+  counters, stage metrics, heartbeat; one `running` per scope),
+  `monitoring_run_items` (failed objects with `failure_kind`),
+  `source_monitoring_state` (per-source checkpoint), `monitoring_findings`
+  (dedup per type/person/criteria version, `first_seen_run_id`, `active`)
+- Findings via `CandidateQueryService`: `political_persecution_not_in_rf` /
+  `enbv-v1`; no RF snapshot → skipped; RF ambiguous is not absent
+- Qdrant outage → retryable item, run `completed_with_errors`, PostgreSQL kept;
+  `monitor-derived` / `monitoring_derived_job` (Dagster RetryPolicy) retries
+- Dagster: asset graph, `monitoring_job`, `monitoring_derived_job`, one
+  schedule per enabled source (`MONITORING_CRON`, starts STOPPED); compose
+  profile `monitoring` with separate `court_monitor_dagster` database
+- Composition root `application.build_application_services()`
+
 ### 11. API Layer
 - FastAPI endpoints: persons, aliases, persecution, candidates,
   Rosfinmonitoring snapshots/entries, reviews, `POST /research`,
   `POST /research/query` (with `plan` and `report`), `POST /research/reviews`,
-  `/person-resolution/reviews` (list, show, apply decision), health check
+  `/person-resolution/reviews` (list, show, apply decision), read-only
+  `/monitoring/status`, `/monitoring/runs`, `/monitoring/runs/{id}`,
+  `/monitoring/findings`, health check
 
 ### 12. CLI
 - `ingest`, `discover-and-ingest`, `search`, `evaluate-search`,
@@ -244,7 +261,9 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
   `classify-persecution`, `match-rosfinmonitoring`, `list-candidates`,
   `research`, `ask` (report by default, `--show-request`, `--show-plan`, `--raw`),
   `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`,
-  `resolve-person` (dry-run), `person-resolution-reviews`, `evaluate-er`
+  `resolve-person` (dry-run), `person-resolution-reviews`, `evaluate-er`,
+  `monitor` (`--source`, `--dry-run`, `--backfill`), `monitor-derived`,
+  `monitoring-status`, `monitoring-findings`
 
 ### 13. Manual Review Infrastructure
 - Generic `review_records` table + `ManualReviewService` for ambiguous
@@ -274,14 +293,19 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 - Rosfinmonitoring name-word retrieval uses `ILIKE` substring search per word,
   not an index.
 - API has no authentication/authorization and no rate limiting.
-- No automatic re-classification/re-matching when new articles arrive.
+- Automated monitoring (ADR 0013): updated upstream documents are not detected
+  by regular runs (`--backfill --refetch-known` refetches; no document
+  versioning); single Dagster assets cannot be materialized alone (in-memory IO,
+  use `monitoring_derived_job`); `person_reviews_created` can over-count a
+  pending review on re-resolution; no external notifications.
 - Research: no region/city, court, organization or occupation filters (not
   linked to persons); only active persons; no consistent read across the
   repository calls of one request (TODO in ADR 0008).
 - Semantic relevance threshold calibrated on a small synthetic corpus: at 0.80
   relevant recall is 0.40 and a word-play negative («задержание кометы»)
   still leaks; semantic retrieval:
-  index is refreshed manually (`rebuild-semantic-index --incremental`); the
+  index is refreshed incrementally by monitoring runs or manually
+  (`rebuild-semantic-index --incremental`); the
   evaluation corpus is small and synthetic; reranker hurt quality on it.
 - Reports: persecution reasons have no per-reason evidence spans (the
   classification claim cites all of the person's spans); source routing has no
