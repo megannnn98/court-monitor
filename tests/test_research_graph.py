@@ -483,3 +483,81 @@ def test_failures_and_clarifications_are_logged(caplog: pytest.LogCaptureFixture
     messages = [record.getMessage() for record in caplog.records]
     assert any("workflow_failed code=llm_timeout" in message for message in messages)
     assert any("clarification_required" in message for message in messages)
+
+
+# --- explicit snapshot references decide, not the LLM -----------------------------
+
+
+def test_unrelated_number_does_not_authorize_llm_snapshot_id() -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "Найди 3 человека, которых нет в перечне Росфинмониторинга",
+        parser=FakeRequestParser(
+            intake=ResearchIntake(
+                request={
+                    "object_type": "person",
+                    "criteria": {"rosfinmonitoring_status": "not_matched", "snapshot_id": 3},
+                    "limit": 3,
+                }
+            )
+        ),
+        service=service,
+    )
+
+    (executed,) = service.requests
+    assert (executed.criteria.snapshot_id, executed.limit) == (7, 3)
+    assert result.warnings[0] == (
+        "Snapshot #3 не упоминается в запросе пользователя; значение от LLM проигнорировано."
+    )
+
+
+def test_explicit_snapshot_in_query_is_used_even_if_llm_omitted_it() -> None:
+    service = FakeResearchService()
+    lookup = FakeSnapshotLookup(latest=LATEST_SNAPSHOT)
+
+    result = _run(
+        "Кого нет в перечне по снапшоту №4?",
+        parser=FakeRequestParser(intake=_intake({"rosfinmonitoring_status": "not_matched"})),
+        service=service,
+        lookup=lookup,
+    )
+
+    assert service.requests[0].criteria.snapshot_id == 4
+    assert lookup.calls == 0
+    assert result.warnings == []
+
+
+def test_explicit_snapshot_in_query_overrides_different_llm_value() -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "Кого нет в перечне, snapshot 4",
+        parser=FakeRequestParser(
+            intake=_intake({"rosfinmonitoring_status": "not_matched", "snapshot_id": 44})
+        ),
+        service=service,
+    )
+
+    assert service.requests[0].criteria.snapshot_id == 4
+    assert result.warnings == [
+        "LLM указал snapshot #44, но в запросе явно указан snapshot #4; использован #4."
+    ]
+
+
+def test_several_explicit_snapshots_require_clarification() -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "Сравни snapshot 3 и snapshot 5",
+        parser=FakeRequestParser(
+            intake=_intake({"rosfinmonitoring_status": "not_matched", "snapshot_id": 3})
+        ),
+        service=service,
+    )
+
+    assert result.status is WorkflowStatus.CLARIFICATION_REQUIRED
+    assert result.clarification_question == (
+        "В запросе указано несколько snapshot: #3, #5. Укажите один snapshot."
+    )
+    assert service.requests == []

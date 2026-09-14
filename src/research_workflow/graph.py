@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import copy
 import logging
-import re
 from typing import Literal, Protocol
 
 from langgraph.graph import END, START, StateGraph
@@ -40,6 +39,7 @@ from research_workflow.models import (
     WorkflowError,
     WorkflowErrorCode,
 )
+from research_workflow.snapshot_references import extract_explicit_snapshot_ids
 from research_workflow.state import ResearchGraphState
 
 logger = logging.getLogger("research_workflow")
@@ -76,10 +76,6 @@ def _llm_error_code(error: LlmError) -> WorkflowErrorCode:
         if isinstance(error, error_type):
             return code
     return WorkflowErrorCode.LLM_UNAVAILABLE
-
-
-def _number_in_text(number: object, text: str) -> bool:
-    return re.search(rf"(?<!\d){re.escape(str(number))}(?!\d)", text) is not None
 
 
 def build_research_graph(
@@ -130,14 +126,32 @@ def build_research_graph(
             return {}
 
         warnings = list(state.get("warnings", []))
-        snapshot_id = criteria.get("snapshot_id")
-        if snapshot_id is not None and not _number_in_text(snapshot_id, state["raw_query"]):
+        # Only snapshot references the user wrote explicitly count; the LLM's
+        # snapshot_id is never trusted on its own.
+        explicit_ids = extract_explicit_snapshot_ids(state["raw_query"])
+        llm_snapshot_id = criteria.pop("snapshot_id", None)
+        snapshot_id: int | None = None
+        if len(explicit_ids) > 1:
+            listed = ", ".join(f"#{item}" for item in explicit_ids)
+            return {
+                "warnings": warnings,
+                "clarification_question": (
+                    f"В запросе указано несколько snapshot: {listed}. Укажите один snapshot."
+                ),
+            }
+        if explicit_ids:
+            snapshot_id = explicit_ids[0]
+            if llm_snapshot_id is not None and str(llm_snapshot_id) != str(snapshot_id):
+                warnings.append(
+                    f"LLM указал snapshot #{llm_snapshot_id}, но в запросе явно указан "
+                    f"snapshot #{snapshot_id}; использован #{snapshot_id}."
+                )
+            criteria["snapshot_id"] = snapshot_id
+        elif llm_snapshot_id is not None:
             warnings.append(
-                f"Snapshot #{snapshot_id} не упоминается в запросе пользователя; "
+                f"Snapshot #{llm_snapshot_id} не упоминается в запросе пользователя; "
                 "значение от LLM проигнорировано."
             )
-            criteria.pop("snapshot_id")
-            snapshot_id = None
 
         if criteria.get("rosfinmonitoring_status") is not None and snapshot_id is None:
             snapshot = snapshot_lookup.latest_imported_snapshot()
@@ -168,8 +182,14 @@ def build_research_graph(
 
         return {"request_payload": payload, "warnings": warnings}
 
-    def route_after_snapshot(state: ResearchGraphState) -> Literal["failed", "validate_request"]:
-        return "failed" if state.get("errors") else "validate_request"
+    def route_after_snapshot(
+        state: ResearchGraphState,
+    ) -> Literal["failed", "clarification", "validate_request"]:
+        if state.get("errors"):
+            return "failed"
+        if state.get("clarification_question") is not None:
+            return "clarification"
+        return "validate_request"
 
     def validate_request(state: ResearchGraphState) -> ResearchGraphState:
         try:
@@ -290,7 +310,11 @@ def build_research_graph(
     builder.add_conditional_edges(
         "resolve_snapshot",
         route_after_snapshot,
-        {"failed": "workflow_failed", "validate_request": "validate_request"},
+        {
+            "failed": "workflow_failed",
+            "clarification": "clarification",
+            "validate_request": "validate_request",
+        },
     )
     builder.add_conditional_edges(
         "validate_request",
