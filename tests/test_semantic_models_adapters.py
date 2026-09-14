@@ -6,8 +6,10 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 import types
 from collections.abc import Iterator, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -274,3 +276,62 @@ def test_semantic_cli_reports_unavailable_qdrant_without_traceback(
 
     assert exit_info.value.code == SEMANTIC_EXIT_UNAVAILABLE
     assert "Semantic retrieval unavailable" in capsys.readouterr().err
+
+
+def test_concurrent_first_calls_load_the_embedding_model_once(
+    fake_models: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_init = _FakeSentenceTransformer.__init__
+
+    def slow_init(self: _FakeSentenceTransformer, model_id: str, device: str) -> None:
+        time.sleep(0.2)  # a real model load takes seconds; widen the race window
+        original_init(self, model_id, device)
+
+    monkeypatch.setattr(_FakeSentenceTransformer, "__init__", slow_init)
+    embedder = SentenceTransformerEmbedder(EmbeddingConfig(device="cpu"))
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        vectors = list(pool.map(embedder.embed_query, ["a", "b", "c", "d"]))
+
+    assert len(_FakeSentenceTransformer.instances) == 1
+    assert len(vectors) == 4
+
+
+def test_concurrent_first_calls_load_the_reranker_model_once(
+    fake_models: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created: list[object] = []
+    original_init = _FakeCrossEncoder.__init__
+
+    def slow_init(self: _FakeCrossEncoder, model_id: str, device: str) -> None:
+        time.sleep(0.2)
+        original_init(self, model_id, device)
+        created.append(self)
+
+    monkeypatch.setattr(_FakeCrossEncoder, "__init__", slow_init)
+    reranker = CrossEncoderReranker(RerankerConfig(device="cpu"))
+    hit = (
+        StaticRetriever(RetrievalBackend.HYBRID, [1])
+        .retrieve(RetrievalQuery(text="q", entity_type=RetrievalEntityType.PERSON))
+        .hits[0]
+    )
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(
+            pool.map(
+                lambda _: reranker.rerank("q", [RetrievalCandidate(hit, "t")], limit=1), range(4)
+            )
+        )
+
+    assert len(created) == 1
+
+
+def test_failed_dimension_check_does_not_leave_a_half_loaded_model(
+    fake_models: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(_FakeSentenceTransformer, "get_embedding_dimension", lambda self: None)
+    embedder = SentenceTransformerEmbedder(EmbeddingConfig(device="cpu"))
+
+    for _ in range(2):
+        with pytest.raises(EmbeddingError, match="does not report a dimension"):
+            embedder.embed_query("x")

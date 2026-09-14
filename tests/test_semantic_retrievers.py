@@ -204,3 +204,18 @@ def test_equal_reranker_scores_keep_input_order() -> None:
     hits = order_by_scores(candidates, [0.5, 0.5, 0.9], limit=3)
 
     assert [hit.entity_id for hit in hits] == [2, 3, 1]
+
+
+def test_reranker_is_not_called_when_no_candidate_has_a_stored_document() -> None:
+    reranker = KeywordReranker()
+    retriever = RerankingEntityRetriever(
+        base=StaticRetriever(RetrievalBackend.HYBRID, [7, 8]),
+        reranker=reranker,
+        texts=InMemoryDocumentRepository(),
+    )
+
+    result = retriever.retrieve(_query(text="пикет"))
+
+    assert result.hits == []
+    assert result.backend is RetrievalBackend.HYBRID_RERANKED
+    assert reranker.calls == []

@@ -129,3 +129,19 @@ def test_lexical_retrieval_without_overlap_or_only_punctuation_is_empty(
         == []
     )
     assert retriever.retrieve(RetrievalQuery(text="!!! & | ???", entity_type=PERSON)).hits == []
+
+
+def test_lexical_query_with_underscores_digits_and_dots_is_valid_tsquery(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = SqlAlchemySemanticDocumentRepository(session_factory)
+    repository.upsert([_document(1, "Оштрафована по статье 20.3.3 КоАП, дело snapshot_id 207_3.")])
+    retriever = PostgresLexicalEntityRetriever(session_factory)
+
+    for text in ("20.3.3", "snapshot_id", "207_3 статья", "ст.207.3 УК РФ"):
+        # Must not raise a tsquery syntax error; matching is best effort.
+        retriever.retrieve(RetrievalQuery(text=text, entity_type=PERSON))
+
+    assert retriever.retrieve(
+        RetrievalQuery(text="статье 20.3.3", entity_type=PERSON)
+    ).entity_ids == [1]

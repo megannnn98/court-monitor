@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -88,10 +89,18 @@ class CrossEncoderReranker:
     def __init__(self, config: RerankerConfig) -> None:
         self._config = config
         self._model: Any = None
+        # Same reason as SentenceTransformerEmbedder: one load under concurrency.
+        self._load_lock = threading.Lock()
 
     def _load(self) -> Any:
         if self._model is not None:
             return self._model
+        with self._load_lock:
+            if self._model is None:
+                self._model = self._load_locked()
+        return self._model
+
+    def _load_locked(self) -> Any:
         try:
             from sentence_transformers import CrossEncoder
         except ImportError as exc:
@@ -103,11 +112,11 @@ class CrossEncoderReranker:
         except EmbeddingError as exc:
             raise RerankerError(str(exc)) from exc
         try:
-            self._model = CrossEncoder(self._config.model_id, device=device)
+            model = CrossEncoder(self._config.model_id, device=device)
         except (OSError, ValueError, RuntimeError) as exc:  # not found, bad config, CUDA init
             raise RerankerError(f"Cannot load reranker model {self._config.model_id}") from exc
         logger.info("reranker_model_loaded model=%s device=%s", self._config.model_id, device)
-        return self._model
+        return model
 
     def rerank(
         self, query: str, candidates: Sequence[RetrievalCandidate], *, limit: int

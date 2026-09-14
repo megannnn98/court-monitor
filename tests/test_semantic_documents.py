@@ -188,3 +188,24 @@ def test_missing_or_inactive_entities_are_not_built(
     ids = _seed(session_factory)
 
     assert PersonSemanticDocumentBuilder(session_factory).build([ids["ivan"] + 1000]) == []
+
+
+def test_event_without_participants_or_linked_entities_has_only_its_own_lines(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("SOTA", "https://sota.vision")
+        _, run_id = seed.article(
+            source_id, external_id="lonely", title="t", text="В городе прошли обыски."
+        )
+        event_id = seed.event(
+            run_id, "В городе прошли обыски", event_type="search", event_date=None, links=[]
+        )
+        session.commit()
+
+    (document,) = EventSemanticDocumentBuilder(session_factory).build([event_id])
+
+    assert document.text == (
+        "Событие: обыск, дата неизвестна.\nФрагмент: В городе прошли обыски.\nИсточник: SOTA."
+    )

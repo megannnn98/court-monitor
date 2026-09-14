@@ -8,15 +8,15 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `feature-semantic-hybrid-retrieval` (part 4), 2026-09-14, Python 3.13.
+Branch `feature-semantic-hybrid-retrieval` (part 4 and its review fixes), 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
 | mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (179 files) |
-| Tests without services | `uv sync --frozen && uv run pytest` | 513 passed, 149 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 657 passed, 5 skipped |
-| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 659 passed, 3 skipped |
+| Tests without services | `uv sync --frozen && uv run pytest` | 517 passed, 151 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 663 passed, 5 skipped |
+| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 665 passed, 3 skipped |
 
 Skipped in the last run: the three opt-in live Together AI tests
 (`TOGETHER_LIVE_TESTS=1`), not executed. CI (`.github/workflows/ci.yml`) runs

@@ -168,6 +168,10 @@ links persons based on similarity.
   `SEMANTIC_RERANK`, `SEMANTIC_CANDIDATE_POOL_SIZE`, `EVALUATION_DATABASE_URL`.
 - The semantic index is not refreshed automatically: after ingestion,
   resolution or classification run `rebuild-semantic-index --incremental`.
+- Indexing has no cross-process lock: do not run a full rebuild concurrently
+  with another rebuild/index run (a full rebuild recreates the collection).
+- Model loading is guarded by a per-instance lock, so concurrent first
+  semantic requests in the FastAPI thread pool load each model once.
 - Dense retrieval has no relevance threshold: the pool is the top-N nearest
   entities, so with semantic_query the result means "matching criteria among
   the N most similar persons", as the report states.

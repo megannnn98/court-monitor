@@ -138,6 +138,8 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 
 - Нет порога релевантности: пул — top-N ближайших; результат означает «подходят под критерии среди N самых похожих».
 - Индекс не обновляется автоматически после ingestion/классификации — `rebuild-semantic-index --incremental`.
+- Нет межпроцессной блокировки индексации: не запускайте полный rebuild параллельно с другим rebuild/index — он пересоздаёт коллекцию.
+- Загрузка моделей защищена lock'ом: параллельные первые запросы в FastAPI загружают модель один раз.
 - Event retrieval доступен в `semantic-search`/evaluation; research workflow ищет только Person.
 - Кандидаты из Qdrant могут ссылаться на удалённых/слитых persons — `ResearchService` их отбрасывает (только active).
 - Semantic similarity не используется для entity resolution (ER v2 — отдельная часть).

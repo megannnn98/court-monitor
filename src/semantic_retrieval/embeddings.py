@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, cast
@@ -90,6 +91,9 @@ class SentenceTransformerEmbedder:
         self._config = config
         self._model: Any = None
         self._dimension: int | None = None
+        # FastAPI runs sync endpoints in a thread pool: without the lock two
+        # first requests would each load the model (double GPU memory).
+        self._load_lock = threading.Lock()
 
     @property
     def model_id(self) -> str:
@@ -98,6 +102,12 @@ class SentenceTransformerEmbedder:
     def _load(self) -> Any:
         if self._model is not None:
             return self._model
+        with self._load_lock:
+            if self._model is None:
+                self._model = self._load_locked()
+        return self._model
+
+    def _load_locked(self) -> Any:
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as exc:
@@ -106,12 +116,13 @@ class SentenceTransformerEmbedder:
             ) from exc
         device = resolve_device(self._config.device)
         try:
-            self._model = SentenceTransformer(self._config.model_id, device=device)
+            model = SentenceTransformer(self._config.model_id, device=device)
         except (OSError, ValueError, RuntimeError) as exc:  # not found, bad config, CUDA init
             raise EmbeddingError(f"Cannot load embedding model {self._config.model_id}") from exc
-        dimension = self._model.get_embedding_dimension()
+        dimension = model.get_embedding_dimension()
         if not isinstance(dimension, int):
             raise EmbeddingError(f"Model {self._config.model_id} does not report a dimension")
+        # Published only after every check passed (see _load).
         self._dimension = dimension
         logger.info(
             "embedding_model_loaded model=%s device=%s dimension=%d",
@@ -119,7 +130,7 @@ class SentenceTransformerEmbedder:
             device,
             dimension,
         )
-        return self._model
+        return model
 
     @property
     def dimension(self) -> int:
