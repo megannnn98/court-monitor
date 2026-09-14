@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "feature-*"
+      - "feature/**"
+      - "fix/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality (ruff, mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Ruff check
+        run: uv run ruff check src tests
+
+      - name: Ruff format
+        run: uv run ruff format --check src tests
+
+      - name: Mypy
+        run: uv run mypy --strict src tests
+
+  tests:
+    name: tests (no database)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # PostgreSQL tests skip without TEST_DATABASE_URL; the live Together AI
+      # test skips without TOGETHER_LIVE_TESTS=1.
+      - name: Pytest
+        run: uv run pytest
+
+  integration:
+    name: integration (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Same major version as compose.yaml (postgres:18.6-bookworm).
+        image: postgres:18
+        env:
+          # tests/conftest.py only allows a database named court_monitor_test.
+          POSTGRES_DB: court_monitor_test
+          POSTGRES_USER: court_monitor
+          POSTGRES_PASSWORD: court_monitor_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U court_monitor -d court_monitor_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI_DATABASE_URL: postgresql+psycopg://court_monitor:court_monitor_ci@localhost:5432/court_monitor_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+        run: uv run alembic upgrade head
+
+      # Full suite with the database. DATABASE_URL is intentionally not set
+      # here; no Together AI credentials are provided.
+      - name: Pytest with PostgreSQL
+        env:
+          TEST_DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+        run: uv run pytest
