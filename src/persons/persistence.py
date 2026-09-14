@@ -183,6 +183,8 @@ class SqlAlchemyPersonPersistence:
         Both rows are locked in id order, so concurrent merges of the same person
         serialize (the loser sees it is no longer active) and A→B vs B→A cannot deadlock.
         """
+        if source_person_id == target_person_id:
+            raise PersonMergeConflictError(f"cannot merge person {source_person_id} into itself")
         locked = {
             person.id: person
             for person in session.scalars(

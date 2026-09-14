@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -16,7 +17,7 @@ from db.orm_models import (
     SourceDocument,
 )
 from persons.models import AliasOrigin, MergeStatus, PersonStatus
-from persons.persistence import SqlAlchemyPersonPersistence
+from persons.persistence import PersonMergeConflictError, SqlAlchemyPersonPersistence
 
 
 def test_create_person_persists_and_returns_id(
@@ -310,3 +311,20 @@ def test_duplicate_alias_raises_error(
             origin=AliasOrigin.MANUAL,
             confidence=1.0,
         )
+
+
+def test_merge_person_into_itself_is_rejected(session_factory: sessionmaker[Session]) -> None:
+    persistence = SqlAlchemyPersonPersistence(session_factory)
+    person_id = persistence.create_person(
+        canonical_name="Иван Иванов",
+        normalized_name="Иван Иванов",
+        matching_key="иваниванов",
+    )
+
+    with pytest.raises(PersonMergeConflictError):
+        persistence.merge_persons(source_person_id=person_id, target_person_id=person_id)
+
+    with session_factory() as session:
+        person = session.get_one(PersonRecord, person_id)
+        assert (person.status, person.merged_into_id) == (PersonStatus.ACTIVE.value, None)
+        assert session.scalars(select(PersonMergeRecord)).all() == []
