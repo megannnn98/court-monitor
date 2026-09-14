@@ -1,11 +1,14 @@
 """Tests for FastAPI application."""
 
 from collections.abc import Iterator
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from research_db_fixtures import ResearchSeeder
+from sqlalchemy.orm import Session, sessionmaker
 
-from api import _get_session_factory, app, get_research_service
+from api import _get_session_factory, app, get_db, get_research_service
 from research_models import ResearchRequest, ResearchResponse
 from research_service import ResearchSnapshotNotFoundError
 
@@ -167,3 +170,59 @@ def test_research_endpoint_missing_database_url_returns_503(
     response = TestClient(app).post("/research", json={"object_type": "person"})
 
     assert response.status_code == 503
+
+
+@pytest.fixture
+def db_client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
+    def override_get_db() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.parametrize("stale_inserted_first", [True, False])
+def test_person_persecution_returns_latest_classification(
+    session_factory: sessionmaker[Session], db_client: TestClient, stale_inserted_first: bool
+) -> None:
+    stale = ("political", 0.9, "1.0.0", datetime(2024, 1, 1, tzinfo=UTC))
+    latest = ("non_political", 0.95, "2.0.0", datetime(2024, 6, 1, tzinfo=UTC))
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        person_id = seed.person("Иван Иванов")
+        # Insertion order must not decide the answer (an unordered read
+        # usually follows it).
+        for status, confidence, version, classified_at in (
+            (stale, latest) if stale_inserted_first else (latest, stale)
+        ):
+            seed.classification(
+                person_id,
+                status,
+                confidence,
+                classifier_version=version,
+                classified_at=classified_at,
+            )
+        session.commit()
+
+    response = db_client.get(f"/persons/{person_id}/persecution")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["classifier_version"]) == ("non_political", "2.0.0")
+
+
+def test_person_persecution_is_null_without_classification(
+    session_factory: sessionmaker[Session], db_client: TestClient
+) -> None:
+    with session_factory() as session:
+        person_id = ResearchSeeder(session).person("Иван Иванов")
+        session.commit()
+
+    response = db_client.get(f"/persons/{person_id}/persecution")
+
+    assert response.status_code == 200
+    assert response.json() is None

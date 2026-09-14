@@ -18,6 +18,7 @@ from orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from persecution_queries import latest_persecution_classification_ids
 from research_models import ResearchRequest, ResearchResponse
 from research_repository import SqlAlchemyPersonResearchRepository
 from research_service import ResearchService, ResearchSnapshotNotFoundError
@@ -236,7 +237,8 @@ def get_person_persecution(
 
     classification = db.scalars(
         select(PersecutionClassificationRecord).where(
-            PersecutionClassificationRecord.person_id == person_id
+            PersecutionClassificationRecord.person_id == person_id,
+            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
         )
     ).first()
 

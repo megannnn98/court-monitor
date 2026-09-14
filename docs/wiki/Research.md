@@ -49,7 +49,7 @@ Service --> Response
 |---|---|
 | `person_id` | точный id |
 | `name` | подстрока без учёта регистра (`ILIKE`, спецсимволы экранируются) в `canonical_name`, `normalized_name`, `person_aliases.surface_text/normalized_text` |
-| `persecution_status` | статус **последней** классификации (`classified_at` desc, затем `id` desc; общий `latest_persecution_classification_ids()` с `CandidateQueryService`) |
+| `persecution_status` | статус **последней** классификации (`classified_at` desc, затем `id` desc; общий `persecution_queries.latest_persecution_classification_ids()` с `CandidateQueryService` и `GET /persons/{id}/persecution`) |
 | `persecution_min_confidence` | порог confidence; требует `persecution_status`. Для `political` без явного порога — `DEFAULT_MIN_PERSECUTION_CONFIDENCE = 0.7` (как в `list-candidates`) |
 | `rosfinmonitoring_status` | статус относительно `snapshot_id`; требует `snapshot_id` |
 | `snapshot_id` | snapshot для фильтра и для секции `rosfinmonitoring` результата; несуществующий → 404 / ошибка CLI |
@@ -65,7 +65,7 @@ Service --> Response
 ## Переиспользование бизнес-логики
 
 - `political` + любой `rosfinmonitoring_status` → `CandidateQueryService.get_candidates(include_rf_statuses={status}, limit=None)`, затем пересечение с остальными критериями.
-- Последняя классификация человека определяется одной функцией `latest_persecution_classification_ids()` — старая `political` запись, перекрытая новой версией классификатора, не учитывается ни в research, ни в `list-candidates`.
+- Последняя классификация человека определяется одной функцией `latest_persecution_classification_ids()` — старая `political` запись, перекрытая новой версией классификатора, не учитывается ни в research, ни в `list-candidates`, ни в `GET /persons/{id}/persecution`.
 - Маппинг `rosfin_matches.status` → `RosfinmonitoringStatus` — `candidate_query_models.resolve_rosfinmonitoring_status`, общий для candidate query и research.
 - `NOT_MATCHED` — единственное подтверждённое отсутствие. `NO_MATCH_RECORD`, `AMBIGUOUS`, `NEEDS_REVIEW`, `INSUFFICIENT_DATA` никогда не считаются «нет в Росфинмониторинге».
 

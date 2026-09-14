@@ -94,8 +94,9 @@ Business rules are reused, not re-derived:
   explicit threshold means the same thing in research and in `list-candidates`.
 - "The person's classification" is the latest one (`classified_at` desc, then
   `id` desc), defined once in
-  `candidate_query_service.latest_persecution_classification_ids()` and used by
-  both the candidate query and the research repository. An older POLITICAL
+  `persecution_queries.latest_persecution_classification_ids()` and used by
+  the candidate query, the research repository and
+  `GET /persons/{id}/persecution`. An older POLITICAL
   record superseded by a newer classifier version does not count.
 - Persecution classification is read, never recomputed.
 
