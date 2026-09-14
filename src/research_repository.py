@@ -9,7 +9,6 @@ from datetime import UTC, datetime, time, timedelta
 from sqlalchemy import ColumnElement, exists, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session, sessionmaker
 
-from candidate_query_service import latest_persecution_classification_ids
 from extraction_models import EventEntityRole
 from orm_models import (
     ArticleExtractionRunRecord,
@@ -26,6 +25,7 @@ from orm_models import (
     SourceDocument,
 )
 from persecution_models import PersecutionClassification
+from persecution_queries import latest_persecution_classification_ids
 from person_models import PersonStatus
 from research_mapping import (
     alias_from_record,
