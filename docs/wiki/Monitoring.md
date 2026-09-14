@@ -114,7 +114,7 @@ Asset graph Dagster повторяет эти этапы: `source_discovery → 
 | RF matching | активные persons без match для latest snapshot или с evidence новее него |
 | semantic | persons/events с отсутствующим, неиндексированным или устаревшим документом |
 
-Evidence change — самое позднее из: person создан/обновлён, привязано событие, добавлен alias, записано или отревьюено ER-решение. Поэтому Person, созданная ручным ER review, будет классифицирована, сматчена и проиндексирована следующим run'ом без повторного ingestion.
+Evidence change — самое позднее из: person создан/обновлён, привязано событие, добавлен alias, записано или отревьюено ER-решение. Результат считается свежим, только если записан позже изменения evidence как минимум на `EVIDENCE_SETTLE_INTERVAL` (10 минут): timestamps evidence — это начало транзакции, а не commit, и без запаса параллельный run мог бы классифицировать Person до commit чужой ER-транзакции и больше её не пересчитать. Цена — один идемпотентный пересчёт недавно изменённых persons. Поэтому Person, созданная ручным ER review, будет классифицирована, сматчена и проиндексирована следующим run'ом без повторного ingestion.
 
 Сценарий «discover OK → ingest OK → extraction упал на середине»: следующий run помечает старый run `aborted` (нет heartbeat дольше `MONITORING_STALE_RUN_AFTER_MINUTES`), не скачивает уже сохранённые документы и доделывает extraction/ER/классификацию. Ручная очистка не нужна.
 
@@ -227,4 +227,5 @@ docker compose --profile monitoring up -d --build   # webserver :3000, daemon
 - Отдельные assets в Dagster UI не материализуются по одному (in-memory IO); изоляция этапов — через `monitoring_derived_job` / `monitor-derived`.
 - Первый run на существующей БД догоняет классификацию/RF/индекс для всех persons без актуального результата.
 - `person_reviews_created` может переучитывать уже pending review при повторном разрешении extraction run со смешанными mentions.
+- Упавший RF match для Person временно деактивирует её finding до следующего успешного match (история сохраняется).
 - Внешних уведомлений (Telegram/email) нет — этап 7.

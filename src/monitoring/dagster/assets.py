@@ -58,7 +58,7 @@ class RfStep:
 def _guard[T](monitoring: MonitoringService, handle: RunHandle, stage: Callable[[], T]) -> T:
     try:
         return stage()
-    except Exception as exc:
+    except BaseException as exc:  # includes Dagster run termination
         monitoring.finish(handle, error=exc)
         raise
 

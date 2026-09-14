@@ -77,6 +77,14 @@ alias added, ER decision recorded or reviewed for the person. So a person
 created by a human ER review is classified, matched and indexed by the next
 run without re-ingesting anything.
 
+Evidence timestamps are transaction start times or application clocks, not
+commit times: a classification computed while another run's ER transaction is
+still open can be written after that transaction's `now()` without seeing its
+rows. A result therefore counts as fresh only when written at least
+`EVIDENCE_SETTLE_INTERVAL` (10 minutes, longer than any ER/review transaction
+plus clock skew) after the last evidence change; recently changed persons are
+recomputed once more, idempotently, by a later run.
+
 This is what makes monitoring **at-least-once safe**: any asset, job or whole
 run can execute again; finished work is not selected, unfinished work is, and
 every domain write is already idempotent (unique constraints and upserts from
@@ -212,6 +220,12 @@ must never be shared between concurrent runs of different sources.
   - `person_reviews_created` can over-count when a run re-resolves an
     extraction run that mixes an already pending review with an undecided
     mention (the pending one is counted again).
+  - A person whose evidence changed within the last 10 minutes is
+    reclassified/re-matched/re-rendered by the next run(s) even without new
+    evidence (settle interval); no rows are duplicated, the counters show it.
+  - An RF match that failed for a person makes the candidate query skip that
+    person, which deactivates an existing finding until a later run matches
+    them again (history is kept).
   - The first run on an existing database classifies/matches/indexes every
     person without a current result (one-off catch-up).
   - Classification and candidate queries are per person (existing N+1); fine

@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import timedelta
 
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
@@ -25,7 +26,7 @@ from extraction.resolution_service import ExtractionResolutionService
 from monitoring.findings import MonitoringFindingService, MonitoringQueryProvider
 from monitoring.models import MonitoringSettings
 from monitoring.repository import SqlAlchemyMonitoringRepository
-from monitoring.selection import SqlAlchemyMonitoringWorkQueries
+from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
 from monitoring.service import MonitoringDependencies, MonitoringService
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
@@ -82,6 +83,7 @@ def build_monitoring_service(
     use_env_semantic_indexer: bool = True,
     query_provider: MonitoringQueryProvider | None = None,
     extraction_pipeline: ExtractionPipeline | None = None,
+    evidence_settle_interval: timedelta = EVIDENCE_SETTLE_INTERVAL,
 ) -> MonitoringService:
     engine = session_factory.kw["bind"]
     person_persistence = SqlAlchemyPersonPersistence(session_factory)
@@ -98,7 +100,9 @@ def build_monitoring_service(
     dependencies = MonitoringDependencies(
         engine=engine,
         repository=SqlAlchemyMonitoringRepository(session_factory),
-        work=SqlAlchemyMonitoringWorkQueries(session_factory),
+        work=SqlAlchemyMonitoringWorkQueries(
+            session_factory, evidence_settle_interval=evidence_settle_interval
+        ),
         sources=sources,
         create_http_client=create_http_client,
         create_fetcher=create_fetcher,

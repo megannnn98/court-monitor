@@ -8,11 +8,19 @@ A person's derived results (classification, Rosfinmonitoring match, semantic
 document) are stale when that person's evidence changed after the result was
 written. Evidence change is the newest of: person created/updated, event
 linked, alias added, ER decision recorded or reviewed for the person.
+
+Evidence timestamps are transaction start times (`now()`) or application
+clocks, not commit times: a result computed while another run's ER transaction
+was still open can be written *after* that transaction's timestamps yet without
+seeing its rows. A result therefore only counts as fresh when it was written at
+least `EVIDENCE_SETTLE_INTERVAL` after the last evidence change; a recently
+changed person is recomputed once more (idempotently) by a later run.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import Select, Subquery, and_, exists, func, not_, or_, select, union, union_all
@@ -39,9 +47,12 @@ from persons.models import PersonStatus
 from persons.resolution.service import RESOLVER_VERSION
 from semantic_retrieval.models import RetrievalEntityType
 
+# Longer than any ER / review transaction plus clock skew between hosts.
+EVIDENCE_SETTLE_INTERVAL = timedelta(minutes=10)
 
-def _person_change_stamps(*, include_derived: bool) -> Subquery:
-    """(person_id, changed_at): newest evidence change per person."""
+
+def _person_change_stamps(*, include_derived: bool, settle: timedelta) -> Subquery:
+    """(person_id, changed_at): newest evidence change per person, plus the settle interval."""
     decision = PersonResolutionDecisionRecord
     parts: list[Select[Any]] = [
         select(PersonRecord.id.label("person_id"), PersonRecord.created_at.label("changed_at")),
@@ -68,15 +79,24 @@ def _person_change_stamps(*, include_derived: bool) -> Subquery:
         parts.append(select(RosfinMatchRecord.person_id, RosfinMatchRecord.matched_at))
     stamps = union_all(*parts).subquery()
     return (
-        select(stamps.c.person_id, func.max(stamps.c.changed_at).label("changed_at"))
+        select(
+            stamps.c.person_id,
+            (func.max(stamps.c.changed_at) + settle).label("changed_at"),
+        )
         .group_by(stamps.c.person_id)
         .subquery()
     )
 
 
 class SqlAlchemyMonitoringWorkQueries:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        *,
+        evidence_settle_interval: timedelta = EVIDENCE_SETTLE_INTERVAL,
+    ) -> None:
         self._session_factory = session_factory
+        self._settle = evidence_settle_interval
 
     def known_external_ids(self, *, source_base_url: str, external_ids: Sequence[str]) -> set[str]:
         if not external_ids:
@@ -154,7 +174,7 @@ class SqlAlchemyMonitoringWorkQueries:
     def persons_pending_classification(
         self, *, classifier_name: str, classifier_version: str
     ) -> list[int]:
-        changed = _person_change_stamps(include_derived=False)
+        changed = _person_change_stamps(include_derived=False, settle=self._settle)
         classification = PersecutionClassificationRecord
         query = (
             select(PersonRecord.id)
@@ -180,7 +200,7 @@ class SqlAlchemyMonitoringWorkQueries:
             return list(session.scalars(query).all())
 
     def persons_pending_rf_match(self, *, snapshot_id: int) -> list[int]:
-        changed = _person_change_stamps(include_derived=False)
+        changed = _person_change_stamps(include_derived=False, settle=self._settle)
         query = (
             select(PersonRecord.id)
             .join(changed, changed.c.person_id == PersonRecord.id)
@@ -206,7 +226,7 @@ class SqlAlchemyMonitoringWorkQueries:
     def persons_pending_semantic_index(self) -> list[int]:
         """Active persons with a missing/unindexed/outdated document, and documents of
         persons that are gone or no longer active (the indexer deletes those)."""
-        changed = _person_change_stamps(include_derived=True)
+        changed = _person_change_stamps(include_derived=True, settle=self._settle)
         document = SemanticDocumentRecord
         is_person_document = and_(
             document.entity_type == RetrievalEntityType.PERSON.value,
@@ -242,7 +262,7 @@ class SqlAlchemyMonitoringWorkQueries:
         links = (
             select(
                 PersonEventLinkRecord.event_id,
-                func.max(PersonEventLinkRecord.created_at).label("changed_at"),
+                (func.max(PersonEventLinkRecord.created_at) + self._settle).label("changed_at"),
             )
             .group_by(PersonEventLinkRecord.event_id)
             .subquery()

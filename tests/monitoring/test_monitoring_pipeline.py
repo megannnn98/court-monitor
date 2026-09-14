@@ -40,6 +40,7 @@ from monitoring.models import (
     MonitoringStage,
     MonitoringTrigger,
 )
+from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from persons.resolution.service import RESOLVER_VERSION
@@ -590,3 +591,74 @@ def test_stale_timeout_is_configured_not_hardcoded(session_factory: sessionmaker
     upstream = FakeUpstream()
     service = build_service(session_factory, {"ovd-info": upstream})
     assert service.settings.stale_run_after == timedelta(minutes=120)
+
+
+def test_result_written_during_an_open_evidence_transaction_is_recomputed(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A classification/match computed while another run's ER transaction was open is
+    written after that transaction's `now()` yet without its rows; it must stay pending."""
+    snapshot_id = import_rf_snapshot(session_factory, [("Петр Петров", "03.03.1970")])
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    build_service(session_factory, {"ovd-info": upstream}).run_source("ovd-info")
+    sidorov = _person_id(session_factory, "Сидоров")
+    evidence_at = "now() - interval '1 day'"
+
+    def written_after_evidence(delay: str) -> None:
+        with session_factory.begin() as session:
+            for table, column in (
+                ("persons", "id"),
+                ("person_event_links", "person_id"),
+                ("person_aliases", "person_id"),
+                ("person_resolution_decisions", "selected_person_id"),
+            ):
+                session.execute(
+                    text(f"UPDATE {table} SET created_at = {evidence_at} WHERE {column} = :id"),
+                    {"id": sidorov},
+                )
+            session.execute(
+                text(f"UPDATE persons SET updated_at = {evidence_at} WHERE id = :id"),
+                {"id": sidorov},
+            )
+            session.execute(
+                text(
+                    f"UPDATE persecution_classifications SET classified_at = {evidence_at} "
+                    f"+ interval '{delay}' WHERE person_id = :id"
+                ),
+                {"id": sidorov},
+            )
+            session.execute(
+                text(
+                    f"UPDATE rosfin_matches SET matched_at = {evidence_at} + interval '{delay}' "
+                    "WHERE person_id = :id"
+                ),
+                {"id": sidorov},
+            )
+
+    classifier = ("rule-based-persecution-classifier", "1.0.0")
+    no_settle = SqlAlchemyMonitoringWorkQueries(
+        session_factory, evidence_settle_interval=timedelta(0)
+    )
+    production = SqlAlchemyMonitoringWorkQueries(session_factory)
+
+    written_after_evidence("1 minute")
+    assert (
+        no_settle.persons_pending_classification(
+            classifier_name=classifier[0], classifier_version=classifier[1]
+        )
+        == []
+    )
+    assert production.persons_pending_classification(
+        classifier_name=classifier[0], classifier_version=classifier[1]
+    ) == [sidorov]
+    assert production.persons_pending_rf_match(snapshot_id=snapshot_id) == [sidorov]
+
+    written_after_evidence(f"{int(EVIDENCE_SETTLE_INTERVAL.total_seconds() // 60) + 1} minutes")
+    assert (
+        production.persons_pending_classification(
+            classifier_name=classifier[0], classifier_version=classifier[1]
+        )
+        == []
+    )
+    assert production.persons_pending_rf_match(snapshot_id=snapshot_id) == []

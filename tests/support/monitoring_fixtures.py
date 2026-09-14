@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from qdrant_client import QdrantClient
@@ -135,6 +135,8 @@ def build_service(
     *,
     create_semantic_indexer: Callable[[], SemanticIndexer] | None = None,
     discovery_limit: int = 10,
+    # Tests run stages seconds apart; the production settle interval is covered separately.
+    evidence_settle_interval: timedelta = timedelta(0),
 ) -> MonitoringService:
     return build_monitoring_service(
         session_factory,
@@ -146,6 +148,7 @@ def build_service(
         create_fetcher=UnusedFetcher,
         create_semantic_indexer=create_semantic_indexer,
         use_env_semantic_indexer=False,
+        evidence_settle_interval=evidence_settle_interval,
         extraction_pipeline=ExtractionPipeline(
             extractors=[MalformedAwareExtractor()],
             normalizers=[RuleBasedMentionNormalizer()],

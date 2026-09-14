@@ -283,6 +283,10 @@ class MonitoringService:
         except Exception as exc:
             logger.exception("monitoring_run_failed run_id=%s source=%s", handle.run_id, source)
             return self.finish(handle, error=exc)
+        except BaseException as exc:
+            # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.
+            self.finish(handle, error=exc)
+            raise
         return self.finish(handle)
 
     def run_derived(
@@ -295,6 +299,10 @@ class MonitoringService:
         except Exception as exc:
             logger.exception("monitoring_run_failed run_id=%s scope=derived", handle.run_id)
             return self.finish(handle, error=exc)
+        except BaseException as exc:
+            # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.
+            self.finish(handle, error=exc)
+            raise
         return self.finish(handle)
 
     def _run_derived_stages(self, handle: RunHandle) -> None:

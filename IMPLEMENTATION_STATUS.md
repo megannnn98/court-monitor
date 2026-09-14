@@ -15,8 +15,8 @@ Branch `feature-automated-monitoring`, 2026-09-14, Python 3.13.
 | Dependencies | `uv sync --frozen` | ok (Dagster 1.13.22, dagster-postgres, dagster-webserver) |
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
 | mypy | `uv run mypy --strict src tests` | no issues (239 files) |
-| Tests without services | `uv run pytest` | 630 passed, 235 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 859 passed, 6 skipped |
+| Tests without services | `uv run pytest` | 630 passed, 236 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 860 passed, 6 skipped |
 | Migration | `alembic upgrade head` / `downgrade o9p0q1r2s3t4` / `upgrade head` on `court_monitor_test` | ok (also covered by `tests/db/test_monitoring_tables_migration.py`) |
 | Dagster | `dagster definitions validate -m monitoring.dagster.definitions`; in-process job tests | ok |
 | Compose `monitoring` profile | `docker compose --profile monitoring up -d --build`; `dagster job launch -j monitoring_derived_job` | webserver + daemon up, Dagster run SUCCESS, monitoring run `completed`, Dagster tables only in `court_monitor_dagster` |
