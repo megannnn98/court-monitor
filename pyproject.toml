@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.19.1",
+    "dagster>=1.13.22",
+    "dagster-postgres>=0.29.22",
+    "dagster-webserver>=1.13.22",
     "fastapi>=0.115.0",
     "httpx>=0.28.1",
     "langgraph>=1.2.11",
