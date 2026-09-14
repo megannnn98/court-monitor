@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from typing import NamedTuple
 
 from extraction.events import RuleBasedEventExtractor
 from extraction.models import (
@@ -22,6 +23,12 @@ from extraction.validation import (
 )
 
 
+class ExtractionVersions(NamedTuple):
+    extractor_name: str
+    extractor_version: str
+    normalizer_version: str
+
+
 class ExtractionPipeline:
     def __init__(
         self,
@@ -36,12 +43,21 @@ class ExtractionPipeline:
         self._event_extractor = event_extractor
         self._persistence = persistence
 
-    def run(self, document: ExtractionDocument) -> ExtractionSaveResult:
-        extractor_name = "+".join(extractor.extractor_name for extractor in self._extractors)
-        extractor_version = "+".join(extractor.extractor_version for extractor in self._extractors)
-        normalizer_version = "+".join(
-            sorted({normalizer.normalizer_version for normalizer in self._normalizers})
+    @property
+    def versions(self) -> ExtractionVersions:
+        """The identity an extraction run of this pipeline is stored under."""
+        return ExtractionVersions(
+            extractor_name="+".join(extractor.extractor_name for extractor in self._extractors),
+            extractor_version="+".join(
+                extractor.extractor_version for extractor in self._extractors
+            ),
+            normalizer_version="+".join(
+                sorted({normalizer.normalizer_version for normalizer in self._normalizers})
+            ),
         )
+
+    def run(self, document: ExtractionDocument) -> ExtractionSaveResult:
+        extractor_name, extractor_version, normalizer_version = self.versions
         try:
             raw_mentions = []
             for extractor in self._extractors:

@@ -15,7 +15,7 @@ from typing import Any
 
 from sqlalchemy import func, literal, select, update
 from sqlalchemy.dialects.postgresql import JSONB, insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -59,8 +59,15 @@ RUN_COUNTERS = frozenset(
 MAX_ERROR_MESSAGE_CHARS = 2000
 
 
+def _safe_message(error: BaseException) -> str:
+    """Error text without SQL parameters, which can carry article text or criteria."""
+    if isinstance(error, StatementError) and error.orig is not None:
+        return str(error.orig)[:MAX_ERROR_MESSAGE_CHARS]
+    return str(error)[:MAX_ERROR_MESSAGE_CHARS]
+
+
 def _error_text(error: BaseException) -> str:
-    return f"{type(error).__name__}: {error}"[:MAX_ERROR_MESSAGE_CHARS]
+    return f"{type(error).__name__}: {_safe_message(error)}"[:MAX_ERROR_MESSAGE_CHARS]
 
 
 def _run_view(record: MonitoringRunRecord) -> MonitoringRunView:
@@ -243,7 +250,7 @@ class SqlAlchemyMonitoringRepository:
                     status="failed",
                     failure_kind=kind.value,
                     error_type=type(error).__name__,
-                    error_message=str(error)[:MAX_ERROR_MESSAGE_CHARS],
+                    error_message=_safe_message(error),
                 )
             )
             session.execute(
@@ -261,7 +268,7 @@ class SqlAlchemyMonitoringRepository:
             external_ref,
             kind.value,
             type(error).__name__,
-            error,
+            _safe_message(error),
         )
         return kind
 

@@ -27,6 +27,8 @@ class ResolutionStats:
     events_linked: int = 0
     # Mentions left unlinked until a human review decision (ER v2 REVIEW).
     reviews_pending: int = 0
+    # Resolved mentions whose earlier decision or link was reused (re-run).
+    mentions_reused: int = 0
 
 
 class ExtractionResolutionService:
@@ -91,6 +93,8 @@ class ExtractionResolutionService:
                         and outcome.person_id is None
                         else 0
                     ),
+                    mentions_reused=stats.mentions_reused
+                    + (1 if outcome.reused and outcome.person_id is not None else 0),
                 )
 
             events = list(
@@ -147,6 +151,7 @@ class ExtractionResolutionService:
                 new_persons_created=stats.new_persons_created,
                 events_linked=events_linked,
                 reviews_pending=stats.reviews_pending,
+                mentions_reused=stats.mentions_reused,
             )
 
             return stats
