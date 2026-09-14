@@ -186,6 +186,8 @@ class ResearchWarningCode(StrEnum):
     ROSFIN_AMBIGUOUS = "rosfin_ambiguous"
     ROSFIN_NEEDS_REVIEW = "rosfin_needs_review"
     ROSFIN_INSUFFICIENT_DATA = "rosfin_insufficient_data"
+    # Only the newest evidence/events of the person are included (bounded response).
+    EVIDENCE_TRUNCATED = "evidence_truncated"
 
 
 class ResearchWarning(BaseModel):

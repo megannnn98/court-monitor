@@ -86,6 +86,8 @@ _ROSFIN_WARNINGS: dict[RosfinmonitoringStatus, tuple[ResearchWarningCode, str, b
 def build_warnings(
     persecution: PersecutionClassification | None,
     rosfinmonitoring: ResearchRosfinmonitoring | None,
+    *,
+    evidence_truncated: bool = False,
 ) -> list[ResearchWarning]:
     """Explain why a result is not a confirmed answer.
 
@@ -110,6 +112,15 @@ def build_warnings(
         code, message, requires_review = _ROSFIN_WARNINGS[rosfinmonitoring.status]
         warnings.append(
             ResearchWarning(code=code, message=message, requires_review=requires_review)
+        )
+
+    if evidence_truncated:
+        warnings.append(
+            ResearchWarning(
+                code=ResearchWarningCode.EVIDENCE_TRUNCATED,
+                message="Only the newest mentions and events of this person are included.",
+                requires_review=False,
+            )
         )
 
     return warnings

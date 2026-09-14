@@ -44,9 +44,26 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+# Per-person bounds on returned evidence: a person mentioned in hundreds of
+# articles must not turn one research page into an unbounded response. The
+# newest mentions and events are kept; `evidence_truncated` says data was cut.
+MAX_MENTIONS_PER_PERSON = 50
+MAX_EVENTS_PER_PERSON = 50
+
+
 class SqlAlchemyPersonResearchRepository:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        *,
+        max_mentions_per_person: int = MAX_MENTIONS_PER_PERSON,
+        max_events_per_person: int = MAX_EVENTS_PER_PERSON,
+    ) -> None:
+        if max_mentions_per_person < 1 or max_events_per_person < 1:
+            raise ValueError("evidence limits must be greater than zero")
         self._session_factory = session_factory
+        self._max_mentions = max_mentions_per_person
+        self._max_events = max_events_per_person
 
     def snapshot_exists(self, snapshot_id: int) -> bool:
         with self._session_factory() as session:
@@ -203,15 +220,50 @@ class SqlAlchemyPersonResearchRepository:
 
             article_ids_by_person: dict[int, set[int]] = defaultdict(set)
 
+            truncated: set[int] = set()
+            for person_id, mention_count in session.execute(
+                select(EntityMentionRecord.person_id, func.count(EntityMentionRecord.id))
+                .where(EntityMentionRecord.person_id.in_(person_ids))
+                .group_by(EntityMentionRecord.person_id)
+            ).all():
+                if person_id is not None and mention_count > self._max_mentions:
+                    truncated.add(person_id)
+            for person_id, event_count in session.execute(
+                select(
+                    PersonEventLinkRecord.person_id,
+                    func.count(func.distinct(PersonEventLinkRecord.event_id)),
+                )
+                .where(PersonEventLinkRecord.person_id.in_(person_ids))
+                .group_by(PersonEventLinkRecord.person_id)
+            ).all():
+                if event_count > self._max_events:
+                    truncated.add(person_id)
+            for person_id in truncated:
+                details[person_id].evidence_truncated = True
+
             # Only mentions resolved to this person — never every mention of
-            # the article the person appears in.
+            # the article the person appears in. Newest `max_mentions` per person.
+            ranked_mentions = (
+                select(
+                    EntityMentionRecord.id.label("mention_id"),
+                    func.row_number()
+                    .over(
+                        partition_by=EntityMentionRecord.person_id,
+                        order_by=EntityMentionRecord.id.desc(),
+                    )
+                    .label("rank"),
+                )
+                .where(EntityMentionRecord.person_id.in_(person_ids))
+                .subquery()
+            )
             mention_rows = session.execute(
                 select(EntityMentionRecord, ArticleExtractionRunRecord.article_id)
+                .join(ranked_mentions, ranked_mentions.c.mention_id == EntityMentionRecord.id)
                 .join(
                     ArticleExtractionRunRecord,
                     ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
                 )
-                .where(EntityMentionRecord.person_id.in_(person_ids))
+                .where(ranked_mentions.c.rank <= self._max_mentions)
                 .order_by(EntityMentionRecord.id)
             ).all()
             for mention, article_id in mention_rows:
@@ -222,7 +274,28 @@ class SqlAlchemyPersonResearchRepository:
                 )
                 article_ids_by_person[mention.person_id].add(article_id)
 
-            # Only events linked to this person via person_event_links.
+            # Only events linked to this person via person_event_links; newest
+            # `max_events` distinct events per person (undated ones count as oldest).
+            ranked_events = (
+                select(
+                    PersonEventLinkRecord.person_id.label("person_id"),
+                    PersonEventLinkRecord.event_id.label("event_id"),
+                    func.dense_rank()
+                    .over(
+                        partition_by=PersonEventLinkRecord.person_id,
+                        order_by=(
+                            ExtractedEventRecord.event_date.desc().nulls_last(),
+                            ExtractedEventRecord.id.desc(),
+                        ),
+                    )
+                    .label("rank"),
+                )
+                .join(
+                    ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id
+                )
+                .where(PersonEventLinkRecord.person_id.in_(person_ids))
+                .subquery()
+            )
             event_rows = session.execute(
                 select(
                     PersonEventLinkRecord.person_id,
@@ -246,7 +319,15 @@ class SqlAlchemyPersonResearchRepository:
                     ParsedArticleRecord,
                     ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id,
                 )
-                .where(PersonEventLinkRecord.person_id.in_(person_ids))
+                .join(
+                    ranked_events,
+                    (ranked_events.c.person_id == PersonEventLinkRecord.person_id)
+                    & (ranked_events.c.event_id == PersonEventLinkRecord.event_id),
+                )
+                .where(
+                    PersonEventLinkRecord.person_id.in_(person_ids),
+                    ranked_events.c.rank <= self._max_events,
+                )
                 .order_by(
                     PersonEventLinkRecord.person_id,
                     ExtractedEventRecord.event_date.nulls_last(),

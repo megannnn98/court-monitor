@@ -59,6 +59,8 @@ class PersonResearchDetails(BaseModel):
     events: list[ResearchEvent] = Field(default_factory=list)
     evidence: list[ResearchEvidence] = Field(default_factory=list)
     sources: list[ResearchSource] = Field(default_factory=list)
+    # More mentions/events exist than the per-person evidence bound returned.
+    evidence_truncated: bool = False
 
 
 class PersonResearchRepository(Protocol):
@@ -161,7 +163,9 @@ class ResearchService:
                     events=person_details.events,
                     evidence=person_details.evidence,
                     sources=person_details.sources,
-                    warnings=build_warnings(persecution, rf),
+                    warnings=build_warnings(
+                        persecution, rf, evidence_truncated=person_details.evidence_truncated
+                    ),
                 )
             )
 

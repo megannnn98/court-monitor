@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.research_db_fixtures import ResearchSeeder
 
 from candidates.models import RosfinmonitoringStatus
+from db.orm_models import EntityMentionRecord
 from extraction.models import EventEntityRole, EventType
 from persecution.models import PersecutionClassificationStatus
 from research.models import PersonResearchCriteria, ResearchEvidenceType, ResearchSource
@@ -302,3 +303,76 @@ def test_find_person_ids_can_be_restricted_to_a_candidate_pool(
         ivanova
     ]
     assert repository.find_person_ids(_criteria(), restrict_to=[]) == []
+
+
+def test_details_keep_only_the_newest_evidence_per_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    text = "Иван Иванов задержан. Иван Иванов арестован. Иван Иванов осуждён. Иван Иванов упомянут."
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("ОВД-Инфо", "https://ovd.info")
+        _, run_id = seed.article(source_id, external_id="many", title="Хроника", text=text)
+        ivanov = seed.person("Иван Иванов")
+        mention_ids = []
+        offsets = [
+            text.index(f"Иван Иванов {verb}") for verb in ("задержан", "арестован", "осуждён")
+        ]
+        for offset in offsets:
+            record = EntityMentionRecord(
+                extraction_run_id=run_id,
+                entity_type="person",
+                surface_text="Иван Иванов",
+                normalized_text="иван иванов",
+                start_offset=offset,
+                end_offset=offset + len("Иван Иванов"),
+                confidence=0.9,
+                normalized_data={},
+                extractor_name="rule-based",
+                extractor_version="1.0.0",
+                normalizer_version="1.0.0",
+                person_id=ivanov,
+            )
+            session.add(record)
+            session.flush()
+            mention_ids.append(record.id)
+        events = [
+            seed.event(
+                run_id,
+                span,
+                event_type=event_type,
+                event_date=datetime(2024, month, 1, tzinfo=UTC),
+                links=[(ivanov, "subject")],
+            )
+            for span, event_type, month in (
+                ("Иван Иванов задержан", "detention", 1),
+                ("Иван Иванов арестован", "arrest", 2),
+                ("Иван Иванов осуждён", "sentence", 3),
+            )
+        ]
+        session.commit()
+    repository = SqlAlchemyPersonResearchRepository(
+        session_factory, max_mentions_per_person=2, max_events_per_person=2
+    )
+
+    details = repository.get_person_details([ivanov])[ivanov]
+
+    assert details.evidence_truncated is True
+    assert [event.event_id for event in details.events] == events[1:]
+    assert [e.mention_id for e in details.evidence if e.mention_id is not None] == mention_ids[1:]
+    assert [e.event_id for e in details.evidence if e.event_id is not None] == events[1:]
+
+
+def test_details_within_limits_are_not_truncated(
+    session_factory: sessionmaker[Session],
+    repository: SqlAlchemyPersonResearchRepository,
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("ОВД-Инфо", "https://ovd.info")
+        _, run_id = seed.article(source_id, external_id="one", title="Одно", text=ARTICLE_TEXT)
+        ivanov = seed.person("Иван Иванов")
+        seed.mention(run_id, "Ивана Иванова", person_id=ivanov)
+        session.commit()
+
+    assert repository.get_person_details([ivanov])[ivanov].evidence_truncated is False

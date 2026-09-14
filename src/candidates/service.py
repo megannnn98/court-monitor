@@ -124,74 +124,93 @@ class CandidateQueryService:
             )
         )
 
-        persecution_results = session.execute(persecution_query).all()
+        # Ordered: `limit` pages must be stable between calls.
+        persecution_results = session.execute(persecution_query.order_by(PersonRecord.id)).all()
+        person_ids = [row.person_id for row in persecution_results]
 
-        candidates: list[PoliticalPersecutionCandidate] = []
+        # One query per concern, not per person (was 3 queries per candidate).
+        matches = (
+            {
+                person_id: (status, confidence)
+                for person_id, status, confidence in session.execute(
+                    select(
+                        RosfinMatchRecord.person_id,
+                        RosfinMatchRecord.status,
+                        RosfinMatchRecord.confidence,
+                    ).where(
+                        RosfinMatchRecord.snapshot_id == snapshot_id,
+                        RosfinMatchRecord.person_id.in_(person_ids),
+                    )
+                ).all()
+            }
+            if person_ids
+            else {}
+        )
 
+        included = []
         for row in persecution_results:
-            person_id = row.person_id
-
-            # Get Rosfinmonitoring match status
-            match_record = session.scalar(
-                select(RosfinMatchRecord).where(
-                    RosfinMatchRecord.person_id == person_id,
-                    RosfinMatchRecord.snapshot_id == snapshot_id,
-                )
-            )
-
-            # Determine Rosfinmonitoring status. No match record means
-            # matching was never run for this person — that is NOT a
-            # confirmed absence, so it is excluded by default just like
-            # AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA.
-            rf_status = resolve_rosfinmonitoring_status(
-                None if match_record is None else match_record.status
-            )
-            rf_confidence = None if match_record is None else match_record.confidence
-
+            match = matches.get(row.person_id)
+            # No match record means matching was never run for this person —
+            # that is NOT a confirmed absence, so it is excluded by default just
+            # like AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA.
+            rf_status = resolve_rosfinmonitoring_status(None if match is None else match[0])
             if rf_status not in include_rf_statuses:
                 continue
+            included.append((row, rf_status, None if match is None else match[1]))
+            if limit is not None and len(included) >= limit:
+                break
 
-            # Get event count and last event date
-            event_stats = session.execute(
-                select(
-                    func.count(PersonEventLinkRecord.id).label("event_count"),
-                    func.max(ExtractedEventRecord.event_date).label("last_event_date"),
+        included_ids = [row.person_id for row, _, _ in included]
+        event_stats = (
+            {
+                person_id: (event_count, last_event_date)
+                for person_id, event_count, last_event_date in session.execute(
+                    select(
+                        PersonEventLinkRecord.person_id,
+                        func.count(PersonEventLinkRecord.id),
+                        func.max(ExtractedEventRecord.event_date),
+                    )
+                    .join(
+                        ExtractedEventRecord,
+                        PersonEventLinkRecord.event_id == ExtractedEventRecord.id,
+                    )
+                    .where(PersonEventLinkRecord.person_id.in_(included_ids))
+                    .group_by(PersonEventLinkRecord.person_id)
+                ).all()
+            }
+            if included_ids
+            else {}
+        )
+        alias_counts = (
+            dict(
+                session.execute(
+                    select(PersonAliasRecord.person_id, func.count(PersonAliasRecord.id))
+                    .where(PersonAliasRecord.person_id.in_(included_ids))
+                    .group_by(PersonAliasRecord.person_id)
                 )
-                .join(
-                    ExtractedEventRecord,
-                    PersonEventLinkRecord.event_id == ExtractedEventRecord.id,
-                )
-                .where(PersonEventLinkRecord.person_id == person_id)
-            ).one()
-
-            # Get alias count
-            alias_count = session.scalar(
-                select(func.count(PersonAliasRecord.id)).where(
-                    PersonAliasRecord.person_id == person_id
-                )
+                .tuples()
+                .all()
             )
+            if included_ids
+            else {}
+        )
 
-            # Parse persecution reasons
-            persecution_reasons = row.persecution_reasons or []
-
-            candidate = PoliticalPersecutionCandidate(
-                person_id=person_id,
+        candidates = [
+            PoliticalPersecutionCandidate(
+                person_id=row.person_id,
                 canonical_name=row.canonical_name,
                 normalized_name=row.normalized_name,
                 persecution_status=row.persecution_status,
                 persecution_confidence=row.persecution_confidence,
-                persecution_reasons=persecution_reasons,
+                persecution_reasons=row.persecution_reasons or [],
                 rosfinmonitoring_status=rf_status,
                 rosfinmonitoring_match_confidence=rf_confidence,
-                event_count=event_stats.event_count or 0,
-                alias_count=alias_count or 0,
-                last_event_date=event_stats.last_event_date,
+                event_count=event_stats.get(row.person_id, (0, None))[0],
+                alias_count=alias_counts.get(row.person_id, 0),
+                last_event_date=event_stats.get(row.person_id, (0, None))[1],
             )
-
-            candidates.append(candidate)
-
-            if limit is not None and len(candidates) >= limit:
-                break
+            for row, rf_status, rf_confidence in included
+        ]
 
         return CandidateQueryResult(
             snapshot_id=snapshot_id,
