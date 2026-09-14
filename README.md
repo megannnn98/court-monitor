@@ -275,8 +275,9 @@ uv run pytest tests/test_persecution_classifier.py -v
 uv run pytest tests/test_rosfinmonitoring_matcher.py -v
 
 # PostgreSQL integration tests (без TEST_DATABASE_URL пропускаются; база court_monitor_test)
-DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run alembic upgrade head
-env -u DATABASE_URL TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run pytest
+export TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
+DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
+env -u DATABASE_URL uv run pytest
 
 # Evaluation
 uv run pytest tests/test_er_evaluation.py -v

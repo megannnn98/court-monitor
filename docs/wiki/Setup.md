@@ -75,10 +75,12 @@ PostgreSQL integration suite (база обязательно `court_monitor_tes
 
 ```bash
 docker compose up -d postgres
-set -a; source .env; set +a
-DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run alembic upgrade head
-env -u DATABASE_URL TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test" uv run pytest
+export TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
+DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
+env -u DATABASE_URL uv run pytest
 ```
+
+URL соответствует значениям из `.env.example`; при других учётных данных подставьте свои. База `court_monitor_test` должна существовать (например, `docker compose exec postgres createdb -U court_monitor court_monitor_test`). Сокращение `TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test"` работает только для URL без query-параметров (`?sslmode=…` будет отброшен).
 
 Live-тест Together AI не запускается без явного opt-in:
 
