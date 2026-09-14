@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -62,8 +63,18 @@ class FakeResearchService:
     error: Exception | None = None
     requests: list[ResearchRequest] = field(default_factory=list)
 
-    def execute(self, request: ResearchRequest) -> ResearchResponse:
+    candidate_calls: list[list[int] | None] = field(default_factory=list)
+
+    def execute(
+        self,
+        request: ResearchRequest,
+        *,
+        candidate_person_ids: Sequence[int] | None = None,
+    ) -> ResearchResponse:
         self.requests.append(request)
+        self.candidate_calls.append(
+            None if candidate_person_ids is None else list(candidate_person_ids)
+        )
         if self.error is not None:
             raise self.error
         if self.response is not None:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -18,6 +19,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from research_models import ResearchRequest, ResearchResponse
+from research_planning.models import ResearchRetrievalMode
 from research_planning.planner import ResearchPlanner
 from research_reports.builder import ResearchReportBuilder
 from research_reports.evaluation import ResearchResultEvaluator
@@ -50,6 +52,13 @@ from research_workflow.models import (
 )
 from research_workflow.snapshot_references import extract_explicit_snapshot_ids
 from research_workflow.state import ResearchGraphState
+from semantic_retrieval.models import (
+    RetrievalEntityType,
+    RetrievalError,
+    RetrievalNotConfiguredError,
+    RetrievalQuery,
+)
+from semantic_retrieval.retrievers import EntityRetriever
 
 logger = logging.getLogger("research_workflow")
 
@@ -71,7 +80,12 @@ _LLM_ERROR_CODES: list[tuple[type[LlmError], WorkflowErrorCode]] = [
 class ResearchExecutor(Protocol):
     """The deterministic ResearchService from the research domain."""
 
-    def execute(self, request: ResearchRequest) -> ResearchResponse: ...
+    def execute(
+        self,
+        request: ResearchRequest,
+        *,
+        candidate_person_ids: Sequence[int] | None = None,
+    ) -> ResearchResponse: ...
 
 
 class RosfinmonitoringSnapshotLookup(Protocol):
@@ -140,7 +154,10 @@ def build_research_graph(
     planner: ResearchPlanner,
     review_policy: ResearchReviewPolicy | None = None,
     report_builder: ResearchReportBuilder | None = None,
+    candidate_retriever: EntityRetriever | None = None,
 ) -> ResearchGraph:
+    """`candidate_retriever` is needed only for plans with semantic retrieval;
+    structured requests never touch it (or Qdrant)."""
     evaluator = ResearchResultEvaluator(
         planner=planner, review_policy=review_policy or ResearchReviewPolicy()
     )
@@ -313,9 +330,67 @@ def build_research_graph(
         )
         return {"research_plan": plan}
 
+    def route_after_plan(state: ResearchGraphState) -> Literal["retrieve_candidates", "research"]:
+        if state["research_plan"].retrieval_mode is ResearchRetrievalMode.STRUCTURED:
+            return "research"
+        return "retrieve_candidates"
+
+    def retrieve_candidates(state: ResearchGraphState) -> ResearchGraphState:
+        """Candidate ids only; facts are loaded by ResearchService afterwards."""
+        request = state["structured_request"]
+        plan = state["research_plan"]
+        semantic_query = request.criteria.semantic_query
+        assert semantic_query is not None  # guaranteed by the planner's routing
+        try:
+            if candidate_retriever is None:
+                raise RetrievalNotConfiguredError(
+                    "Semantic retrieval is not configured (set QDRANT_URL and build the index)"
+                )
+            retrieval = candidate_retriever.retrieve(
+                RetrievalQuery(
+                    text=semantic_query,
+                    entity_type=RetrievalEntityType.PERSON,
+                    limit=plan.candidate_pool_size,
+                )
+            )
+        except RetrievalError as exc:
+            code = (
+                WorkflowErrorCode.SEMANTIC_RETRIEVAL_NOT_CONFIGURED
+                if isinstance(exc, RetrievalNotConfiguredError)
+                else WorkflowErrorCode.SEMANTIC_RETRIEVAL_UNAVAILABLE
+            )
+            logger.warning(
+                "candidate_retrieval_failed code=%s error=%s", code.value, type(exc).__name__
+            )
+            return {
+                "errors": [
+                    WorkflowError(
+                        code=code,
+                        message=(
+                            f"Семантический поиск недоступен ({exc}); это ошибка, "
+                            "а не пустой результат."
+                        ),
+                    )
+                ]
+            }
+        logger.info(
+            "candidates_retrieved backend=%s count=%d pool_size=%d",
+            retrieval.backend.value,
+            len(retrieval.hits),
+            plan.candidate_pool_size,
+        )
+        return {"retrieval": retrieval}
+
+    def route_after_retrieval(state: ResearchGraphState) -> Literal["failed", "research"]:
+        return "failed" if state.get("errors") else "research"
+
     def research(state: ResearchGraphState) -> ResearchGraphState:
         try:
-            response = research_service.execute(state["structured_request"])
+            retrieval = state.get("retrieval")
+            response = research_service.execute(
+                state["structured_request"],
+                candidate_person_ids=None if retrieval is None else retrieval.entity_ids,
+            )
         except ResearchSnapshotNotFoundError as exc:
             return {
                 "clarification_question": (
@@ -355,6 +430,8 @@ def build_research_graph(
             request=state["structured_request"],
             response=state["research_response"],
             evaluation=state["evaluation"],
+            plan=state["research_plan"],
+            retrieval=state.get("retrieval"),
         )
         logger.info("report_built status=%s items=%d", report.status.value, len(report.items))
         return {"report": report}
@@ -409,6 +486,7 @@ def build_research_graph(
     builder.add_node("resolve_snapshot", resolve_snapshot)
     builder.add_node("validate_request", validate_request)
     builder.add_node("build_research_plan", build_research_plan)
+    builder.add_node("retrieve_candidates", retrieve_candidates)
     builder.add_node("research", research)
     builder.add_node("evaluate_result", evaluate_result)
     builder.add_node("build_report", build_report)
@@ -444,7 +522,16 @@ def build_research_graph(
             "build_research_plan": "build_research_plan",
         },
     )
-    builder.add_edge("build_research_plan", "research")
+    builder.add_conditional_edges(
+        "build_research_plan",
+        route_after_plan,
+        {"retrieve_candidates": "retrieve_candidates", "research": "research"},
+    )
+    builder.add_conditional_edges(
+        "retrieve_candidates",
+        route_after_retrieval,
+        {"failed": "workflow_failed", "research": "research"},
+    )
     builder.add_conditional_edges(
         "research",
         route_after_research,

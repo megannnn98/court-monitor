@@ -9,6 +9,7 @@ from persecution_models import PersecutionClassificationStatus
 from research_planning.models import (
     ResearchDataRequirement,
     ResearchPlanStepType,
+    ResearchRetrievalMode,
     SourceDataType,
     SourceRoutingReason,
 )
@@ -138,3 +139,51 @@ def test_sources_without_discovery_are_not_recommended() -> None:
 
     assert decision.source_refresh_required is False
     assert decision.reason is SourceRoutingReason.NO_COMPATIBLE_SOURCE
+
+
+def test_exact_criteria_are_structured_and_never_need_the_semantic_index() -> None:
+    plan = PLANNER.plan(
+        request(
+            person_id=1,
+            name="Иванов",
+            persecution_status=PersecutionClassificationStatus.POLITICAL,
+            rosfinmonitoring_status=RosfinmonitoringStatus.NOT_MATCHED,
+            snapshot_id=SNAPSHOT_ID,
+            event_types=["arrest"],
+            source="ОВД-Инфо",
+        )
+    )
+
+    assert plan.retrieval_mode is ResearchRetrievalMode.STRUCTURED
+    assert plan.candidate_pool_size == 0
+    assert ResearchDataRequirement.SEMANTIC_INDEX not in plan.data_requirements
+    assert ResearchPlanStepType.RETRIEVE_CANDIDATES not in [s.step_type for s in plan.steps]
+
+
+def test_semantic_query_routes_to_hybrid_candidate_retrieval_first() -> None:
+    plan = ResearchPlanner(SOURCES, candidate_pool_size=50).plan(
+        request(
+            semantic_query="антивоенные публикации",
+            persecution_status=PersecutionClassificationStatus.POLITICAL,
+        )
+    )
+
+    assert plan.retrieval_mode is ResearchRetrievalMode.HYBRID
+    assert plan.candidate_pool_size == 50
+    assert plan.steps[0].step_type is ResearchPlanStepType.RETRIEVE_CANDIDATES
+    assert plan.steps[1].step_type is ResearchPlanStepType.DATABASE_SEARCH
+    assert ResearchDataRequirement.SEMANTIC_INDEX in plan.data_requirements
+    assert ResearchDataRequirement.PERSECUTION_CLASSIFICATIONS in plan.data_requirements
+
+
+def test_reranking_is_selected_only_by_configuration() -> None:
+    semantic = request(semantic_query="пикеты")
+
+    assert (
+        ResearchPlanner(SOURCES, rerank_semantic=True).plan(semantic).retrieval_mode
+        is ResearchRetrievalMode.HYBRID_RERANKED
+    )
+    assert (
+        ResearchPlanner(SOURCES, rerank_semantic=True).plan(request(name="Иванов")).retrieval_mode
+        is ResearchRetrievalMode.STRUCTURED
+    )

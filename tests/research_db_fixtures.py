@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
+    EventEntityMentionRecord,
     ExtractedEventRecord,
     ParsedArticleRecord,
     PersecutionClassificationRecord,
@@ -148,6 +149,7 @@ class ResearchSeeder:
         event_date: datetime | None,
         links: list[tuple[int, str]],
         attributes: dict[str, Any] | None = None,
+        entity_links: list[tuple[int, str]] | None = None,
     ) -> int:
         start, end = self._span(run_id, span)
         event = self._add(
@@ -169,6 +171,8 @@ class ResearchSeeder:
                     person_id=person_id, event_id=event.id, role=role, confidence=0.8
                 )
             )
+        for mention_id, role in entity_links or []:
+            self._add(EventEntityMentionRecord(event_id=event.id, mention_id=mention_id, role=role))
         return event.id
 
     def classification(
@@ -180,6 +184,7 @@ class ResearchSeeder:
         classifier_version: str = "1.0.0",
         classified_at: datetime = FIXED_TIME,
         reasons: list[str] | None = None,
+        evidence_types: list[str] | None = None,
     ) -> int:
         return self._add(
             PersecutionClassificationRecord(
@@ -187,7 +192,7 @@ class ResearchSeeder:
                 status=status,
                 confidence=confidence,
                 reasons=reasons or [],
-                evidence_types=[],
+                evidence_types=evidence_types or [],
                 classifier_name="rule-based",
                 classifier_version=classifier_version,
                 classified_at=classified_at,

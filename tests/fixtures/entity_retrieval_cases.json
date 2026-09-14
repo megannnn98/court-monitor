@@ -1,0 +1,73 @@
+[
+  {
+    "query_id": "anti-war-position",
+    "query_text": "антивоенная позиция",
+    "entity_type": "person",
+    "judgments": {"smirnov": 2, "kuznetsova": 2, "volkov": 2, "morozova": 2, "golubev": 2, "vinogradova": 2, "bogdanov": 2, "novikov": 1, "vorobyova": 1}
+  },
+  {
+    "query_id": "invasion-criticism",
+    "query_text": "осуждали вторжение в Украину",
+    "entity_type": "person",
+    "judgments": {"volkov": 2, "morozova": 2, "kuznetsova": 2, "vinogradova": 2, "golubev": 1, "smirnov": 1}
+  },
+  {
+    "query_id": "faith",
+    "query_text": "гонения за веру",
+    "entity_type": "person",
+    "semantic_only": true,
+    "judgments": {"kozlov": 2}
+  },
+  {
+    "query_id": "online-speech",
+    "query_text": "наказание за высказывания в интернете",
+    "entity_type": "person",
+    "semantic_only": true,
+    "judgments": {"kuznetsova": 2, "volkov": 2, "egorova": 2}
+  },
+  {
+    "query_id": "street-protest",
+    "query_text": "уличные протесты",
+    "entity_type": "person",
+    "semantic_only": true,
+    "judgments": {"smirnov": 2, "popov": 2, "vorobyova": 2, "lebedeva": 1, "golubev": 1, "morozova": 1}
+  },
+  {
+    "query_id": "ukraine-sympathy",
+    "query_text": "сочувствие украинцам",
+    "entity_type": "person",
+    "semantic_only": true,
+    "judgments": {"golubev": 2, "vinogradova": 1, "morozova": 1}
+  },
+  {
+    "query_id": "corruption-journalism",
+    "query_text": "журналистские расследования коррупции",
+    "entity_type": "person",
+    "judgments": {"sokolova": 2, "mikhailova": 1}
+  },
+  {
+    "query_id": "ordinary-offences",
+    "query_text": "бытовые правонарушения",
+    "entity_type": "person",
+    "semantic_only": true,
+    "judgments": {"pavlov": 2, "semenova": 2, "fedorov": 2}
+  },
+  {
+    "query_id": "military-office",
+    "query_text": "акции против военкоматов",
+    "entity_type": "person",
+    "judgments": {"novikov": 2, "bogdanov": 2}
+  },
+  {
+    "query_id": "event-peaceful-detention",
+    "query_text": "задержание на мирной акции",
+    "entity_type": "event",
+    "judgments": {"smirnov-detention": 2, "golubev-detention": 2, "lebedeva-detention": 2, "morozova-detention": 1, "popov-fine": 1}
+  },
+  {
+    "query_id": "event-war-video",
+    "query_text": "приговор за антивоенное видео",
+    "entity_type": "event",
+    "judgments": {"volkov-sentence": 2, "vinogradova-sentence": 1}
+  }
+]

@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,7 +24,12 @@ from api import (
 from candidate_query_models import RosfinmonitoringStatus
 from research_models import ResearchRequest, ResearchResponse
 from research_planning.planner import ResearchPlanner
-from research_service import ResearchSnapshotNotFoundError
+from research_service import (
+    CandidateQuery,
+    PersonResearchRepository,
+    ResearchService,
+    ResearchSnapshotNotFoundError,
+)
 from research_workflow.graph import ResearchGraph, build_research_graph
 from research_workflow.llm import (
     LlmAuthenticationError,
@@ -119,6 +125,34 @@ def research_client() -> Iterator[tuple[TestClient, _FakeResearchService]]:
         app.dependency_overrides.pop(get_research_service, None)
 
 
+def test_structured_research_endpoint_rejects_semantic_query_instead_of_ignoring_it() -> None:
+    service = ResearchService(
+        repository=cast(PersonResearchRepository, _UnusedRepository()),
+        candidate_query=cast(CandidateQuery, _UnusedCandidates()),
+    )
+    app.dependency_overrides[get_research_service] = lambda: service
+    try:
+        response = TestClient(app).post(
+            "/research",
+            json={"object_type": "person", "criteria": {"semantic_query": "пикеты"}},
+        )
+    finally:
+        app.dependency_overrides.pop(get_research_service, None)
+
+    assert response.status_code == 422
+    assert "POST /research/query" in response.json()["detail"]
+
+
+class _UnusedRepository:
+    def __getattr__(self, name: str) -> object:
+        raise AssertionError(f"repository.{name} must not be called")
+
+
+class _UnusedCandidates:
+    def get_candidates(self, *args: object, **kwargs: object) -> object:
+        raise AssertionError("candidate query must not be called")
+
+
 def test_research_endpoint_delegates_validated_request_to_service(
     research_client: tuple[TestClient, _FakeResearchService],
 ) -> None:
@@ -149,6 +183,7 @@ def test_research_endpoint_delegates_validated_request_to_service(
                 "date_from": None,
                 "date_to": None,
                 "source": None,
+                "semantic_query": None,
             },
             "limit": 5,
         },
@@ -538,3 +573,22 @@ def test_research_query_review_condition_is_a_200_report_not_an_error(
     assert all(claim["supported"] for claim in item["claims"])
     # Raw result stays next to the report.
     assert body["results"][0]["rosfinmonitoring"]["status"] == "ambiguous"
+
+
+def test_research_query_with_invalid_semantic_config_returns_503_not_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@localhost:1/none")
+    monkeypatch.setenv("TOGETHER_API_KEY", "test-key")
+    monkeypatch.setenv("TOGETHER_MODEL", "test-model")
+    monkeypatch.setenv("SEMANTIC_CANDIDATE_POOL_SIZE", "abc")
+    _get_session_factory.cache_clear()
+    _get_research_graph.cache_clear()
+    try:
+        response = TestClient(app).post("/research/query", json={"query": "x"})
+    finally:
+        _get_session_factory.cache_clear()
+        _get_research_graph.cache_clear()
+
+    assert response.status_code == 503
+    assert "SEMANTIC_CANDIDATE_POOL_SIZE" in response.json()["detail"]

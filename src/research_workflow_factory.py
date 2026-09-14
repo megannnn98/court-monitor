@@ -13,6 +13,8 @@ from research_service import ResearchService
 from research_workflow.graph import ResearchGraph, build_research_graph
 from research_workflow.intake import LlmResearchRequestParser
 from rosfinmonitoring_snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from semantic_retrieval.factory import SemanticRetrievalConfig, create_semantic_components
+from semantic_retrieval.models import RetrievalBackend
 from source_registry import SOURCES
 from together_llm_client import TogetherConfig, TogetherStructuredLlmClient
 
@@ -24,8 +26,20 @@ def create_research_graph(
     """Wire Together AI intake, ResearchService and PostgreSQL lookups.
 
     Raises `LlmConfigurationError` when Together AI is not configured.
+    Semantic retrieval is wired only when QDRANT_URL is set; no model is loaded
+    until the first semantic request.
     """
     llm_client = TogetherStructuredLlmClient(TogetherConfig.from_env(env))
+    # Semantic retrieval is optional: without QDRANT_URL, structured requests
+    # work and semantic ones fail with semantic_retrieval_not_configured.
+    semantic = SemanticRetrievalConfig.from_env(env)
+    candidate_retriever = (
+        create_semantic_components(session_factory, semantic, env).retriever(
+            RetrievalBackend.HYBRID_RERANKED if semantic.rerank else RetrievalBackend.HYBRID
+        )
+        if semantic.qdrant_url is not None
+        else None
+    )
     return build_research_graph(
         request_parser=LlmResearchRequestParser(llm_client),
         research_service=ResearchService(
@@ -33,5 +47,10 @@ def create_research_graph(
             candidate_query=CandidateQueryService(session_factory),
         ),
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
-        planner=ResearchPlanner(SOURCES),
+        planner=ResearchPlanner(
+            SOURCES,
+            rerank_semantic=semantic.rerank,
+            candidate_pool_size=semantic.candidate_pool_size,
+        ),
+        candidate_retriever=candidate_retriever,
     )

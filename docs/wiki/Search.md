@@ -6,7 +6,9 @@
 search(SearchQuery) -> list[SearchHit]
 ```
 
-Единственная текущая реализация — `PostgresLexicalSearch`. Dense (`QdrantDenseSearch`), hybrid (`HybridSearch`, RRF) и reranked-hybrid (`RerankingSearch`, `CrossEncoderReranker`) были построены целиком вокруг chunk-уровня и удалены вместе с `ArticleChunk` — см. [ADR 0001](../adr/0001-dual-search-backend.md) (исходное решение, superseded) и [ADR 0002](../adr/0002-drop-dense-hybrid-search.md) (удаление).
+Единственная текущая реализация поиска **по статьям** — `PostgresLexicalSearch`. Dense (`QdrantDenseSearch`), hybrid (`HybridSearch`, RRF) и reranked-hybrid (`RerankingSearch`, `CrossEncoderReranker`) были построены целиком вокруг chunk-уровня и удалены вместе с `ArticleChunk` — см. [ADR 0001](../adr/0001-dual-search-backend.md) (исходное решение, superseded) и [ADR 0002](../adr/0002-drop-dense-hybrid-search.md) (удаление).
+
+Семантический поиск вернулся на уровне **сущностей** (Person, Event), а не статей: lexical + dense + RRF (+ опциональный cross-encoder) по детерминированным semantic documents, Qdrant — только индекс кандидатов, факты из PostgreSQL. См. [Semantic-Retrieval](Semantic-Retrieval.md) и [ADR 0011](../adr/0011-semantic-hybrid-entity-retrieval.md). Article-level dense search не восстанавливался.
 
 `SearchBackend` — протокол, а не заглушка под один backend: `SearchEvaluator` и CLI работают через него, новые реализации можно добавлять не меняя эти слои.
 
@@ -32,4 +34,4 @@ websearch_to_tsquery('russian', query.text)
 
 Преимущество lexical backend — отсутствие отдельного поискового индекса вне PostgreSQL.
 
-Ограничение — поиск зависит от лексического совпадения и может пропускать семантически близкие формулировки. Семантический (dense) поиск можно будет вернуть позже отдельной задачей, на article-level embeddings.
+Ограничение — поиск зависит от лексического совпадения и может пропускать семантически близкие формулировки. Для research-вопросов по смыслу используется entity-level semantic retrieval ([Semantic-Retrieval](Semantic-Retrieval.md)).

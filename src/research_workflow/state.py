@@ -14,6 +14,7 @@ from research_workflow.models import (
     UnsupportedCriterion,
     WorkflowError,
 )
+from semantic_retrieval.models import RetrievalResult
 
 
 class ResearchGraphState(TypedDict, total=False):
@@ -29,6 +30,7 @@ class ResearchGraphState(TypedDict, total=False):
     request_payload: dict[str, Any] | None
     structured_request: ResearchRequest
     research_plan: ResearchPlan
+    retrieval: RetrievalResult
     research_response: ResearchResponse
     evaluation: ResearchResultEvaluation
     report: ResearchReport

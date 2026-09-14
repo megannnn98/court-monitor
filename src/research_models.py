@@ -21,6 +21,7 @@ from rosfinmonitoring_matcher_models import RosfinCandidateEntry
 
 MAX_RESEARCH_LIMIT = 1000
 DEFAULT_RESEARCH_LIMIT = 20
+MAX_SEMANTIC_QUERY_CHARS = 500
 
 
 class ResearchObjectType(StrEnum):
@@ -61,8 +62,12 @@ class PersonResearchCriteria(BaseModel):
     # `sources.name` (e.g. "ОВД-Инфо"): person has a mention or linked event
     # extracted from an article of this source.
     source: str | None = None
+    # Free-text description of circumstances/topic ("антивоенные публикации").
+    # Not a filter SQL can evaluate: it selects a candidate pool by semantic
+    # retrieval (ADR 0011), and every other criterion is still applied exactly.
+    semantic_query: str | None = Field(default=None, max_length=MAX_SEMANTIC_QUERY_CHARS)
 
-    @field_validator("name", "source")
+    @field_validator("name", "source", "semantic_query")
     @classmethod
     def validate_not_blank(cls, value: str | None) -> str | None:
         if value is None:

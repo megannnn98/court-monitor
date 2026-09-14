@@ -8,20 +8,20 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `feature-research-report-review-routing` (part 3 and its review
-fixes), 2026-09-14, Python 3.13.
+Branch `feature-semantic-hybrid-retrieval` (part 4), 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` | no issues (151 files) |
-| Tests without database | `uv run pytest` (no `TEST_DATABASE_URL`) | 433 passed, 128 skipped |
-| Tests with PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` after `alembic upgrade head` | 558 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (179 files) |
+| Tests without services | `uv sync --frozen && uv run pytest` | 513 passed, 149 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 657 passed, 5 skipped |
+| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 659 passed, 3 skipped |
 
-Skipped without a database: PostgreSQL tests. Skipped in both runs: the three
-opt-in live Together AI tests (`TOGETHER_LIVE_TESTS=1`); they were not executed.
-Re-verify instead of trusting these numbers; CI (`.github/workflows/ci.yml`)
-runs the same commands.
+Skipped in the last run: the three opt-in live Together AI tests
+(`TOGETHER_LIVE_TESTS=1`), not executed. CI (`.github/workflows/ci.yml`) runs
+the commands without the `semantic` group and without model tests; it has not
+run on GitHub for this branch (no push).
 
 ## Completed Components ✅
 
@@ -170,27 +170,51 @@ ResearchRequest → ResearchPlanner.plan → ResearchService → ResearchRespons
   is a recommendation after an empty result, ingestion is never started
 - No LLM after intake
 
-### 10. API Layer
+### 10. Semantic Hybrid Entity Retrieval (ADR 0011)
+
+```text
+semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
+→ lexical (semantic_documents tsvector) + dense (E5 → Qdrant) → RRF [→ cross-encoder]
+→ candidate person ids → ResearchService (all criteria from PostgreSQL) → report
+```
+
+- Deterministic `PersonSemanticDocumentBuilder` / `EventSemanticDocumentBuilder`
+  (names, aliases, classification, linked events with own spans; no articles)
+- `semantic_documents` table (derived, content hash, representation version,
+  indexed_at, GIN tsvector); Qdrant `persons_semantic`, `events_semantic` with
+  uuid5 point ids and minimal payload; incremental `SemanticIndexer`
+- `EntityRetriever` port: lexical, dense, hybrid (RRF k=60), reranked
+  (opt-in `SEMANTIC_RERANK=1`)
+- Structured requests never touch Qdrant; semantic failures are workflow
+  failures (`semantic_retrieval_unavailable` / `_not_configured`, HTTP 503)
+- Retrieval score is never a domain confidence; report shows mode and rank only
+- Evaluation (18 persons, 11 cases, 5 semantic-only), k=5: lexical nDCG 0.408,
+  dense 0.823, hybrid 0.851, hybrid_reranked 0.650 — reranker off by default
+- CLI: `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`
+
+### 11. API Layer
 - FastAPI endpoints: persons, aliases, persecution, candidates,
   Rosfinmonitoring snapshots/entries, reviews, `POST /research`,
   `POST /research/query` (with `plan` and `report`), `POST /research/reviews`,
   health check
 
-### 11. CLI
+### 12. CLI
 - `ingest`, `discover-and-ingest`, `search`, `evaluate-search`,
   `extract-entities`, `evaluate-extraction`, `resolve-people`,
   `classify-persecution`, `match-rosfinmonitoring`, `list-candidates`,
-  `research`, `ask` (report by default, `--show-request`, `--show-plan`, `--raw`)
+  `research`, `ask` (report by default, `--show-request`, `--show-plan`, `--raw`),
+  `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`
 
-### 12. Manual Review Infrastructure
+### 13. Manual Review Infrastructure
 - Generic `review_records` table + `ManualReviewService` for ambiguous
   merges/matches/classifications pending human decision
 - `get_or_create_pending_review`: at most one pending review per subject
 
-### 13. CI
+### 14. CI
 - GitHub Actions: `quality` (ruff, format, mypy), `tests` (pytest without
-  database), `integration` (PostgreSQL 18, `alembic upgrade head`, pytest with
-  `TEST_DATABASE_URL`). Together AI is never called in CI.
+  database), `integration` (PostgreSQL 18 and Qdrant services, `alembic upgrade
+  head`, pytest with `TEST_DATABASE_URL` and `QDRANT_TEST_URL`). Together AI is
+  never called and no embedding model is downloaded in CI.
 
 ## Known Limitations
 
@@ -206,6 +230,9 @@ ResearchRequest → ResearchPlanner.plan → ResearchService → ResearchRespons
 - Research: no region/city, court, organization or occupation filters (not
   linked to persons); only active persons; no consistent read across the
   repository calls of one request (TODO in ADR 0008).
+- Semantic retrieval: no relevance threshold (pool = top-N nearest persons);
+  index is refreshed manually (`rebuild-semantic-index --incremental`); the
+  evaluation corpus is small and synthetic; reranker hurt quality on it.
 - Reports: persecution reasons have no per-reason evidence spans (the
   classification claim cites all of the person's spans); source routing has no
   freshness policy and never runs ingestion; review tasks cannot be created for
@@ -218,7 +245,8 @@ ResearchRequest → ResearchPlanner.plan → ResearchService → ResearchRespons
 
 ## Explicitly Out of Scope (for now)
 
-- Fuzzy/ML entity resolution, embeddings, vector search, re-ranking
+- Fuzzy/ML entity resolution (similarity is never used to merge persons);
+  article/chunk-level embeddings
 - LLM-based classification or LLM-written facts/reports; an autonomous agent
   loop (the LLM is limited to request intake)
 - Automatic ingestion from source routing, automated monitoring

@@ -19,7 +19,12 @@ from research_models import (
     ResearchResponse,
     ResearchRosfinmonitoring,
 )
-from research_planning.models import SourceRoutingDecision, SourceRoutingReason
+from research_planning.models import (
+    ResearchPlan,
+    ResearchRetrievalMode,
+    SourceRoutingDecision,
+    SourceRoutingReason,
+)
 from research_reports.citations import (
     citations,
     event_citations,
@@ -38,9 +43,11 @@ from research_reports.models import (
     ResearchReportSummary,
     ResearchReportWarning,
     ResearchReportWarningCode,
+    ResearchRetrievalMetadata,
     ResearchReviewDecision,
     ResearchReviewReason,
 )
+from semantic_retrieval.models import RetrievalResult
 
 _PERSECUTION_TEXT: dict[PersecutionClassificationStatus, str] = {
     PersecutionClassificationStatus.POLITICAL: "Преследование классифицировано как политическое",
@@ -120,14 +127,40 @@ class ResearchReportBuilder:
         request: ResearchRequest,
         response: ResearchResponse,
         evaluation: ResearchResultEvaluation,
+        plan: ResearchPlan | None = None,
+        retrieval: RetrievalResult | None = None,
     ) -> ResearchReport:
         decisions = evaluation.decisions_by_person()
+        ranks = {} if retrieval is None else {hit.entity_id: hit.rank for hit in retrieval.hits}
+        metadata = ResearchRetrievalMetadata(
+            mode=ResearchRetrievalMode.STRUCTURED if plan is None else plan.retrieval_mode,
+            backend=None if retrieval is None else retrieval.backend,
+            candidate_pool_size=0 if plan is None else plan.candidate_pool_size,
+            candidates_returned=0 if retrieval is None else len(retrieval.hits),
+        )
         items: list[ResearchReportItem] = []
         for result in response.results:
             assert result.person.id is not None  # checked by the evaluator
-            items.append(self._item(request.criteria, result, decisions[result.person.id]))
+            item = self._item(request.criteria, result, decisions[result.person.id])
+            rank = ranks.get(result.person.id)
+            if rank is not None:
+                item.retrieval_rank = rank
+                item.why_matched.append(_semantic_match_reason(request, metadata, rank))
+            items.append(item)
 
         warnings: list[ResearchReportWarning] = []
+        if retrieval is not None:
+            warnings.append(
+                ResearchReportWarning(
+                    code=ResearchReportWarningCode.SEMANTIC_CANDIDATE_POOL,
+                    message=(
+                        f"Люди отобраны семантическим поиском ({metadata.candidates_returned} "
+                        f"кандидатов из максимум {metadata.candidate_pool_size}); все критерии "
+                        "и факты проверены по PostgreSQL. Сходство формулировок не является "
+                        "фактом и не повышает уверенность ни одного утверждения."
+                    ),
+                )
+            )
         if response.total_matched > len(response.results):
             warnings.append(
                 ResearchReportWarning(
@@ -148,11 +181,12 @@ class ResearchReportBuilder:
                 returned=len(items),
                 review_required_count=sum(item.review_required for item in items),
                 partial_count=sum(item.partial for item in items),
-                text=_summary_text(status, response, items, evaluation.routing),
+                text=_summary_text(status, response, items, evaluation.routing, metadata),
             ),
             items=items,
             warnings=warnings,
             source_routing=evaluation.routing,
+            retrieval=metadata,
         )
 
     def _item(
@@ -430,24 +464,49 @@ def _report_status(
     return ResearchReportStatus.COMPLETE
 
 
+def _semantic_match_reason(
+    request: ResearchRequest, metadata: ResearchRetrievalMetadata, rank: int
+) -> ResearchMatchReason:
+    assert request.criteria.semantic_query is not None
+    backend = metadata.backend.value if metadata.backend is not None else metadata.mode.value
+    return ResearchMatchReason(
+        criterion="semantic_query",
+        requested=request.criteria.semantic_query,
+        actual=(
+            f"кандидат семантического поиска ({backend}), позиция {rank} из "
+            f"{metadata.candidates_returned}; сходство, а не установленный факт"
+        ),
+    )
+
+
 def _summary_text(
     status: ResearchReportStatus,
     response: ResearchResponse,
     items: list[ResearchReportItem],
     routing: SourceRoutingDecision,
+    retrieval: ResearchRetrievalMetadata,
 ) -> str:
+    scope = (
+        "В текущей базе"
+        if retrieval.mode is ResearchRetrievalMode.STRUCTURED
+        else f"Среди {retrieval.candidates_returned} кандидатов семантического поиска"
+    )
     if status is ResearchReportStatus.INSUFFICIENT_DATA:
         return (
-            "В текущей базе найдено 0 подходящих людей. Это не доказывает, что таких людей нет: "
+            f"{scope} найдено 0 подходящих людей. Это не доказывает, что таких людей нет: "
             "локальная копия источников может быть неполной. Обновление источников "
             f"({', '.join(routing.sources)}) — рекомендация, оно не выполнялось."
         )
     if status is ResearchReportStatus.NO_MATCHES:
         return (
-            "В текущей базе найдено 0 подходящих людей; обновление источников не рекомендуется: "
+            f"{scope} найдено 0 подходящих людей; обновление источников не рекомендуется: "
             f"{_ROUTING_TEXT.get(routing.reason, routing.reason.value)}."
         )
-    shown = f"Найдено {response.total_matched}, показано {len(items)}."
+    shown = (
+        f"Найдено {response.total_matched}, показано {len(items)}."
+        if retrieval.mode is ResearchRetrievalMode.STRUCTURED
+        else f"{scope} подходят {response.total_matched}, показано {len(items)}."
+    )
     if status is ResearchReportStatus.REVIEW_REQUIRED:
         count = sum(item.review_required for item in items)
         return f"{shown} Требуют проверки человеком: {count}."

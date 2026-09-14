@@ -32,6 +32,19 @@ from research_models import (
 )
 
 
+class ResearchCandidatesRequiredError(ValueError):
+    """`semantic_query` needs candidate ids from semantic retrieval.
+
+    Raised instead of silently ignoring the criterion and returning a broader
+    result than the user asked for.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "criteria.semantic_query requires candidate_person_ids from semantic retrieval"
+        )
+
+
 class ResearchSnapshotNotFoundError(LookupError):
     def __init__(self, snapshot_id: int) -> None:
         super().__init__(f"Rosfinmonitoring snapshot {snapshot_id} not found")
@@ -51,10 +64,16 @@ class PersonResearchDetails(BaseModel):
 class PersonResearchRepository(Protocol):
     def snapshot_exists(self, snapshot_id: int) -> bool: ...
 
-    def find_person_ids(self, criteria: PersonResearchCriteria) -> list[int]:
+    def find_person_ids(
+        self,
+        criteria: PersonResearchCriteria,
+        *,
+        restrict_to: Sequence[int] | None = None,
+    ) -> list[int]:
         """Active person ids ordered by id matching person_id, name,
-        event_types/date range and source. Persecution and Rosfinmonitoring
-        criteria are NOT applied here — the service owns those rules.
+        event_types/date range and source, optionally only among `restrict_to`
+        (a bounded candidate pool). Persecution, Rosfinmonitoring and
+        semantic criteria are NOT applied here — the service owns those rules.
         """
         ...
 
@@ -94,14 +113,26 @@ class ResearchService:
         self._repository = repository
         self._candidate_query = candidate_query
 
-    def execute(self, request: ResearchRequest) -> ResearchResponse:
+    def execute(
+        self,
+        request: ResearchRequest,
+        *,
+        candidate_person_ids: Sequence[int] | None = None,
+    ) -> ResearchResponse:
+        """Run the request. With `candidate_person_ids` (semantic retrieval
+        output, best first) only those persons are considered, every
+        criterion is still applied from PostgreSQL, and results keep the
+        candidate order. `total_matched` then counts matches inside the pool.
+        """
         criteria = request.criteria
+        if criteria.semantic_query is not None and candidate_person_ids is None:
+            raise ResearchCandidatesRequiredError()
         if criteria.snapshot_id is not None and not self._repository.snapshot_exists(
             criteria.snapshot_id
         ):
             raise ResearchSnapshotNotFoundError(criteria.snapshot_id)
 
-        person_ids = self._filter_person_ids(criteria)
+        person_ids = self._filter_person_ids(criteria, candidate_person_ids)
         page = person_ids[: request.limit]
 
         details = self._repository.get_person_details(page)
@@ -141,9 +172,26 @@ class ResearchService:
             total_matched=len(person_ids),
         )
 
-    def _filter_person_ids(self, criteria: PersonResearchCriteria) -> list[int]:
-        person_ids = self._repository.find_person_ids(criteria)
+    def _filter_person_ids(
+        self,
+        criteria: PersonResearchCriteria,
+        candidate_person_ids: Sequence[int] | None,
+    ) -> list[int]:
+        if candidate_person_ids is None:
+            return self._apply_status_filters(criteria, self._repository.find_person_ids(criteria))
+        pool = list(dict.fromkeys(candidate_person_ids))
+        if not pool:
+            return []
+        allowed = set(
+            self._apply_status_filters(
+                criteria, self._repository.find_person_ids(criteria, restrict_to=pool)
+            )
+        )
+        return [person_id for person_id in pool if person_id in allowed]
 
+    def _apply_status_filters(
+        self, criteria: PersonResearchCriteria, person_ids: list[int]
+    ) -> list[int]:
         if (
             criteria.persecution_status is PersecutionClassificationStatus.POLITICAL
             and criteria.rosfinmonitoring_status is not None

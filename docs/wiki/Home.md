@@ -14,6 +14,7 @@
 - [Research-Workflow](Research-Workflow.md) — natural-language запросы: LangGraph + Together AI → `ResearchRequest` → `ResearchService`
 - [Research](Research.md) — детерминированный research layer: `ResearchRequest` → `ResearchService` → Person-результаты с evidence
 - [Research-Reports](Research-Reports.md) — отчёт с claims/citations, human review policy, database-first source routing
+- [Semantic-Retrieval](Semantic-Retrieval.md) — entity-level lexical + dense + RRF кандидаты (Qdrant), evaluation backend'ов
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
 - [Testing](Testing.md) — тесты, линтеры, pre-commit

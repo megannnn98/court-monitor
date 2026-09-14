@@ -200,6 +200,8 @@ def format_research_plan(result: ResearchQueryResult) -> str:
 
 def _format_report_item(item: ResearchReportItem) -> list[str]:
     lines = ["", f"#{item.person_id} {item.canonical_name}"]
+    if item.retrieval_rank is not None:
+        lines.append(f"  Retrieval rank: {item.retrieval_rank} (similarity, not a fact)")
     if item.aliases:
         lines.append(f"  Aliases: {', '.join(item.aliases)}")
 
@@ -265,6 +267,14 @@ def _format_report_item(item: ResearchReportItem) -> list[str]:
 
 def format_research_report(report: ResearchReport) -> str:
     lines = [f"Report: {report.status.value} — {report.summary.text}"]
+    retrieval = report.retrieval
+    if retrieval.backend is None:
+        lines.append(f"Retrieval: {retrieval.mode.value}")
+    else:
+        lines.append(
+            f"Retrieval: {retrieval.mode.value} ({retrieval.candidates_returned} candidates, "
+            f"pool {retrieval.candidate_pool_size}) — candidates, not facts"
+        )
     routing = report.source_routing
     if routing.source_refresh_required:
         lines.append(f"Source refresh: recommended ({', '.join(routing.sources)}) — not executed")

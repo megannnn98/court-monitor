@@ -30,6 +30,17 @@ class SourceCapability(BaseModel):
     data_types: list[SourceDataType]
 
 
+class ResearchRetrievalMode(StrEnum):
+    """How the person population is selected before deterministic filters."""
+
+    # Only structured PostgreSQL criteria; no vector index involved.
+    STRUCTURED = "structured"
+    # semantic_query: lexical + dense candidates fused with RRF (ADR 0011).
+    HYBRID = "hybrid"
+    # HYBRID followed by a cross-encoder reranker (SEMANTIC_RERANK=1).
+    HYBRID_RERANKED = "hybrid_reranked"
+
+
 class ResearchDataRequirement(StrEnum):
     """Stored data a request depends on."""
 
@@ -38,9 +49,12 @@ class ResearchDataRequirement(StrEnum):
     EVENTS = "events"
     PERSECUTION_CLASSIFICATIONS = "persecution_classifications"
     ROSFINMONITORING_MATCHES = "rosfinmonitoring_matches"
+    # semantic_documents + vector collection for persons.
+    SEMANTIC_INDEX = "semantic_index"
 
 
 class ResearchPlanStepType(StrEnum):
+    RETRIEVE_CANDIDATES = "retrieve_candidates"
     DATABASE_SEARCH = "database_search"
     EVALUATE_RESULT = "evaluate_result"
     BUILD_REPORT = "build_report"
@@ -66,6 +80,9 @@ class ResearchPlan(BaseModel):
     model_config = ConfigDict(use_enum_values=False)
 
     database_search: bool = True
+    retrieval_mode: ResearchRetrievalMode = ResearchRetrievalMode.STRUCTURED
+    # Max semantic candidates passed to ResearchService (0 for structured).
+    candidate_pool_size: int = 0
     steps: list[ResearchPlanStep]
     data_requirements: list[ResearchDataRequirement]
     candidate_sources: list[SourceCapability] = Field(default_factory=list)

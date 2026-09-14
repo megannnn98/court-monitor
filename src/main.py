@@ -49,6 +49,8 @@ from retrying_fetcher import RetryingDocumentFetcher
 from rosfinmonitoring_matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring_matcher_persistence import RosfinMatchPersistence
 from search_evaluator import SearchEvaluator
+from semantic_cli import add_semantic_arguments, run_evaluate_retrieval, run_semantic_command
+from semantic_retrieval.models import SemanticConfigurationError
 from source_adapter import DocumentFetcher
 from source_ingestion import ArticleIngestionPipeline, SourceIngestion
 from source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition
@@ -272,6 +274,7 @@ def main() -> None:
 
     add_research_arguments(subparsers)
     add_ask_arguments(subparsers)
+    add_semantic_arguments(subparsers)
 
     args = argument_parser.parse_args()
 
@@ -285,6 +288,11 @@ def main() -> None:
             print(report_json)
         return
 
+    if args.command == "evaluate-retrieval":
+        # Uses its own disposable database, never DATABASE_URL.
+        run_evaluate_retrieval(args)
+        return
+
     database_url = os.environ.get("DATABASE_URL")
 
     if database_url is None:
@@ -292,6 +300,9 @@ def main() -> None:
 
     database_engine = create_database_engine(database_url)
     session_factory = create_session_factory(database_engine)
+
+    if run_semantic_command(args, session_factory):
+        return
 
     if args.command == "list-candidates":
         service = CandidateQueryService(session_factory)
@@ -315,7 +326,7 @@ def main() -> None:
         )
         try:
             research_graph = create_research_graph(session_factory)
-        except LlmConfigurationError as exc:
+        except (LlmConfigurationError, SemanticConfigurationError) as exc:
             raise SystemExit(str(exc)) from None
         query_result = run_research_query(research_graph, args.query)
         if args.show_request:

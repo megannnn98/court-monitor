@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from research_models import PersonResearchResult, ResearchRequest
 from research_planning.models import ResearchPlan
 from research_reports.models import ResearchReport
+from semantic_retrieval.models import RetrievalResult
 
 
 class UnsupportedCriterion(BaseModel):
@@ -62,6 +63,8 @@ class WorkflowErrorCode(StrEnum):
     LLM_REQUEST_REJECTED = "llm_request_rejected"
     LLM_INVALID_OUTPUT = "llm_invalid_output"
     NO_ROSFINMONITORING_SNAPSHOT = "no_rosfinmonitoring_snapshot"
+    SEMANTIC_RETRIEVAL_NOT_CONFIGURED = "semantic_retrieval_not_configured"
+    SEMANTIC_RETRIEVAL_UNAVAILABLE = "semantic_retrieval_unavailable"
     WORKFLOW_UNEXPECTED_ERROR = "workflow_unexpected_error"
 
 
@@ -98,6 +101,9 @@ class ResearchQueryResult(BaseModel):
     # Present only when research was executed.
     plan: ResearchPlan | None = None
     report: ResearchReport | None = None
+    # Debug: semantic candidates with backend ranks and retrieval scores.
+    # Retrieval scores are not confidences of any fact.
+    retrieval: RetrievalResult | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

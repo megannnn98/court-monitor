@@ -281,3 +281,24 @@ def test_event_span_after_non_bmp_character_matches_python_offsets(
     assert [e.text for e in evidence] == ["Ивана Иванова", "Суд арестовал Ивана Иванова"]
     for item in evidence:
         assert text[item.start_offset : item.end_offset] == item.text
+
+
+def test_find_person_ids_can_be_restricted_to_a_candidate_pool(
+    session_factory: sessionmaker[Session], repository: SqlAlchemyPersonResearchRepository
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        ivanov = seed.person("Иван Иванов")
+        ivanova = seed.person("Мария Иванова")
+        petrov = seed.person("Пётр Петров")
+        merged = seed.person("Иван Иванов-старший", status="merged")
+        session.commit()
+
+    assert repository.find_person_ids(_criteria(), restrict_to=[petrov, ivanov, merged]) == [
+        ivanov,
+        petrov,
+    ]
+    assert repository.find_person_ids(_criteria(name="Иванов"), restrict_to=[ivanova, petrov]) == [
+        ivanova
+    ]
+    assert repository.find_person_ids(_criteria(), restrict_to=[]) == []

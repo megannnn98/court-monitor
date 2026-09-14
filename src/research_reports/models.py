@@ -19,7 +19,8 @@ from research_models import (
     ResearchRequest,
     ResearchWarning,
 )
-from research_planning.models import SourceRoutingDecision
+from research_planning.models import ResearchRetrievalMode, SourceRoutingDecision
+from semantic_retrieval.models import RetrievalBackend
 
 # --- human review -------------------------------------------------------------------
 
@@ -177,6 +178,8 @@ class ResearchReportWarningCode(StrEnum):
     ROSFINMONITORING_NOT_MATCHED_YET = "rosfinmonitoring_not_matched_yet"
     # More persons matched than the request limit allowed to show.
     RESULTS_TRUNCATED = "results_truncated"
+    # Results come from a bounded semantic candidate pool (ADR 0011).
+    SEMANTIC_CANDIDATE_POOL = "semantic_candidate_pool"
 
 
 class ResearchReportWarning(BaseModel):
@@ -211,6 +214,9 @@ class ResearchReportItem(BaseModel):
     rosfinmonitoring_summary: str | None = None
 
     events: list[ResearchEvent] = Field(default_factory=list)
+    # Position among semantic candidates (1 = most similar). Diagnostic only:
+    # never a confidence and never a reason to believe any fact.
+    retrieval_rank: int | None = None
     why_matched: list[ResearchMatchReason] = Field(default_factory=list)
     claims: list[ResearchClaim] = Field(default_factory=list)
     citations: list[ResearchCitation] = Field(default_factory=list)
@@ -247,6 +253,17 @@ class ResearchReportStatus(StrEnum):
     INSUFFICIENT_DATA = "insufficient_data"
 
 
+class ResearchRetrievalMetadata(BaseModel):
+    """How the population was selected. Diagnostics, not facts; no scores."""
+
+    model_config = ConfigDict(use_enum_values=False)
+
+    mode: ResearchRetrievalMode
+    backend: RetrievalBackend | None = None
+    candidate_pool_size: int = 0
+    candidates_returned: int = 0
+
+
 class ResearchReportSummary(BaseModel):
     total_matched: int
     returned: int
@@ -265,6 +282,9 @@ class ResearchReport(BaseModel):
     items: list[ResearchReportItem] = Field(default_factory=list)
     warnings: list[ResearchReportWarning] = Field(default_factory=list)
     source_routing: SourceRoutingDecision
+    retrieval: ResearchRetrievalMetadata = Field(
+        default_factory=lambda: ResearchRetrievalMetadata(mode=ResearchRetrievalMode.STRUCTURED)
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property

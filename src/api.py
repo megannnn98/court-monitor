@@ -29,11 +29,16 @@ from research_review_tasks import (
     ResearchReviewTaskRequest,
     ResearchReviewTaskService,
 )
-from research_service import ResearchService, ResearchSnapshotNotFoundError
+from research_service import (
+    ResearchCandidatesRequiredError,
+    ResearchService,
+    ResearchSnapshotNotFoundError,
+)
 from research_workflow.graph import ResearchGraph, run_research_query
 from research_workflow.llm import LlmConfigurationError
 from research_workflow.models import ResearchQueryResult, WorkflowErrorCode, WorkflowStatus
 from research_workflow_factory import create_research_graph
+from semantic_retrieval.models import SemanticConfigurationError
 
 # Create FastAPI app
 app = FastAPI(
@@ -328,6 +333,16 @@ def research(
     """Execute a structured, deterministic research request."""
     try:
         return service.execute(request)
+    except ResearchCandidatesRequiredError as exc:
+        # Structured endpoint: no semantic retrieval here, and ignoring the
+        # criterion would return a broader answer than requested.
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "criteria.semantic_query needs semantic retrieval; use POST /research/query "
+                "or remove the field"
+            ),
+        ) from exc
     except ResearchSnapshotNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -351,6 +366,8 @@ _WORKFLOW_ERROR_HTTP_STATUS: dict[WorkflowErrorCode, int] = {
     WorkflowErrorCode.LLM_REQUEST_REJECTED: 502,
     WorkflowErrorCode.LLM_INVALID_OUTPUT: 502,
     WorkflowErrorCode.NO_ROSFINMONITORING_SNAPSHOT: 409,
+    WorkflowErrorCode.SEMANTIC_RETRIEVAL_NOT_CONFIGURED: 503,
+    WorkflowErrorCode.SEMANTIC_RETRIEVAL_UNAVAILABLE: 503,
     WorkflowErrorCode.WORKFLOW_UNEXPECTED_ERROR: 500,
 }
 
@@ -364,7 +381,7 @@ def get_research_query_graph() -> ResearchGraph:
     """Build (once) the LangGraph research workflow."""
     try:
         return _get_research_graph()
-    except (RuntimeError, LlmConfigurationError) as exc:
+    except (RuntimeError, LlmConfigurationError, SemanticConfigurationError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 

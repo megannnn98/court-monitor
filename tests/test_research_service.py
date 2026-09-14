@@ -24,6 +24,7 @@ from research_models import (
 )
 from research_service import (
     PersonResearchDetails,
+    ResearchCandidatesRequiredError,
     ResearchService,
     ResearchSnapshotNotFoundError,
 )
@@ -41,13 +42,20 @@ class FakeRepository:
     snapshots: set[int] = field(default_factory=lambda: {3})
     seen_criteria: list[PersonResearchCriteria] = field(default_factory=list)
     detail_requests: list[list[int]] = field(default_factory=list)
+    restrictions: list[list[int] | None] = field(default_factory=list)
 
     def snapshot_exists(self, snapshot_id: int) -> bool:
         return snapshot_id in self.snapshots
 
-    def find_person_ids(self, criteria: PersonResearchCriteria) -> list[int]:
+    def find_person_ids(
+        self,
+        criteria: PersonResearchCriteria,
+        *,
+        restrict_to: Sequence[int] | None = None,
+    ) -> list[int]:
         self.seen_criteria.append(criteria)
-        return list(self.person_ids)
+        self.restrictions.append(None if restrict_to is None else list(restrict_to))
+        return [pid for pid in self.person_ids if restrict_to is None or pid in restrict_to]
 
     def get_latest_classifications(
         self, person_ids: Sequence[int]
@@ -356,3 +364,88 @@ def test_person_removed_between_queries_is_skipped_not_crashing() -> None:
     assert [r.person.id for r in response.results] == [2]
     # total_matched counts matches at filtering time, before details were loaded.
     assert response.total_matched == 2
+
+
+# --- semantic candidate pool --------------------------------------------------------
+
+
+def test_semantic_query_without_candidates_is_rejected_not_ignored() -> None:
+    service = ResearchService(
+        repository=FakeRepository(person_ids=[1, 2]), candidate_query=FakeCandidateQuery([])
+    )
+
+    with pytest.raises(ResearchCandidatesRequiredError):
+        service.execute(_request(semantic_query="антивоенные публикации"))
+
+
+def test_candidates_restrict_the_population_and_keep_retrieval_order() -> None:
+    repository = FakeRepository(
+        person_ids=[1, 2, 3, 4],
+        classifications={pid: _classification(pid, POLITICAL) for pid in [1, 2, 3, 4]},
+    )
+    service = ResearchService(repository=repository, candidate_query=FakeCandidateQuery([]))
+
+    response = service.execute(
+        _request(semantic_query="антивоенные публикации", persecution_status="political"),
+        candidate_person_ids=[4, 9, 2, 4],
+    )
+
+    assert [result.person.id for result in response.results] == [4, 2]
+    assert response.total_matched == 2
+    assert repository.restrictions == [[4, 9, 2]]
+
+
+def test_status_criteria_still_apply_to_semantic_candidates() -> None:
+    # A top semantic candidate that is not POLITICAL must not appear.
+    repository = FakeRepository(
+        person_ids=[1, 2, 3],
+        classifications={
+            1: _classification(1, UNCERTAIN),
+            2: _classification(2, POLITICAL),
+            3: _classification(3, POLITICAL, confidence=0.5),
+        },
+    )
+    service = ResearchService(repository=repository, candidate_query=FakeCandidateQuery([]))
+
+    response = service.execute(
+        _request(semantic_query="пикеты", persecution_status="political"),
+        candidate_person_ids=[1, 3, 2],
+    )
+
+    assert [result.person.id for result in response.results] == [2]
+
+
+def test_political_not_matched_product_query_applies_inside_the_pool() -> None:
+    repository = FakeRepository(person_ids=[1, 2, 3])
+    candidate_query = FakeCandidateQuery([1, 3])
+    service = ResearchService(repository=repository, candidate_query=candidate_query)
+
+    response = service.execute(
+        _request(
+            semantic_query="пикеты",
+            persecution_status="political",
+            rosfinmonitoring_status="not_matched",
+            snapshot_id=3,
+        ),
+        candidate_person_ids=[3, 2],
+    )
+
+    assert [result.person.id for result in response.results] == [3]
+    assert len(candidate_query.calls) == 1
+
+
+def test_empty_candidate_pool_returns_no_results_without_queries() -> None:
+    repository = FakeRepository(person_ids=[1])
+    service = ResearchService(repository=repository, candidate_query=FakeCandidateQuery([]))
+
+    response = service.execute(_request(semantic_query="x"), candidate_person_ids=[])
+
+    assert (response.results, response.total_matched, repository.restrictions) == ([], 0, [])
+
+
+def test_structured_execute_without_candidates_is_unchanged() -> None:
+    repository = FakeRepository(person_ids=[2, 1])
+    service = ResearchService(repository=repository, candidate_query=FakeCandidateQuery([]))
+
+    assert [r.person.id for r in service.execute(_request()).results] == [2, 1]
+    assert repository.restrictions == [None]

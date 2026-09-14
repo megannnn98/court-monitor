@@ -52,9 +52,18 @@ class SqlAlchemyPersonResearchRepository:
         with self._session_factory() as session:
             return session.get(RosfinmonitoringSnapshotRecord, snapshot_id) is not None
 
-    def find_person_ids(self, criteria: PersonResearchCriteria) -> list[int]:
+    def find_person_ids(
+        self,
+        criteria: PersonResearchCriteria,
+        *,
+        restrict_to: Sequence[int] | None = None,
+    ) -> list[int]:
         # Same population as the candidate query: active canonical persons only.
         query = select(PersonRecord.id).where(PersonRecord.status == PersonStatus.ACTIVE.value)
+
+        if restrict_to is not None:
+            # Bounded by the semantic candidate pool size (SEMANTIC_CANDIDATE_POOL_SIZE).
+            query = query.where(PersonRecord.id.in_(list(restrict_to)))
 
         if criteria.person_id is not None:
             query = query.where(PersonRecord.id == criteria.person_id)

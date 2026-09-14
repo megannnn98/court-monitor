@@ -34,7 +34,14 @@ elseif (неизвестное поле / доменное правило /\nг�
   stop
 endif
 :build_research_plan\n(ResearchPlanner, source_registry);
-:research\n(ResearchService.execute);
+if (retrieval_mode != structured\n(semantic_query)?) then (да)
+  :retrieve_candidates\n(hybrid: lexical + dense + RRF);
+  if (Qdrant/модель недоступны\nили не настроены?) then (да)
+    :workflow_failed;
+    stop
+  endif
+endif
+:research\n(ResearchService.execute,\ncandidate_person_ids);
 if (snapshot пользователя не найден?) then (да)
   :clarification;
   stop
@@ -78,6 +85,7 @@ stop
 - **Отчёт и план** — `report` и `plan` добавлены рядом с `results` только для `completed`; при clarification/failed они `null`, planning и research не выполняются.
 - **Review** — `review_required` берётся из отчёта (`ResearchReviewPolicy`); условие review — это отчёт со статусом `review_required`, а не ошибка workflow. Review record при запросе не создаётся.
 - **Пустой результат** — `report.status` = `insufficient_data` (рекомендовано обновить источники) или `no_matches`; это не утверждение, что таких людей нет.
+- **Semantic query** — `criteria.semantic_query` (описание деятельности/обстоятельств) → узел `retrieve_candidates` отбирает до `SEMANTIC_CANDIDATE_POOL_SIZE` persons, затем `ResearchService` применяет все критерии по PostgreSQL в порядке кандидатов. Ошибка retrieval → `failed` / `semantic_retrieval_unavailable` или `semantic_retrieval_not_configured` (HTTP 503), не пустой результат. Retrieval score не является confidence ([Semantic-Retrieval](Semantic-Retrieval.md)).
 
 ## `ResearchQueryResult`
 
@@ -130,6 +138,7 @@ curl -X POST http://localhost:8000/research/query \
 | `llm_unavailable`, `llm_rate_limited`, `llm_not_configured` | 503 |
 | `llm_authentication_failed`, `llm_request_rejected`, `llm_invalid_output` | 502 |
 | `no_rosfinmonitoring_snapshot` | 409 |
+| `semantic_retrieval_not_configured`, `semantic_retrieval_unavailable` | 503 |
 | `workflow_unexpected_error` | 500 |
 | нет `DATABASE_URL` / Together не настроен при старте | 503 |
 | невалидное тело (`query` пустой, >2000 символов, лишние поля) | 422 |

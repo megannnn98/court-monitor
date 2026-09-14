@@ -101,7 +101,7 @@ uv sync --frozen
 cp .env.example .env
 set -a; source .env; set +a
 
-# PostgreSQL (Qdrant не нужен; опционально: docker compose --profile semantic up -d)
+# PostgreSQL (Qdrant нужен только для semantic_query: docker compose --profile semantic up -d)
 docker compose up -d
 
 # Применить миграции
@@ -229,6 +229,20 @@ curl -X POST http://localhost:8000/research/reviews \
 
 `ask` печатает отчёт; `--show-plan` — план, `--raw` — прежний вид результатов. Подробнее: [Research-Workflow](docs/wiki/Research-Workflow.md), [Research-Reports](docs/wiki/Research-Reports.md).
 
+### Semantic entity retrieval (опционально)
+
+Описательные запросы («за антивоенные публикации», «уличные протесты») отбирают кандидатов через lexical + dense + RRF по Person; все критерии и факты по-прежнему проверяются в PostgreSQL.
+
+```bash
+docker compose --profile semantic up -d
+uv sync --group semantic
+uv run python src/main.py rebuild-semantic-index --entity all
+uv run python src/main.py semantic-search "уличные протесты" --entity person
+uv run python src/main.py evaluate-retrieval --backend all --database-url "$TEST_DATABASE_URL"
+```
+
+Подробнее: [Semantic-Retrieval](docs/wiki/Semantic-Retrieval.md).
+
 ### End-to-end тестирование
 
 ```bash
@@ -259,6 +273,7 @@ uv run ruff check src tests
 - [Research](docs/wiki/Research.md) — детерминированный research layer
 - [Research-Workflow](docs/wiki/Research-Workflow.md) — natural-language запросы через LangGraph
 - [Research-Reports](docs/wiki/Research-Reports.md) — отчёт, human review, source routing
+- [Semantic-Retrieval](docs/wiki/Semantic-Retrieval.md) — entity-level semantic candidates, evaluation
 
 Архитектурные решения в [docs/adr](docs/adr/):
 
@@ -272,6 +287,7 @@ uv run ruff check src tests
 - [ADR 0008](docs/adr/0008-research-domain-and-research-service.md) — research domain и ResearchService
 - [ADR 0009](docs/adr/0009-langgraph-research-orchestration.md) — LangGraph research orchestration
 - [ADR 0010](docs/adr/0010-research-report-review-routing.md) — research reports, human review policy, source routing
+- [ADR 0011](docs/adr/0011-semantic-hybrid-entity-retrieval.md) — semantic hybrid entity retrieval
 
 ## Тестирование
 

@@ -1,6 +1,6 @@
 # Research
 
-Детерминированный research layer: структурированный запрос `ResearchRequest` → `ResearchService` → `ResearchResponse` с результатами по канонической `Person`. Статьи — только evidence/provenance. Решение и мотивация — [ADR 0008](../adr/0008-research-domain-and-research-service.md). Отчёт с цитатами, review policy и source routing поверх `ResearchResponse` — [Research-Reports](Research-Reports.md) (ADR 0010); `ResearchService` и `POST /research` от них не зависят.
+Детерминированный research layer: структурированный запрос `ResearchRequest` → `ResearchService` → `ResearchResponse` с результатами по канонической `Person`. Статьи — только evidence/provenance. Решение и мотивация — [ADR 0008](../adr/0008-research-domain-and-research-service.md). Отчёт с цитатами, review policy и source routing поверх `ResearchResponse` — [Research-Reports](Research-Reports.md) (ADR 0010); `ResearchService` и `POST /research` от них не зависят. Семантический отбор кандидатов (`semantic_query`) — [Semantic-Retrieval](Semantic-Retrieval.md) (ADR 0011).
 
 ```plantuml
 @startuml

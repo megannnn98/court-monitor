@@ -41,6 +41,7 @@ from research_models import (
     ResearchRosfinmonitoring,
     ResearchSource,
 )
+from research_planning.models import ResearchRetrievalMode
 from research_planning.planner import ResearchPlanner
 from research_reports.builder import ResearchReportBuilder
 from research_reports.evaluation import ResearchResultEvaluator
@@ -52,6 +53,7 @@ from research_workflow.models import (
     WorkflowErrorCode,
     WorkflowStatus,
 )
+from semantic_retrieval.models import RetrievalBackend
 from source_registry import SOURCES
 
 
@@ -373,3 +375,35 @@ def test_show_plan_prints_plan_json_only() -> None:
         "ovd-info",
         "sota-vision",
     }
+
+
+def test_ask_report_shows_structured_retrieval_mode() -> None:
+    text = format_query_result(_report_result([person_result(rf=rosfin())]))
+
+    assert "Retrieval: structured" in text
+    assert "Retrieval rank" not in text
+
+
+def test_ask_report_shows_semantic_candidates_without_scores() -> None:
+    semantic_request = report_request(semantic_query="антивоенные публикации")
+    result = _report_result([person_result()], semantic_request)
+    assert result.report is not None
+    report = result.report.model_copy(
+        update={
+            "retrieval": result.report.retrieval.model_copy(
+                update={
+                    "mode": ResearchRetrievalMode.HYBRID,
+                    "backend": RetrievalBackend.HYBRID,
+                    "candidate_pool_size": 100,
+                    "candidates_returned": 7,
+                }
+            ),
+            "items": [result.report.items[0].model_copy(update={"retrieval_rank": 2})],
+        }
+    )
+
+    text = format_query_result(result.model_copy(update={"report": report}))
+
+    assert "Retrieval: hybrid (7 candidates, pool 100) — candidates, not facts" in text
+    assert "Retrieval rank: 2 (similarity, not a fact)" in text
+    assert "score" not in text

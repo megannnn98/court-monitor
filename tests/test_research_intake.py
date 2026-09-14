@@ -42,6 +42,8 @@ def test_prompt_states_the_intake_rules() -> None:
         "Report ambiguity explicitly",
         "is\n   NOT ambiguous",
         "No prose, no\nexplanations, no reasoning.",
+        "Set `semantic_query` only for a free-text description",
+        "`semantic_query` is NOT a place for such constraints",
     ]:
         assert rule in prompt
 

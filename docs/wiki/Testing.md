@@ -6,9 +6,15 @@
 
 `chunker`, `dense_config`, `qdrant_chunk_indexer`, `qdrant_dense_search`, `text_embedder`, `hybrid_search`, `reranking_search`, `rrf`, `cross_encoder_reranker`, `reranker`, `search_factory` и их тесты удалены вместе с `ArticleChunk` и dense/hybrid поиском — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
 
-`tests/conftest.py` — фикстура `test_engine` на `TEST_DATABASE_URL`, `TRUNCATE ... RESTART IDENTITY CASCADE` по 3 таблицам (`parsed_articles`, `source_documents`, `sources`) между тестами (реальная Postgres, не мок).
+Chunk-уровневые dense/hybrid модули не вернулись; entity-level semantic retrieval (ADR 0011) покрыт тестами `test_semantic_*.py`, `test_retrieval_metrics.py`, `test_entity_retrieval_evaluation.py`, `test_research_graph_semantic.py`:
 
-`tests/fixtures/` — `evaluation_corpus.json`, `evaluation_cases.json` (см. [Evaluation](Evaluation.md)), `ovd_info_listing.html`/`ovd_info_article.html`, `sota_vision_listing.html`/`sota_vision_article.html` (реальные HTML-страницы, скачанные напрямую с сайтов, для тестов listing/article-парсеров).
+- unit — `QdrantClient(":memory:")`, `HashingEmbedder`, `KeywordReranker` (`tests/semantic_fakes.py`), подменённый модуль `sentence_transformers`; без Docker, GPU и моделей;
+- `-m qdrant` — реальный Qdrant (`QDRANT_TEST_URL`), уникальные коллекции удаляются после теста;
+- `-m semantic_models` — реальные E5 и cross-encoder (`SEMANTIC_MODEL_TESTS=1`, группа `semantic`).
+
+`tests/conftest.py` — фикстура `test_engine` на `TEST_DATABASE_URL` (только база `court_monitor_test`), `TRUNCATE ... RESTART IDENTITY CASCADE` по всем таблицам pipeline (`database_maintenance.DISPOSABLE_TABLES`) между тестами (реальная Postgres, не мок).
+
+`tests/fixtures/` — `evaluation_corpus.json`, `evaluation_cases.json` (см. [Evaluation](Evaluation.md)), `entity_retrieval_corpus.json`, `entity_retrieval_cases.json` (см. [Semantic-Retrieval](Semantic-Retrieval.md)), `ovd_info_listing.html`/`ovd_info_article.html`, `sota_vision_listing.html`/`sota_vision_article.html` (реальные HTML-страницы, скачанные напрямую с сайтов, для тестов listing/article-парсеров).
 
 ```bash
 pytest

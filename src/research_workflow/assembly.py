@@ -25,6 +25,7 @@ def completed_result(state: ResearchGraphState) -> ResearchQueryResult:
         warnings=state.get("warnings", []),
         plan=state.get("research_plan"),
         report=state.get("report"),
+        retrieval=state.get("retrieval"),
     )
 
 

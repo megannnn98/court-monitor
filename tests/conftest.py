@@ -2,38 +2,15 @@ import os
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from database import create_database_engine, create_session_factory
+from database_maintenance import truncate_disposable_tables
 
 
 def _truncate_test_tables(engine: Engine) -> None:
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                """
-                TRUNCATE TABLE
-                    rosfin_matches,
-                    rosfinmonitoring_entries,
-                    rosfinmonitoring_snapshots,
-                    persecution_classifications,
-                    person_event_links,
-                    review_records,
-                    person_merges,
-                    person_aliases,
-                    persons,
-                    event_entity_mentions,
-                    extracted_events,
-                    entity_mentions,
-                    article_extraction_runs,
-                    parsed_articles,
-                    source_documents,
-                    sources
-                RESTART IDENTITY CASCADE
-                """
-            )
-        )
+    truncate_disposable_tables(engine)
 
 
 @pytest.fixture(scope="session")

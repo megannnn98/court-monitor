@@ -10,6 +10,12 @@
 | `TOGETHER_API_KEY` | ключ Together AI для natural-language запросов (`ask`, `POST /research/query`) |
 | `TOGETHER_MODEL` | id модели Together с поддержкой JSON schema; значения по умолчанию нет |
 | `TOGETHER_TIMEOUT_SECONDS` | таймаут запроса к Together, по умолчанию `30` |
+| `QDRANT_URL` | Qdrant для semantic retrieval; без неё запросы с `semantic_query` завершаются `semantic_retrieval_not_configured`, остальное работает |
+| `PERSON_QDRANT_COLLECTION`, `EVENT_QDRANT_COLLECTION` | коллекции, по умолчанию `persons_semantic`, `events_semantic` |
+| `EMBEDDING_MODEL_ID`, `EMBEDDING_DEVICE` | `intfloat/multilingual-e5-base`, `auto` (`cpu`/`cuda`) |
+| `RERANKER_MODEL_ID`, `RERANKER_DEVICE`, `SEMANTIC_RERANK` | cross-encoder, по умолчанию выключен (`SEMANTIC_RERANK=1`) |
+| `SEMANTIC_CANDIDATE_POOL_SIZE` | размер пула кандидатов, по умолчанию `100` (1..200) |
+| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval` |
 
 Для Docker Compose также используются:
 
@@ -31,9 +37,19 @@ DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433
 TOGETHER_API_KEY=
 TOGETHER_MODEL=
 TOGETHER_TIMEOUT_SECONDS=30
+
+QDRANT_URL=http://127.0.0.1:6333
+PERSON_QDRANT_COLLECTION=persons_semantic
+EVENT_QDRANT_COLLECTION=events_semantic
+EMBEDDING_MODEL_ID=intfloat/multilingual-e5-base
+EMBEDDING_DEVICE=auto
+RERANKER_MODEL_ID=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
+RERANKER_DEVICE=auto
+SEMANTIC_RERANK=0
+SEMANTIC_CANDIDATE_POOL_SIZE=100
 ```
 
-`TOGETHER_*` нужны только для natural-language запросов; без них `ask` и `POST /research/query` завершаются ошибкой конфигурации, остальной pipeline работает.
+`TOGETHER_*` нужны только для natural-language запросов; без них `ask` и `POST /research/query` завершаются ошибкой конфигурации, остальной pipeline работает. Semantic-переменные нужны только для запросов с `semantic_query` и команд `rebuild-semantic-index`/`semantic-search`; модели требуют `uv sync --group semantic` ([Semantic-Retrieval](Semantic-Retrieval.md)).
 
 Если `.env` загружается через shell:
 
@@ -45,7 +61,7 @@ set +a
 
 `set -a` нужен, чтобы переменные из `.env` экспортировались в окружение дочернего Python-процесса.
 
-Переменные `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_EVALUATION_COLLECTION`, `EMBEDDING_MODEL_ID`, `RERANKER_MODEL_ID` использовались dense/hybrid/reranked-hybrid поиском — удалены вместе с ним, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md); текущий код их не читает.
+Переменные `QDRANT_COLLECTION` и `QDRANT_EVALUATION_COLLECTION` (старый chunk-поиск, [ADR 0002](../adr/0002-drop-dense-hybrid-search.md)) не используются; коллекция `article_chunks_dense` не нужна.
 
 ## Инфраструктура
 
@@ -53,12 +69,14 @@ set +a
 docker compose up -d
 ```
 
-Поднимает только PostgreSQL (порт `5433` на хосте) — единственную инфраструктуру, которую использует текущий код.
+Поднимает только PostgreSQL (порт `5433` на хосте) — всё, что нужно structured research.
 
-Qdrant оставлен в `compose.yaml` как опциональный сервис под profile `semantic` (кодом сейчас не используется, volume `qdrant_data` сохранён):
+Qdrant — опциональный сервис под profile `semantic` для semantic entity retrieval ([ADR 0011](../adr/0011-semantic-hybrid-entity-retrieval.md)):
 
 ```bash
 docker compose --profile semantic up -d
+uv sync --group semantic
+uv run python src/main.py rebuild-semantic-index --entity all
 ```
 
 ## Тесты и CI
@@ -88,7 +106,19 @@ Live-тест Together AI не запускается без явного opt-in
 TOGETHER_LIVE_TESTS=1 uv run pytest -m live_together
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`): `quality` (ruff, format, mypy), `tests` (pytest без БД), `integration` (PostgreSQL 18 service, `alembic upgrade head`, pytest с `TEST_DATABASE_URL`). Together AI в CI не вызывается.
+Qdrant integration (реальный сервис) и реальные модели — тоже opt-in:
+
+```bash
+docker compose --profile semantic up -d qdrant
+QDRANT_TEST_URL=http://127.0.0.1:6333 TEST_DATABASE_URL=... env -u DATABASE_URL uv run pytest -m qdrant
+
+uv sync --group semantic
+SEMANTIC_MODEL_TESTS=1 uv run pytest -m semantic_models
+```
+
+Unit-тесты semantic retrieval используют `QdrantClient(":memory:")` и фейковые embedder/reranker: без Docker, GPU и скачивания моделей.
+
+GitHub Actions (`.github/workflows/ci.yml`): `quality` (ruff, format, mypy), `tests` (pytest без БД), `integration` (PostgreSQL 18 и Qdrant v1.19.0 services, `alembic upgrade head`, pytest с `TEST_DATABASE_URL` и `QDRANT_TEST_URL`). Группа `semantic` в CI не ставится, модели не скачиваются, Together AI не вызывается.
 
 ## Миграции
 

@@ -6,7 +6,11 @@ Policy (database first):
    them, or only the one whose `source_name` equals `criteria.source` (the
    exact `sources.name` filter ResearchService applies). Anything else yields
    no candidates.
-3. After the search, a refresh is recommended only when nothing matched, a
+3. Retrieval routing: a request with `criteria.semantic_query` uses hybrid
+   retrieval (reranked when configured) to select a bounded candidate pool;
+   every other request is structured only. Exact criteria (person_id, name,
+   statuses, snapshot, dates, event types, source) never go to embeddings.
+4. After the search, a refresh is recommended only when nothing matched, a
    compatible source that supports discovery exists, and the request is not a lookup of a known
    person id (re-ingestion cannot create that id).
 The decision is a recommendation; nothing here runs ingestion.
@@ -22,12 +26,20 @@ from research_planning.models import (
     ResearchPlan,
     ResearchPlanStep,
     ResearchPlanStepType,
+    ResearchRetrievalMode,
     SourceCapability,
     SourceDataType,
     SourceRoutingDecision,
     SourceRoutingReason,
 )
 from source_registry import SourceDefinition
+
+_RETRIEVE_STEP = ResearchPlanStep(
+    step_type=ResearchPlanStepType.RETRIEVE_CANDIDATES,
+    description="Semantic candidate retrieval (lexical + dense + RRF); candidates, not facts.",
+)
+
+DEFAULT_CANDIDATE_POOL_SIZE = 100
 
 _STEPS = [
     ResearchPlanStep(
@@ -64,8 +76,18 @@ def source_capabilities(sources: Mapping[str, SourceDefinition]) -> list[SourceC
 
 
 class ResearchPlanner:
-    def __init__(self, sources: Mapping[str, SourceDefinition]) -> None:
+    def __init__(
+        self,
+        sources: Mapping[str, SourceDefinition],
+        *,
+        rerank_semantic: bool = False,
+        candidate_pool_size: int = DEFAULT_CANDIDATE_POOL_SIZE,
+    ) -> None:
+        if candidate_pool_size <= 0:
+            raise ValueError("candidate_pool_size must be greater than 0")
         self._capabilities = source_capabilities(sources)
+        self._rerank_semantic = rerank_semantic
+        self._candidate_pool_size = candidate_pool_size
 
     def plan(self, request: ResearchRequest) -> ResearchPlan:
         criteria = request.criteria
@@ -78,6 +100,9 @@ class ResearchPlanner:
             requirements.append(ResearchDataRequirement.PERSECUTION_CLASSIFICATIONS)
         if criteria.snapshot_id is not None:
             requirements.append(ResearchDataRequirement.ROSFINMONITORING_MATCHES)
+        semantic = criteria.semantic_query is not None
+        if semantic:
+            requirements.append(ResearchDataRequirement.SEMANTIC_INDEX)
 
         candidates = self._compatible_sources(criteria.source)
         notes: list[str] = []
@@ -88,8 +113,23 @@ class ResearchPlanner:
                 "Статусы Росфинмониторинга берутся из snapshot и сопоставлений; обновление "
                 "источников статей их не меняет."
             )
+        if semantic:
+            notes.append(
+                f"Семантический поиск отбирает до {self._candidate_pool_size} кандидатов; "
+                "все остальные критерии и факты проверяются по PostgreSQL."
+            )
         return ResearchPlan(
-            steps=list(_STEPS),
+            retrieval_mode=(
+                (
+                    ResearchRetrievalMode.HYBRID_RERANKED
+                    if self._rerank_semantic
+                    else ResearchRetrievalMode.HYBRID
+                )
+                if semantic
+                else ResearchRetrievalMode.STRUCTURED
+            ),
+            candidate_pool_size=self._candidate_pool_size if semantic else 0,
+            steps=[_RETRIEVE_STEP, *_STEPS] if semantic else list(_STEPS),
             data_requirements=requirements,
             candidate_sources=candidates,
             notes=notes,

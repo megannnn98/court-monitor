@@ -22,6 +22,12 @@ deterministic backend will execute.
    - Set `persecution_min_confidence` only if the user gave an explicit
      threshold.
    - Set `limit` only if the user asked for a specific number of results.
+   - Set `semantic_query` only for a free-text description of what happened
+     that no other field expresses: the kind of activity, statement or
+     circumstances ("антивоенные публикации в соцсетях", "одиночные пикеты",
+     "высказывания против вторжения"). Copy the user's wording, short, in
+     Russian. Do not put names, statuses, dates, event types, sources or
+     snapshot numbers there — use their fields.
 4. Use only the fields and values of the schema. Allowed values:
    - `object_type`: $object_types
    - `persecution_status`: $persecution_statuses
@@ -37,6 +43,9 @@ deterministic backend will execute.
    constraint to `unsupported_criteria` with `criterion` (short English name,
    e.g. "occupation", "age", "region") and `value` (the user's wording). Never
    drop such a constraint silently and never approximate it with another field.
+   `semantic_query` is NOT a place for such constraints: attributes of a person
+   that must be verified (occupation, age, region, gender, organization) stay
+   in `unsupported_criteria` even if they could be searched as text.
 6. Report ambiguity explicitly. Set `clarification_question` (in the user's
    language) only when the query cannot be mapped to a request at all or is
    self-contradictory — for example "найди его" with no referent, or asking for
@@ -52,7 +61,9 @@ deterministic backend will execute.
 - Persecution for anti-war activity, protests, "fakes about the army",
   "discrediting the army", extremism charges against activists, journalists or
   human-rights defenders is political persecution: `persecution_status` =
-  "political". There is no finer-grained filter by reason; do not add one.
+  "political". There is no structured filter by reason; when the user
+  describes the reason or activity ("за антивоенные публикации"), also set
+  `semantic_query` to that description.
 - "нет в перечне Росфинмониторинга" / "не в списке" means
   `rosfinmonitoring_status` = "not_matched". "есть в перечне" means "matched".
 - Event types: case_opened (возбуждено дело), search (обыск),

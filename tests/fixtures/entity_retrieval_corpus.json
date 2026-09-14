@@ -1,0 +1,167 @@
+{
+  "persons": [
+    {
+      "key": "smirnov",
+      "canonical_name": "Алексей Смирнов",
+      "classification": {"status": "political", "confidence": 0.9, "reasons": ["Антивоенная деятельность"], "evidence_types": ["anti_war_activity"]},
+      "events": [
+        {"key": "smirnov-detention", "event_type": "detention", "event_date": "2022-03-06", "source": "ОВД-Инфо",
+         "text": "Алексея Смирнова задержали на Пушкинской площади с плакатом «Нет войне»", "location": "Пушкинской площади"}
+      ]
+    },
+    {
+      "key": "kuznetsova",
+      "canonical_name": "Мария Кузнецова",
+      "aliases": ["Марию Кузнецову"],
+      "classification": {"status": "political", "confidence": 0.85, "reasons": ["Политическая статья: 20.3.3"], "evidence_types": ["political_charge"]},
+      "events": [
+        {"key": "kuznetsova-fine", "event_type": "fine", "event_date": "2022-04-12", "source": "ОВД-Инфо",
+         "text": "Суд оштрафовал Марию Кузнецову на 50 тысяч рублей за пост во ВКонтакте о бомбардировках Мариуполя по статье 20.3.3 КоАП", "legal_basis": "статье 20.3.3 КоАП"}
+      ]
+    },
+    {
+      "key": "volkov",
+      "canonical_name": "Игорь Волков",
+      "classification": {"status": "political", "confidence": 0.95, "reasons": ["Политическая статья: 207.3"], "evidence_types": ["political_charge"]},
+      "events": [
+        {"key": "volkov-sentence", "event_type": "sentence", "event_date": "2023-02-01", "source": "SOTA",
+         "text": "Игоря Волкова приговорили к семи годам колонии по статье 207.3 УК за видео в Telegram, где он осуждал вторжение российских войск в Украину", "legal_basis": "статье 207.3 УК"}
+      ]
+    },
+    {
+      "key": "morozova",
+      "canonical_name": "Ольга Морозова",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": [], "evidence_types": ["activist"]},
+      "events": [
+        {"key": "morozova-detention", "event_type": "detention", "event_date": "2022-09-22", "source": "ОВД-Инфо",
+         "text": "Ольгу Морозову задержали у метро, когда она раздавала листовки с призывом остановить бомбёжки украинских городов"}
+      ]
+    },
+    {
+      "key": "novikov",
+      "canonical_name": "Дмитрий Новиков",
+      "classification": {"status": "political", "confidence": 0.75, "reasons": ["Политическая статья: 205"], "evidence_types": ["political_charge"]},
+      "events": [
+        {"key": "novikov-arrest", "event_type": "arrest", "event_date": "2022-10-03", "source": "SOTA",
+         "text": "Дмитрия Новикова арестовали за поджог военкомата в Нижнем Новгороде", "location": "Нижнем Новгороде"}
+      ]
+    },
+    {
+      "key": "sokolova",
+      "canonical_name": "Елена Соколова",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": ["Упоминание журналистской деятельности"], "evidence_types": ["journalist"]},
+      "events": [
+        {"key": "sokolova-search", "event_type": "search", "event_date": "2023-05-15", "source": "ОВД-Инфо",
+         "text": "У журналистки Елены Соколовой прошёл обыск по делу о публикации расследования о коррупции губернатора"}
+      ]
+    },
+    {
+      "key": "popov",
+      "canonical_name": "Сергей Попов",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": [], "evidence_types": ["activist"]},
+      "events": [
+        {"key": "popov-fine", "event_type": "fine", "event_date": "2021-11-20", "source": "ОВД-Инфо",
+         "text": "Сергея Попова оштрафовали за одиночный пикет у здания администрации с требованием освободить политзаключённых"}
+      ]
+    },
+    {
+      "key": "lebedeva",
+      "canonical_name": "Анна Лебедева",
+      "classification": {"status": "political", "confidence": 0.85, "reasons": [], "evidence_types": ["activist"]},
+      "events": [
+        {"key": "lebedeva-detention", "event_type": "detention", "event_date": "2024-02-17", "source": "SOTA",
+         "text": "Анну Лебедеву задержали на стихийном мемориале в память о погибшем оппозиционном политике"}
+      ]
+    },
+    {
+      "key": "kozlov",
+      "canonical_name": "Павел Козлов",
+      "classification": {"status": "political", "confidence": 0.9, "reasons": ["Религиозное преследование"], "evidence_types": ["religious_persecution"]},
+      "events": [
+        {"key": "kozlov-sentence", "event_type": "sentence", "event_date": "2021-06-09", "source": "ОВД-Инфо",
+         "text": "Павла Козлова приговорили к шести годам за участие в запрещённой организации «Свидетели Иеговы»"}
+      ]
+    },
+    {
+      "key": "egorova",
+      "canonical_name": "Наталья Егорова",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": ["Преследование по признаку ЛГБТ"], "evidence_types": ["lgbt_persecution"]},
+      "events": [
+        {"key": "egorova-case", "event_type": "case_opened", "event_date": "2024-01-10", "source": "SOTA",
+         "text": "Против Натальи Егоровой возбудили дело за репост картинки с радужным флагом"}
+      ]
+    },
+    {
+      "key": "pavlov",
+      "canonical_name": "Андрей Павлов",
+      "classification": {"status": "non_political", "confidence": 0.9, "reasons": [], "evidence_types": []},
+      "events": [
+        {"key": "pavlov-fine", "event_type": "fine", "event_date": "2023-07-01", "source": "ОВД-Инфо",
+         "text": "Андрея Павлова оштрафовали за превышение скорости на трассе"}
+      ]
+    },
+    {
+      "key": "semenova",
+      "canonical_name": "Татьяна Семёнова",
+      "classification": {"status": "non_political", "confidence": 0.9, "reasons": [], "evidence_types": []},
+      "events": [
+        {"key": "semenova-charge", "event_type": "charge", "event_date": "2022-12-05", "source": "ОВД-Инфо",
+         "text": "Татьяне Семёновой предъявили обвинение в мошенничестве с кредитами"}
+      ]
+    },
+    {
+      "key": "golubev",
+      "canonical_name": "Виктор Голубев",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": [], "evidence_types": ["activist"]},
+      "events": [
+        {"key": "golubev-detention", "event_type": "detention", "event_date": "2022-03-09", "source": "SOTA",
+         "text": "Виктора Голубева задержали, когда он пришёл к памятнику Шевченко с цветами и сине-жёлтой лентой", "location": "памятнику Шевченко"}
+      ]
+    },
+    {
+      "key": "vinogradova",
+      "canonical_name": "Ирина Виноградова",
+      "classification": {"status": "political", "confidence": 0.85, "reasons": [], "evidence_types": ["dissenting_opinion"]},
+      "events": [
+        {"key": "vinogradova-sentence", "event_type": "sentence", "event_date": "2023-03-28", "source": "ОВД-Инфо",
+         "text": "Учительницу Ирину Виноградову приговорили к штрафу за слова на уроке о гибели мирных жителей в Буче"}
+      ]
+    },
+    {
+      "key": "bogdanov",
+      "canonical_name": "Максим Богданов",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": [], "evidence_types": ["activist"]},
+      "events": [
+        {"key": "bogdanov-arrest", "event_type": "arrest", "event_date": "2022-05-02", "source": "SOTA",
+         "text": "Максима Богданова арестовали за надпись «Миру мир» на стене военкомата"}
+      ]
+    },
+    {
+      "key": "vorobyova",
+      "canonical_name": "Юлия Воробьёва",
+      "classification": {"status": "political", "confidence": 0.85, "reasons": ["Упоминание правозащитной деятельности"], "evidence_types": ["human_rights_defender"]},
+      "events": [
+        {"key": "vorobyova-release", "event_type": "release", "event_date": "2022-10-25", "source": "ОВД-Инфо",
+         "text": "Правозащитницу Юлию Воробьёву освободили после 30 суток ареста за участие в митинге против мобилизации"}
+      ]
+    },
+    {
+      "key": "fedorov",
+      "canonical_name": "Николай Фёдоров",
+      "classification": {"status": "uncertain", "confidence": 0.4, "reasons": [], "evidence_types": []},
+      "events": [
+        {"key": "fedorov-detention", "event_type": "detention", "event_date": "2023-08-14", "source": "SOTA",
+         "text": "Николая Фёдорова задержали после драки в баре"}
+      ]
+    },
+    {
+      "key": "mikhailova",
+      "canonical_name": "Светлана Михайлова",
+      "classification": {"status": "political", "confidence": 0.8, "reasons": [], "evidence_types": ["activist"]},
+      "events": [
+        {"key": "mikhailova-case", "event_type": "case_opened", "event_date": "2023-04-04", "source": "ОВД-Инфо",
+         "text": "На Светлану Михайлову завели дело о пожертвованиях Фонду борьбы с коррупцией"}
+      ]
+    }
+  ]
+}
