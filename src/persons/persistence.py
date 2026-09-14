@@ -159,73 +159,87 @@ class SqlAlchemyPersonPersistence:
         reason: str | None = None,
     ) -> int:
         with self._session_factory.begin() as session:
-            source = session.scalar(select(PersonRecord).where(PersonRecord.id == source_person_id))
-            if source is None:
-                raise ValueError(f"Source person {source_person_id} not found")
-
-            target = session.scalar(select(PersonRecord).where(PersonRecord.id == target_person_id))
-            if target is None:
-                raise ValueError(f"Target person {target_person_id} not found")
-
-            source.status = PersonStatus.MERGED.value
-            source.merged_into_id = target_person_id
-            source.updated_at = datetime.now(UTC)
-
-            session.execute(
-                update(EntityMentionRecord)
-                .where(EntityMentionRecord.person_id == source_person_id)
-                .values(person_id=target_person_id)
-            )
-
-            source_links = list(
-                session.scalars(
-                    select(PersonEventLinkRecord).where(
-                        PersonEventLinkRecord.person_id == source_person_id
-                    )
-                ).all()
-            )
-            for link in source_links:
-                existing_link = session.scalar(
-                    select(PersonEventLinkRecord).where(
-                        PersonEventLinkRecord.person_id == target_person_id,
-                        PersonEventLinkRecord.event_id == link.event_id,
-                        PersonEventLinkRecord.role == link.role,
-                    )
-                )
-                if existing_link is None:
-                    link.person_id = target_person_id
-                else:
-                    session.delete(link)
-
-            source_aliases = list(
-                session.scalars(
-                    select(PersonAliasRecord).where(PersonAliasRecord.person_id == source_person_id)
-                ).all()
-            )
-            for alias in source_aliases:
-                existing_alias = session.scalar(
-                    select(PersonAliasRecord).where(
-                        PersonAliasRecord.person_id == target_person_id,
-                        PersonAliasRecord.surface_text == alias.surface_text,
-                    )
-                )
-                if existing_alias is None:
-                    alias.person_id = target_person_id
-                else:
-                    session.execute(
-                        delete(PersonAliasRecord).where(PersonAliasRecord.id == alias.id)
-                    )
-
-            merge_record = PersonMergeRecord(
+            return self.merge_persons_in_session(
+                session,
                 source_person_id=source_person_id,
                 target_person_id=target_person_id,
-                status=MergeStatus.APPLIED.value,
                 reason=reason,
-                applied_at=datetime.now(UTC),
             )
-            session.add(merge_record)
-            session.flush()
-            return merge_record.id
+
+    def merge_persons_in_session(
+        self,
+        session: Session,
+        *,
+        source_person_id: int,
+        target_person_id: int,
+        reason: str | None = None,
+    ) -> int:
+        """Merge `source` into `target` inside the caller's transaction (audited)."""
+        source = session.scalar(select(PersonRecord).where(PersonRecord.id == source_person_id))
+        if source is None:
+            raise ValueError(f"Source person {source_person_id} not found")
+
+        target = session.scalar(select(PersonRecord).where(PersonRecord.id == target_person_id))
+        if target is None:
+            raise ValueError(f"Target person {target_person_id} not found")
+
+        source.status = PersonStatus.MERGED.value
+        source.merged_into_id = target_person_id
+        source.updated_at = datetime.now(UTC)
+
+        session.execute(
+            update(EntityMentionRecord)
+            .where(EntityMentionRecord.person_id == source_person_id)
+            .values(person_id=target_person_id)
+        )
+
+        source_links = list(
+            session.scalars(
+                select(PersonEventLinkRecord).where(
+                    PersonEventLinkRecord.person_id == source_person_id
+                )
+            ).all()
+        )
+        for link in source_links:
+            existing_link = session.scalar(
+                select(PersonEventLinkRecord).where(
+                    PersonEventLinkRecord.person_id == target_person_id,
+                    PersonEventLinkRecord.event_id == link.event_id,
+                    PersonEventLinkRecord.role == link.role,
+                )
+            )
+            if existing_link is None:
+                link.person_id = target_person_id
+            else:
+                session.delete(link)
+
+        source_aliases = list(
+            session.scalars(
+                select(PersonAliasRecord).where(PersonAliasRecord.person_id == source_person_id)
+            ).all()
+        )
+        for alias in source_aliases:
+            existing_alias = session.scalar(
+                select(PersonAliasRecord).where(
+                    PersonAliasRecord.person_id == target_person_id,
+                    PersonAliasRecord.surface_text == alias.surface_text,
+                )
+            )
+            if existing_alias is None:
+                alias.person_id = target_person_id
+            else:
+                session.execute(delete(PersonAliasRecord).where(PersonAliasRecord.id == alias.id))
+
+        merge_record = PersonMergeRecord(
+            source_person_id=source_person_id,
+            target_person_id=target_person_id,
+            status=MergeStatus.APPLIED.value,
+            reason=reason,
+            applied_at=datetime.now(UTC),
+        )
+        session.add(merge_record)
+        session.flush()
+        return merge_record.id
 
     def list_aliases_for_person(self, person_id: int) -> list[PersonAliasRecord]:
         with self._session_factory() as session:

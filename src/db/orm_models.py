@@ -201,6 +201,13 @@ class PersonRecord(Base):
             postgresql_where=text("status = 'active'"),
         ),
         Index("ix_persons_status", "status"),
+        # ER v2 fuzzy candidate narrowing (pg_trgm).
+        Index(
+            "ix_persons_normalized_name_trgm",
+            "normalized_name",
+            postgresql_using="gin",
+            postgresql_ops={"normalized_name": "gin_trgm_ops"},
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -225,6 +232,12 @@ class PersonAliasRecord(Base):
     __table_args__ = (
         Index("ix_person_aliases_person_id", "person_id"),
         Index("ix_person_aliases_matching_key", "matching_key"),
+        Index(
+            "ix_person_aliases_normalized_text_trgm",
+            "normalized_text",
+            postgresql_using="gin",
+            postgresql_ops={"normalized_text": "gin_trgm_ops"},
+        ),
         UniqueConstraint(
             "person_id",
             "surface_text",
@@ -297,6 +310,49 @@ class ReviewRecordModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+class PersonResolutionDecisionRecord(Base):
+    """ER v2 provenance per mention; a pending review keeps the mention unlinked."""
+
+    __tablename__ = "person_resolution_decisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "mention_id",
+            "resolver_version",
+            name="uq_person_resolution_decisions_mention_version",
+        ),
+        Index("ix_person_resolution_decisions_status", "status"),
+        Index("ix_person_resolution_decisions_selected_person", "selected_person_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mention_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_mentions.id", ondelete="CASCADE"), nullable=False
+    )
+    resolver_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    method: Mapped[str] = mapped_column(String(32), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    selected_person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("persons.id", ondelete="SET NULL"), nullable=True
+    )
+    resolution_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    decision_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reasons: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    identity: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    candidates: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    semantic_source: Mapped[str] = mapped_column(String(32), nullable=False)
+    review_action: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class PersonEventLinkRecord(Base):

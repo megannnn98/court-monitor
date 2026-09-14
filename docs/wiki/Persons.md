@@ -1,11 +1,12 @@
 # Person Resolution
 
-**Baseline status:** entity resolution here is an exact, deterministic
-`matching_key` lookup (see `RuleBasedPersonResolver`) — not fuzzy matching,
-not ML. Two mentions only resolve to the same person when their normalized
-names produce the identical `matching_key`. See
-`docs/adr/0005-entity-resolution-strategy.md` for the full rationale and
-what a future fuzzy/ML phase would add.
+**Status:** the exact, deterministic `matching_key` lookup
+(`RuleBasedPersonResolver`, ADR 0005) is the fast path of Entity Resolution v2:
+candidate generation (aliases, pg_trgm, optional semantic), feature-based
+scoring and a decision policy with human review
+(`AUTO_LINK` / `REVIEW` / `CREATE_NEW`). See [Entity-Resolution](Entity-Resolution.md)
+and `docs/adr/0012-entity-resolution-v2.md`. ER v2 never merges existing persons
+automatically.
 
 ## Overview
 
@@ -36,18 +37,15 @@ The person resolution system extracts person mentions from articles, normalizes 
 
 ### Entity Resolution
 
-The `RuleBasedPersonResolver` uses a deterministic, rule-based approach:
+1. **Exact fast path** (`RuleBasedPersonResolver`): equal `matching_key` of an
+   active person → link, alias for the mention.
+2. **ER v2 fallback** (`src/persons/resolution/`): candidates → features →
+   `resolution_score` → decision. AUTO_LINK links; CREATE_NEW creates a person
+   through the racing-safe resolver; REVIEW leaves the mention unlinked with a
+   pending `person_resolution` review. Aliases are added only for clean full
+   forms (`AliasPromotionPolicy`).
 
-1. **Matching Key Strategy**: Normalized name → lowercase → remove punctuation → create unique key
-2. **Exact Match**: If matching_key exists, link to existing person
-3. **New Person**: If no match, create new canonical person
-4. **Alias Creation**: Always create alias for the mention, linked to the person
-
-This approach is:
-- **Deterministic**: Same input always produces same output
-- **Fast**: O(1) lookups via indexed matching_key
-- **Transparent**: Easy to understand and debug
-- **Extensible**: Can add fuzzy matching later without breaking existing code
+Details, thresholds, evaluation: [Entity-Resolution](Entity-Resolution.md).
 
 ### Database Schema
 
@@ -115,8 +113,11 @@ court-monitor resolve-people --limit 100
 
 Output:
 ```
-Resolved 42 mentions, created 15 persons, linked 28 events
+Resolved 42 mentions, created 15 persons, linked 28 events, 3 mentions pending person resolution review
 ```
+
+ER v2 commands (`resolve-person` dry-run, `person-resolution-reviews`,
+`evaluate-er`): [Entity-Resolution](Entity-Resolution.md).
 
 ## API Endpoints
 
@@ -175,49 +176,15 @@ Response:
 
 ## Evaluation
 
-Entity resolution quality is measured using pairwise F1:
+`evaluate-er` measures candidate recall@k per generator and decision actions
+(auto-link precision/recall, false links, false create-new, review rate) on
+`tests/fixtures/er_v2_corpus.json` — see [Entity-Resolution](Entity-Resolution.md#evaluation).
+The older pairwise-F1 helpers (`persons/er_evaluation.py`, `er_golden_dataset.json`)
+remain as a library, without a CLI command.
 
-```bash
-court-monitor evaluate-er --dataset tests/fixtures/er_golden_dataset.json
-```
+## Not implemented
 
-Metrics:
-- **Pairwise Precision**: Of all predicted pairs, how many are correct?
-- **Pairwise Recall**: Of all correct pairs, how many did we predict?
-- **Pairwise F1**: Harmonic mean of precision and recall
-
-Example output:
-```json
-{
-  "total_pairs_expected": 100,
-  "total_pairs_actual": 95,
-  "true_positives": 90,
-  "false_positives": 5,
-  "false_negatives": 10,
-  "pairwise_precision": 0.947,
-  "pairwise_recall": 0.9,
-  "pairwise_f1": 0.923
-}
-```
-
-## Future Improvements
-
-### Fuzzy Matching
-
-Current implementation uses exact matching_key matches. Future enhancements:
-- Edit distance (Levenshtein) for typos
-- Phonetic matching (Soundex, Metaphone) for similar-sounding names
-- Context-based matching (same article, same event)
-
-### Machine Learning
-
-- Train classifier on labeled data
-- Use embeddings for semantic similarity
-- Active learning for ambiguous cases
-
-### Manual Review
-
-Integration with manual review workflow:
-- Flag low-confidence matches
-- Allow human reviewers to confirm/reject
-- Learn from reviewer decisions
+- Transliteration, diminutives without an alias, phonetic matching.
+- Birth dates and context features (not extracted).
+- ML classifier (no labelled dataset large enough).
+- Automatic merge of existing persons (by design: reviewer action only).

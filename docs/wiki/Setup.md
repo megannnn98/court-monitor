@@ -16,7 +16,10 @@
 | `RERANKER_MODEL_ID`, `RERANKER_DEVICE`, `SEMANTIC_RERANK` | cross-encoder, по умолчанию выключен (`SEMANTIC_RERANK=1`) |
 | `SEMANTIC_CANDIDATE_POOL_SIZE` | размер пула кандидатов, по умолчанию `100` (1..200) |
 | `SEMANTIC_DENSE_MIN_SCORE` | порог семантической релевантности (dense cosine), `0.80` откалиброван для `intfloat/multilingual-e5-base`; при другой `EMBEDDING_MODEL_ID` обязателен |
-| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval` |
+| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval` и `evaluate-er` |
+| `ER_CANDIDATE_LIMIT` | кандидатов на упоминание в ER v2, по умолчанию `30` (1..200) |
+| `ER_AUTO_LINK_MIN_SCORE`, `ER_REVIEW_MIN_SCORE`, `ER_MIN_MARGIN` | пороги решения ER v2, по умолчанию `0.85`, `0.40`, `0.10` (подобраны по `evaluate-er`) |
+| `ER_SEMANTIC_CANDIDATES`, `ER_SEMANTIC_CANDIDATE_MIN_SCORE` | semantic-кандидаты для ER (по умолчанию выключены); порог только для генерации кандидатов, не для решения |
 
 Для Docker Compose также используются:
 
@@ -50,6 +53,12 @@ SEMANTIC_RERANK=0
 SEMANTIC_CANDIDATE_POOL_SIZE=100
 # calibrated for EMBEDDING_MODEL_ID=intfloat/multilingual-e5-base
 SEMANTIC_DENSE_MIN_SCORE=0.80
+
+# Entity Resolution v2 (calibrated on tests/fixtures/er_v2_corpus.json)
+ER_CANDIDATE_LIMIT=30
+ER_AUTO_LINK_MIN_SCORE=0.85
+ER_REVIEW_MIN_SCORE=0.40
+ER_MIN_MARGIN=0.10
 ```
 
 `TOGETHER_*` нужны только для natural-language запросов; без них `ask` и `POST /research/query` завершаются ошибкой конфигурации, остальной pipeline работает. Semantic-переменные нужны только для запросов с `semantic_query` и команд `rebuild-semantic-index`/`semantic-search`; модели требуют `uv sync --group semantic` ([Semantic-Retrieval](Semantic-Retrieval.md)).

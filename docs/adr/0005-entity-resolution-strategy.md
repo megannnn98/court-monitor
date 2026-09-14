@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Accepted. The exact baseline below remains the fast path; fuzzy candidate
+generation, scoring, a decision policy with human review ("Phase 2") are
+implemented by [ADR 0012](0012-entity-resolution-v2.md).
 
 **What is actually implemented today: an exact, deterministic matching_key
 baseline (`RuleBasedPersonResolver` in `src/persons/resolver.py`).** It does

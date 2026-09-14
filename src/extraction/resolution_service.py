@@ -11,8 +11,12 @@ from db.orm_models import (
     ExtractedEventRecord,
     PersonEventLinkRecord,
 )
-from persons.models import AliasOrigin, ResolutionStatus
 from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.models import PersonResolutionAction
+from persons.resolution.service import (
+    PersonResolutionService,
+    identity_from_mention,
+)
 from persons.resolver import RuleBasedPersonResolver
 
 
@@ -22,6 +26,8 @@ class ResolutionStats:
     mentions_resolved: int = 0
     new_persons_created: int = 0
     events_linked: int = 0
+    # Mentions left unlinked until a human review decision (ER v2 REVIEW).
+    reviews_pending: int = 0
 
 
 class ExtractionResolutionService:
@@ -31,10 +37,18 @@ class ExtractionResolutionService:
         persistence: SqlAlchemyPersonPersistence,
         resolver: RuleBasedPersonResolver,
         session_factory: sessionmaker[Session],
+        person_resolution: PersonResolutionService | None = None,
     ) -> None:
         self._persistence = persistence
         self._resolver = resolver
         self._session_factory = session_factory
+        if person_resolution is None:
+            from persons.resolution.factory import build_person_resolution_service
+
+            person_resolution = build_person_resolution_service(
+                session_factory, persistence=persistence, resolver=resolver
+            )
+        self._person_resolution = person_resolution
 
     def resolve_extraction_run(self, extraction_run_id: int) -> ResolutionStats:
         with self._session_factory.begin() as session:
@@ -52,39 +66,35 @@ class ExtractionResolutionService:
             )
 
             mention_id_to_person_id: dict[int, int] = {}
+            # extraction → identity normalization → exact fast-path → ER v2 → decision
+            identities = [
+                identity
+                for mention in person_mentions
+                if (identity := identity_from_mention(mention)) is not None
+            ]
+            self._person_resolution.lock_identity_blocks(session, identities)
 
             for mention in person_mentions:
-                normalized_data = mention.normalized_data
-                matching_key_raw = normalized_data.get("matching_key", "")
-                if not matching_key_raw or not isinstance(matching_key_raw, str):
+                outcome = self._person_resolution.resolve_mention(session, mention)
+                if outcome is None:
                     continue
-
-                matching_key = matching_key_raw
-                full_name_raw = normalized_data.get("full_name", mention.normalized_text)
-                normalized_text = (
-                    full_name_raw if isinstance(full_name_raw, str) else mention.normalized_text
+                if outcome.person_id is not None:
+                    mention_id_to_person_id[mention.id] = outcome.person_id
+                stats = ResolutionStats(
+                    mentions_processed=stats.mentions_processed,
+                    mentions_resolved=stats.mentions_resolved
+                    + (1 if outcome.person_id is not None else 0),
+                    new_persons_created=stats.new_persons_created
+                    + (1 if outcome.created_person else 0),
+                    events_linked=stats.events_linked,
+                    reviews_pending=stats.reviews_pending
+                    + (
+                        1
+                        if outcome.action is PersonResolutionAction.REVIEW
+                        and outcome.person_id is None
+                        else 0
+                    ),
                 )
-
-                resolution = self._resolver.resolve_and_create(
-                    normalized_text=normalized_text,
-                    matching_key=matching_key,
-                    surface_text=mention.surface_text,
-                    origin=AliasOrigin.EXTRACTION,
-                    confidence=mention.confidence,
-                    source_mention_id=mention.id,
-                    session=session,
-                )
-
-                if resolution.person_id is not None:
-                    mention.person_id = resolution.person_id
-                    mention_id_to_person_id[mention.id] = resolution.person_id
-                    stats = ResolutionStats(
-                        mentions_processed=stats.mentions_processed,
-                        mentions_resolved=stats.mentions_resolved + 1,
-                        new_persons_created=stats.new_persons_created
-                        + (1 if resolution.status is ResolutionStatus.NEW_PERSON else 0),
-                        events_linked=stats.events_linked,
-                    )
 
             events = list(
                 session.scalars(
@@ -139,6 +149,7 @@ class ExtractionResolutionService:
                 mentions_resolved=stats.mentions_resolved,
                 new_persons_created=stats.new_persons_created,
                 events_linked=events_linked,
+                reviews_pending=stats.reviews_pending,
             )
 
             return stats

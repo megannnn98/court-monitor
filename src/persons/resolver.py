@@ -186,6 +186,30 @@ class RuleBasedPersonResolver:
         )
         return winner_id
 
+    def add_alias_if_not_exists(
+        self,
+        *,
+        person_id: int,
+        surface_text: str,
+        normalized_text: str,
+        matching_key: str,
+        origin: AliasOrigin,
+        confidence: float,
+        source_mention_id: int | None = None,
+        session: Session | None = None,
+    ) -> None:
+        """Add an alias unless the person already has this surface form."""
+        self._add_alias_if_not_exists(
+            person_id=person_id,
+            surface_text=surface_text,
+            normalized_text=normalized_text,
+            matching_key=matching_key,
+            origin=origin,
+            confidence=confidence,
+            source_mention_id=source_mention_id,
+            session=session,
+        )
+
     def _add_alias_if_not_exists(
         self,
         *,

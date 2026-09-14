@@ -11,6 +11,7 @@ DISPOSABLE_TABLES = (
     "rosfinmonitoring_entries",
     "rosfinmonitoring_snapshots",
     "persecution_classifications",
+    "person_resolution_decisions",
     "person_event_links",
     "review_records",
     "person_merges",

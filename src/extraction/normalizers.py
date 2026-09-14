@@ -98,6 +98,10 @@ class RuleBasedMentionNormalizer:
             normalizer_version=self.normalizer_version,
         )
 
+    def normalize_person(self, surface_text: str) -> tuple[str, PersonNormalizedData]:
+        """Person name as the pipeline stores it (used by ER v2 dry-run/evaluation)."""
+        return self._normalize_person(surface_text)
+
     def _normalize_person(self, surface_text: str) -> tuple[str, PersonNormalizedData]:
         words = surface_text.replace("ё", "е").replace("Ё", "Е").split()
         if words and "." in words[0]:

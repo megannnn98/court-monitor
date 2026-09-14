@@ -176,4 +176,5 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 - Загрузка моделей защищена lock'ом: параллельные первые запросы в FastAPI загружают модель один раз.
 - Event retrieval доступен в `semantic-search`/evaluation; research workflow ищет только Person.
 - Кандидаты из Qdrant могут ссылаться на удалённых/слитых persons — `ResearchService` их отбрасывает (только active).
-- Semantic similarity не используется для entity resolution (ER v2 — отдельная часть).
+- Semantic similarity не является identity evidence: ER v2 может использовать dense Person-кандидатов только для генерации кандидатов (`ER_SEMANTIC_CANDIDATES=1`, свой порог `ER_SEMANTIC_CANDIDATE_MIN_SCORE`, не `SEMANTIC_DENSE_MIN_SCORE`); score и решение от similarity не зависят ([Entity-Resolution](Entity-Resolution.md)).
+- После link/create в ER v2 semantic document Person меняется — `rebuild-semantic-index --entity person --incremental`.

@@ -20,6 +20,15 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
 )
 from persecution.queries import latest_persecution_classification_ids
+from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.review import (
+    PersonResolutionReviewService,
+    ResolutionReviewAction,
+    ResolutionReviewNotFoundError,
+    ResolutionReviewResult,
+    ResolutionReviewStateError,
+    ResolutionReviewView,
+)
 from research.models import ResearchRequest, ResearchResponse
 from research.repository import SqlAlchemyPersonResearchRepository
 from research.review_tasks import (
@@ -561,6 +570,75 @@ def list_reviews(
         )
         for r in reviews
     ]
+
+
+# Person resolution (ER v2) review endpoints. Not under /persons/{person_id}.
+class PersonResolutionReviewDecisionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: ResolutionReviewAction
+    person_id: int | None = None
+    source_person_id: int | None = None
+    note: str | None = Field(default=None, max_length=2000)
+
+
+def _person_resolution_reviews(db: Session) -> PersonResolutionReviewService:
+    session_factory = sessionmaker(bind=db.get_bind())
+    return PersonResolutionReviewService(SqlAlchemyPersonPersistence(session_factory))
+
+
+@app.get("/person-resolution/reviews", response_model=list[ResolutionReviewView])
+def list_person_resolution_reviews(
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[ResolutionReviewView]:
+    """Pending ER v2 decisions with their structured candidate comparison."""
+    return _person_resolution_reviews(db).list_pending(db, limit=limit)
+
+
+@app.get(
+    "/person-resolution/reviews/{decision_id}",
+    response_model=ResolutionReviewView,
+    responses={404: {}},
+)
+def get_person_resolution_review(
+    decision_id: int,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ResolutionReviewView:
+    try:
+        return _person_resolution_reviews(db).get(db, decision_id)
+    except ResolutionReviewNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post(
+    "/person-resolution/reviews/{decision_id}/decision",
+    response_model=ResolutionReviewResult,
+    responses={404: {}, 409: {}},
+)
+def apply_person_resolution_review(
+    decision_id: int,
+    body: PersonResolutionReviewDecisionBody,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ResolutionReviewResult:
+    """Apply an explicit reviewer action; MERGE_PERSONS is the only merge path."""
+    try:
+        result = _person_resolution_reviews(db).apply(
+            db,
+            decision_id,
+            body.action,
+            person_id=body.person_id,
+            source_person_id=body.source_person_id,
+            note=body.note,
+        )
+    except ResolutionReviewNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ResolutionReviewStateError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    db.commit()
+    return result
 
 
 # Health check endpoint

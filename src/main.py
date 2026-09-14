@@ -22,6 +22,11 @@ from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.cli import (
+    add_person_resolution_arguments,
+    run_evaluate_er,
+    run_person_resolution_command,
+)
 from persons.resolver import RuleBasedPersonResolver
 from research.cli import (
     ResearchCliError,
@@ -279,6 +284,7 @@ def main() -> None:
     add_research_arguments(subparsers)
     add_ask_arguments(subparsers)
     add_semantic_arguments(subparsers)
+    add_person_resolution_arguments(subparsers)
 
     args = argument_parser.parse_args()
 
@@ -297,6 +303,11 @@ def main() -> None:
         run_evaluate_retrieval(args)
         return
 
+    if args.command == "evaluate-er":
+        # Uses its own disposable database, never DATABASE_URL.
+        run_evaluate_er(args)
+        return
+
     database_url = os.environ.get("DATABASE_URL")
 
     if database_url is None:
@@ -306,6 +317,9 @@ def main() -> None:
     session_factory = create_session_factory(database_engine)
 
     if run_semantic_command(args, session_factory):
+        return
+
+    if run_person_resolution_command(args, session_factory):
         return
 
     if args.command == "list-candidates":
@@ -387,6 +401,7 @@ def main() -> None:
         total_resolved = 0
         total_new_persons = 0
         total_events_linked = 0
+        total_reviews = 0
 
         for doc in extraction_documents:
             run_id = extraction_persistence.get_latest_run_by_article_id(doc.article_id)
@@ -398,11 +413,13 @@ def main() -> None:
             total_resolved += stats.mentions_resolved
             total_new_persons += stats.new_persons_created
             total_events_linked += stats.events_linked
+            total_reviews += stats.reviews_pending
 
         print(
             f"Resolved {total_resolved} mentions, "
             f"created {total_new_persons} persons, "
-            f"linked {total_events_linked} events"
+            f"linked {total_events_linked} events, "
+            f"{total_reviews} mentions pending person resolution review"
         )
         return
 

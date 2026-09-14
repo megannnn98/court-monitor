@@ -8,20 +8,23 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `refactor/package-layout`, 2026-09-14, Python 3.13.
+Branch `feature-entity-resolution-v2`, 2026-09-15, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (195 files) |
-| Tests without services | `uv sync --frozen && uv run pytest` | 551 passed, 153 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 698 passed, 6 skipped |
-| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 701 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (216 files) |
+| Tests without services | `uv sync --frozen && uv run pytest` | 606 passed, 183 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 783 passed, 6 skipped |
+| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 786 passed, 3 skipped |
 
 Skipped in the last run: the three opt-in live Together AI tests
 (`TOGETHER_LIVE_TESTS=1`), not executed. CI has not run on GitHub for this
 branch (no push). Existing semantic indexes need a full
-`rebuild-semantic-index` (points now carry `embedding_model_id`).
+`rebuild-semantic-index` (points now carry `embedding_model_id`). ER v2 needs
+`alembic upgrade head` (creates the `pg_trgm` extension, a trusted extension the
+database owner may create). `evaluate-er --semantic` was run once with the real
+E5 model (recall@5 unchanged, no decision changed).
 
 Source layout: `src/` is split into packages (`db`, `sources`, `extraction`,
 `persons`, `persecution`, `rosfinmonitoring`, `candidates`, `search`, `llm`,
@@ -49,8 +52,24 @@ Source layout: `src/` is split into packages (`db`, `sources`, `extraction`,
 ### 3. Canonical Person Model + Entity Resolution
 - Person domain model with `canonical_name`, `normalized_name`, `matching_key`
 - PersonAlias with origin tracking (extraction/manual/resolution/merge)
-- `RuleBasedPersonResolver`: **exact deterministic `matching_key` baseline**
-  — not fuzzy, not ML (see `docs/adr/0005-entity-resolution-strategy.md`)
+- `RuleBasedPersonResolver`: exact deterministic `matching_key` baseline
+  (ADR 0005), now the fast path of Entity Resolution v2
+- Entity Resolution v2 (ADR 0012, `src/persons/resolution/`):
+  `PersonNameNormalizer` (all admissible ФИО orders, initials, `ё/е`; suffixes
+  are hints only), candidate generation (alias key, pg_trgm GIN, opt-in
+  semantic with its own threshold), per-component features with explicit
+  conflicts (RapidFuzz), rule-based `resolution_score` (not a probability),
+  decision policy AUTO_LINK / REVIEW / CREATE_NEW with top1−top2 margin;
+  never merges existing persons automatically
+- Provenance in `person_resolution_decisions` (`resolver_version = er-v2`);
+  REVIEW keeps the mention unlinked with a pending `person_resolution` review;
+  reviewer actions link / create / merge (audited) / keep separate (CLI + API);
+  alias promotion only for clean full forms
+- Advisory locks on order-independent identity blocks on top of the unique
+  index; idempotent re-runs
+- `evaluate-er`: 52-case corpus, candidate recall@k per generator, auto-link
+  precision 1.00 / recall 0.53, 0 false links, 0 false create-new, review rate
+  0.44 at the calibrated defaults
 - `uq_persons_matching_key_active` (partial unique index) prevents duplicate
   canonical persons from a concurrent-resolution race; `resolve_and_create`
   backs off to the winner on conflict instead of raising or duplicating
@@ -208,14 +227,15 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 - FastAPI endpoints: persons, aliases, persecution, candidates,
   Rosfinmonitoring snapshots/entries, reviews, `POST /research`,
   `POST /research/query` (with `plan` and `report`), `POST /research/reviews`,
-  health check
+  `/person-resolution/reviews` (list, show, apply decision), health check
 
 ### 12. CLI
 - `ingest`, `discover-and-ingest`, `search`, `evaluate-search`,
   `extract-entities`, `evaluate-extraction`, `resolve-people`,
   `classify-persecution`, `match-rosfinmonitoring`, `list-candidates`,
   `research`, `ask` (report by default, `--show-request`, `--show-plan`, `--raw`),
-  `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`
+  `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`,
+  `resolve-person` (dry-run), `person-resolution-reviews`, `evaluate-er`
 
 ### 13. Manual Review Infrastructure
 - Generic `review_records` table + `ManualReviewService` for ambiguous
@@ -230,8 +250,13 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 
 ## Known Limitations
 
-- Entity resolution is exact `matching_key` matching only — no fuzzy
-  matching (typos, transliteration), no ML (see ADR 0005).
+- Entity resolution v2: thresholds tuned on a small synthetic corpus; no
+  transliteration, diminutives without an alias, phonetic or context features;
+  the extraction normalizer mangles names (`Анна Новикова` → `Анн Новиков`) and
+  ER compares those forms; the exact fast path cannot detect namesakes sharing a
+  `matching_key`; advisory locks include given-name tokens and are held for a
+  whole extraction run; re-resolution under a new resolver version is not
+  implemented; semantic index refresh after link/create is manual.
 - `PersonRecord` has no birth date field; the matcher's birth date signal is
   always `None` in real pipeline runs today.
 - Persecution classification is keyword/rule-based, not NLP.
@@ -259,8 +284,8 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 
 ## Explicitly Out of Scope (for now)
 
-- Fuzzy/ML entity resolution (similarity is never used to merge persons);
-  article/chunk-level embeddings
+- ML entity resolution; automatic merge of existing persons (reviewer action
+  only); article/chunk-level embeddings
 - LLM-based classification or LLM-written facts/reports; an autonomous agent
   loop (the LLM is limited to request intake)
 - Automatic ingestion from source routing, automated monitoring

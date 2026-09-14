@@ -1,5 +1,6 @@
 """Tests for FastAPI application."""
 
+import json
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import cast
@@ -663,3 +664,63 @@ def test_unrelated_semantic_query_is_a_completed_zero_result_not_503(
     assert body["report"]["summary"]["text"].startswith(
         "В текущем индексе не найдено сущностей с достаточной семантической релевантностью"
     )
+
+
+def _pending_person_resolution(session_factory: sessionmaker[Session]) -> tuple[int, int]:
+    from support.person_resolution_fixtures import seed_mentions, seed_person
+
+    from db.orm_models import EntityMentionRecord
+    from persons.resolution.factory import build_person_resolution_service
+
+    ivan = seed_person(session_factory, "Иван Иванов")
+    seed_person(session_factory, "Илья Иванов")
+    _, (mention_id,) = seed_mentions(session_factory, "И. Иванов")
+    service = build_person_resolution_service(session_factory, {})
+    with session_factory.begin() as session:
+        outcome = service.resolve_mention(session, session.get_one(EntityMentionRecord, mention_id))
+    assert outcome is not None and outcome.decision_id is not None
+    return outcome.decision_id, ivan
+
+
+def test_person_resolution_review_api_shows_and_applies_a_decision(
+    db_client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    decision_id, ivan = _pending_person_resolution(session_factory)
+
+    listed = db_client.get("/person-resolution/reviews").json()
+    shown = db_client.get(f"/person-resolution/reviews/{decision_id}").json()
+    applied = db_client.post(
+        f"/person-resolution/reviews/{decision_id}/decision",
+        json={"action": "link_to_person", "person_id": ivan, "note": "same case"},
+    )
+    again = db_client.post(
+        f"/person-resolution/reviews/{decision_id}/decision",
+        json={"action": "link_to_person", "person_id": ivan},
+    )
+
+    assert [item["decision_id"] for item in listed] == [decision_id]
+    assert shown["incoming_name"] == "И. Иванов"
+    candidate = next(c for c in shown["candidates"] if c["person_id"] == ivan)
+    assert candidate["surname"] == {"match": "exact", "similarity": 1.0}
+    assert candidate["given_name"]["match"] == "initial_compatible"
+    assert "probability" not in json.dumps(shown)
+    assert applied.status_code == 200 and applied.json()["person_id"] == ivan
+    assert again.status_code == 409
+    assert db_client.get("/person-resolution/reviews").json() == []
+
+
+def test_person_resolution_review_api_errors(
+    db_client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    decision_id, _ = _pending_person_resolution(session_factory)
+
+    assert db_client.get("/person-resolution/reviews/999999").status_code == 404
+    missing_person = db_client.post(
+        f"/person-resolution/reviews/{decision_id}/decision", json={"action": "link_to_person"}
+    )
+    bad_action = db_client.post(
+        f"/person-resolution/reviews/{decision_id}/decision", json={"action": "auto_merge"}
+    )
+
+    assert missing_person.status_code == 409
+    assert bad_action.status_code == 422
