@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import threading
+import time
+from typing import Any
+
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions, seed_person
 
@@ -200,3 +204,61 @@ def test_review_rejects_inactive_or_missing_person(session_factory: sessionmaker
         reviews.apply(session, decision_id, Action.LINK_TO_PERSON, person_id=999_999)
     with session_factory.begin() as session, pytest.raises(ResolutionReviewStateError):
         reviews.apply(session, decision_id, Action.LINK_TO_PERSON)
+
+
+class _SlowMergePersistence(SqlAlchemyPersonPersistence):
+    """Holds the merge transaction open so a concurrent reviewer hits the row lock."""
+
+    def merge_persons_in_session(self, session: Session, **kwargs: Any) -> int:
+        merge_id = super().merge_persons_in_session(session, **kwargs)
+        time.sleep(0.4)
+        return merge_id
+
+
+def test_concurrent_merges_of_one_source_apply_exactly_once(
+    session_factory: sessionmaker[Session],
+) -> None:
+    source = seed_person(session_factory, "Иванов Иван Иванович")
+    first_target = seed_person(session_factory, "Иван Иванович Иванов")
+    second_target = seed_person(session_factory, "Петр Сидоров")
+    decisions = [
+        _pending(session_factory, "Иван Иванович Иваноф")[0],
+        _pending(session_factory, "Иван Иванович Иваноф")[0],
+    ]
+    reviews = PersonResolutionReviewService(_SlowMergePersistence(session_factory))
+    barrier = threading.Barrier(2)
+    outcomes: list[object] = []
+
+    def reviewer(decision_id: int, target: int) -> None:
+        barrier.wait()
+        try:
+            with session_factory.begin() as session:
+                outcomes.append(
+                    reviews.apply(
+                        session,
+                        decision_id,
+                        Action.MERGE_PERSONS,
+                        person_id=target,
+                        source_person_id=source,
+                    )
+                )
+        except BaseException as exc:  # noqa: BLE001 - asserted below
+            outcomes.append(exc)
+
+    threads = [
+        threading.Thread(target=reviewer, args=(decisions[0], first_target)),
+        threading.Thread(target=reviewer, args=(decisions[1], second_target)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    errors = [outcome for outcome in outcomes if isinstance(outcome, BaseException)]
+    assert len(outcomes) == 2
+    assert len(errors) == 1 and isinstance(errors[0], ResolutionReviewStateError)
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(PersonMergeRecord)) == 1
+        merged = session.get_one(PersonRecord, source)
+        record = session.scalars(select(PersonMergeRecord)).one()
+        assert merged.merged_into_id == record.target_person_id

@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -19,6 +20,7 @@ from db.orm_models import (
     ReviewRecordModel,
 )
 from extraction.resolution_service import ExtractionResolutionService
+from persons.models import ResolutionResult
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateConfig,
@@ -324,3 +326,38 @@ def test_concurrent_reordered_mentions_do_not_create_duplicate_persons(
         linked = session.scalars(select(EntityMentionRecord.person_id)).all()
     # The second worker saw the first person and linked the reordered name to it.
     assert len(set(linked)) == 1 and None not in linked
+
+
+def test_create_new_that_loses_the_race_links_the_winner_and_is_not_counted_as_created(
+    session_factory: sessionmaker[Session],
+) -> None:
+    persistence = SqlAlchemyPersonPersistence(session_factory)
+    resolver = RuleBasedPersonResolver(persistence)
+    original_resolve = resolver.resolve
+    winner: list[int] = []
+
+    def resolve_then_lose_race(*args: Any, **kwargs: Any) -> ResolutionResult:
+        result = original_resolve(*args, **kwargs)
+        # A concurrent worker commits the same person after this worker planned CREATE_NEW.
+        winner.append(
+            persistence.create_person(
+                canonical_name=kwargs["normalized_text"],
+                normalized_name=kwargs["normalized_text"],
+                matching_key=kwargs["matching_key"],
+            )
+        )
+        return result
+
+    resolver.resolve = resolve_then_lose_race  # type: ignore[method-assign]
+    service = _service(session_factory, persistence=persistence, resolver=resolver)
+
+    _, (mention_id,) = seed_mentions(session_factory, "Василий Голубцов")
+    with session_factory.begin() as session:
+        outcome = service.resolve_mention(session, session.get_one(EntityMentionRecord, mention_id))
+
+    assert outcome is not None
+    assert outcome.action is A.CREATE_NEW
+    assert outcome.person_id == winner[0]
+    assert not outcome.created_person
+    assert _count(session_factory, PersonRecord) == 1
+    assert _decision(session_factory, mention_id).selected_person_id == winner[0]

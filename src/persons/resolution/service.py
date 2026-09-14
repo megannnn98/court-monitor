@@ -26,7 +26,7 @@ from db.orm_models import (
     PersonResolutionDecisionRecord,
 )
 from persons.manual_review_service import SqlAlchemyManualReviewService
-from persons.models import AliasOrigin
+from persons.models import AliasOrigin, ResolutionStatus
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.aliases import AliasPromotionPolicy
 from persons.resolution.candidates import (
@@ -298,9 +298,17 @@ class PersonResolutionService:
             if result.person_id is None:
                 raise RuntimeError(f"exact resolver returned no person for mention {mention.id}")
             person_id = result.person_id
-            created = decision.action is PersonResolutionAction.CREATE_NEW
+            # A concurrent worker may have created the person after planning: then it is a link.
+            created = result.status is ResolutionStatus.NEW_PERSON
             if created:
                 logger.info("er_person_created mention_id=%s person_id=%s", mention.id, person_id)
+            elif decision.action is PersonResolutionAction.CREATE_NEW:
+                logger.info(
+                    "er_create_new_matched_existing mention_id=%s person_id=%s decision_id=%s",
+                    mention.id,
+                    person_id,
+                    decision_id,
+                )
         else:
             selected = next(
                 (c for c in decision.candidates if c.person_id == decision.selected_person_id),

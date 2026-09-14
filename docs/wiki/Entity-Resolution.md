@@ -122,7 +122,9 @@ API: `GET /person-resolution/reviews`, `GET /person-resolution/reviews/{decision
 
 ## Concurrency
 
-Существующий `uq_persons_matching_key_active` + откат на победителя сохранены. Дополнительно `ExtractionResolutionService` в начале run берёт `pg_advisory_xact_lock` по отсортированным ключам identity-блоков (полные токены имени — одинаковы для переставленных форм): «Иван Иванов» и «Иванов Иван» в двух воркерах выполняются последовательно, второй видит Person первого.
+Существующий `uq_persons_matching_key_active` + откат на победителя сохранены. Дополнительно `ExtractionResolutionService` в начале run берёт `pg_advisory_xact_lock` по отсортированным ключам identity-блоков (полные токены имени — одинаковы для переставленных форм): «Иван Иванов» и «Иванов Иван» в двух воркерах выполняются последовательно, второй видит Person первого. Если CREATE_NEW всё же проиграл гонку, mention связывается с победителем, а `created_person` = false (лог `er_create_new_matched_existing`).
+
+`merge_persons_in_session` блокирует source и target (`FOR UPDATE`, по возрастанию id) и перепроверяет `active`: два ревьюера, сливающие одну Person в разные target, дают ровно один `PersonMergeRecord`, второй получает 409.
 
 ## Evaluation
 

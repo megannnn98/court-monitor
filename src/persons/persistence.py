@@ -15,6 +15,10 @@ from db.orm_models import (
 from persons.models import AliasOrigin, MergeStatus, PersonStatus
 
 
+class PersonMergeConflictError(ValueError):
+    """A merge participant is no longer active (e.g. merged by a concurrent reviewer)."""
+
+
 class SqlAlchemyPersonPersistence:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -174,14 +178,33 @@ class SqlAlchemyPersonPersistence:
         target_person_id: int,
         reason: str | None = None,
     ) -> int:
-        """Merge `source` into `target` inside the caller's transaction (audited)."""
-        source = session.scalar(select(PersonRecord).where(PersonRecord.id == source_person_id))
+        """Merge `source` into `target` inside the caller's transaction (audited).
+
+        Both rows are locked in id order, so concurrent merges of the same person
+        serialize (the loser sees it is no longer active) and A→B vs B→A cannot deadlock.
+        """
+        locked = {
+            person.id: person
+            for person in session.scalars(
+                select(PersonRecord)
+                .where(PersonRecord.id.in_((source_person_id, target_person_id)))
+                .order_by(PersonRecord.id)
+                .with_for_update()
+            ).all()
+        }
+        source = locked.get(source_person_id)
         if source is None:
             raise ValueError(f"Source person {source_person_id} not found")
 
-        target = session.scalar(select(PersonRecord).where(PersonRecord.id == target_person_id))
+        target = locked.get(target_person_id)
         if target is None:
             raise ValueError(f"Target person {target_person_id} not found")
+
+        for person in (source, target):
+            if person.status != PersonStatus.ACTIVE.value:
+                raise PersonMergeConflictError(
+                    f"person {person.id} is {person.status}, not active; cannot merge"
+                )
 
         source.status = PersonStatus.MERGED.value
         source.merged_into_id = target_person_id

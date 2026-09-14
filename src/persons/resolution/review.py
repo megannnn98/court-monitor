@@ -31,7 +31,7 @@ from db.orm_models import (
 )
 from persons.manual_review_service import ReviewStatus, SqlAlchemyManualReviewService
 from persons.models import AliasOrigin, PersonStatus
-from persons.persistence import SqlAlchemyPersonPersistence
+from persons.persistence import PersonMergeConflictError, SqlAlchemyPersonPersistence
 from persons.resolution.aliases import AliasPromotionPolicy
 from persons.resolution.candidates import load_candidates
 from persons.resolution.features import PersonResolutionFeatureExtractor
@@ -247,12 +247,17 @@ class PersonResolutionReviewService:
                 )
             self._require_active(session, person_id)
             self._require_active(session, source_person_id)
-            merge_record_id = self._persistence.merge_persons_in_session(
-                session,
-                source_person_id=source_person_id,
-                target_person_id=person_id,
-                reason=f"person resolution review of decision {decision_id}: {note or ''}".strip(),
-            )
+            try:
+                merge_record_id = self._persistence.merge_persons_in_session(
+                    session,
+                    source_person_id=source_person_id,
+                    target_person_id=person_id,
+                    reason=(
+                        f"person resolution review of decision {decision_id}: {note or ''}"
+                    ).strip(),
+                )
+            except PersonMergeConflictError as exc:
+                raise ResolutionReviewStateError(str(exc)) from exc
             target = person_id
         else:
             if person_id is None:

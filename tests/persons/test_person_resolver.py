@@ -239,3 +239,5 @@ def test_resolver_recovers_from_concurrent_person_creation(
 
     assert len(persons) == 1
     assert result.person_id == persons[0].id
+    # Backing off to the winner is a match, not a creation.
+    assert result.status is ResolutionStatus.MATCHED

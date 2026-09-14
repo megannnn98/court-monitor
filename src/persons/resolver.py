@@ -94,7 +94,7 @@ class RuleBasedPersonResolver:
             )
             return resolution
 
-        person_id = self._create_person_and_alias_racing_safe(
+        person_id, created = self._create_person_and_alias_racing_safe(
             normalized_text=normalized_text,
             matching_key=matching_key,
             surface_text=surface_text,
@@ -104,6 +104,13 @@ class RuleBasedPersonResolver:
             session=session,
         )
 
+        if not created:
+            return ResolutionResult(
+                person_id=person_id,
+                status=ResolutionStatus.MATCHED,
+                confidence=1.0,
+                reasons=["matched a person created concurrently"],
+            )
         return ResolutionResult(
             person_id=person_id,
             status=ResolutionStatus.NEW_PERSON,
@@ -121,18 +128,18 @@ class RuleBasedPersonResolver:
         confidence: float,
         source_mention_id: int | None,
         session: Session | None,
-    ) -> int:
+    ) -> tuple[int, bool]:
         """Create a new person + alias for a matching_key that `resolve()`
         just reported as unseen.
 
         `uq_persons_matching_key_active` can still reject the insert if a
         concurrent resolver created the same person in the meantime; in
         that case we back off to the winner instead of raising or leaving
-        a duplicate canonical person behind.
+        a duplicate canonical person behind. Returns (person id, created).
         """
         if session is None:
             try:
-                return self._persistence.create_person_with_alias(
+                created_id = self._persistence.create_person_with_alias(
                     canonical_name=normalized_text,
                     normalized_name=normalized_text,
                     matching_key=matching_key,
@@ -142,6 +149,7 @@ class RuleBasedPersonResolver:
                     confidence=confidence,
                     source_mention_id=source_mention_id,
                 )
+                return created_id, True
             except IntegrityError:
                 winner_id = self._persistence.find_person_by_matching_key(matching_key)
                 if winner_id is None:
@@ -165,7 +173,7 @@ class RuleBasedPersonResolver:
                         confidence=confidence,
                         source_mention_id=source_mention_id,
                     )
-                return person_id
+                return person_id, True
             except IntegrityError:
                 winner_id = self._persistence.find_person_by_matching_key_in_session(
                     session,
@@ -184,7 +192,7 @@ class RuleBasedPersonResolver:
             source_mention_id=source_mention_id,
             session=session,
         )
-        return winner_id
+        return winner_id, False
 
     def add_alias_if_not_exists(
         self,
