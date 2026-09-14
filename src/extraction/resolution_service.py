@@ -17,7 +17,6 @@ from persons.resolution.service import (
     PersonResolutionService,
     identity_from_mention,
 )
-from persons.resolver import RuleBasedPersonResolver
 
 
 @dataclass(frozen=True)
@@ -35,18 +34,16 @@ class ExtractionResolutionService:
         self,
         *,
         persistence: SqlAlchemyPersonPersistence,
-        resolver: RuleBasedPersonResolver,
         session_factory: sessionmaker[Session],
         person_resolution: PersonResolutionService | None = None,
     ) -> None:
         self._persistence = persistence
-        self._resolver = resolver
         self._session_factory = session_factory
         if person_resolution is None:
             from persons.resolution.factory import build_person_resolution_service
 
             person_resolution = build_person_resolution_service(
-                session_factory, persistence=persistence, resolver=resolver
+                session_factory, persistence=persistence
             )
         self._person_resolution = person_resolution
 
@@ -66,7 +63,7 @@ class ExtractionResolutionService:
             )
 
             mention_id_to_person_id: dict[int, int] = {}
-            # extraction → identity normalization → exact fast-path → ER v2 → decision
+            # extraction → identity normalization → ER v2 candidates → decision
             identities = [
                 identity
                 for mention in person_mentions

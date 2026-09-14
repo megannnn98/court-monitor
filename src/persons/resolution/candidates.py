@@ -114,24 +114,29 @@ def load_candidates(
 
 
 class ExactKeyCandidateGenerator:
-    """Persons whose name or known alias has the incoming `matching_key`."""
+    """Persons whose name (`exact_key`) or known alias (`alias`) has the incoming key.
 
-    source = CandidateSource.ALIAS
+    Zero, one or several namesakes: `matching_key` is a candidate lookup key, not
+    an identity key (ADR 0012). Ordered by person id; the decision never depends on it.
+    """
+
+    source = CandidateSource.EXACT_KEY
 
     def generate(
         self, identity: PersonIdentityInput, *, limit: int, session: Session
     ) -> list[PersonResolutionCandidate]:
         if not identity.matching_key:
             return []
-        person_ids = session.scalars(
-            select(PersonRecord.id)
+        key = identity.matching_key
+        rows = session.execute(
+            select(PersonRecord.id, PersonRecord.matching_key)
             .where(
                 PersonRecord.status == PersonStatus.ACTIVE.value,
                 or_(
-                    PersonRecord.matching_key == identity.matching_key,
+                    PersonRecord.matching_key == key,
                     PersonRecord.id.in_(
                         select(PersonAliasRecord.person_id).where(
-                            PersonAliasRecord.matching_key == identity.matching_key
+                            PersonAliasRecord.matching_key == key
                         )
                     ),
                 ),
@@ -139,8 +144,34 @@ class ExactKeyCandidateGenerator:
             .order_by(PersonRecord.id)
             .limit(limit)
         ).all()
-        loaded = load_candidates(session, person_ids, self.source)
-        return [loaded[person_id] for person_id in person_ids if person_id in loaded]
+        if not rows:
+            return []
+        alias_keyed = set(
+            session.scalars(
+                select(PersonAliasRecord.person_id).where(
+                    PersonAliasRecord.matching_key == key,
+                    PersonAliasRecord.person_id.in_([row.id for row in rows]),
+                )
+            ).all()
+        )
+        loaded = load_candidates(session, [row.id for row in rows], self.source)
+        candidates = []
+        for row in rows:
+            if row.id not in loaded:
+                continue
+            sources = []
+            if row.matching_key == key:
+                sources.append(CandidateSource.EXACT_KEY)
+            if row.id in alias_keyed:
+                sources.append(CandidateSource.ALIAS)
+            candidates.append(loaded[row.id].model_copy(update={"sources": sorted(sources)}))
+        logger.info(
+            "er_exact_candidates_found mention_id=%s key_matches=%d alias_matches=%d",
+            identity.mention_id,
+            sum(CandidateSource.EXACT_KEY in c.sources for c in candidates),
+            sum(CandidateSource.ALIAS in c.sources for c in candidates),
+        )
+        return candidates
 
 
 class TrigramCandidateGenerator:
@@ -262,7 +293,7 @@ class CandidateGenerationResult:
 
 def _order_key(candidate: PersonResolutionCandidate) -> tuple[int, float, float, int]:
     return (
-        0 if CandidateSource.ALIAS in candidate.sources else 1,
+        0 if {CandidateSource.EXACT_KEY, CandidateSource.ALIAS} & set(candidate.sources) else 1,
         -(candidate.trigram_similarity or 0.0),
         -(candidate.semantic_similarity or 0.0),
         candidate.person_id,

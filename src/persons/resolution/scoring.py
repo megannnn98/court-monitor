@@ -33,6 +33,10 @@ _PATRONYMIC = {
     ComponentMatch.MISSING: 0.05,
 }
 EXACT_FORM_BONUS = 0.05
+# The same complete form (name or known alias, no initials) is strong evidence
+# whatever role reading wins: suffix hints may read "Дмитрий Шостакович" as a
+# given name + patronymic, and a 4+ token name has no reading at all.
+EXACT_COMPLETE_FORM = 0.85
 ORDER_PENALTY = 0.05
 CONFLICT_CAP = 0.25
 
@@ -52,6 +56,14 @@ class PersonResolutionScorer:
         if features.exact_name or features.exact_alias:
             value += EXACT_FORM_BONUS
             rules.append("exact_form")
+        if (
+            (features.exact_name or features.exact_alias)
+            and not features.incomplete_name
+            and not features.initials_only
+            and value < EXACT_COMPLETE_FORM
+        ):
+            value = EXACT_COMPLETE_FORM
+            rules.append("exact_complete_form")
         if features.order_differs:
             value -= ORDER_PENALTY
             rules.append("order_differs")

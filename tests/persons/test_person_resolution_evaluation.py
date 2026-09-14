@@ -54,7 +54,15 @@ def test_corpus_covers_positive_hard_negative_and_ambiguous_cases() -> None:
         "similar-spelling",
         "semantic-trap",
         "duplicate-persons",
+        "same-full-name-same-person",
+        "same-full-name-different-person",
+        "two-active-namesakes",
+        "reviewer-created-namesake",
+        "exact-fuzzy-competitor",
+        "reordered-same-person",
+        "reordered-namesake-ambiguity",
     } <= tags
+    assert categories["indistinguishable"] >= 1
 
 
 def test_er_evaluation_has_no_false_links_on_the_corpus(
@@ -64,6 +72,14 @@ def test_er_evaluation_has_no_false_links_on_the_corpus(
 
     decision = run.decision
     assert decision.false_links == 0
+    namesakes = [o for o in run.outcomes if "namesake" in " ".join(o.tags)]
+    assert namesakes and all(
+        o.action is not PersonResolutionAction.AUTO_LINK
+        for o in namesakes
+        if o.category == "ambiguous"
+    )
+    # One existing person with the same full name: linked without context, reported apart.
+    assert decision.indistinguishable_namesake_links == 1
     assert decision.auto_link_precision == 1.0
     assert decision.false_create_new == 0
     assert decision.auto_link_recall >= 0.5

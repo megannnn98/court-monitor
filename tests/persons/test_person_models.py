@@ -8,9 +8,6 @@ from persons.models import (
     Person,
     PersonAlias,
     PersonStatus,
-    ResolutionContext,
-    ResolutionResult,
-    ResolutionStatus,
     ReviewDecision,
     ReviewRecord,
 )
@@ -56,51 +53,6 @@ def test_person_alias_rejects_invalid_confidence() -> None:
             origin=AliasOrigin.EXTRACTION,
             confidence=1.5,
         )
-
-
-def test_resolution_result_matched() -> None:
-    result = ResolutionResult(
-        person_id=42,
-        status=ResolutionStatus.MATCHED,
-        confidence=0.95,
-        reasons=["same matching key", "same city"],
-    )
-
-    assert result.status is ResolutionStatus.MATCHED
-    assert result.person_id == 42
-
-
-def test_resolution_result_ambiguous_has_no_person_id() -> None:
-    result = ResolutionResult(
-        person_id=None,
-        status=ResolutionStatus.AMBIGUOUS,
-        confidence=0.4,
-        reasons=["multiple candidates"],
-        candidate_person_ids=[1, 2, 3],
-    )
-
-    assert result.status is ResolutionStatus.AMBIGUOUS
-    assert result.person_id is None
-    assert len(result.candidate_person_ids) == 3
-
-
-def test_resolution_context_optional_fields() -> None:
-    context = ResolutionContext()
-    assert context.article_id is None
-    assert context.city is None
-
-
-def test_resolution_context_with_all_fields() -> None:
-    context = ResolutionContext(
-        article_id=123,
-        city="Москва",
-        court="Басманный суд",
-        organization="ОВД-Инфо",
-        event_types=["detention", "arrest"],
-    )
-
-    assert context.city == "Москва"
-    assert len(context.event_types) == 2
 
 
 def test_merge_record_tracks_source_and_target() -> None:

@@ -101,6 +101,8 @@ class PersonIdentityInput(BaseModel):
 
 
 class CandidateSource(StrEnum):
+    # Name `matching_key` equals the incoming key: a lookup, not an identity proof.
+    EXACT_KEY = "exact_key"
     ALIAS = "alias"
     TRIGRAM = "trigram"
     SEMANTIC = "semantic"
@@ -191,12 +193,17 @@ class PersonResolutionAction(StrEnum):
 
 
 class PersonResolutionReason(StrEnum):
+    # Legacy: the pre-amendment exact fast path (stored decisions only).
     EXACT_MATCHING_KEY = "exact_matching_key"
     STRONG_UNIQUE_MATCH = "strong_unique_match"
     NO_CANDIDATE = "no_candidate"
     NO_PLAUSIBLE_CANDIDATE = "no_plausible_candidate"
     MULTIPLE_PLAUSIBLE_CANDIDATES = "multiple_plausible_candidates"
     POSSIBLE_DUPLICATE_PERSONS = "possible_duplicate_persons"
+    # Several active persons share the incoming matching_key: namesakes or duplicates.
+    MULTIPLE_EXACT_NAME_MATCHES = "multiple_exact_name_matches"
+    # The strong candidates were already declared different people by a reviewer.
+    KNOWN_DISTINCT_PERSONS = "known_distinct_persons"
     INCOMPLETE_NAME = "incomplete_name"
     INITIALS_ONLY = "initials_only"
     CONFLICTING_IDENTITY_DATA = "conflicting_identity_data"

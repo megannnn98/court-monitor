@@ -36,8 +36,13 @@ from persons.resolution.aliases import AliasPromotionPolicy
 from persons.resolution.candidates import load_candidates
 from persons.resolution.features import PersonResolutionFeatureExtractor
 from persons.resolution.models import CandidateSource, PersonIdentityInput
-from persons.resolution.service import REVIEW_SUBJECT_TYPE, DecisionStatus
-from persons.resolver import RuleBasedPersonResolver
+from persons.resolution.normalizer import PersonNameNormalizer
+from persons.resolution.service import (
+    REVIEW_SUBJECT_TYPE,
+    DecisionStatus,
+    known_distinct_pairs,
+    lock_identity_block_keys,
+)
 
 logger = logging.getLogger("person_resolution")
 
@@ -47,6 +52,7 @@ class ResolutionReviewAction(StrEnum):
     CREATE_NEW_PERSON = "create_new_person"
     # For possible duplicate canonical persons.
     MERGE_PERSONS = "merge_persons"
+    # Link to `person_id` and record that `source_person_id` is a different person.
     KEEP_SEPARATE = "keep_separate"
 
 
@@ -107,6 +113,8 @@ class ResolutionReviewView(BaseModel):
     semantic_source: str
     source: ReviewSource
     candidates: list[ReviewCandidate] = Field(default_factory=list)
+    # Candidate pairs a reviewer already declared different people (KEEP_SEPARATE).
+    known_distinct_pairs: list[tuple[int, int]] = Field(default_factory=list)
     resolver_version: str
     created_at: datetime
 
@@ -154,13 +162,11 @@ class PersonResolutionReviewService:
         self,
         persistence: SqlAlchemyPersonPersistence,
         *,
-        resolver: RuleBasedPersonResolver | None = None,
         reviews: SqlAlchemyManualReviewService | None = None,
         alias_policy: AliasPromotionPolicy | None = None,
         extractor: PersonResolutionFeatureExtractor | None = None,
     ) -> None:
         self._persistence = persistence
-        self._resolver = resolver or RuleBasedPersonResolver(persistence)
         self._reviews = reviews or SqlAlchemyManualReviewService()
         self._alias_policy = alias_policy or AliasPromotionPolicy()
         self._extractor = extractor or PersonResolutionFeatureExtractor()
@@ -204,6 +210,9 @@ class PersonResolutionReviewService:
                 _view_candidate(raw, statuses.get(raw["candidate"]["person_id"]))
                 for raw in record.candidates
             ],
+            known_distinct_pairs=sorted(
+                (min(pair), max(pair)) for pair in known_distinct_pairs(session, person_ids)
+            ),
             resolver_version=record.resolver_version,
             created_at=record.created_at,
         )
@@ -263,6 +272,20 @@ class PersonResolutionReviewService:
             if person_id is None:
                 raise ResolutionReviewStateError(f"{action.value} needs person_id")
             self._require_active(session, person_id)
+            if action is ResolutionReviewAction.KEEP_SEPARATE:
+                if source_person_id is None or source_person_id == person_id:
+                    raise ResolutionReviewStateError(
+                        "keep_separate needs person_id (linked) and a distinct "
+                        "source_person_id (the different person)"
+                    )
+                self._require_active(session, source_person_id)
+                record.distinct_from_person_id = source_person_id
+                logger.info(
+                    "er_keep_separate decision_id=%s person_id=%s distinct_from=%s",
+                    decision_id,
+                    person_id,
+                    source_person_id,
+                )
             target = person_id
             self._promote_alias(session, identity, mention, target)
 
@@ -298,16 +321,17 @@ class PersonResolutionReviewService:
     def _create_person(
         self, session: Session, identity: PersonIdentityInput, mention: EntityMentionRecord
     ) -> int:
+        """A reviewer-confirmed new person; namesakes may share the matching_key."""
         key = identity.matching_key or ""
-        existing = self._persistence.find_person_by_matching_key_in_session(session, key)
-        if existing is not None:
-            raise ResolutionReviewStateError(
-                f"person {existing} already has this matching_key; link to it instead"
-            )
+        # Same lock as ER workers: a worker resolving this name waits and then sees
+        # the new person instead of creating another one concurrently.
+        lock_identity_block_keys(session, [PersonNameNormalizer().normalize(identity.name)])
+        namesakes = self._persistence.find_persons_by_matching_key_in_session(session, key)
         person_id = self._persistence.create_person_in_session(
             session, canonical_name=identity.name, normalized_name=identity.name, matching_key=key
         )
-        self._resolver.add_alias_if_not_exists(
+        self._persistence.add_alias_if_not_exists_in_session(
+            session,
             person_id=person_id,
             surface_text=mention.surface_text,
             normalized_text=identity.name,
@@ -315,8 +339,14 @@ class PersonResolutionReviewService:
             origin=AliasOrigin.MANUAL,
             confidence=mention.confidence,
             source_mention_id=mention.id,
-            session=session,
         )
+        if namesakes:
+            logger.info(
+                "er_namesake_created_by_review mention_id=%s person_id=%s namesakes=%s",
+                mention.id,
+                person_id,
+                namesakes,
+            )
         return person_id
 
     def _promote_alias(
@@ -326,10 +356,11 @@ class PersonResolutionReviewService:
         mention: EntityMentionRecord,
         person_id: int,
     ) -> None:
-        candidate = load_candidates(session, [person_id], CandidateSource.ALIAS)[person_id]
+        candidate = load_candidates(session, [person_id], CandidateSource.EXACT_KEY)[person_id]
         features = self._extractor.extract(identity, candidate)
         if self._alias_policy.should_promote(identity.name, features):
-            self._resolver.add_alias_if_not_exists(
+            self._persistence.add_alias_if_not_exists_in_session(
+                session,
                 person_id=person_id,
                 surface_text=mention.surface_text,
                 normalized_text=identity.name,
@@ -337,7 +368,6 @@ class PersonResolutionReviewService:
                 origin=AliasOrigin.MANUAL,
                 confidence=mention.confidence,
                 source_mention_id=mention.id,
-                session=session,
             )
 
     @staticmethod

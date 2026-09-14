@@ -16,7 +16,6 @@ from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
-from persons.resolver import RuleBasedPersonResolver
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
@@ -100,10 +99,8 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
 
     # Step 3: Resolve persons
     person_persistence = SqlAlchemyPersonPersistence(session_factory)
-    person_resolver = RuleBasedPersonResolver(person_persistence)
     resolution_service = ExtractionResolutionService(
         persistence=person_persistence,
-        resolver=person_resolver,
         session_factory=session_factory,
     )
 

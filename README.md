@@ -58,7 +58,7 @@ ParsedArticle
 
 Person Resolution:
 NormalizedMention[]
-→ RuleBasedPersonResolver
+→ Entity Resolution v2 (candidates → score → AUTO_LINK / REVIEW / CREATE_NEW)
 → Person
 → PersonAlias[]
 → PersonEventLink[]

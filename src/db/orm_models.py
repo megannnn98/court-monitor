@@ -194,10 +194,10 @@ class EventEntityMentionRecord(Base):
 class PersonRecord(Base):
     __tablename__ = "persons"
     __table_args__ = (
+        # Candidate lookup only: namesakes may share a matching_key (ADR 0012).
         Index(
-            "uq_persons_matching_key_active",
+            "ix_persons_matching_key_active",
             "matching_key",
-            unique=True,
             postgresql_where=text("status = 'active'"),
         ),
         Index("ix_persons_status", "status"),
@@ -348,6 +348,10 @@ class PersonResolutionDecisionRecord(Base):
     )
     semantic_source: Mapped[str] = mapped_column(String(32), nullable=False)
     review_action: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # KEEP_SEPARATE: the reviewer decided the selected person is not this one.
+    distinct_from_person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("persons.id", ondelete="SET NULL"), nullable=True
+    )
     reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

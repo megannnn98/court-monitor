@@ -27,7 +27,6 @@ from persons.resolution.cli import (
     run_evaluate_er,
     run_person_resolution_command,
 )
-from persons.resolver import RuleBasedPersonResolver
 from research.cli import (
     ResearchCliError,
     add_ask_arguments,
@@ -383,10 +382,8 @@ def main() -> None:
         document_repository = SqlAlchemyExtractionDocumentRepository(session_factory)
         extraction_persistence = SqlAlchemyExtractionPersistence(session_factory)
         person_persistence = SqlAlchemyPersonPersistence(session_factory)
-        person_resolver = RuleBasedPersonResolver(person_persistence)
         resolution_service = ExtractionResolutionService(
             persistence=person_persistence,
-            resolver=person_resolver,
             session_factory=session_factory,
         )
 

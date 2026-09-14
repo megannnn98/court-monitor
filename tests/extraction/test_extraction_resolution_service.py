@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -18,7 +18,6 @@ from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
 from persons.models import PersonStatus
 from persons.persistence import SqlAlchemyPersonPersistence
-from persons.resolver import RuleBasedPersonResolver
 from sources.models import ParsedArticle, RawDocument
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
@@ -83,11 +82,8 @@ def _run_extraction(
 def _make_resolution_service(
     session_factory: sessionmaker[Session],
 ) -> ExtractionResolutionService:
-    person_persistence = SqlAlchemyPersonPersistence(session_factory)
-    resolver = RuleBasedPersonResolver(person_persistence)
     return ExtractionResolutionService(
-        persistence=person_persistence,
-        resolver=resolver,
+        persistence=SqlAlchemyPersonPersistence(session_factory),
         session_factory=session_factory,
     )
 
@@ -150,35 +146,13 @@ def test_resolve_rolls_back_created_person_when_linking_fails(
         external_id="article-res-rollback",
     )
     run_id = _run_extraction(session_factory, article_id)
-    person_persistence = SqlAlchemyPersonPersistence(session_factory)
 
-    class RaisingResolver:
-        def resolve_and_create(
-            self,
-            *,
-            normalized_text: str,
-            matching_key: str,
-            surface_text: str,
-            origin: object,
-            confidence: float,
-            source_mention_id: int | None = None,
-            session: Session | None = None,
-            **kwargs: object,
-        ) -> object:
-            del surface_text, origin, confidence, source_mention_id, kwargs
-            if session is None:
-                raise AssertionError("resolver must receive current transaction session")
-            person_persistence.create_person_in_session(
-                session,
-                canonical_name=normalized_text,
-                normalized_name=normalized_text,
-                matching_key=matching_key,
-            )
+    class RaisingPersistence(SqlAlchemyPersonPersistence):
+        def create_alias_in_session(self, session: Session, **kwargs: Any) -> int:
             raise RuntimeError("forced failure after person creation")
 
     service = ExtractionResolutionService(
-        persistence=person_persistence,
-        resolver=cast(Any, RaisingResolver()),
+        persistence=RaisingPersistence(session_factory),
         session_factory=session_factory,
     )
 

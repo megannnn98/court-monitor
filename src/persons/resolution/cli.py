@@ -59,7 +59,10 @@ def add_person_resolution_arguments(subparsers: Any) -> None:
     )
     apply.add_argument("--person-id", type=int, default=None, help="Target person")
     apply.add_argument(
-        "--source-person-id", type=int, default=None, help="merge_persons: person merged away"
+        "--source-person-id",
+        type=int,
+        default=None,
+        help="merge_persons: person merged away; keep_separate: the different person",
     )
     apply.add_argument("--note", default=None)
 
@@ -98,16 +101,13 @@ def format_plan(plan: ResolutionPlan) -> str:
             or "none (unparsed)"
         ),
     ]
-    if plan.exact_person_id is not None:
-        lines.append(f"Exact matching_key → person #{plan.exact_person_id} (fast path)")
-    elif plan.generation is not None:
-        counts = ", ".join(
-            f"{source.value} {count}" for source, count in plan.generation.counts.items()
-        )
-        lines.append(
-            f"Candidates: {len(plan.generation.candidates)} ({counts}); "
-            f"semantic source: {plan.generation.semantic_source.value}"
-        )
+    counts = ", ".join(
+        f"{source.value} {count}" for source, count in plan.generation.counts.items()
+    )
+    lines.append(
+        f"Candidates: {len(plan.generation.candidates)} ({counts}); "
+        f"semantic source: {plan.generation.semantic_source.value}"
+    )
     for candidate in decision.candidates:
         lines.extend(_format_candidate(candidate))
     reasons = ", ".join(reason.value for reason in decision.reasons)
@@ -250,7 +250,6 @@ def run_person_resolution_command(
                     {
                         "identity": plan.identity.model_dump(mode="json"),
                         "normalized": plan.name.model_dump(mode="json"),
-                        "exact_person_id": plan.exact_person_id,
                         "decision": plan.decision.model_dump(mode="json"),
                     },
                     ensure_ascii=False,

@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
-from support.person_resolution_fixtures import seed_mentions, seed_person
+from support.person_resolution_fixtures import matching_key, seed_mentions, seed_person
 
 from db.orm_models import (
     EntityMentionRecord,
@@ -135,16 +135,93 @@ def test_create_new_person_from_review(session_factory: sessionmaker[Session]) -
         assert session.get_one(EntityMentionRecord, mention_id).person_id == person.id
 
 
-def test_create_new_person_refuses_an_existing_matching_key(
+def test_reviewer_creates_a_namesake_with_the_same_matching_key(
     session_factory: sessionmaker[Session],
 ) -> None:
-    seed_person(session_factory, "Иван Иванов")
-    seed_person(session_factory, "Илья Иванов")
-    decision_id, _ = _pending(session_factory, "И. Иванов")
-    seed_person(session_factory, "И. Иванов")  # appeared after the decision
+    namesakes = [seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(2)]
+    decision_id, mention_id = _pending(session_factory, "Алексей Сергеевич Иванов")
 
+    with session_factory.begin() as session:
+        result = _reviews(session_factory).apply(
+            session, decision_id, Action.CREATE_NEW_PERSON, note="третий тёзка, другой суд"
+        )
+
+    assert result.created_person and result.person_id not in namesakes
+    with session_factory() as session:
+        persons = session.scalars(
+            select(PersonRecord).where(
+                PersonRecord.matching_key == matching_key("Алексей Сергеевич Иванов")
+            )
+        ).all()
+        assert session.get_one(EntityMentionRecord, mention_id).person_id == result.person_id
+    assert len(persons) == 3
+    assert {person.status for person in persons} == {"active"}
+
+
+def test_keep_separate_records_distinct_persons_for_later_decisions(
+    session_factory: sessionmaker[Session],
+) -> None:
+    first, second = (seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(2))
+    decision_id, mention_id = _pending(session_factory, "Алексей Сергеевич Иванов")
+
+    with session_factory.begin() as session:
+        _reviews(session_factory).apply(
+            session, decision_id, Action.KEEP_SEPARATE, person_id=first, source_person_id=second
+        )
+
+    with session_factory() as session:
+        record = session.get_one(PersonResolutionDecisionRecord, decision_id)
+        assert (record.selected_person_id, record.distinct_from_person_id) == (first, second)
+        assert session.get_one(EntityMentionRecord, mention_id).person_id == first
+        assert session.scalars(select(PersonMergeRecord)).all() == []
+
+    # The next mention of the name is still a namesake question, not a possible duplicate.
+    next_decision, _ = _pending(session_factory, "Алексей Сергеевич Иванов")
+    with session_factory() as session:
+        reasons = set(session.get_one(PersonResolutionDecisionRecord, next_decision).reasons)
+        view = _reviews(session_factory).get(session, next_decision)
+    assert {"known_distinct_persons", "multiple_exact_name_matches"} <= reasons
+    assert "possible_duplicate_persons" not in reasons
+    assert view.known_distinct_pairs == [(min(first, second), max(first, second))]
+
+
+def test_keep_separate_needs_the_other_person(session_factory: sessionmaker[Session]) -> None:
+    first = seed_person(session_factory, "Алексей Сергеевич Иванов")
+    seed_person(session_factory, "Алексей Сергеевич Иванов")
+    decision_id, _ = _pending(session_factory, "Алексей Сергеевич Иванов")
+
+    for other in (None, first):
+        with session_factory.begin() as session, pytest.raises(ResolutionReviewStateError):
+            _reviews(session_factory).apply(
+                session, decision_id, Action.KEEP_SEPARATE, person_id=first, source_person_id=other
+            )
+
+
+def test_same_name_duplicates_can_still_be_merged(session_factory: sessionmaker[Session]) -> None:
+    target, source = (seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(2))
+    decision_id, mention_id = _pending(session_factory, "Алексей Сергеевич Иванов")
+
+    with session_factory.begin() as session:
+        result = _reviews(session_factory).apply(
+            session, decision_id, Action.MERGE_PERSONS, person_id=target, source_person_id=source
+        )
     with session_factory.begin() as session, pytest.raises(ResolutionReviewStateError):
-        _reviews(session_factory).apply(session, decision_id, Action.CREATE_NEW_PERSON)
+        _reviews(session_factory).apply(
+            session, decision_id, Action.MERGE_PERSONS, person_id=target, source_person_id=target
+        )
+
+    with session_factory() as session:
+        statuses = {
+            row.id: row.status
+            for row in session.execute(
+                select(PersonRecord.id, PersonRecord.status).where(
+                    PersonRecord.id.in_((target, source))
+                )
+            )
+        }
+        assert session.get_one(PersonMergeRecord, result.merge_record_id).source_person_id == source
+        assert session.get_one(EntityMentionRecord, mention_id).person_id == target
+    assert statuses == {target: "active", source: "merged"}
 
 
 def test_merge_persons_is_explicit_and_audited(session_factory: sessionmaker[Session]) -> None:
@@ -174,24 +251,6 @@ def test_merge_persons_is_explicit_and_audited(session_factory: sessionmaker[Ses
         )
         assert "decision" in (record.reason or "")
         assert session.get_one(EntityMentionRecord, mention_id).person_id == target
-
-
-def test_keep_separate_links_without_merging(session_factory: sessionmaker[Session]) -> None:
-    first = seed_person(session_factory, "Иван Иванович Иванов")
-    second = seed_person(session_factory, "Иванов Иван Иванович")
-    decision_id, _ = _pending(session_factory, "Иван Иванович Иваноф")
-
-    with session_factory.begin() as session:
-        _reviews(session_factory).apply(
-            session, decision_id, Action.KEEP_SEPARATE, person_id=second
-        )
-
-    with session_factory() as session:
-        statuses = session.scalars(
-            select(PersonRecord.status).where(PersonRecord.id.in_([first, second]))
-        ).all()
-        assert session.scalars(select(PersonMergeRecord)).all() == []
-    assert statuses == ["active", "active"]
 
 
 def test_review_rejects_inactive_or_missing_person(session_factory: sessionmaker[Session]) -> None:
@@ -262,3 +321,42 @@ def test_concurrent_merges_of_one_source_apply_exactly_once(
         merged = session.get_one(PersonRecord, source)
         record = session.scalars(select(PersonMergeRecord)).one()
         assert merged.merged_into_id == record.target_person_id
+
+
+def test_reviewer_created_person_is_serialized_with_er_workers(
+    session_factory: sessionmaker[Session],
+) -> None:
+    for _ in range(2):
+        seed_person(session_factory, "Алексей Сергеевич Иванов")
+    decision_id, _ = _pending(session_factory, "Алексей Сергеевич Иванов")
+    created = threading.Event()
+    release = threading.Event()
+
+    class _Holding(SqlAlchemyPersonPersistence):
+        def create_person_in_session(self, session: Session, **kwargs: Any) -> int:
+            person_id = super().create_person_in_session(session, **kwargs)
+            created.set()
+            release.wait(10)
+            return person_id
+
+    def reviewer() -> None:
+        with session_factory.begin() as session:
+            PersonResolutionReviewService(_Holding(session_factory)).apply(
+                session, decision_id, Action.CREATE_NEW_PERSON
+            )
+
+    thread = threading.Thread(target=reviewer)
+    thread.start()
+    try:
+        assert created.wait(10)
+        with session_factory.begin() as session:
+            # The key an ER worker resolving this name would wait on.
+            acquired = session.scalar(
+                select(
+                    func.pg_try_advisory_xact_lock(func.hashtextextended("person_block:иванов", 0))
+                )
+            )
+        assert acquired is False
+    finally:
+        release.set()
+        thread.join(10)

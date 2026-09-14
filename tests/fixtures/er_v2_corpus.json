@@ -35,7 +35,13 @@
     {"key": "golubev-viktor", "canonical_name": "Виктор Голубев",
      "events": [{"key": "golubev-detention", "event_type": "detention", "source": "ОВД-Инфо",
                  "text": "Виктора Голубева задержали на Пушкинской площади с плакатом против войны"}]},
-    {"key": "sidorov-petr", "canonical_name": "Пётр Сидоров"}
+    {"key": "sidorov-petr", "canonical_name": "Пётр Сидоров"},
+    {"key": "tikhonov-aleksey-a", "canonical_name": "Алексей Сергеевич Тихонов"},
+    {"key": "tikhonov-aleksey-b-reviewer-created", "canonical_name": "Алексей Сергеевич Тихонов"},
+    {"key": "lavrova-olga", "canonical_name": "Ольга Петровна Лаврова"},
+    {"key": "kravtsov-gleb-andreevich", "canonical_name": "Глеб Андреевич Кравцов"},
+    {"key": "kravtsov-gleb", "canonical_name": "Глеб Кравцов"},
+    {"key": "aliev-mamed", "canonical_name": "Мамед Гусейн оглы Алиев"}
   ],
   "cases": [
     {"id": "exact-full", "incoming": "Иван Иванович Иванов", "category": "positive", "tags": ["exact"], "expected_action": "auto_link", "true_person": "ivanov-ivan-ivanovich"},
@@ -91,6 +97,13 @@
     {"id": "initial-two-gusevs", "incoming": "А. Гусев", "category": "ambiguous", "tags": ["initials", "same-initial"], "expected_action": "review", "true_person": null},
     {"id": "surname-only", "incoming": "Иванов", "category": "ambiguous", "tags": ["incomplete"], "expected_action": "review", "true_person": null},
     {"id": "duplicate-persons-typo", "incoming": "Юрий Никитен", "category": "ambiguous", "tags": ["duplicate-persons", "typo"], "expected_action": "review", "true_person": null},
-    {"id": "ilya-with-patronymic", "incoming": "Илья Петрович Иванов", "category": "ambiguous", "tags": ["incomplete"], "expected_action": "review", "true_person": null}
+    {"id": "ilya-with-patronymic", "incoming": "Илья Петрович Иванов", "category": "ambiguous", "tags": ["incomplete"], "expected_action": "review", "true_person": null},
+    {"id": "namesake-single-same-person", "incoming": "Ольга Петровна Лаврова", "category": "positive", "tags": ["same-full-name-same-person", "exact"], "expected_action": "auto_link", "true_person": "lavrova-olga"},
+    {"id": "namesake-single-different-person", "incoming": "Ольга Петровна Лаврова", "category": "indistinguishable", "tags": ["same-full-name-different-person"], "expected_action": "auto_link", "true_person": null},
+    {"id": "namesakes-two-active", "incoming": "Алексей Сергеевич Тихонов", "category": "ambiguous", "tags": ["two-active-namesakes", "reviewer-created-namesake"], "expected_action": "review", "true_person": null},
+    {"id": "namesakes-reordered", "incoming": "Тихонов Алексей Сергеевич", "category": "ambiguous", "tags": ["reordered-namesake-ambiguity"], "expected_action": "review", "true_person": null},
+    {"id": "exact-with-fuzzy-competitor", "incoming": "Глеб Андреевич Кравцов", "category": "positive", "tags": ["exact-fuzzy-competitor", "exact"], "expected_action": "auto_link", "true_person": "kravtsov-gleb-andreevich"},
+    {"id": "reordered-with-competitor", "incoming": "Кравцов Глеб Андреевич", "category": "positive", "tags": ["reordered-same-person", "reordered"], "expected_action": "auto_link", "true_person": "kravtsov-gleb-andreevich"},
+    {"id": "unparsed-exact", "incoming": "Мамед Гусейн оглы Алиев", "category": "positive", "tags": ["unparsed", "exact"], "expected_action": "auto_link", "true_person": "aliev-mamed"}
   ]
 }

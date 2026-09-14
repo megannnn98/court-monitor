@@ -3,6 +3,11 @@
 Accuracy is not reported on its own: the dangerous error is a false AUTO_LINK,
 so false links, missed links (false CREATE_NEW) and unnecessary reviews are
 counted separately. Runs against a disposable database (dry-run plans only).
+
+`indistinguishable` cases are real namesakes the data cannot tell apart (one
+existing person with the same full name, a different human incoming): any
+system without context links them. They are reported on their own, not hidden
+inside the false-link count of distinguishable cases.
 """
 
 from __future__ import annotations
@@ -46,7 +51,7 @@ class ErCase(BaseModel):
 
     id: str
     incoming: str
-    category: Literal["positive", "negative", "ambiguous"]
+    category: Literal["positive", "negative", "ambiguous", "indistinguishable"]
     tags: list[str] = Field(default_factory=list)
     expected_action: PersonResolutionAction
     true_person: str | None
@@ -120,7 +125,6 @@ class CaseOutcome(BaseModel):
     true_person: str | None
     action: PersonResolutionAction
     selected_person: str | None
-    exact_person: str | None
     candidates: list[str]
     reasons: list[str]
     top_score: float | None
@@ -130,11 +134,17 @@ class CaseOutcome(BaseModel):
 
 
 class DecisionMetrics(BaseModel):
+    # Distinguishable cases; indistinguishable namesakes are counted apart.
     cases: int
+    indistinguishable_cases: int
     cases_with_true_person: int
     auto_links: int
     correct_auto_links: int
+    # AUTO_LINK to a wrong person or when the true person does not exist, over
+    # distinguishable cases only.
     false_links: int
+    # AUTO_LINK of an indistinguishable namesake: a known limitation, not a policy error.
+    indistinguishable_namesake_links: int
     false_link_rate: float
     auto_link_precision: float | None
     auto_link_recall: float
@@ -148,6 +158,9 @@ class DecisionMetrics(BaseModel):
 
 
 def decision_metrics(outcomes: Sequence[CaseOutcome]) -> DecisionMetrics:
+    indistinguishable = [o for o in outcomes if o.category == "indistinguishable"]
+    namesake_links = [o for o in indistinguishable if o.action is A.AUTO_LINK]
+    outcomes = [o for o in outcomes if o.category != "indistinguishable"]
     with_truth = [o for o in outcomes if o.true_person is not None]
     auto = [o for o in outcomes if o.action is A.AUTO_LINK]
     correct = [o for o in auto if o.selected_person == o.true_person]
@@ -160,10 +173,12 @@ def decision_metrics(outcomes: Sequence[CaseOutcome]) -> DecisionMetrics:
     total = len(outcomes) or 1
     return DecisionMetrics(
         cases=len(outcomes),
+        indistinguishable_cases=len(indistinguishable),
         cases_with_true_person=len(with_truth),
         auto_links=len(auto),
         correct_auto_links=len(correct),
         false_links=len(auto) - len(correct),
+        indistinguishable_namesake_links=len(namesake_links),
         false_link_rate=round((len(auto) - len(correct)) / total, 4),
         auto_link_precision=round(len(correct) / len(auto), 4) if auto else None,
         auto_link_recall=round(len(correct) / (len(with_truth) or 1), 4),
@@ -251,7 +266,6 @@ def evaluate_cases(
                     true_person=case.true_person,
                     action=decision.action,
                     selected_person=keys.get(decision.selected_person_id or -1),
-                    exact_person=keys.get(plan.exact_person_id or -1),
                     candidates=[
                         keys.get(c.person_id, str(c.person_id)) for c in decision.candidates
                     ],
@@ -274,14 +288,12 @@ def generator_recall(
     *,
     name: GeneratorSet,
     generators: Sequence[PersonCandidateGenerator],
-    include_exact_key: bool,
     limit: int,
 ) -> GeneratorRecall:
     """Is the true person among the first k candidates of this generator set?
 
-    Exact covers the matching_key fast path plus known-alias keys.
+    Exact covers person and known-alias `matching_key` lookups.
     """
-    persistence = SqlAlchemyPersonPersistence(session_factory)
     composite = CompositeCandidateGenerator(generators)
     with_truth = [case for case in cases if case.true_person is not None]
     hits = dict.fromkeys(RECALL_KS, 0)
@@ -289,16 +301,12 @@ def generator_recall(
     with session_factory() as session:
         for case in with_truth:
             identity = pipeline_identity(case.incoming)
-            ranked: list[int] = []
-            if include_exact_key and identity.matching_key:
-                exact = persistence.find_person_by_matching_key_in_session(
-                    session, identity.matching_key
-                )
-                if exact is not None:
-                    ranked.append(exact)
-            for candidate in composite.generate(identity, limit=limit, session=session).candidates:
-                if candidate.person_id not in ranked:
-                    ranked.append(candidate.person_id)
+            ranked = [
+                candidate.person_id
+                for candidate in composite.generate(
+                    identity, limit=limit, session=session
+                ).candidates
+            ]
             total_candidates += len(ranked)
             truth = ids[case.true_person or ""]
             for k in RECALL_KS:
@@ -326,9 +334,6 @@ def sweep_thresholds(
         policy = PersonResolutionDecisionPolicy(thresholds)
         redecided = []
         for outcome in outcomes:
-            if outcome.exact_person is not None:  # fast path is threshold-independent
-                redecided.append(outcome)
-                continue
             case = by_id[outcome.case_id]
             decision = policy.decide(pipeline_identity(case.incoming), outcome.scored)
             redecided.append(
@@ -407,7 +412,6 @@ def run_er_evaluation(
             ids,
             name="exact",
             generators=[ExactKeyCandidateGenerator()],
-            include_exact_key=True,
             limit=limit,
         ),
         generator_recall(
@@ -416,7 +420,6 @@ def run_er_evaluation(
             ids,
             name="trigram",
             generators=[TrigramCandidateGenerator()],
-            include_exact_key=False,
             limit=limit,
         ),
     ]
@@ -428,7 +431,6 @@ def run_er_evaluation(
                 ids,
                 name="semantic",
                 generators=semantic,
-                include_exact_key=False,
                 limit=limit,
             )
         )
@@ -439,7 +441,6 @@ def run_er_evaluation(
             ids,
             name="combined",
             generators=lexical + semantic,
-            include_exact_key=True,
             limit=limit,
         )
     )
@@ -478,9 +479,16 @@ def format_er_evaluation(run: ErEvaluationRun) -> str:
             f"margin > {t.min_margin}, semantic {'on' if run.semantic_enabled else 'off'})"
         ),
         "",
-        f"cases: {d.cases} (with a true person: {d.cases_with_true_person})",
+        (
+            f"cases: {d.cases} (with a true person: {d.cases_with_true_person}; "
+            f"+{d.indistinguishable_cases} indistinguishable, reported apart)"
+        ),
         f"auto-link precision: {precision}   auto-link recall: {d.auto_link_recall:.2f}",
         f"false links: {d.false_links} (rate {d.false_link_rate:.2f})",
+        (
+            "indistinguishable namesake links (known limitation, not counted above): "
+            f"{d.indistinguishable_namesake_links}"
+        ),
         f"false create-new (missed links): {d.false_create_new} (rate {d.false_create_new_rate:.2f})",
         (
             f"review rate: {d.review_rate:.2f}   unnecessary reviews: {d.unnecessary_reviews}   "

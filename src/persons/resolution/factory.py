@@ -19,7 +19,6 @@ from persons.resolution.candidates import (
 )
 from persons.resolution.decision import PersonResolutionDecisionPolicy, ResolutionThresholds
 from persons.resolution.service import PersonResolutionEngine, PersonResolutionService
-from persons.resolver import RuleBasedPersonResolver
 from semantic_retrieval.retrievers import EntityRetriever
 
 logger = logging.getLogger("person_resolution")
@@ -79,7 +78,6 @@ def build_person_resolution_service(
     *,
     semantic_retriever: EntityRetriever | None = None,
     persistence: SqlAlchemyPersonPersistence | None = None,
-    resolver: RuleBasedPersonResolver | None = None,
 ) -> PersonResolutionService:
     persistence = persistence or SqlAlchemyPersonPersistence(session_factory)
     return PersonResolutionService(
@@ -87,5 +85,4 @@ def build_person_resolution_service(
             session_factory, env, semantic_retriever=semantic_retriever
         ),
         persistence=persistence,
-        resolver=resolver or RuleBasedPersonResolver(persistence),
     )

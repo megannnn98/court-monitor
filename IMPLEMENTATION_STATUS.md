@@ -8,15 +8,20 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `feature-entity-resolution-v2`, 2026-09-15, Python 3.13.
+Branch `fix/er-namesake-matching-key`, 2026-09-16, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` (without the `semantic` group) | no issues (216 files) |
-| Tests without services | `uv sync --frozen && uv run pytest` | 606 passed, 183 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 783 passed, 6 skipped |
-| + real models | `uv sync --frozen --group semantic`, `SEMANTIC_MODEL_TESTS=1` (CUDA) | 786 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` | no issues (215 files) |
+| Tests without services | `uv run pytest` | 607 passed, 189 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 790 passed, 6 skipped |
+| Migration | `alembic upgrade head` / `downgrade n8o9p0q1r2s3` / `upgrade head` on `court_monitor_test` | ok; downgrade refuses with active namesakes (tested) |
+| ER evaluation | `evaluate-er --sweep --semantic` (real E5) | 0 false links, precision 1.00, recall 0.58, review rate 0.43 |
+
+The real-model semantic test group (`SEMANTIC_MODEL_TESTS=1`) was not re-run on
+this branch; the dev database `court_monitor` is still at revision
+`75322e20112f` and was not migrated.
 
 Skipped in the last run: the three opt-in live Together AI tests
 (`TOGETHER_LIVE_TESTS=1`), not executed. CI has not run on GitHub for this
@@ -52,27 +57,31 @@ Source layout: `src/` is split into packages (`db`, `sources`, `extraction`,
 ### 3. Canonical Person Model + Entity Resolution
 - Person domain model with `canonical_name`, `normalized_name`, `matching_key`
 - PersonAlias with origin tracking (extraction/manual/resolution/merge)
-- `RuleBasedPersonResolver`: exact deterministic `matching_key` baseline
-  (ADR 0005), now the fast path of Entity Resolution v2
 - Entity Resolution v2 (ADR 0012, `src/persons/resolution/`):
   `PersonNameNormalizer` (all admissible ФИО orders, initials, `ё/е`; suffixes
-  are hints only), candidate generation (alias key, pg_trgm GIN, opt-in
+  are hints only), candidate generation (exact `matching_key` returning every
+  active namesake, alias key, pg_trgm GIN, opt-in
   semantic with its own threshold), per-component features with explicit
   conflicts (RapidFuzz), rule-based `resolution_score` (not a probability),
   decision policy AUTO_LINK / REVIEW / CREATE_NEW with top1−top2 margin;
   never merges existing persons automatically
+- `matching_key` is a candidate lookup key, not an identity key (ADR 0012
+  amendment, migration `o9p0q1r2s3t4`): `uq_persons_matching_key_active` replaced
+  by the non-unique partial `ix_persons_matching_key_active`; no exact fast path
+  and no `RuleBasedPersonResolver`; several active persons with the incoming key
+  → REVIEW (`multiple_exact_name_matches`); reviewers can create a same-name
+  person and record keep-separate (`distinct_from_person_id`)
 - Provenance in `person_resolution_decisions` (`resolver_version = er-v2`);
   REVIEW keeps the mention unlinked with a pending `person_resolution` review;
-  reviewer actions link / create / merge (audited) / keep separate (CLI + API);
+  reviewer actions link / create (namesakes allowed) / merge (audited, row
+  locks) / keep separate (CLI + API);
   alias promotion only for clean full forms
-- Advisory locks on order-independent identity blocks on top of the unique
-  index; idempotent re-runs
-- `evaluate-er`: 52-case corpus, candidate recall@k per generator, auto-link
-  precision 1.00 / recall 0.53, 0 false links, 0 false create-new, review rate
-  0.44 at the calibrated defaults
-- `uq_persons_matching_key_active` (partial unique index) prevents duplicate
-  canonical persons from a concurrent-resolution race; `resolve_and_create`
-  backs off to the winner on conflict instead of raising or duplicating
+- Advisory locks on order-independent identity blocks, taken before candidates
+  are read (the only guard against concurrent duplicates); idempotent re-runs
+- `evaluate-er`: 59-case corpus with namesake cases, candidate recall@k per
+  generator, auto-link precision 1.00 / recall 0.58, 0 false links (0 on
+  namesakes), 1 indistinguishable namesake link reported apart, 0 false
+  create-new, review rate 0.43 at the calibrated defaults
 - Person ↔ mention/event linking integrated into the extraction pipeline
   (`extraction/resolution_service.py`)
 - Merge with audit trail (`PersonMergeRecord`)
@@ -253,8 +262,10 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 - Entity resolution v2: thresholds tuned on a small synthetic corpus; no
   transliteration, diminutives without an alias, phonetic or context features;
   the extraction normalizer mangles names (`Анна Новикова` → `Анн Новиков`) and
-  ER compares those forms; the exact fast path cannot detect namesakes sharing a
-  `matching_key`; advisory locks include given-name tokens and are held for a
+  ER compares those forms; a single existing person with the incoming full name
+  is linked even if the mention is a different namesake (no context features);
+  without a unique key, names sharing no full token can race into two persons;
+  advisory locks include given-name tokens and are held for a
   whole extraction run; re-resolution under a new resolver version is not
   implemented; semantic index refresh after link/create is manual.
 - `PersonRecord` has no birth date field; the matcher's birth date signal is

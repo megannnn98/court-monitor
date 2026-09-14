@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -18,14 +17,6 @@ class AliasOrigin(StrEnum):
     MANUAL = "manual"
     RESOLUTION = "resolution"
     MERGE = "merge"
-
-
-class ResolutionStatus(StrEnum):
-    MATCHED = "matched"
-    NEW_PERSON = "new_person"
-    AMBIGUOUS = "ambiguous"
-    REJECTED = "rejected"
-    NEEDS_REVIEW = "needs_review"
 
 
 class MergeStatus(StrEnum):
@@ -74,16 +65,6 @@ class PersonAlias(BaseModel):
     created_at: datetime | None = None
 
 
-class ResolutionResult(BaseModel):
-    model_config = ConfigDict(use_enum_values=False)
-
-    person_id: int | None = None
-    status: ResolutionStatus
-    confidence: float = Field(ge=0.0, le=1.0)
-    reasons: list[str] = Field(default_factory=list)
-    candidate_person_ids: list[int] = Field(default_factory=list)
-
-
 class MergeRecord(BaseModel):
     model_config = ConfigDict(use_enum_values=False)
 
@@ -108,22 +89,3 @@ class ReviewRecord(BaseModel):
     reviewer_note: str | None = None
     created_at: datetime | None = None
     reviewed_at: datetime | None = None
-
-
-class PersonResolver(Protocol):
-    def resolve(
-        self,
-        *,
-        normalized_text: str,
-        matching_key: str,
-        surface_text: str,
-        context: ResolutionContext | None = None,
-    ) -> ResolutionResult: ...
-
-
-class ResolutionContext(BaseModel):
-    article_id: int | None = None
-    city: str | None = None
-    court: str | None = None
-    organization: str | None = None
-    event_types: list[str] = Field(default_factory=list)

@@ -2,14 +2,10 @@
 
 ## Status
 
-Accepted. The exact baseline below remains the fast path; fuzzy candidate
-generation, scoring, a decision policy with human review ("Phase 2") are
-implemented by [ADR 0012](0012-entity-resolution-v2.md).
-
-**What is actually implemented today: an exact, deterministic matching_key
-baseline (`RuleBasedPersonResolver` in `src/persons/resolver.py`).** It does
-not do fuzzy matching, phonetic matching, or ML-based resolution — "Phase
-2"/"Phase 3" below are future extension points, not implemented behavior.
+Superseded by [ADR 0012](0012-entity-resolution-v2.md). Its 2026-09-16
+amendment removed the exact baseline described here: `matching_key` is a
+candidate lookup key, not an identity key, and `RuleBasedPersonResolver` no
+longer exists. The text below is kept as the historical baseline.
 Do not describe this resolver as "fuzzy entity resolution" — it isn't.
 
 ## Context

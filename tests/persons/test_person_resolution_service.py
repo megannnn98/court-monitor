@@ -5,7 +5,6 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,7 +19,6 @@ from db.orm_models import (
     ReviewRecordModel,
 )
 from extraction.resolution_service import ExtractionResolutionService
-from persons.models import ResolutionResult
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateConfig,
@@ -36,7 +34,6 @@ from persons.resolution.service import (
     PersonResolutionEngine,
     PersonResolutionService,
 )
-from persons.resolver import RuleBasedPersonResolver
 from semantic_retrieval.models import RetrievalBackend, RetrievalUnavailableError
 
 A = PersonResolutionAction
@@ -78,21 +75,89 @@ def _count(session_factory: sessionmaker[Session], model: type) -> int:
         return session.scalar(select(func.count()).select_from(model)) or 0
 
 
-def test_exact_matching_key_is_the_fast_path_with_provenance(
+def test_unique_exact_candidate_auto_links_through_the_policy_with_provenance(
     session_factory: sessionmaker[Session],
 ) -> None:
-    person = seed_person(session_factory, "Иван Иванов")
+    person = seed_person(session_factory, "Алексей Сергеевич Иванов")
 
-    mention_id, action, linked = _resolve(session_factory, "Иван Иванов")
+    mention_id, action, linked = _resolve(session_factory, "Алексей Сергеевич Иванов")
 
     assert (action, linked) == (A.AUTO_LINK, person)
     decision = _decision(session_factory, mention_id)
-    assert decision.method == "exact_matching_key"
+    # No fast path: the exact key is a candidate source and a feature, the policy decides.
+    assert decision.method == "er_v2"
     assert decision.resolver_version == RESOLVER_VERSION == "er-v2"
     assert decision.status == "applied"
     assert decision.selected_person_id == person
-    assert decision.reasons == ["exact_matching_key"]
-    assert decision.candidates == []
+    assert decision.reasons == ["strong_unique_match"]
+    (top,) = decision.candidates
+    assert "exact_key" in top["candidate"]["sources"]
+    assert top["features"]["exact_matching_key"] is True
+
+
+def test_two_active_namesakes_go_to_review_never_the_lowest_id(
+    session_factory: sessionmaker[Session],
+) -> None:
+    namesakes = [seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(2)]
+
+    mention_id, action, linked = _resolve(session_factory, "Алексей Сергеевич Иванов")
+
+    assert (action, linked) == (A.REVIEW, None)
+    decision = _decision(session_factory, mention_id)
+    assert decision.selected_person_id is None
+    assert {
+        "multiple_exact_name_matches",
+        "multiple_plausible_candidates",
+        "low_decision_margin",
+    } <= set(decision.reasons)
+    assert sorted(c["candidate"]["person_id"] for c in decision.candidates) == sorted(namesakes)
+    assert _count(session_factory, PersonRecord) == 2
+    assert _count(session_factory, PersonAliasRecord) == 0
+
+
+def test_reordered_name_of_two_namesakes_goes_to_review(
+    session_factory: sessionmaker[Session],
+) -> None:
+    for _ in range(2):
+        seed_person(session_factory, "Алексей Сергеевич Иванов")
+
+    _, action, linked = _resolve(session_factory, "Иванов Алексей Сергеевич")
+
+    assert (action, linked) == (A.REVIEW, None)
+
+
+def test_semantic_similarity_does_not_break_a_namesake_tie(
+    session_factory: sessionmaker[Session],
+) -> None:
+    first, second = (seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(2))
+    retriever = StaticRetriever(
+        RetrievalBackend.HYBRID, [second, first], dense_scores={second: 0.99, first: 0.1}
+    )
+    service = _service(
+        session_factory, {"ER_SEMANTIC_CANDIDATES": "1"}, semantic_retriever=retriever
+    )
+
+    mention_id, action, linked = _resolve(session_factory, "Алексей Сергеевич Иванов", service)
+
+    assert (action, linked) == (A.REVIEW, None)
+    scores = {
+        c["candidate"]["person_id"]: c["score"]["resolution_score"]
+        for c in _decision(session_factory, mention_id).candidates
+    }
+    assert scores[first] == scores[second]
+
+
+def test_exact_candidate_with_a_weaker_competitor_auto_links(
+    session_factory: sessionmaker[Session],
+) -> None:
+    full = seed_person(session_factory, "Глеб Андреевич Кравцов")
+    seed_person(session_factory, "Глеб Кравцов")
+
+    mention_id, action, linked = _resolve(session_factory, "Глеб Андреевич Кравцов")
+
+    assert (action, linked) == (A.AUTO_LINK, full)
+    decision = _decision(session_factory, mention_id)
+    assert decision.decision_margin is not None and decision.decision_margin > 0.1
 
 
 def test_reordered_full_name_auto_links_through_er_v2_and_promotes_alias(
@@ -170,7 +235,6 @@ def test_repeated_resolution_is_idempotent(session_factory: sessionmaker[Session
     run_id, _ = seed_mentions(session_factory, "И. Иванов", "Пётр Сидоров", "Иван Иванов")
     extraction = ExtractionResolutionService(
         persistence=SqlAlchemyPersonPersistence(session_factory),
-        resolver=RuleBasedPersonResolver(SqlAlchemyPersonPersistence(session_factory)),
         session_factory=session_factory,
         person_resolution=_service(session_factory),
     )
@@ -276,51 +340,59 @@ class _SlowGenerator(CompositeCandidateGenerator):
         return result
 
 
-def test_concurrent_reordered_mentions_do_not_create_duplicate_persons(
-    session_factory: sessionmaker[Session],
-) -> None:
-    runs = [
-        seed_mentions(session_factory, "Иван Иванович Иванов")[0],
-        seed_mentions(session_factory, "Иванов Иван Иванович")[0],
-    ]
-    persistence = SqlAlchemyPersonPersistence(session_factory)
+def _slow_service(persistence: SqlAlchemyPersonPersistence) -> PersonResolutionService:
+    engine = PersonResolutionEngine(
+        persistence=persistence,
+        generator=_SlowGenerator(build_generators(CandidateConfig())),
+        policy=PersonResolutionDecisionPolicy(ResolutionThresholds()),
+    )
+    return PersonResolutionService(engine=engine, persistence=persistence)
 
-    def extraction() -> ExtractionResolutionService:
-        engine = PersonResolutionEngine(
-            persistence=persistence,
-            generator=_SlowGenerator(build_generators(CandidateConfig())),
-            policy=PersonResolutionDecisionPolicy(ResolutionThresholds()),
-        )
-        resolver = RuleBasedPersonResolver(persistence)
-        return ExtractionResolutionService(
-            persistence=persistence,
-            resolver=resolver,
-            session_factory=session_factory,
-            person_resolution=PersonResolutionService(
-                engine=engine, persistence=persistence, resolver=resolver
-            ),
-        )
 
-    barrier = threading.Barrier(2)
+def _race(jobs: list[Callable[[], None]]) -> list[BaseException]:
+    barrier = threading.Barrier(len(jobs))
     errors: list[BaseException] = []
 
-    def worker(run_id: int) -> Callable[[], None]:
+    def wrap(job: Callable[[], None]) -> Callable[[], None]:
         def run() -> None:
             try:
                 barrier.wait()
-                extraction().resolve_extraction_run(run_id)
-            except BaseException as exc:  # noqa: BLE001 - surfaced by the assert below
+                job()
+            except BaseException as exc:  # noqa: BLE001 - surfaced by the caller's assert
                 errors.append(exc)
 
         return run
 
-    threads = [threading.Thread(target=worker(run_id)) for run_id in runs]
+    threads = [threading.Thread(target=wrap(job)) for job in jobs]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join(timeout=30)
+    return errors
 
-    assert errors == []
+
+def _concurrent_extraction_runs(session_factory: sessionmaker[Session], *surfaces: str) -> None:
+    runs = [seed_mentions(session_factory, surface)[0] for surface in surfaces]
+    persistence = SqlAlchemyPersonPersistence(session_factory)
+
+    def job(run_id: int) -> Callable[[], None]:
+        def run() -> None:
+            ExtractionResolutionService(
+                persistence=persistence,
+                session_factory=session_factory,
+                person_resolution=_slow_service(persistence),
+            ).resolve_extraction_run(run_id)
+
+        return run
+
+    assert _race([job(run_id) for run_id in runs]) == []
+
+
+def test_concurrent_reordered_mentions_do_not_create_duplicate_persons(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _concurrent_extraction_runs(session_factory, "Иван Иванович Иванов", "Иванов Иван Иванович")
+
     assert _count(session_factory, PersonRecord) == 1
     with session_factory() as session:
         linked = session.scalars(select(EntityMentionRecord.person_id)).all()
@@ -328,36 +400,32 @@ def test_concurrent_reordered_mentions_do_not_create_duplicate_persons(
     assert len(set(linked)) == 1 and None not in linked
 
 
-def test_create_new_that_loses_the_race_links_the_winner_and_is_not_counted_as_created(
+def test_concurrent_same_name_without_evidence_creates_one_person(
     session_factory: sessionmaker[Session],
 ) -> None:
-    persistence = SqlAlchemyPersonPersistence(session_factory)
-    resolver = RuleBasedPersonResolver(persistence)
-    original_resolve = resolver.resolve
-    winner: list[int] = []
+    # No unique index any more: the identity-block lock alone prevents the duplicate.
+    _concurrent_extraction_runs(
+        session_factory, "Алексей Сергеевич Иванов", "Алексей Сергеевич Иванов"
+    )
 
-    def resolve_then_lose_race(*args: Any, **kwargs: Any) -> ResolutionResult:
-        result = original_resolve(*args, **kwargs)
-        # A concurrent worker commits the same person after this worker planned CREATE_NEW.
-        winner.append(
-            persistence.create_person(
-                canonical_name=kwargs["normalized_text"],
-                normalized_name=kwargs["normalized_text"],
-                matching_key=kwargs["matching_key"],
-            )
-        )
-        return result
-
-    resolver.resolve = resolve_then_lose_race  # type: ignore[method-assign]
-    service = _service(session_factory, persistence=persistence, resolver=resolver)
-
-    _, (mention_id,) = seed_mentions(session_factory, "Василий Голубцов")
-    with session_factory.begin() as session:
-        outcome = service.resolve_mention(session, session.get_one(EntityMentionRecord, mention_id))
-
-    assert outcome is not None
-    assert outcome.action is A.CREATE_NEW
-    assert outcome.person_id == winner[0]
-    assert not outcome.created_person
     assert _count(session_factory, PersonRecord) == 1
-    assert _decision(session_factory, mention_id).selected_person_id == winner[0]
+
+
+def test_direct_resolve_mention_takes_the_identity_lock_before_deciding(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _, mentions = seed_mentions(session_factory, "Иван Иванов", "Иван Иванов")
+    service = _slow_service(SqlAlchemyPersonPersistence(session_factory))
+
+    def job(mention_id: int) -> Callable[[], None]:
+        def run() -> None:
+            with session_factory.begin() as session:
+                service.resolve_mention(session, session.get_one(EntityMentionRecord, mention_id))
+
+        return run
+
+    assert _race([job(mention_id) for mention_id in mentions]) == []
+    assert _count(session_factory, PersonRecord) == 1
+    with session_factory() as session:
+        linked = session.scalars(select(EntityMentionRecord.person_id)).all()
+    assert len(set(linked)) == 1 and None not in linked

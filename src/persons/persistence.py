@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -135,25 +136,56 @@ class SqlAlchemyPersonPersistence:
         session.flush()
         return alias.id
 
-    def find_person_by_matching_key(self, matching_key: str) -> int | None:
-        with self._session_factory() as session:
-            return self.find_person_by_matching_key_in_session(session, matching_key)
-
-    def find_person_by_matching_key_in_session(
+    def find_persons_by_matching_key_in_session(
         self,
         session: Session,
         matching_key: str,
-    ) -> int | None:
-        person = session.scalar(
-            select(PersonRecord)
-            .where(
-                PersonRecord.matching_key == matching_key,
-                PersonRecord.status == PersonStatus.ACTIVE.value,
-            )
-            .order_by(PersonRecord.id)
-            .limit(1)
+    ) -> list[int]:
+        """Active persons with this key, by id: zero, one or several namesakes.
+
+        A lookup for candidate generation, not an identity decision (ADR 0012).
+        """
+        return list(
+            session.scalars(
+                select(PersonRecord.id)
+                .where(
+                    PersonRecord.matching_key == matching_key,
+                    PersonRecord.status == PersonStatus.ACTIVE.value,
+                )
+                .order_by(PersonRecord.id)
+            ).all()
         )
-        return person.id if person else None
+
+    def add_alias_if_not_exists_in_session(
+        self,
+        session: Session,
+        *,
+        person_id: int,
+        surface_text: str,
+        normalized_text: str,
+        matching_key: str,
+        origin: AliasOrigin,
+        confidence: float,
+        source_mention_id: int | None = None,
+    ) -> bool:
+        """Add an alias unless the person already has this surface form; True if added."""
+        try:
+            # A SAVEPOINT so a duplicate-alias IntegrityError only rolls back this
+            # insert, not the caller's whole transaction.
+            with session.begin_nested():
+                self.create_alias_in_session(
+                    session,
+                    person_id=person_id,
+                    surface_text=surface_text,
+                    normalized_text=normalized_text,
+                    matching_key=matching_key,
+                    origin=origin,
+                    confidence=confidence,
+                    source_mention_id=source_mention_id,
+                )
+        except IntegrityError:
+            return False
+        return True
 
     def merge_persons(
         self,

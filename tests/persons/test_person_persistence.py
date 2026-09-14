@@ -66,29 +66,48 @@ def test_create_alias_links_to_person(
     assert alias.surface_text == "Ивана Иванова"
 
 
-def test_find_person_by_matching_key_returns_person(
+def test_active_namesakes_may_share_a_matching_key(
     session_factory: sessionmaker[Session],
 ) -> None:
     persistence = SqlAlchemyPersonPersistence(session_factory)
-    person_id = persistence.create_person(
-        canonical_name="Иван Иванов",
-        normalized_name="Иван Иванов",
-        matching_key="иваниванов",
+    first, second = (
+        persistence.create_person(
+            canonical_name="Алексей Сергеевич Иванов",
+            normalized_name="Алексей Сергеевич Иванов",
+            matching_key="алексейсергеевичиванов",
+        )
+        for _ in range(2)
     )
 
-    found_id = persistence.find_person_by_matching_key("иваниванов")
+    with session_factory() as session:
+        statuses = session.scalars(
+            select(PersonRecord.status).where(PersonRecord.id.in_((first, second)))
+        ).all()
+        found = persistence.find_persons_by_matching_key_in_session(
+            session, "алексейсергеевичиванов"
+        )
 
-    assert found_id == person_id
+    assert statuses == [PersonStatus.ACTIVE.value, PersonStatus.ACTIVE.value]
+    assert found == sorted([first, second])
 
 
-def test_find_person_by_matching_key_returns_none_when_not_found(
+def test_find_persons_by_matching_key_skips_merged_and_unknown_keys(
     session_factory: sessionmaker[Session],
 ) -> None:
     persistence = SqlAlchemyPersonPersistence(session_factory)
+    source, target = (
+        persistence.create_person(
+            canonical_name="Иван Иванов", normalized_name="Иван Иванов", matching_key="иваниванов"
+        )
+        for _ in range(2)
+    )
+    persistence.merge_persons(source_person_id=source, target_person_id=target)
 
-    found_id = persistence.find_person_by_matching_key("несуществующий")
-
-    assert found_id is None
+    with session_factory() as session:
+        assert persistence.find_persons_by_matching_key_in_session(session, "иваниванов") == [
+            target
+        ]
+        assert persistence.find_persons_by_matching_key_in_session(session, "несуществующий") == []
 
 
 def test_merge_persons_updates_status_and_creates_record(

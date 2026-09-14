@@ -4,8 +4,9 @@ Rules (ADR 0012), in order:
 1. no candidates → CREATE_NEW (NO_CANDIDATE);
 2. plausible = no identity conflict and score ≥ review minimum;
 3. top plausible ≥ auto-link minimum, margin over the second plausible above
-   the minimum, a single strong candidate (no possible duplicate persons) and a
-   full (non-initial, complete) incoming name → AUTO_LINK;
+   the minimum, a single strong candidate (no possible duplicate persons), a
+   single active person with the incoming matching_key (namesakes are never
+   picked by id) and a full (non-initial, complete) incoming name → AUTO_LINK;
    otherwise REVIEW with every reason that blocked it;
 4. top plausible below the auto-link minimum → REVIEW (MEDIUM_CONFIDENCE_MATCH);
 5. nothing plausible → CREATE_NEW, unless the semantic source was unavailable
@@ -16,7 +17,7 @@ Semantic similarity never enters these rules except through (5).
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from persons.resolution.models import (
@@ -81,7 +82,9 @@ class PersonResolutionDecisionPolicy:
         candidates: Sequence[ScoredPersonCandidate],
         *,
         semantic_source: SemanticSourceStatus = SemanticSourceStatus.DISABLED,
+        distinct_pairs: Collection[frozenset[int]] = (),
     ) -> PersonResolutionDecision:
+        """`distinct_pairs`: person pairs a reviewer declared different people (KEEP_SEPARATE)."""
         ranked = rank_candidates(candidates)
 
         def decision(
@@ -128,9 +131,20 @@ class PersonResolutionDecisionPolicy:
         reasons = []
         if len(plausible) > 1:
             reasons.append(R.MULTIPLE_PLAUSIBLE_CANDIDATES)
+        exact_key = [c for c in plausible if c.features.exact_matching_key]
+        if len(exact_key) > 1:
+            # Same name is not same person: namesakes are never told apart by id or score.
+            reasons.append(R.MULTIPLE_EXACT_NAME_MATCHES)
         strong = [c for c in plausible if c.resolution_score >= self.thresholds.auto_link_min_score]
         if len(strong) > 1:
-            reasons.append(R.POSSIBLE_DUPLICATE_PERSONS)
+            known_distinct = all(
+                frozenset((left.person_id, right.person_id)) in distinct_pairs
+                for index, left in enumerate(strong)
+                for right in strong[index + 1 :]
+            )
+            reasons.append(
+                R.KNOWN_DISTINCT_PERSONS if known_distinct else R.POSSIBLE_DUPLICATE_PERSONS
+            )
         if top.features.initials_only:
             reasons.append(R.INITIALS_ONLY)
         if top.features.incomplete_name:
@@ -148,6 +162,8 @@ class PersonResolutionDecisionPolicy:
             R.INCOMPLETE_NAME,
             # Two strong matches: possibly duplicate canonical persons, a human decides.
             R.POSSIBLE_DUPLICATE_PERSONS,
+            R.KNOWN_DISTINCT_PERSONS,
+            R.MULTIPLE_EXACT_NAME_MATCHES,
         }
         if blocked & set(reasons):
             return decision(PersonResolutionAction.REVIEW, reasons, margin=margin)

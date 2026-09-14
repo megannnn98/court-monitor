@@ -15,7 +15,7 @@
 - [Research](Research.md) — детерминированный research layer: `ResearchRequest` → `ResearchService` → Person-результаты с evidence
 - [Research-Reports](Research-Reports.md) — отчёт с claims/citations, human review policy, database-first source routing
 - [Semantic-Retrieval](Semantic-Retrieval.md) — entity-level lexical + dense + RRF кандидаты (Qdrant), evaluation backend'ов
-- [Entity-Resolution](Entity-Resolution.md) — ER v2: exact fast path, pg_trgm/semantic кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
+- [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm/semantic кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
 - [Testing](Testing.md) — тесты, линтеры, pre-commit

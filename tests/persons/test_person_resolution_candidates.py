@@ -43,9 +43,31 @@ def test_exact_key_candidates_come_from_names_and_aliases(
         alias_hits = generator.generate(_identity("Ваня Петров"), limit=10, session=session)
 
     assert _ids(name_hits) == [by_name]
+    assert name_hits[0].sources == [CandidateSource.EXACT_KEY]
     assert _ids(alias_hits) == [by_alias]
     assert alias_hits[0].aliases == ["Ваня Петров"]
     assert alias_hits[0].sources == [CandidateSource.ALIAS]
+
+
+def test_exact_key_returns_every_active_namesake_in_id_order(
+    session_factory: sessionmaker[Session],
+) -> None:
+    namesakes = [seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(3)]
+    seed_person(session_factory, "Алексей Иванов")
+
+    with session_factory() as session:
+        hits = ExactKeyCandidateGenerator().generate(
+            _identity("Алексей Сергеевич Иванов"), limit=10, session=session
+        )
+        composite = CompositeCandidateGenerator(
+            [TrigramCandidateGenerator(), ExactKeyCandidateGenerator()]
+        ).generate(_identity("Алексей Сергеевич Иванов"), limit=10, session=session)
+
+    assert _ids(hits) == sorted(namesakes)
+    assert all(hit.sources == [CandidateSource.EXACT_KEY] for hit in hits)
+    # Exact-key candidates lead the merged pool, one entry per person, id order on ties.
+    assert _ids(composite.candidates)[:3] == sorted(namesakes)
+    assert len(set(_ids(composite.candidates))) == len(composite.candidates)
 
 
 def test_trigram_finds_reordered_typo_and_initial_forms(
@@ -135,7 +157,7 @@ def test_composite_merges_sources_and_reports_semantic_status(
 
     (candidate,) = result.candidates
     assert set(candidate.sources) == {
-        CandidateSource.ALIAS,
+        CandidateSource.EXACT_KEY,
         CandidateSource.TRIGRAM,
         CandidateSource.SEMANTIC,
     }

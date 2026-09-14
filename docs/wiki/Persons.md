@@ -1,10 +1,11 @@
 # Person Resolution
 
-**Status:** the exact, deterministic `matching_key` lookup
-(`RuleBasedPersonResolver`, ADR 0005) is the fast path of Entity Resolution v2:
-candidate generation (aliases, pg_trgm, optional semantic), feature-based
-scoring and a decision policy with human review
-(`AUTO_LINK` / `REVIEW` / `CREATE_NEW`). See [Entity-Resolution](Entity-Resolution.md)
+**Status:** persons are resolved by Entity Resolution v2 only: candidate
+generation (exact `matching_key`, aliases, pg_trgm, optional semantic),
+feature-based scoring and a decision policy with human review
+(`AUTO_LINK` / `REVIEW` / `CREATE_NEW`). **`matching_key` is a candidate lookup
+key, not an identity key**: active namesakes may share it, and an equal key is
+never an automatic link on its own. See [Entity-Resolution](Entity-Resolution.md)
 and `docs/adr/0012-entity-resolution-v2.md`. ER v2 never merges existing persons
 automatically.
 
@@ -19,7 +20,7 @@ The person resolution system extracts person mentions from articles, normalizes 
 - **Person**: Canonical person entity with unique ID
   - `canonical_name`: Standardized full name
   - `normalized_name`: Normalized for matching (lowercase, no punctuation)
-  - `matching_key`: Unique key for fast lookups
+  - `matching_key`: Candidate lookup key (not unique: namesakes share it)
   - `merged_into_id`: Reference to another person if merged
 
 - **PersonAlias**: Alternative names for a person
@@ -37,13 +38,14 @@ The person resolution system extracts person mentions from articles, normalizes 
 
 ### Entity Resolution
 
-1. **Exact fast path** (`RuleBasedPersonResolver`): equal `matching_key` of an
-   active person → link, alias for the mention.
-2. **ER v2 fallback** (`src/persons/resolution/`): candidates → features →
-   `resolution_score` → decision. AUTO_LINK links; CREATE_NEW creates a person
-   through the racing-safe resolver; REVIEW leaves the mention unlinked with a
-   pending `person_resolution` review. Aliases are added only for clean full
-   forms (`AliasPromotionPolicy`).
+ER v2 (`src/persons/resolution/`) under an identity-block advisory lock:
+candidates → features → `resolution_score` → decision. A single active person
+with the incoming key auto-links; several (namesakes or duplicates) go to
+review (`multiple_exact_name_matches`). AUTO_LINK links; CREATE_NEW creates a
+person; REVIEW leaves the mention unlinked with a pending `person_resolution`
+review, where a reviewer may link, create a same-name person, merge (audited)
+or keep two persons separate. Aliases are added only for clean full forms
+(`AliasPromotionPolicy`).
 
 Details, thresholds, evaluation: [Entity-Resolution](Entity-Resolution.md).
 
@@ -63,6 +65,8 @@ CREATE TABLE persons (
 );
 
 CREATE INDEX ix_persons_matching_key ON persons(matching_key);
+-- Not unique (namesakes): partial index for candidate lookup.
+CREATE INDEX ix_persons_matching_key_active ON persons(matching_key) WHERE status = 'active';
 CREATE INDEX ix_persons_status ON persons(status);
 
 -- Person aliases

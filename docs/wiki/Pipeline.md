@@ -103,9 +103,8 @@ court-monitor extract-entities --article-id 123
 **Purpose**: Resolve extracted person mentions to canonical person entities, creating new persons as needed.
 
 **Components**:
-- `PersonResolver`: Protocol for resolution strategies
-- `RuleBasedPersonResolver`: Deterministic rule-based implementation
 - `ExtractionResolutionService`: Orchestrates resolution for extraction runs
+- Entity Resolution v2 (`src/persons/resolution/`, see [Entity-Resolution](Entity-Resolution.md))
 
 **CLI**:
 ```bash
@@ -122,8 +121,8 @@ court-monitor resolve-people --article-id 123
 - `person_event_links`: Links between persons and events
 
 **Key Features**:
-- Matching key-based resolution (normalized name → unique key)
-- Automatic alias creation for each mention
+- `matching_key` is a candidate lookup key, not an identity key (namesakes allowed)
+- Aliases only for clean full forms (`AliasPromotionPolicy`)
 - Person merging for duplicates
 - Audit trail for all merges
 

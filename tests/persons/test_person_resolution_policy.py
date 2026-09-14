@@ -293,3 +293,77 @@ def test_two_strong_candidates_review_even_with_a_wide_margin() -> None:
     assert decision.action is A.REVIEW
     assert R.POSSIBLE_DUPLICATE_PERSONS in decision.reasons
     assert R.LOW_DECISION_MARGIN not in decision.reasons
+
+
+def _keyed(incoming: str, name: str, *, person_id: int, key: str) -> ScoredPersonCandidate:
+    candidate = PersonResolutionCandidate(
+        person_id=person_id, canonical_name=name, matching_key=key
+    )
+    features = extractor.extract(PersonIdentityInput(name=incoming, matching_key=key), candidate)
+    return ScoredPersonCandidate(
+        candidate=candidate, features=features, score=scorer.score(features)
+    )
+
+
+# 1.0 vs 0.90 with a 0.05 minimum margin and a single strong (>= 0.95) candidate:
+# only the shared matching_key is left to block the link.
+ONE_STRONG = PersonResolutionDecisionPolicy(
+    ResolutionThresholds(auto_link_min_score=0.95, review_min_score=0.4, min_margin=0.05)
+)
+
+
+def test_several_persons_with_the_incoming_key_review_whatever_the_scores() -> None:
+    candidates = [
+        _keyed("Иван Иванович Иванов", "Иван Иванович Иванов", person_id=1, key="k"),
+        _keyed("Иван Иванович Иванов", "Иванов Иван Иванович", person_id=2, key="k"),
+    ]
+    decision = ONE_STRONG.decide(
+        PersonIdentityInput(name="Иван Иванович Иванов", matching_key="k"), candidates
+    )
+
+    assert decision.action is A.REVIEW and decision.selected_person_id is None
+    assert decision.reasons == [R.MULTIPLE_PLAUSIBLE_CANDIDATES, R.MULTIPLE_EXACT_NAME_MATCHES]
+
+
+def test_single_exact_key_candidate_auto_links() -> None:
+    decision = ONE_STRONG.decide(
+        PersonIdentityInput(name="Иван Иванович Иванов", matching_key="k"),
+        [_keyed("Иван Иванович Иванов", "Иван Иванович Иванов", person_id=1, key="k")],
+    )
+
+    assert (decision.action, decision.selected_person_id) == (A.AUTO_LINK, 1)
+
+
+def test_known_distinct_strong_candidates_still_review() -> None:
+    wide = PersonResolutionDecisionPolicy(
+        ResolutionThresholds(auto_link_min_score=0.85, review_min_score=0.4, min_margin=0.05)
+    )
+    candidates = [
+        _scored("Иван Иванович Иванов", "Иван Иванович Иванов", person_id=1),
+        _scored("Иван Иванович Иванов", "Иванов Иван Иванович", person_id=2),
+    ]
+    identity = PersonIdentityInput(name="Иван Иванович Иванов")
+
+    known = wide.decide(identity, candidates, distinct_pairs={frozenset((1, 2))})
+    unrelated = wide.decide(identity, candidates, distinct_pairs={frozenset((1, 3))})
+
+    assert known.action is A.REVIEW
+    assert R.KNOWN_DISTINCT_PERSONS in known.reasons
+    assert R.POSSIBLE_DUPLICATE_PERSONS not in known.reasons
+    assert R.POSSIBLE_DUPLICATE_PERSONS in unrelated.reasons
+
+
+def test_exact_complete_form_is_strong_whatever_reading_wins() -> None:
+    # A suffix hint reads "Шостакович" as a patronymic; a 4-token name has no reading.
+    suffix_trap = _scored("Дмитрий Шостакович", "Дмитрий Шостакович")
+    unparsed = _scored("Мамед Гусейн оглы Алиев", "Мамед Гусейн оглы Алиев")
+    unparsed_other = _scored("Мамед Гусейн оглы Алиев", "Мамед Гусейн оглы Алиева")
+
+    assert suffix_trap.resolution_score == unparsed.resolution_score == 0.85
+    assert "exact_complete_form" in unparsed.score.rules
+    assert unparsed_other.resolution_score < THRESHOLDS.review_min_score
+
+
+def test_exact_form_floor_does_not_cover_incomplete_or_initials_names() -> None:
+    assert _scored("Иванов", "Иванов").resolution_score < 0.85
+    assert _scored("И. Иванов", "И. Иванов").resolution_score < 0.85
