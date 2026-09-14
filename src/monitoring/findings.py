@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from sqlalchemy import and_, func, literal_column, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -134,14 +134,17 @@ class MonitoringFindingService:
         )
         classification_ids = self._latest_classification_ids(session, person_ids)
         match_ids = self._rf_match_ids(session, person_ids, snapshot_id)
-        inactive_before = set(
-            session.scalars(
-                select(MonitoringFindingRecord.person_id).where(
+        # Existing findings are read up front (the stage holds the findings advisory lock),
+        # so "created" and "reactivated" do not depend on PostgreSQL system columns.
+        existing_active = dict(
+            session.execute(
+                select(MonitoringFindingRecord.person_id, MonitoringFindingRecord.active).where(
                     MonitoringFindingRecord.finding_type == criterion.finding_type,
                     MonitoringFindingRecord.criteria_version == criterion.criteria_version,
-                    MonitoringFindingRecord.active.is_(False),
                 )
-            ).all()
+            )
+            .tuples()
+            .all()
         )
 
         for person_id in person_ids:
@@ -160,7 +163,7 @@ class MonitoringFindingService:
                 rosfin_match_id=match_ids.get(person_id),
             )
             # first_seen_* are never updated: they answer "since when, since which run".
-            inserted: bool = session.execute(
+            session.execute(
                 statement.on_conflict_do_update(
                     constraint="uq_monitoring_findings_type_person_criteria",
                     set_={
@@ -173,11 +176,11 @@ class MonitoringFindingService:
                         "rosfin_match_id": match_ids.get(person_id),
                         "updated_at": func.now(),
                     },
-                ).returning(literal_column("xmax = 0").label("inserted"))
-            ).scalar_one()
-            if inserted:
+                )
+            )
+            if person_id not in existing_active:
                 outcome.created += 1
-            elif person_id in inactive_before:
+            elif not existing_active[person_id]:
                 outcome.reactivated += 1
         outcome.deactivated = self._deactivate_missing(session, criterion, person_ids)
         logger.info(

@@ -31,6 +31,7 @@ from monitoring.locks import advisory_lock
 from monitoring.models import (
     DERIVED_SCOPE,
     FailureKind,
+    MonitoringRunAbortedError,
     MonitoringRunStatus,
     MonitoringRunView,
     MonitoringSettings,
@@ -56,6 +57,8 @@ from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 logger = logging.getLogger("monitoring")
 
 SEMANTIC_NOT_CONFIGURED = "not_configured"
+# A run waiting for a derived-stage lock refreshes its heartbeat at least this often.
+MAX_LOCK_WAIT_HEARTBEAT_SECONDS = 60.0
 
 
 class ExtractionFailedError(Exception):
@@ -161,8 +164,25 @@ class MonitoringService:
             raise ValueError(f"Unknown source: {name}") from None
 
     @contextmanager
+    def _derived_lock(self, handle: RunHandle, stage: str) -> Iterator[None]:
+        """Serialize a global stage across runs; keep the heartbeat alive while waiting."""
+        heartbeat_every = min(
+            MAX_LOCK_WAIT_HEARTBEAT_SECONDS, self._settings.stale_run_after.total_seconds() / 4
+        )
+        with advisory_lock(
+            self._deps.engine,
+            f"monitoring:derived:{stage}",
+            while_waiting=lambda: self._repository.heartbeat(handle.run_id),
+            wait_callback_every_seconds=heartbeat_every,
+            poll_seconds=min(1.0, heartbeat_every),
+        ):
+            yield
+
+    @contextmanager
     def _stage(self, handle: RunHandle, stage: MonitoringStage) -> Iterator[dict[str, Any]]:
         """Time a stage, store its metrics on the run and log `monitoring_<stage>_completed`."""
+        # Fencing: an aborted run does not start another stage.
+        self._repository.heartbeat(handle.run_id)
         metrics: dict[str, Any] = {}
         started = time.monotonic()
         yield metrics
@@ -280,6 +300,9 @@ class MonitoringService:
             self.extract(handle, ingestion)
             self.resolve(handle)
             self._run_derived_stages(handle)
+        except MonitoringRunAbortedError:
+            logger.warning("monitoring_run_fenced run_id=%s: aborted while running", handle.run_id)
+            return self.finish(handle)
         except Exception as exc:
             logger.exception("monitoring_run_failed run_id=%s source=%s", handle.run_id, source)
             return self.finish(handle, error=exc)
@@ -296,6 +319,9 @@ class MonitoringService:
         handle = self.start_derived_run(trigger=trigger)
         try:
             self._run_derived_stages(handle)
+        except MonitoringRunAbortedError:
+            logger.warning("monitoring_run_fenced run_id=%s: aborted while running", handle.run_id)
+            return self.finish(handle)
         except Exception as exc:
             logger.exception("monitoring_run_failed run_id=%s scope=derived", handle.run_id)
             return self.finish(handle, error=exc)
@@ -369,6 +395,7 @@ class MonitoringService:
                 persistence=self._deps.create_ingestion_persistence(definition),
             )
             for reference in references:
+                self._repository.heartbeat(handle.run_id)
                 try:
                     result = await pipeline.run(reference)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
@@ -414,6 +441,7 @@ class MonitoringService:
         processed = skipped = failed = events = 0
         with self._stage(handle, MonitoringStage.EXTRACTION) as metrics:
             for article_id in article_ids:
+                self._repository.heartbeat(handle.run_id)
                 try:
                     document = self._deps.extraction_documents.get_by_article_id(article_id)
                     saved = pipeline.run(document)
@@ -465,6 +493,7 @@ class MonitoringService:
         created = linked = reviews = failed = 0
         with self._stage(handle, MonitoringStage.RESOLUTION) as metrics:
             for extraction_run_id in run_ids:
+                self._repository.heartbeat(handle.run_id)
                 try:
                     stats = self._deps.resolution.resolve_extraction_run(extraction_run_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
@@ -509,7 +538,7 @@ class MonitoringService:
         statuses: Counter[str] = Counter()
         failed = 0
         with (
-            advisory_lock(self._deps.engine, "monitoring:derived:classification"),
+            self._derived_lock(handle, "classification"),
             self._stage(handle, MonitoringStage.CLASSIFICATION) as metrics,
         ):
             person_ids = self._deps.work.persons_pending_classification(
@@ -517,6 +546,7 @@ class MonitoringService:
                 classifier_version=classifier.classifier_version,
             )
             for person_id in person_ids:
+                self._repository.heartbeat(handle.run_id)
                 try:
                     classification = self._deps.classification.classify_person(person_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
@@ -550,7 +580,7 @@ class MonitoringService:
         statuses: Counter[str] = Counter()
         failed = 0
         with (
-            advisory_lock(self._deps.engine, "monitoring:derived:rf_matching"),
+            self._derived_lock(handle, "rf_matching"),
             self._stage(handle, MonitoringStage.RF_MATCHING) as metrics,
         ):
             snapshot = self._deps.snapshot_lookup.latest_imported_snapshot()
@@ -560,6 +590,7 @@ class MonitoringService:
             self._repository.set_rf_snapshot(handle.run_id, snapshot.snapshot_id)
             person_ids = self._deps.work.persons_pending_rf_match(snapshot_id=snapshot.snapshot_id)
             for person_id in person_ids:
+                self._repository.heartbeat(handle.run_id)
                 try:
                     result = self._deps.rf_matcher.match_person(person_id, snapshot.snapshot_id)
                     self._deps.rf_persistence.save_match_result(result)
@@ -596,7 +627,7 @@ class MonitoringService:
         next run (or `monitor-derived`) picks the still-stale entities up again."""
         embedded = unchanged = deleted = 0
         with (
-            advisory_lock(self._deps.engine, "monitoring:derived:semantic_indexing"),
+            self._derived_lock(handle, "semantic_indexing"),
             self._stage(handle, MonitoringStage.SEMANTIC_INDEXING) as metrics,
         ):
             try:
@@ -625,6 +656,7 @@ class MonitoringService:
             for entity_type, entity_ids in work.items():
                 for start in range(0, len(entity_ids), size):
                     batch = entity_ids[start : start + size]
+                    self._repository.heartbeat(handle.run_id)
                     try:
                         stats = indexer.index_entities(entity_type, batch)
                     except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
@@ -663,7 +695,7 @@ class MonitoringService:
 
     def evaluate_findings(self, handle: RunHandle, *, snapshot_id: int | None) -> StageResult:
         with (
-            advisory_lock(self._deps.engine, "monitoring:derived:findings"),
+            self._derived_lock(handle, "findings"),
             self._stage(handle, MonitoringStage.FINDINGS) as metrics,
         ):
             evaluation = self._deps.findings.evaluate(run_id=handle.run_id, snapshot_id=snapshot_id)

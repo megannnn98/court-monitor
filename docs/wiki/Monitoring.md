@@ -120,7 +120,7 @@ Evidence change — самое позднее из: person создан/обно
 
 ## Ретраи Dagster
 
-Ретрай есть только у `monitoring_derived_job`; HTTP ретраит сам source layer, поэтому у `monitoring_job` retry policy нет.
+Ретрай есть только у `monitoring_derived_job`; HTTP ретраит сам source layer, поэтому у `monitoring_job` retry policy нет. Ретраятся только retryable-сбои: retryable items или run `failed` с `stage_metrics.run.failure_kind = retryable`. Ошибка кода или конфигурации → `dagster.Failure(allow_retries=False)`, без повторов.
 
 ```plantuml
 @startuml
@@ -163,7 +163,8 @@ end
 
 - Один источник — один `running` run: partial unique index на `monitoring_runs(scope)`. Второй запуск получает `already_running` (CLI, exit code 3) или пропуск этапов (Dagster).
 - Разные источники работают параллельно.
-- Глобальные derived-этапы сериализуются advisory lock'ами `monitoring:derived:<stage>`.
+- Глобальные derived-этапы сериализуются advisory lock'ами `monitoring:derived:<stage>`. Lock ждётся опросом `pg_try_advisory_lock`, и пока run ждёт, он обновляет heartbeat — живой run не считается stale.
+- Fencing: все служебные записи run идут с `WHERE status = 'running'`. Worker, чей run уже помечен `aborted`, получает `MonitoringRunAbortedError` на ближайшем heartbeat (перед каждым этапом и каждой единицей работы) и останавливается, не продолжая работу рядом с новым run.
 
 ## Findings
 
@@ -224,7 +225,9 @@ docker compose --profile monitoring up -d --build   # webserver :3000, daemon
 ## Ограничения
 
 - Изменившийся на источнике документ обычным run'ом не перечитывается; `--backfill --refetch-known` перечитает, extraction создаст run для нового content hash рядом со старым (versioning документов не делался).
-- Отдельные assets в Dagster UI не материализуются по одному (in-memory IO); изоляция этапов — через `monitoring_derived_job` / `monitor-derived`.
+- Отдельные assets и «re-execute from failure» в Dagster для `monitoring_job` не поддерживаются (in-memory IO: handle упавшего процесса потерян) — запускать job целиком заново, это безопасно; изоляция этапов — через `monitoring_derived_job` / `monitor-derived`.
+- Settle-интервал предполагает расхождение часов приложения и БД меньше 10 минут.
+- `external_ref` и тексты ошибок хранятся как есть (SQL-параметры вырезаются). У текущих источников URL публичные; для источника с токенами в URL нужна санитизация.
 - Первый run на существующей БД догоняет классификацию/RF/индекс для всех persons без актуального результата.
 - `person_reviews_created` может переучитывать уже pending review при повторном разрешении extraction run со смешанными mentions.
 - Упавший RF match для Person временно деактивирует её finding до следующего успешного match (история сохраняется).

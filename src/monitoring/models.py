@@ -69,6 +69,14 @@ class MonitoringAlreadyRunningError(RuntimeError):
         self.running_run_id = running_run_id
 
 
+class MonitoringRunAbortedError(RuntimeError):
+    """The run is no longer `running` (aborted as stale): its worker must stop writing."""
+
+    def __init__(self, run_id: int) -> None:
+        super().__init__(f"Monitoring run {run_id} is no longer running; stopping its worker")
+        self.run_id = run_id
+
+
 def source_scope(source: str) -> str:
     return f"source:{source}"
 

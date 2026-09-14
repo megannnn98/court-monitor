@@ -27,6 +27,7 @@ from db.orm_models import (
 from monitoring.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
+    MonitoringRunAbortedError,
     MonitoringRunDetails,
     MonitoringRunItemView,
     MonitoringRunStatus,
@@ -183,13 +184,29 @@ class SqlAlchemyMonitoringRepository:
             logger.warning("monitoring_run_aborted_stale run_id=%s", run_id)
         return aborted
 
-    def heartbeat(self, run_id: int) -> None:
-        with self._session_factory.begin() as session:
-            session.execute(
-                update(MonitoringRunRecord)
-                .where(MonitoringRunRecord.id == run_id)
-                .values(heartbeat_at=func.now())
+    @staticmethod
+    def _update_running(session: Session, run_id: int, values: Mapping[str, Any]) -> None:
+        """Fencing: every write of a worker requires its run to still be `running`.
+
+        A run aborted as stale while its process was alive (or waiting) must not
+        keep writing next to the run that replaced it.
+        """
+        updated = session.scalar(
+            update(MonitoringRunRecord)
+            .where(
+                MonitoringRunRecord.id == run_id,
+                MonitoringRunRecord.status == MonitoringRunStatus.RUNNING.value,
             )
+            .values(dict(values))
+            .returning(MonitoringRunRecord.id)
+        )
+        if updated is None:
+            raise MonitoringRunAbortedError(run_id)
+
+    def heartbeat(self, run_id: int) -> None:
+        """Refresh liveness; raises `MonitoringRunAbortedError` if the run was aborted."""
+        with self._session_factory.begin() as session:
+            self._update_running(session, run_id, {"heartbeat_at": func.now()})
 
     def add_counters(self, run_id: int, counters: Mapping[str, int]) -> None:
         unknown = set(counters) - RUN_COUNTERS
@@ -202,31 +219,27 @@ class SqlAlchemyMonitoringRepository:
         }
         values["heartbeat_at"] = func.now()
         with self._session_factory.begin() as session:
-            session.execute(
-                update(MonitoringRunRecord).where(MonitoringRunRecord.id == run_id).values(values)
-            )
+            self._update_running(session, run_id, values)
 
     def set_stage_metrics(
         self, run_id: int, stage: MonitoringStage, metrics: Mapping[str, Any]
     ) -> None:
         with self._session_factory.begin() as session:
-            session.execute(
-                update(MonitoringRunRecord)
-                .where(MonitoringRunRecord.id == run_id)
-                .values(
-                    stage_metrics=MonitoringRunRecord.stage_metrics.op("||")(
+            self._update_running(
+                session,
+                run_id,
+                {
+                    "stage_metrics": MonitoringRunRecord.stage_metrics.op("||")(
                         literal({stage.value: dict(metrics)}, JSONB)
                     ),
-                    heartbeat_at=func.now(),
-                )
+                    "heartbeat_at": func.now(),
+                },
             )
 
     def set_rf_snapshot(self, run_id: int, snapshot_id: int | None) -> None:
         with self._session_factory.begin() as session:
-            session.execute(
-                update(MonitoringRunRecord)
-                .where(MonitoringRunRecord.id == run_id)
-                .values(rf_snapshot_id=snapshot_id)
+            self._update_running(
+                session, run_id, {"rf_snapshot_id": snapshot_id, "heartbeat_at": func.now()}
             )
 
     def record_failure(
@@ -241,6 +254,12 @@ class SqlAlchemyMonitoringRepository:
     ) -> FailureKind:
         kind = classify_failure(error)
         with self._session_factory.begin() as session:
+            # Fence first: an aborted run records nothing (the whole transaction rolls back).
+            self._update_running(
+                session,
+                run_id,
+                {"error_count": MonitoringRunRecord.error_count + 1, "heartbeat_at": func.now()},
+            )
             session.add(
                 MonitoringRunItemRecord(
                     run_id=run_id,
@@ -253,11 +272,6 @@ class SqlAlchemyMonitoringRepository:
                     error_type=type(error).__name__,
                     error_message=_safe_message(error),
                 )
-            )
-            session.execute(
-                update(MonitoringRunRecord)
-                .where(MonitoringRunRecord.id == run_id)
-                .values(error_count=MonitoringRunRecord.error_count + 1, heartbeat_at=func.now())
             )
         logger.warning(
             "monitoring_item_failed run_id=%s stage=%s entity_type=%s entity_id=%s ref=%s "
@@ -282,9 +296,18 @@ class SqlAlchemyMonitoringRepository:
             if record.status != MonitoringRunStatus.RUNNING.value:
                 return MonitoringRunStatus(record.status)
             error_message = record.error_message
+            stage_metrics = record.stage_metrics
             if error is not None:
                 status = MonitoringRunStatus.FAILED
                 error_message = _error_text(error)
+                # Lets retry policies tell a transient outage from a bug without parsing text.
+                stage_metrics = {
+                    **stage_metrics,
+                    "run": {
+                        "failure_kind": classify_failure(error).value,
+                        "error_type": type(error).__name__,
+                    },
+                }
             elif record.error_count:
                 status = MonitoringRunStatus.COMPLETED_WITH_ERRORS
             else:
@@ -295,6 +318,7 @@ class SqlAlchemyMonitoringRepository:
                 .values(
                     status=status.value,
                     error_message=error_message,
+                    stage_metrics=stage_metrics,
                     finished_at=func.now(),
                     heartbeat_at=func.now(),
                 )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from datetime import timedelta
 
 import pytest
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from monitoring.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
+    MonitoringRunAbortedError,
     MonitoringRunStatus,
     MonitoringStage,
     MonitoringTrigger,
@@ -217,3 +219,54 @@ def test_checkpoint_update_is_per_source(session_factory: sessionmaker[Session])
     assert states["ovd-info"].last_discovered_count == 6
     assert states["ovd-info"].last_successful_run_at is not None
     assert states["ovd-info"].last_external_marker is None
+
+
+def test_aborted_run_is_fenced_from_further_writes(session_factory: sessionmaker[Session]) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    zombie = _start(repository)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE monitoring_runs SET heartbeat_at = now() - interval '3 hours' WHERE id = :id"
+            ),
+            {"id": zombie},
+        )
+    replacement = _start(repository)
+
+    writes: list[Callable[[], object]] = [
+        lambda: repository.heartbeat(zombie),
+        lambda: repository.add_counters(zombie, {"documents_ingested": 1}),
+        lambda: repository.set_stage_metrics(zombie, MonitoringStage.INGESTION, {"x": 1}),
+        lambda: repository.set_rf_snapshot(zombie, None),
+        lambda: repository.record_failure(
+            zombie,
+            stage=MonitoringStage.INGESTION,
+            entity_type="source_reference",
+            error=TransientFetchError("HTTP 503"),
+        ),
+    ]
+    for write in writes:
+        with pytest.raises(MonitoringRunAbortedError):
+            write()
+
+    details = repository.get_run_details(zombie)
+    assert details is not None
+    assert details.run.status is MonitoringRunStatus.ABORTED
+    assert (details.run.documents_ingested, details.run.error_count, details.items) == (0, 0, [])
+    assert details.run.stage_metrics == {}
+    repository.heartbeat(replacement)  # the live run is unaffected
+
+
+def test_failed_run_records_its_failure_kind(session_factory: sessionmaker[Session]) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    transient = _start(repository)
+    repository.finish_run(transient, error=TransientFetchError("HTTP 503"))
+    permanent = _start(repository)
+    repository.finish_run(permanent, error=ValueError("bug"))
+
+    runs = {run.id: run for run in repository.list_runs()}
+    assert runs[transient].stage_metrics["run"] == {
+        "failure_kind": "retryable",
+        "error_type": "TransientFetchError",
+    }
+    assert runs[permanent].stage_metrics["run"]["failure_kind"] == "non_retryable"

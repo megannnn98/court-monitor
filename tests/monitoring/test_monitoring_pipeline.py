@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from datetime import timedelta
 
 import pytest
@@ -36,6 +37,7 @@ from monitoring.findings import ENBV_CRITERIA_VERSION, NO_RF_SNAPSHOT, POLITICAL
 from monitoring.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
+    MonitoringRunAbortedError,
     MonitoringRunStatus,
     MonitoringStage,
     MonitoringTrigger,
@@ -662,3 +664,93 @@ def test_result_written_during_an_open_evidence_transaction_is_recomputed(
         == []
     )
     assert production.persons_pending_rf_match(snapshot_id=snapshot_id) == []
+
+
+def test_worker_of_an_aborted_run_stops_before_writing_domain_rows(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    service = build_service(session_factory, {"ovd-info": upstream})
+    zombie = service.start_source_run("ovd-info")
+    ingestion = service.ingest(zombie, service.discover(zombie))
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE monitoring_runs SET heartbeat_at = now() - interval '3 hours'")
+        )
+    service.repository.abort_stale_runs(service.settings.stale_run_after)
+
+    with pytest.raises(MonitoringRunAbortedError):
+        service.extract(zombie, ingestion)
+    # A new stage is refused before any upstream call.
+    with pytest.raises(MonitoringRunAbortedError):
+        service.discover(zombie)
+    assert upstream.discoveries == 1
+
+    assert table_counts(session_factory, "article_extraction_runs") == {
+        "article_extraction_runs": 0
+    }
+    view = service.finish(zombie)
+    assert view.status is MonitoringRunStatus.ABORTED
+    assert service.status().sources == []
+
+
+def test_run_waiting_for_a_derived_lock_keeps_its_heartbeat(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    service = build_service(
+        session_factory, {"ovd-info": upstream}, stale_run_after=timedelta(seconds=2)
+    )
+    engine = session_factory.kw["bind"]
+    statuses: list[MonitoringRunStatus] = []
+    with engine.connect() as holder:
+        holder.execute(
+            text(
+                "SELECT pg_advisory_lock(hashtextextended('monitoring:derived:classification', 0))"
+            )
+        )
+        holder.commit()
+        worker = threading.Thread(
+            target=lambda: statuses.append(service.run_source("ovd-info").status)
+        )
+        worker.start()
+        time.sleep(4)  # twice the stale timeout, spent waiting for the lock
+
+        with pytest.raises(MonitoringAlreadyRunningError):
+            service.start_source_run("ovd-info")
+
+        holder.execute(
+            text(
+                "SELECT pg_advisory_unlock(hashtextextended('monitoring:derived:classification', 0))"
+            )
+        )
+        holder.commit()
+    worker.join(timeout=30)
+
+    assert statuses == [MonitoringRunStatus.COMPLETED]
+
+
+def test_reappearing_person_reactivates_the_same_finding(
+    session_factory: sessionmaker[Session],
+) -> None:
+    import_rf_snapshot(session_factory, [("Петр Петров", "03.03.1970")])
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    service = build_service(session_factory, {"ovd-info": upstream})
+    first = service.run_source("ovd-info")
+    import_rf_snapshot(session_factory, [("Сергей Сидоров", "01.01.1980")])
+    service.run_derived()
+    import_rf_snapshot(session_factory, [("Иван Иванов", "02.02.1990")])
+
+    again = service.run_derived()
+
+    [criterion] = again.stage_metrics["findings"]["criteria"]
+    assert (criterion["created"], criterion["reactivated"], criterion["deactivated"]) == (0, 1, 0)
+    assert again.findings_created == 0
+    with session_factory() as session:
+        finding = session.scalars(select(MonitoringFindingRecord)).one()
+    assert finding.active is True
+    assert finding.inactive_since is None
+    assert finding.first_seen_run_id == first.id

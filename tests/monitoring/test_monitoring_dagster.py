@@ -5,13 +5,16 @@ from __future__ import annotations
 from typing import Any, cast
 
 import dagster as dg
+import pytest
 from qdrant_client import QdrantClient
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service, semantic_indexer
 
 from monitoring.dagster.definitions import build_definitions
 from monitoring.dagster.jobs import MONITORING_DERIVED_JOB, MONITORING_JOB, SOURCE_TAG
 from monitoring.models import MonitoringRunStatus, MonitoringSettings, MonitoringTrigger
+from monitoring.service import RunHandle, StageResult
 from semantic_retrieval.models import RetrievalUnavailableError
 from semantic_retrieval.vector_store import QdrantVectorStore, VectorStore
 
@@ -183,3 +186,55 @@ def test_derived_job_does_not_retry_a_clean_run(session_factory: sessionmaker[Se
         event for event in result.all_events if event.event_type_value == "STEP_UP_FOR_RETRY"
     ]
     assert result.output_for_node("run_derived_monitoring") == service.repository.list_runs()[0].id
+
+
+def _retries(result: dg.ExecuteInProcessResult) -> int:
+    return len(
+        [event for event in result.all_events if event.event_type_value == "STEP_UP_FOR_RETRY"]
+    )
+
+
+def test_derived_job_does_not_retry_a_non_retryable_run_failure(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = build_service(session_factory, {"ovd-info": FakeUpstream()})
+
+    def broken(handle: object) -> None:
+        raise ValueError("classifier misconfigured")
+
+    monkeypatch.setattr(service, "classify", broken)
+    defs = build_definitions(service.settings, monitoring=service, derived_retry_delay_seconds=0)
+
+    result = defs.resolve_job_def(MONITORING_DERIVED_JOB).execute_in_process(raise_on_error=False)
+
+    assert not result.success
+    assert _retries(result) == 0
+    [run] = service.repository.list_runs()
+    assert run.status is MonitoringRunStatus.FAILED
+    assert run.stage_metrics["run"]["failure_kind"] == "non_retryable"
+
+
+def test_derived_job_retries_a_retryable_run_failure(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = build_service(session_factory, {"ovd-info": FakeUpstream()})
+    original = service.classify
+    calls: list[int] = []
+
+    def flaky(handle: RunHandle) -> StageResult:
+        calls.append(1)
+        if len(calls) == 1:
+            raise OperationalError("SELECT 1", {}, Exception("server closed the connection"))
+        return original(handle)
+
+    monkeypatch.setattr(service, "classify", flaky)
+    defs = build_definitions(service.settings, monitoring=service, derived_retry_delay_seconds=0)
+
+    result = defs.resolve_job_def(MONITORING_DERIVED_JOB).execute_in_process()
+
+    assert result.success
+    assert _retries(result) == 1
+    assert [run.status for run in reversed(service.repository.list_runs())] == [
+        MonitoringRunStatus.FAILED,
+        MonitoringRunStatus.COMPLETED,
+    ]

@@ -2,7 +2,10 @@
 
 `monitoring_job` runs the whole asset graph for one source in one process
 (in-process executor, in-memory IO): stage outputs are run handles that must
-never be shared between concurrent runs of different sources.
+never be shared between concurrent runs of different sources. Consequently
+Dagster "re-execute from failure" / single-step re-execution is not supported
+(the in-memory handle of the failed process is gone): launch the job again —
+a full rerun is safe because every stage re-selects its work from PostgreSQL.
 
 `monitoring_derived_job` re-runs classification, RF matching, semantic indexing
 and findings without web access. It is the only place with a Dagster retry
@@ -33,7 +36,10 @@ monitoring_job = dg.define_asset_job(
     name=MONITORING_JOB,
     selection=dg.AssetSelection.assets(*MONITORING_ASSETS),
     executor_def=dg.in_process_executor,
-    description="Discover → ingest → extract → ER v2 → classify → RF → semantic → findings",
+    description=(
+        "Discover → ingest → extract → ER v2 → classify → RF → semantic → findings. "
+        "Re-execute from failure is not supported: launch a full run (safe to repeat)."
+    ),
 )
 
 
@@ -61,6 +67,13 @@ def build_derived_job(
             f"monitoring derived run {run.id}: {run.status.value}, "
             f"{len(retryable)} retryable failures"
         )
+        run_failure_kind = run.stage_metrics.get("run", {}).get("failure_kind")
+        if run.status is MonitoringRunStatus.FAILED and run_failure_kind != FailureKind.RETRYABLE:
+            # A bug or misconfiguration fails the same way on every attempt: no retry.
+            raise dg.Failure(
+                description=f"monitoring run {run.id} failed: {run.error_message}",
+                allow_retries=False,
+            )
         if run.status is MonitoringRunStatus.FAILED or retryable:
             raise RetryableMonitoringFailure(
                 f"monitoring run {run.id} {run.status.value}: "

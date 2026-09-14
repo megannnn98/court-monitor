@@ -122,9 +122,19 @@ or a run, so one failure never rolls back hours of work.
   documents; ER v2 identity-block locks already serialize person creation.
 - **Derived stages** are global; each holds a session-level advisory lock
   (`monitoring:derived:<stage>`) so two runs never race on the same upserts.
-- **Stale runs:** each counter/item write refreshes `heartbeat_at`. A new run
-  first aborts runs without a heartbeat for `MONITORING_STALE_RUN_AFTER_MINUTES`
-  (default 120), which releases the scope after a crash.
+- **Stale runs:** a run refreshes `heartbeat_at` at every stage start, every
+  unit of work and every counter/item write — and while it waits for a derived
+  stage lock (the lock is polled with `pg_try_advisory_lock`, heartbeat at least
+  every `min(60 s, stale_after / 4)`). A new run first aborts runs without a
+  heartbeat for `MONITORING_STALE_RUN_AFTER_MINUTES` (default 120), which
+  releases the scope after a crash.
+- **Fencing:** every run bookkeeping write is `UPDATE … WHERE id = :id AND
+  status = 'running'`. A worker whose run was aborted gets
+  `MonitoringRunAbortedError` on its next heartbeat or write and stops before
+  its next unit of work, so it never keeps processing next to its replacement.
+  At most the unit of work in progress when the abort happened completes (it is
+  idempotent). `run_source`/`run_derived` then return the `aborted` run without
+  finishing it or moving the checkpoint.
 
 ### Failures and retries
 
@@ -143,9 +153,12 @@ failures) is `non_retryable`.
   retried every run.
 - Retries: the source layer keeps its own HTTP retries; the source job has no
   Dagster retry policy on top (no retry explosion). Only `monitoring_derived_job`
-  has a Dagster `RetryPolicy` (3 retries, exponential backoff), raised when a
-  derived run ends with retryable item failures — safe because it re-selects
-  only still-stale work.
+  has a Dagster `RetryPolicy` (3 retries, exponential backoff). It retries when
+  the derived run has retryable item failures or failed with a retryable
+  run-level error (`stage_metrics.run.failure_kind`, stored by `finish_run`); a
+  non-retryable run failure (a bug, a misconfiguration) raises
+  `dagster.Failure(allow_retries=False)`. Retrying is safe because every stage
+  re-selects only still-stale work.
 
 ### Qdrant is a derived index
 
@@ -206,9 +219,10 @@ must never be shared between concurrent runs of different sources.
 
 - One command (`monitor`) or one schedule runs the whole pipeline; reruns are
   harmless; every run is inspectable by CLI, API and Dagster UI.
-- Selecting materializations of single assets in the Dagster UI is not
-  supported (in-memory IO); stage isolation is provided by
-  `monitoring_derived_job` / `monitor-derived` instead.
+- Materializing single assets and Dagster "re-execute from failure" are not
+  supported for `monitoring_job` (in-memory IO: the failed process's run handle
+  is gone). Launch the job again — a full rerun is safe; stage isolation is
+  provided by `monitoring_derived_job` / `monitor-derived`.
 - Known limitations:
   - Updated upstream documents are not detected by regular runs (a known
     `external_id` is not fetched again). `--backfill --refetch-known` refetches;
@@ -226,6 +240,13 @@ must never be shared between concurrent runs of different sources.
   - An RF match that failed for a person makes the candidate query skip that
     person, which deactivates an existing finding until a later run matches
     them again (history is kept).
+  - The settle interval assumes application and database clocks differ by
+    less than 10 minutes; a larger skew (application ahead) can mark a result
+    fresh too early.
+  - `external_ref` and error messages store source URLs and exception texts as
+    is (only SQL parameters are stripped). Current source URLs are public
+    listing links; a source whose URLs carry credentials or tokens would need
+    URL sanitizing first.
   - The first run on an existing database classifies/matches/indexes every
     person without a current result (one-off catch-up).
   - Classification and candidate queries are per person (existing N+1); fine

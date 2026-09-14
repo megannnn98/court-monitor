@@ -137,11 +137,14 @@ def build_service(
     discovery_limit: int = 10,
     # Tests run stages seconds apart; the production settle interval is covered separately.
     evidence_settle_interval: timedelta = timedelta(0),
+    stale_run_after: timedelta | None = None,
 ) -> MonitoringService:
     return build_monitoring_service(
         session_factory,
         settings=MonitoringSettings(
-            enabled_sources=tuple(upstreams), discovery_limit=discovery_limit
+            enabled_sources=tuple(upstreams),
+            discovery_limit=discovery_limit,
+            stale_run_after=stale_run_after or MonitoringSettings().stale_run_after,
         ),
         env={},
         sources={name: fake_source(name, upstream) for name, upstream in upstreams.items()},
