@@ -20,6 +20,7 @@ from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.cli import (
@@ -284,6 +285,7 @@ def main() -> None:
     add_ask_arguments(subparsers)
     add_semantic_arguments(subparsers)
     add_person_resolution_arguments(subparsers)
+    add_monitoring_arguments(subparsers)
 
     args = argument_parser.parse_args()
 
@@ -319,6 +321,9 @@ def main() -> None:
         return
 
     if run_person_resolution_command(args, session_factory):
+        return
+
+    if run_monitoring_command(args, session_factory):
         return
 
     if args.command == "list-candidates":
