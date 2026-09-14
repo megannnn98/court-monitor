@@ -99,3 +99,18 @@ class LlmResearchRequestParser:
             raise LlmInvalidResponseError(
                 f"LLM output does not match the intake schema: {exc.error_count()} error(s)"
             ) from exc
+
+
+class PreparedRequestParser:
+    """Intake for callers that already hold a structured request (MCP, evaluation).
+
+    The request still goes through the whole deterministic workflow: validation,
+    snapshot defaulting, planning, research, review policy and the report. No
+    language model is involved.
+    """
+
+    def __init__(self, request: dict[str, Any]) -> None:
+        self._request = dict(request)
+
+    def parse(self, text: str) -> ResearchIntake:
+        return ResearchIntake(request=dict(self._request))

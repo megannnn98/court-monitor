@@ -22,9 +22,9 @@ RUN apt-get update \
 ARG INSTALL_SEMANTIC=0
 COPY pyproject.toml uv.lock ./
 RUN if [ "$INSTALL_SEMANTIC" = "1" ]; then \
-        uv sync --frozen --no-dev --no-install-project --group semantic; \
+        uv sync --frozen --no-default-groups --no-install-project --group semantic; \
     else \
-        uv sync --frozen --no-dev --no-install-project; \
+        uv sync --frozen --no-default-groups --no-install-project; \
     fi
 
 COPY src ./src

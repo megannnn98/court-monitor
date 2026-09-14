@@ -58,7 +58,8 @@ from research.reports.provenance import verify_report_provenance
 from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService
 from research.workflow.graph import build_research_graph, run_research_query
-from research.workflow.models import ResearchIntake, WorkflowStatus
+from research.workflow.intake import PreparedRequestParser
+from research.workflow.models import WorkflowStatus
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -68,16 +69,6 @@ logger = logging.getLogger("evaluation")
 
 PENDING_REVIEW = "pending_review"
 POLITICAL = "political"
-
-
-@dataclass(frozen=True)
-class FixtureRequestParser:
-    """Stands in for the LLM: returns the request the corpus says intake should produce."""
-
-    request: dict[str, object]
-
-    def parse(self, text: str) -> ResearchIntake:
-        return ResearchIntake(request=dict(self.request))
 
 
 @dataclass
@@ -535,7 +526,7 @@ class FinalEvaluationRunner:
         session_factory: sessionmaker[Session], check: FinalResearchCheck
     ) -> ResearchOutcome:
         graph = build_research_graph(
-            request_parser=FixtureRequestParser(check.request),
+            request_parser=PreparedRequestParser(check.request),
             research_service=ResearchService(
                 repository=SqlAlchemyPersonResearchRepository(session_factory),
                 candidate_query=CandidateQueryService(session_factory),
