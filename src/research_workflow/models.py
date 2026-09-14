@@ -60,6 +60,7 @@ class WorkflowErrorCode(StrEnum):
     LLM_REQUEST_REJECTED = "llm_request_rejected"
     LLM_INVALID_OUTPUT = "llm_invalid_output"
     NO_ROSFINMONITORING_SNAPSHOT = "no_rosfinmonitoring_snapshot"
+    WORKFLOW_UNEXPECTED_ERROR = "workflow_unexpected_error"
 
 
 class WorkflowError(BaseModel):

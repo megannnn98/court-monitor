@@ -373,3 +373,21 @@ def test_research_query_without_together_config_returns_503(
 
     assert response.status_code == 503
     assert "TOGETHER_API_KEY" in response.json()["detail"]
+
+
+def test_research_query_unexpected_error_is_structured_500(
+    override_query_graph: Callable[[ResearchGraph], TestClient],
+) -> None:
+    client = override_query_graph(
+        _query_graph(
+            FakeRequestParser(intake=ResearchIntake(request={"object_type": "person"})),
+            FakeResearchService(error=RuntimeError("[parameters: {'p': '%Иванов%'}]")),
+        )
+    )
+
+    response = client.post("/research/query", json={"query": "все"})
+
+    assert response.status_code == 500
+    body = response.json()
+    assert (body["status"], body["error"]["code"]) == ("failed", "workflow_unexpected_error")
+    assert "Иванов" not in response.text

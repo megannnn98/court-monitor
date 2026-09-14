@@ -41,6 +41,7 @@ from research_workflow.models import (
     UnsupportedCriterion,
     WorkflowError,
     WorkflowErrorCode,
+    WorkflowStatus,
 )
 from research_workflow.snapshot_references import extract_explicit_snapshot_ids
 from research_workflow.state import ResearchGraphState
@@ -396,8 +397,22 @@ def run_research_query(graph: ResearchGraph, query: str) -> ResearchQueryResult:
     try:
         state = graph.invoke({"raw_query": query})
     except Exception as exc:
-        logger.exception("workflow_failed code=unexpected error=%s", type(exc).__name__)
-        raise
+        # Exception text (e.g. SQLAlchemy "[parameters: ...]") can carry user
+        # criteria; above DEBUG only the exception type is logged.
+        logger.error(
+            "workflow_failed code=%s error=%s",
+            WorkflowErrorCode.WORKFLOW_UNEXPECTED_ERROR.value,
+            type(exc).__name__,
+        )
+        logger.debug("workflow_unexpected_error_traceback", exc_info=True)
+        return ResearchQueryResult(
+            status=WorkflowStatus.FAILED,
+            query=query,
+            error=WorkflowError(
+                code=WorkflowErrorCode.WORKFLOW_UNEXPECTED_ERROR,
+                message=f"Внутренняя ошибка workflow ({type(exc).__name__}); это не пустой результат.",
+            ),
+        )
     result: ResearchQueryResult = state["final_result"]
     logger.info(
         "workflow_finished status=%s result_count=%d review_required=%s",

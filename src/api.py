@@ -344,6 +344,7 @@ _WORKFLOW_ERROR_HTTP_STATUS: dict[WorkflowErrorCode, int] = {
     WorkflowErrorCode.LLM_REQUEST_REJECTED: 502,
     WorkflowErrorCode.LLM_INVALID_OUTPUT: 502,
     WorkflowErrorCode.NO_ROSFINMONITORING_SNAPSHOT: 409,
+    WorkflowErrorCode.WORKFLOW_UNEXPECTED_ERROR: 500,
 }
 
 
@@ -365,6 +366,7 @@ def get_research_query_graph() -> ResearchGraph:
     response_model=ResearchQueryResult,
     responses={
         409: {"model": ResearchQueryResult},
+        500: {"model": ResearchQueryResult},
         502: {"model": ResearchQueryResult},
         503: {"model": ResearchQueryResult},
         504: {"model": ResearchQueryResult},

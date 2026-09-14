@@ -638,3 +638,64 @@ def test_clarification_reports_both_unsupported_fields_and_invalid_values() -> N
     assert result.clarification_question is not None
     assert "region («Казань»)" in result.clarification_question
     assert "limit" in result.clarification_question
+
+
+# --- unexpected failures ------------------------------------------------------------
+
+
+class _DatabaseError(Exception):
+    pass
+
+
+LEAKY_ERROR = _DatabaseError(
+    "(psycopg.OperationalError) connection lost [SQL: SELECT persons.id WHERE name ILIKE %(p)s] "
+    "[parameters: {'p': '%Иванов%'}]"
+)
+
+
+def test_unexpected_exception_is_structured_failure_not_crash() -> None:
+    result = _run(
+        "Найди Иванова",
+        parser=FakeRequestParser(intake=_intake({"name": "Иванов"})),
+        service=FakeResearchService(error=LEAKY_ERROR),
+    )
+
+    assert result.status is WorkflowStatus.FAILED
+    assert result.error is not None
+    assert result.error.code is WorkflowErrorCode.WORKFLOW_UNEXPECTED_ERROR
+    assert "Иванов" not in result.error.message
+    assert (result.results, result.total_matched) == ([], None)
+
+
+def test_unexpected_exception_logs_type_only_above_debug(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="research_workflow")
+
+    _run(
+        "Найди Иванова",
+        parser=FakeRequestParser(intake=_intake({"name": "Иванов"})),
+        service=FakeResearchService(error=LEAKY_ERROR),
+    )
+
+    assert any(
+        "workflow_failed code=workflow_unexpected_error error=_DatabaseError" in r.getMessage()
+        for r in caplog.records
+    )
+    for record in caplog.records:
+        assert "Иванов" not in record.getMessage()
+        assert record.exc_info is None
+    assert caplog.text.count("Иванов") == 0
+
+
+def test_unexpected_exception_traceback_only_at_debug(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="research_workflow")
+
+    _run(
+        "Найди Иванова",
+        parser=FakeRequestParser(intake=_intake({"name": "Иванов"})),
+        service=FakeResearchService(error=LEAKY_ERROR),
+    )
+
+    debug_records = [r for r in caplog.records if r.exc_info is not None]
+    assert [r.levelno for r in debug_records] == [logging.DEBUG]
