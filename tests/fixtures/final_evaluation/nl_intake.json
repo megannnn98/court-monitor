@@ -1,0 +1,163 @@
+{
+  "dataset_version": "nl-intake-v1",
+  "latest_snapshot_id": 5,
+  "cases": [
+    {
+      "id": "political_not_in_rf",
+      "query": "Найди политически преследуемых, которых нет в Росфинмониторинге",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "persecution_status": "political",
+            "rosfinmonitoring_status": "not_matched"
+          }
+        }
+      },
+      "expected_status": "completed",
+      "expected_criteria": {
+        "persecution_status": "political",
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": 5
+      }
+    },
+    {
+      "id": "llm_invented_snapshot_is_ignored",
+      "query": "Найди политически преследуемых, которых нет в перечне",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "persecution_status": "political",
+            "rosfinmonitoring_status": "not_matched",
+            "snapshot_id": 7
+          }
+        }
+      },
+      "expected_status": "completed",
+      "expected_criteria": {
+        "persecution_status": "political",
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": 5
+      }
+    },
+    {
+      "id": "explicit_snapshot_from_user",
+      "query": "Политически преследуемые, которых нет в Росфинмониторинге по snapshot #3",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "persecution_status": "political",
+            "rosfinmonitoring_status": "not_matched",
+            "snapshot_id": 3
+          }
+        }
+      },
+      "expected_status": "completed",
+      "expected_criteria": {
+        "persecution_status": "political",
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": 3
+      }
+    },
+    {
+      "id": "find_by_surname",
+      "query": "Найди Иванова",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "name": "Иванов"
+          }
+        }
+      },
+      "expected_status": "completed",
+      "expected_criteria": {
+        "name": "Иванов"
+      }
+    },
+    {
+      "id": "detained_journalists_occupation_unsupported",
+      "query": "Покажи задержанных журналистов",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "event_types": [
+              "detention"
+            ]
+          }
+        },
+        "unsupported_criteria": [
+          {
+            "criterion": "occupation",
+            "value": "журналисты"
+          }
+        ]
+      },
+      "expected_status": "clarification_required",
+      "expected_unsupported": [
+        "occupation"
+      ],
+      "note": "Occupation cannot be expressed; a broader answer is never returned silently."
+    },
+    {
+      "id": "persecuted_after_date",
+      "query": "Кто преследовался после 1 марта 2024 года?",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "persecution_status": "political",
+            "date_from": "2024-03-01"
+          }
+        }
+      },
+      "expected_status": "completed",
+      "expected_criteria": {
+        "persecution_status": "political",
+        "date_from": "2024-03-01"
+      }
+    },
+    {
+      "id": "people_from_article_needs_clarification",
+      "query": "Найди людей из статьи про тот суд",
+      "llm_output": {
+        "request": null,
+        "clarification_question": "Уточните, какая статья: ссылка или название?"
+      },
+      "expected_status": "clarification_required"
+    },
+    {
+      "id": "unknown_criterion_field_rejected",
+      "query": "Найди людей старше 60 лет",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "age_min": 60
+          }
+        }
+      },
+      "expected_status_any_of": [
+        "failed",
+        "clarification_required"
+      ]
+    },
+    {
+      "id": "several_explicit_snapshots_need_clarification",
+      "query": "Сравни snapshot #3 и snapshot #4 для политически преследуемых",
+      "llm_output": {
+        "request": {
+          "object_type": "person",
+          "criteria": {
+            "persecution_status": "political",
+            "rosfinmonitoring_status": "not_matched"
+          }
+        }
+      },
+      "expected_status": "clarification_required"
+    }
+  ]
+}

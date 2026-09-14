@@ -12,6 +12,7 @@ from sqlalchemy.exc import NoResultFound
 
 from candidates.service import CandidateQueryService
 from db.database import create_database_engine, create_session_factory
+from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
@@ -288,6 +289,7 @@ def main() -> None:
     add_semantic_arguments(subparsers)
     add_person_resolution_arguments(subparsers)
     add_monitoring_arguments(subparsers)
+    add_final_evaluation_arguments(subparsers)
 
     subparsers.add_parser(
         "validate-config",
@@ -318,6 +320,11 @@ def main() -> None:
     if args.command == "evaluate-retrieval":
         # Uses its own disposable database, never DATABASE_URL.
         run_evaluate_retrieval(args)
+        return
+
+    if args.command == "evaluate-final":
+        # Uses its own disposable database, never DATABASE_URL.
+        run_final_evaluation_command(args)
         return
 
     if args.command == "evaluate-er":

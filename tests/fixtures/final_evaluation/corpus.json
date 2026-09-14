@@ -1,0 +1,2427 @@
+{
+  "dataset_version": "final-eval-v1",
+  "cases": [
+    {
+      "id": "clear_positive_antiwar_detention",
+      "categories": [
+        "clear_positive",
+        "rf_not_matched",
+        "candidate"
+      ],
+      "description": "Правозащитник задержан на антивоенном митинге; нет в перечне.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание правозащитника",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве. Активисты считают дело политически мотивированным."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Сидоров"
+        ]
+      },
+      "identities": {
+        "sidorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true,
+          "er_review": false
+        }
+      },
+      "research": [
+        {
+          "query": "Найди политически преследуемых, которых нет в Росфинмониторинге",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "persecution_status": "political",
+              "rosfinmonitoring_status": "not_matched"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "sidorov"
+          ],
+          "expected_evidence_articles": [
+            "a1"
+          ]
+        }
+      ],
+      "review_required": false
+    },
+    {
+      "id": "clear_positive_in_rf_matched",
+      "categories": [
+        "clear_positive",
+        "rf_matched"
+      ],
+      "description": "Политическое дело, человек уже в перечне Росфинмониторинга: не кандидат.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Арест по 280-й",
+          "text": "Басманный суд арестовал Андрея Кузнецова по статье 280 УК РФ о призывах к экстремизму. Защита называет преследование политическим."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Андрей Кузнецов",
+          "12.03.1975"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Андрея Кузнецова"
+        ]
+      },
+      "identities": {
+        "kuznetsov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Андрея Кузнецова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "matched",
+          "candidate": false,
+          "er_review": false
+        }
+      },
+      "research": [
+        {
+          "query": "Политические без РФМ",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "persecution_status": "political",
+              "rosfinmonitoring_status": "not_matched"
+            },
+            "limit": 50
+          },
+          "expected_identities": []
+        }
+      ],
+      "review_required": false
+    },
+    {
+      "id": "clear_negative_hooliganism",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "Мелкое хулиганство, не политическое.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Хулиганство",
+          "text": "Полиция задержала Петра Петрова за мелкое хулиганство у магазина. Составлен протокол по КоАП."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Иван Иванов",
+          "01.01.1980"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Петра Петрова"
+        ]
+      },
+      "identities": {
+        "petrov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Петра Петрова"
+            }
+          ],
+          "persecution": [
+            "non_political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false,
+          "er_review": false
+        }
+      },
+      "review_required": false
+    },
+    {
+      "id": "clear_negative_car_theft",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "Кража автомобиля.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Приговор за кражу",
+          "text": "Суд приговорил Олега Смирнова к трём годам колонии за кражу автомобиля у соседа."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Олега Смирнова"
+        ]
+      },
+      "identities": {
+        "smirnov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Олега Смирнова"
+            }
+          ],
+          "persecution": [
+            "non_political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "clear_negative_bribery",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "Взятка чиновника.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Взятка",
+          "text": "Бывшего чиновника мэрии Виталия Гусева задержали по делу о получении взятки в особо крупном размере."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Виталия Гусева"
+        ]
+      },
+      "identities": {
+        "gusev": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Виталия Гусева"
+            }
+          ],
+          "persecution": [
+            "non_political",
+            "uncertain"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "clear_negative_murder",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "Бытовое убийство.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Убийство соседа",
+          "text": "Житель Твери Степан Рябов осуждён на девять лет колонии строгого режима за убийство соседа."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Степан Рябов"
+        ]
+      },
+      "identities": {
+        "ryabov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Степан Рябов"
+            }
+          ],
+          "persecution": [
+            "non_political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "ambiguous_unexplained_detention",
+      "categories": [
+        "ambiguous_persecution"
+      ],
+      "description": "Задержание без указания причины: политичность не установлена.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание у суда",
+          "text": "Дмитрия Орлова задержали возле здания районного суда. Причины задержания пока не сообщаются."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Дмитрия Орлова"
+        ]
+      },
+      "identities": {
+        "orlov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Дмитрия Орлова"
+            }
+          ],
+          "persecution": [
+            "uncertain",
+            "needs_review",
+            "non_political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "ambiguous_single_picket_fine",
+      "categories": [
+        "ambiguous_persecution",
+        "no_rf_snapshot"
+      ],
+      "description": "Штраф после одиночного пикета: преследование за высказывание.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Штраф за пикет",
+          "text": "Михаила Лебедева оштрафовали на 20 тысяч рублей по статье о дискредитации армии после одиночного пикета."
+        }
+      ],
+      "rf_snapshot": null,
+      "expected_extraction": {
+        "a1": [
+          "Михаила Лебедева"
+        ]
+      },
+      "identities": {
+        "lebedev": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Михаила Лебедева"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "no_snapshot",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "er_review_two_existing_namesakes",
+      "categories": [
+        "person_namesakes",
+        "er_review"
+      ],
+      "description": "В базе два тёзки Сергея Сидорова; новое упоминание нельзя привязать автоматически.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве. Активисты считают дело политически мотивированным."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "seed_persons": [
+        "Сергей Сидоров",
+        "Сергей Сидоров"
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Сидоров"
+        ]
+      },
+      "identities": {
+        "sidorov_new": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ],
+          "candidate": false,
+          "er_review": true
+        },
+        "namesake_a": {
+          "mentions": [],
+          "seed_index": 0
+        },
+        "namesake_b": {
+          "mentions": [],
+          "seed_index": 1
+        }
+      },
+      "research": [
+        {
+          "query": "Политические без РФМ",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "persecution_status": "political",
+              "rosfinmonitoring_status": "not_matched"
+            },
+            "limit": 50
+          },
+          "expected_identities": []
+        }
+      ],
+      "review_required": true
+    },
+    {
+      "id": "namesakes_distinct_context",
+      "categories": [
+        "person_namesakes"
+      ],
+      "description": "Два разных Ивана Иванова: журналист из Казани и мошенник из Самары.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Журналист задержан",
+          "text": "Иван Иванов, журналист из Казани, задержан за репортаж о протесте. Коллеги называют дело политическим."
+        },
+        {
+          "external_id": "a2",
+          "title": "Мошенничество с кредитами",
+          "text": "Иван Иванов из Самары осуждён за мошенничество с кредитами в банке."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Иван Иванов"
+        ],
+        "a2": [
+          "Иван Иванов"
+        ]
+      },
+      "identities": {
+        "ivanov_journalist": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Иван Иванов"
+            }
+          ],
+          "persecution": [
+            "political"
+          ]
+        },
+        "ivanov_fraud": {
+          "mentions": [
+            {
+              "article": "a2",
+              "surface": "Иван Иванов"
+            }
+          ],
+          "persecution": [
+            "non_political"
+          ]
+        }
+      },
+      "known_limitation": "ER has no context features: the second namesake is auto-linked to the first (false person link)."
+    },
+    {
+      "id": "swapped_fio_two_articles",
+      "categories": [
+        "swapped_fio",
+        "same_person_several_articles"
+      ],
+      "description": "Имя Фамилия и Фамилия Имя в двух статьях — один человек.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Пикет против мобилизации",
+          "text": "Алексей Морозов задержан на пикете против мобилизации. Правозащитники говорят о политическом преследовании."
+        },
+        {
+          "external_id": "a2",
+          "title": "Арест на 15 суток",
+          "text": "Морозов Алексей арестован на 15 суток после пикета против войны."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Алексей Морозов"
+        ],
+        "a2": [
+          "Морозов Алексей"
+        ]
+      },
+      "identities": {
+        "morozov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Алексей Морозов"
+            },
+            {
+              "article": "a2",
+              "surface": "Морозов Алексей"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "research": [
+        {
+          "query": "Найди Морозова",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "name": "Морозов"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "morozov"
+          ],
+          "expected_evidence_articles": [
+            "a1",
+            "a2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "initials_same_person",
+      "categories": [
+        "initials",
+        "same_person_several_articles"
+      ],
+      "description": "Полное имя и инициал в двух статьях.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Активист штаба",
+          "text": "Павел Соколов, активист штаба Навального, задержан в Екатеринбурге. Дело называют политическим."
+        },
+        {
+          "external_id": "a2",
+          "title": "Штраф",
+          "text": "П. Соколов приговорён к штрафу по статье о дискредитации армии."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Павел Соколов"
+        ],
+        "a2": [
+          "П. Соколов"
+        ]
+      },
+      "identities": {
+        "sokolov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Павел Соколов"
+            },
+            {
+              "article": "a2",
+              "surface": "П. Соколов"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "female_journalist_not_in_rf",
+      "categories": [
+        "female_surnames",
+        "clear_positive",
+        "candidate"
+      ],
+      "description": "Журналистка задержана после публикации о войне.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержана журналистка",
+          "text": "Анна Новикова, журналистка, задержана после публикации о войне. Её преследование правозащитники связывают с профессиональной деятельностью."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Анна Новикова"
+        ]
+      },
+      "identities": {
+        "novikova": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Анна Новикова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "research": [
+        {
+          "query": "Покажи задержанных журналистов",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "name": "Новикова"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "novikova"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "female_in_rf_matched",
+      "categories": [
+        "female_surnames",
+        "rf_matched"
+      ],
+      "description": "Женщина в перечне: статус matched, не кандидат.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Дело о фейках",
+          "text": "Елену Васильеву арестовали по делу о фейках об армии. Защита считает дело политическим."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Елена Васильева",
+          "01.02.1985"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Елену Васильеву"
+        ]
+      },
+      "identities": {
+        "vasilieva": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Елену Васильеву"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "multiple_persons_one_case",
+      "categories": [
+        "multiple_persons",
+        "rf_matched",
+        "rf_not_matched",
+        "candidate"
+      ],
+      "description": "Три фигуранта одного дела, один в перечне.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Дело о листовках",
+          "text": "Суд арестовал Кирилла Белова и Артёма Зайцева по делу об антивоенных листовках. Третий фигурант дела, Виктор Комаров, отпущен под подписку о невыезде."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Кирилл Белов",
+          "05.05.1990"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Кирилла Белова",
+          "Артёма Зайцева",
+          "Виктор Комаров"
+        ]
+      },
+      "identities": {
+        "belov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Кирилла Белова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "matched",
+          "candidate": false
+        },
+        "zaitsev": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Артёма Зайцева"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        },
+        "komarov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Виктор Комаров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "research": [
+        {
+          "query": "Политические без РФМ",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "persecution_status": "political",
+              "rosfinmonitoring_status": "not_matched"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "zaitsev",
+            "komarov"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "multiple_persons_mixed_context",
+      "categories": [
+        "multiple_persons",
+        "clear_negative",
+        "clear_positive"
+      ],
+      "description": "В одной заметке кража и антивоенный пикет: контекст не должен перетекать.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Два задержания",
+          "text": "Утром полиция задержала Романа Егорова за кражу велосипеда. Вечером на другом конце города на одиночном пикете против войны задержали Фёдора Никитина."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Романа Егорова",
+          "Фёдора Никитина"
+        ]
+      },
+      "identities": {
+        "egorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Романа Егорова"
+            }
+          ],
+          "persecution": [
+            "non_political",
+            "uncertain"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        },
+        "nikitin": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Фёдора Никитина"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "judge_and_defendant",
+      "categories": [
+        "multiple_persons",
+        "clear_positive"
+      ],
+      "description": "Судья не является преследуемым.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Приговор Котову",
+          "text": "Судья Мария Иванова приговорила активиста Константина Котова к четырём годам колонии по статье о неоднократном нарушении порядка проведения акций."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Мария Иванова",
+          "Константина Котова"
+        ]
+      },
+      "identities": {
+        "judge": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Мария Иванова"
+            }
+          ],
+          "persecution": [
+            "non_political",
+            "uncertain"
+          ],
+          "candidate": false
+        },
+        "kotov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Константина Котова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "lawyer_and_defendant",
+      "categories": [
+        "multiple_persons",
+        "clear_positive"
+      ],
+      "description": "Адвокат упоминается рядом с подзащитным.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Приговор за фейки",
+          "text": "Адвокат Сергей Бадамшин сообщил, что его подзащитного Игоря Барышникова приговорили к семи годам колонии по статье о фейках об армии."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Бадамшин",
+          "Игоря Барышникова"
+        ]
+      },
+      "identities": {
+        "lawyer": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Бадамшин"
+            }
+          ],
+          "persecution": [
+            "non_political",
+            "uncertain"
+          ],
+          "candidate": false
+        },
+        "baryshnikov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Игоря Барышникова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "same_person_three_articles",
+      "categories": [
+        "same_person_several_articles",
+        "person_several_events"
+      ],
+      "description": "Задержание, арест и приговор одного человека в трёх статьях.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Григорий Мельников задержан в Петербурге по делу о призывах к терроризму за комментарий в соцсети. Правозащитники считают дело политическим."
+        },
+        {
+          "external_id": "a2",
+          "title": "Арест",
+          "text": "Суд арестовал Григория Мельникова на два месяца по делу о комментарии в соцсети."
+        },
+        {
+          "external_id": "a3",
+          "title": "Приговор",
+          "text": "Григорий Мельников приговорён к пяти годам колонии за комментарий в соцсети."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Григорий Мельников"
+        ],
+        "a2": [
+          "Григория Мельникова"
+        ],
+        "a3": [
+          "Григорий Мельников"
+        ]
+      },
+      "identities": {
+        "melnikov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Григорий Мельников"
+            },
+            {
+              "article": "a2",
+              "surface": "Григория Мельникова"
+            },
+            {
+              "article": "a3",
+              "surface": "Григорий Мельников"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "research": [
+        {
+          "query": "Найди Мельникова",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "name": "Мельников"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "melnikov"
+          ],
+          "expected_evidence_articles": [
+            "a1",
+            "a2",
+            "a3"
+          ]
+        },
+        {
+          "query": "Кого арестовывали",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "event_types": [
+                "arrest"
+              ]
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "melnikov"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "person_several_events_one_article",
+      "categories": [
+        "person_several_events"
+      ],
+      "description": "Задержание, арест и приговор в одной статье.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Дело о госизмене",
+          "text": "Юрия Степанова сначала задержали сотрудники ФСБ, затем суд арестовал его на два месяца, а позже приговорил к двенадцати годам колонии по делу о госизмене за перевод денег украинскому фонду."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Юрия Степанова"
+        ]
+      },
+      "identities": {
+        "stepanov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Юрия Степанова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "rf_insufficient_data_single_word",
+      "categories": [
+        "rf_insufficient_data"
+      ],
+      "description": "Известна только фамилия: проверка по перечню ненадёжна.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержан активист",
+          "text": "Активиста по фамилии Широков задержали на митинге оппозиции в Новосибирске. Правозащитники говорят о политическом преследовании."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Широков"
+        ]
+      },
+      "identities": {
+        "shirokov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Широков"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "insufficient_data",
+          "candidate": false
+        }
+      },
+      "known_limitation": "Surname-only mentions are not extracted, so the person never enters the pipeline."
+    },
+    {
+      "id": "rf_ambiguous_two_entries",
+      "categories": [
+        "rf_ambiguous"
+      ],
+      "description": "В перечне два тёзки с разными датами рождения.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве. Активисты считают дело политически мотивированным."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Сергей Сидоров",
+          "01.01.1980"
+        ],
+        [
+          "Сергей Сидоров",
+          "02.02.1990"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Сидоров"
+        ]
+      },
+      "identities": {
+        "sidorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "ambiguous",
+          "candidate": false
+        }
+      },
+      "research": [
+        {
+          "query": "Политические без РФМ",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "persecution_status": "political",
+              "rosfinmonitoring_status": "not_matched"
+            },
+            "limit": 50
+          },
+          "expected_identities": []
+        }
+      ],
+      "review_required": true
+    },
+    {
+      "id": "no_rf_snapshot_positive",
+      "categories": [
+        "no_rf_snapshot",
+        "clear_positive"
+      ],
+      "description": "Политическое дело, перечень не импортирован: не кандидат и нет ложного not_matched.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Пост в ВК",
+          "text": "Возбуждено уголовное дело по статье 207.3 УК РФ против Игоря Никифорова за пост во «ВКонтакте» о войне. Правозащитники называют дело политическим."
+        }
+      ],
+      "rf_snapshot": null,
+      "expected_extraction": {
+        "a1": [
+          "Игоря Никифорова"
+        ]
+      },
+      "identities": {
+        "nikiforov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Игоря Никифорова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "no_snapshot",
+          "candidate": false
+        }
+      },
+      "run_expectations": [
+        {
+          "findings_created": 0
+        }
+      ]
+    },
+    {
+      "id": "duplicate_source_article",
+      "categories": [
+        "duplicate_source_article"
+      ],
+      "description": "Одна и та же заметка опубликована под двумя адресами.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Тимур Алиев задержан на акции в поддержку политзаключённых. Правозащитники говорят о политическом преследовании."
+        },
+        {
+          "external_id": "a1-copy",
+          "title": "Задержание (перепечатка)",
+          "text": "Тимур Алиев задержан на акции в поддержку политзаключённых. Правозащитники говорят о политическом преследовании."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Тимур Алиев"
+        ],
+        "a1-copy": [
+          "Тимур Алиев"
+        ]
+      },
+      "identities": {
+        "aliev": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Тимур Алиев"
+            },
+            {
+              "article": "a1-copy",
+              "surface": "Тимур Алиев"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "repeated_monitoring_run",
+      "categories": [
+        "repeated_monitoring_run"
+      ],
+      "description": "Тот же upstream во втором прогоне не создаёт дублей.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве. Активисты считают дело политически мотивированным."
+        }
+      ],
+      "runs": [
+        [
+          "a1"
+        ],
+        []
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Сидоров"
+        ]
+      },
+      "identities": {
+        "sidorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "run_expectations": [
+        {
+          "documents_ingested": 1,
+          "findings_created": 1
+        },
+        {
+          "documents_ingested": 0,
+          "documents_skipped": 1,
+          "findings_created": 0
+        }
+      ]
+    },
+    {
+      "id": "new_article_second_run",
+      "categories": [
+        "new_article_second_run"
+      ],
+      "description": "Во втором прогоне появилась новая статья о другом человеке.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве. Активисты считают дело политически мотивированным."
+        },
+        {
+          "external_id": "a2",
+          "title": "Пикет",
+          "text": "Фёдора Никитина задержали на одиночном пикете против войны у здания мэрии. Правозащитники считают задержание политическим."
+        }
+      ],
+      "runs": [
+        [
+          "a1"
+        ],
+        [
+          "a2"
+        ]
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Сидоров"
+        ],
+        "a2": [
+          "Фёдора Никитина"
+        ]
+      },
+      "identities": {
+        "sidorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        },
+        "nikitin": {
+          "mentions": [
+            {
+              "article": "a2",
+              "surface": "Фёдора Никитина"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "run_expectations": [
+        {
+          "documents_ingested": 1,
+          "findings_created": 1
+        },
+        {
+          "documents_ingested": 1,
+          "documents_skipped": 1,
+          "findings_created": 1
+        }
+      ]
+    },
+    {
+      "id": "lexically_obvious_query",
+      "categories": [
+        "lexically_obvious_query"
+      ],
+      "description": "Поиск по фамилии находит ровно этого человека.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве. Активисты считают дело политически мотивированным."
+        },
+        {
+          "external_id": "a2",
+          "title": "Хулиганство",
+          "text": "Полиция задержала Петра Петрова за мелкое хулиганство у магазина. Составлен протокол по КоАП."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Иван Иванов",
+          "01.01.1980"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Сергей Сидоров"
+        ],
+        "a2": [
+          "Петра Петрова"
+        ]
+      },
+      "identities": {
+        "sidorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        },
+        "petrov": {
+          "mentions": [
+            {
+              "article": "a2",
+              "surface": "Петра Петрова"
+            }
+          ],
+          "persecution": [
+            "non_political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        }
+      },
+      "research": [
+        {
+          "query": "Найди Сидорова",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "name": "Сидоров"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "sidorov"
+          ],
+          "expected_evidence_articles": [
+            "a1"
+          ]
+        },
+        {
+          "query": "Найди Петрова",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "name": "Петров"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "petrov"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "semantic_only_discoverable_query",
+      "categories": [
+        "semantic_only_query"
+      ],
+      "description": "Запрос другими словами, чем текст статьи.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Дискредитация армии",
+          "text": "Суд оштрафовал Ольгу Смирнову за антивоенные надписи на ценниках в супермаркете."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "identities": {
+        "smirnova": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Ольгу Смирнову"
+            }
+          ],
+          "persecution": [
+            "political"
+          ]
+        }
+      },
+      "research": [
+        {
+          "query": "преследование за высказывания против военных действий",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "semantic_query": "преследование за высказывания против военных действий"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "smirnova"
+          ]
+        }
+      ],
+      "requires_semantic_models": true
+    },
+    {
+      "id": "irrelevant_semantic_query",
+      "categories": [
+        "irrelevant_semantic_query"
+      ],
+      "description": "Нерелевантный запрос не должен находить людей.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "identities": {
+        "sidorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Сергей Сидоров"
+            }
+          ]
+        }
+      },
+      "research": [
+        {
+          "query": "рецепт борща со сметаной",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "semantic_query": "рецепт борща со сметаной"
+            },
+            "limit": 50
+          },
+          "expected_identities": []
+        }
+      ],
+      "requires_semantic_models": true
+    },
+    {
+      "id": "religious_persecution",
+      "categories": [
+        "clear_positive"
+      ],
+      "description": "Преследование за участие в религиозной организации.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Обыски у верующих",
+          "text": "В Хабаровске задержали Руслана Каримова по делу об участии в деятельности запрещённой религиозной организации «Свидетели Иеговы». Правозащитники признают таких верующих преследуемыми по религиозным мотивам."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Руслана Каримова"
+        ]
+      },
+      "identities": {
+        "karimov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Руслана Каримова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "patronymic_full_name_in_rf",
+      "categories": [
+        "rf_matched",
+        "clear_positive"
+      ],
+      "description": "ФИО с отчеством совпадает с записью перечня.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Экстремизм в соцсетях",
+          "text": "Суд арестовал Владимира Петровича Козлова по делу о призывах к экстремизму в соцсетях. Правозащитники признали его политзаключённым."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Козлов Владимир Петрович",
+          "07.07.1968"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Владимира Петровича Козлова"
+        ]
+      },
+      "identities": {
+        "kozlov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Владимира Петровича Козлова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "alias_order_two_articles",
+      "categories": [
+        "swapped_fio",
+        "same_person_several_articles"
+      ],
+      "description": "«Тимур Алиев» и «Алиева Тимура» — один человек.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание",
+          "text": "Тимур Алиев задержан на акции в поддержку политзаключённых. Правозащитники говорят о политическом преследовании."
+        },
+        {
+          "external_id": "a2",
+          "title": "Арест",
+          "text": "Алиева Тимура отправили под административный арест на десять суток после акции."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Тимур Алиев"
+        ],
+        "a2": [
+          "Алиева Тимура"
+        ]
+      },
+      "identities": {
+        "aliev": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Тимур Алиев"
+            },
+            {
+              "article": "a2",
+              "surface": "Алиева Тимура"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "inflected_forms_same_article",
+      "categories": [
+        "same_person_several_articles"
+      ],
+      "description": "Два падежа одного имени в одной статье.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Давление силовиков",
+          "text": "Максима Попова задержали на акции памяти Навального. Позже Максим Попов рассказал о давлении силовиков и угрозах уголовным делом."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Максима Попова",
+          "Максим Попов"
+        ]
+      },
+      "identities": {
+        "popov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Максима Попова"
+            },
+            {
+              "article": "a1",
+              "surface": "Максим Попов"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "no_persons_organizations_only",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "В заметке нет людей, только организации.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Без задержаний",
+          "text": "Акция у здания Госдумы прошла без задержаний, сообщает Новая Газета."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": []
+      },
+      "identities": {}
+    },
+    {
+      "id": "organization_declared_extremist",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "Решение против организации, людей нет.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Минюст",
+          "text": "Фонд борьбы с коррупцией признан экстремистской организацией, сообщил Минюст."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": []
+      },
+      "identities": {}
+    },
+    {
+      "id": "rf_matched_non_political",
+      "categories": [
+        "clear_negative",
+        "rf_matched"
+      ],
+      "description": "Человек из перечня, дело не политическое: не кандидат.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Хулиганство",
+          "text": "Полиция задержала Петра Петрова за мелкое хулиганство у магазина. Составлен протокол по КоАП."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Петра Петрова"
+        ]
+      },
+      "identities": {
+        "petrov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Петра Петрова"
+            }
+          ],
+          "persecution": [
+            "non_political"
+          ],
+          "rf_status": "matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "political_charge_treason_foreigner",
+      "categories": [
+        "ambiguous_persecution"
+      ],
+      "description": "Иностранец задержан по подозрению в госизмене: мотив неясен.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Госизмена",
+          "text": "Гражданина Германии Патрика Шмидта задержали в аэропорту Шереметьево по подозрению в государственной измене."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Патрика Шмидта"
+        ]
+      },
+      "identities": {
+        "schmidt": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Патрика Шмидта"
+            }
+          ],
+          "persecution": [
+            "uncertain",
+            "needs_review",
+            "political"
+          ],
+          "rf_status": "not_matched"
+        }
+      }
+    },
+    {
+      "id": "existing_person_new_political_evidence",
+      "categories": [
+        "same_person_several_articles",
+        "candidate"
+      ],
+      "description": "Сначала только хулиганство, затем политическое дело того же человека.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Хулиганство",
+          "text": "Полиция задержала Петра Петрова за мелкое хулиганство у магазина. Составлен протокол по КоАП."
+        },
+        {
+          "external_id": "a2",
+          "title": "Антивоенная акция",
+          "text": "Петр Петров, активист, задержан на антивоенной акции. Правозащитники считают дело политически мотивированным."
+        }
+      ],
+      "runs": [
+        [
+          "a1"
+        ],
+        [
+          "a2"
+        ]
+      ],
+      "rf_snapshot": [
+        [
+          "Иван Иванов",
+          "01.01.1980"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Петра Петрова"
+        ],
+        "a2": [
+          "Петр Петров"
+        ]
+      },
+      "identities": {
+        "petrov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Петра Петрова"
+            },
+            {
+              "article": "a2",
+              "surface": "Петр Петров"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "run_expectations": [
+        {
+          "findings_created": 0
+        },
+        {
+          "findings_created": 1
+        }
+      ]
+    },
+    {
+      "id": "date_range_research",
+      "categories": [
+        "research_query"
+      ],
+      "description": "Поиск по типу события: только арестованные.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Арест",
+          "text": "Суд арестовал Андрея Кузнецова по статье 280 УК РФ о призывах к экстремизму. Защита называет преследование политическим."
+        },
+        {
+          "external_id": "a2",
+          "title": "Штраф",
+          "text": "Михаила Лебедева оштрафовали на 20 тысяч рублей по статье о дискредитации армии после одиночного пикета."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Андрея Кузнецова"
+        ],
+        "a2": [
+          "Михаила Лебедева"
+        ]
+      },
+      "identities": {
+        "kuznetsov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Андрея Кузнецова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        },
+        "lebedev": {
+          "mentions": [
+            {
+              "article": "a2",
+              "surface": "Михаила Лебедева"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "research": [
+        {
+          "query": "Кого арестовали",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "event_types": [
+                "arrest"
+              ]
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "kuznetsov"
+          ],
+          "expected_evidence_articles": [
+            "a1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "single_existing_namesake_auto_link",
+      "categories": [
+        "person_namesakes",
+        "er_review"
+      ],
+      "description": "В базе уже есть другой Андрей Кузнецов (предприниматель); в новой заметке — активист с тем же именем.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Арест активиста",
+          "text": "Андрей Кузнецов, активист из Перми, арестован по статье 280 УК РФ о призывах к экстремизму. Защита называет преследование политическим."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "seed_persons": [
+        "Андрей Кузнецов"
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Андрей Кузнецов"
+        ]
+      },
+      "identities": {
+        "kuznetsov_activist": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Андрей Кузнецов"
+            }
+          ],
+          "candidate": false,
+          "er_review": true
+        },
+        "kuznetsov_businessman": {
+          "mentions": [],
+          "seed_index": 0
+        }
+      },
+      "review_required": true,
+      "known_limitation": "A single existing person with the same full name is auto-linked (ER has no context features)."
+    },
+    {
+      "id": "research_persons_from_article_source",
+      "categories": [
+        "research_query",
+        "multiple_persons"
+      ],
+      "description": "Люди из одной статьи: запрос по имени второго фигуранта.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Дело о листовках",
+          "text": "Суд арестовал Кирилла Белова и Артёма Зайцева по делу об антивоенных листовках."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Кирилла Белова",
+          "Артёма Зайцева"
+        ]
+      },
+      "identities": {
+        "belov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Кирилла Белова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        },
+        "zaitsev": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Артёма Зайцева"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      },
+      "research": [
+        {
+          "query": "Найди Зайцева",
+          "request": {
+            "object_type": "person",
+            "criteria": {
+              "name": "Зайцев"
+            },
+            "limit": 50
+          },
+          "expected_identities": [
+            "zaitsev"
+          ],
+          "expected_evidence_articles": [
+            "a1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "negative_admin_traffic",
+      "categories": [
+        "clear_negative"
+      ],
+      "description": "Лишение прав за вождение в состоянии опьянения.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "ГИБДД",
+          "text": "Николай Волков лишён водительских прав на полтора года за езду в состоянии опьянения, сообщили в ГИБДД."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Николай Волков"
+        ]
+      },
+      "identities": {
+        "volkov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Николай Волков"
+            }
+          ],
+          "persecution": [
+            "non_political",
+            "uncertain"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "female_two_forms_same_person",
+      "categories": [
+        "female_surnames",
+        "same_person_several_articles"
+      ],
+      "description": "«Марина Орлова» и «Марину Орлову» — одна женщина.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Обыск",
+          "text": "У Марины Орловой, координатора волонтёров, прошёл обыск по делу о «фейках» об армии."
+        },
+        {
+          "external_id": "a2",
+          "title": "Арест",
+          "text": "Суд арестовал Марину Орлову на два месяца по делу о «фейках» об армии. Правозащитники считают дело политическим."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Марины Орловой"
+        ],
+        "a2": [
+          "Марину Орлову"
+        ]
+      },
+      "identities": {
+        "orlova": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Марины Орловой"
+            },
+            {
+              "article": "a2",
+              "surface": "Марину Орлову"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    }
+  ]
+}

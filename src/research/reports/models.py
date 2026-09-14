@@ -25,6 +25,10 @@ from semantic_retrieval.models import RetrievalBackend
 # --- human review -------------------------------------------------------------------
 
 
+# Bump when report claims, citations or statuses change meaning.
+RESEARCH_REPORT_VERSION = "1"
+
+
 class ResearchReviewReason(StrEnum):
     """Why a result needs a human decision.
 
