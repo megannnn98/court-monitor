@@ -2,20 +2,21 @@
 
 Full pipeline — sources → ingestion → extraction → person resolution →
 persecution classification → Rosfinmonitoring matching → candidate query —
-plus a deterministic research layer and a LangGraph natural-language research
-workflow is implemented end-to-end (API, CLI).
+plus a deterministic research layer, a LangGraph natural-language research
+workflow and deterministic research reports with human review policy and
+source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Commit `11f2338` (branch `fix/post-research-workflow-cleanup`), 2026-09-14,
-Python 3.13. Later commits on that branch change documentation only.
+Branch `feature-research-report-review-routing` (part 3, commit that adds
+ADR 0010), 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` | no issues (134 files) |
-| Tests without database | `uv run pytest` (no `TEST_DATABASE_URL`) | 366 passed, 110 skipped |
-| Tests with PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` after `alembic upgrade head` | 473 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` | no issues (150 files) |
+| Tests without database | `uv run pytest` (no `TEST_DATABASE_URL`) | 432 passed, 124 skipped |
+| Tests with PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` after `alembic upgrade head` | 553 passed, 3 skipped |
 
 Skipped without a database: PostgreSQL tests. Skipped in both runs: the three
 opt-in live Together AI tests (`TOGETHER_LIVE_TESTS=1`); they were not executed.
@@ -141,22 +142,52 @@ Domain services determine facts.
 - Configuration: `TOGETHER_API_KEY`, `TOGETHER_MODEL`,
   `TOGETHER_TIMEOUT_SECONDS`
 
-### 9. API Layer
+### 9. Research Reports, Review Policy, Source Routing (ADR 0010)
+
+```text
+ResearchRequest → ResearchPlanner.plan → ResearchService → ResearchResponse
+→ ResearchResultEvaluator (ResearchReviewPolicy + routing)
+→ ResearchReportBuilder → human_review_gate → ResearchReport
+```
+
+- Graph: `… validate_request → build_research_plan → research →
+  evaluate_result → build_report → human_review_gate`
+- `ResearchReport` next to the raw `results` (not instead of them): items with
+  copied statuses/confidences, `why_matched` from applied criteria only, claims
+  (`identity`, `persecution_classification`, `rosfinmonitoring_status`,
+  `event`) with citations built from existing `ResearchEvidence` +
+  `ResearchSource`; report status `complete` / `partial` / `review_required` /
+  `no_matches` / `insufficient_data`
+- Only `NOT_MATCHED` is worded as absence; `NO_MATCH_RECORD` and
+  `INSUFFICIENT_DATA` explicitly say absence is not confirmed
+- `ResearchReviewPolicy` (single place): `persecution_uncertain`,
+  `persecution_needs_review`, `rosfin_ambiguous`, `rosfin_needs_review`,
+  `rosfin_insufficient_data`, `missing_evidence`, `low_confidence`
+- Review record only by explicit `POST /research/reviews`: re-checks the
+  condition, reuses `review_records`, idempotent via partial unique index
+  `uq_review_records_pending_subject`
+- Database-first `ResearchPlanner` over `source_registry` capabilities; refresh
+  is a recommendation after an empty result, ingestion is never started
+- No LLM after intake
+
+### 10. API Layer
 - FastAPI endpoints: persons, aliases, persecution, candidates,
   Rosfinmonitoring snapshots/entries, reviews, `POST /research`,
-  `POST /research/query`, health check
+  `POST /research/query` (with `plan` and `report`), `POST /research/reviews`,
+  health check
 
-### 10. CLI
+### 11. CLI
 - `ingest`, `discover-and-ingest`, `search`, `evaluate-search`,
   `extract-entities`, `evaluate-extraction`, `resolve-people`,
   `classify-persecution`, `match-rosfinmonitoring`, `list-candidates`,
-  `research`, `ask`
+  `research`, `ask` (report by default, `--show-request`, `--show-plan`, `--raw`)
 
-### 11. Manual Review Infrastructure
+### 12. Manual Review Infrastructure
 - Generic `review_records` table + `ManualReviewService` for ambiguous
   merges/matches/classifications pending human decision
+- `get_or_create_pending_review`: at most one pending review per subject
 
-### 12. CI
+### 13. CI
 - GitHub Actions: `quality` (ruff, format, mypy), `tests` (pytest without
   database), `integration` (PostgreSQL 18, `alembic upgrade head`, pytest with
   `TEST_DATABASE_URL`). Together AI is never called in CI.
@@ -175,6 +206,10 @@ Domain services determine facts.
 - Research: no region/city, court, organization or occupation filters (not
   linked to persons); only active persons; no consistent read across the
   repository calls of one request (TODO in ADR 0008).
+- Reports: persecution reasons have no per-reason evidence spans (the
+  classification claim cites all of the person's spans); source routing has no
+  freshness policy and never runs ingestion; review tasks cannot be created for
+  `missing_evidence` (no stored subject).
 - Natural-language intake quality depends on the configured Together model;
   JSON-schema compatibility is only checked by the opt-in live test, which has
   not been run. Single-turn only (clarification is not a conversation).
@@ -186,5 +221,6 @@ Domain services determine facts.
 - Fuzzy/ML entity resolution, embeddings, vector search, re-ranking
 - LLM-based classification or LLM-written facts/reports; an autonomous agent
   loop (the LLM is limited to request intake)
+- Automatic ingestion from source routing, automated monitoring
 - New UI, new ingestion sources
 - Full Clean Architecture restructuring of `src/`

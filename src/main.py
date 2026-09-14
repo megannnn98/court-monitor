@@ -36,6 +36,7 @@ from research_cli import (
     ask_exit_code,
     build_research_request,
     format_query_result,
+    format_research_plan,
     format_research_response,
     format_structured_request,
 )
@@ -319,10 +320,12 @@ def main() -> None:
         query_result = run_research_query(research_graph, args.query)
         if args.show_request:
             print(format_structured_request(query_result))
+        if args.show_plan:
+            print(format_research_plan(query_result))
         if args.json:
             print(query_result.model_dump_json(indent=2))
         else:
-            print(format_query_result(query_result))
+            print(format_query_result(query_result, raw=args.raw))
         exit_code = ask_exit_code(query_result)
         if exit_code:
             raise SystemExit(exit_code)

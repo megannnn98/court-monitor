@@ -23,6 +23,7 @@ from research_models import (
     ResearchRequest,
     ResearchResponse,
 )
+from research_reports.models import ResearchReport, ResearchReportItem
 from research_workflow.models import ResearchQueryResult, WorkflowStatus
 from source_registry import SOURCES, get_source_definition
 
@@ -151,6 +152,16 @@ def add_ask_arguments(subparsers: Any) -> None:
         action="store_true",
         help="Print the structured ResearchRequest produced from the query",
     )
+    parser.add_argument(
+        "--show-plan",
+        action="store_true",
+        help="Print the deterministic ResearchPlan (no model reasoning)",
+    )
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Print the raw ResearchResponse view instead of the report",
+    )
     parser.add_argument("--json", action="store_true", help="Print ResearchQueryResult JSON")
     parser.add_argument("--verbose", action="store_true", help="Log workflow events to stderr")
 
@@ -181,7 +192,92 @@ def format_structured_request(result: ResearchQueryResult) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def format_query_result(result: ResearchQueryResult) -> str:
+def format_research_plan(result: ResearchQueryResult) -> str:
+    """The plan structure only; null when research did not run."""
+    payload = None if result.plan is None else result.plan.model_dump(mode="json")
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _format_report_item(item: ResearchReportItem) -> list[str]:
+    lines = ["", f"#{item.person_id} {item.canonical_name}"]
+    if item.aliases:
+        lines.append(f"  Aliases: {', '.join(item.aliases)}")
+
+    lines.append(
+        f"  Persecution: {item.persecution_status.value} ({item.persecution_confidence:.2f})"
+        if item.persecution_status is not None and item.persecution_confidence is not None
+        else "  Persecution: not classified"
+    )
+    if item.rosfinmonitoring_status is not None:
+        confidence = (
+            f" ({item.rosfinmonitoring_confidence:.2f})"
+            if item.rosfinmonitoring_confidence is not None
+            else ""
+        )
+        lines.append(
+            f"  Rosfinmonitoring: {item.rosfinmonitoring_status.value}{confidence} — "
+            f"{item.rosfinmonitoring_summary}"
+        )
+
+    if item.persecution_reasons:
+        lines.append("  Reasons:")
+        lines.extend(f"    - {reason}" for reason in item.persecution_reasons)
+    if item.why_matched:
+        lines.append("  Matched because:")
+        lines.extend(
+            f"    - {reason.criterion}: requested {reason.requested}; actual {reason.actual}"
+            for reason in item.why_matched
+        )
+
+    lines.append("  Claims:")
+    for claim in item.claims:
+        confidence = f" (confidence {claim.confidence:.2f})" if claim.confidence is not None else ""
+        cited = sorted({citation.article_id for citation in claim.citations})
+        support = f" sources {cited}" if cited else ""
+        if not claim.supported:
+            support = " UNSUPPORTED: no citation"
+        lines.append(f"    - [{claim.claim_type.value}] {claim.text}{confidence}{support}")
+
+    articles: dict[int, str] = {}
+    for citation in item.citations:
+        articles.setdefault(
+            citation.article_id,
+            f"    [{citation.article_id}] {citation.source_name} — {citation.article_title} — "
+            f"{citation.url}",
+        )
+    lines.append(f"  Sources ({len(articles)}):")
+    lines.extend(articles.values())
+
+    for domain_warning in item.domain_warnings:
+        lines.append(f"  ! {domain_warning.code.value}: {domain_warning.message}")
+    for report_warning in item.report_warnings:
+        lines.append(f"  ! {report_warning.code.value}: {report_warning.message}")
+
+    if item.review.required:
+        lines.append(f"  Review: required ({item.review.severity.value})")
+        lines.extend(
+            f"    - {reason.code.value}: {reason.message}" for reason in item.review.reasons
+        )
+    else:
+        lines.append("  Review: not required")
+    return lines
+
+
+def format_research_report(report: ResearchReport) -> str:
+    lines = [f"Report: {report.status.value} — {report.summary.text}"]
+    routing = report.source_routing
+    if routing.source_refresh_required:
+        lines.append(f"Source refresh: recommended ({', '.join(routing.sources)}) — not executed")
+    else:
+        lines.append(f"Source refresh: not recommended ({routing.reason.value})")
+    for warning in report.warnings:
+        lines.append(f"! {warning.code.value}: {warning.message}")
+    for item in report.items:
+        lines.extend(_format_report_item(item))
+    return "\n".join(lines)
+
+
+def format_query_result(result: ResearchQueryResult, *, raw: bool = False) -> str:
     lines: list[str] = []
     for warning in result.warnings:
         lines.append(f"! {warning}")
@@ -194,6 +290,8 @@ def format_query_result(result: ResearchQueryResult) -> str:
         lines.append(f"Clarification required: {result.clarification_question}")
         for item in result.unsupported_criteria:
             lines.append(f"  unsupported: {item.criterion} = {item.value}")
+    elif result.report is not None and not raw:
+        lines.append(format_research_report(result.report))
     else:
         assert result.request is not None
         lines.append(

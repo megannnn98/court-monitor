@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 from research_models import ResearchRequest, ResearchResponse
+from research_planning.models import ResearchPlan
+from research_reports.evaluation import ResearchResultEvaluation
+from research_reports.models import ResearchReport
 from research_workflow.models import (
     ResearchIntake,
     ResearchQueryResult,
@@ -25,7 +28,10 @@ class ResearchGraphState(TypedDict, total=False):
     # resolution; not yet validated.
     request_payload: dict[str, Any] | None
     structured_request: ResearchRequest
+    research_plan: ResearchPlan
     research_response: ResearchResponse
+    evaluation: ResearchResultEvaluation
+    report: ResearchReport
     unsupported_criteria: list[UnsupportedCriterion]
     warnings: list[str]
     errors: list[WorkflowError]

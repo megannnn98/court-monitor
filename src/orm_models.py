@@ -273,7 +273,17 @@ class PersonMergeRecord(Base):
 
 class ReviewRecordModel(Base):
     __tablename__ = "review_records"
-    __table_args__ = (Index("ix_review_records_subject", "subject_type", "subject_id"),)
+    __table_args__ = (
+        Index("ix_review_records_subject", "subject_type", "subject_id"),
+        # At most one pending review per subject (idempotent review tasks).
+        Index(
+            "uq_review_records_pending_subject",
+            "subject_type",
+            "subject_id",
+            unique=True,
+            postgresql_where=text("decision = 'pending'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     subject_type: Mapped[str] = mapped_column(String(64), nullable=False)

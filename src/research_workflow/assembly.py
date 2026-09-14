@@ -23,6 +23,8 @@ def completed_result(state: ResearchGraphState) -> ResearchQueryResult:
         results=response.results,
         total_matched=response.total_matched,
         warnings=state.get("warnings", []),
+        plan=state.get("research_plan"),
+        report=state.get("report"),
     )
 
 

@@ -210,7 +210,7 @@ uv run python src/main.py list-candidates --snapshot-id 1 --output-path candidat
 
 ### Natural-language запросы (LangGraph + Together AI)
 
-LLM только переводит вопрос в `ResearchRequest`; факты устанавливает `ResearchService`. Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` в `.env`.
+LLM только переводит вопрос в `ResearchRequest`; факты устанавливает `ResearchService`, отчёт с цитатами и review собирается детерминированно. Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` в `.env`.
 
 ```bash
 uv run python src/main.py ask \
@@ -220,9 +220,14 @@ uv run python src/main.py ask \
 curl -X POST http://localhost:8000/research/query \
   -H 'Content-Type: application/json' \
   -d '{"query": "Найди политически преследуемых людей, которых нет в Росфинмониторинге"}'
+
+# явно создать review task для результата (идемпотентно)
+curl -X POST http://localhost:8000/research/reviews \
+  -H 'Content-Type: application/json' \
+  -d '{"person_id": 2, "reason": "rosfin_ambiguous", "snapshot_id": 1}'
 ```
 
-Подробнее: [Research-Workflow](docs/wiki/Research-Workflow.md).
+`ask` печатает отчёт; `--show-plan` — план, `--raw` — прежний вид результатов. Подробнее: [Research-Workflow](docs/wiki/Research-Workflow.md), [Research-Reports](docs/wiki/Research-Reports.md).
 
 ### End-to-end тестирование
 
@@ -253,6 +258,7 @@ uv run ruff check src tests
 - [Evaluation](docs/wiki/Evaluation.md) — оценка качества
 - [Research](docs/wiki/Research.md) — детерминированный research layer
 - [Research-Workflow](docs/wiki/Research-Workflow.md) — natural-language запросы через LangGraph
+- [Research-Reports](docs/wiki/Research-Reports.md) — отчёт, human review, source routing
 
 Архитектурные решения в [docs/adr](docs/adr/):
 
@@ -265,6 +271,7 @@ uv run ruff check src tests
 - [ADR 0007](docs/adr/0007-rosfinmonitoring-snapshot-model.md) — модель snapshot'ов Росфинмониторинга
 - [ADR 0008](docs/adr/0008-research-domain-and-research-service.md) — research domain и ResearchService
 - [ADR 0009](docs/adr/0009-langgraph-research-orchestration.md) — LangGraph research orchestration
+- [ADR 0010](docs/adr/0010-research-report-review-routing.md) — research reports, human review policy, source routing
 
 ## Тестирование
 

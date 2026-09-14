@@ -19,6 +19,10 @@ class SourceDefinition:
     base_url: str
     create_adapter: Callable[[httpx.AsyncClient, DocumentFetcher], SourceAdapter]
     create_parser: Callable[[], ArticleParser]
+    # Declared capabilities used by research source routing. Every adapter
+    # here implements SourceAdapter: listing discovery and direct fetch.
+    supports_discovery: bool = True
+    supports_direct_fetch: bool = True
 
 
 OVD_INFO = SourceDefinition(

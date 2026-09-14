@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from candidate_query_models import RosfinmonitoringStatus
 from candidate_query_service import CandidateQueryService
 from research_models import ResearchRequest
+from research_reports.models import ResearchReportStatus, ResearchReviewReason
 from research_repository import SqlAlchemyPersonResearchRepository
 from research_service import ResearchService
 from research_workflow.graph import ResearchGraph, build_research_graph, run_research_query
@@ -257,3 +258,80 @@ def test_graph_and_direct_research_service_agree_on_every_status(
     )
     assert graph_product.results == direct_product.results
     assert [r.person.id for r in graph_product.results] == [people["Бета"]]
+
+
+def test_report_over_postgres_has_real_citations_and_review_decisions(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """natural language -> fake parser -> graph -> real ResearchService -> ResearchReport."""
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("ОВД-Инфо", "https://ovd.info")
+        article_id, run_id = seed.article(
+            source_id, external_id="report-1", title="Хроника", text=TEXT
+        )
+        snapshot_id = seed.snapshot("report")
+        seed.entry(snapshot_id, "АЛЕКСЕЕВА АННА")
+        victor = seed.person("Виктор Викторов")
+        anna = seed.person("Анна Алексеева")
+        seed.mention(run_id, "Виктора Викторова", person_id=victor)
+        seed.event(
+            run_id,
+            "Суд арестовал Виктора Викторова",
+            event_type="arrest",
+            event_date=datetime(2024, 3, 5, tzinfo=UTC),
+            links=[(victor, "subject")],
+        )
+        seed.mention(run_id, "Анну Алексееву", person_id=anna)
+        for person_id in (victor, anna):
+            seed.classification(person_id, "political", 0.9)
+        seed.match(victor, snapshot_id, "not_matched", 0.8)
+        seed.match(anna, snapshot_id, "ambiguous", 0.5)
+        session.commit()
+
+    parser = FakeRequestParser(
+        intake=ResearchIntake(
+            request={"object_type": "person", "criteria": {"persecution_status": "political"}}
+        )
+    )
+    result = run_research_query(
+        _graph(session_factory, parser), f"Политически преследуемые, snapshot {snapshot_id}"
+    )
+
+    assert result.status is WorkflowStatus.COMPLETED
+    assert result.report is not None and result.plan is not None
+    report = result.report
+    assert report.status is ResearchReportStatus.REVIEW_REQUIRED
+    items = {item.person_id: item for item in report.items}
+    assert items[victor].review_required is False
+    assert [reason.code for reason in items[anna].review.reasons] == [
+        ResearchReviewReason.ROSFIN_AMBIGUOUS
+    ]
+    raw = {r.person.id: r for r in result.results}
+    for person_id, item in items.items():
+        assert item.citations
+        for citation in item.citations:
+            assert citation.article_id == article_id
+            assert citation.url == "https://example.test/report-1"
+            assert TEXT[citation.start_offset : citation.end_offset] == citation.text
+        # Facts are copied from ResearchService, not re-derived.
+        rf = raw[person_id].rosfinmonitoring
+        assert rf is not None and item.rosfinmonitoring_status is rf.status
+    (event_claim,) = [c for c in items[victor].claims if c.event_id is not None]
+    assert [c.text for c in event_claim.citations] == ["Суд арестовал Виктора Викторова"]
+    assert report.source_refresh_recommended is False
+
+
+def test_report_for_empty_database_result_recommends_refresh(
+    session_factory: sessionmaker[Session],
+) -> None:
+    parser = FakeRequestParser(
+        intake=ResearchIntake(request={"object_type": "person", "criteria": {"name": "Никто"}})
+    )
+
+    result = run_research_query(_graph(session_factory, parser), "Найди Никто")
+
+    assert result.status is WorkflowStatus.COMPLETED
+    assert result.report is not None
+    assert result.report.status is ResearchReportStatus.INSUFFICIENT_DATA
+    assert set(result.report.recommended_sources) == {"ovd-info", "sota-vision"}

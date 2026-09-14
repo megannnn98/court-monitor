@@ -303,6 +303,11 @@ def test_research_query_runs_workflow_and_returns_structured_result(
     assert (body["clarification_required"], body["review_required"]) == (False, False)
     assert (body["total_matched"], body["error"]) == (0, None)
     assert len(service.requests) == 1
+    # Report-level fields next to the unchanged raw fields.
+    assert body["plan"]["database_search"] is True
+    assert body["report"]["status"] == "insufficient_data"
+    assert body["report"]["source_refresh_recommended"] is True
+    assert set(body["report"]["recommended_sources"]) == {"ovd-info", "sota-vision"}
 
 
 def test_research_query_clarification_is_200_with_question(
@@ -398,3 +403,83 @@ def test_research_query_unexpected_error_is_structured_500(
     body = response.json()
     assert (body["status"], body["error"]["code"]) == ("failed", "workflow_unexpected_error")
     assert "Иванов" not in response.text
+
+
+# --- POST /research/reviews ----------------------------------------------------------
+
+
+def test_research_review_endpoint_is_idempotent(
+    db_client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        person_id = seed.person("Иван Иванов")
+        snapshot_id = seed.snapshot()
+        match_id = seed.match(person_id, snapshot_id, "insufficient_data", 0.3)
+        session.commit()
+    body = {
+        "person_id": person_id,
+        "reason": "rosfin_insufficient_data",
+        "snapshot_id": snapshot_id,
+    }
+
+    created = db_client.post("/research/reviews", json=body)
+    repeated = db_client.post("/research/reviews", json=body)
+
+    assert created.status_code == 201
+    assert repeated.status_code == 200
+    assert created.json()["review_id"] == repeated.json()["review_id"]
+    assert (created.json()["created"], repeated.json()["created"]) == (True, False)
+    assert created.json()["subject_type"] == "rosfinmatch"
+    assert created.json()["subject_id"] == match_id
+    reviews = db_client.get("/reviews", params={"status": "pending"}).json()
+    assert [review["id"] for review in reviews] == [created.json()["review_id"]]
+
+
+def test_research_review_endpoint_rejects_stale_condition_and_unknown_subject(
+    db_client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        person_id = seed.person("Иван Иванов")
+        snapshot_id = seed.snapshot()
+        seed.match(person_id, snapshot_id, "not_matched", 0.8)
+        session.commit()
+
+    stale = db_client.post(
+        "/research/reviews",
+        json={"person_id": person_id, "reason": "rosfin_ambiguous", "snapshot_id": snapshot_id},
+    )
+    unknown = db_client.post(
+        "/research/reviews",
+        json={
+            "person_id": person_id + 100,
+            "reason": "rosfin_ambiguous",
+            "snapshot_id": snapshot_id,
+        },
+    )
+
+    assert stale.status_code == 409
+    assert unknown.status_code == 404
+    assert db_client.get("/reviews").json() == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"person_id": 1, "reason": "missing_evidence", "classification_id": 1},
+        {"person_id": 1, "reason": "rosfin_ambiguous"},
+        {"person_id": 1, "reason": "rosfin_ambiguous", "snapshot_id": 1, "note": "free text"},
+        {"person_id": 1, "reason": "made_up", "snapshot_id": 1},
+    ],
+)
+def test_research_review_endpoint_rejects_invalid_body(body: dict[str, object]) -> None:
+    def unbound_session() -> Iterator[Session]:
+        # Never connects: validation fails before the endpoint body runs.
+        yield Session()
+
+    app.dependency_overrides[get_db] = unbound_session
+    try:
+        assert TestClient(app).post("/research/reviews", json=body).status_code == 422
+    finally:
+        app.dependency_overrides.pop(get_db, None)

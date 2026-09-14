@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Accepted. The final `assemble_response` step is replaced by planning, result
+evaluation, report and human review gate nodes in
+[ADR 0010](0010-research-report-review-routing.md).
 
 ## Context
 

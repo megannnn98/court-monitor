@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from orm_models import ReviewRecordModel
@@ -94,6 +95,54 @@ class SqlAlchemyManualReviewService:
         session.add(review)
         session.flush()
         return review.id
+
+    def get_or_create_pending_review(
+        self,
+        session: Session,
+        *,
+        review_type: str,
+        entity_id: int,
+        reason: str,
+        confidence: float | None = None,
+    ) -> tuple[int, bool]:
+        """Return the pending review of a subject, creating it if absent.
+
+        Idempotent and race-free: `uq_review_records_pending_subject` allows one
+        pending review per (subject_type, subject_id), and a concurrent insert
+        of the same subject becomes a no-op.
+
+        Returns:
+            (review id, whether this call created it)
+        """
+        created_id = session.scalar(
+            insert(ReviewRecordModel)
+            .values(
+                subject_type=review_type,
+                subject_id=entity_id,
+                decision=ReviewStatus.PENDING,
+                reason=reason,
+                confidence=confidence,
+                created_at=datetime.now(UTC),
+            )
+            .on_conflict_do_nothing(
+                index_elements=["subject_type", "subject_id"],
+                index_where=ReviewRecordModel.decision == ReviewStatus.PENDING,
+            )
+            .returning(ReviewRecordModel.id)
+        )
+        if created_id is not None:
+            return created_id, True
+
+        existing_id = session.scalar(
+            select(ReviewRecordModel.id).where(
+                ReviewRecordModel.subject_type == review_type,
+                ReviewRecordModel.subject_id == entity_id,
+                ReviewRecordModel.decision == ReviewStatus.PENDING,
+            )
+        )
+        if existing_id is None:  # decided between the insert and this read
+            raise RuntimeError(f"pending review for {review_type} {entity_id} vanished")
+        return existing_id, False
 
     def update_review_status(
         self,

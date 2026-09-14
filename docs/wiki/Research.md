@@ -1,6 +1,6 @@
 # Research
 
-Детерминированный research layer: структурированный запрос `ResearchRequest` → `ResearchService` → `ResearchResponse` с результатами по канонической `Person`. Статьи — только evidence/provenance. Решение и мотивация — [ADR 0008](../adr/0008-research-domain-and-research-service.md).
+Детерминированный research layer: структурированный запрос `ResearchRequest` → `ResearchService` → `ResearchResponse` с результатами по канонической `Person`. Статьи — только evidence/provenance. Решение и мотивация — [ADR 0008](../adr/0008-research-domain-and-research-service.md). Отчёт с цитатами, review policy и source routing поверх `ResearchResponse` — [Research-Reports](Research-Reports.md) (ADR 0010); `ResearchService` и `POST /research` от них не зависят.
 
 ```plantuml
 @startuml
@@ -125,7 +125,7 @@ curl -X POST http://localhost:8000/research \
 - **Region/city, court, organization** не связаны с Person (mentions есть, связи нет) — фильтров нет.
 - **Case** как сущность отсутствует — research object `CASE` не реализован.
 - Классификация хранит `reasons`/`evidence_types`, но не spans — evidence за причинами классификации вернуть нельзя.
-- `review_records` не используются: пайплайн их не создаёт, связь `subject_id` → Person не определена.
+- `ResearchService` не создаёт `review_records`. Persistent review task для результата создаётся только явно через `POST /research/reviews` ([Research-Reports](Research-Reports.md#human-review)).
 - Поиск по имени не нормализует ё/е и падежи сверх того, что уже есть в алиасах.
 - Только `active` persons (как в candidate query); `merged`/`needs_review` persons не ищутся.
 - Даты событий трактуются в UTC.

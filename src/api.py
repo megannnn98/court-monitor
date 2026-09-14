@@ -22,6 +22,13 @@ from orm_models import (
 from persecution_queries import latest_persecution_classification_ids
 from research_models import ResearchRequest, ResearchResponse
 from research_repository import SqlAlchemyPersonResearchRepository
+from research_review_tasks import (
+    ResearchReviewConditionNotMetError,
+    ResearchReviewSubjectNotFoundError,
+    ResearchReviewTask,
+    ResearchReviewTaskRequest,
+    ResearchReviewTaskService,
+)
 from research_service import ResearchService, ResearchSnapshotNotFoundError
 from research_workflow.graph import ResearchGraph, run_research_query
 from research_workflow.llm import LlmConfigurationError
@@ -384,6 +391,33 @@ def research_query(
         )
         return JSONResponse(status_code=status_code, content=result.model_dump(mode="json"))
     return result
+
+
+@app.post(
+    "/research/reviews",
+    response_model=ResearchReviewTask,
+    status_code=201,
+    responses={200: {"model": ResearchReviewTask}, 404: {}, 409: {}},
+)
+def create_research_review(
+    body: ResearchReviewTaskRequest,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ResearchReviewTask | JSONResponse:
+    """Explicitly create a persistent review task for a research result.
+
+    Idempotent: 201 when created, 200 with the existing pending review
+    otherwise. The review condition is re-checked against current data.
+    """
+    try:
+        task = ResearchReviewTaskService().create(db, body)
+    except ResearchReviewSubjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ResearchReviewConditionNotMetError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    db.commit()
+    if not task.created:
+        return JSONResponse(status_code=200, content=task.model_dump(mode="json"))
+    return task
 
 
 # Rosfinmonitoring endpoints

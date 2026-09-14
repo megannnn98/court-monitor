@@ -9,6 +9,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from research_models import PersonResearchResult, ResearchRequest
+from research_planning.models import ResearchPlan
+from research_reports.models import ResearchReport
 
 
 class UnsupportedCriterion(BaseModel):
@@ -74,7 +76,9 @@ class ResearchQueryResult(BaseModel):
     """Deterministically assembled workflow result.
 
     `results` are the `ResearchService` results unchanged: statuses,
-    evidence and per-person warnings are never rewritten here.
+    evidence and per-person warnings are never rewritten here. `report` is
+    the deterministic presentation of those results (ADR 0010); it is added
+    next to them, never instead of them.
     """
 
     model_config = ConfigDict(use_enum_values=False)
@@ -91,6 +95,9 @@ class ResearchQueryResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     clarification_question: str | None = None
     error: WorkflowError | None = None
+    # Present only when research was executed.
+    plan: ResearchPlan | None = None
+    report: ResearchReport | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -100,4 +107,8 @@ class ResearchQueryResult(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def review_required(self) -> bool:
+        """From the review policy when a report exists; it covers every
+        per-result domain review requirement."""
+        if self.report is not None:
+            return self.report.review_required
         return any(result.review_required for result in self.results)

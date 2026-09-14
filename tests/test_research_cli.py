@@ -11,6 +11,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
+from research_report_fixtures import ARTICLE_URL, person_result, rosfin
+from research_report_fixtures import request as report_request
+from research_report_fixtures import response as report_response
 
 from candidate_query_models import RosfinmonitoringStatus
 from extraction_models import EventEntityRole, EventType
@@ -23,6 +26,7 @@ from research_cli import (
     ask_exit_code,
     build_research_request,
     format_query_result,
+    format_research_plan,
     format_research_response,
     format_structured_request,
 )
@@ -37,6 +41,10 @@ from research_models import (
     ResearchRosfinmonitoring,
     ResearchSource,
 )
+from research_planning.planner import ResearchPlanner
+from research_reports.builder import ResearchReportBuilder
+from research_reports.evaluation import ResearchResultEvaluator
+from research_reports.review_policy import ResearchReviewPolicy
 from research_workflow.models import (
     ResearchQueryResult,
     UnsupportedCriterion,
@@ -44,6 +52,7 @@ from research_workflow.models import (
     WorkflowErrorCode,
     WorkflowStatus,
 )
+from source_registry import SOURCES
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -265,3 +274,102 @@ def test_ask_without_together_config_exits_with_configuration_error() -> None:
         "Together AI is not configured: set TOGETHER_API_KEY, TOGETHER_MODEL"
     )
     assert completed.stdout == ""
+
+
+# --- ask: report output ------------------------------------------------------------
+
+
+def _report_result(
+    results: list[PersonResearchResult], research_request: ResearchRequest | None = None
+) -> ResearchQueryResult:
+    research_request = research_request or report_request(
+        persecution_status=PersecutionClassificationStatus.POLITICAL,
+        rosfinmonitoring_status=RosfinmonitoringStatus.NOT_MATCHED,
+        snapshot_id=7,
+    )
+    research_response = report_response(research_request, results)
+    planner = ResearchPlanner(SOURCES)
+    plan = planner.plan(research_request)
+    evaluation = ResearchResultEvaluator(
+        planner=planner, review_policy=ResearchReviewPolicy()
+    ).evaluate(request=research_request, plan=plan, response=research_response)
+    return ResearchQueryResult(
+        status=WorkflowStatus.COMPLETED,
+        query="q",
+        request=research_request,
+        results=results,
+        total_matched=research_response.total_matched,
+        plan=plan,
+        report=ResearchReportBuilder().build(
+            request=research_request, response=research_response, evaluation=evaluation
+        ),
+    )
+
+
+def test_ask_report_arguments() -> None:
+    args = _ask_args(["Найди", "--raw", "--show-plan"])
+
+    assert (args.raw, args.show_plan) == (True, True)
+
+
+def test_ask_prints_report_with_facts_reasons_sources_and_review() -> None:
+    text = format_query_result(_report_result([person_result(rf=rosfin())]))
+
+    assert "Report: complete" in text
+    assert "#1 Иван Иванов" in text
+    assert "Persecution: political (0.85)" in text
+    assert "Rosfinmonitoring: not_matched (0.80)" in text
+    assert "- Антивоенная деятельность" in text
+    assert (
+        "- persecution_status: requested political (confidence ≥ 0.70); actual political (0.85)"
+        in text
+    )
+    assert f"ОВД-Инфо — Арест за пикет — {ARTICLE_URL}" in text
+    assert "Review: not required" in text
+    assert "Source refresh: not recommended (database_sufficient)" in text
+
+
+def test_ask_report_shows_review_reasons() -> None:
+    research_request = ResearchRequest(
+        object_type=ResearchObjectType.PERSON, criteria=PersonResearchCriteria(snapshot_id=7)
+    )
+    text = format_query_result(
+        _report_result(
+            [person_result(rf=rosfin(RosfinmonitoringStatus.AMBIGUOUS))], research_request
+        )
+    )
+
+    assert "Report: review_required" in text
+    assert "Review: required (blocking)" in text
+    assert "- rosfin_ambiguous:" in text
+
+
+def test_ask_report_shows_refresh_recommendation_for_empty_result() -> None:
+    research_request = ResearchRequest(
+        object_type=ResearchObjectType.PERSON,
+        criteria=PersonResearchCriteria(
+            persecution_status=PersecutionClassificationStatus.POLITICAL
+        ),
+    )
+
+    text = format_query_result(_report_result([], research_request))
+
+    assert "Report: insufficient_data" in text
+    assert "Source refresh: recommended (ovd-info, sota-vision) — not executed" in text
+
+
+def test_raw_prints_the_research_response_format() -> None:
+    text = format_query_result(_report_result([person_result(rf=rosfin())]), raw=True)
+
+    assert "Matched 1 person(s), showing 1" in text
+    assert "Report:" not in text
+
+
+def test_show_plan_prints_plan_json_only() -> None:
+    payload = json.loads(format_research_plan(_report_result([])))
+
+    assert payload["database_search"] is True
+    assert {source["source_id"] for source in payload["candidate_sources"]} == {
+        "ovd-info",
+        "sota-vision",
+    }

@@ -1,7 +1,8 @@
-"""LangGraph orchestration: natural language -> ResearchRequest -> ResearchService.
+"""LangGraph orchestration: natural language -> ResearchRequest -> ResearchService -> report.
 
 The graph orchestrates; it never queries the database, re-derives statuses
-or asks an LLM to phrase facts. ResearchService decides the result.
+or asks an LLM to phrase facts. ResearchService decides the result; the
+planner, review policy and report builder (all deterministic) present it.
 """
 
 from __future__ import annotations
@@ -17,6 +18,10 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from research_models import ResearchRequest, ResearchResponse
+from research_planning.planner import ResearchPlanner
+from research_reports.builder import ResearchReportBuilder
+from research_reports.evaluation import ResearchResultEvaluator
+from research_reports.review_policy import ResearchReviewPolicy
 from research_service import ResearchSnapshotNotFoundError
 from research_workflow.assembly import (
     clarification_result,
@@ -45,6 +50,7 @@ from research_workflow.models import (
 )
 from research_workflow.snapshot_references import extract_explicit_snapshot_ids
 from research_workflow.state import ResearchGraphState
+from source_registry import SOURCES
 
 logger = logging.getLogger("research_workflow")
 
@@ -132,7 +138,16 @@ def build_research_graph(
     request_parser: ResearchRequestParser,
     research_service: ResearchExecutor,
     snapshot_lookup: RosfinmonitoringSnapshotLookup,
+    planner: ResearchPlanner | None = None,
+    review_policy: ResearchReviewPolicy | None = None,
+    report_builder: ResearchReportBuilder | None = None,
 ) -> ResearchGraph:
+    planner = planner or ResearchPlanner(SOURCES)
+    evaluator = ResearchResultEvaluator(
+        planner=planner, review_policy=review_policy or ResearchReviewPolicy()
+    )
+    report_builder = report_builder or ResearchReportBuilder()
+
     def request_intake(state: ResearchGraphState) -> ResearchGraphState:
         try:
             intake = request_parser.parse(state["raw_query"])
@@ -282,14 +297,23 @@ def build_research_graph(
 
     def route_after_validation(
         state: ResearchGraphState,
-    ) -> Literal["failed", "clarification", "research"]:
+    ) -> Literal["failed", "clarification", "build_research_plan"]:
         if state.get("errors"):
             return "failed"
         if state.get("clarification_question") is not None or (
             "structured_request" not in state and state.get("unsupported_criteria")
         ):
             return "clarification"
-        return "research"
+        return "build_research_plan"
+
+    def build_research_plan(state: ResearchGraphState) -> ResearchGraphState:
+        plan = planner.plan(state["structured_request"])
+        logger.info(
+            "research_plan_built requirements=%s candidate_sources=%d",
+            ",".join(requirement.value for requirement in plan.data_requirements),
+            len(plan.candidate_sources),
+        )
+        return {"research_plan": plan}
 
     def research(state: ResearchGraphState) -> ResearchGraphState:
         try:
@@ -306,13 +330,50 @@ def build_research_graph(
             len(response.results),
             response.total_matched,
         )
-        return {
-            "research_response": response,
-            "review_required": any(result.review_required for result in response.results),
-        }
+        return {"research_response": response}
 
-    def route_after_research(state: ResearchGraphState) -> Literal["clarification", "assemble"]:
-        return "clarification" if state.get("clarification_question") is not None else "assemble"
+    def route_after_research(
+        state: ResearchGraphState,
+    ) -> Literal["clarification", "evaluate_result"]:
+        if state.get("clarification_question") is not None:
+            return "clarification"
+        return "evaluate_result"
+
+    def evaluate_result(state: ResearchGraphState) -> ResearchGraphState:
+        evaluation = evaluator.evaluate(
+            request=state["structured_request"],
+            plan=state["research_plan"],
+            response=state["research_response"],
+        )
+        logger.info(
+            "result_evaluated review_required_count=%d source_refresh_required=%s",
+            sum(review.decision.required for review in evaluation.reviews),
+            evaluation.routing.source_refresh_required,
+        )
+        return {"evaluation": evaluation, "review_required": evaluation.review_required}
+
+    def build_report(state: ResearchGraphState) -> ResearchGraphState:
+        report = report_builder.build(
+            request=state["structured_request"],
+            response=state["research_response"],
+            evaluation=state["evaluation"],
+        )
+        logger.info("report_built status=%s items=%d", report.status.value, len(report.items))
+        return {"report": report}
+
+    def human_review_gate(state: ResearchGraphState) -> ResearchGraphState:
+        """Marks review-required results in the final result.
+
+        Read-only: no review record is created here; that is an explicit
+        action (POST /research/reviews).
+        """
+        report = state["report"]
+        logger.info(
+            "human_review_gate review_required=%s review_required_count=%d",
+            report.review_required,
+            report.summary.review_required_count,
+        )
+        return {"review_required": report.review_required, "final_result": completed_result(state)}
 
     def clarification(state: ResearchGraphState) -> ResearchGraphState:
         questions: list[str] = []
@@ -345,17 +406,17 @@ def build_research_graph(
         logger.error("workflow_failed code=%s", errors[0].code.value if errors else "unknown")
         return {"final_result": failed_result(state)}
 
-    def assemble_response(state: ResearchGraphState) -> ResearchGraphState:
-        return {"final_result": completed_result(state)}
-
     builder = StateGraph(ResearchGraphState)
     builder.add_node("request_intake", request_intake)
     builder.add_node("resolve_snapshot", resolve_snapshot)
     builder.add_node("validate_request", validate_request)
+    builder.add_node("build_research_plan", build_research_plan)
     builder.add_node("research", research)
+    builder.add_node("evaluate_result", evaluate_result)
+    builder.add_node("build_report", build_report)
+    builder.add_node("human_review_gate", human_review_gate)
     builder.add_node("clarification", clarification)
     builder.add_node("workflow_failed", workflow_failed)
-    builder.add_node("assemble_response", assemble_response)
 
     builder.add_edge(START, "request_intake")
     builder.add_conditional_edges(
@@ -379,16 +440,23 @@ def build_research_graph(
     builder.add_conditional_edges(
         "validate_request",
         route_after_validation,
-        {"failed": "workflow_failed", "clarification": "clarification", "research": "research"},
+        {
+            "failed": "workflow_failed",
+            "clarification": "clarification",
+            "build_research_plan": "build_research_plan",
+        },
     )
+    builder.add_edge("build_research_plan", "research")
     builder.add_conditional_edges(
         "research",
         route_after_research,
-        {"clarification": "clarification", "assemble": "assemble_response"},
+        {"clarification": "clarification", "evaluate_result": "evaluate_result"},
     )
+    builder.add_edge("evaluate_result", "build_report")
+    builder.add_edge("build_report", "human_review_gate")
     builder.add_edge("clarification", END)
     builder.add_edge("workflow_failed", END)
-    builder.add_edge("assemble_response", END)
+    builder.add_edge("human_review_gate", END)
     return builder.compile()
 
 
