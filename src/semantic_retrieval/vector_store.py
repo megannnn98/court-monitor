@@ -234,10 +234,21 @@ class QdrantVectorStore:
     def check_embedding_model(self, name: str, embedding_model_id: str) -> None:
         if self._vector_size(name) is None:
             return
+        # Any point of another model, not a sample: points without the field match too.
+        foreign = models.Filter(
+            must_not=[
+                models.FieldCondition(
+                    key="embedding_model_id", match=models.MatchValue(value=embedding_model_id)
+                )
+            ]
+        )
         records, _ = self._call(
             "scroll",
             lambda: self._client.scroll(
-                collection_name=name, limit=1, with_payload=["embedding_model_id"]
+                collection_name=name,
+                scroll_filter=foreign,
+                limit=1,
+                with_payload=["embedding_model_id"],
             ),
         )
         for record in records:

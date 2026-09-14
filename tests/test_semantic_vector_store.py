@@ -157,6 +157,26 @@ def test_points_without_model_metadata_are_treated_as_incompatible() -> None:
         store.search(COLLECTION, [1.0, 0.0, 0.0], embedding_model_id=MODEL, limit=5)
 
 
+def test_model_check_scans_the_whole_collection_not_a_sample() -> None:
+    store, client = _store()
+    store.upsert(
+        COLLECTION,
+        [VectorPoint(document(entity_id, "a"), [1.0, 0.0, 0.0], MODEL) for entity_id in range(20)],
+    )
+    # One legacy point (no model field) hidden among compatible ones.
+    client.upsert(
+        COLLECTION,
+        points=[
+            models.PointStruct(
+                id=point_id(PERSON, 99), vector=[0.0, 1.0, 0.0], payload={"entity_id": 99}
+            )
+        ],
+    )
+
+    with pytest.raises(IndexModelMismatchError, match="unknown"):
+        store.check_embedding_model(COLLECTION, MODEL)
+
+
 def test_empty_or_missing_collection_passes_the_model_check() -> None:
     store, _ = _store()
 

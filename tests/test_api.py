@@ -597,6 +597,30 @@ def test_research_query_with_invalid_semantic_config_returns_503_not_500(
     assert "SEMANTIC_CANDIDATE_POOL_SIZE" in response.json()["detail"]
 
 
+def test_invalid_dense_threshold_fails_fast_even_for_a_structured_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Documented fail-fast scope: the graph is not built, so no query is served.
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@localhost:1/none")
+    monkeypatch.setenv("TOGETHER_API_KEY", "test-key")
+    monkeypatch.setenv("TOGETHER_MODEL", "test-model")
+    monkeypatch.setenv("QDRANT_URL", "http://127.0.0.1:1")
+    monkeypatch.delenv("EMBEDDING_MODEL_ID", raising=False)
+    monkeypatch.setenv("SEMANTIC_DENSE_MIN_SCORE", "abc")
+    _get_session_factory.cache_clear()
+    _get_research_graph.cache_clear()
+    try:
+        response = TestClient(app).post(
+            "/research/query", json={"query": "Найди людей со статусом political"}
+        )
+    finally:
+        _get_session_factory.cache_clear()
+        _get_research_graph.cache_clear()
+
+    assert response.status_code == 503
+    assert "SEMANTIC_DENSE_MIN_SCORE" in response.json()["detail"]
+
+
 def test_unrelated_semantic_query_is_a_completed_zero_result_not_503(
     override_query_graph: Callable[[ResearchGraph], TestClient],
 ) -> None:

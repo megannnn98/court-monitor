@@ -73,7 +73,7 @@ disagree with the research object and mix several people in one vector.
 - Qdrant collections `persons_semantic`, `events_semantic` (cosine). Point id =
   `uuid5(fixed namespace, "<entity_type>:<entity_id>")`: re-indexing overwrites.
   Payload: `entity_id`, `entity_type`, `representation_version`,
-  `content_hash` only.
+  `content_hash`, `embedding_model_id` only.
 - `SemanticIndexer`: full rebuild (recreate collection) or incremental (embed
   only documents whose hash/version changed or were never indexed); stale
   entities are deleted after a full scan. A failed embedding leaves the document
@@ -136,7 +136,9 @@ for `intfloat/multilingual-e5-base` only; with another `EMBEDDING_MODEL_ID`,
 `SEMANTIC_DENSE_MIN_SCORE` must be set explicitly (configuration error
 otherwise). Qdrant points store `embedding_model_id`; searching or
 incrementally indexing a collection built by another model (or without that
-field) fails with `IndexModelMismatchError` until a full rebuild.
+field) fails with `IndexModelMismatchError` until a full rebuild. Search checks
+every returned point; indexing looks for any foreign point in the whole
+collection, not a sample.
 
 ### Failures are not empty results
 

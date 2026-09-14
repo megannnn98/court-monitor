@@ -152,7 +152,7 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 | кандидаты найдены, но ни один не прошёл порог (или 0 кандидатов) | `completed`, 0 результатов, «В текущем индексе не найдено сущностей с достаточной семантической релевантностью запросу…» |
 | индекс построен другой моделью | `failed` / `semantic_retrieval_unavailable` (`IndexModelMismatchError`) |
 | запрос без `semantic_query` при недоступном Qdrant | работает как раньше |
-| некорректные semantic-переменные (`SEMANTIC_CANDIDATE_POOL_SIZE=abc`, `EMBEDDING_DEVICE=gpu`) | `SemanticConfigurationError`: API 503, CLI — сообщение и выход |
+| некорректные semantic-переменные (`SEMANTIC_CANDIDATE_POOL_SIZE=abc`, `EMBEDDING_DEVICE=gpu`, `SEMANTIC_DENSE_MIN_SCORE=abc`, другая `EMBEDDING_MODEL_ID` без порога) | `SemanticConfigurationError` при сборке workflow: API 503 на **все** `/research/query`, включая structured-запросы без `semantic_query` (fail-fast); CLI — сообщение и выход |
 
 ## Конфигурация
 
