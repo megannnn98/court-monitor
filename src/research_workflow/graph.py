@@ -7,7 +7,9 @@ or asks an LLM to phrase facts. ResearchService decides the result.
 from __future__ import annotations
 
 import copy
+import json
 import logging
+from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from langgraph.graph import END, START, StateGraph
@@ -36,6 +38,7 @@ from research_workflow.llm import (
 from research_workflow.models import (
     ResearchQueryResult,
     RosfinmonitoringSnapshotSummary,
+    UnsupportedCriterion,
     WorkflowError,
     WorkflowErrorCode,
 )
@@ -76,6 +79,51 @@ def _llm_error_code(error: LlmError) -> WorkflowErrorCode:
         if isinstance(error, error_type):
             return code
     return WorkflowErrorCode.LLM_UNAVAILABLE
+
+
+# Pydantic error types caused by values the user asked for (fixable by the
+# user). Everything else means the LLM broke the ResearchRequest contract.
+_USER_FIXABLE_ERROR_TYPES = frozenset(
+    {
+        "value_error",
+        "greater_than",
+        "greater_than_equal",
+        "less_than",
+        "less_than_equal",
+        "too_short",
+        "too_long",
+    }
+)
+
+
+@dataclass(frozen=True)
+class ValidationIssues:
+    unsupported_criteria: list[UnsupportedCriterion]
+    user_messages: list[str]
+    contract_errors: int
+
+
+def classify_validation_errors(error: ValidationError) -> ValidationIssues:
+    unsupported: list[UnsupportedCriterion] = []
+    messages: list[str] = []
+    contract_errors = 0
+    for item in error.errors():
+        location = ".".join(str(part) for part in item["loc"])
+        if item["type"] == "extra_forbidden":
+            value = item.get("input")
+            unsupported.append(
+                UnsupportedCriterion(
+                    criterion=str(item["loc"][-1]),
+                    value=value
+                    if isinstance(value, str)
+                    else json.dumps(value, ensure_ascii=False),
+                )
+            )
+        elif item["type"] in _USER_FIXABLE_ERROR_TYPES:
+            messages.append(f"{location}: {item['msg']}" if location else str(item["msg"]))
+        else:
+            contract_errors += 1
+    return ValidationIssues(unsupported, messages, contract_errors)
 
 
 def build_research_graph(
@@ -195,30 +243,39 @@ def build_research_graph(
         try:
             request = ResearchRequest.model_validate(state.get("request_payload"))
         except ValidationError as exc:
-            errors = exc.errors()
-            # Our own domain rules (e.g. date_from > date_to) raise value
-            # errors: the user can fix those. Anything else (unknown field,
-            # wrong enum or type) means the LLM broke the schema.
-            if all(error["type"] == "value_error" for error in errors):
-                messages = "; ".join(str(error["msg"]) for error in errors)
-                logger.info("request_validation status=invalid_domain errors=%d", len(errors))
+            issues = classify_validation_errors(exc)
+            if issues.contract_errors:
+                logger.warning(
+                    "request_validation status=invalid_schema errors=%d", issues.contract_errors
+                )
                 return {
-                    "clarification_question": (
-                        f"Запрос нельзя выполнить: {messages}. Уточните критерии поиска."
-                    )
+                    "errors": [
+                        WorkflowError(
+                            code=WorkflowErrorCode.LLM_INVALID_OUTPUT,
+                            message=(
+                                "LLM вернул запрос, не соответствующий ResearchRequest: "
+                                f"{issues.contract_errors} ошибок валидации."
+                            ),
+                        )
+                    ]
                 }
-            logger.warning("request_validation status=invalid_schema errors=%d", len(errors))
-            return {
-                "errors": [
-                    WorkflowError(
-                        code=WorkflowErrorCode.LLM_INVALID_OUTPUT,
-                        message=(
-                            "LLM вернул запрос, не соответствующий ResearchRequest: "
-                            f"{len(errors)} ошибок валидации."
-                        ),
-                    )
+            logger.info(
+                "request_validation status=needs_clarification unsupported=%d invalid_values=%d",
+                len(issues.unsupported_criteria),
+                len(issues.user_messages),
+            )
+            update: ResearchGraphState = {}
+            if issues.unsupported_criteria:
+                update["unsupported_criteria"] = [
+                    *state.get("unsupported_criteria", []),
+                    *issues.unsupported_criteria,
                 ]
-            }
+            if issues.user_messages:
+                update["clarification_question"] = (
+                    f"Запрос нельзя выполнить: {'; '.join(issues.user_messages)}. "
+                    "Уточните критерии поиска."
+                )
+            return update
         logger.info("request_validation status=valid")
         return {"structured_request": request}
 
@@ -227,7 +284,9 @@ def build_research_graph(
     ) -> Literal["failed", "clarification", "research"]:
         if state.get("errors"):
             return "failed"
-        if state.get("clarification_question") is not None:
+        if state.get("clarification_question") is not None or (
+            "structured_request" not in state and state.get("unsupported_criteria")
+        ):
             return "clarification"
         return "research"
 
@@ -262,7 +321,7 @@ def build_research_graph(
         intake = state.get("intake")
         if intake is not None and intake.clarification_question is not None:
             questions.append(intake.clarification_question)
-        if state.get("clarification_question") is not None and not questions:
+        if state.get("clarification_question") is not None:
             questions.append(str(state["clarification_question"]))
         if not questions:
             questions.append("Не удалось понять запрос. Уточните, кого или что нужно найти.")

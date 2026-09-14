@@ -349,7 +349,7 @@ def test_unknown_user_snapshot_asks_for_clarification() -> None:
         # Envelope broken: not an intake object at all.
         {"answer": "Иванов не в перечне Росфинмониторинга"},
         # Envelope fine, request breaks the ResearchRequest schema.
-        {"request": {"object_type": "person", "criteria": {"region": "Казань"}}},
+        # (An unknown criteria field is a clarification, see the unsupported test.)
         {"request": {"object_type": "article"}},
         {
             "request": {
@@ -561,3 +561,80 @@ def test_several_explicit_snapshots_require_clarification() -> None:
         "В запросе указано несколько snapshot: #3, #5. Укажите один snapshot."
     )
     assert service.requests == []
+
+
+# --- validation errors: user-fixable vs broken LLM contract -----------------------
+
+
+def test_unknown_criteria_field_from_llm_becomes_unsupported_clarification() -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "Найди политически преследуемых людей из Казани",
+        parser=FakeRequestParser(
+            intake=_intake({"persecution_status": "political", "region": "Казань"})
+        ),
+        service=service,
+    )
+
+    assert result.status is WorkflowStatus.CLARIFICATION_REQUIRED
+    assert result.unsupported_criteria == [UnsupportedCriterion(criterion="region", value="Казань")]
+    assert result.clarification_question is not None
+    assert "region («Казань»)" in result.clarification_question
+    assert result.error is None
+    assert service.requests == []
+
+
+@pytest.mark.parametrize(
+    ("request_payload", "message_fragment"),
+    [
+        ({"object_type": "person", "limit": 5000}, "limit"),
+        ({"object_type": "person", "criteria": {"event_types": []}}, "event_types"),
+        ({"object_type": "person", "criteria": {"person_id": 0}}, "person_id"),
+    ],
+)
+def test_out_of_bounds_values_ask_for_clarification_not_failure(
+    request_payload: dict[str, Any], message_fragment: str
+) -> None:
+    service = FakeResearchService()
+
+    result = _run(
+        "Покажи 5000 человек",
+        parser=FakeRequestParser(intake=ResearchIntake(request=request_payload)),
+        service=service,
+    )
+
+    assert result.status is WorkflowStatus.CLARIFICATION_REQUIRED
+    assert result.clarification_question is not None
+    assert message_fragment in result.clarification_question
+    assert result.error is None
+    assert service.requests == []
+
+
+def test_broken_contract_wins_over_user_fixable_errors() -> None:
+    result = _run(
+        "…",
+        parser=FakeRequestParser(
+            intake=_intake({"persecution_status": "very_political", "region": "Казань"})
+        ),
+    )
+
+    assert result.status is WorkflowStatus.FAILED
+    assert result.error is not None
+    assert result.error.code is WorkflowErrorCode.LLM_INVALID_OUTPUT
+
+
+def test_clarification_reports_both_unsupported_fields_and_invalid_values() -> None:
+    result = _run(
+        "Покажи 5000 человек из Казани",
+        parser=FakeRequestParser(
+            intake=ResearchIntake(
+                request={"object_type": "person", "criteria": {"region": "Казань"}, "limit": 5000}
+            )
+        ),
+    )
+
+    assert result.status is WorkflowStatus.CLARIFICATION_REQUIRED
+    assert result.clarification_question is not None
+    assert "region («Казань»)" in result.clarification_question
+    assert "limit" in result.clarification_question
