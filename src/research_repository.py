@@ -9,6 +9,7 @@ from datetime import UTC, datetime, time, timedelta
 from sqlalchemy import ColumnElement, exists, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session, sessionmaker
 
+from candidate_query_service import latest_persecution_classification_ids
 from extraction_models import EventEntityRole
 from orm_models import (
     ArticleExtractionRunRecord,
@@ -145,19 +146,12 @@ class SqlAlchemyPersonResearchRepository:
             return {}
         with self._session_factory() as session:
             records = session.scalars(
-                select(PersecutionClassificationRecord)
-                .where(PersecutionClassificationRecord.person_id.in_(person_ids))
-                .order_by(
-                    PersecutionClassificationRecord.person_id,
-                    PersecutionClassificationRecord.classified_at.desc(),
-                    PersecutionClassificationRecord.id.desc(),
+                select(PersecutionClassificationRecord).where(
+                    PersecutionClassificationRecord.person_id.in_(person_ids),
+                    PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
                 )
             ).all()
-        latest: dict[int, PersecutionClassification] = {}
-        for record in records:
-            if record.person_id not in latest:
-                latest[record.person_id] = classification_from_record(record)
-        return latest
+        return {record.person_id: classification_from_record(record) for record in records}
 
     def get_rosfinmonitoring(
         self, person_ids: Sequence[int], snapshot_id: int

@@ -114,7 +114,11 @@ class ResearchService:
 
         results: list[PersonResearchResult] = []
         for person_id in page:
-            person_details = details[person_id]
+            person_details = details.get(person_id)
+            if person_details is None:
+                # Removed between filtering and loading (repository calls use
+                # separate sessions); skip rather than fail the whole request.
+                continue
             persecution = classifications.get(person_id)
             rf = rosfinmonitoring.get(person_id)
             results.append(

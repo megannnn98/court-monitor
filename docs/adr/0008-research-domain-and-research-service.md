@@ -92,6 +92,11 @@ Business rules are reused, not re-derived:
   "not in Rosfinmonitoring".
 - `DEFAULT_MIN_PERSECUTION_CONFIDENCE` (0.7) is shared: POLITICAL without an
   explicit threshold means the same thing in research and in `list-candidates`.
+- "The person's classification" is the latest one (`classified_at` desc, then
+  `id` desc), defined once in
+  `candidate_query_service.latest_persecution_classification_ids()` and used by
+  both the candidate query and the research repository. An older POLITICAL
+  record superseded by a newer classifier version does not count.
 - Persecution classification is read, never recomputed.
 
 `review_required` is derived from `warnings` (a computed field, so it cannot
@@ -137,8 +142,12 @@ returns, it must feed deterministic criteria (e.g. person ids), not replace them
   LangGraph adapter.
 - `CandidateQueryService.get_candidates` accepts `limit=None` (no limit); default
   behaviour of existing callers is unchanged.
+- `CandidateQueryService` (and therefore `list-candidates` / `GET /candidates`)
+  now considers only each person's latest classification. Previously any
+  historical POLITICAL record qualified, which could list a person whose current
+  classification is not political and returned duplicates per classifier version.
+- Repository calls use separate read-only sessions; a person removed between
+  filtering and loading details is skipped (still counted in `total_matched`).
 - Known data-model gaps (documented in `docs/wiki/Research.md`): no region/city,
-  court or organization filters (not linked to persons); persecution filter uses
-  the latest classification while the candidate query considers any
-  classification record; no evidence spans behind classification reasons; name
+  court or organization filters (not linked to persons); no evidence spans behind classification reasons; name
   filter does not fold ё/е; only `active` persons are searchable.

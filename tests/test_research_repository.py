@@ -254,3 +254,30 @@ def test_latest_classification_and_rosfinmonitoring_per_snapshot(
     )
     assert repository.snapshot_exists(first) is True
     assert repository.snapshot_exists(second + 100) is False
+
+
+def test_event_span_after_non_bmp_character_matches_python_offsets(
+    session_factory: sessionmaker[Session],
+    repository: SqlAlchemyPersonResearchRepository,
+) -> None:
+    text = "Акция 😀🇷🇺 у суда. Суд арестовал Ивана Иванова."
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("ОВД-Инфо", "https://ovd.info")
+        _, run_id = seed.article(source_id, external_id="emoji", title="Emoji", text=text)
+        ivanov = seed.person("Иван Иванов")
+        seed.mention(run_id, "Ивана Иванова", person_id=ivanov)
+        seed.event(
+            run_id,
+            "Суд арестовал Ивана Иванова",
+            event_type="arrest",
+            event_date=None,
+            links=[(ivanov, "subject")],
+        )
+        session.commit()
+
+    evidence = repository.get_person_details([ivanov])[ivanov].evidence
+
+    assert [e.text for e in evidence] == ["Ивана Иванова", "Суд арестовал Ивана Иванова"]
+    for item in evidence:
+        assert text[item.start_offset : item.end_offset] == item.text

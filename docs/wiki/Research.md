@@ -49,7 +49,7 @@ Service --> Response
 |---|---|
 | `person_id` | точный id |
 | `name` | подстрока без учёта регистра (`ILIKE`, спецсимволы экранируются) в `canonical_name`, `normalized_name`, `person_aliases.surface_text/normalized_text` |
-| `persecution_status` | статус **последней** классификации (по `classified_at`) |
+| `persecution_status` | статус **последней** классификации (`classified_at` desc, затем `id` desc; общий `latest_persecution_classification_ids()` с `CandidateQueryService`) |
 | `persecution_min_confidence` | порог confidence; требует `persecution_status`. Для `political` без явного порога — `DEFAULT_MIN_PERSECUTION_CONFIDENCE = 0.7` (как в `list-candidates`) |
 | `rosfinmonitoring_status` | статус относительно `snapshot_id`; требует `snapshot_id` |
 | `snapshot_id` | snapshot для фильтра и для секции `rosfinmonitoring` результата; несуществующий → 404 / ошибка CLI |
@@ -65,6 +65,7 @@ Service --> Response
 ## Переиспользование бизнес-логики
 
 - `political` + любой `rosfinmonitoring_status` → `CandidateQueryService.get_candidates(include_rf_statuses={status}, limit=None)`, затем пересечение с остальными критериями.
+- Последняя классификация человека определяется одной функцией `latest_persecution_classification_ids()` — старая `political` запись, перекрытая новой версией классификатора, не учитывается ни в research, ни в `list-candidates`.
 - Маппинг `rosfin_matches.status` → `RosfinmonitoringStatus` — `candidate_query_models.resolve_rosfinmonitoring_status`, общий для candidate query и research.
 - `NOT_MATCHED` — единственное подтверждённое отсутствие. `NO_MATCH_RECORD`, `AMBIGUOUS`, `NEEDS_REVIEW`, `INSUFFICIENT_DATA` никогда не считаются «нет в Росфинмониторинге».
 
@@ -123,10 +124,10 @@ curl -X POST http://localhost:8000/research \
 
 - **Region/city, court, organization** не связаны с Person (mentions есть, связи нет) — фильтров нет.
 - **Case** как сущность отсутствует — research object `CASE` не реализован.
-- `persecution_status` фильтрует по последней классификации; `CandidateQueryService` учитывает любую запись классификации человека. При нескольких классификаторах пути могут разойтись.
 - Классификация хранит `reasons`/`evidence_types`, но не spans — evidence за причинами классификации вернуть нельзя.
 - `review_records` не используются: пайплайн их не создаёт, связь `subject_id` → Person не определена.
 - Поиск по имени не нормализует ё/е и падежи сверх того, что уже есть в алиасах.
 - Только `active` persons (как в candidate query); `merged`/`needs_review` persons не ищутся.
 - Даты событий трактуются в UTC.
-- Запросы repository выполняются в разных сессиях (read-only), без общего snapshot транзакции.
+- Запросы repository выполняются в разных сессиях (read-only), без общего snapshot транзакции. Человек, удалённый между отбором и загрузкой деталей, пропускается (но учтён в `total_matched`).
+- Поиск по имени (`ILIKE`) по кириллице зависит от ctype/collation конкретной БД.

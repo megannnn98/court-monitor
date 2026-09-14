@@ -228,7 +228,7 @@ court-monitor list-candidates --snapshot-id 5 --output-path candidates.json
 ```
 
 **Query Logic**:
-1. Find all persons with political persecution classification
+1. Find all persons whose **latest** persecution classification (by `classified_at`, then `id`) is political — an older political record superseded by a newer classifier version does not count
 2. Filter by minimum confidence threshold
 3. Check Rosfinmonitoring match status
 4. Return only those with a **confirmed** `not_matched` result by default —

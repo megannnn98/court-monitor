@@ -334,3 +334,25 @@ def test_response_echoes_request_and_object_type() -> None:
     assert response.request == request
     assert response.results == []
     assert response.total_matched == 0
+
+
+class VanishingRepository(FakeRepository):
+    """A person matched by the filters is gone by the time details are loaded."""
+
+    def get_person_details(self, person_ids: Sequence[int]) -> dict[int, PersonResearchDetails]:
+        details = super().get_person_details(person_ids)
+        details.pop(1, None)
+        return details
+
+
+def test_person_removed_between_queries_is_skipped_not_crashing() -> None:
+    service = ResearchService(
+        repository=VanishingRepository(person_ids=[1, 2]),
+        candidate_query=FakeCandidateQuery([]),
+    )
+
+    response = service.execute(_request())
+
+    assert [r.person.id for r in response.results] == [2]
+    # total_matched counts matches at filtering time, before details were loaded.
+    assert response.total_matched == 2

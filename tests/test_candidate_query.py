@@ -657,3 +657,102 @@ def test_get_candidates_excludes_non_political_persons(
 
     assert result.total_count == 0
     assert len(result.candidates) == 0
+
+
+def _add_classification_version(
+    session: Session,
+    person_id: int,
+    *,
+    status: str,
+    confidence: float,
+    classifier_version: str,
+    classified_at: datetime,
+) -> None:
+    session.add(
+        PersecutionClassificationRecord(
+            person_id=person_id,
+            status=status,
+            confidence=confidence,
+            reasons=[],
+            evidence_types=[],
+            classifier_name="test-classifier",
+            classifier_version=classifier_version,
+            classified_at=classified_at,
+        )
+    )
+    session.commit()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "expected_included"),
+    [
+        # A newer classifier version no longer considers the person political.
+        (("political", 0.9), ("non_political", 0.95), False),
+        (("political", 0.9), ("uncertain", 0.95), False),
+        # A newer political classification below the threshold wins too.
+        (("political", 0.9), ("political", 0.5), False),
+        # A newer classifier version now considers the person political.
+        (("non_political", 0.9), ("political", 0.8), True),
+    ],
+)
+def test_get_candidates_uses_latest_classification_only(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+    old: tuple[str, float],
+    new: tuple[str, float],
+    expected_included: bool,
+) -> None:
+    with session_factory() as session:
+        person_id = _create_person(
+            session, "Иванов Иван Иванович", "иванов иван иванович", "ивановиваниванович"
+        )
+        _add_classification_version(
+            session,
+            person_id,
+            status=old[0],
+            confidence=old[1],
+            classifier_version="1.0.0",
+            classified_at=datetime(2024, 1, 1, tzinfo=UTC),
+        )
+        _add_classification_version(
+            session,
+            person_id,
+            status=new[0],
+            confidence=new[1],
+            classifier_version="2.0.0",
+            classified_at=datetime(2024, 6, 1, tzinfo=UTC),
+        )
+        snapshot_id = _create_snapshot(session)
+        _create_match(session, person_id, snapshot_id, status="not_matched", confidence=0.8)
+
+    result = service.get_candidates(snapshot_id)
+
+    assert [c.person_id for c in result.candidates] == ([person_id] if expected_included else [])
+
+
+def test_get_candidates_returns_person_once_with_several_political_classifications(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    with session_factory() as session:
+        person_id = _create_person(
+            session, "Иванов Иван Иванович", "иванов иван иванович", "ивановиваниванович"
+        )
+        for version, month, confidence in [("1.0.0", 1, 0.9), ("2.0.0", 6, 0.8)]:
+            _add_classification_version(
+                session,
+                person_id,
+                status="political",
+                confidence=confidence,
+                classifier_version=version,
+                classified_at=datetime(2024, month, 1, tzinfo=UTC),
+            )
+        snapshot_id = _create_snapshot(session)
+        _create_match(session, person_id, snapshot_id, status="not_matched", confidence=0.8)
+
+    result = service.get_candidates(snapshot_id)
+
+    assert [(c.person_id, c.persecution_confidence) for c in result.candidates] == [
+        (person_id, 0.8)
+    ]
+    assert result.total_count == 1

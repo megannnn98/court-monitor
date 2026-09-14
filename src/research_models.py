@@ -219,5 +219,6 @@ class ResearchResponse(BaseModel):
     object_type: ResearchObjectType
     request: ResearchRequest
     results: list[PersonResearchResult] = Field(default_factory=list)
-    # Persons matching the criteria before `limit` was applied.
+    # Persons matching the criteria before `limit` was applied. A person removed
+    # concurrently after filtering is still counted but absent from `results`.
     total_matched: int

@@ -317,3 +317,60 @@ def test_research_agrees_with_candidate_query_for_the_product_question(
     )
 
     assert [r.person.id for r in response.results] == [c.person_id for c in candidates.candidates]
+
+
+def test_product_query_uses_latest_classification_consistently(
+    session_factory: sessionmaker[Session], service: ResearchService
+) -> None:
+    # Independent of CandidateQueryService: the expected outcome is spelled out.
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        snapshot_id = seed.snapshot()
+        reclassified = seed.person("Бывший Политический")
+        now_political = seed.person("Новый Политический")
+        seed.classification(
+            reclassified,
+            "political",
+            0.9,
+            classifier_version="1.0.0",
+            classified_at=datetime(2024, 1, 1, tzinfo=UTC),
+        )
+        seed.classification(
+            reclassified,
+            "non_political",
+            0.95,
+            classifier_version="2.0.0",
+            classified_at=datetime(2024, 6, 1, tzinfo=UTC),
+        )
+        seed.classification(
+            now_political,
+            "non_political",
+            0.9,
+            classifier_version="1.0.0",
+            classified_at=datetime(2024, 1, 1, tzinfo=UTC),
+        )
+        seed.classification(
+            now_political,
+            "political",
+            0.8,
+            classifier_version="2.0.0",
+            classified_at=datetime(2024, 6, 1, tzinfo=UTC),
+        )
+        seed.match(reclassified, snapshot_id, "not_matched", 0.9)
+        seed.match(now_political, snapshot_id, "not_matched", 0.9)
+        session.commit()
+
+    political_not_matched = service.execute(
+        _request(
+            persecution_status="political",
+            rosfinmonitoring_status="not_matched",
+            snapshot_id=snapshot_id,
+        )
+    )
+    political_only = service.execute(_request(persecution_status="political"))
+
+    for response in (political_not_matched, political_only):
+        assert [
+            (r.person.id, r.persecution.status.value if r.persecution else None)
+            for r in response.results
+        ] == [(now_political, "political")]
