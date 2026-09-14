@@ -173,14 +173,25 @@ curl "http://localhost:8001/rosfinmonitoring/snapshots"
 ## 7. Optional: получить финальных кандидатов
 
 ```bash
-# Подставить реальный id из шага 6. Пример ниже означает snapshot #7.
-SNAPSHOT_ID=7
+PSQL_URL="${DATABASE_URL/+psycopg/}"
+SNAPSHOT_ID="$(
+  psql "$PSQL_URL" -At -c "
+  select id
+  from rosfinmonitoring_snapshots
+  order by snapshot_date desc, id desc
+  limit 1;
+  "
+)"
 
-uv run python src/main.py match-rosfinmonitoring --snapshot-id "$SNAPSHOT_ID"
-uv run python src/main.py list-candidates \
-  --snapshot-id "$SNAPSHOT_ID" \
-  --min-confidence 0.7 \
-  --output-path candidates.json
+if [ -z "$SNAPSHOT_ID" ]; then
+  echo "No Rosfinmonitoring snapshot in this database; skip this optional step."
+else
+  uv run python src/main.py match-rosfinmonitoring --snapshot-id "$SNAPSHOT_ID"
+  uv run python src/main.py list-candidates \
+    --snapshot-id "$SNAPSHOT_ID" \
+    --min-confidence 0.7 \
+    --output-path candidates.json
+fi
 ```
 
 `candidates.json` содержит людей, у которых:
@@ -229,7 +240,7 @@ http://localhost:8001/docs
 ```bash
 # терминал 2
 curl "http://localhost:8001/health"
-curl "http://localhost:8001/candidates?snapshot_id=7&min_confidence=0.7"
+curl "http://localhost:8001/candidates?snapshot_id=<real-snapshot-id>&min_confidence=0.7"
 ```
 
 Если порт `8001` тоже занят, выбрать другой:
