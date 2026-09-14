@@ -150,6 +150,10 @@ class MonitoringService:
     def settings(self) -> MonitoringSettings:
         return self._settings
 
+    @property
+    def repository(self) -> SqlAlchemyMonitoringRepository:
+        return self._repository
+
     def _source(self, name: str) -> SourceDefinition:
         try:
             return self._deps.sources[name]
