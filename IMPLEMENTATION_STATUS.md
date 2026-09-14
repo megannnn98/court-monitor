@@ -1,8 +1,26 @@
 # Court-Monitor Implementation Status
 
-Last verified against code: full pipeline (steps 1-10 + person resolution,
-persecution classification, Rosfinmonitoring matching, main product query,
-API, CLI) is implemented end-to-end. 257 tests passing (`uv run pytest -q`).
+Full pipeline — sources → ingestion → extraction → person resolution →
+persecution classification → Rosfinmonitoring matching → candidate query —
+plus a deterministic research layer and a LangGraph natural-language research
+workflow is implemented end-to-end (API, CLI).
+
+## Last verified
+
+Commit `11f2338` (branch `fix/post-research-workflow-cleanup`), 2026-09-14,
+Python 3.13. Later commits on that branch change documentation only.
+
+| Check | Command | Result |
+|---|---|---|
+| Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
+| mypy | `uv run mypy --strict src tests` | no issues (134 files) |
+| Tests without database | `uv run pytest` (no `TEST_DATABASE_URL`) | 366 passed, 110 skipped |
+| Tests with PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` after `alembic upgrade head` | 473 passed, 3 skipped |
+
+Skipped without a database: PostgreSQL tests. Skipped in both runs: the three
+opt-in live Together AI tests (`TOGETHER_LIVE_TESTS=1`); they were not executed.
+Re-verify instead of trusting these numbers; CI (`.github/workflows/ci.yml`)
+runs the same commands.
 
 ## Completed Components ✅
 
@@ -40,75 +58,133 @@ API, CLI) is implemented end-to-end. 257 tests passing (`uv run pytest -q`).
   LGBT persecution)
 - Evidence is **scoped to the specific person**: only their own
   mentions/events plus a window around each (`EVIDENCE_WINDOW_CHARS`,
-  `persecution_classification_service.py`) — not the whole article, so a
-  different person's context in the same article doesn't leak onto them
-- Legal-reference mentions near a person's event are wired into that
-  event's `charge` evidence
+  `persecution_classification_service.py`) — not the whole article
 - `PersecutionClassificationStatus.UNCERTAIN` is reachable: a single weak
-  keyword-only signal (no political charge, no second corroborating
-  signal) is UNCERTAIN, not an automatic POLITICAL
+  keyword-only signal is UNCERTAIN, not an automatic POLITICAL
+- A person's classification is the **latest** one (`classified_at` desc, then
+  `id` desc; `persecution_queries.latest_persecution_classification_ids()`),
+  used by the candidate query, research and `GET /persons/{id}/persecution`
 
 ### 5. Rosfinmonitoring Integration
 - Snapshot ingestion pipeline + entry normalization
 - `RuleBasedRosfinmonitoringMatcher`: matching_key/name-word retrieval +
-  Jaccard name similarity, plus an optional (currently always-`None`,
-  since `PersonRecord` has no birth date yet) `person_birth_date` signal
-  with conservative rules (matching known birth date → small boost;
-  differing known birth date → capped well below auto-MATCHED)
+  Jaccard name similarity, plus an optional (currently always-`None`) birth
+  date signal with conservative rules
 - Match statuses: `MATCHED`, `NOT_MATCHED`, `AMBIGUOUS`, `NEEDS_REVIEW`,
-  `INSUFFICIENT_DATA` (name too thin to search reliably — a bare surname
-  finding zero candidates is not a confident NOT_MATCHED)
-- `NOT_MATCHED` reports `NOT_MATCHED_CONFIDENCE` (0.8), not 1.0 — absence
-  of evidence in a snapshot is not certainty of absence
+  `INSUFFICIENT_DATA`; no match record for a snapshot is reported as
+  `NO_MATCH_RECORD`
+- `NOT_MATCHED` reports `NOT_MATCHED_CONFIDENCE` (0.8), not 1.0
 - Matching evaluation framework (`rosfin_match_evaluation.py`)
 
 ### 6. Main Product Query
-- `CandidateQueryService.get_candidates`: political persecution candidates
+- `CandidateQueryService.get_candidates`: persons whose latest classification
+  is POLITICAL (≥ `DEFAULT_MIN_PERSECUTION_CONFIDENCE` = 0.7) and who are
   **confirmed absent** from a Rosfinmonitoring snapshot
-- By default only `NOT_MATCHED` counts as "absent" — `NO_MATCH_RECORD`
-  (matching never run), `AMBIGUOUS`, `NEEDS_REVIEW` and
-  `INSUFFICIENT_DATA` are excluded, since none of them are a confirmed
-  absence. `include_rf_statuses` lets a caller opt into a broader
-  manual-review view explicitly.
+- Only `NOT_MATCHED` counts as "absent" — `NO_MATCH_RECORD`, `AMBIGUOUS`,
+  `NEEDS_REVIEW` and `INSUFFICIENT_DATA` are never a confirmed absence.
+  `include_rf_statuses` lets a caller opt into a broader view explicitly.
 
-### 7. API Layer
-- FastAPI read-only endpoints: persons, aliases, persecution, candidates,
-  Rosfinmonitoring snapshots/entries, reviews, health check
+### 7. Research Domain (ADR 0008)
+Deterministic, typed research over canonical persons:
 
-### 8. CLI
-- `extract-entities`, `resolve-people`, `classify-persecution`,
-  `import-rosfinmonitoring`, `match-rosfinmonitoring`, `list-candidates`,
-  `evaluate-extraction`, `evaluate-er`, `evaluate-persecution`,
-  `evaluate-rosfin-match`
+```text
+ResearchRequest
+PersonResearchCriteria
+ResearchService
+ResearchResponse
+PersonResearchResult
+evidence/provenance
+```
 
-### 9. Manual Review Infrastructure
+- `ResearchRequest` (`object_type`, `criteria`, `limit`) with strict
+  `PersonResearchCriteria` (person_id, name, persecution status/threshold,
+  Rosfinmonitoring status + snapshot, event types, date range, source);
+  unknown criteria are rejected
+- `ResearchService.execute()` reuses `CandidateQueryService` for POLITICAL +
+  Rosfinmonitoring status; no second definition of "not in the list"
+- `PersonResearchResult`: person, aliases, latest persecution classification,
+  Rosfinmonitoring status for the snapshot, linked events, person-scoped
+  evidence spans (offsets + span text), sources, warnings, computed
+  `review_required`
+- Adapters: CLI `research`, `POST /research`
+
+### 8. LangGraph Research Workflow (ADR 0009)
+
+```text
+Natural language
+→ Together AI
+→ ResearchRequest
+→ snapshot resolution
+→ validation
+→ ResearchService
+→ ResearchQueryResult
+```
+
+```text
+LLM interprets intent.
+Domain services determine facts.
+```
+
+- LLM (Together AI over `httpx`, JSON schema structured output) is used
+  **only** for request intake; it never sees data and never writes results
+- Deterministic snapshot resolution: only explicit references
+  (`snapshot #3`, `снапшот №3`) count; otherwise the latest imported snapshot
+  with a warning; several references → clarification
+- Validation via `ResearchRequest.model_validate`: unsupported fields and
+  user-fixable values → `clarification_required` (no partial search); broken
+  LLM contract → `failed` / `llm_invalid_output`
+- Provider errors and unexpected exceptions are structured failures
+  (`status=failed`, error code), never an empty result
+- `ResearchQueryResult` carries `PersonResearchResult` objects unchanged
+- Adapters: CLI `ask` (`--show-request`, exit 2 failed / 3 clarification),
+  `POST /research/query`
+- Configuration: `TOGETHER_API_KEY`, `TOGETHER_MODEL`,
+  `TOGETHER_TIMEOUT_SECONDS`
+
+### 9. API Layer
+- FastAPI endpoints: persons, aliases, persecution, candidates,
+  Rosfinmonitoring snapshots/entries, reviews, `POST /research`,
+  `POST /research/query`, health check
+
+### 10. CLI
+- `ingest`, `discover-and-ingest`, `search`, `evaluate-search`,
+  `extract-entities`, `evaluate-extraction`, `resolve-people`,
+  `classify-persecution`, `match-rosfinmonitoring`, `list-candidates`,
+  `research`, `ask`
+
+### 11. Manual Review Infrastructure
 - Generic `review_records` table + `ManualReviewService` for ambiguous
   merges/matches/classifications pending human decision
+
+### 12. CI
+- GitHub Actions: `quality` (ruff, format, mypy), `tests` (pytest without
+  database), `integration` (PostgreSQL 18, `alembic upgrade head`, pytest with
+  `TEST_DATABASE_URL`). Together AI is never called in CI.
 
 ## Known Limitations
 
 - Entity resolution is exact `matching_key` matching only — no fuzzy
-  matching (typos, transliteration), no ML. This is a deliberate baseline,
-  not a gap to silently work around (see ADR 0005).
-- `PersonRecord` has no birth date field — nothing in extraction/
-  normalization currently produces one, so the matcher's
-  `person_birth_date` signal is always `None` in real pipeline runs today.
-  The parameter and its conservative rules exist so this is a one-line
-  wiring change, not a redesign, once a birth-date source exists.
-- Persecution classification is keyword/rule-based, not NLP — it can
-  still miss phrasing or misfire on incidental keyword matches inside a
-  person's own evidence window.
-- Rosfinmonitoring name-word retrieval (for Jaccard similarity) uses
-  `ILIKE` substring search per word, not an index — fine at current
-  snapshot sizes, would need revisiting at much larger scale.
-- API has no authentication/authorization and no rate limiting (read-only
-  by design for now).
-- No automatic re-classification/re-matching when new articles arrive for
-  an already-classified person — it's an explicit CLI/API step.
+  matching (typos, transliteration), no ML (see ADR 0005).
+- `PersonRecord` has no birth date field; the matcher's birth date signal is
+  always `None` in real pipeline runs today.
+- Persecution classification is keyword/rule-based, not NLP.
+- Rosfinmonitoring name-word retrieval uses `ILIKE` substring search per word,
+  not an index.
+- API has no authentication/authorization and no rate limiting.
+- No automatic re-classification/re-matching when new articles arrive.
+- Research: no region/city, court, organization or occupation filters (not
+  linked to persons); only active persons; no consistent read across the
+  repository calls of one request (TODO in ADR 0008).
+- Natural-language intake quality depends on the configured Together model;
+  JSON-schema compatibility is only checked by the opt-in live test, which has
+  not been run. Single-turn only (clarification is not a conversation).
+- `.env.example` must list `POSTGRES_*`, `DATABASE_URL` and `TOGETHER_*` (see
+  `docs/wiki/Setup.md`).
 
-## Explicitly Out of Scope (per project constraints)
+## Explicitly Out of Scope (for now)
 
-- Fuzzy/ML entity resolution, embeddings, cross-encoder re-ranking
-- LLM-based classification, NER models, GraphRAG
+- Fuzzy/ML entity resolution, embeddings, vector search, re-ranking
+- LLM-based classification or LLM-written facts/reports; an autonomous agent
+  loop (the LLM is limited to request intake)
 - New UI, new ingestion sources
 - Full Clean Architecture restructuring of `src/`

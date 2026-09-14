@@ -129,5 +129,5 @@ curl -X POST http://localhost:8000/research \
 - Поиск по имени не нормализует ё/е и падежи сверх того, что уже есть в алиасах.
 - Только `active` persons (как в candidate query); `merged`/`needs_review` persons не ищутся.
 - Даты событий трактуются в UTC.
-- Запросы repository выполняются в разных сессиях (read-only), без общего snapshot транзакции. Человек, удалённый между отбором и загрузкой деталей, пропускается (но учтён в `total_matched`).
+- **Нет согласованного чтения (TODO).** `find_person_ids()`, `get_person_details()`, `get_latest_classifications()`, `get_rosfinmonitoring()` и вызов `CandidateQueryService` могут использовать разные сессии БД, поэтому данные теоретически могут измениться между чтениями одного `execute()` (переклассификация, повторный matching). Человек, удалённый между отбором и загрузкой деталей, пропускается (но учтён в `total_matched`). Future improvement: single read transaction / consistent snapshot (одна сессия `REPEATABLE READ` на весь запрос) — требует переделки области жизни сессий в repository и `CandidateQueryService`, поэтому пока не реализовано.
 - Поиск по имени (`ILIKE`) по кириллице зависит от ctype/collation конкретной БД.
