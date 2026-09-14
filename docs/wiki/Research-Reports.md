@@ -116,7 +116,7 @@ curl -X POST http://localhost:8000/research/reviews \
 | текущие данные не требуют review (статус изменился, классификация не последняя) | 409 |
 | нет нужной ссылки, лишние поля, `missing_evidence` | 422 |
 
-Запись: `review_records(subject_type=persecution_classification|rosfinmatch, subject_id=<classification id|rosfin_matches.id>, decision=pending, reason=<reason code>, confidence)`. Идемпотентность обеспечивает partial unique index `uq_review_records_pending_subject` (`decision = 'pending'`) и `INSERT … ON CONFLICT DO NOTHING`. После решения (approved/rejected) можно создать новый pending review. В ответе `requested_reason` — причина из запроса, `stored_reason` — причина уже существующей записи: они различаются, если matching перезапускали и строка `rosfin_matches` обновилась на месте.
+Запись: `review_records(subject_type=persecution_classification|rosfinmatch, subject_id=<classification id|rosfin_matches.id>, decision=pending, reason=<reason code>, confidence)`. Идемпотентность обеспечивает partial unique index `uq_review_records_pending_subject` (`decision = 'pending'`) и `INSERT … ON CONFLICT DO NOTHING`. Если в БД до миграции уже есть несколько pending review одного subject, `alembic upgrade head` останавливается с перечнем и SQL для проверки; дубли нужно решить вручную. После решения (approved/rejected) можно создать новый pending review. В ответе `requested_reason` — причина из запроса, `stored_reason` — причина уже существующей записи: они различаются, если matching перезапускали и строка `rosfin_matches` обновилась на месте.
 
 ## Planning и source routing
 
@@ -187,7 +187,8 @@ Source refresh: recommended (ovd-info, sota-vision) — not executed
 - `tests/test_research_report_builder.py` — сценарии A–E, provenance, `why_matched`, статусы отчёта.
 - `tests/test_research_planner.py` — capabilities из registry, database first, source filter.
 - `tests/test_research_graph_report.py` — скомпилированный граф: порядок узлов, review → report, clarification не доходит до planning.
-- `tests/test_research_review_tasks.py` — идемпотентность, проверка условия, partial unique index (PostgreSQL).
+- `tests/test_research_review_tasks.py` — идемпотентность, проверка условия, неактивный person, конкурентная вставка, partial unique index (PostgreSQL).
+- `tests/test_review_pending_index_migration.py` — миграция на БД с дублями pending review останавливается с понятным сообщением.
 - `tests/test_research_workflow_integration.py` — граф + настоящий `ResearchService` + PostgreSQL → отчёт с реальными цитатами.
 
 ## Ограничения

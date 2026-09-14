@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import timedelta
 
 import pytest
 from pydantic import ValidationError
 from research_db_fixtures import FIXED_TIME, ResearchSeeder
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -285,3 +286,68 @@ def test_existing_pending_review_reports_its_stored_reason(
     assert (second.created, second.review_id) == (False, first.review_id)
     assert second.requested_reason is ResearchReviewReason.ROSFIN_INSUFFICIENT_DATA
     assert second.stored_reason == ResearchReviewReason.ROSFIN_AMBIGUOUS.value
+
+
+def test_concurrent_pending_review_waits_and_reuses_the_committed_row(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Session B inserts the same subject while session A has not committed yet.
+
+    PostgreSQL makes B's INSERT ... ON CONFLICT wait on A's uncommitted row;
+    after A commits, B must return A's review instead of a duplicate or an error.
+    """
+    review_service = SqlAlchemyManualReviewService()
+    outcome: dict[str, object] = {}
+
+    def insert_in_second_session() -> None:
+        try:
+            with session_factory() as session:
+                # Never hang the suite if the wait does not end.
+                session.execute(text("SET LOCAL lock_timeout = '10s'"))
+                outcome["result"] = review_service.get_or_create_pending_review(
+                    session,
+                    review_type=ReviewType.ROSFINMATCH,
+                    entity_id=42,
+                    reason="rosfin_ambiguous",
+                )
+                session.commit()
+        except Exception as exc:  # noqa: BLE001 - a thread must hand any error to the test
+            outcome["error"] = exc
+
+    with session_factory() as first:
+        first_id, first_created = review_service.get_or_create_pending_review(
+            first, review_type=ReviewType.ROSFINMATCH, entity_id=42, reason="rosfin_ambiguous"
+        )
+        second = threading.Thread(target=insert_in_second_session)
+        second.start()
+        second.join(timeout=1.0)
+        # Still blocked on the uncommitted conflicting row.
+        assert second.is_alive()
+        first.commit()
+
+    second.join(timeout=15.0)
+    assert not second.is_alive()
+    assert "error" not in outcome, outcome.get("error")
+    assert first_created is True
+    assert outcome["result"] == (first_id, False)
+    with session_factory() as session:
+        assert _review_count(session) == 1
+
+
+def test_inactive_person_cannot_get_a_review_task(session_factory: sessionmaker[Session]) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        person_id = seed.person("Иван Иванов", status="merged")
+        snapshot_id = seed.snapshot()
+        seed.match(person_id, snapshot_id, "ambiguous", 0.5)
+        session.commit()
+
+        with pytest.raises(ResearchReviewSubjectNotFoundError, match="Active person"):
+            SERVICE.create(
+                session,
+                ResearchReviewTaskRequest(
+                    person_id=person_id,
+                    reason=ResearchReviewReason.ROSFIN_AMBIGUOUS,
+                    snapshot_id=snapshot_id,
+                ),
+            )

@@ -51,7 +51,7 @@ stop
 | Модуль | Роль |
 |---|---|
 | `research_workflow/state.py` | `ResearchGraphState` (TypedDict) — всё состояние workflow |
-| `research_workflow/graph.py` | `build_research_graph(request_parser=, research_service=, snapshot_lookup=, planner=, review_policy=, report_builder=)` (последние три — опционально, по умолчанию стандартные), узлы, `run_research_query()` |
+| `research_workflow/graph.py` | `build_research_graph(request_parser=, research_service=, snapshot_lookup=, planner=, review_policy=, report_builder=)` (`planner` обязателен, создаётся в `research_workflow_factory.py`; `review_policy` и `report_builder` — опционально), узлы, `run_research_query()` |
 | `research_workflow/intake.py` | `ResearchRequestParser`, `LlmResearchRequestParser`, JSON schema intake, рендер промпта |
 | `research_workflow/prompts/request_intake.md` | system prompt request intake |
 | `research_workflow/llm.py` | `StructuredLlmClient`, типизированные ошибки провайдера |

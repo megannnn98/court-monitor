@@ -183,12 +183,17 @@ routing decision is the contract it can consume.
 
 ## Consequences
 
+- `build_research_graph()` requires a `planner`; the composition root
+  (`research_workflow_factory.py`) builds `ResearchPlanner(SOURCES)`, so the
+  graph module does not import `source_registry`.
 - New packages `research_reports` and `research_planning`; new module
   `research_review_tasks.py`; `SourceDefinition` gains
   `supports_discovery`/`supports_direct_fetch`.
 - Migration `l6m7n8o9p0q1` adds the partial unique index on `review_records`.
-  It fails if a database already holds two pending reviews for one subject
-  (no code created such duplicates before).
+  Before creating it, the migration checks for subjects with more than one
+  pending review and stops with an actionable `RuntimeError` (count, example
+  ids, inspection SQL) instead of a raw unique violation. Duplicates are not
+  resolved automatically: which review to keep is a human decision.
 - `ResearchQueryResult` gains `plan` and `report`; existing fields are unchanged.
   `review_required` is taken from the report when present, which can add
   `low_confidence` and `missing_evidence` to the domain review flags.

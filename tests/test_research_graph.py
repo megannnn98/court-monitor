@@ -28,6 +28,7 @@ from research_models import (
     ResearchRosfinmonitoring,
     ResearchSource,
 )
+from research_planning.planner import ResearchPlanner
 from research_service import ResearchSnapshotNotFoundError
 from research_workflow.graph import build_research_graph, run_research_query
 from research_workflow.intake import LlmResearchRequestParser
@@ -47,6 +48,7 @@ from research_workflow.models import (
     WorkflowErrorCode,
     WorkflowStatus,
 )
+from source_registry import SOURCES
 
 LATEST_SNAPSHOT = RosfinmonitoringSnapshotSummary(
     snapshot_id=7,
@@ -71,6 +73,7 @@ def _run(
         request_parser=parser,
         research_service=service or FakeResearchService(),
         snapshot_lookup=lookup or FakeSnapshotLookup(latest=LATEST_SNAPSHOT),
+        planner=ResearchPlanner(SOURCES),
     )
     return run_research_query(graph, query)
 

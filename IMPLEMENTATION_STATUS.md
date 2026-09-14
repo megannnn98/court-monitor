@@ -8,15 +8,15 @@ source routing is implemented end-to-end (API, CLI).
 
 ## Last verified
 
-Branch `feature-research-report-review-routing` (part 3, commit that adds
-ADR 0010), 2026-09-14, Python 3.13.
+Branch `feature-research-report-review-routing` (part 3 and its review
+fixes), 2026-09-14, Python 3.13.
 
 | Check | Command | Result |
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
-| mypy | `uv run mypy --strict src tests` | no issues (150 files) |
-| Tests without database | `uv run pytest` (no `TEST_DATABASE_URL`) | 432 passed, 124 skipped |
-| Tests with PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` after `alembic upgrade head` | 553 passed, 3 skipped |
+| mypy | `uv run mypy --strict src tests` | no issues (151 files) |
+| Tests without database | `uv run pytest` (no `TEST_DATABASE_URL`) | 433 passed, 128 skipped |
+| Tests with PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` after `alembic upgrade head` | 558 passed, 3 skipped |
 
 Skipped without a database: PostgreSQL tests. Skipped in both runs: the three
 opt-in live Together AI tests (`TOGETHER_LIVE_TESTS=1`); they were not executed.

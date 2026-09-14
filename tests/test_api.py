@@ -6,6 +6,9 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 from research_db_fixtures import ResearchSeeder
+from research_report_fixtures import SNAPSHOT_ID, person_result, rosfin
+from research_report_fixtures import request as report_request
+from research_report_fixtures import response as report_response
 from research_workflow_fakes import FakeRequestParser, FakeResearchService, FakeSnapshotLookup
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -17,7 +20,9 @@ from api import (
     get_research_query_graph,
     get_research_service,
 )
+from candidate_query_models import RosfinmonitoringStatus
 from research_models import ResearchRequest, ResearchResponse
+from research_planning.planner import ResearchPlanner
 from research_service import ResearchSnapshotNotFoundError
 from research_workflow.graph import ResearchGraph, build_research_graph
 from research_workflow.llm import (
@@ -29,6 +34,7 @@ from research_workflow.llm import (
     LlmUnavailableError,
 )
 from research_workflow.models import ResearchIntake, UnsupportedCriterion
+from source_registry import SOURCES
 
 
 def test_api_health_check() -> None:
@@ -260,6 +266,7 @@ def _query_graph(
         request_parser=parser,
         research_service=service or FakeResearchService(),
         snapshot_lookup=FakeSnapshotLookup(),
+        planner=ResearchPlanner(SOURCES),
     )
 
 
@@ -483,3 +490,51 @@ def test_research_review_endpoint_rejects_invalid_body(body: dict[str, object]) 
         assert TestClient(app).post("/research/reviews", json=body).status_code == 422
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+def test_research_review_endpoint_returns_404_for_inactive_person(
+    db_client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        person_id = seed.person("Иван Иванов", status="merged")
+        snapshot_id = seed.snapshot()
+        seed.match(person_id, snapshot_id, "ambiguous", 0.5)
+        session.commit()
+
+    response = db_client.post(
+        "/research/reviews",
+        json={"person_id": person_id, "reason": "rosfin_ambiguous", "snapshot_id": snapshot_id},
+    )
+
+    assert response.status_code == 404
+    assert db_client.get("/reviews").json() == []
+
+
+def test_research_query_review_condition_is_a_200_report_not_an_error(
+    override_query_graph: Callable[[ResearchGraph], TestClient],
+) -> None:
+    research_request = report_request(snapshot_id=SNAPSHOT_ID)
+    ambiguous = person_result(rf=rosfin(RosfinmonitoringStatus.AMBIGUOUS))
+    client = override_query_graph(
+        _query_graph(
+            FakeRequestParser(intake=ResearchIntake(request={"object_type": "person"})),
+            FakeResearchService(response=report_response(research_request, [ambiguous])),
+        )
+    )
+
+    response = client.post("/research/query", json={"query": "все"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["status"], body["error"], body["review_required"]) == ("completed", None, True)
+    report = body["report"]
+    assert report["status"] == "review_required"
+    assert report["summary"]["review_required_count"] == 1
+    (item,) = report["items"]
+    assert item["rosfinmonitoring_status"] == "ambiguous"
+    assert [reason["code"] for reason in item["review"]["reasons"]] == ["rosfin_ambiguous"]
+    assert item["review"]["reasons"][0]["snapshot_id"] == SNAPSHOT_ID
+    assert all(claim["supported"] for claim in item["claims"])
+    # Raw result stays next to the report.
+    assert body["results"][0]["rosfinmonitoring"]["status"] == "ambiguous"

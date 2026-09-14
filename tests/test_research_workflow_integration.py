@@ -15,12 +15,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from candidate_query_models import RosfinmonitoringStatus
 from candidate_query_service import CandidateQueryService
 from research_models import ResearchRequest
+from research_planning.planner import ResearchPlanner
 from research_reports.models import ResearchReportStatus, ResearchReviewReason
 from research_repository import SqlAlchemyPersonResearchRepository
 from research_service import ResearchService
 from research_workflow.graph import ResearchGraph, build_research_graph, run_research_query
 from research_workflow.models import ResearchIntake, WorkflowErrorCode, WorkflowStatus
 from rosfinmonitoring_snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from source_registry import SOURCES
 
 QUERY = (
     "Найди людей, которых преследовали за антивоенную деятельность "
@@ -37,6 +39,7 @@ def _graph(session_factory: sessionmaker[Session], parser: FakeRequestParser) ->
             candidate_query=CandidateQueryService(session_factory),
         ),
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
+        planner=ResearchPlanner(SOURCES),
     )
 
 
@@ -212,6 +215,7 @@ def test_graph_and_direct_research_service_agree_on_every_status(
         ),
         research_service=service,
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
+        planner=ResearchPlanner(SOURCES),
     )
 
     via_graph = run_research_query(graph, f"Покажи всех по snapshot #{snapshot_id}")
@@ -253,6 +257,7 @@ def test_graph_and_direct_research_service_agree_on_every_status(
             ),
             research_service=service,
             snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
+            planner=ResearchPlanner(SOURCES),
         ),
         "Политически преследуемые, которых нет в перечне",
     )

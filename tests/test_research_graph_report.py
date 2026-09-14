@@ -12,6 +12,7 @@ from research_workflow_fakes import FakeRequestParser, FakeResearchService, Fake
 
 from candidate_query_models import RosfinmonitoringStatus
 from research_planning.models import SourceRoutingReason
+from research_planning.planner import ResearchPlanner
 from research_reports.models import ResearchReportStatus, ResearchReviewReason
 from research_service import ResearchSnapshotNotFoundError
 from research_workflow.graph import ResearchGraph, build_research_graph, run_research_query
@@ -36,6 +37,7 @@ def _graph(parser: FakeRequestParser, service: FakeResearchService) -> ResearchG
         request_parser=parser,
         research_service=service,
         snapshot_lookup=FakeSnapshotLookup(latest=LATEST),
+        planner=ResearchPlanner(SOURCES),
     )
 
 

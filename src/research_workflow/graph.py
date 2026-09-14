@@ -50,7 +50,6 @@ from research_workflow.models import (
 )
 from research_workflow.snapshot_references import extract_explicit_snapshot_ids
 from research_workflow.state import ResearchGraphState
-from source_registry import SOURCES
 
 logger = logging.getLogger("research_workflow")
 
@@ -138,11 +137,10 @@ def build_research_graph(
     request_parser: ResearchRequestParser,
     research_service: ResearchExecutor,
     snapshot_lookup: RosfinmonitoringSnapshotLookup,
-    planner: ResearchPlanner | None = None,
+    planner: ResearchPlanner,
     review_policy: ResearchReviewPolicy | None = None,
     report_builder: ResearchReportBuilder | None = None,
 ) -> ResearchGraph:
-    planner = planner or ResearchPlanner(SOURCES)
     evaluator = ResearchResultEvaluator(
         planner=planner, review_policy=review_policy or ResearchReviewPolicy()
     )
