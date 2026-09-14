@@ -43,10 +43,13 @@ Graph topology (`src/research_workflow/graph.py`):
 START → request_intake ─┬─ provider error ───────────────→ workflow_failed → END
                         ├─ unsupported / ambiguous ──────→ clarification → END
                         └─ ok → resolve_snapshot ─┬─ no snapshot → workflow_failed
+                                                  ├─ several explicit snapshots → clarification
                                                   └─ validate_request ─┬─ LLM broke schema → workflow_failed
-                                                                       ├─ domain rule violated → clarification
+                                                                       ├─ unknown field / domain rule / bounds → clarification
                                                                        └─ research ─┬─ unknown snapshot → clarification
                                                                                     └─ assemble_response → END
+
+Any unexpected exception → ResearchQueryResult(failed, workflow_unexpected_error).
 ```
 
 Components:
@@ -95,15 +98,22 @@ directly:
 
 1. the provider response must be a JSON object (else `llm_invalid_output`);
 2. it must match the intake envelope (`ResearchIntake`);
-3. `resolve_snapshot` deterministically fills `snapshot_id` when a
-   Rosfinmonitoring status is requested without one — the latest snapshot that
-   has imported entries — and records a warning with its id and date. A
-   `snapshot_id` that does not literally appear in the user's query is treated as
-   invented and ignored (warning);
-4. `ResearchRequest.model_validate` applies the part-1 rules. Violations of our
-   own domain rules (`value_error`, e.g. `date_from > date_to`) become a
-   clarification; any other schema error (unknown field, wrong enum) means the
-   LLM broke the contract and the workflow fails.
+3. `resolve_snapshot` decides `snapshot_id` deterministically; the LLM value is
+   never trusted on its own. `extract_explicit_snapshot_ids()` finds only numbers
+   attached to snapshot/snapshot_id/снапшот (`snapshot 3`, `snapshot #3`,
+   `snapshot_id=3`, `снапшот №3`); a bare number ("3 человека") is not a
+   reference. One explicit reference is used (warning if the LLM differs);
+   several different references ask for clarification; none means the LLM value
+   is dropped (warning) and, if a Rosfinmonitoring status is requested, the
+   latest snapshot that has imported entries is used, with a warning naming its
+   id and date;
+4. `ResearchRequest.model_validate` applies the part-1 rules and errors are
+   classified by Pydantic error type: an unknown field (`extra_forbidden`)
+   becomes an unsupported criterion and a clarification; our domain rules
+   (`value_error`) and bounds/length errors (`limit` > 1000, empty
+   `event_types`) become a clarification; any other type (enum, literal,
+   parsing, type, missing) means the LLM broke the contract and the workflow
+   fails — this wins over fixable errors.
 
 ### Why facts and provenance are not created by the LLM
 
@@ -128,7 +138,11 @@ that cannot be mapped or are contradictory.
 `ResearchQueryResult.status` is `completed`, `clarification_required` or
 `failed`. Provider failures carry `error.code`; the API maps them to 502/503/504
 (409 when no snapshot is imported), the CLI to exit code 2 (clarification: 3).
-"0 matches" is `completed` with `total_matched = 0`.
+Any other exception during the workflow (e.g. a database error) is returned as
+`failed` / `workflow_unexpected_error` (HTTP 500) rather than crashing; its log
+line carries only the exception type, because exception text such as
+SQLAlchemy `[parameters: ...]` can contain user criteria. The traceback is logged
+separately at DEBUG. "0 matches" is `completed` with `total_matched = 0`.
 
 ### Why no autonomous agent loop yet
 

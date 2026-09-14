@@ -17,16 +17,19 @@ elseif (unsupported criteria\nили неразрешимый запрос?) the
   :clarification;
   stop
 endif
-:resolve_snapshot\n(последний импортированный snapshot,\nесли RF-статус без snapshot_id);
+:resolve_snapshot\n(явная ссылка на snapshot в тексте\nили последний импортированный);
 if (snapshot нет?) then (да)
   :workflow_failed;
   stop
+elseif (несколько явных snapshot?) then (да)
+  :clarification;
+  stop
 endif
 :validate_request\n(ResearchRequest.model_validate);
-if (LLM нарушил схему?) then (да)
+if (LLM нарушил схему\n(enum, тип, parsing)?) then (да)
   :workflow_failed;
   stop
-elseif (нарушено доменное правило?) then (да)
+elseif (неизвестное поле / доменное правило /\nграницы значений?) then (да)
   :clarification;
   stop
 endif
@@ -50,6 +53,7 @@ stop
 | `research_workflow/prompts/request_intake.md` | system prompt request intake |
 | `research_workflow/llm.py` | `StructuredLlmClient`, типизированные ошибки провайдера |
 | `research_workflow/models.py` | `ResearchIntake`, `UnsupportedCriterion`, `ResearchQueryResult`, `WorkflowStatus`, `WorkflowErrorCode` |
+| `research_workflow/snapshot_references.py` | детерминированный поиск явных ссылок на snapshot в тексте |
 | `research_workflow/assembly.py` | детерминированная сборка результата |
 | `together_llm_client.py` | Together AI (`httpx`, `response_format: json_schema`) |
 | `rosfinmonitoring_snapshot_lookup.py` | последний snapshot с импортированными записями |
@@ -57,12 +61,14 @@ stop
 
 ## Семантика
 
-- **Snapshot.** Если запрошен `rosfinmonitoring_status`, а `snapshot_id` пользователь не назвал, берётся последний snapshot, у которого есть записи (`snapshot_date` desc, `id` desc), и добавляется warning `Snapshot не указан пользователем; использован последний доступный snapshot #N от YYYY-MM-DD.` Если для него matching не запускался — ещё warning. `snapshot_id`, которого нет в тексте запроса, считается выдуманным LLM и игнорируется. Нет ни одного snapshot → `failed` / `no_rosfinmonitoring_snapshot`.
+- **Snapshot.** Если запрошен `rosfinmonitoring_status`, а `snapshot_id` пользователь не назвал, берётся последний snapshot, у которого есть записи (`snapshot_date` desc, `id` desc), и добавляется warning `Snapshot не указан пользователем; использован последний доступный snapshot #N от YYYY-MM-DD.` Если для него matching не запускался — ещё warning. `snapshot_id` решается только по явным ссылкам в тексте (`snapshot 3`, `snapshot #3`, `snapshot_id=3`, `снапшот №3`); голое число («3 человека») ссылкой не считается. Одна явная ссылка используется (warning, если LLM указал другое), несколько разных → `clarification_required`, ни одной → значение LLM отбрасывается с warning. Нет ни одного snapshot → `failed` / `no_rosfinmonitoring_snapshot`.
 - **Неполное имя** («Найди Иванова») → `name="Иванов"`, поиск выполняется.
 - **Unsupported criteria** (профессия, возраст, регион, …) → `clarification_required` с перечнем, поиск **не** выполняется.
 - **Неразрешимый/противоречивый запрос** → вопрос от intake → `clarification_required`.
-- **Нарушение доменных правил** (`date_from > date_to` и т.п.) → `clarification_required` с текстом ошибки.
-- **LLM нарушил схему** (неизвестное поле, значение enum, не-JSON) → `failed` / `llm_invalid_output`.
+- **Неизвестное поле в запросе от LLM** (`criteria.region`) → становится unsupported criterion → `clarification_required`, поиск не выполняется.
+- **Нарушение доменных правил и границ** (`date_from > date_to`, `limit` > 1000, пустой `event_types`) → `clarification_required` с текстом ошибки.
+- **LLM нарушил схему** (значение enum, тип, parsing, не-JSON) → `failed` / `llm_invalid_output`; перевешивает исправимые ошибки.
+- **Неожиданная ошибка** (например, БД) → `failed` / `workflow_unexpected_error`, HTTP 500; в логе только тип исключения, traceback — на уровне DEBUG.
 - **Ошибки провайдера** → `failed`: `llm_timeout`, `llm_unavailable`, `llm_rate_limited`, `llm_authentication_failed`, `llm_request_rejected`, `llm_not_configured`.
 - **Результаты** — объекты `PersonResearchResult` без изменений (статусы, events, evidence, sources, warnings, `review_required`).
 
@@ -112,6 +118,7 @@ curl -X POST http://localhost:8000/research/query \
 | `llm_unavailable`, `llm_rate_limited`, `llm_not_configured` | 503 |
 | `llm_authentication_failed`, `llm_request_rejected`, `llm_invalid_output` | 502 |
 | `no_rosfinmonitoring_snapshot` | 409 |
+| `workflow_unexpected_error` | 500 |
 | нет `DATABASE_URL` / Together не настроен при старте | 503 |
 | невалидное тело (`query` пустой, >2000 символов, лишние поля) | 422 |
 
@@ -143,4 +150,3 @@ TOGETHER_LIVE_TESTS=1 TOGETHER_API_KEY=... TOGETHER_MODEL=... uv run pytest -m l
 - Качество разбора зависит от модели; fake-тесты проверяют обвязку, а не понимание языка.
 - Поддержка JSON schema (`$defs`/`anyOf`) зависит от модели Together — проверяется только live-тестом.
 - Причина преследования («антивоенная деятельность») не фильтруется отдельно: сводится к `persecution_status="political"`.
-- `limit` вне 1..1000 от LLM считается нарушением схемы (`llm_invalid_output`), а не уточнением.
