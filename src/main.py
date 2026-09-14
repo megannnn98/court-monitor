@@ -28,6 +28,14 @@ from persecution_classification_service import PersecutionClassificationService
 from person_persistence import SqlAlchemyPersonPersistence
 from person_resolver import RuleBasedPersonResolver
 from postgres_lexical_search import PostgresLexicalSearch
+from research_cli import (
+    ResearchCliError,
+    add_research_arguments,
+    build_research_request,
+    format_research_response,
+)
+from research_repository import SqlAlchemyPersonResearchRepository
+from research_service import ResearchService, ResearchSnapshotNotFoundError
 from retrying_fetcher import RetryingDocumentFetcher
 from rosfinmonitoring_matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring_matcher_persistence import RosfinMatchPersistence
@@ -253,6 +261,8 @@ def main() -> None:
         help="Output file path (JSON format)",
     )
 
+    add_research_arguments(subparsers)
+
     args = argument_parser.parse_args()
 
     if args.command == "evaluate-extraction":
@@ -286,6 +296,25 @@ def main() -> None:
             args.output_path.write_text(report_json + "\n", encoding="utf-8")
         else:
             print(report_json)
+        return
+
+    if args.command == "research":
+        try:
+            research_request = build_research_request(args)
+        except ResearchCliError as exc:
+            raise SystemExit(str(exc)) from None
+        research_service = ResearchService(
+            repository=SqlAlchemyPersonResearchRepository(session_factory),
+            candidate_query=CandidateQueryService(session_factory),
+        )
+        try:
+            research_response = research_service.execute(research_request)
+        except ResearchSnapshotNotFoundError as exc:
+            raise SystemExit(str(exc)) from None
+        if args.json:
+            print(research_response.model_dump_json(indent=2))
+        else:
+            print(format_research_response(research_response))
         return
 
     if args.command == "resolve-people":

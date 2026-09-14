@@ -18,6 +18,9 @@ from orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from research_models import ResearchRequest, ResearchResponse
+from research_repository import SqlAlchemyPersonResearchRepository
+from research_service import ResearchService, ResearchSnapshotNotFoundError
 
 # Create FastAPI app
 app = FastAPI(
@@ -287,6 +290,32 @@ def list_candidates(
         )
         for c in result.candidates
     ]
+
+
+# Research endpoints
+def get_research_service() -> ResearchService:
+    """Build the research service over the shared session factory."""
+    try:
+        session_factory = _get_session_factory()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return ResearchService(
+        repository=SqlAlchemyPersonResearchRepository(session_factory),
+        candidate_query=CandidateQueryService(session_factory),
+    )
+
+
+@app.post("/research", response_model=ResearchResponse)
+def research(
+    request: ResearchRequest,
+    service: ResearchService = Depends(get_research_service),  # noqa: B008
+) -> ResearchResponse:
+    """Execute a structured, deterministic research request."""
+    try:
+        return service.execute(request)
+    except ResearchSnapshotNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # Rosfinmonitoring endpoints

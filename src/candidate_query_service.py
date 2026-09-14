@@ -6,9 +6,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from candidate_query_models import (
+    DEFAULT_MIN_PERSECUTION_CONFIDENCE,
     CandidateQueryResult,
     PoliticalPersecutionCandidate,
     RosfinmonitoringStatus,
+    resolve_rosfinmonitoring_status,
 )
 from orm_models import (
     ExtractedEventRecord,
@@ -28,14 +30,6 @@ DEFAULT_INCLUDED_RF_STATUSES: frozenset[RosfinmonitoringStatus] = frozenset(
     {RosfinmonitoringStatus.NOT_MATCHED}
 )
 
-_MATCH_RECORD_STATUS_TO_RF_STATUS: dict[str, RosfinmonitoringStatus] = {
-    "matched": RosfinmonitoringStatus.MATCHED,
-    "not_matched": RosfinmonitoringStatus.NOT_MATCHED,
-    "ambiguous": RosfinmonitoringStatus.AMBIGUOUS,
-    "needs_review": RosfinmonitoringStatus.NEEDS_REVIEW,
-    "insufficient_data": RosfinmonitoringStatus.INSUFFICIENT_DATA,
-}
-
 
 class CandidateQueryService:
     """Service for the main product query."""
@@ -53,8 +47,8 @@ class CandidateQueryService:
         self,
         snapshot_id: int,
         *,
-        min_persecution_confidence: float = 0.7,
-        limit: int = 100,
+        min_persecution_confidence: float = DEFAULT_MIN_PERSECUTION_CONFIDENCE,
+        limit: int | None = 100,
         include_rf_statuses: frozenset[RosfinmonitoringStatus] = DEFAULT_INCLUDED_RF_STATUSES,
         session: Session | None = None,
     ) -> CandidateQueryResult:
@@ -63,7 +57,7 @@ class CandidateQueryService:
         Args:
             snapshot_id: Rosfinmonitoring snapshot to check against
             min_persecution_confidence: Minimum confidence for persecution classification
-            limit: Maximum number of candidates to return
+            limit: Maximum number of candidates to return (None = no limit)
             include_rf_statuses: Which Rosfinmonitoring statuses count as "absent" for
                 this query. Defaults to NOT_MATCHED only — a confirmed absence. Widen
                 this explicitly (e.g. to also review AMBIGUOUS/NEEDS_REVIEW cases) rather
@@ -99,7 +93,7 @@ class CandidateQueryService:
         session: Session,
         snapshot_id: int,
         min_persecution_confidence: float,
-        limit: int,
+        limit: int | None,
         include_rf_statuses: frozenset[RosfinmonitoringStatus],
     ) -> CandidateQueryResult:
         """Internal implementation that works with an existing session."""
@@ -147,15 +141,10 @@ class CandidateQueryService:
             # matching was never run for this person — that is NOT a
             # confirmed absence, so it is excluded by default just like
             # AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA.
-            if match_record is None:
-                rf_status = RosfinmonitoringStatus.NO_MATCH_RECORD
-                rf_confidence = None
-            else:
-                rf_status = _MATCH_RECORD_STATUS_TO_RF_STATUS.get(
-                    match_record.status,
-                    RosfinmonitoringStatus.NEEDS_REVIEW,
-                )
-                rf_confidence = match_record.confidence
+            rf_status = resolve_rosfinmonitoring_status(
+                None if match_record is None else match_record.status
+            )
+            rf_confidence = None if match_record is None else match_record.confidence
 
             if rf_status not in include_rf_statuses:
                 continue
@@ -199,7 +188,7 @@ class CandidateQueryService:
 
             candidates.append(candidate)
 
-            if len(candidates) >= limit:
+            if limit is not None and len(candidates) >= limit:
                 break
 
         return CandidateQueryResult(

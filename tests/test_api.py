@@ -1,9 +1,13 @@
 """Tests for FastAPI application."""
 
+from collections.abc import Iterator
+
 import pytest
 from fastapi.testclient import TestClient
 
-from api import _get_session_factory, app
+from api import _get_session_factory, app, get_research_service
+from research_models import ResearchRequest, ResearchResponse
+from research_service import ResearchSnapshotNotFoundError
 
 
 def test_api_health_check() -> None:
@@ -57,3 +61,109 @@ def test_api_missing_database_url_returns_503(monkeypatch: pytest.MonkeyPatch) -
 
     assert response.status_code == 503
     assert response.json()["detail"] == "DATABASE_URL environment variable is not set"
+
+
+class _FakeResearchService:
+    def __init__(self, *, snapshot_missing: bool = False) -> None:
+        self.requests: list[ResearchRequest] = []
+        self.snapshot_missing = snapshot_missing
+
+    def execute(self, request: ResearchRequest) -> ResearchResponse:
+        self.requests.append(request)
+        if self.snapshot_missing and request.criteria.snapshot_id is not None:
+            raise ResearchSnapshotNotFoundError(request.criteria.snapshot_id)
+        return ResearchResponse(object_type=request.object_type, request=request, total_matched=0)
+
+
+@pytest.fixture
+def research_client() -> Iterator[tuple[TestClient, _FakeResearchService]]:
+    fake = _FakeResearchService(snapshot_missing=True)
+    app.dependency_overrides[get_research_service] = lambda: fake
+    try:
+        yield TestClient(app), fake
+    finally:
+        app.dependency_overrides.pop(get_research_service, None)
+
+
+def test_research_endpoint_delegates_validated_request_to_service(
+    research_client: tuple[TestClient, _FakeResearchService],
+) -> None:
+    client, fake = research_client
+
+    response = client.post(
+        "/research",
+        json={
+            "object_type": "person",
+            "criteria": {"persecution_status": "political", "event_types": ["arrest"]},
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "object_type": "person",
+        "request": {
+            "object_type": "person",
+            "criteria": {
+                "person_id": None,
+                "name": None,
+                "persecution_status": "political",
+                "persecution_min_confidence": None,
+                "rosfinmonitoring_status": None,
+                "snapshot_id": None,
+                "event_types": ["arrest"],
+                "date_from": None,
+                "date_to": None,
+                "source": None,
+            },
+            "limit": 5,
+        },
+        "results": [],
+        "total_matched": 0,
+    }
+    assert [r.criteria.persecution_status for r in fake.requests] == ["political"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"object_type": "person", "limit": 0},
+        {"object_type": "article"},
+        {"object_type": "person", "criteria": {"rosfinmonitoring_status": "not_matched"}},
+        {"object_type": "person", "criteria": {"date_from": "2024-02-01", "date_to": "2024-01-01"}},
+        {"object_type": "person", "criteria": {"region": "Москва"}},
+    ],
+)
+def test_research_endpoint_rejects_invalid_requests_before_service(
+    research_client: tuple[TestClient, _FakeResearchService], body: dict[str, object]
+) -> None:
+    client, fake = research_client
+
+    response = client.post("/research", json=body)
+
+    assert response.status_code == 422
+    assert fake.requests == []
+
+
+def test_research_endpoint_maps_unknown_snapshot_to_404(
+    research_client: tuple[TestClient, _FakeResearchService],
+) -> None:
+    client, _ = research_client
+
+    response = client.post(
+        "/research", json={"object_type": "person", "criteria": {"snapshot_id": 99}}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Rosfinmonitoring snapshot 99 not found"
+
+
+def test_research_endpoint_missing_database_url_returns_503(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    _get_session_factory.cache_clear()
+
+    response = TestClient(app).post("/research", json={"object_type": "person"})
+
+    assert response.status_code == 503

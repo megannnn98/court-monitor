@@ -25,6 +25,35 @@ class RosfinmonitoringStatus(StrEnum):
     NO_MATCH_RECORD = "no_match_record"
 
 
+# Product definition of "politically persecuted": a POLITICAL classification
+# at or above this confidence. Shared by the candidate query and the research
+# layer so both agree on who counts.
+DEFAULT_MIN_PERSECUTION_CONFIDENCE = 0.7
+
+_MATCH_RECORD_STATUS_TO_RF_STATUS: dict[str, RosfinmonitoringStatus] = {
+    "matched": RosfinmonitoringStatus.MATCHED,
+    "not_matched": RosfinmonitoringStatus.NOT_MATCHED,
+    "ambiguous": RosfinmonitoringStatus.AMBIGUOUS,
+    "needs_review": RosfinmonitoringStatus.NEEDS_REVIEW,
+    "insufficient_data": RosfinmonitoringStatus.INSUFFICIENT_DATA,
+}
+
+
+def resolve_rosfinmonitoring_status(match_record_status: str | None) -> RosfinmonitoringStatus:
+    """Map a stored `rosfin_matches.status` (or its absence) to a person-level status.
+
+    No match record means matching was never run for this person against the
+    snapshot — NO_MATCH_RECORD, not a confirmed absence. An unknown stored
+    status falls back to NEEDS_REVIEW rather than being trusted.
+    """
+    if match_record_status is None:
+        return RosfinmonitoringStatus.NO_MATCH_RECORD
+    return _MATCH_RECORD_STATUS_TO_RF_STATUS.get(
+        match_record_status,
+        RosfinmonitoringStatus.NEEDS_REVIEW,
+    )
+
+
 class PoliticalPersecutionCandidate(BaseModel):
     """A person who is politically persecuted but not in Rosfinmonitoring list."""
 

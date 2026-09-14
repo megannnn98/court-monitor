@@ -1,0 +1,182 @@
+"""Deterministic research over canonical persons.
+
+`ResearchService` is the stable backend entry point for structured research
+requests. It knows nothing about transport (CLI/HTTP), natural language or
+LLMs: adapters build a `ResearchRequest` and serialize the `ResearchResponse`.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Protocol
+
+from pydantic import BaseModel, Field
+
+from candidate_query_models import (
+    DEFAULT_MIN_PERSECUTION_CONFIDENCE,
+    CandidateQueryResult,
+    RosfinmonitoringStatus,
+)
+from persecution_models import PersecutionClassification, PersecutionClassificationStatus
+from person_models import Person, PersonAlias
+from research_mapping import build_warnings
+from research_models import (
+    PersonResearchCriteria,
+    PersonResearchResult,
+    ResearchEvent,
+    ResearchEvidence,
+    ResearchRequest,
+    ResearchResponse,
+    ResearchRosfinmonitoring,
+    ResearchSource,
+)
+
+
+class ResearchSnapshotNotFoundError(LookupError):
+    def __init__(self, snapshot_id: int) -> None:
+        super().__init__(f"Rosfinmonitoring snapshot {snapshot_id} not found")
+        self.snapshot_id = snapshot_id
+
+
+class PersonResearchDetails(BaseModel):
+    """Everything about one person that is independent of the snapshot."""
+
+    person: Person
+    aliases: list[PersonAlias] = Field(default_factory=list)
+    events: list[ResearchEvent] = Field(default_factory=list)
+    evidence: list[ResearchEvidence] = Field(default_factory=list)
+    sources: list[ResearchSource] = Field(default_factory=list)
+
+
+class PersonResearchRepository(Protocol):
+    def snapshot_exists(self, snapshot_id: int) -> bool: ...
+
+    def find_person_ids(self, criteria: PersonResearchCriteria) -> list[int]:
+        """Active person ids ordered by id matching person_id, name,
+        event_types/date range and source. Persecution and Rosfinmonitoring
+        criteria are NOT applied here — the service owns those rules.
+        """
+        ...
+
+    def get_latest_classifications(
+        self, person_ids: Sequence[int]
+    ) -> dict[int, PersecutionClassification]: ...
+
+    def get_rosfinmonitoring(
+        self, person_ids: Sequence[int], snapshot_id: int
+    ) -> dict[int, ResearchRosfinmonitoring]:
+        """Status for every requested id (NO_MATCH_RECORD when never matched)."""
+        ...
+
+    def get_person_details(self, person_ids: Sequence[int]) -> dict[int, PersonResearchDetails]: ...
+
+
+class CandidateQuery(Protocol):
+    """The existing POLITICAL-and-RF-status product query (CandidateQueryService)."""
+
+    def get_candidates(
+        self,
+        snapshot_id: int,
+        *,
+        min_persecution_confidence: float = ...,
+        limit: int | None = ...,
+        include_rf_statuses: frozenset[RosfinmonitoringStatus] = ...,
+    ) -> CandidateQueryResult: ...
+
+
+class ResearchService:
+    def __init__(
+        self,
+        *,
+        repository: PersonResearchRepository,
+        candidate_query: CandidateQuery,
+    ) -> None:
+        self._repository = repository
+        self._candidate_query = candidate_query
+
+    def execute(self, request: ResearchRequest) -> ResearchResponse:
+        criteria = request.criteria
+        if criteria.snapshot_id is not None and not self._repository.snapshot_exists(
+            criteria.snapshot_id
+        ):
+            raise ResearchSnapshotNotFoundError(criteria.snapshot_id)
+
+        person_ids = self._filter_person_ids(criteria)
+        page = person_ids[: request.limit]
+
+        details = self._repository.get_person_details(page)
+        classifications = self._repository.get_latest_classifications(page)
+        rosfinmonitoring = (
+            self._repository.get_rosfinmonitoring(page, criteria.snapshot_id)
+            if criteria.snapshot_id is not None
+            else {}
+        )
+
+        results: list[PersonResearchResult] = []
+        for person_id in page:
+            person_details = details[person_id]
+            persecution = classifications.get(person_id)
+            rf = rosfinmonitoring.get(person_id)
+            results.append(
+                PersonResearchResult(
+                    person=person_details.person,
+                    aliases=person_details.aliases,
+                    persecution=persecution,
+                    rosfinmonitoring=rf,
+                    events=person_details.events,
+                    evidence=person_details.evidence,
+                    sources=person_details.sources,
+                    warnings=build_warnings(persecution, rf),
+                )
+            )
+
+        return ResearchResponse(
+            object_type=request.object_type,
+            request=request,
+            results=results,
+            total_matched=len(person_ids),
+        )
+
+    def _filter_person_ids(self, criteria: PersonResearchCriteria) -> list[int]:
+        person_ids = self._repository.find_person_ids(criteria)
+
+        if (
+            criteria.persecution_status is PersecutionClassificationStatus.POLITICAL
+            and criteria.rosfinmonitoring_status is not None
+            and criteria.snapshot_id is not None
+        ):
+            # "Politically persecuted AND <RF status>" is the existing product
+            # query; reuse it instead of re-deriving its rules here.
+            candidates = self._candidate_query.get_candidates(
+                criteria.snapshot_id,
+                min_persecution_confidence=(
+                    criteria.persecution_min_confidence
+                    if criteria.persecution_min_confidence is not None
+                    else DEFAULT_MIN_PERSECUTION_CONFIDENCE
+                ),
+                limit=None,
+                include_rf_statuses=frozenset({criteria.rosfinmonitoring_status}),
+            )
+            allowed = {candidate.person_id for candidate in candidates.candidates}
+            return [person_id for person_id in person_ids if person_id in allowed]
+
+        if criteria.persecution_status is not None:
+            classifications = self._repository.get_latest_classifications(person_ids)
+            threshold = criteria.effective_persecution_min_confidence
+            person_ids = [
+                person_id
+                for person_id in person_ids
+                if (classification := classifications.get(person_id)) is not None
+                and classification.status is criteria.persecution_status
+                and (threshold is None or classification.confidence >= threshold)
+            ]
+
+        if criteria.rosfinmonitoring_status is not None and criteria.snapshot_id is not None:
+            statuses = self._repository.get_rosfinmonitoring(person_ids, criteria.snapshot_id)
+            person_ids = [
+                person_id
+                for person_id in person_ids
+                if statuses[person_id].status is criteria.rosfinmonitoring_status
+            ]
+
+        return person_ids
