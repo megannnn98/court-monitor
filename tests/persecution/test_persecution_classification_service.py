@@ -269,3 +269,63 @@ def test_classification_links_nearby_legal_reference_to_event_as_charge(
 
     assert PersecutionEvidenceType.POLITICAL_CHARGE in classification.evidence_types
     assert classification.status == PersecutionClassificationStatus.POLITICAL
+
+
+def _seed_people_in_text(
+    session_factory: sessionmaker[Session], text: str, names: list[str]
+) -> list[int]:
+    with session_factory() as session:
+        article_id = _create_article(session, text, external_id="adjacent")
+        run_id = _create_run(session, article_id)
+        person_ids = []
+        for name in names:
+            person_id = _create_person(session, name, name.lower())
+            start = text.index(name)
+            _create_person_mention(
+                session,
+                run_id=run_id,
+                person_id=person_id,
+                surface_text=name,
+                start_offset=start,
+                end_offset=start + len(name),
+            )
+            event_id = _create_event(
+                session,
+                run_id=run_id,
+                event_type="detention",
+                start_offset=start,
+                end_offset=start + len(name),
+            )
+            _link_person_event(session, person_id, event_id, role="target")
+            person_ids.append(person_id)
+        session.commit()
+    return person_ids
+
+
+def test_political_context_of_the_next_persons_sentence_does_not_leak_back(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Short article, adjacent sentences: the window stops at another person's sentence."""
+    text = (
+        "Утром полиция задержала Егорова за кражу велосипеда. "
+        "Вечером на одиночном пикете против войны задержали Никитина."
+    )
+    egorov, nikitin = _seed_people_in_text(session_factory, text, ["Егорова", "Никитина"])
+    service = PersecutionClassificationService(session_factory)
+
+    assert service.classify_person(egorov).status != PersecutionClassificationStatus.POLITICAL
+    assert service.classify_person(nikitin).status == PersecutionClassificationStatus.POLITICAL
+
+
+def test_context_in_a_following_sentence_without_other_persons_still_counts(
+    session_factory: sessionmaker[Session],
+) -> None:
+    text = (
+        "Сидорова задержали на митинге в центре города. "
+        "Правозащитники считают дело политически мотивированным и антивоенным."
+    )
+    [sidorov] = _seed_people_in_text(session_factory, text, ["Сидорова"])
+
+    classification = PersecutionClassificationService(session_factory).classify_person(sidorov)
+
+    assert classification.status == PersecutionClassificationStatus.POLITICAL

@@ -43,6 +43,7 @@ from monitoring.models import (
     MonitoringTrigger,
 )
 from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
+from persecution.classifier import RuleBasedPersecutionClassifier
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from persons.resolution.service import RESOLVER_VERSION
@@ -638,7 +639,10 @@ def test_result_written_during_an_open_evidence_transaction_is_recomputed(
                 {"id": sidorov},
             )
 
-    classifier = ("rule-based-persecution-classifier", "1.0.0")
+    classifier = (
+        RuleBasedPersecutionClassifier.classifier_name,
+        RuleBasedPersecutionClassifier.classifier_version,
+    )
     no_settle = SqlAlchemyMonitoringWorkQueries(
         session_factory, evidence_settle_interval=timedelta(0)
     )

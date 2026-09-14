@@ -71,8 +71,33 @@ BIRTH_DATE_MATCH_BONUS = 0.05
 BIRTH_DATE_MISMATCH_SCORE_CAP = 0.5
 
 
+def _same_word_stem(first: str, second: str) -> bool:
+    """Equal up to a Russian case ending (at most two trailing letters differ)."""
+    common = 0
+    for left, right in zip(first, second, strict=False):
+        if left != right:
+            break
+        common += 1
+    return common >= max(3, min(len(first), len(second)) - 2)
+
+
+def _is_name_variant(person_name: str, entry_name: str) -> bool:
+    """Every word of the shorter name matches a word of the other up to its ending."""
+    person_words = person_name.lower().replace("ё", "е").split()
+    entry_words = entry_name.lower().replace("ё", "е").split()
+    if len(person_words) < MIN_NAME_WORDS_FOR_RELIABLE_CHECK or len(entry_words) < 2:
+        return False
+    shorter, longer = sorted((person_words, entry_words), key=len)
+    return all(any(_same_word_stem(word, other) for other in longer) for word in shorter)
+
+
 class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     """Rule-based matcher for persons against Rosfinmonitoring entries."""
+
+    # Reported by evaluations; bump when matching rules change.
+    matcher_name = "rule-based-rosfinmonitoring-matcher"
+    # 1.1.0: an inflected/reordered name variant is NEEDS_REVIEW, never NOT_MATCHED.
+    matcher_version = "1.1.0"
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -130,9 +155,10 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
 
             rf_entries = []
             if identity_keys or identity_names or identity_words:
+                # Stems, not whole words: «кузнецова» must also fetch «кузнецов».
                 word_conditions = [
                     RosfinmonitoringEntryRecord.normalized_name.ilike(
-                        f"%{_escape_like(word)}%",
+                        f"%{_escape_like(word[: max(3, len(word) - 2)])}%",
                     )
                     for word in identity_words
                 ]
@@ -199,6 +225,46 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                         status=RosfinMatchStatus.INSUFFICIENT_DATA,
                         confidence=0.0,
                         reasons=["Person's normalized_name has too few words to search reliably"],
+                        matched_at=datetime.now(UTC),
+                    )
+                variants = [
+                    entry
+                    for entry in rf_entries
+                    if any(
+                        _is_name_variant(identity.normalized_text, entry.normalized_name)
+                        for identity in identities
+                    )
+                ]
+                if variants:
+                    # Every name word matches an entry up to a case ending or word
+                    # order (e.g. an extraction normalizer left «Андрея Кузнецов»):
+                    # scoring cannot confirm the match, but absence is not proven
+                    # either. "Not in the list" must never be claimed here.
+                    return RosfinMatchResult(
+                        person_id=person_id,
+                        snapshot_id=snapshot_id,
+                        status=RosfinMatchStatus.NEEDS_REVIEW,
+                        confidence=0.0,
+                        candidate_entries=[
+                            RosfinCandidateEntry(
+                                entry_id=entry.id,
+                                full_name=entry.full_name,
+                                normalized_name=entry.normalized_name,
+                                matching_key=entry.matching_key,
+                                birth_date=entry.birth_date,
+                                similarity_score=self._name_similarity(
+                                    person.normalized_name, entry.normalized_name
+                                ),
+                                reasons=["Name variant (case endings or word order differ)"],
+                            )
+                            for entry in variants[:5]
+                        ],
+                        reasons=[
+                            (
+                                "Rosfinmonitoring entry is a name variant; "
+                                "absence from the list cannot be confirmed"
+                            )
+                        ],
                         matched_at=datetime.now(UTC),
                     )
                 return RosfinMatchResult(

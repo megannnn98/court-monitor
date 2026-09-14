@@ -76,7 +76,8 @@ POLITICAL_KEYWORDS = {
 
 class RuleBasedPersecutionClassifier:
     classifier_name = "rule-based-persecution-classifier"
-    classifier_version = "1.0.0"
+    # 1.1.0: evidence windows stop at sentences that mention other persons.
+    classifier_version = "1.1.0"
 
     def classify(
         self,
