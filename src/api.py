@@ -1,7 +1,9 @@
 """FastAPI application for court-monitor read-only API."""
 
+import logging
 import os
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -11,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from candidates.service import CandidateQueryService
-from db.database import create_database_engine, create_session_factory
+from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from db.orm_models import (
     PersecutionClassificationRecord,
     PersonAliasRecord,
@@ -57,12 +59,32 @@ from research.workflow.llm import LlmConfigurationError
 from research.workflow.models import ResearchQueryResult, WorkflowErrorCode, WorkflowStatus
 from research.workflow_factory import create_research_graph
 from semantic_retrieval.models import SemanticConfigurationError
+from settings import ApplicationConfigurationError, ApplicationSettings
+
+logger = logging.getLogger("api")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Refuse to start with an invalid configuration (every problem listed).
+
+    Dependencies are not required here: a database that is still starting makes
+    `/health/ready` report unavailable instead of crashing the process.
+    """
+    try:
+        ApplicationSettings.from_env()
+    except ApplicationConfigurationError as exc:
+        logger.error("event=config_invalid problems=%s", exc.problems)
+        raise
+    yield
+
 
 # Create FastAPI app
 app = FastAPI(
     title="Court Monitor API",
     description="Read-only API for court-monitor data",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 
@@ -73,7 +95,7 @@ def _get_session_factory() -> sessionmaker[Session]:
     if not database_url:
         raise RuntimeError("DATABASE_URL environment variable is not set")
 
-    engine = create_database_engine(database_url)
+    engine = create_database_engine(database_url, DatabasePoolSettings.from_env())
     return create_session_factory(engine)
 
 
