@@ -1,86 +1,306 @@
 # Getting Started с court-monitor
 
-## Запуск
+## Что это запускает
 
-### 1. Окружение и БД
+Основной сценарий:
+
+```text
+источники -> статьи -> extraction -> canonical persons -> persecution
+-> Rosfinmonitoring match -> candidates
+```
+
+Минимальный полезный прогон без файла Росфинмониторинга уже показывает найденных
+людей и их классификацию. Rosfinmonitoring нужен только для финального списка
+`list-candidates`.
+
+## 1. Поднять окружение
 
 ```bash
-export DATABASE_URL="postgresql://court_monitor:court_monitor_dev@localhost:5433/court_monitor"
-uv sync
+cd /home/b/Documents/ebnv
+
+uv sync --frozen
+cp -n .env.example .env
+set -a
+source .env
+set +a
+
+docker compose up -d
 uv run alembic upgrade head
 ```
 
-### 2. Полный pipeline
+Проверить, что база доступна и схема на последней миграции:
 
 ```bash
-# 1. Загрузить статьи
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 50
+uv run alembic current
+uv run alembic heads
+```
 
-# 2. Извлечь сущности (mentions, события)
+Обе команды должны показывать один и тот же head revision.
+
+## 2. Загрузить небольшой набор статей
+
+```bash
+set -a
+source .env
+set +a
+
+uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
+```
+
+Альтернативно загрузить одну конкретную статью:
+
+```bash
+uv run python src/main.py ingest "https://ovd.info/news/example"
+```
+
+## 3. Извлечь сущности и события
+
+```bash
 uv run python src/main.py extract-entities
+```
 
-# 3. Свести упоминания к каноническим персонам
+Проверить счётчики:
+
+```bash
+PSQL_URL="${DATABASE_URL/+psycopg/}"
+psql "$PSQL_URL" -c "
+select 'parsed_articles' as table_name, count(*) from parsed_articles
+union all select 'entity_mentions', count(*) from entity_mentions
+union all select 'extracted_events', count(*) from extracted_events
+order by table_name;
+"
+```
+
+## 4. Найти и склеить людей
+
+```bash
 uv run python src/main.py resolve-people
+```
 
-# 4. Классифицировать политическое преследование
+Посмотреть найденных canonical persons:
+
+```bash
+PSQL_URL="${DATABASE_URL/+psycopg/}"
+psql "$PSQL_URL" -c "
+select
+  p.id,
+  p.canonical_name,
+  p.status,
+  count(distinct m.id) as mentions,
+  count(distinct a.id) as aliases
+from persons p
+left join entity_mentions m on m.person_id = p.id
+left join person_aliases a on a.person_id = p.id
+group by p.id, p.canonical_name, p.status
+order by mentions desc, p.id
+limit 30;
+"
+```
+
+Посмотреть pending review по неоднозначным людям:
+
+```bash
+uv run python src/main.py person-resolution-reviews list
+```
+
+## 5. Классифицировать преследование
+
+```bash
 uv run python src/main.py classify-persecution
-
-# 5. Импортировать снапшот Росфинмониторинга
-uv run python src/main.py import-rosfinmonitoring --file path/to/rosfin.xml
-
-# 6. Сопоставить персон со снапшотом
-uv run python src/main.py match-rosfinmonitoring --snapshot-id 1
-
-# 7. Получить итоговых кандидатов
-uv run python src/main.py list-candidates --snapshot-id 1 --output-path candidates.json
 ```
 
-## Как посмотреть результат
-
-**Файл** — шаг 7 пишет результат в `candidates.json` (путь задаётся `--output-path`).
-
-**API:**
+Посмотреть людей с последней классификацией:
 
 ```bash
-uvicorn --app-dir src api:app --reload
-# http://localhost:8000/docs
-curl "http://localhost:8000/candidates?snapshot_id=1&min_confidence=0.8"
+PSQL_URL="${DATABASE_URL/+psycopg/}"
+psql "$PSQL_URL" -c "
+with latest as (
+  select distinct on (person_id)
+    person_id,
+    status,
+    confidence,
+    reasons,
+    classified_at
+  from persecution_classifications
+  order by person_id, classified_at desc, id desc
+)
+select
+  p.id,
+  p.canonical_name,
+  latest.status,
+  latest.confidence,
+  latest.reasons
+from latest
+join persons p on p.id = latest.person_id
+order by latest.confidence desc, p.id
+limit 30;
+"
 ```
 
-**Напрямую из БД:**
+## 6. Optional: проверить Rosfinmonitoring snapshots
+
+Текущий CLI умеет матчить по уже существующему `snapshot_id`, но не имеет
+отдельной команды импорта/list snapshots. Проверить существующие snapshots можно
+через PostgreSQL:
 
 ```bash
-PGPASSWORD=court_monitor_dev psql -h localhost -p 5433 -U court_monitor -d court_monitor \
-  -c "SELECT p.canonical_name, pc.status, pc.confidence
-      FROM persons p
-      JOIN persecution_classifications pc ON p.id = pc.person_id;"
+PSQL_URL="${DATABASE_URL/+psycopg/}"
+psql "$PSQL_URL" -c "
+select id, snapshot_date, source_url, fetched_at, created_at, entry_count
+from rosfinmonitoring_snapshots
+order by id desc
+limit 20;
+"
 ```
 
-## В каком виде результат
+Или через API:
 
-`candidates.json` — `CandidateQueryResult`: список кандидатов (политически преследуемые персоны, отсутствующие в Росфинмониторинге).
-
-```json
-{
-  "snapshot_id": 1,
-  "total_count": 2,
-  "candidates": [
-    {
-      "person_id": 42,
-      "canonical_name": "Иван Иванов",
-      "normalized_name": "Иван Иванов",
-      "persecution_status": "political",
-      "persecution_confidence": 0.9,
-      "persecution_reasons": ["Политическая статья: ст. 282 УК РФ"],
-      "rosfinmonitoring_status": "not_in_list",
-      "rosfinmonitoring_match_confidence": null,
-      "event_count": 3,
-      "alias_count": 2,
-      "last_event_date": "2026-01-15T00:00:00Z"
-    }
-  ],
-  "query_timestamp": "2026-09-13T19:00:00Z"
-}
+```bash
+# терминал 1
+uv run uvicorn --app-dir src api:app --reload --port 8001
 ```
 
-`rosfinmonitoring_status` — одно из: `not_in_list`, `matched`, `ambiguous`, `needs_review`, `no_match_record`. В `candidates.json` попадают только записи, где статус **не** `matched`.
+```bash
+# терминал 2
+curl "http://localhost:8001/rosfinmonitoring/snapshots"
+```
+
+Если запрос вернул пустой список, Rosfinmonitoring-часть пока пропустить:
+в этой базе нет snapshot, с которым можно матчить людей.
+
+Если snapshots есть, запомнить реальный `snapshot_id` из вывода.
+
+## 7. Optional: получить финальных кандидатов
+
+```bash
+# Подставить реальный id из шага 6. Пример ниже означает snapshot #7.
+SNAPSHOT_ID=7
+
+uv run python src/main.py match-rosfinmonitoring --snapshot-id "$SNAPSHOT_ID"
+uv run python src/main.py list-candidates \
+  --snapshot-id "$SNAPSHOT_ID" \
+  --min-confidence 0.7 \
+  --output-path candidates.json
+```
+
+`candidates.json` содержит людей, у которых:
+
+- последняя классификация `political`;
+- confidence не ниже `--min-confidence`;
+- Rosfinmonitoring status для snapshot = confirmed `NOT_MATCHED`.
+
+Если snapshots нет, основной ручной результат смотри на шагах 4-5: найденные
+люди, их mentions/aliases и последняя persecution classification.
+
+Не подставляй примерное значение, если такого snapshot нет в базе: команды
+`match-rosfinmonitoring` и `list-candidates` честно завершатся с
+`Rosfinmonitoring snapshot <id> not found`.
+
+## 8. Natural-language поиск
+
+Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` в `.env`. LLM только переводит
+вопрос в структурированный `ResearchRequest`; факты берутся из PostgreSQL.
+
+```bash
+uv run python src/main.py ask \
+  "Найди людей, которых преследовали за антивоенную деятельность" \
+  --show-request
+```
+
+## 9. API
+
+```bash
+# терминал 1
+set -a
+source .env
+set +a
+
+uv run uvicorn --app-dir src api:app --reload --port 8001
+```
+
+Открыть:
+
+```text
+http://localhost:8001/docs
+```
+
+Примеры:
+
+```bash
+# терминал 2
+curl "http://localhost:8001/health"
+curl "http://localhost:8001/candidates?snapshot_id=7&min_confidence=0.7"
+```
+
+Если порт `8001` тоже занят, выбрать другой:
+
+```bash
+uv run uvicorn --app-dir src api:app --reload --port 8002
+```
+
+## 10. Проверки
+
+Быстрая проверка без внешних сервисов:
+
+```bash
+uv run pytest
+```
+
+Статика:
+
+```bash
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run mypy --strict src tests
+```
+
+Integration tests с PostgreSQL/Qdrant:
+
+```bash
+export TEST_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test"
+export QDRANT_TEST_URL="http://127.0.0.1:6333"
+
+DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
+uv run pytest
+```
+
+## Частые проблемы
+
+### `DATABASE_URL environment variable is not set`
+
+Выполнить:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+### `alembic current` не равен `alembic heads`
+
+База на старой схеме. Обновить:
+
+```bash
+uv run alembic upgrade head
+```
+
+### `psql` не понимает `postgresql+psycopg://`
+
+`psql` ждёт обычную схему URL:
+
+```bash
+PSQL_URL="${DATABASE_URL/+psycopg/}"
+psql "$PSQL_URL"
+```
+
+Выйти из `psql`: `\q`. Если prompt стал `court_monitor-#`, команда не
+завершена; нажать `Ctrl+C`, потом `\q`.
+
+### В `list-candidates` пусто
+
+Проверить:
+
+- есть ли Rosfinmonitoring snapshot;
+- был ли выполнен `match-rosfinmonitoring`;
+- есть ли политические классификации с confidence выше порога;
+- Rosfin status должен быть именно confirmed `NOT_MATCHED`, не `NO_MATCH_RECORD`.
