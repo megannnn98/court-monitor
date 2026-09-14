@@ -14,8 +14,8 @@ Branch `fix/er-namesake-matching-key`, 2026-09-16, Python 3.13.
 |---|---|---|
 | Ruff | `uv run ruff check src tests` / `uv run ruff format --check src tests` | clean |
 | mypy | `uv run mypy --strict src tests` | no issues (215 files) |
-| Tests without services | `uv run pytest` | 607 passed, 189 skipped |
-| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 790 passed, 6 skipped |
+| Tests without services | `uv run pytest` | 608 passed, 190 skipped |
+| PostgreSQL + Qdrant | `TEST_DATABASE_URL=…/court_monitor_test QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest` | 792 passed, 6 skipped |
 | Migration | `alembic upgrade head` / `downgrade n8o9p0q1r2s3` / `upgrade head` on `court_monitor_test` | ok; downgrade refuses with active namesakes (tested) |
 | ER evaluation | `evaluate-er --sweep --semantic` (real E5) | 0 false links, precision 1.00, recall 0.58, review rate 0.43 |
 

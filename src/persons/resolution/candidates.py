@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from sqlalchemy import func, literal, or_, select, union_all
+from sqlalchemy import case, func, literal, or_, select, union_all
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -32,6 +32,7 @@ from semantic_retrieval.retrievers import EntityRetriever
 logger = logging.getLogger("person_resolution")
 
 DEFAULT_CANDIDATE_LIMIT = 30
+MIN_CANDIDATE_LIMIT = 2
 MAX_CANDIDATE_LIMIT = 200
 # Aliases loaded per candidate for feature extraction.
 MAX_ALIASES_PER_CANDIDATE = 20
@@ -61,8 +62,12 @@ class CandidateConfig:
     semantic_min_score: float | None = None
 
     def __post_init__(self) -> None:
-        if not 1 <= self.candidate_limit <= MAX_CANDIDATE_LIMIT:
-            raise ValueError(f"ER_CANDIDATE_LIMIT must be between 1 and {MAX_CANDIDATE_LIMIT}")
+        # At least two: the policy can only see namesakes (two persons with the
+        # incoming matching_key) if both fit into the candidate pool.
+        if not MIN_CANDIDATE_LIMIT <= self.candidate_limit <= MAX_CANDIDATE_LIMIT:
+            raise ValueError(
+                f"ER_CANDIDATE_LIMIT must be between {MIN_CANDIDATE_LIMIT} and {MAX_CANDIDATE_LIMIT}"
+            )
         if self.semantic_min_score is not None and not -1.0 <= self.semantic_min_score <= 1.0:
             raise ValueError("ER_SEMANTIC_CANDIDATE_MIN_SCORE must be within [-1, 1]")
 
@@ -141,7 +146,8 @@ class ExactKeyCandidateGenerator:
                     ),
                 ),
             )
-            .order_by(PersonRecord.id)
+            # Name-key matches first, so the limit never drops a namesake for an alias hit.
+            .order_by(case((PersonRecord.matching_key == key, 0), else_=1), PersonRecord.id)
             .limit(limit)
         ).all()
         if not rows:

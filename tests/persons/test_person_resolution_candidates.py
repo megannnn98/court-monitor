@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import matching_key, seed_person
 from support.semantic_fakes import StaticRetriever
@@ -9,6 +10,7 @@ from support.semantic_fakes import StaticRetriever
 from db.orm_models import PersonRecord
 from persons.models import PersonStatus
 from persons.resolution.candidates import (
+    CandidateConfig,
     CompositeCandidateGenerator,
     ExactKeyCandidateGenerator,
     SemanticCandidateGenerator,
@@ -178,3 +180,12 @@ def test_semantic_outage_keeps_lexical_candidates(session_factory: sessionmaker[
 
     assert _ids(result.candidates) == [person]
     assert result.semantic_source is SemanticSourceStatus.UNAVAILABLE
+
+
+def test_candidate_limit_below_two_is_rejected() -> None:
+    # One candidate could hide a namesake from the decision policy.
+    with pytest.raises(ValueError, match="between 2 and"):
+        CandidateConfig(candidate_limit=1)
+    with pytest.raises(ValueError, match="between 2 and"):
+        CandidateConfig.from_env({"ER_CANDIDATE_LIMIT": "1"})
+    assert CandidateConfig(candidate_limit=2).candidate_limit == 2

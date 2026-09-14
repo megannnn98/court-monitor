@@ -163,7 +163,7 @@ Sweep: 0.85 — минимальный `ER_AUTO_LINK_MIN_SCORE` без ложн�
 
 | Переменная | По умолчанию |
 |---|---|
-| `ER_CANDIDATE_LIMIT` | `30` (1..200) |
+| `ER_CANDIDATE_LIMIT` | `30` (2..200: меньше двух скрыло бы тёзку от policy) |
 | `ER_AUTO_LINK_MIN_SCORE` | `0.85` |
 | `ER_REVIEW_MIN_SCORE` | `0.40` |
 | `ER_MIN_MARGIN` | `0.10` |

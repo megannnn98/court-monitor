@@ -481,7 +481,8 @@ def format_er_evaluation(run: ErEvaluationRun) -> str:
         "",
         (
             f"cases: {d.cases} (with a true person: {d.cases_with_true_person}; "
-            f"+{d.indistinguishable_cases} indistinguishable, reported apart)"
+            f"+{d.indistinguishable_cases} indistinguishable, reported apart; "
+            "rates are over distinguishable cases)"
         ),
         f"auto-link precision: {precision}   auto-link recall: {d.auto_link_recall:.2f}",
         f"false links: {d.false_links} (rate {d.false_link_rate:.2f})",

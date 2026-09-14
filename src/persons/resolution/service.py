@@ -251,6 +251,13 @@ class PersonResolutionService:
     def resolve_mention(
         self, session: Session, mention: EntityMentionRecord
     ) -> MentionResolutionOutcome | None:
+        """Resolve one mention in the caller's transaction.
+
+        Takes the identity-block locks of this mention only. A caller resolving
+        several mentions in one transaction must call `lock_identity_blocks` for
+        all of them first (as `ExtractionResolutionService` does): otherwise two
+        such callers taking blocks in different orders can deadlock.
+        """
         article_id = session.scalar(
             select(ArticleExtractionRunRecord.article_id).where(
                 ArticleExtractionRunRecord.id == mention.extraction_run_id

@@ -48,7 +48,10 @@ and a false link is worse than a review.
 - There is no fast path and no `RuleBasedPersonResolver`. Every mention goes
   through candidates → features → score → policy. `ExactKeyCandidateGenerator`
   returns zero, one or all active namesakes (source `exact_key`, or `alias` for
-  an alias key), ordered by id; `exact_matching_key` is a feature only.
+  an alias key), name-key matches first, then by id; `exact_matching_key` is a
+  feature only. `ER_CANDIDATE_LIMIT` is at least 2, so two namesakes always reach
+  the policy. `resolve_mention` locks one mention; a caller resolving several
+  mentions in one transaction must lock all their blocks first.
 - One exact candidate without conflicts still auto-links (score 1.0, margin
   over any weaker competitor). Two or more active persons with the incoming key
   add `multiple_exact_name_matches`, which blocks AUTO_LINK whatever the scores:

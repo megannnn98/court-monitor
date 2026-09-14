@@ -429,3 +429,20 @@ def test_direct_resolve_mention_takes_the_identity_lock_before_deciding(
     with session_factory() as session:
         linked = session.scalars(select(EntityMentionRecord.person_id)).all()
     assert len(set(linked)) == 1 and None not in linked
+
+
+def test_namesakes_stay_visible_with_the_smallest_candidate_limit(
+    session_factory: sessionmaker[Session],
+) -> None:
+    # A lower-id person whose alias has the same key must not push a namesake out.
+    seed_person(session_factory, "Пётр Петров", aliases=("Алексей Сергеевич Иванов",))
+    for _ in range(2):
+        seed_person(session_factory, "Алексей Сергеевич Иванов")
+    service = _service(session_factory, {"ER_CANDIDATE_LIMIT": "2"})
+
+    mention_id, action, linked = _resolve(session_factory, "Алексей Сергеевич Иванов", service)
+
+    assert (action, linked) == (A.REVIEW, None)
+    decision = _decision(session_factory, mention_id)
+    assert len(decision.candidates) == 2
+    assert "multiple_exact_name_matches" in decision.reasons
