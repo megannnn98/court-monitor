@@ -1,0 +1,724 @@
+[
+  {
+    "query_id": "rs-01",
+    "query_class": "main_candidate",
+    "text": "Кто политически преследуется и отсутствует в перечне Росфинмониторинга?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "political",
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-bitov-mikhail",
+      "gp-vasiliev-ilya",
+      "gp-mamporia-oleg",
+      "gp-gilmanov-marat",
+      "gp-yarotsky-vladimir",
+      "gp-anisimov-dmitry",
+      "gp-arseniev-alexander",
+      "gp-tereshin-anatoly",
+      "gp-stovbun-gleb",
+      "gp-shabanov-andrey"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-gilmanov-radik",
+          "value": "political"
+        },
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-kirman-nelli",
+          "value": "political"
+        },
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-putin-vladimir",
+          "value": "political"
+        },
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-kryslov-alexey",
+          "value": "political"
+        }
+      ]
+    }
+  },
+  {
+    "query_id": "rs-02",
+    "query_class": "person_lookup",
+    "text": "Что известно о Викторе Кирмане?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "name": "Кирман",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-kirman-viktor"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-kirman-nelli",
+          "value": "political"
+        }
+      ]
+    }
+  },
+  {
+    "query_id": "rs-03",
+    "query_class": "ambiguous_person",
+    "text": "Что известно о Гилманове?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "name": "Гилманов",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-gilmanov-marat"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-gilmanov-radik",
+          "value": "political"
+        }
+      ]
+    },
+    "notes": "two different Gilmanovs (son and father) in one article"
+  },
+  {
+    "query_id": "rs-04",
+    "query_class": "event",
+    "text": "У кого проводили обыски?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "event_types": [
+          "search"
+        ]
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-bitov-mikhail",
+      "gp-makovoz-evgeny",
+      "gp-kirman-viktor"
+    ]
+  },
+  {
+    "query_id": "rs-05",
+    "query_class": "event",
+    "text": "Кого приговорили к реальным или условным срокам?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "event_types": [
+          "sentence"
+        ]
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-vasiliev-ilya",
+      "gp-mamporia-oleg",
+      "gp-gilmanov-marat",
+      "gp-nagoev-ibragim",
+      "gp-stovbun-gleb",
+      "gp-arseniev-alexander",
+      "gp-nikandrov-marat"
+    ]
+  },
+  {
+    "query_id": "rs-06",
+    "query_class": "date_range",
+    "text": "Кого задерживали в марте 2026 года?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "event_types": [
+          "detention"
+        ],
+        "date_from": "2026-03-01",
+        "date_to": "2026-03-31"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-oshchepkov-sergey",
+      "gp-frolov-ivan",
+      "gp-otrakovsky-ivan"
+    ]
+  },
+  {
+    "query_id": "rs-07",
+    "query_class": "source_restriction",
+    "text": "Кто из героев публикаций ОВД-Инфо политически преследуется?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "political",
+        "source": "ОВД-Инфо"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-bitov-mikhail",
+      "gp-vasiliev-ilya",
+      "gp-mamporia-oleg",
+      "gp-gilmanov-marat"
+    ]
+  },
+  {
+    "query_id": "rs-08",
+    "query_class": "source_restriction",
+    "text": "Какие люди упоминаются в новостях SOTA?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "source": "SOTA"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-zubarev-alexander",
+      "gp-vasilenko-nikolay",
+      "gp-yakubovich-leonid",
+      "gp-yurkov-nikita"
+    ]
+  },
+  {
+    "query_id": "rs-09",
+    "query_class": "persecution_status",
+    "text": "Кого система считает неполитическими случаями?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "non_political"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-zubarev-alexander",
+      "gp-yakubovich-leonid",
+      "gp-kryslov-alexey"
+    ]
+  },
+  {
+    "query_id": "rs-10",
+    "query_class": "semantic_wording",
+    "text": "Кого преследуют за антивоенные высказывания в интернете?",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "semantic_query": "преследование за антивоенные высказывания в интернете"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-vasiliev-ilya",
+      "gp-mamporia-oleg",
+      "gp-yarotsky-vladimir"
+    ],
+    "requires_semantic": true
+  },
+  {
+    "query_id": "rs-11",
+    "query_class": "semantic_wording",
+    "text": "Журналисты, задержанные на протестах",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "semantic_query": "задержание журналиста на протесте"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-oshchepkov-sergey",
+      "gp-frolov-ivan"
+    ],
+    "requires_semantic": true
+  },
+  {
+    "query_id": "rs-12",
+    "query_class": "unsupported_criteria",
+    "text": "Найди программистов младше 30 лет, которых преследуют",
+    "split": "dev",
+    "unsupported_criteria": [
+      "occupation",
+      "age"
+    ]
+  },
+  {
+    "query_id": "rs-13",
+    "query_class": "unsupported_criteria",
+    "text": "Кто из политзаключенных живет в Казани?",
+    "split": "dev",
+    "unsupported_criteria": [
+      "region"
+    ]
+  },
+  {
+    "query_id": "rs-14",
+    "query_class": "ambiguous_person",
+    "text": "Покажи тех, кого надо проверить",
+    "split": "dev",
+    "expect_clarification": true
+  },
+  {
+    "query_id": "rs-15",
+    "query_class": "person_lookup",
+    "text": "Расскажи про Андрея Шабанова",
+    "split": "dev",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "name": "Шабанов",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-shabanov-andrey"
+    ],
+    "report": {
+      "required_claims": [
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-shabanov-andrey",
+          "value": "political"
+        }
+      ],
+      "forbidden_claims": []
+    }
+  },
+  {
+    "query_id": "rs-16",
+    "query_class": "main_candidate",
+    "text": "Политически преследуемые, которых нет в перечне Росфинмониторинга",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "political",
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-badmaev-alexey",
+      "gp-novak-nika"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-miftakhov-azat",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-akuzin-andrey",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-snegova-maria",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-kara-murza-vladimir",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-dymov-andrey",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-mamedov-rafael",
+          "value": "not_matched"
+        }
+      ]
+    }
+  },
+  {
+    "query_id": "rs-17",
+    "query_class": "person_lookup",
+    "text": "Азат Мифтахов есть в перечне?",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "name": "Мифтахов",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-miftakhov-azat"
+    ],
+    "report": {
+      "required_claims": [
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-miftakhov-azat",
+          "value": "matched"
+        }
+      ],
+      "forbidden_claims": [
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-miftakhov-azat",
+          "value": "not_matched"
+        }
+      ]
+    }
+  },
+  {
+    "query_id": "rs-18",
+    "query_class": "rf_status",
+    "text": "Кто найден в перечне Росфинмониторинга?",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "rosfinmonitoring_status": "matched",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-kara-murza-vladimir",
+      "gp-kasparov-garry",
+      "gp-khodorkovsky-mikhail",
+      "gp-akuzin-andrey",
+      "gp-miftakhov-azat",
+      "gp-snegova-maria"
+    ]
+  },
+  {
+    "query_id": "rs-19",
+    "query_class": "rf_status",
+    "text": "У кого совпадение с перечнем неоднозначно?",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "rosfinmonitoring_status": "ambiguous",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-mamedov-rafael"
+    ]
+  },
+  {
+    "query_id": "rs-20",
+    "query_class": "persecution_status",
+    "text": "Кто преследуется по политическим мотивам?",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "political"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-badmaev-alexey",
+      "gp-akuzin-andrey",
+      "gp-snegova-maria",
+      "gp-mamedov-rafael"
+    ]
+  },
+  {
+    "query_id": "rs-21",
+    "query_class": "person_lookup",
+    "text": "Что известно об Андрее Дымове?",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "name": "Дымов",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-dymov-andrey"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-dymov-andrey",
+          "value": "not_matched"
+        }
+      ]
+    },
+    "notes": "snapshot has an entry with the same name; absence cannot be confirmed"
+  },
+  {
+    "query_id": "rs-22",
+    "query_class": "event",
+    "text": "Кого задерживали?",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "event_types": [
+          "detention"
+        ]
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-lyubshin-ivan"
+    ]
+  },
+  {
+    "query_id": "rs-23",
+    "query_class": "semantic_wording",
+    "text": "Преследование за денежные переводы украинским структурам",
+    "split": "validation",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "semantic_query": "уголовное дело за перевод денег украинским формированиям"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-badmaev-alexey"
+    ],
+    "requires_semantic": true
+  },
+  {
+    "query_id": "rs-24",
+    "query_class": "main_candidate",
+    "text": "Кто политически преследуется и не найден в перечне?",
+    "split": "test",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "political",
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-filchenko-galina",
+      "gp-arkhipova-anna",
+      "gp-ksenzhepolsky-yan",
+      "gp-neustroev-vasily",
+      "gp-sinelnikov-pavel",
+      "gp-zateev-evgeny",
+      "gp-bondarenko-nikolay",
+      "gp-kobzev-vadim",
+      "gp-voronin-anton",
+      "gp-sharygin-mikhail",
+      "gp-mamaev-sergey"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-navalny-alexey",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-liptser-alexey",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-feygin-mark",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-ponomarev-ilya",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-markin-nikolay",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-furmanova-irina",
+          "value": "political"
+        },
+        {
+          "claim_type": "persecution_classification",
+          "golden_person_id": "gp-spivak-nikita",
+          "value": "political"
+        }
+      ]
+    }
+  },
+  {
+    "query_id": "rs-25",
+    "query_class": "person_lookup",
+    "text": "Николай Бондаренко",
+    "split": "test",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "name": "Бондаренко",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-bondarenko-nikolay"
+    ]
+  },
+  {
+    "query_id": "rs-26",
+    "query_class": "event",
+    "text": "Кому предъявили обвинения?",
+    "split": "test",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "event_types": [
+          "charge"
+        ]
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-filchenko-galina",
+      "gp-markin-nikolay",
+      "gp-arkhipova-anna",
+      "gp-sinelnikov-pavel",
+      "gp-bondarenko-nikolay"
+    ]
+  },
+  {
+    "query_id": "rs-27",
+    "query_class": "rf_status",
+    "text": "Кого нет в перечне Росфинмониторинга?",
+    "split": "test",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "rosfinmonitoring_status": "not_matched",
+        "snapshot_id": "$SNAPSHOT"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-filchenko-galina",
+      "gp-arkhipova-anna",
+      "gp-voronin-anton"
+    ],
+    "report": {
+      "required_claims": [],
+      "forbidden_claims": [
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-navalny-alexey",
+          "value": "not_matched"
+        },
+        {
+          "claim_type": "rosfinmonitoring_status",
+          "golden_person_id": "gp-markin-nikolay",
+          "value": "not_matched"
+        }
+      ]
+    }
+  },
+  {
+    "query_id": "rs-28",
+    "query_class": "date_range",
+    "text": "Кого приговорили в апреле 2026 года?",
+    "split": "test",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "event_types": [
+          "sentence"
+        ],
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-30"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-arkhipova-anna",
+      "gp-ksenzhepolsky-yan",
+      "gp-neustroev-vasily",
+      "gp-sinelnikov-pavel",
+      "gp-zateev-evgeny"
+    ]
+  },
+  {
+    "query_id": "rs-29",
+    "query_class": "source_restriction",
+    "text": "Политически преследуемые из публикаций ОВД-Инфо",
+    "split": "test",
+    "expected_request": {
+      "object_type": "person",
+      "criteria": {
+        "persecution_status": "political",
+        "source": "ОВД-Инфо"
+      },
+      "limit": 1000
+    },
+    "expected_persons": [
+      "gp-filchenko-galina",
+      "gp-voronin-anton",
+      "gp-arkhipova-anna"
+    ]
+  },
+  {
+    "query_id": "rs-30",
+    "query_class": "unsupported_criteria",
+    "text": "Найди женщин-активисток старше 60 лет",
+    "split": "test",
+    "unsupported_criteria": [
+      "gender",
+      "age"
+    ]
+  }
+]

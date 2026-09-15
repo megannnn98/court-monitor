@@ -1,0 +1,403 @@
+[
+  {
+    "query_id": "rq-01",
+    "text": "журналист, задержанный на митинге в защиту Telegram в Новосибирске",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-oshchepkov-sergey": 2,
+      "gp-abrosimov-alexey": 1
+    }
+  },
+  {
+    "query_id": "rq-02",
+    "text": "мать чеченских активистов, осужденная к колонии-поселению",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-musaeva-zarema": 2
+    }
+  },
+  {
+    "query_id": "rq-03",
+    "text": "антифашист, у которого в заключении пропало зрение",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-paklin-roman": 2
+    },
+    "semantic_only": true
+  },
+  {
+    "query_id": "rq-04",
+    "text": "журналист, освещавший протесты фермеров против уничтожения скота",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-frolov-ivan": 2
+    }
+  },
+  {
+    "query_id": "rq-05",
+    "text": "черкесский активист, осужденный за участие в террористической организации",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-nagoev-ibragim": 2
+    }
+  },
+  {
+    "query_id": "rq-06",
+    "text": "фигуранты дела «граждан СССР» в Карачаево-Черкесии",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-kuzhev-oleko": 2,
+      "gp-meremshaov-adnan": 2,
+      "gp-yakusheva-larisa": 2,
+      "gp-darova-svetlana": 2,
+      "gp-ilichev-vladimir": 1,
+      "gp-shoev-abdulmalik": 1,
+      "gp-tukova-anita": 1,
+      "gp-primak-olga": 1,
+      "gp-naptugov-aslan": 1
+    }
+  },
+  {
+    "query_id": "rq-07",
+    "text": "активист, избитый силовиками при обыске после заявки на митинг против блокировок",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-makovoz-evgeny": 2
+    }
+  },
+  {
+    "query_id": "rq-08",
+    "text": "нацбол из Ярославля, обвиненный по «дадинской» статье",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-bitov-mikhail": 2
+    }
+  },
+  {
+    "query_id": "rq-09",
+    "text": "блогер, который шутки ради сам попросил статус иноагента",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-nikandrov-marat": 2
+    },
+    "semantic_only": true
+  },
+  {
+    "query_id": "rq-10",
+    "text": "главный редактор независимого кавказского издания",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-dzhikaeva-alina": 2
+    }
+  },
+  {
+    "query_id": "rq-11",
+    "text": "буддист-программист, осужденный за посты о войне",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-vasiliev-ilya": 2
+    }
+  },
+  {
+    "query_id": "rq-12",
+    "text": "пенсионер из Выборга, наказанный за лозунг «Слава Украине»",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-mamporia-oleg": 2
+    }
+  },
+  {
+    "query_id": "rq-13",
+    "text": "сын судьи, получивший срок за комментарии о войне",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-gilmanov-marat": 2
+    }
+  },
+  {
+    "query_id": "rq-14",
+    "text": "участница сообщества против блокировок интернета, уехавшая из страны",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-chepik-sofia": 2
+    }
+  },
+  {
+    "query_id": "rq-15",
+    "text": "заключенный, погибший в колонии после приговора за картинку с президентом",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-yarotsky-vladimir": 2
+    }
+  },
+  {
+    "query_id": "rq-16",
+    "text": "сотрудник правозащитного проекта, оштрафованный за нежелательную организацию",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-anisimov-dmitry": 2
+    }
+  },
+  {
+    "query_id": "rq-17",
+    "text": "художник, которого раз за разом арестовывают по административным делам",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-kirman-viktor": 2
+    },
+    "semantic_only": true
+  },
+  {
+    "query_id": "rq-18",
+    "text": "уличный художник, осужденный за антивоенные рисунки на стенах",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-arseniev-alexander": 2
+    },
+    "semantic_only": true
+  },
+  {
+    "query_id": "rq-19",
+    "text": "люди, осужденные за пожертвования Фонду борьбы с коррупцией",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-tereshin-anatoly": 2,
+      "gp-stovbun-gleb": 2
+    }
+  },
+  {
+    "query_id": "rq-20",
+    "text": "новые «иностранные агенты»: политолог, активистка и писательница",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-nikulin-andrey": 2,
+      "gp-kurochkina-inna": 2,
+      "gp-baryakina-elvira": 2
+    }
+  },
+  {
+    "query_id": "rq-21",
+    "text": "политзаключенный музыкант с инвалидностью",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-shabanov-andrey": 2
+    }
+  },
+  {
+    "query_id": "rq-22",
+    "text": "пожилой активист, наказанный за пикет в защиту родного языка",
+    "entity_type": "person",
+    "split": "dev",
+    "judgments": {
+      "gp-agishev-irek": 2
+    },
+    "semantic_only": true
+  },
+  {
+    "query_id": "rq-23",
+    "text": "задержание журналиста на протесте фермеров",
+    "entity_type": "event",
+    "split": "dev",
+    "judgments": {
+      "rw-20260323-13/e3": 2,
+      "rw-20260312-08/e5": 1
+    }
+  },
+  {
+    "query_id": "rq-24",
+    "text": "апелляция снизила сроки фигурантам дела граждан СССР",
+    "entity_type": "event",
+    "split": "dev",
+    "judgments": {
+      "rw-20260320-11/e2": 2,
+      "rw-20260320-11/e3": 2,
+      "rw-20260320-11/e4": 2,
+      "rw-20260320-11/e5": 2,
+      "rw-20260320-11/e6": 2
+    }
+  },
+  {
+    "query_id": "rq-25",
+    "text": "обыск у нацбола с изъятием партийной атрибутики",
+    "entity_type": "event",
+    "split": "dev",
+    "judgments": {
+      "rw-20260402-15/e2": 2
+    }
+  },
+  {
+    "query_id": "rq-26",
+    "text": "члены «Антивоенного комитета России»",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-kara-murza-vladimir": 2,
+      "gp-kasyanov-mikhail": 2,
+      "gp-gudkov-dmitry": 2,
+      "gp-kasparov-garry": 2,
+      "gp-alekhina-maria": 2,
+      "gp-shulman-ekaterina": 2,
+      "gp-guriev-sergey": 2,
+      "gp-aleksashenko-sergey": 2,
+      "gp-zimin-boris": 2,
+      "gp-chichvarkin-evgeny": 2,
+      "gp-khodorkovsky-mikhail": 2
+    }
+  },
+  {
+    "query_id": "rq-27",
+    "text": "художник покончил с собой в СИЗО после ареста за комментарий",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-akuzin-andrey": 2
+    }
+  },
+  {
+    "query_id": "rq-28",
+    "text": "крымский татарин с опухолью мозга, добивающийся освобождения",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-abdulgaziev-tofik": 2
+    }
+  },
+  {
+    "query_id": "rq-29",
+    "text": "анархист, переведенный в колонию за полярным кругом",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-miftakhov-azat": 2
+    }
+  },
+  {
+    "query_id": "rq-30",
+    "text": "человек, задержанный в аэропорту Минска при попытке эмигрировать",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-lyubshin-ivan": 2
+    }
+  },
+  {
+    "query_id": "rq-31",
+    "text": "студент из Бурятии объявил голодовку в тюрьме",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-badmaev-alexey": 2
+    }
+  },
+  {
+    "query_id": "rq-32",
+    "text": "политолог, внесенная в реестр Росфинмониторинга и объявленная в розыск",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-snegova-maria": 2
+    }
+  },
+  {
+    "query_id": "rq-33",
+    "text": "администратор телеграм-канала о северном регионе, осужденный за госизмену",
+    "entity_type": "person",
+    "split": "validation",
+    "judgments": {
+      "gp-mamedov-rafael": 2
+    },
+    "semantic_only": true
+  },
+  {
+    "query_id": "rq-34",
+    "text": "преподавателя университета взяли под стражу после приговора",
+    "entity_type": "event",
+    "split": "validation",
+    "judgments": {
+      "rw-20260526-36/e2": 2,
+      "rw-20260526-36/e1": 1
+    }
+  },
+  {
+    "query_id": "rq-35",
+    "text": "бывшая муниципальная депутатка, арестованная по делу «Съезда народных депутатов»",
+    "entity_type": "person",
+    "split": "test",
+    "judgments": {
+      "gp-filchenko-galina": 2
+    }
+  },
+  {
+    "query_id": "rq-36",
+    "text": "осужденные активисты молодежного движения «Весна»",
+    "entity_type": "person",
+    "split": "test",
+    "judgments": {
+      "gp-arkhipova-anna": 2,
+      "gp-ksenzhepolsky-yan": 2,
+      "gp-neustroev-vasily": 2,
+      "gp-sinelnikov-pavel": 2,
+      "gp-zateev-evgeny": 2,
+      "gp-khoroshenin-valentin": 2
+    }
+  },
+  {
+    "query_id": "rq-37",
+    "text": "адвокаты оппозиционного политика, осужденные за экстремистское сообщество",
+    "entity_type": "person",
+    "split": "test",
+    "judgments": {
+      "gp-sergunin-igor": 2,
+      "gp-kobzev-vadim": 2,
+      "gp-liptser-alexey": 2
+    }
+  },
+  {
+    "query_id": "rq-38",
+    "text": "экоактивист из Подмосковья, обвиненный в военных фейках",
+    "entity_type": "person",
+    "split": "test",
+    "judgments": {
+      "gp-markin-nikolay": 2
+    }
+  },
+  {
+    "query_id": "rq-39",
+    "text": "кандидат от КПРФ, задержанный из-за фотографии оппозиционера",
+    "entity_type": "person",
+    "split": "test",
+    "judgments": {
+      "gp-bondarenko-nikolay": 2
+    }
+  },
+  {
+    "query_id": "rq-40",
+    "text": "осужденный за поджог военкомата из Братска",
+    "entity_type": "person",
+    "split": "test",
+    "judgments": {
+      "gp-mikheev-dmitry": 2
+    }
+  }
+]
