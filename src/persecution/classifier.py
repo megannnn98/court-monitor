@@ -228,13 +228,6 @@ class RuleBasedPersecutionClassifier:
 
         return False
 
-        for article in POLITICAL_ARTICLES:
-            pattern = rf"(?<![\d.]){re.escape(article)}(?![\d.])"
-            if re.search(pattern, charge):
-                return True
-
-        return False
-
     def _contains_political_keywords(self, text: str) -> bool:
         return _POLITICAL_KEYWORDS_PATTERN.search(text.lower()) is not None
 

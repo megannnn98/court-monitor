@@ -98,7 +98,8 @@ _TEMPORAL_REFERENCE_BEFORE = re.compile(
     r"(?:его\s+|ее\s+|её\s+|их\s+)?(?:[а-яё]+(?:ого|ему|ому|ой|ым|им)\s+)?$"
 )
 # «в апреле 2025 года»: the event happened in that year, not on the publication date.
-_YEAR = re.compile(r"(?<!\d)(19\d\d|20\d\d)(?!\d)")
+# A birth year («1990 года рождения», «1990 г. р.») dates the person, not the event.
+_YEAR = re.compile(r"(?<!\d)(19\d\d|20\d\d)(?!\d)(?!\s*(?:года\s+рождения|г\.\s*р\.))")
 
 
 class RuleBasedEventExtractor:

@@ -285,9 +285,9 @@ def test_event_with_an_explicit_other_year_has_no_publication_date() -> None:
     published = datetime(2026, 5, 5, tzinfo=UTC)
     document = make_document(
         "Мампорию задержали в апреле 2025 года. Вчера его задержали снова. "
-        "В 2026 году его арестовали."
+        "В 2026 году его арестовали. Задержали активиста 1990 года рождения."
     ).model_copy(update={"published_at": published})
 
     dates = [event.event_date for event in RuleBasedEventExtractor().extract(document, [])]
 
-    assert dates == [None, published, published]
+    assert dates == [None, published, published, published]
