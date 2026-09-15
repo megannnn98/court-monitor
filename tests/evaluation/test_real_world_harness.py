@@ -805,3 +805,44 @@ def test_claim_failures_are_attributed_to_upstream_state_or_report_builder() -> 
         )
         == "event_extraction_or_annotation_granularity"
     )
+
+
+def test_rerun_with_zero_new_rows_passes_the_rerun_gate() -> None:
+    """A successful repeated run creates nothing: rerun_new holds zeros. The gate must be
+    PASS, not NOT_RUN because every counter is zero."""
+    from evaluation.real_world.results import PeriodResult
+
+    policy, _ = load_policy(DEFAULT_POLICY_PATH)
+    zeros = dict.fromkeys(("source_documents", "mentions", "findings"), 0)
+    monitoring = MonitoringSection(
+        status=SectionStatus.RUN,
+        periods=[
+            PeriodResult(
+                period="T1",
+                articles_published=3,
+                run_status={"ovd-info": "completed"},
+                new={"source_documents": 3},
+                rerun_new=zeros,
+                duration_seconds=1.0,
+            )
+        ],
+        rerun_duplicates=dict.fromkeys(zeros, 0),
+        db_invariants={"orphan_person_mentions": 0},
+    )
+    gates = {
+        g.name: g
+        for g in RealWorldSafetyGateEvaluator(policy).evaluate(_inputs([], monitoring=monitoring))
+    }
+    assert (gates["rerun_duplicates"].status, gates["rerun_duplicates"].value) == (
+        GateStatus.PASS,
+        0,
+    )
+
+    not_repeated = monitoring.model_copy(
+        update={"periods": [monitoring.periods[0].model_copy(update={"rerun_new": {}})]}
+    )
+    gates = {
+        g.name: g
+        for g in RealWorldSafetyGateEvaluator(policy).evaluate(_inputs([], monitoring=not_repeated))
+    }
+    assert gates["rerun_duplicates"].status is GateStatus.NOT_RUN
