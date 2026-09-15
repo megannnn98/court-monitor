@@ -95,7 +95,7 @@ from research.workflow.intake import ResearchRequestParser
 from semantic_retrieval.document_store import PostgresLexicalEntityRetriever
 from semantic_retrieval.factory import SemanticComponents, create_vector_store
 from semantic_retrieval.indexer import SemanticIndexer
-from semantic_retrieval.models import RetrievalBackend, RetrievalEntityType
+from semantic_retrieval.models import RetrievalBackend, RetrievalEntityType, RetrievalError
 from semantic_retrieval.retrievers import EntityRetriever
 
 logger = logging.getLogger("evaluation.real_world")
@@ -224,8 +224,21 @@ def semantic_setup(
         embedder=embedder,
         collections=REAL_WORLD_COLLECTIONS,
     )
-    for collection in REAL_WORLD_COLLECTIONS.values():
-        store.recreate_collection(collection, embedder.dimension)
+    try:
+        for collection in REAL_WORLD_COLLECTIONS.values():
+            store.recreate_collection(collection, embedder.dimension)
+    except RetrievalError as exc:
+        # Model or Qdrant unavailable (e.g. CUDA memory taken by another process):
+        # infrastructure, reported as NOT_RUN, never a retrieval quality result.
+        return SemanticSetup(
+            create_indexer=semantic_indexer_factory(
+                session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
+            ),
+            retrievers=lambda: {RetrievalBackend.LEXICAL: lexical},
+            embedding_model_id=None,
+            not_run_reason=f"semantic retrieval unavailable: {exc}",
+            available=False,
+        )
     return SemanticSetup(
         create_indexer=components.indexer,
         retrievers=lambda: {

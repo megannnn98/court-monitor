@@ -723,3 +723,30 @@ def test_same_as_is_transitive_for_identity_mapping() -> None:
     components = same_as_components(persons)
     assert components["a"] == components["b"] == components["c"]
     assert components["d"] != components["a"]
+
+
+def test_unloadable_embedding_model_makes_semantic_retrieval_not_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Real run: CUDA was taken by another process, loading E5 raised EmbeddingError and
+    evaluate-real-world crashed with a traceback instead of reporting NOT_RUN."""
+    from sqlalchemy.orm import sessionmaker
+
+    from evaluation.real_world.evaluator import EvaluationOptions, semantic_setup
+    from semantic_retrieval.embeddings import SentenceTransformerEmbedder
+    from semantic_retrieval.models import EmbeddingError
+
+    def unavailable(self: SentenceTransformerEmbedder) -> int:
+        raise EmbeddingError("Cannot load embedding model intfloat/multilingual-e5-base")
+
+    monkeypatch.setattr(SentenceTransformerEmbedder, "dimension", property(unavailable))
+    pytest.importorskip("sentence_transformers")
+    setup = semantic_setup(
+        sessionmaker(),
+        EvaluationOptions(
+            split=None, verified_only=False, full=False, semantic_model=True, qdrant_url=":memory:"
+        ),
+    )
+    assert not setup.available
+    assert setup.not_run_reason is not None
+    assert "Cannot load embedding model" in setup.not_run_reason
