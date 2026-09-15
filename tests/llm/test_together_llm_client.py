@@ -151,6 +151,18 @@ def test_config_from_env_requires_key_and_model_and_hides_key() -> None:
     assert "k-secret" not in repr(config)
 
 
+def test_config_base_url_defaults_to_together_and_accepts_a_local_openai_compatible_server() -> (
+    None
+):
+    env = {"TOGETHER_API_KEY": "k", "TOGETHER_MODEL": "qwen2.5:7b-instruct"}
+
+    assert TogetherConfig.from_env(env).base_url == "https://api.together.ai/v1"
+    local = TogetherConfig.from_env({**env, "TOGETHER_BASE_URL": "http://127.0.0.1:11434/v1/"})
+    assert local.base_url == "http://127.0.0.1:11434/v1"
+    with pytest.raises(LlmConfigurationError, match="TOGETHER_BASE_URL"):
+        TogetherConfig.from_env({**env, "TOGETHER_BASE_URL": "127.0.0.1:11434"})
+
+
 @pytest.mark.parametrize("timeout", ["abc", "0", "-1"])
 def test_config_rejects_bad_timeout(timeout: str) -> None:
     with pytest.raises(LlmConfigurationError):

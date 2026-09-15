@@ -153,6 +153,7 @@ curl -X POST http://localhost:8000/research/query \
 | `TOGETHER_API_KEY` | ключ Together AI (обязательно) |
 | `TOGETHER_MODEL` | id модели Together с поддержкой JSON schema (обязательно, значения по умолчанию нет) |
 | `TOGETHER_TIMEOUT_SECONDS` | таймаут запроса, по умолчанию `30` |
+| `TOGETHER_BASE_URL` | OpenAI-совместимый endpoint с JSON schema, по умолчанию Together; локально: `http://127.0.0.1:11434/v1` (Ollama), ключ — любая непустая строка |
 
 ## Тесты
 

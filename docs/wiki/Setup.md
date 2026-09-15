@@ -10,6 +10,7 @@
 | `TOGETHER_API_KEY` | ключ Together AI для natural-language запросов (`ask`, `POST /research/query`) |
 | `TOGETHER_MODEL` | id модели Together с поддержкой JSON schema; значения по умолчанию нет |
 | `TOGETHER_TIMEOUT_SECONDS` | таймаут запроса к Together, по умолчанию `30` |
+| `TOGETHER_BASE_URL` | OpenAI-совместимый endpoint, по умолчанию `https://api.together.ai/v1`; локальная модель через Ollama — `http://127.0.0.1:11434/v1` |
 | `QDRANT_URL` | Qdrant для semantic retrieval; без неё запросы с `semantic_query` завершаются `semantic_retrieval_not_configured`, остальное работает |
 | `PERSON_QDRANT_COLLECTION`, `EVENT_QDRANT_COLLECTION` | коллекции, по умолчанию `persons_semantic`, `events_semantic` |
 | `EMBEDDING_MODEL_ID`, `EMBEDDING_DEVICE` | `intfloat/multilingual-e5-base`, `auto` (`cpu`/`cuda`) |

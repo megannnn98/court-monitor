@@ -57,7 +57,12 @@ class TogetherConfig:
             raise LlmConfigurationError("TOGETHER_TIMEOUT_SECONDS must be a number") from None
         if timeout <= 0:
             raise LlmConfigurationError("TOGETHER_TIMEOUT_SECONDS must be positive")
-        return cls(api_key=api_key, model=model, timeout_seconds=timeout)
+        # Any OpenAI-compatible server with JSON schema output, e.g. a local Ollama
+        # (http://127.0.0.1:11434/v1); the API key is then an arbitrary placeholder.
+        base_url = env.get("TOGETHER_BASE_URL", "").strip().rstrip("/") or TOGETHER_BASE_URL
+        if not base_url.startswith(("http://", "https://")):
+            raise LlmConfigurationError("TOGETHER_BASE_URL must start with http:// or https://")
+        return cls(api_key=api_key, model=model, timeout_seconds=timeout, base_url=base_url)
 
 
 class TogetherStructuredLlmClient:
