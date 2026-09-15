@@ -6,20 +6,24 @@ from collections.abc import Iterable
 from extraction.models import EntityType, ExtractionDocument, RawMention
 
 _LEGAL_CODE = r"(?:УК\s+РФ|КоАП\s+РФ|Уголовного\s+кодекса\s+РФ|Уголовный\s+кодекс\s+РФ)"
+# After an article number the code is usually written without «РФ»: «ст. 207.3 УК».
+_LEGAL_CODE_AFTER_ARTICLE = (
+    r"(?:(?:УК|КоАП|Уголовного\s+кодекса|Уголовный\s+кодекс)(?:\s+РФ)?)(?![А-Яа-яЁёA-Za-z])"
+)
 _LEGAL_REFERENCE_PATTERN = re.compile(
     rf"""
     (?:
         (?:(?:п\.|пункт)\s*[«"]?(?P<clause>[а-яa-z])["»]?\s*)?
         (?:(?:ч\.|част[ьи])\s*(?P<part>\d+(?:\.\d+)?)\s*)?
-        (?:(?:ст\.|стать[еяи])\s*(?P<article>\d+(?:\.\d+)?)\s*)?
+        (?:(?:ст\.|стать[еяи])\s*(?P<article>\d+(?:\.\d+)*)\s*)?
         (?P<code>{_LEGAL_CODE})
     )
     |
     (?:
         (?:(?:п\.|пункт)\s*[«"]?(?P<clause2>[а-яa-z])["»]?\s*)?
         (?:(?:ч\.|част[ьи])\s*(?P<part2>\d+(?:\.\d+)?)\s*)?
-        (?:ст\.|стать[еяи])\s*(?P<article2>\d+(?:\.\d+)?)(?:\s*и\s*\d+(?:\.\d+)?)?\s*
-        (?P<code2>{_LEGAL_CODE})
+        (?:ст\.|стать[еяи])\s*(?P<article2>\d+(?:\.\d+)*)(?:\s*и\s*\d+(?:\.\d+)*)?\s*
+        (?P<code2>{_LEGAL_CODE_AFTER_ARTICLE})
     )
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -62,6 +66,11 @@ _LEADING_NON_NAME_WORDS = frozenset(
         "ее",
         "её",
         "их",
+        "против",
+        "для",
+        "от",
+        "про",
+        "об",
     }
 )
 _LEADING_ROLE_STEMS = (

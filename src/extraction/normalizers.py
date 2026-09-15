@@ -15,7 +15,7 @@ from extraction.models import (
 
 NORMALIZER_VERSION = "1.0.0"
 
-_LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+_LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
 _LEGAL_CLAUSE_PATTERN = re.compile(r"(?:п\.|пункт)\s*[«\"]?([а-яa-z])[\"»]?", re.IGNORECASE)
 _LEGAL_CODES = (
@@ -23,6 +23,8 @@ _LEGAL_CODES = (
     ("Уголовный кодекс РФ", "УК РФ"),
     ("УК РФ", "УК РФ"),
     ("КоАП РФ", "КоАП РФ"),
+    ("УК", "УК РФ"),
+    ("КоАП", "КоАП РФ"),
 )
 _CASE_SUFFIXES = (
     ("ого", "ый"),

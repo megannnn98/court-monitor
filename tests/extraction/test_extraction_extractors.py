@@ -176,6 +176,7 @@ def test_capitalized_word_is_not_a_surname_without_a_full_name_in_the_article() 
 def test_role_and_sentence_words_are_trimmed_from_the_name() -> None:
     assert _people("Судья Александр Сенькин арестовал Любшина.") == ["Александр Сенькин"]
     assert _people("Также Нелли Кирман рассказала о пытках.") == ["Нелли Кирман"]
+    assert _people("Против Михаила Битова возбудили дело.") == ["Михаила Битова"]
 
 
 def test_overlapping_name_spans_keep_only_the_longest() -> None:
@@ -226,3 +227,19 @@ def test_writing_source_is_not_linked_to_the_event() -> None:
     assert _linked_people("Активист Аскер Сохт писал, что задержанных отпустили после беседы.") == [
         []
     ]
+
+
+def test_legal_references_without_rf_suffix_are_extracted() -> None:
+    """Real cases: OVD-Info writes «(ч. 2 ст. 207.3 УК)», «(ст. 20.3.3 КоАП)» without «РФ»;
+    no political charge was ever recognised for those persons."""
+    text = (
+        "Его обвинили в «фейках» (п. «д» ч. 2 ст. 207.3 УК). "
+        "Суд оштрафовал его по статье о дискредитации (ч. 1 ст. 20.3.3 КоАП). "
+        "Дело возбудили по ст. 212.1 УК."
+    )
+    legal = [
+        mention.surface_text
+        for mention in RuleBasedEntityExtractor().extract(make_document(text))
+        if mention.entity_type is EntityType.LEGAL_REFERENCE
+    ]
+    assert legal == ["п. «д» ч. 2 ст. 207.3 УК", "ч. 1 ст. 20.3.3 КоАП", "ст. 212.1 УК"]
