@@ -89,6 +89,11 @@ _GATE_TOPICS: dict[str, tuple[ErrorComponent, str, str]] = {
         "the database violates domain invariants after the end-to-end run",
         "reproduce each violated invariant on the smallest article set",
     ),
+    "gated_dangerous_failures": (
+        ErrorComponent.DATA_QUALITY,
+        "false statements about real persons remain after gating (see per-kind counts)",
+        "group the dangerous failures by kind and trace each kind to the component that produced it",
+    ),
     "person_extraction_precision": (
         ErrorComponent.EXTRACTION,
         "non-person text is extracted as person mentions",

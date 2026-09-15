@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from evaluation.real_world.component_evaluation import (
     build_identity_map,
     evaluate_entity_resolution,
@@ -483,7 +485,8 @@ def test_report_generation_has_every_section_and_ranks_hard_gates_first(tmp_path
     assert "NOT_RUN" in markdown
     work = report.recommended_next_work
     assert work[0].metric == "false_person_auto_link"
-    assert work[1].metric == "political_precision"
+    assert work[1].metric == "gated_dangerous_failures"
+    assert work[2].metric == "political_precision"
     assert work == recommended_next_work(report.safety_gates, report.failures)
 
     json_path, md_path = write_reports(report, tmp_path)
@@ -626,3 +629,39 @@ def test_report_false_not_matched_is_counted_once() -> None:
         )
     }
     assert gates["false_rf_not_matched"].value == 1
+
+
+@pytest.mark.parametrize("kind", list(DangerousKind), ids=lambda k: k.value)
+def test_every_gated_dangerous_failure_fails_a_hard_gate(kind: DangerousKind) -> None:
+    """External review: false_actionable_candidate, false_political_classification,
+    unsupported_event_claim had no hard gate; one such S0 left the hard gates green."""
+    policy, _ = load_policy(DEFAULT_POLICY_PATH)
+    evaluator = RealWorldSafetyGateEvaluator(policy)
+
+    gated = evaluator.evaluate(_inputs([_failure(kind)]))
+    status, _, _ = overall_status(
+        gated, verified_articles=200, draft_articles_evaluated=0, min_verified_articles=100
+    )
+    assert any(g.kind is GateKind.HARD and g.status is GateStatus.FAIL for g in gated)
+    assert status is OverallStatus.FAILED_GATES
+
+    excused = {g.name: g for g in evaluator.evaluate(_inputs([_failure(kind, gated=False)]))}
+    assert excused["gated_dangerous_failures"].status is GateStatus.PASS
+
+
+def test_dangerous_failure_gate_is_enforced_even_if_the_policy_omits_it() -> None:
+    policy, _ = load_policy(DEFAULT_POLICY_PATH)
+    trimmed = policy.model_copy(
+        update={
+            "hard_gates": {
+                k: v for k, v in policy.hard_gates.items() if k != "gated_dangerous_failures"
+            }
+        }
+    )
+    gates = {
+        g.name: g
+        for g in RealWorldSafetyGateEvaluator(trimmed).evaluate(
+            _inputs([_failure(DangerousKind.UNSUPPORTED_EVENT_CLAIM)])
+        )
+    }
+    assert gates["gated_dangerous_failures"].status is GateStatus.FAIL

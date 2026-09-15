@@ -1,5 +1,5 @@
 {
-  "policy_version": "real-world-policy-v1",
+  "policy_version": "real-world-policy-v1.1",
   "min_verified_articles": 100,
   "min_verified_articles_per_split": 20,
   "hard_gates": {
@@ -14,7 +14,8 @@
     "rerun_duplicates": 0,
     "no_snapshot_absence_findings": 0,
     "rf_review_status_findings": 0,
-    "db_invariant_violations": 0
+    "db_invariant_violations": 0,
+    "gated_dangerous_failures": 0
   },
   "quality_targets": {
     "person_extraction_precision": 0.97,

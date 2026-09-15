@@ -8,6 +8,7 @@ is still reported). A NOT_RUN gate is never a PASS.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -30,6 +31,10 @@ from evaluation.real_world.results import (
     ScenarioResult,
     SectionStatus,
 )
+
+# Every gated failure with a dangerous kind is a false statement about a real
+# person: this gate is enforced even when a policy file omits it.
+DANGEROUS_FAILURES_GATE = "gated_dangerous_failures"
 
 EXIT_OK = 0
 EXIT_GATES_FAILED = 1
@@ -150,12 +155,28 @@ class RealWorldSafetyGateEvaluator:
                 if monitoring.db_invariants
                 else (None, "invariants not checked")
             ),
+            DANGEROUS_FAILURES_GATE: (
+                sum(1 for f in failures if f.gated and f.dangerous_kind is not None),
+                ", ".join(
+                    f"{kind}={count}"
+                    for kind, count in sorted(
+                        Counter(
+                            f.dangerous_kind.value
+                            for f in failures
+                            if f.gated and f.dangerous_kind is not None
+                        ).items()
+                    )
+                )
+                or None,
+            ),
         }
 
     def _hard(self, inputs: GateInputs) -> list[GateOutcome]:
         values = self._hard_values(inputs)
         outcomes = []
-        for name, maximum in self._policy.hard_gates.items():
+        gates = {**self._policy.hard_gates}
+        gates.setdefault(DANGEROUS_FAILURES_GATE, 0)
+        for name, maximum in gates.items():
             value, detail = values.get(name, (None, "no measurement for this gate"))
             if value is None:
                 status = GateStatus.NOT_RUN
