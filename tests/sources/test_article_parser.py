@@ -86,3 +86,39 @@ def test_parser_rejects_article_without_paragraphs() -> None:
 
     with pytest.raises(ParseError, match="Paragraphs not found"):
         parser.parse(raw_document)
+
+
+def test_parser_reads_digest_articles_written_as_list_items() -> None:
+    """Real case: OVD-Info daily digests (e.g. /express-news/2026/05/25/novoe-delo-...)
+    put every story into `<ul><li>` instead of `<p>`; they were rejected as
+    "Paragraphs not found" and never reached extraction."""
+    html = """
+    <html><body>
+      <h1 class="express-text-heading">Новое дело, пикет у Кремля и условный срок</h1>
+      <div id="article_published">25.05.2026, 19:40</div>
+      <div class="field field--name-field-express-text">
+        <p>Главное за день.</p>
+        <ul>
+          <li>Против Анастасии Чумаковой <a href="https://example.test">возбудили</a> дело.</li>
+          <li>На активистку Марину Халандач составили протокол.</li>
+        </ul>
+        <p>Подписывайтесь на рассылку.</p>
+      </div>
+    </body></html>
+    """.encode()
+    raw_document = RawDocument(
+        external_id="digest",
+        url="https://example.test/digest",
+        fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+        content_type="text/html",
+        content=html,
+    )
+
+    article = OvdInfoArticleParser().parse(raw_document)
+
+    assert article.text.split("\n\n") == [
+        "Главное за день.",
+        "Против Анастасии Чумаковой возбудили дело.",
+        "На активистку Марину Халандач составили протокол.",
+        "Подписывайтесь на рассылку.",
+    ]
