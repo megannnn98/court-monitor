@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -329,3 +330,37 @@ def test_context_in_a_following_sentence_without_other_persons_still_counts(
     classification = PersecutionClassificationService(session_factory).classify_person(sidorov)
 
     assert classification.status == PersecutionClassificationStatus.POLITICAL
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        (
+            "Утром задержали Егорова за кражу велосипеда, а правозащитника Никитина "
+            "задержали на антивоенном пикете."
+        ),
+        "Никитина задержали на антивоенном пикете, а Егорова — за кражу велосипеда.",
+        "Никитина задержали на антивоенном пикете; Егорова задержали за кражу велосипеда.",
+    ],
+)
+def test_political_context_of_another_persons_clause_does_not_leak_within_a_sentence(
+    session_factory: sessionmaker[Session], text: str
+) -> None:
+    """One sentence, two clauses joined by «, а» / «—» / «;»: each person keeps only
+    their own clause."""
+    egorov, nikitin = _seed_people_in_text(session_factory, text, ["Егорова", "Никитина"])
+    service = PersecutionClassificationService(session_factory)
+
+    assert service.classify_person(egorov).status != PersecutionClassificationStatus.POLITICAL
+    assert service.classify_person(nikitin).status == PersecutionClassificationStatus.POLITICAL
+
+
+def test_shared_clause_context_belongs_to_every_person_in_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    text = "Егорова и Никитина задержали на антивоенном пикете у здания суда."
+    egorov, nikitin = _seed_people_in_text(session_factory, text, ["Егорова", "Никитина"])
+    service = PersecutionClassificationService(session_factory)
+
+    assert service.classify_person(egorov).status == PersecutionClassificationStatus.POLITICAL
+    assert service.classify_person(nikitin).status == PersecutionClassificationStatus.POLITICAL

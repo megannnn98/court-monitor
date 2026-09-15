@@ -110,7 +110,8 @@ class RuleBasedPersecutionClassifier:
     classifier_name = "rule-based-persecution-classifier"
     # 1.1.0: evidence windows stop at sentences that mention other persons;
     # keywords match at word start («гей» no longer matches «Сергей»).
-    classifier_version = "1.1.0"
+    # 1.2.0: inside one sentence, windows stop at the clause of another person.
+    classifier_version = "1.2.0"
 
     def classify(
         self,

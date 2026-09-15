@@ -33,6 +33,14 @@ LEGAL_REFERENCE_LINK_WINDOW_CHARS = 200
 
 _SENTENCE_END = re.compile(r"[.!?…]+[»\")]*\s+")
 
+# Boundary between clauses about different people inside one sentence: «;», «:»,
+# a dash, or a comma followed by a contrasting/joining conjunction. A bare comma
+# is not one («Иванова, 35 лет, задержали…» is a single clause).
+_CLAUSE_BOUNDARY = re.compile(
+    r"[;:]|\s[—–-]\s|,\s*(?:а|но|и|однако|тогда как|в то время как|при этом)\s",
+    re.IGNORECASE,
+)
+
 
 def _sentence_bounds(text: str, offset: int) -> tuple[int, int]:
     """[start, end) of the sentence containing `offset` (end includes trailing space)."""
@@ -310,7 +318,10 @@ class PersecutionClassificationService:
         A window never reaches into a sentence that mentions another person
         (unless it is the span's own sentence): in a short article, «X was
         detained for theft. Y was detained at an anti-war picket.» must not give
-        X the political context of Y.
+        X the political context of Y. Inside the span's own sentence it stops at
+        the clause boundary nearest to the span («X — for theft, and Y at an
+        anti-war picket»); without a boundary the clause is shared («X and Y were
+        detained at a picket») and its context belongs to both.
         """
         expanded = []
         for start, end in spans:
@@ -318,9 +329,17 @@ class PersecutionClassificationService:
             window_end = min(text_length, end + window)
             if text is not None and other_person_spans:
                 own_sentence = _sentence_bounds(text, start)
-                for other_start, _ in other_person_spans:
+                for other_start, other_end in other_person_spans:
                     other_sentence = _sentence_bounds(text, other_start)
                     if other_sentence == own_sentence:
+                        if other_start >= end:
+                            boundary = _CLAUSE_BOUNDARY.search(text, end, other_start)
+                            if boundary is not None:
+                                window_end = min(window_end, boundary.start())
+                        elif other_end <= start:
+                            boundaries = list(_CLAUSE_BOUNDARY.finditer(text, other_end, start))
+                            if boundaries:
+                                window_start = max(window_start, boundaries[-1].end())
                         continue
                     if other_start < start:
                         window_start = max(window_start, other_sentence[1])
