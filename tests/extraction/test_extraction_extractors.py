@@ -243,3 +243,17 @@ def test_legal_references_without_rf_suffix_are_extracted() -> None:
         if mention.entity_type is EntityType.LEGAL_REFERENCE
     ]
     assert legal == ["п. «д» ч. 2 ст. 207.3 УК", "ч. 1 ст. 20.3.3 КоАП", "ст. 212.1 УК"]
+
+
+def test_inflected_organization_name_is_not_part_of_a_person_name() -> None:
+    text = (
+        "Суд арестовал охранника Минюста Виталия Л. на 15 суток, сотрудники Медиазоны пришли в суд."
+    )
+
+    persons = [
+        mention.surface_text
+        for mention in RuleBasedEntityExtractor().extract(make_document(text))
+        if mention.entity_type is EntityType.PERSON
+    ]
+
+    assert persons == []

@@ -151,9 +151,10 @@ _COURT_PATTERN = re.compile(
     rf"(?:\s+(?:Москвы|Петербурга|России|Татарстана|{_CAPITALIZED_WORD}))?",
 )
 _ORG_PATTERN = re.compile(
-    r"\b(?:ОВД-Инфо|SOTA|Медиазона|Роскомсвобода|Мемориал|Следственный комитет|"
-    r"СК РФ|МВД|ФСБ|ФСИН|прокуратура|Генпрокуратура|Минюст|полиция|"
-    r"Комитет против пыток|Росфинмониторинг)\b",
+    r"\b(?:ОВД-Инфо|SOTA|Медиазон[аеуы]|Роскомсвобод[аеуы]|Мемориал|Следственный комитет|"
+    r"СК РФ|МВД|ФСБ|ФСИН|прокуратур[аеуы]|Генпрокуратур[аеуы]|Минюст|полици[яиюей]|"
+    # Case endings too: «охранника Минюста Виталия» must not read as a name.
+    r"Комитет против пыток|Росфинмониторинг)(?:[а-яё]{1,2})?\b",
     re.IGNORECASE,
 )
 _LOCATION_PATTERN = re.compile(
@@ -202,7 +203,8 @@ class RuleBasedEntityExtractor:
     extractor_name = "rule-based-entity-extractor"
     # 1.1.0: surname-only references to a full name in the same article; leading role
     # and sentence words trimmed from names; overlapping name spans keep the longest.
-    extractor_version = "1.1.0"
+    # 1.1.1: inflected organization names («Минюста», «Медиазоны») occupy their span.
+    extractor_version = "1.1.1"
 
     def extract(self, document: ExtractionDocument) -> list[RawMention]:
         mentions: list[RawMention] = []
