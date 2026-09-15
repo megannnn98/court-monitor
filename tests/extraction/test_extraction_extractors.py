@@ -249,6 +249,25 @@ def test_legal_references_without_rf_suffix_are_extracted() -> None:
     assert legal == ["п. «д» ч. 2 ст. 207.3 УК", "ч. 1 ст. 20.3.3 КоАП", "ст. 212.1 УК"]
 
 
+def test_spelled_out_criminal_code_without_country_is_normalized_without_guessing_it() -> None:
+    """Real Telegram cases crashed the whole extraction run: «ч. 2 ст. 161 Уголовного кодекса»;
+    «статьи 437 и 367 Уголовного кодекса» is the Ukrainian code, so the country is not guessed."""
+    text = (
+        "Его обвинили по ч. 2 ст. 161 Уголовного кодекса. "
+        "Дело возбудили по признакам статьи 438 Уголовного кодекса."
+    )
+    document = make_document(text)
+    normalizer = RuleBasedMentionNormalizer()
+
+    legal = [
+        normalizer.normalize(mention, document).normalized_text
+        for mention in RuleBasedEntityExtractor().extract(document)
+        if mention.entity_type is EntityType.LEGAL_REFERENCE
+    ]
+
+    assert legal == ["УК ст. 161 ч. 2", "УК ст. 438"]
+
+
 def test_inflected_organization_name_is_not_part_of_a_person_name() -> None:
     text = (
         "Суд арестовал охранника Минюста Виталия Л. на 15 суток, сотрудники Медиазоны пришли в суд."

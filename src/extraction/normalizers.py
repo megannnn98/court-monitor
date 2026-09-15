@@ -25,6 +25,11 @@ _LEGAL_CODES = (
     ("КоАП РФ", "КоАП РФ"),
     ("УК", "УК РФ"),
     ("КоАП", "КоАП РФ"),
+    # Spelled out without a country the code may be another state's (Telegram channels of
+    # courts in occupied territories cite the Ukrainian code): not guessed. After the short
+    # «УК» alias above, which only matches the OVD-Info abbreviation style.
+    ("Уголовного кодекса", "УК"),
+    ("Уголовный кодекс", "УК"),
 )
 _CASE_SUFFIXES = (
     ("ого", "ый"),
