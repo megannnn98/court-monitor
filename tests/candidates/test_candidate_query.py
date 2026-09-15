@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
+from support.query_counter import count_queries
 
 from candidates.models import RosfinmonitoringStatus
 from candidates.service import CandidateQueryService
@@ -756,3 +757,52 @@ def test_get_candidates_returns_person_once_with_several_political_classificatio
         (person_id, 0.8)
     ]
     assert result.total_count == 1
+
+
+def test_get_candidates_query_count_does_not_grow_with_candidates(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    def seed(count: int, offset: int, snapshot_id: int) -> None:
+        with session_factory() as session:
+            for index in range(offset, offset + count):
+                person_id = _create_person(
+                    session, f"Person {index}", f"person {index}", f"person{index}"
+                )
+                _create_persecution_classification(
+                    session, person_id, "political", 0.9, ["Political activity"]
+                )
+                _create_alias(session, person_id, f"P {index}", f"p {index}", f"p{index}")
+                _create_match(session, person_id, snapshot_id, "not_matched", 0.8)
+
+    with session_factory() as session:
+        snapshot_id = _create_snapshot(session)
+    engine = session_factory.kw["bind"]
+    seed(2, 0, snapshot_id)
+    with count_queries(engine) as small:
+        assert service.get_candidates(snapshot_id, limit=None).total_count == 2
+    seed(20, 2, snapshot_id)
+    with count_queries(engine) as large:
+        result = service.get_candidates(snapshot_id, limit=None)
+
+    assert result.total_count == 22
+    assert len(large) == len(small)
+    assert len(large) <= 6
+
+
+def test_get_candidates_are_ordered_by_person_id(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    with session_factory() as session:
+        snapshot_id = _create_snapshot(session)
+        ids = []
+        for index in range(4):
+            person_id = _create_person(session, f"P{index}", f"p{index}", f"p{index}")
+            _create_persecution_classification(session, person_id, "political", 0.9, [])
+            _create_match(session, person_id, snapshot_id, "not_matched", 0.8)
+            ids.append(person_id)
+
+    page = service.get_candidates(snapshot_id, limit=2)
+
+    assert [candidate.person_id for candidate in page.candidates] == sorted(ids)[:2]

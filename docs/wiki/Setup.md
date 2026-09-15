@@ -100,6 +100,30 @@ docker compose --profile monitoring up -d --build
 
 Переменные: `MONITORING_ENABLED_SOURCES`, `MONITORING_CRON`, `MONITORING_DISCOVERY_LIMIT`, `MONITORING_STALE_RUN_AFTER_MINUTES`, `DAGSTER_PG_DB`, `MONITORING_QDRANT_URL` (см. `.env.example`).
 
+### Production-like запуск
+
+[ADR 0014](../adr/0014-production-deployment.md): один образ `court-monitor:local` для API, Dagster и миграций; профиль `production` = PostgreSQL + Qdrant + API + Dagster. Миграции — отдельный явный шаг, API и Dagster их не применяют:
+
+```bash
+docker compose --profile production build
+docker compose up -d postgres
+docker compose run --rm migrate
+docker compose --profile production up -d
+
+curl -s http://127.0.0.1:8001/health/live    # процесс отвечает
+curl -s http://127.0.0.1:8001/health/ready   # 503 unavailable: БД недоступна или схема не на head
+```
+
+`/health/ready` возвращает `ready`, `degraded` (HTTP 200: Qdrant недоступен, Together не настроен, stale monitoring run) или `unavailable` (HTTP 503). Healthcheck контейнера API проверяет только `/health/live`.
+
+| Переменная | Использование |
+|---|---|
+| `API_QDRANT_URL` | Qdrant для API внутри compose (`http://qdrant:6333`); пусто — semantic research не настроен |
+| `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` | пул на процесс (API worker, Dagster run), по умолчанию `5`, `10` |
+| `DATABASE_POOL_TIMEOUT`, `DATABASE_CONNECT_TIMEOUT` | ожидание соединения из пула и подключения к PostgreSQL, секунды, `30`, `10` |
+
+Все порты опубликованы только на `127.0.0.1` (PostgreSQL `5433`, Qdrant `6333`, API `8001`, Dagster `3000`). У API нет аутентификации и rate limiting — наружу только через reverse proxy с ними.
+
 ## Тесты и CI
 
 ```bash

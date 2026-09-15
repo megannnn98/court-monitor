@@ -199,7 +199,12 @@ class SqlAlchemyMonitoringWorkQueries:
         with self._session_factory() as session:
             return list(session.scalars(query).all())
 
-    def persons_pending_rf_match(self, *, snapshot_id: int) -> list[int]:
+    def persons_pending_rf_match(
+        self, *, snapshot_id: int, matcher_name: str, matcher_version: str
+    ) -> list[int]:
+        """Active persons without a match for the snapshot, with a match older than their
+        evidence, or with a match produced by another matcher (version) — including rows
+        written before the version was recorded (NULL)."""
         changed = _person_change_stamps(include_derived=False, settle=self._settle)
         query = (
             select(PersonRecord.id)
@@ -216,6 +221,8 @@ class SqlAlchemyMonitoringWorkQueries:
                 or_(
                     RosfinMatchRecord.id.is_(None),
                     RosfinMatchRecord.matched_at < changed.c.changed_at,
+                    RosfinMatchRecord.matcher_name.is_distinct_from(matcher_name),
+                    RosfinMatchRecord.matcher_version.is_distinct_from(matcher_version),
                 ),
             )
             .order_by(PersonRecord.id)

@@ -67,16 +67,51 @@ POLITICAL_KEYWORDS = {
     "ЛГБТ",
     "гей",
     "лесбиянка",
-    "транссендер",
+    "трансгендер",
     "религиозное преследование",
     "Свидетели Иеговы",
     "вероисповедание",
 }
 
 
+# Short abbreviations only count as whole words («сми», not «Смирнов»; «гей»,
+# not «Сергей»). Every other keyword counts at the start of a word, so stems
+# («журналист», «антивоен») still match their inflected forms.
+_WHOLE_WORD_KEYWORDS = frozenset({"гей", "геи", "сми", "медиа", "sota"})
+
+
+def _keyword_pattern(keywords: Sequence[str]) -> re.Pattern[str]:
+    alternatives = sorted(
+        (
+            rf"{re.escape(keyword.lower())}(?!\w)"
+            if keyword.lower() in _WHOLE_WORD_KEYWORDS
+            else re.escape(keyword.lower())
+            for keyword in keywords
+        ),
+        key=len,
+        reverse=True,
+    )
+    return re.compile(rf"(?<!\w)(?:{'|'.join(alternatives)})")
+
+
+_POLITICAL_KEYWORDS_PATTERN = _keyword_pattern(sorted(POLITICAL_KEYWORDS))
+_HUMAN_RIGHTS_PATTERN = _keyword_pattern(["правозащит", "мемориал", "ова-инфо", "овд-инфо", "sota"])
+_JOURNALISM_PATTERN = _keyword_pattern(
+    ["журналист", "медиа", "сми", "пресса", "редактор", "корреспондент"]
+)
+_ANTI_WAR_PATTERN = _keyword_pattern(["антивоен", "против войны", "нет войне", "мир без войны"])
+_RELIGIOUS_PATTERN = _keyword_pattern(
+    ["свидетели иеговы", "свидетелей иеговы", "религиозн", "вероисповедан", "церков", "мечет"]
+)
+_LGBT_PATTERN = _keyword_pattern(["лгбт", "гей", "геи", "лесбиян", "трансгендер"])
+
+
 class RuleBasedPersecutionClassifier:
     classifier_name = "rule-based-persecution-classifier"
-    classifier_version = "1.0.0"
+    # 1.1.0: evidence windows stop at sentences that mention other persons;
+    # keywords match at word start («гей» no longer matches «Сергей»).
+    # 1.2.0: inside one sentence, windows stop at the clause of another person.
+    classifier_version = "1.2.0"
 
     def classify(
         self,
@@ -167,33 +202,19 @@ class RuleBasedPersecutionClassifier:
         return False
 
     def _contains_political_keywords(self, text: str) -> bool:
-        text_lower = text.lower()
-        for keyword in POLITICAL_KEYWORDS:
-            if keyword in text_lower:
-                return True
-        return False
+        return _POLITICAL_KEYWORDS_PATTERN.search(text.lower()) is not None
 
     def _mentions_human_rights(self, text: str) -> bool:
-        return any(
-            word in text for word in ["правозащит", "мемориал", "ова-инфо", "овд-инфо", "sota"]
-        )
+        return _HUMAN_RIGHTS_PATTERN.search(text) is not None
 
     def _mentions_journalism(self, text: str) -> bool:
-        return any(
-            word in text
-            for word in ["журналист", "медиа", "сми", "пресса", "редактор", "корреспондент"]
-        )
+        return _JOURNALISM_PATTERN.search(text) is not None
 
     def _mentions_anti_war(self, text: str) -> bool:
-        return any(
-            phrase in text for phrase in ["антивоен", "против войны", "нет войне", "мир без войны"]
-        )
+        return _ANTI_WAR_PATTERN.search(text) is not None
 
     def _mentions_religious(self, text: str) -> bool:
-        return any(
-            word in text
-            for word in ["свидетели иеговы", "религиозн", "вероисповедан", "церквь", "мечеть"]
-        )
+        return _RELIGIOUS_PATTERN.search(text) is not None
 
     def _mentions_lgbt(self, text: str) -> bool:
-        return any(word in text for word in ["лгбт", "гей", "лесбиян", "транссенд"])
+        return _LGBT_PATTERN.search(text) is not None

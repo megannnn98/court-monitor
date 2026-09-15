@@ -32,14 +32,22 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.3",
 ]
+mcp = [
+    "mcp>=2.2.0",
+]
 semantic = [
     "sentence-transformers>=5.0",
 ]
 
+[tool.uv]
+# Development installs the MCP adapter too (type checks and tests cover it);
+# deployment images use --no-default-groups, so API, CLI and Dagster never need it.
+default-groups = ["dev", "mcp"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
 markers = [
-    "live_together: calls the real Together AI API; opt-in via TOGETHER_LIVE_TESTS=1",
+    "live_together: calls the real Together AI API; opt-in via TOGETHER_LIVE_TESTS=1 or LIVE_LLM_TESTS=1",
     "qdrant: needs a running Qdrant service; opt-in via QDRANT_TEST_URL",
     "semantic_models: loads real embedding/reranker models; opt-in via SEMANTIC_MODEL_TESTS=1",
 ]

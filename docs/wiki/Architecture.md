@@ -6,6 +6,7 @@
 - **Orchestration** (`monitoring`, Dagster) только выбирает работу, вызывает доменные сервисы и ведёт учёт run'ов (ADR 0013).
 - **PostgreSQL** — source of truth. **Qdrant** — производный индекс (ADR 0011), восстанавливается из PostgreSQL. **Метаданные Dagster** — в отдельной БД.
 - **Composition root** `application.build_application_services()` собирает граф объектов для monitoring CLI, monitoring API и Dagster resource.
+- **Deployment** (ADR 0014): один образ для API, Dagster и миграций; compose-профиль `production`; миграции — явный шаг `migrate`; liveness (`/health/live`) отделён от readiness (`/health/ready`); порты только на localhost.
 
 ```plantuml
 @startuml

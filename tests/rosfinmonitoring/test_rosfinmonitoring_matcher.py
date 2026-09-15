@@ -822,3 +822,61 @@ def test_persistence_delete_match(
 
     deleted_again = persistence.delete_match_result(person_id, snapshot_id)
     assert deleted_again is False
+
+
+@pytest.mark.parametrize(
+    ("person_name", "entry_name"),
+    [
+        # Genitive first name left by the extraction normalizer.
+        ("Андрея Кузнецов", "андрей кузнецов"),
+        # Mangled female name.
+        ("Елен Васильев", "елена васильева"),
+        # Reordered and inflected.
+        ("Кузнецова Андрея", "андрей кузнецов"),
+        # Fleeting vowel and soft sign: «Лев» → «Льва», «Орёл» → «Орла».
+        ("Льва Толстого", "лев толстой"),
+        ("Павла Орла", "павел орел"),
+        ("Петра Сидорова", "петр сидоров"),
+        ("Павла Смирнова", "павел смирнов"),
+        # Hyphenated surname declined in both parts.
+        ("Ивана Римского-Корсакова", "иван римский-корсаков"),
+    ],
+)
+def test_inflected_name_variant_is_never_reported_absent(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+    person_name: str,
+    entry_name: str,
+) -> None:
+    """A person whose every name word matches an entry up to its case ending must not
+    be reported as confirmed absent from the list."""
+    with session_factory() as session:
+        person_id = _create_person(
+            session, person_name, person_name.lower(), person_name.lower().replace(" ", "")
+        )
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        entry_id = _create_rf_entry(
+            session, snapshot_id, entry_name.title(), entry_name, entry_name.replace(" ", "")
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status is RosfinMatchStatus.NEEDS_REVIEW
+    assert [candidate.entry_id for candidate in result.candidate_entries] == [entry_id]
+    assert "name variant" in " ".join(result.reasons)
+
+
+def test_same_surname_different_first_name_is_still_not_matched(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    with session_factory() as session:
+        person_id = _create_person(session, "Иван Кузнецов", "иван кузнецов", "иванкузнецов")
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        _create_rf_entry(
+            session, snapshot_id, "Андрей Кузнецов", "андрей кузнецов", "андрейкузнецов"
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status is RosfinMatchStatus.NOT_MATCHED

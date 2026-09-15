@@ -109,7 +109,7 @@ class SemanticIndexer:
         stats = IndexingStats(entity_type=entity_type)
         entity_ids = builder.list_entity_ids(limit=limit)
         logger.info(
-            "semantic_index_started entity_type=%s entities=%d incremental=%s",
+            "event=semantic_index_started entity_type=%s entities=%d incremental=%s",
             entity_type.value,
             len(entity_ids),
             incremental,
@@ -121,7 +121,7 @@ class SemanticIndexer:
             stale = sorted(set(self._repository.list_entity_ids(entity_type)) - set(entity_ids))
             self._delete(entity_type, stale, stats)
         logger.info(
-            "semantic_index_finished entity_type=%s built=%d embedded=%d unchanged=%d deleted=%d",
+            "event=semantic_index_finished entity_type=%s built=%d embedded=%d unchanged=%d deleted=%d",
             entity_type.value,
             stats.documents_built,
             stats.embedded,

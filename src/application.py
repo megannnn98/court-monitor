@@ -36,6 +36,7 @@ from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from semantic_retrieval.factory import SemanticRetrievalConfig, create_semantic_components
 from semantic_retrieval.indexer import SemanticIndexer
+from settings import ApplicationSettings
 from sources.retrying_fetcher import RetryingDocumentFetcher
 from sources.source_adapter import DocumentFetcher
 from sources.source_registry import SOURCES, SourceDefinition
@@ -148,12 +149,19 @@ def build_application_services(
     env: Mapping[str, str] | None = None,
 ) -> ApplicationServices:
     env = os.environ if env is None else env
+    if database_url is not None:
+        env = {**env, "DATABASE_URL": database_url}
+    # Raises ApplicationConfigurationError listing every invalid setting.
+    application_settings = ApplicationSettings.from_env(
+        env, require_database=session_factory is None
+    )
     if session_factory is None:
-        database_url = database_url or env.get("DATABASE_URL")
-        if not database_url:
-            raise RuntimeError("DATABASE_URL environment variable is not set")
-        session_factory = create_session_factory(create_database_engine(database_url))
-    settings = MonitoringSettings.from_env(env)
+        session_factory = create_session_factory(
+            create_database_engine(
+                application_settings.database_url, application_settings.database_pool
+            )
+        )
+    settings = application_settings.monitoring
     monitoring = build_monitoring_service(session_factory, settings=settings, env=env)
     return ApplicationServices(
         session_factory=session_factory,

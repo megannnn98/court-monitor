@@ -40,6 +40,8 @@ class RosfinMatchPersistence:
             "matched_entry_name": result.matched_entry_name,
             "candidate_entries": candidate_entries,
             "reasons": result.reasons,
+            "matcher_name": result.matcher_name,
+            "matcher_version": result.matcher_version,
             "matched_at": matched_at,
         }
 
@@ -56,6 +58,8 @@ class RosfinMatchPersistence:
                         "matched_entry_name": result.matched_entry_name,
                         "candidate_entries": candidate_entries,
                         "reasons": result.reasons,
+                        "matcher_name": result.matcher_name,
+                        "matcher_version": result.matcher_version,
                         "matched_at": matched_at,
                     },
                 )

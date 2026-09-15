@@ -1,7 +1,8 @@
 import argparse
 import asyncio
+import json
 import logging
-import os
+import sys
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,6 +12,7 @@ from sqlalchemy.exc import NoResultFound
 
 from candidates.service import CandidateQueryService
 from db.database import create_database_engine, create_session_factory
+from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
@@ -55,6 +57,7 @@ from semantic_retrieval.cli import (
     run_semantic_command,
 )
 from semantic_retrieval.models import SemanticConfigurationError
+from settings import ApplicationConfigurationError, ApplicationSettings
 from sources.article_parser import OvdInfoArticleParser
 from sources.ingestion_pipeline import IngestionPipeline
 from sources.models import ParsedArticle, RawDocument, SearchQuery
@@ -286,8 +289,23 @@ def main() -> None:
     add_semantic_arguments(subparsers)
     add_person_resolution_arguments(subparsers)
     add_monitoring_arguments(subparsers)
+    add_final_evaluation_arguments(subparsers)
+
+    subparsers.add_parser(
+        "validate-config",
+        help="Validate the whole configuration and print it without secrets",
+    )
 
     args = argument_parser.parse_args()
+
+    if args.command == "validate-config":
+        try:
+            settings = ApplicationSettings.from_env(require_database=False)
+        except ApplicationConfigurationError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(2) from None
+        print(json.dumps(settings.redacted(), indent=2, ensure_ascii=False))
+        return
 
     if args.command == "evaluate-extraction":
         extraction_report = evaluate_golden_dataset(args.corpus_path)
@@ -304,17 +322,23 @@ def main() -> None:
         run_evaluate_retrieval(args)
         return
 
+    if args.command == "evaluate-final":
+        # Uses its own disposable database, never DATABASE_URL.
+        run_final_evaluation_command(args)
+        return
+
     if args.command == "evaluate-er":
         # Uses its own disposable database, never DATABASE_URL.
         run_evaluate_er(args)
         return
 
-    database_url = os.environ.get("DATABASE_URL")
+    # Fail fast with every configuration problem, before touching the database.
+    try:
+        settings = ApplicationSettings.from_env()
+    except ApplicationConfigurationError as exc:
+        raise SystemExit(str(exc)) from None
 
-    if database_url is None:
-        raise RuntimeError("DATABASE_URL environment variable is not set")
-
-    database_engine = create_database_engine(database_url)
+    database_engine = create_database_engine(settings.database_url, settings.database_pool)
     session_factory = create_session_factory(database_engine)
 
     if run_semantic_command(args, session_factory):

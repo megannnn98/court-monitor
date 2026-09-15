@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
+
 from persecution.classifier import RuleBasedPersecutionClassifier
 from persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
 
@@ -272,3 +274,41 @@ def test_classifier_confidence_scales_with_evidence() -> None:
     )
 
     assert classification_2.confidence >= classification_1.confidence
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Сергей Сидоров задержан за кражу велосипеда.",
+        "Суд приговорил Олега Смирнова к трём годам колонии за кражу.",
+        "Медиатор Пётр Ковалёв помог сторонам договориться о долге.",
+    ],
+)
+def test_keywords_inside_other_words_are_not_evidence(text: str) -> None:
+    """«гей» in «Сергей», «сми» in «Смирнов» must not become persecution reasons."""
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1, events=[], articles=[{"id": 1, "title": "", "text": text}]
+    )
+
+    assert classification.evidence_types == []
+    assert classification.reasons == []
+    assert classification.status == PersecutionClassificationStatus.NON_POLITICAL
+
+
+@pytest.mark.parametrize(
+    ("text", "evidence"),
+    [
+        ("Гей-активиста задержали после пикета.", PersecutionEvidenceType.LGBT_PERSECUTION),
+        ("Главного редактора СМИ вызвали на допрос.", PersecutionEvidenceType.JOURNALIST),
+        ("Журналистку задержали на акции.", PersecutionEvidenceType.JOURNALIST),
+        ("Антивоенного активиста оштрафовали.", PersecutionEvidenceType.ANTI_WAR_ACTIVITY),
+    ],
+)
+def test_keywords_at_word_start_are_still_evidence(
+    text: str, evidence: PersecutionEvidenceType
+) -> None:
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1, events=[], articles=[{"id": 1, "title": "", "text": text}]
+    )
+
+    assert evidence in classification.evidence_types

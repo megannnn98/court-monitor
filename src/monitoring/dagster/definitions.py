@@ -9,6 +9,7 @@ from monitoring.dagster.jobs import build_derived_job, monitoring_job
 from monitoring.dagster.resources import MONITORING_RESOURCE_KEY, monitoring_service_resource
 from monitoring.dagster.schedules import build_source_schedules
 from monitoring.models import MonitoringSettings
+from settings import ApplicationSettings
 
 
 def build_definitions(
@@ -37,4 +38,6 @@ def build_definitions(
     )
 
 
-defs = build_definitions(MonitoringSettings.from_env())
+# Validated at code-location load: an invalid setting fails loading, not a run.
+# DATABASE_URL is checked by the resource when a run starts.
+defs = build_definitions(ApplicationSettings.from_env(require_database=False).monitoring)

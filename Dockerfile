@@ -1,4 +1,4 @@
-# Monitoring runtime image (Dagster webserver/daemon and run workers).
+# Application image: API (uvicorn), Dagster webserver/daemon/run workers, migrations.
 FROM python:3.13-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /usr/local/bin/uv
@@ -22,12 +22,15 @@ RUN apt-get update \
 ARG INSTALL_SEMANTIC=0
 COPY pyproject.toml uv.lock ./
 RUN if [ "$INSTALL_SEMANTIC" = "1" ]; then \
-        uv sync --frozen --no-dev --no-install-project --group semantic; \
+        uv sync --frozen --no-default-groups --no-install-project --group semantic; \
     else \
-        uv sync --frozen --no-dev --no-install-project; \
+        uv sync --frozen --no-default-groups --no-install-project; \
     fi
 
 COPY src ./src
 COPY migrations ./migrations
 COPY alembic.ini ./
 COPY docker/dagster/dagster.yaml docker/dagster/workspace.yaml /opt/dagster/dagster_home/
+
+EXPOSE 8000
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
