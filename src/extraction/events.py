@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from extraction.models import (
     EntityType,
     EventEntityLink,
@@ -11,6 +13,52 @@ from extraction.models import (
 )
 
 _ABBREVIATIONS = ("ст.", "ч.", "п.")
+
+# A person introduced by a procedural or professional role takes part in the event
+# without being its subject («судья Нефедов арестовал…», «его адвокат рассказал…»).
+_NON_SUBJECT_ROLES = (
+    "судья",
+    "судьи",
+    "следователь",
+    "следовательница",
+    "прокурор",
+    "прокурора",
+    "дознаватель",
+    "дознавательница",
+    "адвокат",
+    "адвоката",
+    "адвокатка",
+    "защитник",
+    "защитника",
+    "защитница",
+    "защитницы",
+    "врач",
+    "начальник",
+    "начальница",
+    "представитель",
+    "представительница",
+    "председатель",
+    "эксперт",
+    "экспертка",
+    "юрист",
+    "юристка",
+)
+_ROLE_BEFORE_NAME = re.compile(
+    r"(?:^|[\s«(])(?:" + "|".join(_NON_SUBJECT_ROLES) + r")\s+(?:[а-яё-]+\s+){0,2}$",
+    re.IGNORECASE,
+)
+_ROLE_AS_FIRST_TOKEN = re.compile(r"^(?:" + "|".join(_NON_SUBJECT_ROLES) + r")\s", re.IGNORECASE)
+# The person reports the event rather than undergoes it.
+_SOURCE_BEFORE_NAME = re.compile(
+    r"(?:по данным|по словам|со слов|как сообщил[аи]?)\s+(?:[а-яё-]+\s+){0,3}$", re.IGNORECASE
+)
+_SPEECH_AFTER_NAME = re.compile(
+    r"^[\s,»\")]*(?:[а-яё-]+\s+){0,1}(?:сообщил[аи]?|рассказал[аи]?|заявил[аи]?|"
+    r"отметил[аи]?|добавил[аи]?|пишет|говорит|считает|уточнил[аи]?)\b",
+    re.IGNORECASE,
+)
+_CONTEXT_CHARS = 60
+
 _EVENT_KEYWORDS: tuple[tuple[EventType, tuple[str, ...]], ...] = (
     (EventType.CASE_OPENED, ("возбудил", "возбудили", "дело", "деле", "уголовное дело")),
     (EventType.SEARCH, ("обыск", "обыски", "пришли с обыском")),
@@ -25,7 +73,7 @@ _EVENT_KEYWORDS: tuple[tuple[EventType, tuple[str, ...]], ...] = (
 
 class RuleBasedEventExtractor:
     extractor_name = "rule-based-event-extractor"
-    extractor_version = "1.0.0"
+    extractor_version = "1.1.0"
 
     def extract(
         self,
@@ -43,7 +91,7 @@ class RuleBasedEventExtractor:
                 continue
             sentence_start = start + document.text[start:end].find(sentence)
             sentence_end = sentence_start + len(sentence)
-            links = self._links_for_sentence(mentions, sentence_start, sentence_end)
+            links = self._links_for_sentence(mentions, sentence_start, sentence_end, document.text)
             events.append(
                 EventMention(
                     event_type=event_type,
@@ -79,14 +127,36 @@ class RuleBasedEventExtractor:
         mentions: list[NormalizedMention],
         start: int,
         end: int,
+        text: str = "",
     ) -> list[EventEntityLink]:
         links: list[EventEntityLink] = []
         for index, mention in enumerate(mentions):
             if mention.start_offset < start or mention.end_offset > end:
                 continue
+            if mention.entity_type is EntityType.PERSON and _is_non_subject(
+                text, mention, start, end
+            ):
+                continue
             role = _role_for_entity_type(mention.entity_type)
             links.append(EventEntityLink(role=role, mention_index=index))
         return links
+
+
+def _is_non_subject(text: str, mention: NormalizedMention, start: int, end: int) -> bool:
+    """A reporting source or a procedural actor in the event sentence: not its subject.
+
+    Ambiguous cases stay unlinked: a wrongly attributed event is worse than a missed one.
+    """
+    if not text:
+        return False
+    before = text[max(start, mention.start_offset - _CONTEXT_CHARS) : mention.start_offset]
+    after = text[mention.end_offset : min(end, mention.end_offset + _CONTEXT_CHARS)]
+    return bool(
+        _ROLE_AS_FIRST_TOKEN.match(mention.surface_text)
+        or _ROLE_BEFORE_NAME.search(before)
+        or _SOURCE_BEFORE_NAME.search(before)
+        or _SPEECH_AFTER_NAME.match(after)
+    )
 
 
 def _role_for_entity_type(entity_type: EntityType) -> EventEntityRole:

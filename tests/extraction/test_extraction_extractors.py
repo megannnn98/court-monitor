@@ -100,3 +100,51 @@ def test_order_is_deterministic() -> None:
     second = extractor.extract(document)
 
     assert first == second
+
+
+def _linked_people(text: str) -> list[list[str]]:
+    document = make_document(text)
+    normalizer = RuleBasedMentionNormalizer()
+    mentions = [
+        normalizer.normalize(mention, document)
+        for mention in RuleBasedEntityExtractor().extract(document)
+    ]
+    events = RuleBasedEventExtractor().extract(document, mentions)
+    return [
+        [
+            mentions[link.mention_index].surface_text
+            for link in event.links
+            if mentions[link.mention_index].entity_type is EntityType.PERSON
+        ]
+        for event in events
+    ]
+
+
+def test_reporting_source_is_not_linked_to_the_event_it_reports() -> None:
+    """Real cases (real-world validation v1): the defender who reported a release and a
+    rights defender quoted as a source were linked to the event and classified political."""
+    assert _linked_people(
+        "Защитница Ольга Иванова сообщила, что из отдела отпустили еще одну девушку."
+    ) == [[]]
+    assert _linked_people(
+        "По данным правозащитницы Анны Тажеевой, мужчин задержали у магазина."
+    ) == [[]]
+    assert _linked_people(
+        "Сергея Петрова задержали у здания суда, рассказал ОВД-Инфо его адвокат Иван Смирнов."
+    ) == [["Сергея Петрова"]]
+
+
+def test_procedural_actor_before_the_name_is_not_the_event_subject() -> None:
+    assert _linked_people("Судья Олег Нефедов арестовал Павла Зайцева на два месяца.") == [
+        ["Павла Зайцева"]
+    ]
+    assert _linked_people("Следователь Мария Кузнецова предъявила обвинение Андрею Лебедеву.") == [
+        ["Андрею Лебедеву"]
+    ]
+
+
+def test_subject_with_a_descriptor_is_still_linked() -> None:
+    assert _linked_people("Суд арестовал журналиста Ивана Фролова.") == [["Ивана Фролова"]]
+    assert _linked_people("Нападение на правозащитника Алексея Соколова: его задержали.") == [
+        ["Алексея Соколова"]
+    ]
