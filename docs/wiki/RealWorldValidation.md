@@ -119,6 +119,15 @@ Manifest уже содержит детерминированный stratified s
 
 `review-sheet` пишет Markdown-лист в `var/real_world/review/`: URL → персоны → mentions → events → persecution → RF → expected candidate → evidence → спорные места, и полный текст из cache с подсвеченными mentions. Reviewer открывает `canonical_url`, сверяет каждый пункт с опубликованным текстом и только после этого запускает `verify --confirm-checked-against-source`. `verify` отказывает, если у кейса есть ошибки validation.
 
+### Задача human verification (не выполнена)
+
+Без неё любой результат `PRELIMINARY`; агент не ставит `VERIFIED` и не расширяет golden по выводу системы.
+
+1. Проверить против источника все 45 DRAFT-кейсов (`review-sheet` → `verify`); исправления разметки — отдельным bump `dataset_version`, не под метрику.
+2. Добавить и проверить ≥ 55 новых кейсов из `evaluation_sample`, чтобы было ≥ 100 VERIFIED и ≥ 20 в каждом split.
+3. Отдельно проверить разметку, против которой система спорит чаще всего (`claim_failure_categories` в отчёте). Самые частые: `upstream_persecution_state` — golden `uncertain`/`needs_review` против системного `non_political`; `event_extraction_or_annotation_granularity` — одно golden-событие против нескольких системных. Проверяется источник, не отчёт.
+4. Test split остаётся locked: thresholds по нему не калибруются; первый прогон `--split test` — после верификации.
+
 ### Спорная разметка
 
 - Сомнение фиксируется в `disputed`, а не решается молча.
