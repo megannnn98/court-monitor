@@ -833,6 +833,13 @@ def test_persistence_delete_match(
         ("Елен Васильев", "елена васильева"),
         # Reordered and inflected.
         ("Кузнецова Андрея", "андрей кузнецов"),
+        # Fleeting vowel and soft sign: «Лев» → «Льва», «Орёл» → «Орла».
+        ("Льва Толстого", "лев толстой"),
+        ("Павла Орла", "павел орел"),
+        ("Петра Сидорова", "петр сидоров"),
+        ("Павла Смирнова", "павел смирнов"),
+        # Hyphenated surname declined in both parts.
+        ("Ивана Римского-Корсакова", "иван римский-корсаков"),
     ],
 )
 def test_inflected_name_variant_is_never_reported_absent(

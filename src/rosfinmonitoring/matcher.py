@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import NamedTuple
 
+from rapidfuzz.distance import Levenshtein
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -72,19 +73,33 @@ BIRTH_DATE_MISMATCH_SCORE_CAP = 0.5
 
 
 def _same_word_stem(first: str, second: str) -> bool:
-    """Equal up to a Russian case ending (at most two trailing letters differ)."""
+    """Equal up to a Russian case ending (at most two trailing letters differ), or
+    up to a fleeting vowel/soft sign: «лев»/«льва», «орел»/«орла»."""
+    first, second = (
+        first.replace("ь", "").replace("ъ", ""),
+        second.replace("ь", "").replace("ъ", ""),
+    )
     common = 0
     for left, right in zip(first, second, strict=False):
         if left != right:
             break
         common += 1
-    return common >= max(3, min(len(first), len(second)) - 2)
+    if common >= max(3, min(len(first), len(second)) - 2):
+        return True
+    # Errs towards NEEDS_REVIEW: a similar first name next to the same surname is
+    # reviewed rather than confirmed absent.
+    return common >= 1 and Levenshtein.distance(first, second) <= 2
+
+
+def _name_words(name: str) -> list[str]:
+    """Lowercase words; a hyphenated surname declines in each part."""
+    return name.lower().replace("ё", "е").replace("-", " ").split()
 
 
 def _is_name_variant(person_name: str, entry_name: str) -> bool:
     """Every word of the shorter name matches a word of the other up to its ending."""
-    person_words = person_name.lower().replace("ё", "е").split()
-    entry_words = entry_name.lower().replace("ё", "е").split()
+    person_words = _name_words(person_name)
+    entry_words = _name_words(entry_name)
     if len(person_words) < MIN_NAME_WORDS_FOR_RELIABLE_CHECK or len(entry_words) < 2:
         return False
     shorter, longer = sorted((person_words, entry_words), key=len)
@@ -97,7 +112,8 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     # Reported by evaluations; bump when matching rules change.
     matcher_name = "rule-based-rosfinmonitoring-matcher"
     # 1.1.0: an inflected/reordered name variant is NEEDS_REVIEW, never NOT_MATCHED.
-    matcher_version = "1.1.0"
+    # 1.2.0: fleeting vowels/soft signs («Лев»/«Льва») and hyphenated surnames are variants.
+    matcher_version = "1.2.0"
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -163,7 +179,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             # the Jaccard similarity scoring below instead of being excluded
             # before it ever runs.
             identity_words = {
-                word for name in identity_names for word in name.lower().split() if len(word) >= 3
+                word for name in identity_names for word in _name_words(name) if len(word) >= 3
             }
 
             rf_entries = []
