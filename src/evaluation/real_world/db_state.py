@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -86,6 +87,16 @@ class PipelineState:
         return {article.article_id: article for article in self.articles.values()}
 
 
+def stored_candidate_person_ids(candidates: list[dict[str, Any]] | None) -> tuple[int, ...]:
+    """Ranked person ids of a stored decision (`ScoredPersonCandidate` JSON)."""
+    ids = []
+    for scored in candidates or []:
+        candidate = scored.get("candidate") or {}
+        if candidate.get("person_id") is not None:
+            ids.append(int(candidate["person_id"]))
+    return tuple(ids)
+
+
 def source_name_for(base_url: str) -> str:
     return _SOURCE_NAMES_BY_BASE_URL.get(base_url, base_url)
 
@@ -142,11 +153,7 @@ def load_pipeline_state(
             action=action,
             status=status,
             selected_person_id=selected,
-            candidate_person_ids=tuple(
-                int(candidate["person_id"])
-                for candidate in candidates or []
-                if candidate.get("person_id") is not None
-            ),
+            candidate_person_ids=stored_candidate_person_ids(candidates),
         )
 
     for mention_id, run_id, start, end, surface, person_id in session.execute(

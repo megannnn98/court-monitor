@@ -515,3 +515,77 @@ def test_request_snapshot_placeholder_is_removed_without_a_snapshot() -> None:
     assert _substitute(request, 7)["criteria"]["snapshot_id"] == 7
     # Without a snapshot the RF criterion is dropped, never executed as "absent".
     assert _substitute(request, None)["criteria"] == {"persecution_status": "political"}
+
+
+def test_candidate_ids_are_read_from_stored_scored_candidates() -> None:
+    """Stored ER decisions nest the id: {"candidate": {"person_id": ..}, "features", "score"}.
+
+    Reading a top-level "person_id" found nothing and reported candidate recall@5 = 0.0
+    on the real corpus although ER ranked the true person first.
+    """
+    from evaluation.real_world.db_state import stored_candidate_person_ids
+
+    stored: list[dict[str, Any]] = [
+        {"candidate": {"person_id": 7, "canonical_name": "A"}, "features": {}, "score": {}},
+        {"candidate": {"person_id": 3}, "features": {}, "score": {}},
+        {"features": {}},
+    ]
+    assert stored_candidate_person_ids(stored) == (7, 3)
+    assert stored_candidate_person_ids(None) == ()
+
+
+def test_persecution_claims_contradict_only_the_opposite_definite_status() -> None:
+    from evaluation.real_world.component_evaluation import IdentityMap
+    from evaluation.real_world.research_eval import ClaimJudge
+    from evaluation.real_world.results import ClaimSupport
+    from persecution.models import PersecutionClassificationStatus
+    from research.reports.models import (
+        ResearchClaim,
+        ResearchClaimBasis,
+        ResearchClaimType,
+        ResearchReportItem,
+    )
+
+    dataset = golden()
+    identity = IdentityMap(golden_of_person={1: {"gp-petrov"}, 2: {"gp-sidorova"}})
+    judge = ClaimJudge(dataset, state(), identity)
+    claim = ResearchClaim(
+        claim_type=ResearchClaimType.PERSECUTION_CLASSIFICATION,
+        basis=ResearchClaimBasis.SOURCE_DOCUMENTS,
+        text="x",
+    )
+
+    def support(person_id: int, status: str) -> ClaimSupport:
+        item = ResearchReportItem.model_validate(
+            {"person_id": person_id, "canonical_name": "x", "persecution_status": status}
+        )
+        return judge.judge(item, claim)[0]
+
+    assert support(1, "non_political") is ClaimSupport.CONTRADICTED  # annotated political
+    assert support(2, "political") is ClaimSupport.CONTRADICTED  # annotated non_political
+    assert support(2, "needs_review") is ClaimSupport.PARTIALLY_SUPPORTED
+    assert support(1, "political") is ClaimSupport.PARTIALLY_SUPPORTED  # right, but no citation
+
+    undecided = dataset.model_copy(
+        update={
+            "persons": [
+                dataset.persons[0].model_copy(
+                    update={
+                        "persecution": dataset.persons[0].persecution.model_copy(  # type: ignore[union-attr]
+                            update={"expected_status": PersecutionClassificationStatus.UNCERTAIN}
+                        )
+                    }
+                ),
+                dataset.persons[1],
+            ]
+        }
+    )
+    assert (
+        ClaimJudge(undecided, state(), identity).judge(
+            ResearchReportItem.model_validate(
+                {"person_id": 1, "canonical_name": "x", "persecution_status": "non_political"}
+            ),
+            claim,
+        )[0]
+        is ClaimSupport.UNSUPPORTED
+    )

@@ -207,19 +207,23 @@ class ClaimJudge:
                 if claim.citations
                 else (ClaimSupport.PARTIALLY_SUPPORTED, None, "status right, no citation")
             )
+        # Contradiction: the opposite definite status. A definite claim where the
+        # annotation is itself undecided goes beyond the evidence: unsupported.
+        opposite = {"political": "non_political", "non_political": "political"}.get(status)
+        support = (
+            ClaimSupport.CONTRADICTED
+            if opposite == decision.expected_status.value
+            else ClaimSupport.UNSUPPORTED
+        )
         if status == "political":
             return (
-                ClaimSupport.CONTRADICTED,
+                support,
                 DangerousKind.FALSE_POLITICAL_CLASSIFICATION,
                 f"political claimed, annotated {sorted(decision.accepted)}",
             )
         if status in ("uncertain", "needs_review"):
             return ClaimSupport.PARTIALLY_SUPPORTED, None, f"review status {status}"
-        return (
-            ClaimSupport.CONTRADICTED,
-            None,
-            f"{status} claimed, annotated {sorted(decision.accepted)}",
-        )
+        return support, None, f"{status} claimed, annotated {sorted(decision.accepted)}"
 
     def _rosfin(
         self, person: GoldenPerson, item: ResearchReportItem
