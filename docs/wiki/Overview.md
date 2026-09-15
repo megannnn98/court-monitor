@@ -65,6 +65,7 @@ end note
 | `search/backend.py` | `Protocol SearchBackend` |
 | `search/postgres_lexical.py` | Lexical-поиск (tsvector) по `parsed_articles.text` |
 | `search/evaluator.py`, `search/evaluation_*.py` | Оценка качества поиска (MRR) |
+| `evaluation/real_world/` | Real-World Validation v1: corpus manifest/cache, golden annotations, component metrics, monitoring scenarios, safety gates, reports |
 | `extraction/models.py` | Pydantic-модели extraction: document, raw/normalized mentions, events, save result |
 | `extraction/extractors.py` | Deterministic rule-based entity extraction без LLM и внешних API |
 | `extraction/normalizers.py` | Нормализация людей, организаций/судов, мест, правовых ссылок |
@@ -75,7 +76,7 @@ end note
 | `research/workflow/`, `llm/together_client.py`, `rosfinmonitoring/snapshot_lookup.py`, `research/workflow_factory.py` | Natural-language research: LangGraph workflow, Together AI request intake, детерминированная сборка результата, см. [Research-Workflow](Research-Workflow.md) |
 | `research/models.py`, `research/service.py`, `research/repository.py`, `research/mapping.py`, `research/cli.py` | Research layer: `ResearchRequest` → `ResearchService` → `ResearchResponse` (Person + events + evidence + review warnings), см. [Research](Research.md) |
 
-Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Extraction](Extraction.md), [Search](Search.md), [Evaluation](Evaluation.md), [Research](Research.md).
+Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Extraction](Extraction.md), [Search](Search.md), [Evaluation](Evaluation.md), [Real-World Validation](RealWorldValidation.md), [Research](Research.md).
 
 Dense/hybrid/reranked-hybrid поиск (Qdrant, `sentence-transformers`) и chunking были удалены — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
 

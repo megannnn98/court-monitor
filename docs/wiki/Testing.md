@@ -43,3 +43,21 @@ pre-commit run --all-files
 ## Baseline-отчёты как регрессионный сигнал
 
 `reports/postgres_lexical_baseline.json` — не часть тестового набора (не проверяется автоматически), а зафиксированный результат `evaluate-search` на момент коммита. Расхождение с ним при следующем прогоне — сигнал деградации поиска или намеренного изменения корпуса, требует явной проверки, не CI-гейт. Прежний baseline был на chunk-based corpus и удалён вместе с `ArticleChunk` — см. [Evaluation](Evaluation.md#baseline).
+
+## Real-World Validation
+
+Real-world validation не входит в обычный `pytest`: он требует disposable PostgreSQL, matching raw cache и golden dataset. См. [Real-World Validation](RealWorldValidation.md).
+
+Быстрые проверки схемы/CLI:
+
+```bash
+uv run python src/main.py real-world-corpus-status
+uv run python src/main.py real-world-golden validate
+```
+
+Полный run:
+
+```bash
+export EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval
+uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+```

@@ -16,7 +16,7 @@
 | `RERANKER_MODEL_ID`, `RERANKER_DEVICE`, `SEMANTIC_RERANK` | cross-encoder, по умолчанию выключен (`SEMANTIC_RERANK=1`) |
 | `SEMANTIC_CANDIDATE_POOL_SIZE` | размер пула кандидатов, по умолчанию `100` (1..200) |
 | `SEMANTIC_DENSE_MIN_SCORE` | порог семантической релевантности (dense cosine), `0.80` откалиброван для `intfloat/multilingual-e5-base`; при другой `EMBEDDING_MODEL_ID` обязателен |
-| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval` и `evaluate-er` |
+| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval`, `evaluate-er` и `evaluate-real-world` |
 | `ER_CANDIDATE_LIMIT` | кандидатов на упоминание в ER v2, по умолчанию `30` (2..200) |
 | `ER_AUTO_LINK_MIN_SCORE`, `ER_REVIEW_MIN_SCORE`, `ER_MIN_MARGIN` | пороги решения ER v2, по умолчанию `0.85`, `0.40`, `0.10` (подобраны по `evaluate-er`) |
 | `ER_SEMANTIC_CANDIDATES`, `ER_SEMANTIC_CANDIDATE_MIN_SCORE` | semantic-кандидаты для ER (по умолчанию выключены); порог только для генерации кандидатов, не для решения |
@@ -212,6 +212,18 @@ uv run python src/main.py evaluate-search \
 ```
 
 Evaluation загружает фиксированный test corpus в PostgreSQL.
+
+Real-world validation использует отдельный manifest/golden dataset/cache и disposable database:
+
+```bash
+uv run python src/main.py real-world-corpus-status
+uv run python src/main.py real-world-golden validate
+
+export EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval
+uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+```
+
+Детали: [Real-World Validation](RealWorldValidation.md).
 
 ## Extraction
 

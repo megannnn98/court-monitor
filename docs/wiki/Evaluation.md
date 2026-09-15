@@ -90,3 +90,12 @@ uv run python src/main.py evaluate-search
 uv run python src/main.py evaluate-search \
   --output-path reports/postgres_lexical_baseline.json
 ```
+
+## Real-World Validation
+
+Системная оценка на реальных публикациях вынесена в [Real-World Validation](RealWorldValidation.md). Это отдельный контур:
+
+- `build-real-world-corpus` фиксирует manifest и raw cache для replay;
+- `real-world-golden` валидирует / готовит human review golden annotations;
+- `evaluate-real-world` прогоняет product pipeline в disposable PostgreSQL и пишет `reports/real_world_validation_v1.{json,md}`;
+- результат может быть `PRELIMINARY`, пока golden dataset содержит DRAFT cases или мало VERIFIED articles.
