@@ -19,7 +19,9 @@ from persecution.classification_service import PersecutionClassificationService
 from persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
 
 
-def _create_article(session: Session, text: str, external_id: str) -> int:
+def _create_article(
+    session: Session, text: str, external_id: str, title: str = "Test article"
+) -> int:
     source = Source(name="test", base_url=f"https://example.com/{external_id}")
     session.add(source)
     session.flush()
@@ -35,7 +37,7 @@ def _create_article(session: Session, text: str, external_id: str) -> int:
     session.flush()
     article = ParsedArticleRecord(
         document_id=document.id,
-        title="Test article",
+        title=title,
         published_at=datetime.now(UTC),
         text=text,
     )
@@ -384,3 +386,91 @@ def test_shared_clause_context_belongs_to_every_person_in_it(
 
     assert service.classify_person(egorov).status == PersecutionClassificationStatus.POLITICAL
     assert service.classify_person(nikitin).status == PersecutionClassificationStatus.POLITICAL
+
+
+def _seed_mention_only_person(
+    session_factory: sessionmaker[Session], text: str, name: str, title: str
+) -> int:
+    with session_factory() as session:
+        article_id = _create_article(session, text, external_id=f"mention-{name}", title=title)
+        run_id = _create_run(session, article_id)
+        person_id = _create_person(session, name, name.lower())
+        start = text.index(name)
+        _create_person_mention(
+            session,
+            run_id=run_id,
+            person_id=person_id,
+            surface_text=name,
+            start_offset=start,
+            end_offset=start + len(name),
+        )
+        session.commit()
+    return person_id
+
+
+def test_person_without_an_own_event_is_never_political(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Real cases: a rights defender quoted as a source, a judge who decided and a lawyer
+    were classified political from the context of the persons around them."""
+    text = (
+        "На антивоенном пикете задержали двух мужчин и женщину. "
+        "По данным местной правозащитницы Анны Тажеевой, на мужчин составят протоколы. "
+        "Дело считают политически мотивированным."
+    )
+    person = _seed_mention_only_person(
+        session_factory, text, "Анны Тажеевой", title="Задержания на пикете"
+    )
+
+    classification = PersecutionClassificationService(session_factory).classify_person(person)
+
+    assert classification.status != PersecutionClassificationStatus.POLITICAL
+
+
+def test_article_title_about_someone_else_is_not_evidence_for_a_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Real case: a lawyer in a digest titled «…Новости политпрессинга» was classified
+    political from the title."""
+    person = _seed_mention_only_person(
+        session_factory,
+        "Его защитник Петр Курьянов подал заявление в ГУФСИН.",
+        "Петр Курьянов",
+        title="Нападение на правозащитника и арест за антивоенные листовки. Новости политпрессинга",
+    )
+
+    classification = PersecutionClassificationService(session_factory).classify_person(person)
+
+    assert classification.status != PersecutionClassificationStatus.POLITICAL
+
+
+def test_article_title_naming_the_person_still_counts(
+    session_factory: sessionmaker[Session],
+) -> None:
+    text = "Надеждина задержали в Подмосковье."
+    with session_factory() as session:
+        article_id = _create_article(
+            session,
+            text,
+            external_id="title-named",
+            title="Бориса Надеждина задержали после антивоенного поста правозащитного проекта",
+        )
+        run_id = _create_run(session, article_id)
+        person_id = _create_person(session, "Борис Надеждин", "борис надеждин")
+        _create_person_mention(
+            session,
+            run_id=run_id,
+            person_id=person_id,
+            surface_text="Надеждина",
+            start_offset=0,
+            end_offset=len("Надеждина"),
+        )
+        event_id = _create_event(
+            session, run_id=run_id, event_type="detention", start_offset=0, end_offset=len(text)
+        )
+        _link_person_event(session, person_id, event_id, role="target")
+        session.commit()
+
+    classification = PersecutionClassificationService(session_factory).classify_person(person_id)
+
+    assert classification.status == PersecutionClassificationStatus.POLITICAL

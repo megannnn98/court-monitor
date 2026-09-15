@@ -16,6 +16,7 @@ from db.orm_models import (
     PersecutionClassificationRecord,
     PersonEventLinkRecord,
 )
+from extraction.events import NON_SUBJECT_ROLES
 from persecution.classifier import RuleBasedPersecutionClassifier
 from persecution.models import PersecutionClassification
 
@@ -78,6 +79,22 @@ def _narrow_shared_spans(
                 continue
         narrowed.append((start, end))
     return narrowed
+
+
+_NAME_TOKEN = re.compile(r"[А-ЯЁ][а-яё]{3,}")
+
+
+def _title_names_person(title: str, surfaces: Sequence[str]) -> bool:
+    """Whether a name token of the person's mentions (declension-tolerant stem) is in the title."""
+    lowered = title.lower().replace("ё", "е")
+    for surface in surfaces:
+        for token in _NAME_TOKEN.findall(surface):
+            if token.lower() in NON_SUBJECT_ROLES:
+                continue
+            stem = token.lower().replace("ё", "е")[: max(4, len(token) - 2)]
+            if re.search(rf"(?<![а-яё]){re.escape(stem)}", lowered):
+                return True
+    return False
 
 
 class PersecutionClassificationService:
@@ -318,6 +335,17 @@ class PersecutionClassificationService:
                     (mention.start_offset, mention.end_offset)
                 )
 
+        event_articles = {
+            article_id_by_run[event.extraction_run_id]
+            for event in events
+            if event.extraction_run_id in article_id_by_run
+        }
+        surfaces_by_article: dict[int, list[str]] = {}
+        for mention in mentions:
+            article_id = article_id_by_run.get(mention.extraction_run_id)
+            if article_id is not None:
+                surfaces_by_article.setdefault(article_id, []).append(mention.surface_text)
+
         result: list[dict[str, Any]] = []
         for article in articles:
             others = others_by_article.get(article.id, [])
@@ -336,7 +364,12 @@ class PersecutionClassificationService:
             result.append(
                 {
                     "id": article.id,
-                    "title": article.title,
+                    # The title is about the article's subject: this person's evidence
+                    # when they are the subject of an event here or the title names them.
+                    "title": article.title
+                    if article.id in event_articles
+                    or _title_names_person(article.title, surfaces_by_article.get(article.id, []))
+                    else "",
                     "text": excerpt,
                     "published_at": article.published_at,
                 }

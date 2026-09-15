@@ -63,7 +63,10 @@ def test_classifier_detects_political_keywords_in_article() -> None:
     """Test that classifier detects political keywords in article text."""
     classifier = RuleBasedPersecutionClassifier()
 
-    events: list[dict[str, Any]] = []
+    # POLITICAL needs a persecution event of the person (real-world validation v1).
+    events: list[dict[str, Any]] = [
+        {"id": 1, "event_type": "detention", "attributes": {}, "confidence": 0.7}
+    ]
 
     articles = [
         {
@@ -312,3 +315,74 @@ def test_keywords_at_word_start_are_still_evidence(
     )
 
     assert evidence in classification.evidence_types
+
+
+def test_political_context_without_an_own_event_is_uncertain_not_political() -> None:
+    from persecution.classifier import RuleBasedPersecutionClassifier
+    from persecution.models import PersecutionClassificationStatus
+
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[],
+        articles=[
+            {
+                "title": "",
+                "text": "Решение вынес судья, который ранее признал антивоенное движение "
+                "экстремистским, правозащитники назвали дело политическим преследованием.",
+            }
+        ],
+    )
+
+    assert classification.status is PersecutionClassificationStatus.UNCERTAIN
+
+
+def test_news_outlet_attribution_is_not_persecution_evidence() -> None:
+    """Real cases: «сообщили ОВД-Инфо», «пишет SOTAvision» counted as political and
+    human-rights evidence for anyone with an event in the sentence."""
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[{"id": 1, "event_type": "detention", "attributes": {}, "confidence": 0.7}],
+        articles=[
+            {
+                "title": "",
+                "text": "Мужчину задержали за мелкое хулиганство, сообщили ОВД-Инфо и SOTA, "
+                "пишет «Медиазона».",
+            }
+        ],
+    )
+
+    assert classification.status is PersecutionClassificationStatus.NON_POLITICAL
+
+
+@pytest.mark.parametrize(
+    "charge",
+    [
+        "УК РФ ст. 212.1",
+        "УК РФ ст. 282.3 ч. 1",
+        "УК РФ ст. 282.4 ч. 1",
+        "УК РФ ст. 330.1 ч. 2",
+        "УК РФ ст. 354.1 ч. 4",
+        "КоАП РФ ст. 20.3.3 ч. 1",
+        "КоАП РФ ст. 20.33",
+        "КоАП РФ ст. 19.34",
+    ],
+)
+def test_well_known_political_articles_are_political_charges(charge: str) -> None:
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[{"id": 1, "event_type": "charge", "attributes": {"charge": charge}}],
+        articles=[],
+    )
+
+    assert classification.status is PersecutionClassificationStatus.POLITICAL
+
+
+@pytest.mark.parametrize("charge", ["КоАП РФ ст. 282", "УК РФ ст. 20.3.3", "УК РФ ст. 19.3"])
+def test_political_article_numbers_only_count_in_their_own_code(charge: str) -> None:
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[{"id": 1, "event_type": "charge", "attributes": {"charge": charge}}],
+        articles=[],
+    )
+
+    assert PersecutionEvidenceType.POLITICAL_CHARGE not in classification.evidence_types

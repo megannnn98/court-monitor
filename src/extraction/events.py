@@ -16,7 +16,7 @@ _ABBREVIATIONS = ("ст.", "ч.", "п.")
 
 # A person introduced by a procedural or professional role takes part in the event
 # without being its subject («судья Нефедов арестовал…», «его адвокат рассказал…»).
-_NON_SUBJECT_ROLES = (
+NON_SUBJECT_ROLES = (
     "судья",
     "судьи",
     "следователь",
@@ -44,10 +44,10 @@ _NON_SUBJECT_ROLES = (
     "юристка",
 )
 _ROLE_BEFORE_NAME = re.compile(
-    r"(?:^|[\s«(])(?:" + "|".join(_NON_SUBJECT_ROLES) + r")\s+(?:[а-яё-]+\s+){0,2}$",
+    r"(?:^|[\s«(])(?:" + "|".join(NON_SUBJECT_ROLES) + r")\s+(?:[а-яё-]+\s+){0,2}$",
     re.IGNORECASE,
 )
-_ROLE_AS_FIRST_TOKEN = re.compile(r"^(?:" + "|".join(_NON_SUBJECT_ROLES) + r")\s", re.IGNORECASE)
+_ROLE_AS_FIRST_TOKEN = re.compile(r"^(?:" + "|".join(NON_SUBJECT_ROLES) + r")\s", re.IGNORECASE)
 # The person reports the event rather than undergoes it.
 _SOURCE_BEFORE_NAME = re.compile(
     r"(?:по данным|по словам|со слов|как сообщил[аи]?)\s+(?:[а-яё-]+\s+){0,3}$", re.IGNORECASE

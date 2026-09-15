@@ -16,19 +16,35 @@ POLITICAL_ARTICLES = {
     "207.3",  # Фейки об армии
     "208",  # Насильственное захват власти
     "212",  # Призывы к массовым беспорядкам
+    "212.1",  # Неоднократное нарушение порядка проведения акции («дадинская»)
     "274.1",  # Нецелевое использование госсредств
     "275",  # Государственная измена
     "280",  # Призывы к экстремизму
+    "280.1",  # Призывы к нарушению территориальной целостности
     "280.3",  # Дискредитация армии
     "280.4",  # Призывы к санкциям
     "281",  # Диверсии
     "282",  # Экстремизм
     "282.1",  # Организация экстремистской деятельности
     "282.2",  # Участие в экстремистской деятельности
+    "282.3",  # Финансирование экстремизма
+    "282.4",  # Демонстрация запрещённой символики (повторная)
     "283.1",  # Неполучение сведений гостайны
     "284.1",  # Нежелательная организация
     "284.2",  # Непрекращение связи с нежелательной организацией
+    "330.1",  # Уклонение от обязанностей «иностранного агента»
     "354",  # Реабилитация нацизма
+    "354.1",  # Реабилитация нацизма / символы воинской славы
+}
+
+# Administrative articles of the same repressive practice (КоАП РФ).
+POLITICAL_ADMINISTRATIVE_ARTICLES = {
+    "19.34",  # Нарушение порядка деятельности «иностранного агента»
+    "20.2",  # Нарушение порядка проведения публичного мероприятия
+    "20.3",  # Демонстрация запрещённой символики
+    "20.3.1",  # Возбуждение ненависти
+    "20.3.3",  # Дискредитация армии
+    "20.33",  # Участие в деятельности нежелательной организации
 }
 
 POLITICAL_KEYWORDS = {
@@ -41,10 +57,6 @@ POLITICAL_KEYWORDS = {
     "правозащитница",
     "правозащитный",
     "Мемориал",
-    "ОВД-Инфо",
-    "SOTA",
-    "Mediazona",
-    "Медиазона",
     "антивоенный",
     "антивоенная",
     "против войны",
@@ -95,7 +107,8 @@ def _keyword_pattern(keywords: Sequence[str]) -> re.Pattern[str]:
 
 
 _POLITICAL_KEYWORDS_PATTERN = _keyword_pattern(sorted(POLITICAL_KEYWORDS))
-_HUMAN_RIGHTS_PATTERN = _keyword_pattern(["правозащит", "мемориал", "ова-инфо", "овд-инфо", "sota"])
+# News outlets («сообщили ОВД-Инфо», «пишет SOTA») are attribution, not evidence.
+_HUMAN_RIGHTS_PATTERN = _keyword_pattern(["правозащит", "мемориал"])
 _JOURNALISM_PATTERN = _keyword_pattern(
     ["журналист", "медиа", "сми", "пресса", "редактор", "корреспондент"]
 )
@@ -111,7 +124,12 @@ class RuleBasedPersecutionClassifier:
     # 1.1.0: evidence windows stop at sentences that mention other persons;
     # keywords match at word start («гей» no longer matches «Сергей»).
     # 1.2.0: inside one sentence, windows stop at the clause of another person.
-    classifier_version = "1.2.0"
+    # 1.3.0: the article title counts only when it names the person; without a
+    # persecution event of their own a person is at most UNCERTAIN; news outlet names
+    # are not evidence; political articles are matched within their own code
+    # (УК or КоАП), with the articles OVD-Info practice uses (212.1, 282.3, 330.1,
+    # КоАП 20.3.3, 20.33, 19.34, …).
+    classifier_version = "1.3.0"
 
     def classify(
         self,
@@ -169,6 +187,12 @@ class RuleBasedPersecutionClassifier:
         if not evidence_types:
             status = PersecutionClassificationStatus.NON_POLITICAL
             confidence = 0.0
+        elif not events:
+            # Political context around a person with no persecution event of their own
+            # (a lawyer, a judge, a source quoted in the article) is not evidence that
+            # this person is persecuted: a human decides.
+            status = PersecutionClassificationStatus.UNCERTAIN
+            confidence = 0.5
         elif PersecutionEvidenceType.POLITICAL_CHARGE in evidence_types or len(evidence_types) >= 2:
             status = PersecutionClassificationStatus.POLITICAL
             confidence = min(0.9, 0.7 + (len(evidence_types) - 1) * 0.1)
@@ -193,6 +217,16 @@ class RuleBasedPersecutionClassifier:
     def _is_political_charge(self, charge: str) -> bool:
         if not charge:
             return False
+        # An article number only counts in its own code: КоАП ст. 282 is not УК ст. 282.
+        articles = (
+            POLITICAL_ADMINISTRATIVE_ARTICLES if "коап" in charge.lower() else POLITICAL_ARTICLES
+        )
+        for article in articles:
+            pattern = rf"(?<![\d.]){re.escape(article)}(?![\d.])"
+            if re.search(pattern, charge):
+                return True
+
+        return False
 
         for article in POLITICAL_ARTICLES:
             pattern = rf"(?<![\d.]){re.escape(article)}(?![\d.])"
