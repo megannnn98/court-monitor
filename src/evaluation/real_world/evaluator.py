@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -89,7 +89,7 @@ from evaluation.real_world.safety import (
     overall_status,
     workload_total,
 )
-from evaluation.real_world.state_snapshot import check_invariants
+from evaluation.real_world.state_snapshot import check_invariants, table_counts
 from research.workflow.intake import ResearchRequestParser
 from semantic_retrieval.document_store import PostgresLexicalEntityRetriever
 from semantic_retrieval.factory import SemanticComponents, create_vector_store
@@ -236,6 +236,19 @@ def semantic_setup(
     )
 
 
+def semantic_index_problem(counts: Mapping[str, int]) -> str | None:
+    """Why semantic retrieval cannot be measured on this run, if it cannot."""
+    documents, indexed = counts.get("semantic_documents", 0), counts.get("semantic_indexed", 0)
+    if documents == 0:
+        return "semantic index is empty"
+    if indexed < documents:
+        return (
+            f"semantic index incomplete: {indexed}/{documents} entities indexed "
+            "(see monitoring_run_items)"
+        )
+    return None
+
+
 def dataset_summary(inputs: EvaluationInputs, selected: GoldenDataset) -> DatasetSummary:
     manifest = inputs.manifest
     golden = inputs.golden
@@ -328,14 +341,21 @@ def run_evaluation(
     )
 
     retrieval_queries = [q for q in inputs.retrieval_queries if _in_split(options.split, q.split)]
+    retrievers = semantic.retrievers()
+    retrieval_not_run = semantic.not_run_reason
+    index_problem = semantic_index_problem(table_counts(engine)) if semantic.available else None
+    if index_problem is not None:
+        # Infrastructure, not retrieval quality: no ranking over a missing index.
+        retrievers = {}
+        retrieval_not_run = index_problem
     retrieval: RetrievalSection = evaluate_retrieval(
         queries=retrieval_queries,
         dataset=identity_scope,
         state=state,
         identity=identity,
-        retrievers=semantic.retrievers(),
+        retrievers=retrievers,
         embedding_model_id=semantic.embedding_model_id,
-        not_run_reason=semantic.not_run_reason,
+        not_run_reason=retrieval_not_run,
         failures=failures,
     )
     research_queries = [q for q in inputs.research_queries if _in_split(options.split, q.split)]

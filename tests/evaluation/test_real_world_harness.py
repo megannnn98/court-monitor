@@ -589,3 +589,17 @@ def test_persecution_claims_contradict_only_the_opposite_definite_status() -> No
         )[0]
         is ClaimSupport.UNSUPPORTED
     )
+
+
+def test_incomplete_semantic_index_is_not_run_not_a_quality_result() -> None:
+    """Real run: E5 hit CUDA OutOfMemoryError, nothing was indexed, and dense
+    Recall@5 = 0.0 was reported as a retrieval quality failure."""
+    from evaluation.real_world.evaluator import semantic_index_problem
+
+    assert semantic_index_problem({"semantic_documents": 700, "semantic_indexed": 0}) == (
+        "semantic index incomplete: 0/700 entities indexed (see monitoring_run_items)"
+    )
+    assert semantic_index_problem({"semantic_documents": 0, "semantic_indexed": 0}) == (
+        "semantic index is empty"
+    )
+    assert semantic_index_problem({"semantic_documents": 700, "semantic_indexed": 700}) is None
