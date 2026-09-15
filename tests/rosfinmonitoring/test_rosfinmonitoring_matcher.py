@@ -315,6 +315,34 @@ def test_match_person_with_single_word_name_is_insufficient_data(
     assert result.matched_entry_id is None
 
 
+@pytest.mark.parametrize(
+    ("name", "normalized"),
+    [("Виталий Л.", "виталий л."), ("И. Петров", "и. петров"), ("Петров И", "петров и")],
+)
+def test_match_person_with_an_initial_instead_of_a_name_word_is_insufficient_data(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+    name: str,
+    normalized: str,
+) -> None:
+    """«Виталий Л.» (real-world validation): an initial is not a name word, so an empty
+    candidate list does not show the person is absent from the list."""
+    with session_factory() as session:
+        person_id = _create_person(session, name, normalized, normalized.replace(" ", ""))
+        snapshot_id = _create_snapshot(session, datetime.now(UTC))
+        _create_rf_entry(
+            session,
+            snapshot_id,
+            "Сидоров Сидор Сидорович",
+            "сидоров сидор сидорович",
+            "сидоровсидорсидорович",
+        )
+
+    result = matcher.match_person(person_id, snapshot_id)
+
+    assert result.status == RosfinMatchStatus.INSUFFICIENT_DATA
+
+
 def test_match_person_multiple_aliases(
     session_factory: sessionmaker[Session],
     matcher: RuleBasedRosfinmonitoringMatcher,

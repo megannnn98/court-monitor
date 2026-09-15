@@ -35,7 +35,8 @@ class _MatchIdentity(NamedTuple):
     matching_key: str
 
 
-# Below this many words, a normalized_name (e.g. a bare surname) is too thin
+# Below this many full words (initials do not count), a normalized_name (e.g. a
+# bare surname, «Виталий Л.») is too thin
 # to reliably rule a person in or out of a snapshot — zero retrieved
 # candidates then means the check was insufficient, not that the person is
 # confirmed absent.
@@ -96,6 +97,11 @@ def _name_words(name: str) -> list[str]:
     return name.lower().replace("ё", "е").replace("-", " ").split()
 
 
+def _full_word_count(name: str) -> int:
+    """Name words that are not initials: «виталий л.» has one."""
+    return sum(1 for word in name.split() if len(word.strip(".")) > 1)
+
+
 def _is_name_variant(person_name: str, entry_name: str) -> bool:
     """Every word of the shorter name matches a word of the other up to its ending."""
     person_words = _name_words(person_name)
@@ -113,7 +119,8 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     matcher_name = "rule-based-rosfinmonitoring-matcher"
     # 1.1.0: an inflected/reordered name variant is NEEDS_REVIEW, never NOT_MATCHED.
     # 1.2.0: fleeting vowels/soft signs («Лев»/«Льва») and hyphenated surnames are variants.
-    matcher_version = "1.2.0"
+    # 1.3.0: an initial is not a name word for the "too few words" rule («Виталий Л.»).
+    matcher_version = "1.3.0"
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -247,13 +254,15 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
             candidates.sort(key=lambda c: c.similarity_score, reverse=True)
 
             if not candidates:
-                if len(person.normalized_name.split()) < MIN_NAME_WORDS_FOR_RELIABLE_CHECK:
+                if _full_word_count(person.normalized_name) < MIN_NAME_WORDS_FOR_RELIABLE_CHECK:
                     return RosfinMatchResult(
                         person_id=person_id,
                         snapshot_id=snapshot_id,
                         status=RosfinMatchStatus.INSUFFICIENT_DATA,
                         confidence=0.0,
-                        reasons=["Person's normalized_name has too few words to search reliably"],
+                        reasons=[
+                            "Person's normalized_name has too few full (non-initial) words to search"
+                        ],
                         matched_at=datetime.now(UTC),
                     )
                 variants = [
