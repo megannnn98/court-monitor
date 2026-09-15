@@ -167,7 +167,7 @@ def test_save_failed_does_not_overwrite_existing_successful_run(
     failed = persistence.save_failed(
         document,
         extractor_name="rule-based-entity-extractor",
-        extractor_version="1.0.0",
+        extractor_version=RuleBasedEntityExtractor.extractor_version,
         normalizer_version="1.0.0",
         error_message="duplicate key value violates unique constraint",
     )
@@ -200,7 +200,7 @@ def test_save_replaces_existing_failed_run(
     failed = persistence.save_failed(
         document,
         extractor_name="rule-based-entity-extractor",
-        extractor_version="1.0.0",
+        extractor_version=RuleBasedEntityExtractor.extractor_version,
         normalizer_version="1.0.0",
         error_message="temporary failure",
     )

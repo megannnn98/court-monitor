@@ -148,3 +148,81 @@ def test_subject_with_a_descriptor_is_still_linked() -> None:
     assert _linked_people("Нападение на правозащитника Алексея Соколова: его задержали.") == [
         ["Алексея Соколова"]
     ]
+
+
+def _people(text: str) -> list[str]:
+    return [
+        mention.surface_text
+        for mention in RuleBasedEntityExtractor().extract(make_document(text))
+        if mention.entity_type is EntityType.PERSON
+    ]
+
+
+def test_surname_repeated_alone_is_a_mention_of_the_named_person() -> None:
+    """Real cases: 138 of 153 missed person mentions were a surname alone referring back to a
+    full name in the same article («Зареме Мусаевой… Мусаеву осудили»), so the events of
+    those sentences had no subject."""
+    text = (
+        "Шалинский суд вынес приговор Зареме Мусаевой. "
+        "Мусаеву признали виновной. Мусаева обжаловала приговор, говорит Мусаев-младший."
+    )
+    assert _people(text) == ["Зареме Мусаевой", "Мусаеву", "Мусаева"]
+
+
+def test_capitalized_word_is_not_a_surname_without_a_full_name_in_the_article() -> None:
+    assert _people("Суд арестовал Петрова. Позже Кузнецова отпустили.") == []
+
+
+def test_role_and_sentence_words_are_trimmed_from_the_name() -> None:
+    assert _people("Судья Александр Сенькин арестовал Любшина.") == ["Александр Сенькин"]
+    assert _people("Также Нелли Кирман рассказала о пытках.") == ["Нелли Кирман"]
+
+
+def test_overlapping_name_spans_keep_only_the_longest() -> None:
+    assert _people("Защитница Ольга Иванова сообщила о задержании.") == ["Ольга Иванова"]
+
+
+def _event_types(text: str) -> list[str]:
+    document = make_document(text)
+    return [event.event_type.value for event in RuleBasedEventExtractor().extract(document, [])]
+
+
+def test_event_keywords_match_whole_words_and_case_needs_an_opening_verb() -> None:
+    """Real cases: «в отделе» matched the keyword «деле» and any «дело» opened a case."""
+    assert _event_types("Защитников не пускают в отделе к остальным.") == []
+    assert _event_types("Судья, который рассматривает его дело, направил запрос в СИЗО.") == []
+    assert _event_types("Против активиста возбудили уголовное дело.") == ["case_opened"]
+    assert _event_types("На блогера завели дело о фейках.") == ["case_opened"]
+
+
+def test_negated_event_verb_is_not_an_event() -> None:
+    assert _event_types("Силовики его до сих пор не отпустили.") == []
+
+
+def test_verb_trigger_wins_over_a_noun_mention_of_another_event() -> None:
+    """Real cases: «после оглашения приговора его освободили» was a sentence event."""
+    assert _event_types("После оглашения приговора его освободили в зале суда.") == ["release"]
+    assert _event_types("Приговор огласили 25 мая, и сразу после этого его взяли под стражу.") == [
+        "arrest"
+    ]
+
+
+def test_detainees_as_a_noun_are_not_a_detention_event() -> None:
+    """Real cases: «сообщили сами задержанные», «к задержанным», «перед задержанием»."""
+    assert _event_types("Об этом ОВД-Инфо сообщили сами задержанные.") == []
+    assert _event_types("Защитники приехали в отдел к задержанным.") == []
+    assert _event_types("Он показал удостоверение прессы перед задержанием.") == []
+    assert _event_types("Активист был задержан у здания суда.") == ["detention"]
+
+
+def test_references_to_other_events_are_not_events() -> None:
+    """Real cases: «в разговоре с другими осужденными», «до ареста делали операции»."""
+    assert _event_types("В разговоре с другими осужденными он одобрил поступок.") == []
+    assert _event_types("Из-за проблем со зрением ему до ареста делали операции.") == []
+    assert _event_types("Его осудили на пять лет.") == ["sentence"]
+
+
+def test_writing_source_is_not_linked_to_the_event() -> None:
+    assert _linked_people("Активист Аскер Сохт писал, что задержанных отпустили после беседы.") == [
+        []
+    ]

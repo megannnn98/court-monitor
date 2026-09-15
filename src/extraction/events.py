@@ -54,26 +54,48 @@ _SOURCE_BEFORE_NAME = re.compile(
 )
 _SPEECH_AFTER_NAME = re.compile(
     r"^[\s,»\")]*(?:[а-яё-]+\s+){0,1}(?:сообщил[аи]?|рассказал[аи]?|заявил[аи]?|"
-    r"отметил[аи]?|добавил[аи]?|пишет|говорит|считает|уточнил[аи]?)\b",
+    r"отметил[аи]?|добавил[аи]?|писал[аи]?|пишет|пишут|говорит|считает|уточнил[аи]?)\b",
     re.IGNORECASE,
 )
 _CONTEXT_CHARS = 60
 
-_EVENT_KEYWORDS: tuple[tuple[EventType, tuple[str, ...]], ...] = (
-    (EventType.CASE_OPENED, ("возбудил", "возбудили", "дело", "деле", "уголовное дело")),
-    (EventType.SEARCH, ("обыск", "обыски", "пришли с обыском")),
-    (EventType.DETENTION, ("задержал", "задержали", "задержание")),
-    (EventType.ARREST, ("арестовал", "арестовали", "арест", "заключил под стражу")),
-    (EventType.CHARGE, ("обвинил", "обвинили", "предъявил", "предъявили обвинение")),
-    (EventType.SENTENCE, ("приговорил", "приговорили", "приговор")),
-    (EventType.FINE, ("оштрафовал", "оштрафовали", "штраф")),
-    (EventType.RELEASE, ("освободил", "освободили", "отпустили")),
+# Triggers match at a word start. Verb (or verb-like) triggers state that the event
+# happened in this sentence; noun triggers («приговора», «ареста») often only refer to
+# another event, so they count only when no verb trigger is present.
+_W = r"(?<![а-яё])"
+_VERB_TRIGGERS: tuple[tuple[EventType, str], ...] = (
+    (EventType.CASE_OPENED, _W + r"(?:возбу[дж]\w*|завел[аио]?\s+(?:\w+\s+){0,2}дел\w*)"),
+    (EventType.SEARCH, _W + r"(?:обыск\w*)"),
+    # Past verbs and short participles only: «задержанные», «к задержанным» are people.
+    (EventType.DETENTION, _W + r"(?:задерж(?:ал|али|ала|ало|ивали|ан|ана|аны|ано)(?![а-яё]))"),
+    (
+        EventType.ARREST,
+        _W + r"(?:арестова\w*|(?:заключ|взя|помести)\w*\s+под\s+страж\w*)",
+    ),
+    (
+        EventType.CHARGE,
+        _W + r"(?:обвинил\w*|обвиня\w*|предъяв\w*\s+обвинени\w*|стал\w*\s+обвиняем\w*)",
+    ),
+    (EventType.SENTENCE, _W + r"(?:приговорил\w*|осудил\w*|осужден(?:а|ы|о)?(?![а-яё]))"),
+    (EventType.FINE, _W + r"(?:оштрафова\w*)"),
+    (EventType.RELEASE, _W + r"(?:освобо[дж]\w*|отпустил\w*|вышел\w*\s+на\s+свободу)"),
+)
+_NOUN_TRIGGERS: tuple[tuple[EventType, str], ...] = (
+    (EventType.CASE_OPENED, _W + r"(?:уголовн\w*\s+дел\w*)"),
+    (EventType.ARREST, _W + r"(?:арест(?:а|е|ом|у)?)(?![а-яё])"),
+    (EventType.SENTENCE, _W + r"(?:приговор(?:а|е|ом|у)?)(?![а-яё])"),
+    (EventType.FINE, _W + r"(?:штраф\w*)"),
+)
+_NEGATION_BEFORE = re.compile(r"(?<![а-яё])не\s+(?:[а-яё]+\s+)?$")
+# «до ареста», «после приговора», «перед задержанием»: a reference to another event.
+_TEMPORAL_REFERENCE_BEFORE = re.compile(
+    r"(?<![а-яё])(?:до|после|перед|с\s+момента|во\s+время)\s+(?:его\s+|ее\s+|её\s+|их\s+)?$"
 )
 
 
 class RuleBasedEventExtractor:
     extractor_name = "rule-based-event-extractor"
-    extractor_version = "1.1.0"
+    extractor_version = "1.2.0"
 
     def extract(
         self,
@@ -86,9 +108,10 @@ class RuleBasedEventExtractor:
             if not sentence:
                 continue
             lowered = sentence.lower()
-            event_type = self._event_type(lowered)
-            if event_type is None:
+            trigger = self._trigger(lowered)
+            if trigger is None:
                 continue
+            event_type, trigger_text = trigger
             sentence_start = start + document.text[start:end].find(sentence)
             sentence_end = sentence_start + len(sentence)
             links = self._links_for_sentence(mentions, sentence_start, sentence_end, document.text)
@@ -99,7 +122,7 @@ class RuleBasedEventExtractor:
                     end_offset=sentence_end,
                     event_date=document.published_at,
                     confidence=0.72,
-                    attributes={"trigger_text": self._trigger_text(lowered)},
+                    attributes={"trigger_text": trigger_text},
                     links=links,
                     extractor_name=self.extractor_name,
                     extractor_version=self.extractor_version,
@@ -108,19 +131,23 @@ class RuleBasedEventExtractor:
         return sorted(events, key=lambda event: (event.start_offset, event.event_type.value))
 
     @staticmethod
-    def _event_type(lowered_sentence: str) -> EventType | None:
-        for event_type, keywords in _EVENT_KEYWORDS:
-            if any(keyword in lowered_sentence for keyword in keywords):
-                return event_type
+    def _trigger(lowered_sentence: str) -> tuple[EventType, str] | None:
+        """The earliest non-negated verb trigger, else the earliest noun trigger."""
+        for triggers in (_VERB_TRIGGERS, _NOUN_TRIGGERS):
+            found: list[tuple[int, EventType, str]] = []
+            for event_type, pattern in triggers:
+                for match in re.finditer(pattern, lowered_sentence):
+                    prefix = lowered_sentence[: match.start()]
+                    if _NEGATION_BEFORE.search(prefix):
+                        continue
+                    if triggers is _NOUN_TRIGGERS and _TEMPORAL_REFERENCE_BEFORE.search(prefix):
+                        continue
+                    found.append((match.start(), event_type, match.group(0)))
+                    break
+            if found:
+                _, event_type, text = min(found, key=lambda item: item[0])
+                return event_type, text
         return None
-
-    @staticmethod
-    def _trigger_text(lowered_sentence: str) -> str:
-        for _, keywords in _EVENT_KEYWORDS:
-            for keyword in keywords:
-                if keyword in lowered_sentence:
-                    return keyword
-        return ""
 
     @staticmethod
     def _links_for_sentence(

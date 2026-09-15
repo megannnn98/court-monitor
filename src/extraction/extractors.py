@@ -33,6 +33,101 @@ _PERSON_PATTERNS = [
     re.compile(rf"\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b"),
     re.compile(rf"\b{_INITIALS}{_CAPITALIZED_WORD}\b"),
 ]
+# Words that may start a capitalized two-word match without being part of the name:
+# sentence adverbs/conjunctions and role or occupation descriptors (by stem).
+_LEADING_NON_NAME_WORDS = frozenset(
+    {
+        "позже",
+        "позднее",
+        "также",
+        "однако",
+        "теперь",
+        "ранее",
+        "сейчас",
+        "затем",
+        "кроме",
+        "вместе",
+        "после",
+        "при",
+        "как",
+        "по",
+        "еще",
+        "ещё",
+        "сегодня",
+        "вчера",
+        "и",
+        "а",
+        "но",
+        "его",
+        "ее",
+        "её",
+        "их",
+    }
+)
+_LEADING_ROLE_STEMS = (
+    "судь",
+    "следовател",
+    "прокурор",
+    "дознавател",
+    "адвокат",
+    "защитни",
+    "правозащитн",
+    "журналист",
+    "активист",
+    "блогер",
+    "политолог",
+    "художни",
+    "врач",
+    "начальни",
+    "председател",
+    "представител",
+    "эксперт",
+    "юрист",
+    "депутат",
+)
+_PATRONYMIC_SUFFIXES = (
+    "вич",
+    "вна",
+    "вны",
+    "вне",
+    "вну",
+    "вной",
+    "вича",
+    "вичу",
+    "вичем",
+    "ична",
+    "ичны",
+    "ичне",
+    "ичну",
+)
+_CASE_ENDINGS = (
+    "ыми",
+    "ими",
+    "ого",
+    "его",
+    "ому",
+    "ему",
+    "ой",
+    "ей",
+    "ою",
+    "ею",
+    "ую",
+    "юю",
+    "ым",
+    "им",
+    "ом",
+    "ем",
+    "ах",
+    "ях",
+    "а",
+    "я",
+    "у",
+    "ю",
+    "е",
+    "ы",
+    "и",
+)
+_SINGLE_CAPITALIZED = re.compile(r"(?<![\w-])[А-ЯЁ][а-яё]{2,}(?:-[А-ЯЁ][а-яё]+)?(?![\w-])")
 _PERSON_STOP_WORDS = {
     "Басманный районный",
     "Московский городской",
@@ -60,9 +155,45 @@ _LOCATION_PATTERN = re.compile(
 )
 
 
+def _trim_leading_non_name(text: str, start: int, end: int) -> int:
+    """Skip a leading sentence word or role descriptor captured by a capitalized match."""
+    while True:
+        word = re.match(r"\S+\s+", text[start:end])
+        if word is None:
+            return start
+        lowered = word.group(0).strip().lower()
+        if lowered in _LEADING_NON_NAME_WORDS or lowered.startswith(_LEADING_ROLE_STEMS):
+            start += word.end()
+            continue
+        return start
+
+
+def _word_stem(word: str) -> str:
+    lowered = word.lower().replace("ё", "е")
+    for ending in _CASE_ENDINGS:
+        if lowered.endswith(ending) and len(lowered) - len(ending) >= 4:
+            return lowered[: -len(ending)]
+    return lowered
+
+
+def _surname_stem(name: str) -> str | None:
+    tokens = [token for token in name.split() if not token.endswith(".")]
+    if len(tokens) < 2 and not re.search(_INITIALS, name):
+        return None
+    if not tokens:
+        return None
+    surname = tokens[-1]
+    if len(tokens) == 3 and tokens[-1].lower().endswith(_PATRONYMIC_SUFFIXES):
+        surname = tokens[0]
+    stem = _word_stem(surname)
+    return stem if len(stem) >= 4 else None
+
+
 class RuleBasedEntityExtractor:
     extractor_name = "rule-based-entity-extractor"
-    extractor_version = "1.0.0"
+    # 1.1.0: surname-only references to a full name in the same article; leading role
+    # and sentence words trimmed from names; overlapping name spans keep the longest.
+    extractor_version = "1.1.0"
 
     def extract(self, document: ExtractionDocument) -> list[RawMention]:
         mentions: list[RawMention] = []
@@ -113,18 +244,56 @@ class RuleBasedEntityExtractor:
         occupied: Iterable[tuple[int, int]],
     ) -> list[RawMention]:
         occupied_spans = list(occupied)
-        mentions: list[RawMention] = []
+        spans: list[tuple[int, int]] = []
         for pattern in _PERSON_PATTERNS:
             for match in pattern.finditer(text):
-                surface = match.group(0)
+                start = _trim_leading_non_name(text, match.start(), match.end())
+                surface = text[start : match.end()]
+                if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
+                    continue
                 if self._is_person_stop_word(surface):
                     continue
-                if self._overlaps(match.start(), match.end(), occupied_spans):
+                if self._overlaps(start, match.end(), occupied_spans):
                     continue
-                mentions.append(
-                    self._mention(EntityType.PERSON, text, match.start(), match.end(), 0.72)
-                )
+                spans.append((start, match.end()))
+        # Overlapping readings of one name («Ольга Иванова» and «Ольга Иванова Петровна»):
+        # keep the longest.
+        kept: list[tuple[int, int]] = []
+        for start, end in sorted(set(spans), key=lambda span: (span[0] - span[1], span[0])):
+            if not self._overlaps(start, end, kept):
+                kept.append((start, end))
+        mentions = [
+            self._mention(EntityType.PERSON, text, start, end, 0.72) for start, end in sorted(kept)
+        ]
+        mentions.extend(self._surname_references(text, kept, occupied_spans))
         return mentions
+
+    def _surname_references(
+        self,
+        text: str,
+        names: list[tuple[int, int]],
+        occupied: list[tuple[int, int]],
+    ) -> list[RawMention]:
+        """A surname alone that repeats the surname of a full name in the same article.
+
+        Only surnames already named in full here are recognised: a capitalized word
+        alone is never a person by itself.
+        """
+        stems = {
+            stem for start, end in names if (stem := _surname_stem(text[start:end])) is not None
+        }
+        if not stems:
+            return []
+        references = []
+        taken = [*names, *occupied]
+        for match in _SINGLE_CAPITALIZED.finditer(text):
+            if self._overlaps(match.start(), match.end(), taken):
+                continue
+            if _word_stem(match.group(0)) in stems:
+                references.append(
+                    self._mention(EntityType.PERSON, text, match.start(), match.end(), 0.6)
+                )
+        return references
 
     @staticmethod
     def _is_person_stop_word(surface: str) -> bool:
