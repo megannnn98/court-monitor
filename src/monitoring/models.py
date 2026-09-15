@@ -17,7 +17,8 @@ from semantic_retrieval.models import IndexModelMismatchError, RetrievalUnavaila
 from sources.ingestion_errors import PersistenceError, TransientDiscoveryError, TransientFetchError
 from sources.source_registry import SOURCES
 
-DEFAULT_ENABLED_SOURCES = ("ovd-info", "sota-vision")
+# Every registered source: the two websites and the monitored Telegram channels.
+DEFAULT_ENABLED_SOURCES = tuple(SOURCES)
 DEFAULT_CRON = "0 * * * *"
 # Regular monitoring only looks at the newest listing pages; full history is an explicit backfill.
 DEFAULT_DISCOVERY_LIMIT = 50
@@ -139,9 +140,10 @@ class MonitoringSettings:
     def from_env(cls, env: Mapping[str, str] | None = None) -> MonitoringSettings:
         env = os.environ if env is None else env
         raw_sources = env.get("MONITORING_ENABLED_SOURCES")
+        # Unset or blank (compose passes an empty value through) means every source.
         sources = (
             DEFAULT_ENABLED_SOURCES
-            if raw_sources is None
+            if raw_sources is None or not raw_sources.strip()
             else tuple(name.strip() for name in raw_sources.split(",") if name.strip())
         )
         return cls(

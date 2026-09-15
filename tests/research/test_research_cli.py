@@ -357,7 +357,8 @@ def test_ask_report_shows_refresh_recommendation_for_empty_result() -> None:
     text = format_query_result(_report_result([], research_request))
 
     assert "Report: insufficient_data" in text
-    assert "Source refresh: recommended (ovd-info, sota-vision) — not executed" in text
+    assert "Source refresh: recommended (ovd-info, sota-vision, tg-" in text
+    assert "— not executed" in text
 
 
 def test_raw_prints_the_research_response_format() -> None:
@@ -371,10 +372,7 @@ def test_show_plan_prints_plan_json_only() -> None:
     payload = json.loads(format_research_plan(_report_result([])))
 
     assert payload["database_search"] is True
-    assert {source["source_id"] for source in payload["candidate_sources"]} == {
-        "ovd-info",
-        "sota-vision",
-    }
+    assert {source["source_id"] for source in payload["candidate_sources"]} == set(SOURCES)
 
 
 def test_ask_report_shows_structured_retrieval_mode() -> None:

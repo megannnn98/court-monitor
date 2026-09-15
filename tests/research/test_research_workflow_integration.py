@@ -339,7 +339,7 @@ def test_report_for_empty_database_result_recommends_refresh(
     assert result.status is WorkflowStatus.COMPLETED
     assert result.report is not None
     assert result.report.status is ResearchReportStatus.INSUFFICIENT_DATA
-    assert set(result.report.recommended_sources) == {"ovd-info", "sota-vision"}
+    assert set(result.report.recommended_sources) == set(SOURCES)
 
 
 def test_empty_accepted_candidates_never_turn_into_an_unrestricted_search(

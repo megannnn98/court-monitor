@@ -40,6 +40,8 @@ from evaluation.real_world.replay import CorpusCacheMissError, load_replay_entri
 from observability import configure_logging
 from sources.source_registry import SOURCES
 
+REAL_WORLD_DEFAULT_SOURCES = ("ovd-info", "sota-vision")
+
 
 def add_real_world_arguments(subparsers: Any) -> None:
     build = subparsers.add_parser(
@@ -106,7 +108,8 @@ def _build(args: argparse.Namespace) -> None:
     if args.min_interval < 1.0:
         raise SystemExit("--min-interval below 1.0 second per domain is not allowed")
     configure_logging()
-    names = args.source or sorted(SOURCES)
+    # The v1 corpus is built from the two websites; Telegram channels are opt-in with --source.
+    names = args.source or list(REAL_WORLD_DEFAULT_SOURCES)
     config = CorpusBuildConfig(
         period_start=args.period_start,
         period_end=args.period_end,

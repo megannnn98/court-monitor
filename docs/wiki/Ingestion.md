@@ -13,10 +13,19 @@
 |---|---|---|---|
 | ОВД-Инфо (`ovd-info`) | `OvdInfoSourceAdapter` | `https://ovd.info/express-news`, pagination `?page=N` (Drupal) | `OvdInfoArticleParser` |
 | SOTA (`sota-vision`) | `SotaVisionSourceAdapter` | `https://sota.vision/category/news/`, pagination `/page/N/` (WordPress) | `SotaVisionArticleParser` |
+| Telegram-каналы (`tg-<username>`, 69 шт.) | `TelegramSourceAdapter` | публичное веб-превью `https://t.me/s/<username>`, pagination `?before=<id>` | `TelegramPostParser` |
 
 Оба реализуют один и тот же `Protocol SourceAdapter` (`sources/source_adapter.py`) и переиспользуют общий helper `sources/discovery_pagination.py` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок, retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry).
 
 `src/main.py discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление третьего источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
+
+### Telegram-каналы
+
+Список каналов — `src/sources/telegram/channels.csv` (`username`, `title`, `topics`); добавить канал = добавить строку. Каждый канал — отдельный источник `tg-<username>` (`source_name` = название канала, `base_url` = `https://t.me/<username>`), все включены в monitoring по умолчанию.
+
+- Discovery листает веб-превью от новых постов к старым (≥ 1 с между страницами канала) и останавливается на `limit` или на постах старше `TELEGRAM_HISTORY_DAYS` = 30 дней; посты без текста (только медиа) пропускаются.
+- Документ — один пост: `https://t.me/<username>/<id>?embed=1&mode=tme` (текст и дата поста; ссылка открывается в браузере). Заголовок — первая строка поста.
+- Аккаунт и API-ключи Telegram не нужны; канал без публичного веб-превью не даёт постов.
 
 ### Канонический `SourceReference`
 

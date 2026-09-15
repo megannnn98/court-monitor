@@ -23,8 +23,8 @@ def _accepts_source_adapter(adapter: SourceAdapter) -> None:
     pass
 
 
-def test_registry_contains_both_sources() -> None:
-    assert set(SOURCES) == {"ovd-info", "sota-vision"}
+def test_registry_contains_both_websites() -> None:
+    assert {"ovd-info", "sota-vision"} <= set(SOURCES)
     assert SOURCES["ovd-info"] is OVD_INFO
     assert SOURCES["sota-vision"] is SOTA_VISION
 

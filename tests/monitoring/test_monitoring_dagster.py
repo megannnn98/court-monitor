@@ -17,6 +17,7 @@ from monitoring.models import MonitoringRunStatus, MonitoringSettings, Monitorin
 from monitoring.service import RunHandle, StageResult
 from semantic_retrieval.models import RetrievalUnavailableError
 from semantic_retrieval.vector_store import QdrantVectorStore, VectorStore
+from sources.source_registry import SOURCES
 
 EXPECTED_PARENTS = {
     "source_discovery": set(),
@@ -54,7 +55,9 @@ def test_asset_graph_orders_stages_and_jobs_and_schedules_exist() -> None:
         MONITORING_DERIVED_JOB,
     }
     schedules = {schedule.name: schedule for schedule in defs.schedules or []}
-    assert set(schedules) == {"monitoring_ovd_info_schedule", "monitoring_sota_vision_schedule"}
+    assert set(schedules) == {
+        f"monitoring_{source.replace('-', '_')}_schedule" for source in SOURCES
+    }
     schedule = schedules["monitoring_ovd_info_schedule"]
     assert isinstance(schedule, dg.ScheduleDefinition)
     assert schedule.cron_schedule == "*/30 * * * *"

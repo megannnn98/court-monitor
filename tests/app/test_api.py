@@ -357,7 +357,7 @@ def test_research_query_runs_workflow_and_returns_structured_result(
     assert body["plan"]["database_search"] is True
     assert body["report"]["status"] == "insufficient_data"
     assert body["report"]["source_refresh_recommended"] is True
-    assert set(body["report"]["recommended_sources"]) == {"ovd-info", "sota-vision"}
+    assert set(body["report"]["recommended_sources"]) == set(SOURCES)
 
 
 def test_research_query_clarification_is_200_with_question(

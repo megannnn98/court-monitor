@@ -101,7 +101,7 @@ def test_registry_id_is_not_a_source_name_and_is_not_routed() -> None:
 
 
 def test_unknown_source_filter_never_recommends_other_sources() -> None:
-    research_request = request(source="Медиазона")
+    research_request = request(source="Новая газета")
     plan = PLANNER.plan(research_request)
 
     decision = PLANNER.route(plan, response(research_request, []))

@@ -23,12 +23,19 @@ from sources.ingestion_errors import (
     TransientDiscoveryError,
     TransientFetchError,
 )
+from sources.source_registry import SOURCES
 
 
 def test_settings_defaults_are_bounded_and_hourly() -> None:
     settings = MonitoringSettings.from_env({})
 
-    assert settings.enabled_sources == ("ovd-info", "sota-vision")
+    assert settings.enabled_sources == tuple(SOURCES)
+    assert {"ovd-info", "sota-vision", "tg-ovdinfolive", "tg-moscowcourts"} <= set(
+        settings.enabled_sources
+    )
+    assert MonitoringSettings.from_env({"MONITORING_ENABLED_SOURCES": " "}).enabled_sources == (
+        tuple(SOURCES)
+    )
     assert settings.cron == "0 * * * *"
     assert settings.discovery_limit == 50
     assert settings.stale_run_after == timedelta(minutes=120)
