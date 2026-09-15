@@ -1,0 +1,145 @@
+{
+  "case_id": "rw-20260305-05",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/05/zareme-musaevoy-na-mesyac-sokratili-srok-v-kolonii-poselenii",
+  "canonical_url": "https://ovd.info/express-news/2026/03/05/zareme-musaevoy-na-mesyac-sokratili-srok-v-kolonii-poselenii",
+  "published_at": "2026-03-05T16:31:00+03:00",
+  "content_hash": "09a545ae31c53305ec23b0de6ebcd3190c1abad82f747231f92cc67d771caf59",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "declined_names",
+    "historical_reference",
+    "several_events",
+    "formally_non_political_charges"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 382,
+      "text": "Шалинский городской суд вынес новый приговор матери чеченских активистов Зареме Мусаевой — три года и десять месяцев в колонии-поселении, это на месяц меньше, чем приговор, который суд вынес при первом рассмотрении. Сообщает «Команда против пыток».Зарему Мусаеву вновь признали виновной по статье о дезорганизации деятельности колонии (ч. 2 ст. 321 УК). Повторное рассмотрение дела "
+    },
+    {
+      "start": 857,
+      "end": 1229,
+      "text": " формулирования позиции по исследуемым доказательствам стороне защиты был дан всего лишь один час», — рассказал адвокат Александр Савин.\n\nМусаева просила отложить процесс из-за плохого самочувствия, но ей отказали. В условиях лишения свободы у Мусаевой, у которой диагностированы сахарный диабет второго типа, атеросклеротический кардиосклероз, артериальная гипертония и д"
+    },
+    {
+      "start": 1381,
+      "end": 2000,
+      "text": " нее неоднократно случались острые гипертонические кризы, которые в некоторых случаях сопровождались потерей сознания.\n\nМусаева в своем последнем слове не признала вины, как и во все прошлые процессы. «Я не совершала никакого преступления, здесь потерпевшая я. Моя совесть чиста в этот Священный месяц,» — отметила она. Женщина уже обжаловала новый приговор.\n\nВ июле 2023 года Мусаеву осудили по первому делу — о мошенничестве (ч. 3 ст. 159 УК) и применении насилия к полицейскому (ч. 2 ст. 318 УК). Женщина якобы занималась мошенничеством с потребительскими кредитами, а в 2022 году после похищения чеченскими силовика"
+    },
+    {
+      "start": 2094,
+      "end": 2425,
+      "text": "значально ее приговорили к пяти с половиной годам колонии, но в кассации срок снизили до четырех лет и девяти месяцев.\n\nВторое уголовное дело завели на Мусаеву за несколько месяцев до окончания срока по первому.\n\nЖенщина находится в заключении с января 2022 года. Перед этим чеченские силовики похитили ее из собственной квартиры в"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 73,
+      "end": 88,
+      "text": "Зареме Мусаевой",
+      "golden_person_id": "gp-musaeva-zarema"
+    },
+    {
+      "start": 248,
+      "end": 262,
+      "text": "Зарему Мусаеву",
+      "golden_person_id": "gp-musaeva-zarema"
+    },
+    {
+      "start": 977,
+      "end": 992,
+      "text": "Александр Савин",
+      "golden_person_id": "gp-savin-alexander"
+    },
+    {
+      "start": 995,
+      "end": 1002,
+      "text": "Мусаева",
+      "golden_person_id": "gp-musaeva-zarema"
+    },
+    {
+      "start": 1101,
+      "end": 1109,
+      "text": "Мусаевой",
+      "golden_person_id": "gp-musaeva-zarema"
+    },
+    {
+      "start": 1501,
+      "end": 1508,
+      "text": "Мусаева",
+      "golden_person_id": "gp-musaeva-zarema"
+    },
+    {
+      "start": 1758,
+      "end": 1765,
+      "text": "Мусаеву",
+      "golden_person_id": "gp-musaeva-zarema"
+    },
+    {
+      "start": 2246,
+      "end": 2253,
+      "text": "Мусаеву",
+      "golden_person_id": "gp-musaeva-zarema"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-musaeva-zarema"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 215,
+        "text": "Шалинский городской суд вынес новый приговор матери чеченских активистов Зареме Мусаевой — три года и десять месяцев в колонии-поселении, это на месяц меньше, чем приговор, который суд вынес при первом рассмотрении."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-musaeva-zarema"
+      ],
+      "evidence": {
+        "start": 1741,
+        "end": 1880,
+        "text": "В июле 2023 года Мусаеву осудили по первому делу — о мошенничестве (ч. 3 ст. 159 УК) и применении насилия к полицейскому (ч. 2 ст. 318 УК)."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-musaeva-zarema"
+      ],
+      "evidence": {
+        "start": 2214,
+        "end": 2305,
+        "text": "Второе уголовное дело завели на Мусаеву за несколько месяцев до окончания срока по первому."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Charges are formally non-political (fraud, violence, colony disorganization); OVD-Info reports the case as persecution of an activists' mother."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

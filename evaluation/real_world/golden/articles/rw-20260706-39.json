@@ -1,0 +1,151 @@
+{
+  "case_id": "rw-20260706-39",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/07/06/na-saksofonista-andreya-shabanova-napali-v-kolonii",
+  "canonical_url": "https://ovd.info/express-news/2026/07/06/na-saksofonista-andreya-shabanova-napali-v-kolonii",
+  "published_at": "2026-07-06T17:31:00+03:00",
+  "content_hash": "6b2bfb141be09ae5d802a0e6589c751b5930eebecdf27289e63ac55ac6eab6c7",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "same_person_several_articles",
+    "given_name_only_repeat",
+    "convicted_non_political_person",
+    "shared_sentence"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 763,
+      "text": "На выходных музыкант сообщил, что завхоз одного из отрядов самарской ИК-10 Алексей Крыслов облил его горячим чаем и ударил табуреткой по голове. Шабанов зафиксировал полученные повреждения в медпункте.\n\nПо данным «Медиазоны», нападавший — бывший российский военный, которого в 2024-м осудили в Чечне за неисполнение приказа.\n\nСейчас Крыслова отправили в ШИЗО, а также сняли с должности завхоза отряда.\n\nНо проблема с ограничением прав Андрея Шабанова все еще не решена. В заключении музыкант подвергается давлению со стороны других заключенных. Ему запрещают спать на кровати и пользоваться кухней, а еще угрожают избиением.\n\nПри этом у Андрея — инвалидность II группы. У него прогрессирующий псориаз и артрит. Он рассказывал, что в заключении «гниет заживо», так"
+    },
+    {
+      "start": 789,
+      "end": 1090,
+      "text": "ого лечения.\n\nПоддержите саксофониста, отправив жалобу в ответственные инстанции. Как это сделать, читайте здесь.\n\nДело Андрея Шабанова\n\nСаксофониста обвинили в оправдании терроризма и призывах к антигосударственной деятельности из-за постов о войне. В 2025 году его приговорили к шести годам колонии."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 75,
+      "end": 90,
+      "text": "Алексей Крыслов",
+      "golden_person_id": "gp-kryslov-alexey"
+    },
+    {
+      "start": 145,
+      "end": 152,
+      "text": "Шабанов",
+      "golden_person_id": "gp-shabanov-andrey"
+    },
+    {
+      "start": 333,
+      "end": 341,
+      "text": "Крыслова",
+      "golden_person_id": "gp-kryslov-alexey"
+    },
+    {
+      "start": 435,
+      "end": 450,
+      "text": "Андрея Шабанова",
+      "golden_person_id": "gp-shabanov-andrey"
+    },
+    {
+      "start": 637,
+      "end": 643,
+      "text": "Андрея",
+      "golden_person_id": "gp-shabanov-andrey"
+    },
+    {
+      "start": 909,
+      "end": 924,
+      "text": "Андрея Шабанова",
+      "golden_person_id": "gp-shabanov-andrey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-shabanov-andrey"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 144,
+        "text": "На выходных музыкант сообщил, что завхоз одного из отрядов самарской ИК-10 Алексей Крыслов облил его горячим чаем и ударил табуреткой по голове."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kryslov-alexey"
+      ],
+      "evidence": {
+        "start": 203,
+        "end": 324,
+        "text": "По данным «Медиазоны», нападавший — бывший российский военный, которого в 2024-м осудили в Чечне за неисполнение приказа."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "other",
+      "person_ids": [
+        "gp-kryslov-alexey"
+      ],
+      "evidence": {
+        "start": 326,
+        "end": 401,
+        "text": "Сейчас Крыслова отправили в ШИЗО, а также сняли с должности завхоза отряда."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-shabanov-andrey"
+      ],
+      "evidence": {
+        "start": 926,
+        "end": 1039,
+        "text": "Саксофониста обвинили в оправдании терроризма и призывах к антигосударственной деятельности из-за постов о войне."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-shabanov-andrey"
+      ],
+      "evidence": {
+        "start": 1040,
+        "end": 1090,
+        "text": "В 2025 году его приговорили к шести годам колонии."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Крыслов is himself a convict (non-political conviction) and was punished with ШИЗО: persecution-like events that are not political."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

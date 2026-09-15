@@ -1,0 +1,115 @@
+{
+  "case_id": "rw-20260317-10",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/17/zhitelya-adygei-osudili-na-11-let-kolonii-po-obvineniyu-v-uchastii-v-sovete",
+  "canonical_url": "https://ovd.info/express-news/2026/03/17/zhitelya-adygei-osudili-na-11-let-kolonii-po-obvineniyu-v-uchastii-v-sovete",
+  "published_at": "2026-03-17T15:49:00+03:00",
+  "content_hash": "c6c8ede42d24d9a78eedb52304ff6b6d0b2ac522d9ddf614204bd8bcf4ba82e8",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "historical_reference",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 420,
+      "text": "29-летнего Ибрагима Нагоева приговорили к 11 годам лишения свободы по статье об участии в террористической организации (ч. 2 ст. 205.5 УК). Об этом сообщает пресс-служба Южного окружного военного суда.\n\nПервые два года он должен отбыть в тюрьме, а оставшийся срок — в колонии строгого режима.\n\nНагоев в суде полностью признал вину.\n\nМужчину обвинили в участии в «Совете объединенной Черкесии». В январе 2025 года эту орг"
+    },
+    {
+      "start": 738,
+      "end": 984,
+      "text": "оны, воюющие на стороне ВСУ, а некоторые организации могут быть попросту выдуманы.\n\nВ пресс-службе суда утверждают, что Нагоев администрировал некий канал и распространял материалы, «обосновывающие и оправдывающие деятельность» «Совета объединенн"
+    },
+    {
+      "start": 1270,
+      "end": 1595,
+      "text": "ам-канал Republic of Circassia сообщал, что утром 21 мая в Майкопе несколько десятков человек провели траурное шествие. После акции полицейские задержали несовершеннолетних участников.\n\nАктивист Аскер Сохт писал, что задержанных отпустили после беседы в полиции. Однако анонимный подписчик канала Republic of Circassia утверж"
+    },
+    {
+      "start": 1981,
+      "end": 2296,
+      "text": "ону боевых действий.\n\nАкции памяти о жертвах Кавказской войны проходит ежегодно 21 мая в Нальчике, Черкесске и Майкопе. В Нальчике в прошлом году задержали восьмерых участников траурного митинга. Всех их либо арестовали, либо оштрафовали по административным делам о несогласованной акции с перекрытием дороги (ч. 6."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 11,
+      "end": 27,
+      "text": "Ибрагима Нагоева",
+      "golden_person_id": "gp-nagoev-ibragim"
+    },
+    {
+      "start": 294,
+      "end": 300,
+      "text": "Нагоев",
+      "golden_person_id": "gp-nagoev-ibragim"
+    },
+    {
+      "start": 858,
+      "end": 864,
+      "text": "Нагоев",
+      "golden_person_id": "gp-nagoev-ibragim"
+    },
+    {
+      "start": 1465,
+      "end": 1475,
+      "text": "Аскер Сохт",
+      "golden_person_id": "gp-sokht-asker"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-nagoev-ibragim"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 139,
+        "text": "29-летнего Ибрагима Нагоева приговорили к 11 годам лишения свободы по статье об участии в террористической организации (ч. 2 ст. 205.5 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 1390,
+        "end": 1454,
+        "text": "После акции полицейские задержали несовершеннолетних участников."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 2101,
+        "end": 2176,
+        "text": "В Нальчике в прошлом году задержали восьмерых участников траурного митинга."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Активист Аскер Сохт is only a source of information here."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

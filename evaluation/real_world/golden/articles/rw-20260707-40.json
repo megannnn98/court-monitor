@@ -1,0 +1,101 @@
+{
+  "case_id": "rw-20260707-40",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/07/07/na-kitay-gorode-siloviki-ustroili-oblavu-na-podrostkov-desyatki-molodykh",
+  "canonical_url": "https://ovd.info/express-news/2026/07/07/na-kitay-gorode-siloviki-ustroili-oblavu-na-podrostkov-desyatki-molodykh",
+  "published_at": "2026-07-07T14:31:00+03:00",
+  "content_hash": "7bdf24655c849b3fbe9608627da755ebdc711d2b7ac519f60f65a722d4c033a4",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "given_name_only",
+    "anonymous_detentions",
+    "non_political_or_uncertain"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 297,
+      "text": "Поздно вечером в пятницу, 3 июля, силовики жестоко задерживали гуляющих в районе Китай-города подростков — в том числе несовершеннолетних. Первым об этом сообщил стример Виталий — во время задержания он вел прямую трансляцию на Twitch. По словам задержанных, их избивали и унижали, а также к ним п"
+    },
+    {
+      "start": 390,
+      "end": 637,
+      "text": "ных, их сфотографировали и записали личные данные, но протоколы не составили.\n\nВот что рассказывают участники событий:\n\nГеоргий, задержанный (в интервью «Берегу»):\n\n— Я шел с другом мимо парка «Горка» в районе Китай-города. Вдруг получил удар по ш"
+    },
+    {
+      "start": 2267,
+      "end": 2513,
+      "text": "тавляете, едет машина по центру города и один из сотрудников орет из окна: «Эй, пидор, иди сюда!» Выходит и ловит его.\n\nМилена, свидетельница (в интервью «Берегу»):\n\n— В какой-то момент я повернула голову и увидела, что рядом идут два омоновца. О"
+    },
+    {
+      "start": 2921,
+      "end": 3168,
+      "text": "то хватали преимущественно очень молодых, чуть ли не детей, лет 14–17. Взрослых среди задержанных было совсем немного.\n\nВиталий, задержанный (целиком текст можно прочитать на «Медиазоне»):\n\n— Меня просто начинают хуярить. Мне дали по ебалу, мне да"
+    },
+    {
+      "start": 3621,
+      "end": 3868,
+      "text": "А потом он такой говорит: «А ты че, блядь? Тебя побрить, что ли, нахуй? Че лыбишься?» <…> Ну, короче, полное унижение.\n\nДмитрий (имя изменено), задержанный (записали »Осторожно, новости»):\n\n— Я не отбивался, но состояние шока дало о себе знать. Я "
+    }
+  ],
+  "mentions": [
+    {
+      "start": 170,
+      "end": 177,
+      "text": "Виталий",
+      "golden_person_id": "gp-vitaly-streamer"
+    },
+    {
+      "start": 510,
+      "end": 517,
+      "text": "Георгий",
+      "golden_person_id": "gp-georgy-kitay-gorod"
+    },
+    {
+      "start": 2387,
+      "end": 2393,
+      "text": "Милена",
+      "golden_person_id": "gp-milena-witness"
+    },
+    {
+      "start": 3041,
+      "end": 3048,
+      "text": "Виталий",
+      "golden_person_id": "gp-vitaly-streamer"
+    },
+    {
+      "start": 3741,
+      "end": 3748,
+      "text": "Дмитрий",
+      "golden_person_id": "gp-dmitry-kitay-gorod"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 138,
+        "text": "Поздно вечером в пятницу, 3 июля, силовики жестоко задерживали гуляющих в районе Китай-города подростков — в том числе несовершеннолетних."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "All witnesses are named by given name only; «Виталий» the streamer and «Виталий, задержанный» are annotated as one person.",
+    "The motive of the raid is unknown (fights in the area per Baza): persecution annotated uncertain."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

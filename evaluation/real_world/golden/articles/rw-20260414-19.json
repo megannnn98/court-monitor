@@ -1,0 +1,122 @@
+{
+  "case_id": "rw-20260414-19",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/14/v-sizo-komsomolska-na-amure-pokonchil-s-soboy-arestovannyy-iz-za",
+  "canonical_url": "https://ovd.info/express-news/2026/04/14/v-sizo-komsomolska-na-amure-pokonchil-s-soboy-arestovannyy-iz-za",
+  "published_at": "2026-04-14T17:32:00+03:00",
+  "content_hash": "2dfae8b6a8a6c12d85a5ccea77e40e893389207bff1fa4a9a604c2a7b46aa0a4",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "shared_sentence",
+    "rf_listed",
+    "same_surname_different_person",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 838,
+      "text": "В СИЗО-2 Комсомольска-на-Амуре Хабаровского края повесился 53-летний художник Андрей Акузин. Об этом «Медиазоне» сообщила его подруга, живущая во Франции режиссер Татьяна Фролова.\n\nПо словам Фроловой, Акузина арестовали 2 апреля за комментарий 2025 года. 7 апреля Акузину исполнилось 53 года, а на следующий день он повесился в камере СИЗО. В список террористов и экстремистов его добавили уже посмертно, 10 апреля. По словам Фроловой, адвоката у Акузина не было.\n\n«Никакой он не террорист, это просто смешно, просто не хотел молчать — формально его взяли за какой-то лайк или ответ на какой-то пост», — отметила Фролова.\n\n«Медиазона» уточняет, что в одном из ботов в телеграме, который анализирует публичные комментарии пользователя, помечено, что Акузин интересовался «протестом» и движением «Артподготовка», которое запрещено в России."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 78,
+      "end": 91,
+      "text": "Андрей Акузин",
+      "golden_person_id": "gp-akuzin-andrey"
+    },
+    {
+      "start": 163,
+      "end": 178,
+      "text": "Татьяна Фролова",
+      "golden_person_id": "gp-frolova-tatiana"
+    },
+    {
+      "start": 191,
+      "end": 199,
+      "text": "Фроловой",
+      "golden_person_id": "gp-frolova-tatiana"
+    },
+    {
+      "start": 201,
+      "end": 208,
+      "text": "Акузина",
+      "golden_person_id": "gp-akuzin-andrey"
+    },
+    {
+      "start": 264,
+      "end": 271,
+      "text": "Акузину",
+      "golden_person_id": "gp-akuzin-andrey"
+    },
+    {
+      "start": 426,
+      "end": 434,
+      "text": "Фроловой",
+      "golden_person_id": "gp-frolova-tatiana"
+    },
+    {
+      "start": 447,
+      "end": 454,
+      "text": "Акузина",
+      "golden_person_id": "gp-akuzin-andrey"
+    },
+    {
+      "start": 613,
+      "end": 620,
+      "text": "Фролова",
+      "golden_person_id": "gp-frolova-tatiana"
+    },
+    {
+      "start": 749,
+      "end": 755,
+      "text": "Акузин",
+      "golden_person_id": "gp-akuzin-andrey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-akuzin-andrey"
+      ],
+      "evidence": {
+        "start": 181,
+        "end": 254,
+        "text": "По словам Фроловой, Акузина арестовали 2 апреля за комментарий 2025 года."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "other",
+      "person_ids": [
+        "gp-akuzin-andrey"
+      ],
+      "evidence": {
+        "start": 341,
+        "end": 415,
+        "text": "В список террористов и экстремистов его добавили уже посмертно, 10 апреля."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Татьяна Фролова (source) shares the arrest sentence with Акузин and the surname with journalist Иван Фролов."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

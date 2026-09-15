@@ -1,0 +1,95 @@
+{
+  "case_id": "rw-20260713-42",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/07/13/borisa-nadezhdina-zaderzhali-v-podmoskove",
+  "canonical_url": "https://ovd.info/express-news/2026/07/13/borisa-nadezhdina-zaderzhali-v-podmoskove",
+  "published_at": "2026-07-13T14:23:00+03:00",
+  "content_hash": "aa98ec42793aaac3382625167dd211c92424a008d95718dd9ea32112e23451fc",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "same_person_several_articles",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 430,
+      "text": "«Пришла полиция. Везут в отдел Долгопрудного», — сообщил Надеждин в своем телеграм-канале. За что именно его задержали, пока неизвестно.\n\nРанее, 10 июля, Надеждина внесли в реестр «иностранных агентов». В Минюсте объяснили это тем, что политик распространял «фейки» о решениях российских властей.\n\nСам Надеждин в разговоре с «Осторожно, новости» заявил, что намерен продолжить участвовать в политической деятельности и не планируе"
+    },
+    {
+      "start": 518,
+      "end": 766,
+      "text": " что-то изменит в моей политической биографии. Буду продолжать выдвигаться в Госдуму и собирать подписи», — сказал он.\n\nНадеждин — бывший депутат Госдумы и один из основателей «Союза правых сил». В 2024-м на президентских выборах он был единственны"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 57,
+      "end": 65,
+      "text": "Надеждин",
+      "golden_person_id": "gp-nadezhdin-boris"
+    },
+    {
+      "start": 154,
+      "end": 163,
+      "text": "Надеждина",
+      "golden_person_id": "gp-nadezhdin-boris"
+    },
+    {
+      "start": 302,
+      "end": 310,
+      "text": "Надеждин",
+      "golden_person_id": "gp-nadezhdin-boris"
+    },
+    {
+      "start": 638,
+      "end": 646,
+      "text": "Надеждин",
+      "golden_person_id": "gp-nadezhdin-boris"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-nadezhdin-boris"
+      ],
+      "evidence": {
+        "start": 91,
+        "end": 136,
+        "text": "За что именно его задержали, пока неизвестно."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "other",
+      "person_ids": [
+        "gp-nadezhdin-boris"
+      ],
+      "evidence": {
+        "start": 138,
+        "end": 202,
+        "text": "Ранее, 10 июля, Надеждина внесли в реестр «иностранных агентов»."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "The article text has only the surname; the full name is in the title, which is not part of the extracted text."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

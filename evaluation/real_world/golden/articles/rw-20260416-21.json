@@ -1,0 +1,40 @@
+{
+  "case_id": "rw-20260416-21",
+  "source": "sota-vision",
+  "external_id": "/s-1-iyulya-2026-goda-pri-perevodah-cherez-sbp-stanet-obyazatelnym-ukazanie-inn/",
+  "canonical_url": "https://sota.vision/s-1-iyulya-2026-goda-pri-perevodah-cherez-sbp-stanet-obyazatelnym-ukazanie-inn/",
+  "published_at": "2026-04-16T00:00:00+03:00",
+  "content_hash": "de66d2b49e6483e454a154b2d17567d647f5bd2ca1e67eee6bda1acd50156924",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person",
+    "non_political"
+  ],
+  "excerpts": [
+    {
+      "start": 116,
+      "end": 368,
+      "text": " будет указывать ИНН. Это касается переводов как между физическими так и между юридическими лицами.\n\nПредставитель НСПК Никита Юрков пояснил, что мера направлена на борьбу с мошенничеством, в частности с использованием «дропперов». ИНН рассматривается "
+    }
+  ],
+  "mentions": [
+    {
+      "start": 236,
+      "end": 248,
+      "text": "Никита Юрков",
+      "golden_person_id": "gp-yurkov-nikita"
+    }
+  ],
+  "events": [],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

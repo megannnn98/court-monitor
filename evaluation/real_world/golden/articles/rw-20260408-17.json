@@ -1,0 +1,356 @@
+{
+  "case_id": "rw-20260408-17",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/08/figurantov-dela-vesny-prigovorili-k-srokam-ot-6-do-12-let-kolonii",
+  "canonical_url": "https://ovd.info/express-news/2026/04/08/figurantov-dela-vesny-prigovorili-k-srokam-ot-6-do-12-let-kolonii",
+  "published_at": "2026-04-08T12:34:00+03:00",
+  "content_hash": "c2fbebe010181481f21774eef4b837f82b1e95894307c5ced7514ba0b7102129",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "list_items",
+    "declined_names",
+    "shared_event",
+    "several_events",
+    "judge_in_article"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 800,
+      "text": "Санкт-Петербургский городской суд приговорил обвиняемых по делу о молодежном движении «Весна» к следующим срокам:\n\nновосибирскую активистку Анну Архипову — к 12 годам колонии общего режима;\n\nтверского активиста Яна Ксенжепольского — к 11 годам колонии;\n\nчлена петербургского «Яблока», который не состоял в «Весне», Василия Неустроева — к 10 годам колонии;\n\nбарнаульского активиста Павла Синельникова — к 7,5 годам колонии;\n\nпетербургских активистов Евгения Затеева и Валентина Хорошенина — к 6 годам и 2 месяцам каждого.\n\nО вынесенном решении сообщает «Медиазона».\n\nЗащитница Неустроева _ рассказала ОВД-Инфо, что судебный процесс шел с множеством нарушений. Судья Ирина Фурманова не давала толком задавать вопросы свидетелям, экспертам и подзащитным и отклоняла ходатайства адвокатов.\n\n«Справедливый"
+    },
+    {
+      "start": 896,
+      "end": 1218,
+      "text": "зидента, за то, что люди свободно выражали свое мнение, их привлекают к уголовной ответственности», — говорит адвокат.\n\nНаиболее тяжкое обвинение предъявили Архиповой — сразу по семи уголовным составам:\n\nорганизация экстремистского сообщества и участие в нем (ч. 1 и ч. 2 ст. 282.1 УК);\n\nучастие в деятельности общественно"
+    },
+    {
+      "start": 1447,
+      "end": 2758,
+      "text": "и (п. «б», «д» ч. 2 ст. 207.3 УК);\n\nраспространении неуважительных сведений о днях воинской славы (ч. 4 ст. 354.1 УК).\n\nНеустроева и Ксенжепольского обвиняли по тем же статьям кроме участия в экстремистском сообществе. По статье об объединении, посягающем на права граждан, им вменили не участие в нем, а его создание (ч. 2 ст. 239 УК).\n\nПетербургских активистов Затеева и Хорошенина тоже обвинили в создании такого объединения. Им предъявили еще две статьи — создание экстремистского сообщества и распространение неуважительных сведений о днях воинской славы. У Хорошенина затем отпало обвинение об объединении, посягающем на права граждан, из-за истечения сроков давности. Дело против Затеева и Хорошенина возбудили еще в мае 2022 года, а остальных фигурантов задержали в июне 2023-го.\n\nСинельникова обвиняли только по двум составам — создание экстремистского сообщества и участие в нем.\n\nОбвинение преимущественно основано на постах со страниц «Весны» в соцсетях. Например, из-за призывов участвовать в антивоенных протестах активистов обвинили в призывах к беспорядкам.\n\nПятеро из шести фигурантов отрицают вину. Хорошенин признал вину и дал показания против остальных активистов. Затеев изначально дал признательные показания, но в суде отказался от них. Он рассказал, что оговорил себя в надежде на домашн"
+    },
+    {
+      "start": 2768,
+      "end": 3026,
+      "text": "чтобы быть рядом с матерью и бабушкой. За время его нахождения в СИЗО обе женщины умерли.\n\nОВД-Инфо рассказывал историю Василия Неустроева, который не был активистов «Весны» и не имел отношения к соцсетям движения. Тем не менее силовики утверждают, что он бы"
+    },
+    {
+      "start": 3154,
+      "end": 3449,
+      "text": "публиковал военные «фейки» и оскорблял «память защитников Отечества».\n\nОВД-Инфо защищает троих фигурантов дела «Весны»: Анну Архипову, Василия Неустроева и Яна Ксенжепольского. Поддержите сбор на работу их адвокатов в суде.\n\nТакже вы можете поддержать фигурантов дела «Весны», отправив им письмо"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 140,
+      "end": 153,
+      "text": "Анну Архипову",
+      "golden_person_id": "gp-arkhipova-anna"
+    },
+    {
+      "start": 211,
+      "end": 230,
+      "text": "Яна Ксенжепольского",
+      "golden_person_id": "gp-ksenzhepolsky-yan"
+    },
+    {
+      "start": 315,
+      "end": 333,
+      "text": "Василия Неустроева",
+      "golden_person_id": "gp-neustroev-vasily"
+    },
+    {
+      "start": 381,
+      "end": 399,
+      "text": "Павла Синельникова",
+      "golden_person_id": "gp-sinelnikov-pavel"
+    },
+    {
+      "start": 449,
+      "end": 464,
+      "text": "Евгения Затеева",
+      "golden_person_id": "gp-zateev-evgeny"
+    },
+    {
+      "start": 467,
+      "end": 487,
+      "text": "Валентина Хорошенина",
+      "golden_person_id": "gp-khoroshenin-valentin"
+    },
+    {
+      "start": 576,
+      "end": 586,
+      "text": "Неустроева",
+      "golden_person_id": "gp-neustroev-vasily"
+    },
+    {
+      "start": 665,
+      "end": 680,
+      "text": "Ирина Фурманова",
+      "golden_person_id": "gp-furmanova-irina"
+    },
+    {
+      "start": 1053,
+      "end": 1062,
+      "text": "Архиповой",
+      "golden_person_id": "gp-arkhipova-anna"
+    },
+    {
+      "start": 1567,
+      "end": 1577,
+      "text": "Неустроева",
+      "golden_person_id": "gp-neustroev-vasily"
+    },
+    {
+      "start": 1580,
+      "end": 1595,
+      "text": "Ксенжепольского",
+      "golden_person_id": "gp-ksenzhepolsky-yan"
+    },
+    {
+      "start": 1810,
+      "end": 1817,
+      "text": "Затеева",
+      "golden_person_id": "gp-zateev-evgeny"
+    },
+    {
+      "start": 1820,
+      "end": 1830,
+      "text": "Хорошенина",
+      "golden_person_id": "gp-khoroshenin-valentin"
+    },
+    {
+      "start": 2010,
+      "end": 2020,
+      "text": "Хорошенина",
+      "golden_person_id": "gp-khoroshenin-valentin"
+    },
+    {
+      "start": 2134,
+      "end": 2141,
+      "text": "Затеева",
+      "golden_person_id": "gp-zateev-evgeny"
+    },
+    {
+      "start": 2144,
+      "end": 2154,
+      "text": "Хорошенина",
+      "golden_person_id": "gp-khoroshenin-valentin"
+    },
+    {
+      "start": 2236,
+      "end": 2248,
+      "text": "Синельникова",
+      "golden_person_id": "gp-sinelnikov-pavel"
+    },
+    {
+      "start": 2564,
+      "end": 2573,
+      "text": "Хорошенин",
+      "golden_person_id": "gp-khoroshenin-valentin"
+    },
+    {
+      "start": 2632,
+      "end": 2638,
+      "text": "Затеев",
+      "golden_person_id": "gp-zateev-evgeny"
+    },
+    {
+      "start": 2888,
+      "end": 2906,
+      "text": "Василия Неустроева",
+      "golden_person_id": "gp-neustroev-vasily"
+    },
+    {
+      "start": 3274,
+      "end": 3287,
+      "text": "Анну Архипову",
+      "golden_person_id": "gp-arkhipova-anna"
+    },
+    {
+      "start": 3289,
+      "end": 3307,
+      "text": "Василия Неустроева",
+      "golden_person_id": "gp-neustroev-vasily"
+    },
+    {
+      "start": 3310,
+      "end": 3329,
+      "text": "Яна Ксенжепольского",
+      "golden_person_id": "gp-ksenzhepolsky-yan"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 113,
+        "text": "Санкт-Петербургский городской суд приговорил обвиняемых по делу о молодежном движении «Весна» к следующим срокам:"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-arkhipova-anna"
+      ],
+      "evidence": {
+        "start": 115,
+        "end": 189,
+        "text": "новосибирскую активистку Анну Архипову — к 12 годам колонии общего режима;"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-ksenzhepolsky-yan"
+      ],
+      "evidence": {
+        "start": 191,
+        "end": 252,
+        "text": "тверского активиста Яна Ксенжепольского — к 11 годам колонии;"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-neustroev-vasily"
+      ],
+      "evidence": {
+        "start": 254,
+        "end": 355,
+        "text": "члена петербургского «Яблока», который не состоял в «Весне», Василия Неустроева — к 10 годам колонии;"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-sinelnikov-pavel"
+      ],
+      "evidence": {
+        "start": 357,
+        "end": 422,
+        "text": "барнаульского активиста Павла Синельникова — к 7,5 годам колонии;"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-zateev-evgeny",
+        "gp-khoroshenin-valentin"
+      ],
+      "evidence": {
+        "start": 424,
+        "end": 520,
+        "text": "петербургских активистов Евгения Затеева и Валентина Хорошенина — к 6 годам и 2 месяцам каждого."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e7",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-arkhipova-anna"
+      ],
+      "evidence": {
+        "start": 1016,
+        "end": 1098,
+        "text": "Наиболее тяжкое обвинение предъявили Архиповой — сразу по семи уголовным составам:"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e8",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-neustroev-vasily",
+        "gp-ksenzhepolsky-yan"
+      ],
+      "evidence": {
+        "start": 1567,
+        "end": 1665,
+        "text": "Неустроева и Ксенжепольского обвиняли по тем же статьям кроме участия в экстремистском сообществе."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e9",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-zateev-evgeny",
+        "gp-khoroshenin-valentin"
+      ],
+      "evidence": {
+        "start": 1785,
+        "end": 1875,
+        "text": "Петербургских активистов Затеева и Хорошенина тоже обвинили в создании такого объединения."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e10",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-zateev-evgeny",
+        "gp-khoroshenin-valentin"
+      ],
+      "evidence": {
+        "start": 2122,
+        "end": 2234,
+        "text": "Дело против Затеева и Хорошенина возбудили еще в мае 2022 года, а остальных фигурантов задержали в июне 2023-го."
+      },
+      "shared": true,
+      "historical": true
+    },
+    {
+      "event_id": "e11",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-sinelnikov-pavel"
+      ],
+      "evidence": {
+        "start": 2236,
+        "end": 2336,
+        "text": "Синельникова обвиняли только по двум составам — создание экстремистского сообщества и участие в нем."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Хорошенин pleaded guilty and testified against the others; still convicted in the same political case.",
+    "Judge Фурманова appears in an article full of political charges but is not persecuted."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,118 @@
+{
+  "case_id": "rw-20260408-18",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/08/blogera-po-prikolu-stavshego-inoagentom-prigovorili-k-uslovnomu-sroku",
+  "canonical_url": "https://ovd.info/express-news/2026/04/08/blogera-po-prikolu-stavshego-inoagentom-prigovorili-k-uslovnomu-sroku",
+  "published_at": "2026-04-08T16:45:00+03:00",
+  "content_hash": "9d2995d86d2435ef8b68da96d8bfc3c5477b1a79adeca2324a56f547ccc17b6c",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "declined_names",
+    "typo_in_name",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1249,
+      "text": "В Подмосковье суд приговорил блогера Марата Никандрова к восьми месяцам лишения свободы условно. Об этом сообщает «Слово защите».\n\nНикандрова признали виновным в уклонении от исполнения обязанностей «иноагента».\n\nКак пишет SOTAvision, прокурор запрашивал один год условно.\n\nНикандров полностью признал вину. Его дело рассмотрели в особом порядке — то есть без исследования доказательств.\n\nДело на блогера завели из-за того, что он не отправил в Минюст отчеты о своей деятельности за второй и третий кварталы 2025 года. До этого его дважды привлекали к административной ответственности за нарушение «иноагентского» законодательства (ст. 19.34 КоАП). Один из протоколов составили из-за кружочка в телегам-канале без плашки «иноагента».\n\nНикадрова внесли в список «иноагентов» в ноябре 2023 года. Тогда 19-летний блогер говорил, что сам подал заявление о получении этого статуса. По словам Никандрова, он «сидел с друзьями в кафе и просто по приколу заполнил эту анкету».\n\nПозже в интервью «Слово защите» он утверждал, что восемь раз подавал заявление в Минюст о признании себя «иноагентом» и в семи случаях получил отказ. Никандров признавался, что не до конца осознавал последствия получения этого статуса.\n\n«Я стал заложником своей идеи стать „иноаг"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 37,
+      "end": 54,
+      "text": "Марата Никандрова",
+      "golden_person_id": "gp-nikandrov-marat"
+    },
+    {
+      "start": 131,
+      "end": 141,
+      "text": "Никандрова",
+      "golden_person_id": "gp-nikandrov-marat"
+    },
+    {
+      "start": 274,
+      "end": 283,
+      "text": "Никандров",
+      "golden_person_id": "gp-nikandrov-marat"
+    },
+    {
+      "start": 735,
+      "end": 744,
+      "text": "Никадрова",
+      "golden_person_id": "gp-nikandrov-marat"
+    },
+    {
+      "start": 887,
+      "end": 897,
+      "text": "Никандрова",
+      "golden_person_id": "gp-nikandrov-marat"
+    },
+    {
+      "start": 1120,
+      "end": 1129,
+      "text": "Никандров",
+      "golden_person_id": "gp-nikandrov-marat"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-nikandrov-marat"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 96,
+        "text": "В Подмосковье суд приговорил блогера Марата Никандрова к восьми месяцам лишения свободы условно."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-nikandrov-marat"
+      ],
+      "evidence": {
+        "start": 389,
+        "end": 518,
+        "text": "Дело на блогера завели из-за того, что он не отправил в Минюст отчеты о своей деятельности за второй и третий кварталы 2025 года."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-nikandrov-marat"
+      ],
+      "evidence": {
+        "start": 519,
+        "end": 648,
+        "text": "До этого его дважды привлекали к административной ответственности за нарушение «иноагентского» законодательства (ст. 19.34 КоАП)."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "The source misspells him once as «Никадрова».",
+    "He applied for the 'foreign agent' status himself; persecution under the foreign-agent law is still annotated political."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

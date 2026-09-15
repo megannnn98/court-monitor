@@ -1,0 +1,107 @@
+{
+  "case_id": "rw-20260507-31",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/07/ekaterinburzhec-rasskazal-o-pytkakh-pri-zaderzhanii-po-delu-o-diskreditacii",
+  "canonical_url": "https://ovd.info/express-news/2026/05/07/ekaterinburzhec-rasskazal-o-pytkakh-pri-zaderzhanii-po-delu-o-diskreditacii",
+  "published_at": "2026-05-07T17:12:00+03:00",
+  "content_hash": "f9ebeeb0a2d2e401fe046ee92c87defe1f6beac15d2ba55c2ee68f8ca9785900",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "anonymous_subject",
+    "political_words_not_about_person",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 36,
+      "end": 326,
+      "text": "ции армии (ч. 1 ст. 280.3 УК) рассказал о пытках током. Об этом сообщил его адвокат. Они оба попросили об анонимности.\n\nМужчину задержали в его доме рано утром 17 апреля. Силовики повалили его на пол и надели на него наручники. У него забрали телефон и потребовал пин-код для разблокировки."
+    },
+    {
+      "start": 1373,
+      "end": 1686,
+      "text": "жал лицом в пол, кисти рук затекли от сильно затянутых наручников», — рассказывал мужчина. К нему снова применяли ток.\n\nЗатем силовики повезли его в Екатеринбург, чтобы провести обыск в гараже. Оттуда его доставили в отдел полиции.\n\n«В отделе поставили к стене, пару раз по голове стукнул кто-то из них. Перед тем"
+    },
+    {
+      "start": 1718,
+      "end": 2105,
+      "text": "один из них сказал, что если что-то не так сделаю, то он вернется и ребра переломает мне», — рассказал екатеринбуржец.\n\nДело против мужчины возбудили из-за двух прошлогодних комментариев во «ВКонтакте». В одном он писал: «Не было предпосылок им на нас нападать. Путин не хотел, чтобы Украина показала русским пример, как можно не в диктатуре жить, а цивилизованно. Думали Киев за три дня"
+    },
+    {
+      "start": 2216,
+      "end": 2399,
+      "text": "символами российский армии при вторжении в Украину, с нацистской символикой: «У нацистов в Германии тоже зю и v были».\n\nНа время следствия екатеринбуржца поместили под домашний арест."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 1980,
+      "end": 1985,
+      "text": "Путин",
+      "golden_person_id": "gp-putin-vladimir"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 156,
+        "end": 206,
+        "text": "Мужчину задержали в его доме рано утром 17 апреля."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "search",
+      "person_ids": [],
+      "evidence": {
+        "start": 1493,
+        "end": 1566,
+        "text": "Затем силовики повезли его в Екатеринбург, чтобы провести обыск в гараже."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "case_opened",
+      "person_ids": [],
+      "evidence": {
+        "start": 1838,
+        "end": 1920,
+        "text": "Дело против мужчины возбудили из-за двух прошлогодних комментариев во «ВКонтакте»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "arrest",
+      "person_ids": [],
+      "evidence": {
+        "start": 2336,
+        "end": 2399,
+        "text": "На время следствия екатеринбуржца поместили под домашний арест."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "The persecuted man is anonymous; the only named person is Путин inside the quoted comment."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

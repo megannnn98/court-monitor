@@ -1,0 +1,178 @@
+{
+  "case_id": "rw-20260521-35",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/21/napadenie-na-pravozashchitnika-prigovor-khudozhniku-i-arest-za-listovki",
+  "canonical_url": "https://ovd.info/express-news/2026/05/21/napadenie-na-pravozashchitnika-prigovor-khudozhniku-i-arest-za-listovki",
+  "published_at": "2026-05-21T18:04:00+03:00",
+  "content_hash": "9ab1f509e337f5c9fd610e3e3540871bae9ec7a6aa70e80a8c3a58c43250fa14",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "multi_person",
+    "given_name_with_initial",
+    "political_and_non_political_persons",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 808,
+      "text": "Правозащитник Алексей Соколов, находящийся в СИЗО-1 Екатеринбурга, сообщил о нападении на него неизвестного после возвращения с суда 18 мая. Его защитник Петр Курьянов подал заявление в ГУФСИН. Соколов считает, что нападение могли организовать сотрудники изолятора.\n\nПетроградский районный суд Петербурга приговорил московского стрит-арт художника Александра Арсеньева к 1 году и 8 месяцам лишения свободы по делу о вандализме и повторной «дискредитации» армии из-за антивоенных граффити. После оглашения приговора его освободили в зале суда за счет времени, уже проведенного под стражей.\n\nЗамоскворецкий районный суд в Москве арестовал на 15 суток 61-летнего охранника Минюста Виталия Л. Его признали виновным по статье о демонстрации экстремистской символики из-за сумки с листовками «Слава Украине», котор"
+    },
+    {
+      "start": 889,
+      "end": 1656,
+      "text": "ал.\n\nПрокурор потребовал назначить фигурантам дела «третьей Джанкойской группы» сроки от 17 до 21 года лишения свободы. Бывшему имаму Ремзи Куртнезирову запросили 21 год по обвинению в организации деятельности «Хизб ут-Тахрир» и подготовке к насильственному захвату власти, остальных крымских татар обвиняют в участии в деятельности партии и попытке захвата власти. Все обвиняемые отрицают свою вину и утверждают, что на них оказывали давление, а запрещенную литературу подбросили.\n\nВ Вязниках местного жителя Анатолия Терешина приговорили к штрафу 450 тысяч рублей по делу о финансировании экстремизма (ч. 1 ст. 282.3 УК). По версии суда, Терешин оформил подписку на пожертвования Фонду борьбы с коррупцией после признания его экстремистским и перевел 7 тысяч рублей"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 14,
+      "end": 29,
+      "text": "Алексей Соколов",
+      "golden_person_id": "gp-sokolov-alexey"
+    },
+    {
+      "start": 154,
+      "end": 167,
+      "text": "Петр Курьянов",
+      "golden_person_id": "gp-kuryanov-petr"
+    },
+    {
+      "start": 194,
+      "end": 201,
+      "text": "Соколов",
+      "golden_person_id": "gp-sokolov-alexey"
+    },
+    {
+      "start": 348,
+      "end": 368,
+      "text": "Александра Арсеньева",
+      "golden_person_id": "gp-arseniev-alexander"
+    },
+    {
+      "start": 678,
+      "end": 688,
+      "text": "Виталия Л.",
+      "golden_person_id": "gp-vitaly-l"
+    },
+    {
+      "start": 1023,
+      "end": 1041,
+      "text": "Ремзи Куртнезирову",
+      "golden_person_id": "gp-kurtnezirov-remzi"
+    },
+    {
+      "start": 1399,
+      "end": 1416,
+      "text": "Анатолия Терешина",
+      "golden_person_id": "gp-tereshin-anatoly"
+    },
+    {
+      "start": 1529,
+      "end": 1536,
+      "text": "Терешин",
+      "golden_person_id": "gp-tereshin-anatoly"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-sokolov-alexey"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 140,
+        "text": "Правозащитник Алексей Соколов, находящийся в СИЗО-1 Екатеринбурга, сообщил о нападении на него неизвестного после возвращения с суда 18 мая."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-arseniev-alexander"
+      ],
+      "evidence": {
+        "start": 267,
+        "end": 488,
+        "text": "Петроградский районный суд Петербурга приговорил московского стрит-арт художника Александра Арсеньева к 1 году и 8 месяцам лишения свободы по делу о вандализме и повторной «дискредитации» армии из-за антивоенных граффити."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "release",
+      "person_ids": [
+        "gp-arseniev-alexander"
+      ],
+      "evidence": {
+        "start": 489,
+        "end": 588,
+        "text": "После оглашения приговора его освободили в зале суда за счет времени, уже проведенного под стражей."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-vitaly-l"
+      ],
+      "evidence": {
+        "start": 590,
+        "end": 688,
+        "text": "Замоскворецкий районный суд в Москве арестовал на 15 суток 61-летнего охранника Минюста Виталия Л."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "other",
+      "person_ids": [
+        "gp-kurtnezirov-remzi"
+      ],
+      "evidence": {
+        "start": 1009,
+        "end": 1254,
+        "text": "Бывшему имаму Ремзи Куртнезирову запросили 21 год по обвинению в организации деятельности «Хизб ут-Тахрир» и подготовке к насильственному захвату власти, остальных крымских татар обвиняют в участии в деятельности партии и попытке захвата власти."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-tereshin-anatoly"
+      ],
+      "evidence": {
+        "start": 1372,
+        "end": 1512,
+        "text": "В Вязниках местного жителя Анатолия Терешина приговорили к штрафу 450 тысяч рублей по делу о финансировании экстремизма (ч. 1 ст. 282.3 УК)."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Терешин's criminal fine is annotated as a sentence event (a fine as a criminal punishment).",
+    "A prosecutor's request for Куртнезиров is annotated as 'other', not a sentence."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

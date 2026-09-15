@@ -1,0 +1,91 @@
+{
+  "case_id": "rw-20260831-44",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/08/31/zashchitnicu-azata-miftakhova-obvinili-v-antiobshchestvennom-povedenii-vo",
+  "canonical_url": "https://ovd.info/express-news/2026/08/31/zashchitnicu-azata-miftakhova-obvinili-v-antiobshchestvennom-povedenii-vo",
+  "published_at": "2026-08-31T14:27:00+03:00",
+  "content_hash": "f9113d1b6e123543bf60e8902517cf645c67d6257b551ec95550dc8db77d8e51",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "same_person_several_articles",
+    "anonymous_subject",
+    "political_words_not_about_person"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 315,
+      "text": "Адвокат Азата Мифтахова пришла к подзащитному в колонию «Полярная сова», чтобы передать документы и получить ответы на вопросы его жены — ранее ее не пускали в колонию. После встречи с Мифтаховым адвоката остановили сотрудники ИК, когда она уже собиралась уходить. Об этом сообщает RusNews.\n\n«Следуя на выход, я был"
+    },
+    {
+      "start": 403,
+      "end": 728,
+      "text": "у меня папку с документами и, не подпуская меня к себе, перечитал каждый лист, после чего, найдя записи, переданные мне Мифтаховым, а также листы с моими личными записями, не касающимся работы с Мифтаховым и с другими осужденными, забрал указанное, сказав, что будет составлен акт об изъятии», — написала адвокат в исковом за"
+    },
+    {
+      "start": 757,
+      "end": 1198,
+      "text": "добавив, что просмотр и изъятие документов нарушают адвокатскую тайну.\n\nЧерез несколько дней адвокат снова пришла в ИК. На этот раз на входе ей объявили официальное предостережение за «антиобщественное поведение»: сотрудники посчитали нарушением, что она «забрала у Мифтахова корреспонденцию с целью передачи супруге, минуя администрацию».\n\nТеперь при каждом посещении ИК адвоката заставляют подписывать расписку об ознакомлении с правилами."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 8,
+      "end": 23,
+      "text": "Азата Мифтахова",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 185,
+      "end": 195,
+      "text": "Мифтаховым",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 523,
+      "end": 533,
+      "text": "Мифтаховым",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 598,
+      "end": 608,
+      "text": "Мифтаховым",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 1023,
+      "end": 1032,
+      "text": "Мифтахова",
+      "golden_person_id": "gp-miftakhov-azat"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [],
+      "evidence": {
+        "start": 877,
+        "end": 1096,
+        "text": "На этот раз на входе ей объявили официальное предостережение за «антиобщественное поведение»: сотрудники посчитали нарушением, что она «забрала у Мифтахова корреспонденцию с целью передачи супруге, минуя администрацию»."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "The warning is issued to his unnamed lawyer, not to Мифтахов, although his name is in the same sentence."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

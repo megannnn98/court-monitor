@@ -1,0 +1,169 @@
+{
+  "case_id": "rw-20260507-30",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/07/v-kolonii-pogib-krasnodarec-osuzhdennyy-iz-za-kartinki-s-putinym-i-posta-o",
+  "canonical_url": "https://ovd.info/express-news/2026/05/07/v-kolonii-pogib-krasnodarec-osuzhdennyy-iz-za-kartinki-s-putinym-i-posta-o",
+  "published_at": "2026-05-07T14:28:00+03:00",
+  "content_hash": "314ab317aa6ab59671e6d27c9286c0cba12aed17c366ead186a94f9b1e746c28",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "political_words_not_about_person",
+    "declined_names",
+    "historical_reference",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 915,
+      "text": "В ночь на 7 мая 41-летний Владимир Яроцкий покончил с собой в исправительной колонии № 9 в Хадыженске в Краснодарском крае. Об этом сообщают SOTAvision со ссылкой на письмо другого осужденного и «Политзек-Инфо».\n\nБлогер Александр Ноздринов, который отбывает срок в той же колонии, в своем письме рассказал, что Яроцкий сообщал о давлении со стороны администрации колонии. Он работал по ночам, несмотря на противопоказания по состоянию здоровья. После просьб изменить условия труда Яроцкий сталкивался с новым давлением.\n\nПрошлой весной краснодарца приговорили к пяти с половиной годам колонии общего режима по обвинениям в военных «фейках» (п. «д» ч. 2 ст. 207.3 УК) и осквернении символов воинской славы (ч. 4 ст. 354.1 УК).\n\nЯроцкого обвинили в «фейках» из-за некоего поста сентября 2022 года. По версии следствия, он «разместил недостоверную и ничем не подтвержденную информацию о количестве погибших и пропавших"
+    },
+    {
+      "start": 958,
+      "end": 1631,
+      "text": "ащих ВС РФ».\n\nВторую статью ему вменили из-за опубликованного во «ВКонтакте» изображения: на нем художник пишет портрет Владимира Путина с натуры, а на холсте изображен пенис. И к Путину, и к пенису прикреплена георгиевская лента в форме банта. Под изображением написано «Умные люди видят, что Путин заживо хоронит Россию, а дураки уверены, что он ее спасает…».\n\nВ 2024 году Яроцкого осудили по еще одному делу — о призывах к терроризму (ч. 2 ст. 205.2 УК). По версии следствия, он опубликовал пост с призывом «к посягательству на жизнь Президента Российской Федерации, в целях прекращения его деятельности и СВО». По этому делу краснодарца оштрафовали на 350 тысяч рублей."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 26,
+      "end": 42,
+      "text": "Владимир Яроцкий",
+      "golden_person_id": "gp-yarotsky-vladimir"
+    },
+    {
+      "start": 220,
+      "end": 239,
+      "text": "Александр Ноздринов",
+      "golden_person_id": "gp-nozdrinov-alexander"
+    },
+    {
+      "start": 311,
+      "end": 318,
+      "text": "Яроцкий",
+      "golden_person_id": "gp-yarotsky-vladimir"
+    },
+    {
+      "start": 481,
+      "end": 488,
+      "text": "Яроцкий",
+      "golden_person_id": "gp-yarotsky-vladimir"
+    },
+    {
+      "start": 727,
+      "end": 735,
+      "text": "Яроцкого",
+      "golden_person_id": "gp-yarotsky-vladimir"
+    },
+    {
+      "start": 1078,
+      "end": 1094,
+      "text": "Владимира Путина",
+      "golden_person_id": "gp-putin-vladimir"
+    },
+    {
+      "start": 1138,
+      "end": 1144,
+      "text": "Путину",
+      "golden_person_id": "gp-putin-vladimir"
+    },
+    {
+      "start": 1252,
+      "end": 1257,
+      "text": "Путин",
+      "golden_person_id": "gp-putin-vladimir"
+    },
+    {
+      "start": 1333,
+      "end": 1341,
+      "text": "Яроцкого",
+      "golden_person_id": "gp-yarotsky-vladimir"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-yarotsky-vladimir"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 123,
+        "text": "В ночь на 7 мая 41-летний Владимир Яроцкий покончил с собой в исправительной колонии № 9 в Хадыженске в Краснодарском крае."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-yarotsky-vladimir"
+      ],
+      "evidence": {
+        "start": 521,
+        "end": 725,
+        "text": "Прошлой весной краснодарца приговорили к пяти с половиной годам колонии общего режима по обвинениям в военных «фейках» (п. «д» ч. 2 ст. 207.3 УК) и осквернении символов воинской славы (ч. 4 ст. 354.1 УК)."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-yarotsky-vladimir"
+      ],
+      "evidence": {
+        "start": 727,
+        "end": 795,
+        "text": "Яроцкого обвинили в «фейках» из-за некоего поста сентября 2022 года."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-yarotsky-vladimir"
+      ],
+      "evidence": {
+        "start": 1321,
+        "end": 1415,
+        "text": "В 2024 году Яроцкого осудили по еще одному делу — о призывах к терроризму (ч. 2 ст. 205.2 УК)."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-yarotsky-vladimir"
+      ],
+      "evidence": {
+        "start": 1573,
+        "end": 1631,
+        "text": "По этому делу краснодарца оштрафовали на 350 тысяч рублей."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Путин is the object of the posts in the charge; the political words are not about him."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

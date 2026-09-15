@@ -1,0 +1,123 @@
+{
+  "case_id": "rw-20260403-16",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/03/v-ufe-zayavitelnicu-mitinga-protiv-blokirovok-oshtrafovali-po-state-o",
+  "canonical_url": "https://ovd.info/express-news/2026/04/03/v-ufe-zayavitelnicu-mitinga-protiv-blokirovok-oshtrafovali-po-state-o",
+  "published_at": "2026-04-03T18:14:00+03:00",
+  "content_hash": "9269729fa778fe94fed175308190876f51a71317645e5853f54536cff899caf4",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "given_name_only",
+    "hyphenated_given_name",
+    "stage_name",
+    "shared_sentence"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 643,
+      "text": "Кировский районный суд Уфы оштрафовал на 30 тысяч рублей 18-летнюю студентку местного колледжа Марию (имя изменено), подавшую заявку на митинг 12 апреля. Об этом сообщает региональное отделение партии «Рассвет».\n\nСтудентка подала заявку в администрацию Уфы 1 апреля. После этого в ее колледж приехали силовики, которые задержали девушку и отобрали у нее телефон. В устройстве они нашли видео в TikTok с изображением певицы Наоко, из-за которого на студентку составили протокол о дискредитации (ч. 1 ст. 20.3.3 КоАП).\n\nМария рассказала ОВД-Инфо, что ее оштрафовали не из-за самого видео, а из-за хештегов под ним: #свободуНаоко, #НетВойне, #Сво"
+    },
+    {
+      "start": 792,
+      "end": 1037,
+      "text": "трудничать, мне дадут максимальный штраф, что если я не откажусь от адвоката, мне не будут идти навстречу», — добавляет Мария. Силовики общались с ней грубо, матерились и неоднократно обвиняли ее во лжи.\n\nСтудентка говорит, что больше не планиру"
+    },
+    {
+      "start": 1309,
+      "end": 1694,
+      "text": "перед общежитием стоят странные машины периодически», — рассказала она. В колледже ей сообщили о возможном отчислении.\n\n1 апреля силовики также выдали предостережение о недопустимости нарушения законодательства жительнице Великого Новгорода Ассоль-Анастасии Крепец. Она подавала заявку на проведение митинга «За свободный интернет» 12 апреля в местную администрацию. Городские власти з"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 95,
+      "end": 100,
+      "text": "Марию",
+      "golden_person_id": "gp-maria-ufa-student"
+    },
+    {
+      "start": 423,
+      "end": 428,
+      "text": "Наоко",
+      "golden_person_id": "gp-naoko-singer"
+    },
+    {
+      "start": 518,
+      "end": 523,
+      "text": "Мария",
+      "golden_person_id": "gp-maria-ufa-student"
+    },
+    {
+      "start": 912,
+      "end": 917,
+      "text": "Мария",
+      "golden_person_id": "gp-maria-ufa-student"
+    },
+    {
+      "start": 1550,
+      "end": 1573,
+      "text": "Ассоль-Анастасии Крепец",
+      "golden_person_id": "gp-krepec-assol-anastasia"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-maria-ufa-student"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 153,
+        "text": "Кировский районный суд Уфы оштрафовал на 30 тысяч рублей 18-летнюю студентку местного колледжа Марию (имя изменено), подавшую заявку на митинг 12 апреля."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-maria-ufa-student"
+      ],
+      "evidence": {
+        "start": 267,
+        "end": 362,
+        "text": "После этого в ее колледж приехали силовики, которые задержали девушку и отобрали у нее телефон."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "other",
+      "person_ids": [
+        "gp-krepec-assol-anastasia"
+      ],
+      "evidence": {
+        "start": 1429,
+        "end": 1574,
+        "text": "1 апреля силовики также выдали предостережение о недопустимости нарушения законодательства жительнице Великого Новгорода Ассоль-Анастасии Крепец."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "«Мария» is a changed name; the student cannot be identified or matched.",
+    "«Наоко» appears inside '#свободуНаоко' and 'певицы Наоко': the hashtag occurrence is part of a word and not annotated."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

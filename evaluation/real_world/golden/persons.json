@@ -1,0 +1,2772 @@
+[
+  {
+    "golden_person_id": "gp-abdulgaziev-tofik",
+    "canonical_name": "Тофик Абдулгазиев",
+    "aliases": [
+      "Тофик Аблдулгазиев"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260420-22",
+          "span": {
+            "start": 2996,
+            "end": 3123,
+            "text": "активистом «Крымской солидарности», приходил на суды по делам других крымских татар, которых преследуют по политическим мотивам"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-abrosimov-alexey",
+    "canonical_name": "Алексей Абросимов",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260301-00",
+          "span": {
+            "start": 806,
+            "end": 864,
+            "text": "в том числе Алексея Абросимова и журналиста Сергея Ощепова"
+          }
+        }
+      ],
+      "notes": "detained at a protest rally"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-agishev-irek",
+    "canonical_name": "Ирек Агишев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260709-41",
+          "span": {
+            "start": 81,
+            "end": 140,
+            "text": "Поводом стал пикет в поддержку обучения на башкирском языке"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T2"
+    }
+  },
+  {
+    "golden_person_id": "gp-akuzin-andrey",
+    "canonical_name": "Андрей Акузин",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260414-19",
+          "span": {
+            "start": 201,
+            "end": 253,
+            "text": "Акузина арестовали 2 апреля за комментарий 2025 года"
+          }
+        }
+      ],
+      "notes": "arrested for a comment; added to the list posthumously"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "АКУЗИН АНДРЕЙ ВИКТОРОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-alekhina-maria",
+    "canonical_name": "Мария Алехина",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-aleksashenko-sergey",
+    "canonical_name": "Сергей Алексашенко",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-amirov-ilkin",
+    "canonical_name": "Илькин Амиров",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "lawyer"
+  },
+  {
+    "golden_person_id": "gp-angold-olga",
+    "canonical_name": "Ольга Ангольд",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "prison medical unit head"
+  },
+  {
+    "golden_person_id": "gp-anisimov-dmitry",
+    "canonical_name": "Дмитрий Анисимов",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260513-33",
+          "span": {
+            "start": 32,
+            "end": 168,
+            "text": "оштрафовал пресс-секретаря ОВД-Инфо Дмитрия Анисимова на 10 тысяч рублей по статье об участии в деятельности «нежелательной организации»"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-antonova-alina",
+    "canonical_name": "Алина Антонова",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260402-15",
+          "span": {
+            "start": 365,
+            "end": 426,
+            "text": "Вместе с Битовым задержали еще одну активистку Алину Антонову"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-arkhipova-anna",
+    "canonical_name": "Анна Архипова",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260408-17",
+          "span": {
+            "start": 115,
+            "end": 188,
+            "text": "новосибирскую активистку Анну Архипову — к 12 годам колонии общего режима"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-arseniev-alexander",
+    "canonical_name": "Александр Арсеньев",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260521-35",
+          "span": {
+            "start": 305,
+            "end": 460,
+            "text": "приговорил московского стрит-арт художника Александра Арсеньева к 1 году и 8 месяцам лишения свободы по делу о вандализме и повторной «дискредитации» армии"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-badmaev-alexey",
+    "canonical_name": "Алексей Бадмаев",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260508-32",
+          "span": {
+            "start": 1928,
+            "end": 2005,
+            "text": "В показаниях студента говорилось, что он выступает против вторжения в Украину"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-baryakina-elvira",
+    "canonical_name": "Эльвира Барякина",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-bitov-mikhail",
+    "canonical_name": "Михаил Битов",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260402-15",
+          "span": {
+            "start": 0,
+            "end": 108,
+            "text": "Против Михаила Битова возбудили уголовное дело о повторном нарушении порядка проведения акции (ст. 212.1 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-bondarenko-nikolay",
+    "canonical_name": "Николай Бондаренко",
+    "distinct_from": [
+      "gp-bondarenko-oleg"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260821-43",
+          "span": {
+            "start": 388,
+            "end": 441,
+            "text": "В КПРФ назвали задержание политическим преследованием"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T3"
+    }
+  },
+  {
+    "golden_person_id": "gp-bondarenko-oleg",
+    "canonical_name": "Олег Бондаренко",
+    "distinct_from": [
+      "gp-bondarenko-nikolay"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-bushuev-vyacheslav",
+    "canonical_name": "Вячеслав Бушуев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-chepik-sofia",
+    "canonical_name": "София Чепик",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260507-29",
+          "span": {
+            "start": 0,
+            "end": 109,
+            "text": "Участница сообщества «Алый лебедь», призывавшего протестовать против блокировок, София Чепик уехала из страны"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-chichvarkin-evgeny",
+    "canonical_name": "Евгений Чичваркин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-dadin-ildar",
+    "canonical_name": "Ильдар Дадин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-darova-svetlana",
+    "canonical_name": "Светлана Дарова",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260320-11",
+          "span": {
+            "start": 2522,
+            "end": 2625,
+            "text": "Лидерами силовики назвали Дарову, Якушеву и Кужева, которым вменили создание экстремистского сообщества"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-davydov-roman",
+    "canonical_name": "Роман Давыдов",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-diana-m",
+    "canonical_name": "Диана М.",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name with surname initial"
+  },
+  {
+    "golden_person_id": "gp-dmitry-kitay-gorod",
+    "canonical_name": "Дмитрий (имя изменено)",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "non_political",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "changed given name only"
+  },
+  {
+    "golden_person_id": "gp-dubkov-vasily",
+    "canonical_name": "Василий Дубков",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "OVD-Info defender"
+  },
+  {
+    "golden_person_id": "gp-dymov-andrey",
+    "canonical_name": "Андрей Дымов",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260526-36",
+          "span": {
+            "start": 171,
+            "end": 286,
+            "text": "Его признали виновным в финансировании экстремизма (ч. 1 ст. 282.3 УК) из-за пожертвований ФБК на 3,5 тысячи рублей"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "needs_review",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "evaluation snapshot lists a «Дымов Андрей Юрьевич»; the article gives no patronymic or birth date, so presence can be neither confirmed nor excluded"
+  },
+  {
+    "golden_person_id": "gp-dzhikaeva-alina",
+    "canonical_name": "Алина Джикаева",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ],
+      "notes": "independent outlet editor detained on a bribery suspicion"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-feygin-mark",
+    "canonical_name": "Марк Фейгин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "ФЕЙГИН МАРК ЗАХАРОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-filchenko-galina",
+    "canonical_name": "Галина Фильченко",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260304-03",
+          "span": {
+            "start": 1198,
+            "end": 1330,
+            "text": "Галина Фильченко стала обвиняемой по делу об участии в террористическом сообществе (ч. 2 ст. 205.4 УК) и захвате власти (ст. 278 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-frolov-ivan",
+    "canonical_name": "Иван Фролов",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260312-08",
+          "span": {
+            "start": 3826,
+            "end": 3917,
+            "text": "задержали журналиста «Народного телевидения Сибири» Ивана Фролова, который освещал протесты"
+          }
+        }
+      ],
+      "notes": "journalist detained while covering protests; pre-investigation check under 207.1"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-frolova-tatiana",
+    "canonical_name": "Татьяна Фролова",
+    "distinct_from": [
+      "gp-frolov-ivan"
+    ],
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "film director, source"
+  },
+  {
+    "golden_person_id": "gp-furmanova-irina",
+    "canonical_name": "Ирина Фурманова",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "judge"
+  },
+  {
+    "golden_person_id": "gp-garmazhapova-alexandra",
+    "canonical_name": "Александра Гармажапова",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "head of the Free Buryatia foundation, source"
+  },
+  {
+    "golden_person_id": "gp-georgy-kitay-gorod",
+    "canonical_name": "Георгий (задержанный на Китай-городе)",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "non_political",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name only"
+  },
+  {
+    "golden_person_id": "gp-gilmanov-marat",
+    "canonical_name": "Марат Гилманов",
+    "distinct_from": [
+      "gp-gilmanov-radik"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260506-28",
+          "span": {
+            "start": 33,
+            "end": 155,
+            "text": "приговорил Марата Гилманова к шести годам колонии общего режима по обвинению в распространении «фейков» о российской армии"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-gilmanov-radik",
+    "canonical_name": "Радик Гилманов",
+    "distinct_from": [
+      "gp-gilmanov-marat"
+    ],
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "judge, father of Марат Гилманов"
+  },
+  {
+    "golden_person_id": "gp-gudkov-dmitry",
+    "canonical_name": "Дмитрий Гудков",
+    "distinct_from": [
+      "gp-gudkov-gennady"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-gudkov-gennady",
+    "canonical_name": "Геннадий Гудков",
+    "distinct_from": [
+      "gp-gudkov-dmitry"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-guriev-sergey",
+    "canonical_name": "Сергей Гуриев",
+    "distinct_from": [
+      "gp-aleksashenko-sergey"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-ilichev-vladimir",
+    "canonical_name": "Владимир Ильичев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260320-11",
+          "span": {
+            "start": 345,
+            "end": 420,
+            "text": "Владимиру Ильичеву и Абдулмалику Шоеву — с 5 лет колонии до 3,5 лет каждому"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-kambieva-yulia",
+    "canonical_name": "Юлия Камбиева",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-kara-murza-vladimir",
+    "canonical_name": "Владимир Кара-Мурза",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260302-01",
+          "span": {
+            "start": 629,
+            "end": 671,
+            "text": "В него входят политики Владимир Кара-Мурза"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "КАРА-МУРЗА ВЛАДИМИР ВЛАДИМИРОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-kasparov-garry",
+    "canonical_name": "Гарри Каспаров",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "КАСПАРОВ ГАРРИ КИМОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-kasyanov-mikhail",
+    "canonical_name": "Михаил Касьянов",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-khodorkovsky-mikhail",
+    "canonical_name": "Михаил Ходорковский",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260302-01",
+          "span": {
+            "start": 871,
+            "end": 947,
+            "text": "Михаил Ходорковский и другие противники российских властей и войны в Украине"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "ХОДОРКОВСКИЙ МИХАИЛ БОРИСОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-khoroshenin-valentin",
+    "canonical_name": "Валентин Хорошенин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-kirman-nelli",
+    "canonical_name": "Нелли Кирман",
+    "distinct_from": [
+      "gp-kirman-viktor"
+    ],
+    "persecution": {
+      "expected_status": "non_political",
+      "acceptable_statuses": [
+        "uncertain"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "daughter; held an anti-war exhibition in 2015, not persecuted here"
+  },
+  {
+    "golden_person_id": "gp-kirman-viktor",
+    "canonical_name": "Виктор Кирман",
+    "distinct_from": [
+      "gp-kirman-nelli"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260518-34",
+          "span": {
+            "start": 2689,
+            "end": 2802,
+            "text": "Сотрудники используют „арестную карусель“, чтобы морально и физически сломить человека в условиях полной изоляции"
+          }
+        }
+      ],
+      "notes": "nine consecutive administrative arrests, torture, no criminal charge yet"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-kobzev-vadim",
+    "canonical_name": "Вадим Кобзев",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260423-23",
+          "span": {
+            "start": 614,
+            "end": 666,
+            "text": "Кобзева приговорили к пяти с половиной годам колонии"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-krepec-assol-anastasia",
+    "canonical_name": "Ассоль-Анастасия Крепец",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "notes": "official warning after applying for a rally"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-kryslov-alexey",
+    "canonical_name": "Алексей Крыслов",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "prisoner who attacked Шабанов; convicted for disobeying an order"
+  },
+  {
+    "golden_person_id": "gp-ksenzhepolsky-yan",
+    "canonical_name": "Ян Ксенжепольский",
+    "persecution": {
+      "expected_status": "political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-kurbedinov-emil",
+    "canonical_name": "Эмиль Курбединов",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "lawyer"
+  },
+  {
+    "golden_person_id": "gp-kurochkina-inna",
+    "canonical_name": "Инна Курочкина",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-kurtnezirov-remzi",
+    "canonical_name": "Ремзи Куртнезиров",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-kuryanov-petr",
+    "canonical_name": "Петр Курьянов",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "lawyer"
+  },
+  {
+    "golden_person_id": "gp-kuzhev-oleko",
+    "canonical_name": "Олеко Кужев",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ],
+      "notes": "extremist community + explosives charge"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-liptser-alexey",
+    "canonical_name": "Алексей Липцер",
+    "persecution": {
+      "expected_status": "political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "ЛИПЦЕР АЛЕКСЕЙ ЛЕОНИДОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-lyubshin-ivan",
+    "canonical_name": "Иван Любшин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260504-26",
+          "span": {
+            "start": 2279,
+            "end": 2371,
+            "text": "Любшина приговорили к пяти годам и двум месяцам колонии по обвинению в оправдании терроризма"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-makovoz-evgeny",
+    "canonical_name": "Евгений Маковоз",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260323-12",
+          "span": {
+            "start": 122,
+            "end": 201,
+            "text": "Активист 18 марта подал заявку на проведение в городе митинга против блокировок"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-mamaev-sergey",
+    "canonical_name": "Сергей Мамаев",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260305-04",
+          "span": {
+            "start": 2717,
+            "end": 2763,
+            "text": "осудили активиста из Йошкар-Олы Сергея Мамаева"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-mamedov-rafael",
+    "canonical_name": "Рафаэль Мамедов",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260601-38",
+          "span": {
+            "start": 2135,
+            "end": 2214,
+            "text": "Проект «Поддержка политзаключенных. Мемориал» признал Мамедова политзаключенным"
+          }
+        }
+      ],
+      "notes": "recognized political prisoner by Memorial"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "ambiguous",
+      "expected_entry": "МАМЕДОВ РАФАЭЛЬ ЭЛЬДАРОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "evaluation snapshot lists two «Мамедов Рафаэль» entries; the article gives no patronymic or birth date"
+  },
+  {
+    "golden_person_id": "gp-mamporia-oleg",
+    "canonical_name": "Олег Мампория",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260505-27",
+          "span": {
+            "start": 409,
+            "end": 521,
+            "text": "Мужчину преследовали по статье о повторной демонстрации запрещенной атрибутики или символики (ч. 1 ст. 282.4 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-maria-ufa-student",
+    "canonical_name": "Мария (имя изменено), студентка из Уфы",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260403-16",
+          "span": {
+            "start": 27,
+            "end": 142,
+            "text": "оштрафовал на 30 тысяч рублей 18-летнюю студентку местного колледжа Марию (имя изменено), подавшую заявку на митинг"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "pseudonymous given name"
+  },
+  {
+    "golden_person_id": "gp-markin-nikolay",
+    "canonical_name": "Николай Маркин",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260310-06",
+          "span": {
+            "start": 759,
+            "end": 860,
+            "text": "Маркину предъявили менее тяжкое обвинение в военных «фейках» без мотива ненависти (ч. 1 ст. 207.3 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "needs_review",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "evaluation snapshot lists «Маркин Николай Степанович» (b. 1949); the article gives no patronymic or birth date"
+  },
+  {
+    "golden_person_id": "gp-mavletberdin-i-m",
+    "canonical_name": "Мавлетбердин И. М.",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "regional minister named on a placard, surname and initials"
+  },
+  {
+    "golden_person_id": "gp-meremshaov-adnan",
+    "canonical_name": "Аднан Меремшаов",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ],
+      "notes": "extremist community + weapons charges"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-miftakhov-azat",
+    "canonical_name": "Азат Мифтахов",
+    "aliases": [
+      "Мифтахов Азат Фанисович"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260428-25",
+          "span": {
+            "start": 778,
+            "end": 875,
+            "text": "Его приговорили к четырем годам заключения по статье об оправдании терроризма (ч. 1 ст. 205.2 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "МИФТАХОВ АЗАТ ФАНИСОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-mikheev-dmitry",
+    "canonical_name": "Дмитрий Михеев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260401-14",
+          "span": {
+            "start": 112,
+            "end": 154,
+            "text": "отбывает срок по делу о поджоге военкомата"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-mikheeva-irina",
+    "canonical_name": "Ирина (мать Дмитрия Михеева)",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name only"
+  },
+  {
+    "golden_person_id": "gp-milena-witness",
+    "canonical_name": "Милена (свидетельница)",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name only"
+  },
+  {
+    "golden_person_id": "gp-musaeva-zarema",
+    "canonical_name": "Зарема Мусаева",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260305-05",
+          "span": {
+            "start": 30,
+            "end": 88,
+            "text": "новый приговор матери чеченских активистов Зареме Мусаевой"
+          }
+        }
+      ],
+      "notes": "formally fraud/violence/colony disorganization charges; recognized politically motivated (mother of Chechen activists)"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-nadezhdin-boris",
+    "canonical_name": "Борис Надеждин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260713-42",
+          "span": {
+            "start": 154,
+            "end": 201,
+            "text": "Надеждина внесли в реестр «иностранных агентов»"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T2"
+    }
+  },
+  {
+    "golden_person_id": "gp-nagoev-ibragim",
+    "canonical_name": "Ибрагим Нагоев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260317-10",
+          "span": {
+            "start": 28,
+            "end": 138,
+            "text": "приговорили к 11 годам лишения свободы по статье об участии в террористической организации (ч. 2 ст. 205.5 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-naoko-singer",
+    "canonical_name": "Наоко (певица)",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "stage name, only in a hashtag context"
+  },
+  {
+    "golden_person_id": "gp-naptugov-aslan",
+    "canonical_name": "Аслан Наптугов",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-navalny-alexey",
+    "canonical_name": "Алексей Навальный",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "notes": "the articles only mention him as a politician and organizations linked to him"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "НАВАЛЬНЫЙ АЛЕКСЕЙ АНАТОЛЬЕВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-nefedov-oleg",
+    "canonical_name": "Олег Нефедов",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "Supreme Court judge"
+  },
+  {
+    "golden_person_id": "gp-neustroev-vasily",
+    "canonical_name": "Василий Неустроев",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260408-17",
+          "span": {
+            "start": 315,
+            "end": 354,
+            "text": "Василия Неустроева — к 10 годам колонии"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-nikandrov-marat",
+    "canonical_name": "Марат Никандров",
+    "aliases": [
+      "Марат Никадров"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260408-18",
+          "span": {
+            "start": 131,
+            "end": 210,
+            "text": "Никандрова признали виновным в уклонении от исполнения обязанностей «иноагента»"
+          }
+        }
+      ],
+      "notes": "'foreign agent' evasion; he applied for the status himself"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-nikulin-andrey",
+    "canonical_name": "Андрей Никулин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-novak-nika",
+    "canonical_name": "Ника Новак",
+    "persecution": {
+      "expected_status": "political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-nozdrinov-alexander",
+    "canonical_name": "Александр Ноздринов",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ],
+      "notes": "blogger serving a sentence; the article does not say for what"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-oleynik-nikita",
+    "canonical_name": "Никита Олейник",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-olga-ovd-defender",
+    "canonical_name": "Ольга (защитница ОВД-Инфо)",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name only"
+  },
+  {
+    "golden_person_id": "gp-orel-oleg",
+    "canonical_name": "Олег Орел",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "head of Ordynsky district"
+  },
+  {
+    "golden_person_id": "gp-oshchepkov-sergey",
+    "canonical_name": "Сергей Ощепков",
+    "aliases": [
+      "Сергей Ощепов"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260301-00",
+          "span": {
+            "start": 243,
+            "end": 324,
+            "text": "Среди задержанных оказался журналист «Сиб.фм» Сергей Ощепков и случайные прохожие"
+          }
+        }
+      ],
+      "notes": "journalist detained at a protest rally, released without a protocol"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-otrakovsky-ivan",
+    "canonical_name": "Иван Отраковский",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "non_political",
+        "needs_review"
+      ],
+      "notes": "detained at a farmers' protest, fined under 19.3"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-paklin-roman",
+    "canonical_name": "Роман Паклин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260311-07",
+          "span": {
+            "start": 1430,
+            "end": 1540,
+            "text": "Паклин, как и все остальные фигуранты «тюменского дела», рассказывал, что силовики пытали его после задержания"
+          }
+        }
+      ],
+      "notes": "'Tyumen case' antifascist, terrorism charges"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-petrutsky-andrey",
+    "canonical_name": "Андрей Петруцкий",
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "political",
+        "needs_review"
+      ],
+      "notes": "online libel case after a publication about construction"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-polezhaev-petr",
+    "canonical_name": "Петр Полежаев",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-ponomarev-ilya",
+    "canonical_name": "Илья Пономарев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "ПОНОМАРЁВ ИЛЬЯ ВЛАДИМИРОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-primak-olga",
+    "canonical_name": "Ольга Примак",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-prokopiev-r-r",
+    "canonical_name": "Прокопьев Р. Р.",
+    "persecution": {
+      "expected_status": "non_political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "surname with initials only"
+  },
+  {
+    "golden_person_id": "gp-putin-vladimir",
+    "canonical_name": "Владимир Путин",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "mentioned in the content of posts/comments; not persecuted"
+  },
+  {
+    "golden_person_id": "gp-savin-alexander",
+    "canonical_name": "Александр Савин",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "lawyer"
+  },
+  {
+    "golden_person_id": "gp-senkin-alexander",
+    "canonical_name": "Александр Сенькин",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "judge"
+  },
+  {
+    "golden_person_id": "gp-sergunin-igor",
+    "canonical_name": "Игорь Сергунин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260423-23",
+          "span": {
+            "start": 90,
+            "end": 158,
+            "text": "Сергунина приговорили к трем с половиной годам колонии общего режима"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-shabanov-andrey",
+    "canonical_name": "Андрей Шабанов",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260529-37",
+          "span": {
+            "start": 423,
+            "end": 482,
+            "text": "Политзаключенный саксофонист с инвалидностью Андрей Шабанов"
+          }
+        },
+        {
+          "case_id": "rw-20260706-39",
+          "span": {
+            "start": 926,
+            "end": 1038,
+            "text": "Саксофониста обвинили в оправдании терроризма и призывах к антигосударственной деятельности из-за постов о войне"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-sharygin-mikhail",
+    "canonical_name": "Михаил Шарыгин",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260305-04",
+          "span": {
+            "start": 2504,
+            "end": 2631,
+            "text": "Михаила Шарыгина приговорили к трем годам колонии общего режима по этой статье из-за двух репостов публикаций штабов Навального"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-shoev-abdulmalik",
+    "canonical_name": "Абдулмалик Шоев",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-shulman-ekaterina",
+    "canonical_name": "Екатерина Шульман",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-shutov-ilya",
+    "canonical_name": "Илья Шутов",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "lawyer"
+  },
+  {
+    "golden_person_id": "gp-sinelnikov-pavel",
+    "canonical_name": "Павел Синельников",
+    "persecution": {
+      "expected_status": "political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-snegova-maria",
+    "canonical_name": "Мария Снеговая",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260526-36",
+          "span": {
+            "start": 676,
+            "end": 791,
+            "text": "Против политолога Марии Снеговой возбудили дело о распространении военных «фейков» по мотиву политической ненависти"
+          }
+        }
+      ],
+      "notes": "the article itself says she was added to the Rosfinmonitoring register in April"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "СНЕГОВАЯ МАРИЯ ВЛАДИМИРОВНА",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-sokht-asker",
+    "canonical_name": "Аскер Сохт",
+    "persecution": {
+      "expected_status": "non_political",
+      "acceptable_statuses": [
+        "uncertain"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "activist quoted as a source"
+  },
+  {
+    "golden_person_id": "gp-sokolov-alexey",
+    "canonical_name": "Алексей Соколов",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-spivak-nikita",
+    "canonical_name": "Никита Спивак",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "lawyer"
+  },
+  {
+    "golden_person_id": "gp-stovbun-gleb",
+    "canonical_name": "Глеб Стовбун",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260529-37",
+          "span": {
+            "start": 308,
+            "end": 420,
+            "text": "Его признали виновным в финансировании экстремистской деятельности из-за пожертвования Фонду борьбы с коррупцией"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-tazheeva-anna",
+    "canonical_name": "Анна Тажеева",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "local human rights defender"
+  },
+  {
+    "golden_person_id": "gp-tereshin-anatoly",
+    "canonical_name": "Анатолий Терешин",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260521-35",
+          "span": {
+            "start": 1399,
+            "end": 1491,
+            "text": "Анатолия Терешина приговорили к штрафу 450 тысяч рублей по делу о финансировании экстремизма"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T1"
+    }
+  },
+  {
+    "golden_person_id": "gp-tikhonova-natalia",
+    "canonical_name": "Наталия Тихонова",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "OVD-Info defender"
+  },
+  {
+    "golden_person_id": "gp-tukova-anita",
+    "canonical_name": "Анита Тукова",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-valya-karnaval",
+    "canonical_name": "Валя Карнавал",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "stage name"
+  },
+  {
+    "golden_person_id": "gp-vasilenko-nikolay",
+    "canonical_name": "Николай Василенко",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-vasiliev-ilya",
+    "canonical_name": "Илья Васильев",
+    "aliases": [
+      "Арви Хэкер"
+    ],
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260428-24",
+          "span": {
+            "start": 241,
+            "end": 340,
+            "text": "Васильева вновь признали виновным в распространении «фейков» о российской армии по мотиву ненависти"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-vitaly-l",
+    "canonical_name": "Виталий Л.",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name with surname initial"
+  },
+  {
+    "golden_person_id": "gp-vitaly-streamer",
+    "canonical_name": "Виталий (стример)",
+    "distinct_from": [
+      "gp-vitaly-l"
+    ],
+    "persecution": {
+      "expected_status": "uncertain",
+      "acceptable_statuses": [
+        "non_political",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "insufficient_data"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "given name only"
+  },
+  {
+    "golden_person_id": "gp-voronin-anton",
+    "canonical_name": "Антон Воронин",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260305-04",
+          "span": {
+            "start": 36,
+            "end": 147,
+            "text": "Антона Воронина арестовали по обвинению в участии в деятельности экстремистской организации (ч. 2 ст. 282.2 УК)"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-voronov-alexander",
+    "canonical_name": "Александр Воронов",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ],
+      "evidence": [
+        {
+          "case_id": "rw-20260303-02",
+          "span": {
+            "start": 739,
+            "end": 848,
+            "text": "Александр Воронов был заочно арестован по уголовному делу об уклонении от исполнения обязанностей «иноагента»"
+          }
+        }
+      ],
+      "notes": "arrested in absentia for evading 'foreign agent' duties"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-yakubovich-leonid",
+    "canonical_name": "Леонид Якубович",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-yakusheva-larisa",
+    "canonical_name": "Лариса Якушева",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-yarotsky-vladimir",
+    "canonical_name": "Владимир Яроцкий",
+    "persecution": {
+      "expected_status": "political",
+      "evidence": [
+        {
+          "case_id": "rw-20260507-30",
+          "span": {
+            "start": 727,
+            "end": 794,
+            "text": "Яроцкого обвинили в «фейках» из-за некоего поста сентября 2022 года"
+          }
+        }
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-yurkov-nikita",
+    "canonical_name": "Никита Юрков",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  },
+  {
+    "golden_person_id": "gp-zateev-evgeny",
+    "canonical_name": "Евгений Затеев",
+    "persecution": {
+      "expected_status": "political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-zhlobitsky-mikhail",
+    "canonical_name": "Михаил Жлобицкий",
+    "persecution": {
+      "expected_status": "non_political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "matched",
+      "expected_entry": "ЖЛОБИЦКИЙ МИХАИЛ ВЛАДИМИРОВИЧ",
+      "acceptable_review": true
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    },
+    "notes": "bomber of the Arkhangelsk FSB office (2018); referenced, not persecuted"
+  },
+  {
+    "golden_person_id": "gp-zimin-boris",
+    "canonical_name": "Борис Зимин",
+    "persecution": {
+      "expected_status": "political",
+      "acceptable_statuses": [
+        "uncertain",
+        "needs_review"
+      ]
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": true,
+      "expected_first_finding_period": "T0"
+    }
+  },
+  {
+    "golden_person_id": "gp-zubarev-alexander",
+    "canonical_name": "Александр Зубарев",
+    "persecution": {
+      "expected_status": "non_political"
+    },
+    "rosfinmonitoring": {
+      "snapshot": "rf-eval-v1",
+      "expected_status": "not_matched"
+    },
+    "candidate": {
+      "expected_main_candidate": false
+    }
+  }
+]

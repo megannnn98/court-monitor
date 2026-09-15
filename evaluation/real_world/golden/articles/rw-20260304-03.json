@@ -1,0 +1,196 @@
+{
+  "case_id": "rw-20260304-03",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh",
+  "canonical_url": "https://ovd.info/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh",
+  "published_at": "2026-03-04T12:21:00+03:00",
+  "content_hash": "27b04926941a5b24d27a662ca1802b48ca6d3c4d905162324950e8c9c2f083ee",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "several_events",
+    "historical_reference",
+    "rf_listed",
+    "same_surname_different_person"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 261,
+      "text": "Сотрудники ФСБ пришли с обыском к бывшей муниципальной депутатке Галине Фильченко, сообщают «Известия» и РЕН ТВ со ссылкой на свои источники.\n\nЭти провластные медиа называют ее «последней оставшейся в РФ участницей „Съезда народных депутатов“».\n\n«По данным наше"
+    },
+    {
+      "start": 310,
+      "end": 1598,
+      "text": "ком „законодательных актов“ о местном самоуправлении для так называемой „новой России“», — сказано в сообщении РЕН ТВ.\n\nФильченко с 2017 по 2022 год была депутаткой от «Яблока» в Совете муниципальных депутатов Тверского района Москвы. В 2021 году она выдвигалась в Госдуму, но ее сняли с выборов из-за участия в акциях в поддержку политика Алексея Навального. В ноябре 2022 года она была единственной делегаткой из России, которая приехала в Польшу на «Съезд народных депутатов».\n\nС 2023 по 2025 год к Фильченко как минимум трижды приходили с обысками. Во всех случаях они были связаны с различными уголовными делами против оппозиционера Ильи Пономарева, которого власти считают лидером «Съезда народных депутатов». К Фильченко приходили как к свидетельнице, силовики расспрашивали ее о «Съезде». Некоторые участники «Съезда», к которым тоже приходили с обысками, покинули Россию.\n\n19:19 Галина Фильченко стала обвиняемой по делу об участии в террористическом сообществе (ч. 2 ст. 205.4 УК) и захвате власти (ст. 278 УК). Об этом ОВД-Инфо сообщили адвокаты Никита Спивак и Илья Шутов.\n\nЛефортовский районный суд Москвы заключил Фильченко под стражу до 2 мая 2026 года. Защитники рассказали, что ее дело связано со «Съездом народных депутатов».\n\n«Съезд народных депутатов» был создан в Пол"
+    },
+    {
+      "start": 1630,
+      "end": 1915,
+      "text": "вших российских депутатов, выступающих против вторжения России в Украину. Его руководителями стали экс-депутаты Госдумы Илья Пономарев, Геннадий Гудков и Марк Фейгин. В 2023 году Генпрокуратура России присвоила «Съезду народных депутатов» статус «нежелательной организации», а в конце "
+    },
+    {
+      "start": 1924,
+      "end": 2053,
+      "text": "ерховный суд признал его террористической организацией.\n\nЗаголовок новости изменен после появления информации об аресте Фильченко"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 65,
+      "end": 81,
+      "text": "Галине Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    },
+    {
+      "start": 430,
+      "end": 439,
+      "text": "Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    },
+    {
+      "start": 650,
+      "end": 668,
+      "text": "Алексея Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 812,
+      "end": 821,
+      "text": "Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    },
+    {
+      "start": 948,
+      "end": 963,
+      "text": "Ильи Пономарева",
+      "golden_person_id": "gp-ponomarev-ilya"
+    },
+    {
+      "start": 1028,
+      "end": 1037,
+      "text": "Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    },
+    {
+      "start": 1198,
+      "end": 1214,
+      "text": "Галина Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    },
+    {
+      "start": 1367,
+      "end": 1380,
+      "text": "Никита Спивак",
+      "golden_person_id": "gp-spivak-nikita"
+    },
+    {
+      "start": 1383,
+      "end": 1393,
+      "text": "Илья Шутов",
+      "golden_person_id": "gp-shutov-ilya"
+    },
+    {
+      "start": 1438,
+      "end": 1447,
+      "text": "Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    },
+    {
+      "start": 1750,
+      "end": 1764,
+      "text": "Илья Пономарев",
+      "golden_person_id": "gp-ponomarev-ilya"
+    },
+    {
+      "start": 1766,
+      "end": 1781,
+      "text": "Геннадий Гудков",
+      "golden_person_id": "gp-gudkov-gennady"
+    },
+    {
+      "start": 1784,
+      "end": 1795,
+      "text": "Марк Фейгин",
+      "golden_person_id": "gp-feygin-mark"
+    },
+    {
+      "start": 2044,
+      "end": 2053,
+      "text": "Фильченко",
+      "golden_person_id": "gp-filchenko-galina"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [
+        "gp-filchenko-galina"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 141,
+        "text": "Сотрудники ФСБ пришли с обыском к бывшей муниципальной депутатке Галине Фильченко, сообщают «Известия» и РЕН ТВ со ссылкой на свои источники."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "search",
+      "person_ids": [
+        "gp-filchenko-galina"
+      ],
+      "evidence": {
+        "start": 791,
+        "end": 862,
+        "text": "С 2023 по 2025 год к Фильченко как минимум трижды приходили с обысками."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-filchenko-galina"
+      ],
+      "evidence": {
+        "start": 1192,
+        "end": 1331,
+        "text": "19:19 Галина Фильченко стала обвиняемой по делу об участии в террористическом сообществе (ч. 2 ст. 205.4 УК) и захвате власти (ст. 278 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-filchenko-galina"
+      ],
+      "evidence": {
+        "start": 1396,
+        "end": 1478,
+        "text": "Лефортовский районный суд Москвы заключил Фильченко под стражу до 2 мая 2026 года."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Геннадий Гудков (this article) and Дмитрий Гудков (Антивоенный комитет article) are different people with the same surname.",
+    "Lawyers Спивак and Шутов appear in the charge sentence but are not persecuted."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

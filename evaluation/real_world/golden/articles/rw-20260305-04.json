@@ -1,0 +1,210 @@
+{
+  "case_id": "rw-20260305-04",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/05/nizhegorodca-arestovali-po-delu-ob-ekstremistskoy-organizacii-iz-za-reposta",
+  "canonical_url": "https://ovd.info/express-news/2026/03/05/nizhegorodca-arestovali-po-delu-ob-ekstremistskoy-organizacii-iz-za-reposta",
+  "published_at": "2026-03-05T13:00:00+03:00",
+  "content_hash": "20d987733bdc4f61c08a4e360a13000298d8b6a4197dc912ad066d8b981913d7",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "several_events",
+    "historical_reference",
+    "declined_names",
+    "implicit_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 405,
+      "text": "37-летнего жителя Нижнего Новгорода Антона Воронина арестовали по обвинению в участии в деятельности экстремистской организации (ч. 2 ст. 282.2 УК), под которой силовики подразумевают ФБК. Об этом ОВД-Инфо сообщила его партнерша.\n\n24 февраля силовики выломали дверь в квартиру Воронина. На допросе он рассказал, что его били и пытали.\n\n«При моем задержании сотрудники меня повалили на пол, били ногами по "
+    },
+    {
+      "start": 615,
+      "end": 1252,
+      "text": " в трусах под открытой балконной дверью», — сказано в протоколе допроса (материалы есть в распоряжении ОВД-Инфо). Позже Воронину все же передали очки.\n\nВ ходе обыска у пары изъяли телефоны и ноутбуки. Воронин рассказал, что по пути в Следственный комитет силовики бросили его на пол автомобиля и поставили на него ноги.\n\n25 февраля нижегородца заключили под стражу.\n\nИз постановления о привлечении в качестве обвиняемого следует, что Воронину вменяют участие в Фонде борьбы с коррупцией и штабах Навального. «[Воронин] вступил и стал участвовать в них, систематически совершая действия организационного характера, направленного на продол"
+    },
+    {
+      "start": 1616,
+      "end": 2989,
+      "text": "ятельности ФБК и его организаторов».\n\nПри этом следователь указал в постановлении только один репост. 12 июля 2022 года Воронин перепостил публикацию из канала Алексея Навального, в которой политик сообщал о создании международной НКО Anti-Corruption Foundation International, продолжающей деятельность ФБК.\n\nНа допросе Воронин говорил, что не помнит, делал ли репосты публикаций с каналов Навального, но его деятельность он никогда не поддерживал. «Наблюдал за ней как за феноменом общества и поддавал критике», — сказал он. Воронин не признает вину.\n\nУ телеграм-канала нижегородца более 3,5 тысяч подписчиков. В нем Воронин публиковал общественно-политические новости, а также материалы о новых технологиях и научных событиях.\n\nЭто не первое дело об участии в деятельности экстремистской организации, которое возбуждают из-за репостов. В 2025 году бывшего члена нижегородского «Яблока» Михаила Шарыгина приговорили к трем годам колонии общего режима по этой статье из-за двух репостов публикаций штабов Навального в личном телеграм-канале и в «Одноклассниках».\n\nВ феврале 2026 года по той же статье осудили активиста из Йошкар-Олы Сергея Мамаева. Ему назначили два года и восемь месяцев колонии из-за постов об акциях, которые объявлял ФБК. Но Мамаеву также вменяли его упоминание в телеграм-канале «Команда Навального» и переписки с оппозиционерами, не связанными с Нава"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 36,
+      "end": 51,
+      "text": "Антона Воронина",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 277,
+      "end": 285,
+      "text": "Воронина",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 735,
+      "end": 743,
+      "text": "Воронину",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 816,
+      "end": 823,
+      "text": "Воронин",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 1049,
+      "end": 1057,
+      "text": "Воронину",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 1111,
+      "end": 1121,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 1125,
+      "end": 1132,
+      "text": "Воронин",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 1736,
+      "end": 1743,
+      "text": "Воронин",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 1776,
+      "end": 1794,
+      "text": "Алексея Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 1936,
+      "end": 1943,
+      "text": "Воронин",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 2006,
+      "end": 2016,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 2142,
+      "end": 2149,
+      "text": "Воронин",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 2234,
+      "end": 2241,
+      "text": "Воронин",
+      "golden_person_id": "gp-voronin-anton"
+    },
+    {
+      "start": 2504,
+      "end": 2520,
+      "text": "Михаила Шарыгина",
+      "golden_person_id": "gp-sharygin-mikhail"
+    },
+    {
+      "start": 2621,
+      "end": 2631,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 2749,
+      "end": 2763,
+      "text": "Сергея Мамаева",
+      "golden_person_id": "gp-mamaev-sergey"
+    },
+    {
+      "start": 2862,
+      "end": 2869,
+      "text": "Мамаеву",
+      "golden_person_id": "gp-mamaev-sergey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-voronin-anton"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 188,
+        "text": "37-летнего жителя Нижнего Новгорода Антона Воронина арестовали по обвинению в участии в деятельности экстремистской организации (ч. 2 ст. 282.2 УК), под которой силовики подразумевают ФБК."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "search",
+      "person_ids": [
+        "gp-voronin-anton"
+      ],
+      "evidence": {
+        "start": 767,
+        "end": 815,
+        "text": "В ходе обыска у пары изъяли телефоны и ноутбуки."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-sharygin-mikhail"
+      ],
+      "evidence": {
+        "start": 2454,
+        "end": 2678,
+        "text": "В 2025 году бывшего члена нижегородского «Яблока» Михаила Шарыгина приговорили к трем годам колонии общего режима по этой статье из-за двух репостов публикаций штабов Навального в личном телеграм-канале и в «Одноклассниках»."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-mamaev-sergey"
+      ],
+      "evidence": {
+        "start": 2680,
+        "end": 2764,
+        "text": "В феврале 2026 года по той же статье осудили активиста из Йошкар-Олы Сергея Мамаева."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "«Алан Грант — наука с публицистикой» is a channel name, not annotated as a person.",
+    "Quoted channel name «Команда Навального» is not a mention of Навальный; «Навальный» as a channel name is not annotated.",
+    "Навальный appears in a sentence about Шарыгин's sentence (repost of his headquarters): political words not about Навальный himself."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

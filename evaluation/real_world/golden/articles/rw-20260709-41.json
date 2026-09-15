@@ -1,0 +1,89 @@
+{
+  "case_id": "rw-20260709-41",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/07/09/v-ufe-67-letnego-aktivista-arestovali-iz-za-piketa-v-zashchitu-bashkirskogo",
+  "canonical_url": "https://ovd.info/express-news/2026/07/09/v-ufe-67-letnego-aktivista-arestovali-iz-za-piketa-v-zashchitu-bashkirskogo",
+  "published_at": "2026-07-09T13:03:00+03:00",
+  "content_hash": "46f83b7ceb590a3a730e7c3fac33530d71fad6217d4193e361f89975b7bb666d",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "initials",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 432,
+      "text": "67-летнему активисту центра «Актамыр» Иреку Агишеву назначили трое суток ареста. Поводом стал пикет в поддержку обучения на башкирском языке. Об этом сообщает издание 7×7.\n\nВ акции, прошедшей 3 июля, участвовали пять человек. Они вышли с плакатами «Министра просвещения Республики Башкортостан Мавлетбердина И.М. — в отставку!», «Восстановим национальное образование в башкирских школах Республики Башкортостан» и «В федеративном го"
+    },
+    {
+      "start": 437,
+      "end": 863,
+      "text": "стве образование не может быть единым!».\n\nСиловики посчитали пикет несогласованным массовым мероприятием и составили на Агишева протокол. Активист вину не признал. По его словам, он проводил одиночный пикет. Вероятно, активиста освободили в зале суда, так как суд отсчитал срок ареста с момента задержания.\n\nЧто известно об «Актамыре»\n\nЦентр «Актамыр» работает с 1994 года и выступает за открытие национальных детских садов и "
+    }
+  ],
+  "mentions": [
+    {
+      "start": 38,
+      "end": 51,
+      "text": "Иреку Агишеву",
+      "golden_person_id": "gp-agishev-irek"
+    },
+    {
+      "start": 294,
+      "end": 312,
+      "text": "Мавлетбердина И.М.",
+      "golden_person_id": "gp-mavletberdin-i-m"
+    },
+    {
+      "start": 557,
+      "end": 564,
+      "text": "Агишева",
+      "golden_person_id": "gp-agishev-irek"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-agishev-irek"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 80,
+        "text": "67-летнему активисту центра «Актамыр» Иреку Агишеву назначили трое суток ареста."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "release",
+      "person_ids": [
+        "gp-agishev-irek"
+      ],
+      "evidence": {
+        "start": 645,
+        "end": 743,
+        "text": "Вероятно, активиста освободили в зале суда, так как суд отсчитал срок ареста с момента задержания."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "The minister «Мавлетбердина И.М.» appears only inside a placard slogan."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,158 @@
+{
+  "case_id": "rw-20260310-06",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/10/v-moskve-k-chlenu-yabloka-prishli-s-obyskom-po-delu-o-voennykh-feykakh",
+  "canonical_url": "https://ovd.info/express-news/2026/03/10/v-moskve-k-chlenu-yabloka-prishli-s-obyskom-po-delu-o-voennykh-feykakh",
+  "published_at": "2026-03-10T14:29:00+03:00",
+  "content_hash": "a693a10637557a67b4f4638ffe160f057601354fb954e663bf91f89fa593a1fa",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "shared_sentence",
+    "several_events",
+    "historical_reference",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1362,
+      "text": "В Москве силовики пришли с обыском к члену партии «Яблоко», экоактивисту Николаю Маркину, сообщил ОВД-Инфо его однопартиец.\n\nПротив активиста возбудили уголовное дело о распространении «фейков» о российской армии (ст. 207.3 УК). Какие именно публикации стали поводом для преследования, пока неизвестно.\n\nПосле обыска Маркина должны были доставить в отдел Следственного комитета в подмосковном городе Раменское. К активисту для оказания юридической помощи выехала защитница от ОВД-Инфо Наталия Тихонова.\n\n11 марта После допроса Маркина отпустили под подписку о невыезде, рассказала его защитница Наталия Тихонова в своем телеграм-канале.\n\nОна отметила, что дело возбудили по статье о военных «фейках» по мотиву ненависти (п. «д» ч. 2 ст. 207.3 УК), но в итоге Маркину предъявили менее тяжкое обвинение в военных «фейках» без мотива ненависти (ч. 1 ст. 207.3 УК).\n\nВ прошлом году Раменский городской суд оштрафовал Маркина на 35 тысяч рублей по протоколу о дискредитации армии (ч. 1 ст. 20.3.3 КоАП). Поводом стали два поста во «Вконтакте», опубликованные в апреле 2022 года. В одном был рисунок с надписью «Теперь Краматорск. Когда же партия Войны остановится?», в другом — изображение церкви с надписью «ХВ, Хватит Войны».\n\nВ 2017 году Маркин пытался от КПРФ избраться в совет депутатов московского округа Сокол, а в 2019-м — в совет депутатов в Раменском городс"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 73,
+      "end": 88,
+      "text": "Николаю Маркину",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 317,
+      "end": 324,
+      "text": "Маркина",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 485,
+      "end": 501,
+      "text": "Наталия Тихонова",
+      "golden_person_id": "gp-tikhonova-natalia"
+    },
+    {
+      "start": 527,
+      "end": 534,
+      "text": "Маркина",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 595,
+      "end": 611,
+      "text": "Наталия Тихонова",
+      "golden_person_id": "gp-tikhonova-natalia"
+    },
+    {
+      "start": 759,
+      "end": 766,
+      "text": "Маркину",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 913,
+      "end": 920,
+      "text": "Маркина",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 1236,
+      "end": 1242,
+      "text": "Маркин",
+      "golden_person_id": "gp-markin-nikolay"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 123,
+        "text": "В Москве силовики пришли с обыском к члену партии «Яблоко», экоактивисту Николаю Маркину, сообщил ОВД-Инфо его однопартиец."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 125,
+        "end": 228,
+        "text": "Против активиста возбудили уголовное дело о распространении «фейков» о российской армии (ст. 207.3 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "release",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 504,
+        "end": 636,
+        "text": "11 марта После допроса Маркина отпустили под подписку о невыезде, рассказала его защитница Наталия Тихонова в своем телеграм-канале."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 638,
+        "end": 861,
+        "text": "Она отметила, что дело возбудили по статье о военных «фейках» по мотиву ненависти (п. «д» ч. 2 ст. 207.3 УК), но в итоге Маркину предъявили менее тяжкое обвинение в военных «фейках» без мотива ненависти (ч. 1 ст. 207.3 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 863,
+        "end": 998,
+        "text": "В прошлом году Раменский городской суд оштрафовал Маркина на 35 тысяч рублей по протоколу о дискредитации армии (ч. 1 ст. 20.3.3 КоАП)."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Defender Тихонова shares the release sentence with Маркин; her classification must not inherit his."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

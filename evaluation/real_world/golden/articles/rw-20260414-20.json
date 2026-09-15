@@ -1,0 +1,92 @@
+{
+  "case_id": "rw-20260414-20",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/14/vo-vladikavkaze-prokhodit-obysk-v-redakcii-nezavisimogo-izdaniya-sapa",
+  "canonical_url": "https://ovd.info/express-news/2026/04/14/vo-vladikavkaze-prokhodit-obysk-v-redakcii-nezavisimogo-izdaniya-sapa",
+  "published_at": "2026-04-14T18:04:00+03:00",
+  "content_hash": "2501752ca649c15c438b1ebaa22423c8be27ef5f15f677f80213d2b450112317",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person",
+    "organization_event",
+    "formally_non_political_charges"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 190,
+      "text": "Во Владикавказе проходит обыск в редакции независимого издания «Сапа». Об этом сообщает само издание.\n\n«Журналисты успели сообщить, что неизвестные люди в гражданской одежде утром зашли в зд"
+    },
+    {
+      "start": 306,
+      "end": 787,
+      "text": "о неподтвержденной информации, сотрудники правоохранительных органов увезли нескольких человек, но причина неизвестна.\n\n15 апреля Главного редактора «Сапы» Алину Джикаеву задержали в Москве, ее подозревают в якобы даче взяток сотруднику дежурной части УВМД по Махачкале за сведения о происшествиях в Северной Осетии и Дагестане, содержавшие персональные данные. В СК сообщают, что сумма превысила 250 тысяч рублей.\n\n«Вызывает вопросы формулировка о претензиях к событию, якобы имев"
+    },
+    {
+      "start": 894,
+      "end": 1174,
+      "text": " редакции, ведь в то время издания ещё не существовало — „Сапа“ была основана в марте 2023 года», — отметили в редакции.Шестерых задержанных во время обыска журналистов и двух сотрудников туристического агентства Eyes Tour, расположенного в том же здании, что и «Сапа», отпустили."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 462,
+      "end": 476,
+      "text": "Алину Джикаеву",
+      "golden_person_id": "gp-dzhikaeva-alina"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 70,
+        "text": "Во Владикавказе проходит обыск в редакции независимого издания «Сапа»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-dzhikaeva-alina"
+      ],
+      "evidence": {
+        "start": 426,
+        "end": 667,
+        "text": "15 апреля Главного редактора «Сапы» Алину Джикаеву задержали в Москве, ее подозревают в якобы даче взяток сотруднику дежурной части УВМД по Махачкале за сведения о происшествиях в Северной Осетии и Дагестане, содержавшие персональные данные."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "release",
+      "person_ids": [],
+      "evidence": {
+        "start": 1014,
+        "end": 1174,
+        "text": "Шестерых задержанных во время обыска журналистов и двух сотрудников туристического агентства Eyes Tour, расположенного в том же здании, что и «Сапа», отпустили."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Bribery suspicion against an independent editor: political motive plausible but not stated; annotated uncertain."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

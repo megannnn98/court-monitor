@@ -1,0 +1,113 @@
+{
+  "case_id": "rw-20260323-13",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/23/protesty-fermerov-v-novosibirskoy-oblasti-chto-proizoshlo-za-nedelyu",
+  "canonical_url": "https://ovd.info/express-news/2026/03/23/protesty-fermerov-v-novosibirskoy-oblasti-chto-proizoshlo-za-nedelyu",
+  "published_at": "2026-03-23T17:11:00+03:00",
+  "content_hash": "80b5ef438ac48ea752708e6a66417e6515f796faa86f982e00ab0063b8e076e6",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "non_political_protest",
+    "political_and_non_political_persons",
+    "same_person_several_articles"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 623,
+      "text": "Последние новости— В селе Козиха 21 марта задержали ветерана войны в Чечне Ивана Отраковского. Он приезжал поддержать местных жителей, выступающих против усыпления скота. Мужчину оштрафовали на четыре тысячи рублей по статье о неповиновении полиции (ст. 19.3 КоАП).\n\n— Еще в Козихе 22 марта задерживали журналиста Ивана Фролова. Ему угрожали штрафом по статье о нарушении санитарно-эпидемиологических норм (ч. 2 ст. 6.3 КоАП), но в итоге отпустили без протокола. — В селе Чернокурья фермер Петр Полежаев облил себя бензином. «Если уничтожат мой скот, я остаюсь без средств к существованию. Мне придется все-таки сжечь себя»"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 75,
+      "end": 93,
+      "text": "Ивана Отраковского",
+      "golden_person_id": "gp-otrakovsky-ivan"
+    },
+    {
+      "start": 314,
+      "end": 327,
+      "text": "Ивана Фролова",
+      "golden_person_id": "gp-frolov-ivan"
+    },
+    {
+      "start": 490,
+      "end": 503,
+      "text": "Петр Полежаев",
+      "golden_person_id": "gp-polezhaev-petr"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-otrakovsky-ivan"
+      ],
+      "evidence": {
+        "start": 19,
+        "end": 94,
+        "text": "В селе Козиха 21 марта задержали ветерана войны в Чечне Ивана Отраковского."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-otrakovsky-ivan"
+      ],
+      "evidence": {
+        "start": 171,
+        "end": 265,
+        "text": "Мужчину оштрафовали на четыре тысячи рублей по статье о неповиновении полиции (ст. 19.3 КоАП)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-frolov-ivan"
+      ],
+      "evidence": {
+        "start": 269,
+        "end": 328,
+        "text": "Еще в Козихе 22 марта задерживали журналиста Ивана Фролова."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "release",
+      "person_ids": [
+        "gp-frolov-ivan"
+      ],
+      "evidence": {
+        "start": 329,
+        "end": 462,
+        "text": "Ему угрожали штрафом по статье о нарушении санитарно-эпидемиологических норм (ч. 2 ст. 6.3 КоАП), но в итоге отпустили без протокола."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Отраковский was detained at a farmers' protest (not an opposition action): uncertain."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

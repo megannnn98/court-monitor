@@ -1,0 +1,367 @@
+{
+  "case_id": "rw-20260320-11",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/20/v-karachaevo-cherkesii-sokratili-sroki-vosmi-figurantam-dela-grazhdan-sssr",
+  "canonical_url": "https://ovd.info/express-news/2026/03/20/v-karachaevo-cherkesii-sokratili-sroki-vosmi-figurantam-dela-grazhdan-sssr",
+  "published_at": "2026-03-20T12:44:00+03:00",
+  "content_hash": "64767227aac9084cdb8501a93e93a98dc693af3839ee0045bb05968ae3f26edf",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "declined_names",
+    "list_items",
+    "shared_event",
+    "same_surname_different_person",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1555,
+      "text": "Верховный суд Карачаево-Черкесии в апелляции смягчил наказание восьми из девяти фигурантов дела «граждан СССР», сообщил ОВД-Инфо один из осужденных.\n\nРешение вынесли еще 4 февраля. По словам осужденного, сроки сократили:\n\nОлеко Кужеву — с 8 лет колонии общего режима до 6 лет 1 месяца;\n\nАднану Меремшаову — с 6,5 лет колонии до 6 лет 1 месяца;\n\nВладимиру Ильичеву и Абдулмалику Шоеву — с 5 лет колонии до 3,5 лет каждому;\n\nЛарисе Якушевой и Светлане Даровой с 7 лет условно до 6 лет каждой;\n\nАните Туковой и Ольге Примак — с 5 лет условно до 4 лет каждой.\n\nЕще одному фигуранту дела Аслану Наптугову, которому назначили 5 лет колонии, оставили тот же срок. Его освободили из СИЗО еще 21 сентября 2025 года — спустя два месяца после оглашения приговора. К тому времени его срок закончился.\n\nИльичев и Шоев освободились из СИЗО 27 февраля, через три недели после апелляционного решения.\n\nНикто из девяти фигурантов не признает вину. Они собираются в кассации добиваться полной отмены приговора.\n\nИзначально по делу также проходили Олег Бондаренко и Юлия Камбиева. Их дела рассмотрели отдельно. По словам собеседника ОВД-Инфо, Бондаренко заключил досудебное соглашение и в 2024 году его приговорили к 3,5 годам условно. Дело в отношении Камбиевой выделили в отдельное производство, после того как ее объявили в розыск из-за неявки в суд. После этого она три месяца провела в СИЗО. Женщина признала вину и ее приговорили к 3 годам условно.\n\nПо версии следствия, в 2019-2020-х годах фигуранты дела создали экстремистское сообщество, которое руководствовалось и"
+    },
+    {
+      "start": 2402,
+      "end": 2887,
+      "text": "Свободных Родов», «Совет народных депутатов», «Государственный комитет обороны» и «Министерство Госбезопасности СССР».\n\nЛидерами силовики назвали Дарову, Якушеву и Кужева, которым вменили создание экстремистского сообщества (ч. 1 ст. 282.1 УК). Остальных фигурантов обвиняли в участии в нем (ч. 2 ст. 282.2 УК). Кужева также обвиняли в хранении взрывчатых веществ (ч. 1 ст. 222.1 УК). А Меремшаову вменили это же обвинение и статью о незаконном обороте оружия (п. «а» ч. 3 ст. 222 УК)."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 222,
+      "end": 234,
+      "text": "Олеко Кужеву",
+      "golden_person_id": "gp-kuzhev-oleko"
+    },
+    {
+      "start": 287,
+      "end": 304,
+      "text": "Аднану Меремшаову",
+      "golden_person_id": "gp-meremshaov-adnan"
+    },
+    {
+      "start": 345,
+      "end": 363,
+      "text": "Владимиру Ильичеву",
+      "golden_person_id": "gp-ilichev-vladimir"
+    },
+    {
+      "start": 366,
+      "end": 383,
+      "text": "Абдулмалику Шоеву",
+      "golden_person_id": "gp-shoev-abdulmalik"
+    },
+    {
+      "start": 423,
+      "end": 438,
+      "text": "Ларисе Якушевой",
+      "golden_person_id": "gp-yakusheva-larisa"
+    },
+    {
+      "start": 441,
+      "end": 457,
+      "text": "Светлане Даровой",
+      "golden_person_id": "gp-darova-svetlana"
+    },
+    {
+      "start": 492,
+      "end": 505,
+      "text": "Аните Туковой",
+      "golden_person_id": "gp-tukova-anita"
+    },
+    {
+      "start": 508,
+      "end": 520,
+      "text": "Ольге Примак",
+      "golden_person_id": "gp-primak-olga"
+    },
+    {
+      "start": 583,
+      "end": 599,
+      "text": "Аслану Наптугову",
+      "golden_person_id": "gp-naptugov-aslan"
+    },
+    {
+      "start": 790,
+      "end": 797,
+      "text": "Ильичев",
+      "golden_person_id": "gp-ilichev-vladimir"
+    },
+    {
+      "start": 800,
+      "end": 804,
+      "text": "Шоев",
+      "golden_person_id": "gp-shoev-abdulmalik"
+    },
+    {
+      "start": 1029,
+      "end": 1044,
+      "text": "Олег Бондаренко",
+      "golden_person_id": "gp-bondarenko-oleg"
+    },
+    {
+      "start": 1047,
+      "end": 1060,
+      "text": "Юлия Камбиева",
+      "golden_person_id": "gp-kambieva-yulia"
+    },
+    {
+      "start": 1124,
+      "end": 1134,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-oleg"
+    },
+    {
+      "start": 1234,
+      "end": 1243,
+      "text": "Камбиевой",
+      "golden_person_id": "gp-kambieva-yulia"
+    },
+    {
+      "start": 2548,
+      "end": 2554,
+      "text": "Дарову",
+      "golden_person_id": "gp-darova-svetlana"
+    },
+    {
+      "start": 2556,
+      "end": 2563,
+      "text": "Якушеву",
+      "golden_person_id": "gp-yakusheva-larisa"
+    },
+    {
+      "start": 2566,
+      "end": 2572,
+      "text": "Кужева",
+      "golden_person_id": "gp-kuzhev-oleko"
+    },
+    {
+      "start": 2714,
+      "end": 2720,
+      "text": "Кужева",
+      "golden_person_id": "gp-kuzhev-oleko"
+    },
+    {
+      "start": 2789,
+      "end": 2799,
+      "text": "Меремшаову",
+      "golden_person_id": "gp-meremshaov-adnan"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 148,
+        "text": "Верховный суд Карачаево-Черкесии в апелляции смягчил наказание восьми из девяти фигурантов дела «граждан СССР», сообщил ОВД-Инфо один из осужденных."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kuzhev-oleko"
+      ],
+      "evidence": {
+        "start": 222,
+        "end": 285,
+        "text": "Олеко Кужеву — с 8 лет колонии общего режима до 6 лет 1 месяца;"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-meremshaov-adnan"
+      ],
+      "evidence": {
+        "start": 287,
+        "end": 343,
+        "text": "Аднану Меремшаову — с 6,5 лет колонии до 6 лет 1 месяца;"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-ilichev-vladimir",
+        "gp-shoev-abdulmalik"
+      ],
+      "evidence": {
+        "start": 345,
+        "end": 421,
+        "text": "Владимиру Ильичеву и Абдулмалику Шоеву — с 5 лет колонии до 3,5 лет каждому;"
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-yakusheva-larisa",
+        "gp-darova-svetlana"
+      ],
+      "evidence": {
+        "start": 423,
+        "end": 490,
+        "text": "Ларисе Якушевой и Светлане Даровой с 7 лет условно до 6 лет каждой;"
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-tukova-anita",
+        "gp-primak-olga"
+      ],
+      "evidence": {
+        "start": 492,
+        "end": 555,
+        "text": "Аните Туковой и Ольге Примак — с 5 лет условно до 4 лет каждой."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e7",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-naptugov-aslan"
+      ],
+      "evidence": {
+        "start": 557,
+        "end": 656,
+        "text": "Еще одному фигуранту дела Аслану Наптугову, которому назначили 5 лет колонии, оставили тот же срок."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e8",
+      "event_type": "release",
+      "person_ids": [
+        "gp-naptugov-aslan"
+      ],
+      "evidence": {
+        "start": 657,
+        "end": 752,
+        "text": "Его освободили из СИЗО еще 21 сентября 2025 года — спустя два месяца после оглашения приговора."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e9",
+      "event_type": "release",
+      "person_ids": [
+        "gp-ilichev-vladimir",
+        "gp-shoev-abdulmalik"
+      ],
+      "evidence": {
+        "start": 790,
+        "end": 884,
+        "text": "Ильичев и Шоев освободились из СИЗО 27 февраля, через три недели после апелляционного решения."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e10",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-bondarenko-oleg"
+      ],
+      "evidence": {
+        "start": 1092,
+        "end": 1216,
+        "text": "По словам собеседника ОВД-Инфо, Бондаренко заключил досудебное соглашение и в 2024 году его приговорили к 3,5 годам условно."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e11",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kambieva-yulia"
+      ],
+      "evidence": {
+        "start": 1378,
+        "end": 1435,
+        "text": "Женщина признала вину и ее приговорили к 3 годам условно."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e12",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-darova-svetlana",
+        "gp-yakusheva-larisa",
+        "gp-kuzhev-oleko"
+      ],
+      "evidence": {
+        "start": 2522,
+        "end": 2646,
+        "text": "Лидерами силовики назвали Дарову, Якушеву и Кужева, которым вменили создание экстремистского сообщества (ч. 1 ст. 282.1 УК)."
+      },
+      "shared": true,
+      "historical": true
+    },
+    {
+      "event_id": "e13",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-kuzhev-oleko"
+      ],
+      "evidence": {
+        "start": 2714,
+        "end": 2786,
+        "text": "Кужева также обвиняли в хранении взрывчатых веществ (ч. 1 ст. 222.1 УК)."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e14",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-meremshaov-adnan"
+      ],
+      "evidence": {
+        "start": 2787,
+        "end": 2887,
+        "text": "А Меремшаову вменили это же обвинение и статью о незаконном обороте оружия (п. «а» ч. 3 ст. 222 УК)."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "«Граждане СССР» extremist-community case: whether this is political persecution is itself debatable; weapons/explosives charges (Кужев, Меремшаов) annotated uncertain.",
+    "Олег Бондаренко here and Николай Бондаренко (KPRF candidate article) are different people."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

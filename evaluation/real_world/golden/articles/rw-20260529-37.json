@@ -1,0 +1,165 @@
+{
+  "case_id": "rw-20260529-37",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/29/novye-inoagenty-konfiskaciya-telefona-za-logotip-instagram-i-cenzura-pisem",
+  "canonical_url": "https://ovd.info/express-news/2026/05/29/novye-inoagenty-konfiskaciya-telefona-za-logotip-instagram-i-cenzura-pisem",
+  "published_at": "2026-05-29T17:58:00+03:00",
+  "content_hash": "c56f9da07f75eac2c49466ddaa3d057856bda3e84206ebf832fd1de949fd39e4",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "multi_person",
+    "shared_event",
+    "given_name_with_initial",
+    "same_person_several_articles",
+    "anonymous_subject"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1329,
+      "text": "Министерство юстиции внесло в список «иностранных агентов» политолога Андрея Никулина, активистку Инну Курочкину и писательницу Эльвиру Барякину.\n\nОстанкинский районный суд Москвы 29 мая приговорил Глеба Стовбуна, бывшего фотографа футбольного клуба «Динамо», к трем с половиной годам колонии общего режима. Его признали виновным в финансировании экстремистской деятельности из-за пожертвования Фонду борьбы с коррупцией.\n\nПолитзаключенный саксофонист с инвалидностью Андрей Шабанов сообщил о жесткой цензуре писем — по его словам, он не получает многие письма и не может на них ответить. В феврале 2025 года Шабанова приговорили к шести годам колонии по обвинению в призывах к терроризму из-за пацифистских публикаций в соцсетях.\n\nВ Дагестане оштрафовали двух женщин за демонстрацию логотипа Instagram, головную компанию которого власти считают экстремистским. Диану М. наказали за видеоролик с логотипом соцсети — ей назначили штраф 2000 рублей и изъяли телефон, предпринимательницу из Махачкалы — за вывеску на магазине, ей дали 1000 рублей штрафа и конфисковали вывеску.\n\nКадуйский районный суд Вологодской области арестовал на 10 суток 26-летнего жителя поселка Кадуй по статье о демонстрации запрещенной символики. По версии суда, 19 мая он написал на стене дома фразу «Героям Слава» с использованием синей и желтой краски."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 70,
+      "end": 85,
+      "text": "Андрея Никулина",
+      "golden_person_id": "gp-nikulin-andrey"
+    },
+    {
+      "start": 98,
+      "end": 112,
+      "text": "Инну Курочкину",
+      "golden_person_id": "gp-kurochkina-inna"
+    },
+    {
+      "start": 128,
+      "end": 144,
+      "text": "Эльвиру Барякину",
+      "golden_person_id": "gp-baryakina-elvira"
+    },
+    {
+      "start": 198,
+      "end": 212,
+      "text": "Глеба Стовбуна",
+      "golden_person_id": "gp-stovbun-gleb"
+    },
+    {
+      "start": 468,
+      "end": 482,
+      "text": "Андрей Шабанов",
+      "golden_person_id": "gp-shabanov-andrey"
+    },
+    {
+      "start": 609,
+      "end": 617,
+      "text": "Шабанова",
+      "golden_person_id": "gp-shabanov-andrey"
+    },
+    {
+      "start": 862,
+      "end": 870,
+      "text": "Диану М.",
+      "golden_person_id": "gp-diana-m"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-nikulin-andrey",
+        "gp-kurochkina-inna",
+        "gp-baryakina-elvira"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 145,
+        "text": "Министерство юстиции внесло в список «иностранных агентов» политолога Андрея Никулина, активистку Инну Курочкину и писательницу Эльвиру Барякину."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-stovbun-gleb"
+      ],
+      "evidence": {
+        "start": 147,
+        "end": 307,
+        "text": "Останкинский районный суд Москвы 29 мая приговорил Глеба Стовбуна, бывшего фотографа футбольного клуба «Динамо», к трем с половиной годам колонии общего режима."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-shabanov-andrey"
+      ],
+      "evidence": {
+        "start": 589,
+        "end": 730,
+        "text": "В феврале 2025 года Шабанова приговорили к шести годам колонии по обвинению в призывах к терроризму из-за пацифистских публикаций в соцсетях."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "fine",
+      "person_ids": [],
+      "evidence": {
+        "start": 732,
+        "end": 861,
+        "text": "В Дагестане оштрафовали двух женщин за демонстрацию логотипа Instagram, головную компанию которого власти считают экстремистским."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-diana-m"
+      ],
+      "evidence": {
+        "start": 862,
+        "end": 1074,
+        "text": "Диану М. наказали за видеоролик с логотипом соцсети — ей назначили штраф 2000 рублей и изъяли телефон, предпринимательницу из Махачкалы — за вывеску на магазине, ей дали 1000 рублей штрафа и конфисковали вывеску."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "arrest",
+      "person_ids": [],
+      "evidence": {
+        "start": 1076,
+        "end": 1220,
+        "text": "Кадуйский районный суд Вологодской области арестовал на 10 суток 26-летнего жителя поселка Кадуй по статье о демонстрации запрещенной символики."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Being added to the 'foreign agents' list is annotated as political persecution with review statuses acceptable."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

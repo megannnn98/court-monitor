@@ -1,0 +1,141 @@
+{
+  "case_id": "rw-20260428-24",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/27/nastoyatelya-moskovskogo-centra-dzen-prigovorili-k-6-godam-kolonii",
+  "canonical_url": "https://ovd.info/express-news/2026/04/27/nastoyatelya-moskovskogo-centra-dzen-prigovorili-k-6-godam-kolonii",
+  "published_at": "2026-04-28T11:32:00+03:00",
+  "content_hash": "03a6fc74a26806bcca095ea096978d9c1c643f8777568cfef5aa1dfdbff13059",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "alias",
+    "declined_names",
+    "political_words_not_about_person",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 460,
+      "text": "Преображенский районный суд Москвы после нового рассмотрения дела буддиста и программиста Ильи Васильева (Арви Хэкера) приговорил его к шести годам колонии общего режима.\n\nТакже ему на три с половиной года запретили администрировать сайты.\n\nВасильева вновь признали виновным в распространении «фейков» о российской армии по мотиву ненависти (п. «д» ч. 2 ст. 207.3 УК).\n\nПрокурор запрашивал для него восемь лет колонии.\n\n«Что он должен осознать за такой срок? Б"
+    },
+    {
+      "start": 481,
+      "end": 1191,
+      "text": "ывать к миру? Я уверен, что эту статью когда-нибудь отменят, так как она неконституционна», — говорил в прениях адвокат Васильева.\n\nВ июне 2025 года программиста приговорили по этому же делу к восьми годам колонии. В октябре его отменили. Мосгорсуд посчитал, что суд первой инстанции нарушил право Васильева на защиту: до участия в процессе не допустили защитницу, у которой не было юридического образования. В связи с этим дело отправили на новое рассмотрение.\n\nДело против Васильева возбудили из-за двух постов в фейсбуке на английском языке. В одном говорилось об отказе Владимира Путина от рождественского перемирия в 2022 году, а в другом — об обстреле Днепра в январе 2023-го. В окончательном обвинении о"
+    },
+    {
+      "start": 1255,
+      "end": 1417,
+      "text": "ограммист сталкивался с различным давлением: ему отказывали в медпомощи, не передавали часть писем, а в феврале 2025-го Васильева отправляли в карцер на 15 суток."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 90,
+      "end": 104,
+      "text": "Ильи Васильева",
+      "golden_person_id": "gp-vasiliev-ilya"
+    },
+    {
+      "start": 106,
+      "end": 117,
+      "text": "Арви Хэкера",
+      "golden_person_id": "gp-vasiliev-ilya"
+    },
+    {
+      "start": 241,
+      "end": 250,
+      "text": "Васильева",
+      "golden_person_id": "gp-vasiliev-ilya"
+    },
+    {
+      "start": 601,
+      "end": 610,
+      "text": "Васильева",
+      "golden_person_id": "gp-vasiliev-ilya"
+    },
+    {
+      "start": 779,
+      "end": 788,
+      "text": "Васильева",
+      "golden_person_id": "gp-vasiliev-ilya"
+    },
+    {
+      "start": 956,
+      "end": 965,
+      "text": "Васильева",
+      "golden_person_id": "gp-vasiliev-ilya"
+    },
+    {
+      "start": 1055,
+      "end": 1071,
+      "text": "Владимира Путина",
+      "golden_person_id": "gp-putin-vladimir"
+    },
+    {
+      "start": 1375,
+      "end": 1384,
+      "text": "Васильева",
+      "golden_person_id": "gp-vasiliev-ilya"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-vasiliev-ilya"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 170,
+        "text": "Преображенский районный суд Москвы после нового рассмотрения дела буддиста и программиста Ильи Васильева (Арви Хэкера) приговорил его к шести годам колонии общего режима."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-vasiliev-ilya"
+      ],
+      "evidence": {
+        "start": 613,
+        "end": 695,
+        "text": "В июне 2025 года программиста приговорили по этому же делу к восьми годам колонии."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-vasiliev-ilya"
+      ],
+      "evidence": {
+        "start": 944,
+        "end": 1025,
+        "text": "Дело против Васильева возбудили из-за двух постов в фейсбуке на английском языке."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "«Арви Хэкер» is a second name of the same person (in parentheses).",
+    "The conviction is restated in the next sentence («Васильева вновь признали виновным»); annotated as one event."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

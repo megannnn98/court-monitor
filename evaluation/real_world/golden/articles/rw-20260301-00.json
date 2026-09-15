@@ -1,0 +1,164 @@
+{
+  "case_id": "rw-20260301-00",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek",
+  "canonical_url": "https://ovd.info/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek",
+  "published_at": "2026-03-01T10:00:00+03:00",
+  "content_hash": "d2bac6294bc126f4e7f95323e5712a41b2b31d1a4779108d0c0ad5e02cbd23b3",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "shared_sentence",
+    "typo_in_name",
+    "given_name_only",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 473,
+      "text": "В Новосибирске на несогласованном митинге против блокировки мессенджера Telegram задержали 15 человек. Об этом ОВД-Инфо сообщили сами задержанные.\n\nИх доставили в отдел полиции № 1. Туда приехали защитники от ОВД-Инфо Василий Дубков и Ольга.\n\nСреди задержанных оказался журналист «Сиб.фм» Сергей Ощепков и случайные прохожие, пишет «Сибирский экспресс».\n\nГородские власти запретили митинг, сославшись на обрезку деревьев на месте проведения акции — в гайд-парке у театра «Г"
+    },
+    {
+      "start": 634,
+      "end": 1073,
+      "text": "оляет проводить на этой площадке акции без согласования властей. До этого мэрия запретила акцию и в другом гайд-парке.\n\n11:24 Из отдела полиции отпустили четверых человек, в том числе Алексея Абросимова и журналиста Сергея Ощепова. Об этом сообщили защитники от ОВД-Инфо, которые приехали в отдел к задержанным.\n\nОщепов рассказал им, что показал полицейским удостоверение прессы перед задержанием.\n\nНа всех четверых не стали составлять про"
+    },
+    {
+      "start": 1194,
+      "end": 1439,
+      "text": "цев и следы обуви.\n\nЗащитники от ОВД-Инфо говорят, что их не пускают в отделе к остальным задержанным.\n\n11:38 Защитница Ольга сообщила, что задержанных было 16 и из отдела отпустили еще одну девушку. Всего к этому времени отпустили шесть человек"
+    },
+    {
+      "start": 1604,
+      "end": 2245,
+      "text": "олы на них не составляли, но как минимум двое получили обязательство о явке без конкретной даты.\n\nЗащитника от ОВД-Инфо Василия Дубкова пустили к задержанным, а вторую защитницу по-прежнему не пускают. Ольга рассказала, что полицейские говорят задержанным, будто ее пустили и она находится с другими задержанными:\n\n«Меня не пускают по предлогом того, что дежурная часть — это режимный объект. Моего подзащитного провели туда мимо меня».\n\n13:07 Всех задержанных отпустили из отдела полиции, сообщили защитники от ОВД-Инфо. Протоколы о правонарушении на них не составляли. Как минимум трое человек получили обязательство о явке без конкретной "
+    }
+  ],
+  "mentions": [
+    {
+      "start": 218,
+      "end": 232,
+      "text": "Василий Дубков",
+      "golden_person_id": "gp-dubkov-vasily"
+    },
+    {
+      "start": 235,
+      "end": 240,
+      "text": "Ольга",
+      "golden_person_id": "gp-olga-ovd-defender"
+    },
+    {
+      "start": 289,
+      "end": 303,
+      "text": "Сергей Ощепков",
+      "golden_person_id": "gp-oshchepkov-sergey"
+    },
+    {
+      "start": 818,
+      "end": 836,
+      "text": "Алексея Абросимова",
+      "golden_person_id": "gp-abrosimov-alexey"
+    },
+    {
+      "start": 850,
+      "end": 864,
+      "text": "Сергея Ощепова",
+      "golden_person_id": "gp-oshchepkov-sergey"
+    },
+    {
+      "start": 947,
+      "end": 953,
+      "text": "Ощепов",
+      "golden_person_id": "gp-oshchepkov-sergey"
+    },
+    {
+      "start": 1314,
+      "end": 1319,
+      "text": "Ольга",
+      "golden_person_id": "gp-olga-ovd-defender"
+    },
+    {
+      "start": 1724,
+      "end": 1739,
+      "text": "Василия Дубкова",
+      "golden_person_id": "gp-dubkov-vasily"
+    },
+    {
+      "start": 1806,
+      "end": 1811,
+      "text": "Ольга",
+      "golden_person_id": "gp-olga-ovd-defender"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 102,
+        "text": "В Новосибирске на несогласованном митинге против блокировки мессенджера Telegram задержали 15 человек."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-oshchepkov-sergey"
+      ],
+      "evidence": {
+        "start": 243,
+        "end": 353,
+        "text": "Среди задержанных оказался журналист «Сиб.фм» Сергей Ощепков и случайные прохожие, пишет «Сибирский экспресс»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "release",
+      "person_ids": [
+        "gp-abrosimov-alexey",
+        "gp-oshchepkov-sergey"
+      ],
+      "evidence": {
+        "start": 754,
+        "end": 865,
+        "text": "11:24 Из отдела полиции отпустили четверых человек, в том числе Алексея Абросимова и журналиста Сергея Ощепова."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "release",
+      "person_ids": [],
+      "evidence": {
+        "start": 2042,
+        "end": 2125,
+        "text": "13:07 Всех задержанных отпустили из отдела полиции, сообщили защитники от ОВД-Инфо."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "The source spells the journalist both Ощепков and Ощепов (typo); annotated as one person.",
+    "«Ольга» is a defender known only by given name.",
+    "Are a journalist and a bystander detained at a rally 'politically persecuted'? Annotated political with uncertain/needs_review acceptable."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

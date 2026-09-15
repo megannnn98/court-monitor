@@ -1,0 +1,219 @@
+{
+  "case_id": "rw-20260526-36",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/26/prigovor-matematiku-perevod-iz-pkt-v-shizo-i-novye-mery-dlya-emigrantov",
+  "canonical_url": "https://ovd.info/express-news/2026/05/26/prigovor-matematiku-perevod-iz-pkt-v-shizo-i-novye-mery-dlya-emigrantov",
+  "published_at": "2026-05-26T18:15:00+03:00",
+  "content_hash": "d4f2764a29eae33969416a93243c37682978002a49f2f1319ea90bec9381a9d9",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "multi_person",
+    "rf_listed",
+    "rf_name_variant_adjectival_surname",
+    "declined_names",
+    "organization_name_with_person"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 490,
+      "text": "Зюзинский районный суд Москвы приговорил доцента Высшей школы экономики Андрея Дымова к трем с половиной годам колонии по делу о пожертвованиях Фонду борьбы с коррупцией. Его признали виновным в финансировании экстремизма (ч. 1 ст. 282.3 УК) из-за пожертвований ФБК на 3,5 тысячи рублей. Приговор огласили 25 мая, и сразу после этого Дымова взяли под стражу в зале суда. По данным «Медиазоны», он признал вину.\n\nГосдума приняла законопроект, который позволяет арестовывать имущество российс"
+    },
+    {
+      "start": 556,
+      "end": 1798,
+      "text": "АП, в том числе за распространение «фейков», неуважение к власти и участие в деятельности «нежелательных организаций».\n\nПротив политолога Марии Снеговой возбудили дело о распространении военных «фейков» по мотиву политической ненависти (п. «д» ч. 2 ст. 207.3 УК). МВД объявило Снеговую в розыск на прошлой неделе, а в апреле ее имя внесли в реестр Росфинмониторинга.\n\nЖурналистку Нику Новак 20 мая сразу после 3 месяцев в помещении камерного типа отправили на 15 суток в ШИЗО. Причины наказания неизвестны — часть ее письма цензура вымарала. Новак также рассказала о жалобах на отсутствие горячей воды и условиях в колонии № 11 «Бозой».\n\n22 мая квалификационная коллегия судей досрочно прекратила полномочия судьи Арбитражного суда Челябинской области Вячеслава Бушуева из-за донатов «Фонду Ройзмана», которые признали «политической деятельностью». По словам Бушуева, он отправлял пожертвования на помощь хосписам и людям в трудной ситуации.\n\nНа 72-летнего рязанского общественника Андрея Петруцкого завели уголовное дело о «клевете с использованием интернета» (ч. 2 ст. 128.1 УК) после публикации о строительстве школы в микрорайоне Борки. Поводом стало заявление директора строительной компании. У Петруцкого провели обыск и изъяли технику."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 72,
+      "end": 85,
+      "text": "Андрея Дымова",
+      "golden_person_id": "gp-dymov-andrey"
+    },
+    {
+      "start": 334,
+      "end": 340,
+      "text": "Дымова",
+      "golden_person_id": "gp-dymov-andrey"
+    },
+    {
+      "start": 694,
+      "end": 708,
+      "text": "Марии Снеговой",
+      "golden_person_id": "gp-snegova-maria"
+    },
+    {
+      "start": 833,
+      "end": 841,
+      "text": "Снеговую",
+      "golden_person_id": "gp-snegova-maria"
+    },
+    {
+      "start": 936,
+      "end": 946,
+      "text": "Нику Новак",
+      "golden_person_id": "gp-novak-nika"
+    },
+    {
+      "start": 1098,
+      "end": 1103,
+      "text": "Новак",
+      "golden_person_id": "gp-novak-nika"
+    },
+    {
+      "start": 1308,
+      "end": 1325,
+      "text": "Вячеслава Бушуева",
+      "golden_person_id": "gp-bushuev-vyacheslav"
+    },
+    {
+      "start": 1415,
+      "end": 1422,
+      "text": "Бушуева",
+      "golden_person_id": "gp-bushuev-vyacheslav"
+    },
+    {
+      "start": 1538,
+      "end": 1555,
+      "text": "Андрея Петруцкого",
+      "golden_person_id": "gp-petrutsky-andrey"
+    },
+    {
+      "start": 1756,
+      "end": 1766,
+      "text": "Петруцкого",
+      "golden_person_id": "gp-petrutsky-andrey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-dymov-andrey"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 170,
+        "text": "Зюзинский районный суд Москвы приговорил доцента Высшей школы экономики Андрея Дымова к трем с половиной годам колонии по делу о пожертвованиях Фонду борьбы с коррупцией."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-dymov-andrey"
+      ],
+      "evidence": {
+        "start": 288,
+        "end": 370,
+        "text": "Приговор огласили 25 мая, и сразу после этого Дымова взяли под стражу в зале суда."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-snegova-maria"
+      ],
+      "evidence": {
+        "start": 676,
+        "end": 819,
+        "text": "Против политолога Марии Снеговой возбудили дело о распространении военных «фейков» по мотиву политической ненависти (п. «д» ч. 2 ст. 207.3 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "other",
+      "person_ids": [
+        "gp-snegova-maria"
+      ],
+      "evidence": {
+        "start": 820,
+        "end": 922,
+        "text": "МВД объявило Снеговую в розыск на прошлой неделе, а в апреле ее имя внесли в реестр Росфинмониторинга."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "other",
+      "person_ids": [
+        "gp-novak-nika"
+      ],
+      "evidence": {
+        "start": 924,
+        "end": 1032,
+        "text": "Журналистку Нику Новак 20 мая сразу после 3 месяцев в помещении камерного типа отправили на 15 суток в ШИЗО."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "other",
+      "person_ids": [
+        "gp-bushuev-vyacheslav"
+      ],
+      "evidence": {
+        "start": 1194,
+        "end": 1404,
+        "text": "22 мая квалификационная коллегия судей досрочно прекратила полномочия судьи Арбитражного суда Челябинской области Вячеслава Бушуева из-за донатов «Фонду Ройзмана», которые признали «политической деятельностью»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e7",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-petrutsky-andrey"
+      ],
+      "evidence": {
+        "start": 1499,
+        "end": 1696,
+        "text": "На 72-летнего рязанского общественника Андрея Петруцкого завели уголовное дело о «клевете с использованием интернета» (ч. 2 ст. 128.1 УК) после публикации о строительстве школы в микрорайоне Борки."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e8",
+      "event_type": "search",
+      "person_ids": [
+        "gp-petrutsky-andrey"
+      ],
+      "evidence": {
+        "start": 1754,
+        "end": 1798,
+        "text": "У Петруцкого провели обыск и изъяли технику."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "«Фонду Ройзмана» is an organization name; Ройзман is not annotated as a mention.",
+    "Снеговая has an adjectival surname (Снеговой/Снеговую); the RF entry is nominative."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

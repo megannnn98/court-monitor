@@ -1,0 +1,62 @@
+{
+  "case_id": "rw-20260323-12",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu",
+  "canonical_url": "https://ovd.info/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu",
+  "published_at": "2026-03-23T13:59:00+03:00",
+  "content_hash": "b2aabeb14031806993d7a0e3c7e53f01d96f0e7578c7655b22c3a68c48756ca8",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person",
+    "declined_names",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 461,
+      "text": "В Ростове-на-Дону 21 марта силовики пришли с обыском к Евгению Маковозу. Об этом сообщает телеграм-канал «Слово защите».\n\nАктивист 18 марта подал заявку на проведение в городе митинга против блокировок. Ответа он так и не получил.\n\nВместо этого к нему пришли девять силовиков. Никто из них не представился. Правоохранители забрали у Маковоза технику и избили его. По словам близких, после побоев активист получил сотрясение мозга. О его местонахождении до сих п"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 55,
+      "end": 71,
+      "text": "Евгению Маковозу",
+      "golden_person_id": "gp-makovoz-evgeny"
+    },
+    {
+      "start": 333,
+      "end": 341,
+      "text": "Маковоза",
+      "golden_person_id": "gp-makovoz-evgeny"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [
+        "gp-makovoz-evgeny"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 72,
+        "text": "В Ростове-на-Дону 21 марта силовики пришли с обыском к Евгению Маковозу."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

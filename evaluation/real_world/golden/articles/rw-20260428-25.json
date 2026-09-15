@@ -1,0 +1,165 @@
+{
+  "case_id": "rw-20260428-25",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/28/anarkhista-azata-miftakhova-dostavili-v-koloniyu-za-polyarnym-krugom",
+  "canonical_url": "https://ovd.info/express-news/2026/04/28/anarkhista-azata-miftakhova-dostavili-v-koloniyu-za-polyarnym-krugom",
+  "published_at": "2026-04-28T15:04:00+03:00",
+  "content_hash": "408956cb137728f6d136e8e5ee586a8c0e9d0f056562f9bb8573ebed4a03161f",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "rf_listed",
+    "full_name_with_patronymic",
+    "declined_names",
+    "historical_reference",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1631,
+      "text": "Математика и анархиста Азата Мифтахова доставили в исправительную колонию № 18 в поселке Харп Ямало-Ненецкого автономного округа, сообщает его группа поддержки.\n\nВ этой колонии он находится с 21 апреля. Пока он остается в карантинном отделении.\n\nВ ИК-18 не работают сервисы доставки электронных писем. Туда можно отправить только бумажные письма.\n\nДо этого Мифтахов отбывал наказание в тюрьме Димитровграда.\n\n29 апреля В колонию все же можно отправить письма через сервис ZT, обратил внимание ОВД-Инфо.\n\nВы можете поддержать Мифтахова, отправив ему письмо по адресу:\n\n629420, Ямало-Ненецкий автономный округ, м. о. Приуральский район, пгт Харп, ул. Одесская, 19, ФКУ ИК-18, Мифтахову Азату Фанисовичу, 1993 г. р.\n\nВ марте 2024 года анархиста осудили по второму уголовному делу. Его приговорили к четырем годам заключения по статье об оправдании терроризма (ч. 1 ст. 205.2 УК). Мифтахова обвинили в том, что в разговоре с другими осужденными он одобрил поступок Михаила Жлобицкого, который устроил взрыв в архангельском управлении ФСБ. По словам анархиста, во время этого разговора Жлобицкого вовсе не упоминали — с осужденными он обсуждал репортаж на Первом канале о боевых действиях в Бахмуте.\n\nСогласно второму приговору, Мифтахов должен был отбыть два с половиной года в тюрьме, а оставшийся срок в колонии строгого режима.\n\nАнархиста задержали по второму уголовному делу сразу по окончании срока по первому делу. По нему он был осужден на пять лет и девять месяцев колонии по статье о хулиганстве (ч. 2 ст. 213 УК). По версии следствия, Мифтахов разбил окно районного офиса «Единой России» в Москве и бросил туда дымовую шашку."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 23,
+      "end": 38,
+      "text": "Азата Мифтахова",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 357,
+      "end": 365,
+      "text": "Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 525,
+      "end": 534,
+      "text": "Мифтахова",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 674,
+      "end": 700,
+      "text": "Мифтахову Азату Фанисовичу",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 877,
+      "end": 886,
+      "text": "Мифтахова",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 961,
+      "end": 979,
+      "text": "Михаила Жлобицкого",
+      "golden_person_id": "gp-zhlobitsky-mikhail"
+    },
+    {
+      "start": 1081,
+      "end": 1091,
+      "text": "Жлобицкого",
+      "golden_person_id": "gp-zhlobitsky-mikhail"
+    },
+    {
+      "start": 1224,
+      "end": 1232,
+      "text": "Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 1541,
+      "end": 1549,
+      "text": "Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 160,
+        "text": "Математика и анархиста Азата Мифтахова доставили в исправительную колонию № 18 в поселке Харп Ямало-Ненецкого автономного округа, сообщает его группа поддержки."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 714,
+        "end": 777,
+        "text": "В марте 2024 года анархиста осудили по второму уголовному делу."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 877,
+        "end": 1034,
+        "text": "Мифтахова обвинили в том, что в разговоре с другими осужденными он одобрил поступок Михаила Жлобицкого, который устроил взрыв в архангельском управлении ФСБ."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 1328,
+        "end": 1416,
+        "text": "Анархиста задержали по второму уголовному делу сразу по окончании срока по первому делу."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 1417,
+        "end": 1519,
+        "text": "По нему он был осужден на пять лет и девять месяцев колонии по статье о хулиганстве (ч. 2 ст. 213 УК)."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Жлобицкий is in the charge sentence of Мифтахов but the charge is not his."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

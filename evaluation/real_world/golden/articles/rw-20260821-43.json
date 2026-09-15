@@ -1,0 +1,152 @@
+{
+  "case_id": "rw-20260821-43",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/08/21/kandidata-na-vyborakh-v-gosdumu-ot-kprf-nikolaya-bondarenko-zaderzhali-za",
+  "canonical_url": "https://ovd.info/express-news/2026/08/21/kandidata-na-vyborakh-v-gosdumu-ot-kprf-nikolaya-bondarenko-zaderzhali-za",
+  "published_at": "2026-08-21T15:07:00+03:00",
+  "content_hash": "b650f03570b520f3e6874a397544791010433c8fb54f97d87b05ba2992b868a2",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "same_surname_different_person",
+    "same_person_several_articles",
+    "political_words_not_about_person"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1020,
+      "text": "В Саратове задержали кандидата в депутаты от КПРФ Николая Бондаренко. Сообщение об этом появилось в его телеграм-канале.\n\n«Меня задержали 10 сотрудников полиции, доставили принудительно в суд», — рассказал депутат «Ведомостям».\n\nБондаренко вменили статью о демонстрации «экстремистской символики». Штраф или арест по этой статье означает, что Бондаренко не сможет участвовать в выборах.\n\nВ КПРФ назвали задержание политическим преследованием и сообщили, что поводом стал пост с фотографией Навального в аккаунте, который Бондаренко не принадлежит. Ранее из-за этой статьи к выборам не допустили несколько других потенциальных кандидатов, включая Бориса Надеждина и членов «Яблока» .\n\nЧем известен Николай Бондаренко\n\nБондаренко — один из самых известных региональных политиков КПРФ и популярных политических блогеров партии. Он работал в Саратовской областной думе с 2017 года.\n\nПопулярным Бондаренко стал в 2018 году после того, как месяц ел на 3,5 тысячи рублей — так он пытался проверить, можно ли прожить на продукто"
+    },
+    {
+      "start": 1091,
+      "end": 1418,
+      "text": "овница заявила, что для «минимальных физиологических потребностей» вполне достаточно этих денег.\n\nСегодня у ютуб-канала Бондаренко два миллиона подписчиков, в своих видео он часто критикует чиновников и «Единую Россию». На этих выборах коммунисты выдвинули Бондаренко во главе территориальной группы в Удмуртии и Пермском крае."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 50,
+      "end": 68,
+      "text": "Николая Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 229,
+      "end": 239,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 343,
+      "end": 353,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 490,
+      "end": 500,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 521,
+      "end": 531,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 646,
+      "end": 662,
+      "text": "Бориса Надеждина",
+      "golden_person_id": "gp-nadezhdin-boris"
+    },
+    {
+      "start": 697,
+      "end": 715,
+      "text": "Николай Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 717,
+      "end": 727,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 890,
+      "end": 900,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 1211,
+      "end": 1221,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    },
+    {
+      "start": 1348,
+      "end": 1358,
+      "text": "Бондаренко",
+      "golden_person_id": "gp-bondarenko-nikolay"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-bondarenko-nikolay"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 69,
+        "text": "В Саратове задержали кандидата в депутаты от КПРФ Николая Бондаренко."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-bondarenko-nikolay"
+      ],
+      "evidence": {
+        "start": 229,
+        "end": 297,
+        "text": "Бондаренко вменили статью о демонстрации «экстремистской символики»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "other",
+      "person_ids": [
+        "gp-nadezhdin-boris"
+      ],
+      "evidence": {
+        "start": 548,
+        "end": 682,
+        "text": "Ранее из-за этой статьи к выборам не допустили несколько других потенциальных кандидатов, включая Бориса Надеждина и членов «Яблока» ."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Навальный appears only as the subject of a photo in the post (political words not about him)."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

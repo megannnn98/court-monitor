@@ -1,0 +1,147 @@
+{
+  "case_id": "rw-20260506-28",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/06/syna-sudi-vs-tatarstana-otpravili-v-koloniyu-po-delu-o-feykakh-i-opravdanii",
+  "canonical_url": "https://ovd.info/express-news/2026/05/06/syna-sudi-vs-tatarstana-otpravili-v-koloniyu-po-delu-o-feykakh-i-opravdanii",
+  "published_at": "2026-05-06T15:59:00+03:00",
+  "content_hash": "1ef8042532132024663497910b7ec2ab61b0b2ed8e1044e904e121a91cd69f8d",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "same_surname_different_person",
+    "namesake_in_article",
+    "declined_names",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 597,
+      "text": "Центральный окружной военный суд приговорил Марата Гилманова к шести годам колонии общего режима по обвинению в распространении «фейков» о российской армии (п. «д» ч. 2 ст. 207.3 УК), призывах к экстремизму (ч. 2 ст. 280 УК) и оправдании терроризма (ч. 2 ст. 205.2 УК). Об этом ОВД-Инфо сообщили в суде.\n\nТакже Гилманову на три года запретили администрировать сайты и каналы в интернете.\n\nПриговор вынесли 17 апреля.\n\nТочно неизвестно, из-за каких высказываний судили Гилманова. «Аргументы и факты— Казань» писали, что обвинение в оправдании терроризма вменили из-за комментариев о российских солд"
+    },
+    {
+      "start": 886,
+      "end": 1815,
+      "text": "ие статьи ему вменили из-за комментариев в соцсетях.\n\n«Известия» со ссылкой на источник писали, что с декабря 2022 года Гилманов публиковал «комментарии радикального характера» в проукраинских телеграм-каналах, а также статьи с оправданием атаки украинских дронов на Крым в августе 2023 года. Попали ли они в обвинение, неясно.\n\nО задержании Гилманова стало известно в декабре 2024 года. Тогда же его заключил под стражу Басманный районный суд Москвы.\n\nСМИ Татарстана сообщали, что отец Гилманова — председатель квалификационной коллегии судей республики Радик Гилманов. На эту должность он был избран в 2017 году. Сейчас председателем коллегии указан Роман Давыдов. С 18 декабря 2024 года под его председательством стали проходить заседания коллегии, хотя раньше ее проводил Гилманов, а о его отставке с этой должности не сообщалось.\n\nРадик Гилманов остается судьей Верховного суда Татарстана. Он рассматривает гражданские дела."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 44,
+      "end": 60,
+      "text": "Марата Гилманова",
+      "golden_person_id": "gp-gilmanov-marat"
+    },
+    {
+      "start": 311,
+      "end": 320,
+      "text": "Гилманову",
+      "golden_person_id": "gp-gilmanov-marat"
+    },
+    {
+      "start": 468,
+      "end": 477,
+      "text": "Гилманова",
+      "golden_person_id": "gp-gilmanov-marat"
+    },
+    {
+      "start": 1006,
+      "end": 1014,
+      "text": "Гилманов",
+      "golden_person_id": "gp-gilmanov-marat"
+    },
+    {
+      "start": 1228,
+      "end": 1237,
+      "text": "Гилманова",
+      "golden_person_id": "gp-gilmanov-marat"
+    },
+    {
+      "start": 1373,
+      "end": 1382,
+      "text": "Гилманова",
+      "golden_person_id": "gp-gilmanov-marat"
+    },
+    {
+      "start": 1441,
+      "end": 1455,
+      "text": "Радик Гилманов",
+      "golden_person_id": "gp-gilmanov-radik"
+    },
+    {
+      "start": 1538,
+      "end": 1551,
+      "text": "Роман Давыдов",
+      "golden_person_id": "gp-davydov-roman"
+    },
+    {
+      "start": 1662,
+      "end": 1670,
+      "text": "Гилманов",
+      "golden_person_id": "gp-gilmanov-radik"
+    },
+    {
+      "start": 1722,
+      "end": 1736,
+      "text": "Радик Гилманов",
+      "golden_person_id": "gp-gilmanov-radik"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-gilmanov-marat"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 269,
+        "text": "Центральный окружной военный суд приговорил Марата Гилманова к шести годам колонии общего режима по обвинению в распространении «фейков» о российской армии (п. «д» ч. 2 ст. 207.3 УК), призывах к экстремизму (ч. 2 ст. 280 УК) и оправдании терроризма (ч. 2 ст. 205.2 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-gilmanov-marat"
+      ],
+      "evidence": {
+        "start": 1215,
+        "end": 1273,
+        "text": "О задержании Гилманова стало известно в декабре 2024 года."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-gilmanov-marat"
+      ],
+      "evidence": {
+        "start": 1274,
+        "end": 1337,
+        "text": "Тогда же его заключил под стражу Басманный районный суд Москвы."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "«Гилманов» refers to the son (convicted) in «Гилманов публиковал» and to the father (judge) in «проводил Гилманов»; the father must not inherit the son's political classification or be merged with him."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

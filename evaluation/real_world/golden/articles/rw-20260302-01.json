@@ -1,0 +1,142 @@
+{
+  "case_id": "rw-20260302-01",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/02/verkhovnyy-sud-priznal-antivoennyy-komitet-rossii-terroristicheskoy",
+  "canonical_url": "https://ovd.info/express-news/2026/03/02/verkhovnyy-sud-priznal-antivoennyy-komitet-rossii-terroristicheskoy",
+  "published_at": "2026-03-02T13:41:00+03:00",
+  "content_hash": "2d8e9888444354b36bbade22e5ea0f08c9200d7944cb131ceac82a898f2831b0",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "shared_sentence",
+    "hyphenated_surname",
+    "rf_listed",
+    "organization_event"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 327,
+      "text": "Верховный суд по требованию Генпрокуратуры запретил деятельность «Антивоенного комитета России» на территории РФ, сообщает SOTAvision.\n\nЗаседание проходило в закрытом режиме. Решение вынес судья Олег Нефедов, который ранее признал экстремистскими организациями несуществующие «Международное общественное движение ЛГБТ» и «Между"
+    },
+    {
+      "start": 509,
+      "end": 1190,
+      "text": "дерации».\n\n«Антивоенный комитет» создали в феврале 2022 года, после начала полномасштабного вторжения России в Украину. В него входят политики Владимир Кара-Мурза, Михаил Касьянов, Дмитрий Гудков и Гарри Каспаров, художница Мария Алехина, политологииня Екатерина Шульман, экономисты Сергей Гуриев и Сергей Алексашенко, бизнесмены Борис Зимин, Евгений Чичваркин, Михаил Ходорковский и другие противники российских властей и войны в Украине.\n\nВ октябре 2025 года ФСБ сообщила о возбуждении уголовного дела против членов «Антивоенного комитета» по статьям о насильственном захвате власти (ст. 278 УК) и организации террористического сообщества и участии в нем (ч. 1 и 2 ст. 205.4 УК)."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 195,
+      "end": 207,
+      "text": "Олег Нефедов",
+      "golden_person_id": "gp-nefedov-oleg"
+    },
+    {
+      "start": 652,
+      "end": 671,
+      "text": "Владимир Кара-Мурза",
+      "golden_person_id": "gp-kara-murza-vladimir"
+    },
+    {
+      "start": 673,
+      "end": 688,
+      "text": "Михаил Касьянов",
+      "golden_person_id": "gp-kasyanov-mikhail"
+    },
+    {
+      "start": 690,
+      "end": 704,
+      "text": "Дмитрий Гудков",
+      "golden_person_id": "gp-gudkov-dmitry"
+    },
+    {
+      "start": 707,
+      "end": 721,
+      "text": "Гарри Каспаров",
+      "golden_person_id": "gp-kasparov-garry"
+    },
+    {
+      "start": 733,
+      "end": 746,
+      "text": "Мария Алехина",
+      "golden_person_id": "gp-alekhina-maria"
+    },
+    {
+      "start": 762,
+      "end": 779,
+      "text": "Екатерина Шульман",
+      "golden_person_id": "gp-shulman-ekaterina"
+    },
+    {
+      "start": 792,
+      "end": 805,
+      "text": "Сергей Гуриев",
+      "golden_person_id": "gp-guriev-sergey"
+    },
+    {
+      "start": 808,
+      "end": 826,
+      "text": "Сергей Алексашенко",
+      "golden_person_id": "gp-aleksashenko-sergey"
+    },
+    {
+      "start": 839,
+      "end": 850,
+      "text": "Борис Зимин",
+      "golden_person_id": "gp-zimin-boris"
+    },
+    {
+      "start": 852,
+      "end": 869,
+      "text": "Евгений Чичваркин",
+      "golden_person_id": "gp-chichvarkin-evgeny"
+    },
+    {
+      "start": 871,
+      "end": 890,
+      "text": "Михаил Ходорковский",
+      "golden_person_id": "gp-khodorkovsky-mikhail"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 134,
+        "text": "Верховный суд по требованию Генпрокуратуры запретил деятельность «Антивоенного комитета России» на территории РФ, сообщает SOTAvision."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "case_opened",
+      "person_ids": [],
+      "evidence": {
+        "start": 950,
+        "end": 1190,
+        "text": "В октябре 2025 года ФСБ сообщила о возбуждении уголовного дела против членов «Антивоенного комитета» по статьям о насильственном захвате власти (ст. 278 УК) и организации террористического сообщества и участии в нем (ч. 1 и 2 ст. 205.4 УК)."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Members are persecuted through the organization ban and a criminal case 'against members'; the article names no individual charge. Political with review statuses acceptable.",
+    "Judge Нефедов is in a sentence about extremist-organization decisions but is not persecuted."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

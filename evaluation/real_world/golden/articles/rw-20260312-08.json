@@ -1,0 +1,141 @@
+{
+  "case_id": "rw-20260312-08",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/12/v-novosibirskoy-oblasti-zaderzhali-protestuyushchikh-protiv-usypleniya",
+  "canonical_url": "https://ovd.info/express-news/2026/03/12/v-novosibirskoy-oblasti-zaderzhali-protestuyushchikh-protiv-usypleniya",
+  "published_at": "2026-03-12T21:12:00+03:00",
+  "content_hash": "e695f0966cdfa521f02ac60ba7572543813a283da5173f276666f60e3087cef2",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "non_political_protest",
+    "anonymous_detentions",
+    "historical_reference",
+    "political_and_non_political_persons"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 261,
+      "text": "В селах Новосибирской области задержали нескольких местных жителей, недовольных тем, что у частных хозяйств с февраля забирают коров и быков. Животных усыпляют и сжигают.\n\nКак чиновники объяснили массовое усыпление скота\n\nВласти объясняют свои действия вспышкам"
+    },
+    {
+      "start": 1712,
+      "end": 2009,
+      "text": "гу технике, которая собиралась рыть могильник. Некоторые протестующие пришли с иконами. На место приезжали полицейские. Одного из местных жителей задержали, но вскоре отпустили. Поддержать протестующих приехали жители соседней деревни Березовка.\n\nВ селах Новоключи и Лукошино местные жители тоже н"
+    },
+    {
+      "start": 2117,
+      "end": 2484,
+      "text": "езду техники для вывоза коров. Полицейские говорили собравшимся, что они участвуют в «несанкционированном мероприятии». Фермеры не смогли помешать убийству животных, а двух мужчин и женщину задержали. По данным местной правозащитницы Анны Тажеевой, на мужчин собираются составить протоколы о неповиновении полиции (ст. 19.3 КоАП).\n\nДнем 12 марта «Новосибирск Life» со"
+    },
+    {
+      "start": 2827,
+      "end": 3101,
+      "text": "Тогда фермеры на тракторах отправились в Москву, пытаясь привлечь внимание к коррупции и рейдерским захватам в регионе. Их задержали в Ростовской области.\n\nРеакция властей\n\nВ Минсельхозе Новосибирской области пригрозили протестующим административным и уголовным преследовани"
+    },
+    {
+      "start": 3604,
+      "end": 4038,
+      "text": "авы сельсовета: «Звонила моей сестре и предупредила ее, что она работает в школе, бюджетник, а [глава Ордынского района Олег] Орел — непосредственный начальник, и не боится ли она за свою работу».\n\n12 марта в Новосибирске задержали журналиста «Народного телевидения Сибири» Ивана Фролова, который освещал протесты. По словам журналиста, следователи начали проверку по статье о распространении заведомо ложной информации об обстоятельс"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 2351,
+      "end": 2364,
+      "text": "Анны Тажеевой",
+      "golden_person_id": "gp-tazheeva-anna"
+    },
+    {
+      "start": 3724,
+      "end": 3734,
+      "text": "Олег] Орел",
+      "golden_person_id": "gp-orel-oleg"
+    },
+    {
+      "start": 3878,
+      "end": 3891,
+      "text": "Ивана Фролова",
+      "golden_person_id": "gp-frolov-ivan"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 141,
+        "text": "В селах Новосибирской области задержали нескольких местных жителей, недовольных тем, что у частных хозяйств с февраля забирают коров и быков."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 1832,
+        "end": 1889,
+        "text": "Одного из местных жителей задержали, но вскоре отпустили."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 2237,
+        "end": 2317,
+        "text": "Фермеры не смогли помешать убийству животных, а двух мужчин и женщину задержали."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 2947,
+        "end": 2981,
+        "text": "Их задержали в Ростовской области."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-frolov-ivan"
+      ],
+      "evidence": {
+        "start": 3802,
+        "end": 3918,
+        "text": "12 марта в Новосибирске задержали журналиста «Народного телевидения Сибири» Ивана Фролова, который освещал протесты."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "The name «[глава Ордынского района Олег] Орел» is split by an editorial bracket.",
+    "Farmers' protest against livestock culling: detentions of unnamed residents are not annotated to persons."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

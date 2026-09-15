@@ -1,0 +1,60 @@
+{
+  "case_id": "rw-20260317-09",
+  "source": "sota-vision",
+  "external_id": "/film-skuf-s-zubarevym-vasilenko-valej-karnaval-i-yakubovichem-ne-vyjdet-v-rossijskij-prokat/",
+  "canonical_url": "https://sota.vision/film-skuf-s-zubarevym-vasilenko-valej-karnaval-i-yakubovichem-ne-vyjdet-v-rossijskij-prokat/",
+  "published_at": "2026-03-17T00:00:00+03:00",
+  "content_hash": "e814c302ef72677298c5c143d361d8d3583f25efc44e48ef938959f105244bb6",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "non_political",
+    "shared_sentence",
+    "stage_name"
+  ],
+  "excerpts": [
+    {
+      "start": 18,
+      "end": 315,
+      "text": "нии «Атмосфера кино» сообщила ТАСС, что комедия «Скуф» не будет выпущена в российский прокат.\n\nВ фильме снялись блогеры Александр Зубарев и Николай Василенко, певица Валя Карнавал и телеведущий Леонид Якубович. Причины отмены релиза не уточняются. Дата предполагаемого выхода ранее не объявлялась."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 138,
+      "end": 155,
+      "text": "Александр Зубарев",
+      "golden_person_id": "gp-zubarev-alexander"
+    },
+    {
+      "start": 158,
+      "end": 175,
+      "text": "Николай Василенко",
+      "golden_person_id": "gp-vasilenko-nikolay"
+    },
+    {
+      "start": 184,
+      "end": 197,
+      "text": "Валя Карнавал",
+      "golden_person_id": "gp-valya-karnaval"
+    },
+    {
+      "start": 212,
+      "end": 227,
+      "text": "Леонид Якубович",
+      "golden_person_id": "gp-yakubovich-leonid"
+    }
+  ],
+  "events": [],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

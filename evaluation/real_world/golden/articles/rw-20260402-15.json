@@ -1,0 +1,168 @@
+{
+  "case_id": "rw-20260402-15",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/02/na-yaroslavskogo-nacbola-zaveli-delo-po-dadinskoy-state",
+  "canonical_url": "https://ovd.info/express-news/2026/04/02/na-yaroslavskogo-nacbola-zaveli-delo-po-dadinskoy-state",
+  "published_at": "2026-04-02T16:31:00+03:00",
+  "content_hash": "f09e3704d714631bb6d58d77ca3c8663b1f39a3c14f915765ae83e19ddca6de9",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "declined_names",
+    "shared_sentence",
+    "shared_event",
+    "historical_reference",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1488,
+      "text": "Против Михаила Битова возбудили уголовное дело о повторном нарушении порядка проведения акции (ст. 212.1 УК). Об этом сообщает телеграм-канал о преследовании нацболов «Национальная правозащита».\n\n1 апреля около семи утра к Битову домой пришли силовики. Они провели обыск и изъяли партийную атрибутику, одежду, канцелярские принадлежности и электронные устройства.\n\nВместе с Битовым задержали еще одну активистку Алину Антонову, которую несколько часов держали в отделе полиции.\n\nСегодня суд изберет нацболу меру пресечения.\n\nВ этом году Битова дважды привлекали к административной ответственности по митинговой статье (ст. 20.2 КоАП). В январе его оштрафовали на 20 тысяч рублей из-за пикета против блокировок, а в феврале — арестовали на пять суток из-за расклейки листовок в поддержку кубанских нацболов, задержанных на «Лимоновских чтениях». Судьи расценили первую акцию не как одиночный, а как групповой пикет, а расклейку листовок назвали шествием. Оба судебных решения уже вступили в силу.\n\n3 апреля Накануне Ленинский районный суд Ярославля избрал Битову в качестве меры пресечения запрет определенных действий. Об этом сообщает канал «Национальная правозащита».\n\nЗаседание прошло в закрытом режиме.\n\nСтатью 212.1 ввели в Уголовный кодекс в 2014 году. Она получила название «дадинской» по имени первого осужденного по ней — московского активиста Ильдара Дадина. В 2017 году в связи с его делом Конституционный суд рекомендовал возбуждать дела по этой статье, только если действия ч"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 7,
+      "end": 21,
+      "text": "Михаила Битова",
+      "golden_person_id": "gp-bitov-mikhail"
+    },
+    {
+      "start": 223,
+      "end": 229,
+      "text": "Битову",
+      "golden_person_id": "gp-bitov-mikhail"
+    },
+    {
+      "start": 374,
+      "end": 381,
+      "text": "Битовым",
+      "golden_person_id": "gp-bitov-mikhail"
+    },
+    {
+      "start": 412,
+      "end": 426,
+      "text": "Алину Антонову",
+      "golden_person_id": "gp-antonova-alina"
+    },
+    {
+      "start": 537,
+      "end": 543,
+      "text": "Битова",
+      "golden_person_id": "gp-bitov-mikhail"
+    },
+    {
+      "start": 1055,
+      "end": 1061,
+      "text": "Битову",
+      "golden_person_id": "gp-bitov-mikhail"
+    },
+    {
+      "start": 1353,
+      "end": 1367,
+      "text": "Ильдара Дадина",
+      "golden_person_id": "gp-dadin-ildar"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-bitov-mikhail"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 109,
+        "text": "Против Михаила Битова возбудили уголовное дело о повторном нарушении порядка проведения акции (ст. 212.1 УК)."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "search",
+      "person_ids": [
+        "gp-bitov-mikhail"
+      ],
+      "evidence": {
+        "start": 253,
+        "end": 363,
+        "text": "Они провели обыск и изъяли партийную атрибутику, одежду, канцелярские принадлежности и электронные устройства."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-bitov-mikhail",
+        "gp-antonova-alina"
+      ],
+      "evidence": {
+        "start": 365,
+        "end": 477,
+        "text": "Вместе с Битовым задержали еще одну активистку Алину Антонову, которую несколько часов держали в отделе полиции."
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-bitov-mikhail"
+      ],
+      "evidence": {
+        "start": 635,
+        "end": 844,
+        "text": "В январе его оштрафовали на 20 тысяч рублей из-за пикета против блокировок, а в феврале — арестовали на пять суток из-за расклейки листовок в поддержку кубанских нацболов, задержанных на «Лимоновских чтениях»."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "other",
+      "person_ids": [
+        "gp-bitov-mikhail"
+      ],
+      "evidence": {
+        "start": 1006,
+        "end": 1118,
+        "text": "Накануне Ленинский районный суд Ярославля избрал Битову в качестве меры пресечения запрет определенных действий."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-dadin-ildar"
+      ],
+      "evidence": {
+        "start": 1259,
+        "end": 1368,
+        "text": "Она получила название «дадинской» по имени первого осужденного по ней — московского активиста Ильдара Дадина."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "The January fine and the February 5-day arrest of Битов are in one sentence; annotated as one historical fine event."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

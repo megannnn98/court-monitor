@@ -1,0 +1,151 @@
+{
+  "case_id": "rw-20260505-27",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/05/61-letnemu-zhitelyu-vyborga-vynesli-prigovor-po-delu-o-kommentarii-slava",
+  "canonical_url": "https://ovd.info/express-news/2026/05/05/61-letnemu-zhitelyu-vyborga-vynesli-prigovor-po-delu-o-kommentarii-slava",
+  "published_at": "2026-05-05T15:24:00+03:00",
+  "content_hash": "524f8a85f681ceda4c0c223e7aa29b51ac914c9835aba293b2c55452346a7508",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "declined_names",
+    "several_events",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1501,
+      "text": "Выборгский городской суд приговорил 61-летнего Олега Мампории к году колонии-поселения, но освободил из зала суда в связи с отбытием наказания.\n\nПоводом для уголовного преследования стал комментарий в чате телгерам-канала «Время Шариковых». По версии силовиков, Мампория написал «Слава Украине». Этот лозунг силовики приписали легиону «Свобода России», который признан властями террористической организацией. Мужчину преследовали по статье о повторной демонстрации запрещенной атрибутики или символики (ч. 1 ст. 282.4 УК).\n\nМампорию задержали и поместили под домашний арест в апреле 2025 года. В январе Мампорию перевели из-под домашнего ареста под стражу, он находится в выборгском СИЗО-3. Суд принял такое решение на основе рапорта из уголовно-исполнительной инспекции. В нем утверждалось, что мужчина оставлял комментарии в интернете, хотя условия домашнего ареста это запрещали.\n\nВ 2024 году Мампорию арестовали на 10 суток по административной статье о демонстрации запрещенной символики (ч. 1 ст. 20.3 КоАП). Тогда протокол составили из-за поста во «ВКонтакте» с тем же лозунгом. В нем он рассказывал о своих украинских корнях, делился впечатлениями от поездок в Киев и Одессу.\n\nКроме того, мужчину штрафовали по статье о дискредитации армии (ч. 1 ст. 20.3.3 КоАП) из-за высказываний во время ссоры с зятем соседки, воевавшим в Украине. Мампория тогда сорвал с его машины букву Z и обвинил российских военных в убийстве гражданских. Участник войны в Украине после этого написал на Мампорию донос."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 47,
+      "end": 61,
+      "text": "Олега Мампории",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 262,
+      "end": 270,
+      "text": "Мампория",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 524,
+      "end": 532,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 603,
+      "end": 611,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 896,
+      "end": 904,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 1342,
+      "end": 1350,
+      "text": "Мампория",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 1486,
+      "end": 1494,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 143,
+        "text": "Выборгский городской суд приговорил 61-летнего Олега Мампории к году колонии-поселения, но освободил из зала суда в связи с отбытием наказания."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 524,
+        "end": 593,
+        "text": "Мампорию задержали и поместили под домашний арест в апреле 2025 года."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 594,
+        "end": 690,
+        "text": "В январе Мампорию перевели из-под домашнего ареста под стражу, он находится в выборгском СИЗО-3."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 884,
+        "end": 1013,
+        "text": "В 2024 году Мампорию арестовали на 10 суток по административной статье о демонстрации запрещенной символики (ч. 1 ст. 20.3 КоАП)."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 1184,
+        "end": 1341,
+        "text": "Кроме того, мужчину штрафовали по статье о дискредитации армии (ч. 1 ст. 20.3.3 КоАП) из-за высказываний во время ссоры с зятем соседки, воевавшим в Украине."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "The sentence event also releases him (served time); annotated as one sentence event."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

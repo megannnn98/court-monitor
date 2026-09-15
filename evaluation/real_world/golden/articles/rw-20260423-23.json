@@ -1,0 +1,151 @@
+{
+  "case_id": "rw-20260423-23",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/23/advokat-navalnogo-igor-sergunin-vyshel-na-svobodu",
+  "canonical_url": "https://ovd.info/express-news/2026/04/23/advokat-navalnogo-igor-sergunin-vyshel-na-svobodu",
+  "published_at": "2026-04-23T17:20:00+03:00",
+  "content_hash": "419951710c3dcaabdb52039222d98a3c17145de16ee6f7e8e914b333f0c90f29",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "multi_person",
+    "shared_sentence",
+    "rf_listed",
+    "historical_reference",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 943,
+      "text": "Сегодня адвокат покинул СИЗО-1 во Владимире, сообщает «Первый отдел».\n\nВ январе 2025 года Сергунина приговорили к трем с половиной годам колонии общего режима. Его признали виновным в участии в экстремистском сообществе (ч. 2 ст. 282.1 УК) из-за того, что он оказывал адвокатские услуги политику Алексею Навальному, когда тот находился в ИК-2 в Покрове. В отличие от других фигурантов дела Сергунин признал вину.\n\nАдвокат находился в заключении с октября 2023 года.\n\nВ колониях остаются двое других фигурантов — адвокаты Вадим Кобзев и Алексей Липцер, которые в разное время тоже представляли интересы Навального. Кобзева приговорили к пяти с половиной годам колонии, а Липцера — к пяти годам. Их признали виновными по той же статье.\n\nСиловики утверждали, что адвокаты использовали свой статус для доступа в колонию, где находился политик, чтобы передавать информацию «между руководителями, участниками экстремистского сообщества и Навальным»."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 90,
+      "end": 99,
+      "text": "Сергунина",
+      "golden_person_id": "gp-sergunin-igor"
+    },
+    {
+      "start": 296,
+      "end": 314,
+      "text": "Алексею Навальному",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 390,
+      "end": 398,
+      "text": "Сергунин",
+      "golden_person_id": "gp-sergunin-igor"
+    },
+    {
+      "start": 521,
+      "end": 533,
+      "text": "Вадим Кобзев",
+      "golden_person_id": "gp-kobzev-vadim"
+    },
+    {
+      "start": 536,
+      "end": 550,
+      "text": "Алексей Липцер",
+      "golden_person_id": "gp-liptser-alexey"
+    },
+    {
+      "start": 602,
+      "end": 612,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 614,
+      "end": 621,
+      "text": "Кобзева",
+      "golden_person_id": "gp-kobzev-vadim"
+    },
+    {
+      "start": 670,
+      "end": 677,
+      "text": "Липцера",
+      "golden_person_id": "gp-liptser-alexey"
+    },
+    {
+      "start": 932,
+      "end": 941,
+      "text": "Навальным",
+      "golden_person_id": "gp-navalny-alexey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "release",
+      "person_ids": [
+        "gp-sergunin-igor"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 69,
+        "text": "Сегодня адвокат покинул СИЗО-1 во Владимире, сообщает «Первый отдел»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-sergunin-igor"
+      ],
+      "evidence": {
+        "start": 71,
+        "end": 159,
+        "text": "В январе 2025 года Сергунина приговорили к трем с половиной годам колонии общего режима."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-sergunin-igor"
+      ],
+      "evidence": {
+        "start": 160,
+        "end": 353,
+        "text": "Его признали виновным в участии в экстремистском сообществе (ч. 2 ст. 282.1 УК) из-за того, что он оказывал адвокатские услуги политику Алексею Навальному, когда тот находился в ИК-2 в Покрове."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kobzev-vadim",
+        "gp-liptser-alexey"
+      ],
+      "evidence": {
+        "start": 614,
+        "end": 693,
+        "text": "Кобзева приговорили к пяти с половиной годам колонии, а Липцера — к пяти годам."
+      },
+      "shared": true,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Навальный is in the conviction sentence of Сергунин but is not its subject."
+  ],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

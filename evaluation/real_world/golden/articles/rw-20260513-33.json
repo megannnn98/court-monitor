@@ -1,0 +1,67 @@
+{
+  "case_id": "rw-20260513-33",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/13/press-sekretarya-ovd-info-oshtrafovali-po-delu-ob-uchastii-v-nezhelatelnoy",
+  "canonical_url": "https://ovd.info/express-news/2026/05/13/press-sekretarya-ovd-info-oshtrafovali-po-delu-ob-uchastii-v-nezhelatelnoy",
+  "published_at": "2026-05-13T13:39:00+03:00",
+  "content_hash": "d2df1c34f737ff2a0314fecc50709c225d8d153f1ff3610a506d2f9b1a52ae99",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person_repeated",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 574,
+      "text": "Симоновский районный суд Москвы оштрафовал пресс-секретаря ОВД-Инфо Дмитрия Анисимова на 10 тысяч рублей по статье об участии в деятельности «нежелательной организации» (ст. 20.33 КоАП). Об этом он сам сообщил ОВД-Инфо.\n\nПоводом для дела стало участие Анисимова в обсуждении политических репрессий в России на ютуб-канале «Транзит». Этот канал связан с проектом Free Russia Foundation, который в 2019 году объявили «нежелательной организацией».\n\nАнисимов говорит о незаконности преследования и собирается обжаловать решение суда:\n\n«Я считаю свое административное преследован"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 68,
+      "end": 85,
+      "text": "Дмитрия Анисимова",
+      "golden_person_id": "gp-anisimov-dmitry"
+    },
+    {
+      "start": 252,
+      "end": 261,
+      "text": "Анисимова",
+      "golden_person_id": "gp-anisimov-dmitry"
+    },
+    {
+      "start": 446,
+      "end": 454,
+      "text": "Анисимов",
+      "golden_person_id": "gp-anisimov-dmitry"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-anisimov-dmitry"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 186,
+        "text": "Симоновский районный суд Москвы оштрафовал пресс-секретаря ОВД-Инфо Дмитрия Анисимова на 10 тысяч рублей по статье об участии в деятельности «нежелательной организации» (ст. 20.33 КоАП)."
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

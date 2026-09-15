@@ -1,0 +1,91 @@
+{
+  "case_id": "rw-20260303-02",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/03/sud-priznal-lgbtk-gruppu-vykhod-ekstremistskoy-organizaciey",
+  "canonical_url": "https://ovd.info/express-news/2026/03/03/sud-priznal-lgbtk-gruppu-vykhod-ekstremistskoy-organizaciey",
+  "published_at": "2026-03-03T17:18:00+03:00",
+  "content_hash": "27f410008cee823f3cd696d4d30193b4de3302ad0b84f8cf3c66536260b6c6cf",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "single_person",
+    "organization_event",
+    "historical_reference",
+    "political_words_not_about_person"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 224,
+      "text": "Санкт-Петербургский городской суд удовлетворил иск Минюста о запрете деятельности ЛГБТК+ группы «Выход». Об этом сообщает пресс-служба судов города.\n\nИск рассматривали в закрытом режиме.\n\n«Мы готовились к такому развитию соб"
+    },
+    {
+      "start": 600,
+      "end": 989,
+      "text": " Также он занимается просветительской деятельностью. Команда «Выхода» покинула Россию в полном составе еще в 2022 году. Ее бывший директор Александр Воронов был заочно арестован по уголовному делу об уклонении от исполнения обязанностей «иноагента» (ч. 2 ст. 330.1 УК).\n\nТакже Минюст требует признать экстремистской «ЛГБТ-сеть» — крупнейшее межрегиональное движение в России, защищающее пр"
+    },
+    {
+      "start": 1119,
+      "end": 1494,
+      "text": "ся исключения из иска сведений, по версии Минюста, составляющих гостайну, чтобы рассмотрение прошло в открытом режиме.\n\n30 ноября 2023 года Верховный суд России признал несуществующее «Международное общественное движение ЛГБТ» экстремистской организацией. На основании этого решения ЛГБТК+ и россиян, связанных с квир-культурой, стали преследовать по уголовной статье об экст"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 739,
+      "end": 756,
+      "text": "Александр Воронов",
+      "golden_person_id": "gp-voronov-alexander"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 104,
+        "text": "Санкт-Петербургский городской суд удовлетворил иск Минюста о запрете деятельности ЛГБТК+ группы «Выход»."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-voronov-alexander"
+      ],
+      "evidence": {
+        "start": 720,
+        "end": 869,
+        "text": "Ее бывший директор Александр Воронов был заочно арестован по уголовному делу об уклонении от исполнения обязанностей «иноагента» (ч. 2 ст. 330.1 УК)."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "other",
+      "person_ids": [],
+      "evidence": {
+        "start": 1239,
+        "end": 1374,
+        "text": "30 ноября 2023 года Верховный суд России признал несуществующее «Международное общественное движение ЛГБТ» экстремистской организацией."
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}
