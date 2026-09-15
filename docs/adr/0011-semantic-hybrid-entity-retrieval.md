@@ -55,7 +55,8 @@ structured data linked to the entity:
 
 - Person: canonical name, aliases, latest persecution classification (status,
   reasons, evidence types as labels), linked events with type, date, own
-  extracted span and linked court/location/legal reference;
+  extracted span and linked court/location/legal reference, up to 3 sentences
+  where the person is mentioned (representation v2);
 - Event: type, date, span, participants with roles, court/location/legal
   reference, source name.
 
@@ -246,3 +247,26 @@ links persons based on similarity.
 - New config: `SEMANTIC_DENSE_MIN_SCORE` (required for models other than
   `intfloat/multilingual-e5-base`). Indexes built before `embedding_model_id`
   was stored need a full `rebuild-semantic-index`.
+
+## Amendment: mention sentences in the Person document (representation v2)
+
+Real-world validation v1 (156 articles, 32 DRAFT queries, E5 base, no model
+change) showed 11 of 32 person queries with the relevant person absent from the
+top-20 of every backend. Those persons had no linked event, so their document was
+a name and a status; the source describes them elsewhere («антифашист», «нацбол из
+Ярославля»). The Person document now adds the sentences containing the person's
+own mentions (article order, at most 3, 400 chars each, sentence end = `.!?`
+followed by whitespace). Measured on the same queries, representation v1 → v2:
+
+| backend | recall@5 | MRR |
+|---|---|---|
+| lexical | 0.266 → 0.469 | 0.206 → 0.352 |
+| dense | 0.397 → 0.672 | 0.270 → 0.598 |
+| hybrid | 0.328 → 0.659 | 0.313 → 0.542 |
+
+Relevant absent from top-20: 11 → 2. The gain holds on both dev (23 queries) and
+validation (9). A mention sentence may name another person; it is retrieval
+context only and never becomes evidence, a claim or a link. Hybrid is still
+slightly below dense at recall@5 (lexical worsens the dense rank in 5 queries);
+RRF was not retuned — 32 DRAFT queries are too few to calibrate it without
+fitting the benchmark.

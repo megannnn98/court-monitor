@@ -80,7 +80,7 @@ Event:
 Источник: SOTA.
 ```
 
-Только данные, связанные с сущностью; фрагмент — span события (≤ 400 символов), не статья. Смена формата → увеличить `PERSON_REPRESENTATION_VERSION`/`EVENT_REPRESENTATION_VERSION`.
+Только данные, связанные с сущностью; фрагмент — span события (≤ 400 символов), не статья. У персоны также до 3 предложений её собственных упоминаний (representation v2, ADR 0011 amendment). Смена формата → увеличить `PERSON_REPRESENTATION_VERSION`/`EVENT_REPRESENTATION_VERSION`.
 
 ## Модули (`src/semantic_retrieval/`)
 

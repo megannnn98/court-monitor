@@ -3,13 +3,16 @@
 The text is built only from structured data stored in PostgreSQL and linked to
 the entity: names/aliases, the latest persecution classification, linked
 events with their own extracted span and linked court/location/legal
-references. Never a whole article, never LLM output. Every list is sorted, so
+references, and the sentences where the person is mentioned (how the source
+describes them: «антифашист», «нацбол из Ярославля»). Never a whole article,
+never LLM output. Every list is sorted, so
 the same entity state always yields the same text and content hash.
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -37,12 +40,17 @@ from persons.models import PersonStatus
 from semantic_retrieval.models import RetrievalEntityType, SemanticDocument
 
 # Bump when the text format changes: every document is then re-embedded.
-PERSON_REPRESENTATION_VERSION = 1
+# 2: sentences mentioning the person.
+PERSON_REPRESENTATION_VERSION = 2
 EVENT_REPRESENTATION_VERSION = 1
 
 # Extracted spans are sentences; cap them so a bad extraction offset can
 # never pull a large part of an article into the representation.
 MAX_SPAN_CHARS = 400
+# Mention sentences per person, in article order; the window bounds the sentence search.
+MAX_MENTION_SENTENCES = 3
+_MENTION_WINDOW_CHARS = MAX_SPAN_CHARS
+_SENTENCE_END = re.compile(r"[.!?](?=\s)|\n")
 
 EVENT_TYPE_LABELS = {
     "case_opened": "возбуждение дела",
@@ -118,6 +126,49 @@ def _clean(text: str) -> str:
     if len(collapsed) > MAX_SPAN_CHARS:
         collapsed = collapsed[:MAX_SPAN_CHARS].rstrip() + "…"
     return collapsed.rstrip(".")
+
+
+def _mention_sentence(window: str, start: int, end: int) -> str:
+    """The sentence of `window` that contains the mention span [start, end)."""
+    # A sentence ends at a mark followed by whitespace: «статье 207.3 УК» is one sentence.
+    boundaries = [match.end() for match in _SENTENCE_END.finditer(window)]
+    left = max((index for index in boundaries if index <= start), default=0)
+    right = min((index for index in boundaries if index > end), default=len(window))
+    return _clean(window[left:right])
+
+
+def _load_mention_sentences(session: Session, person_ids: Sequence[int]) -> dict[int, list[str]]:
+    if not person_ids:
+        return {}
+    window_start = func.greatest(EntityMentionRecord.start_offset - _MENTION_WINDOW_CHARS, 0)
+    rows = session.execute(
+        select(
+            EntityMentionRecord.person_id,
+            EntityMentionRecord.start_offset,
+            EntityMentionRecord.end_offset,
+            window_start,
+            func.substr(
+                ParsedArticleRecord.text,
+                window_start + 1,
+                EntityMentionRecord.end_offset - window_start + _MENTION_WINDOW_CHARS,
+            ),
+        )
+        .join(
+            ArticleExtractionRunRecord,
+            ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
+        )
+        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
+        .where(EntityMentionRecord.person_id.in_(person_ids))
+        .order_by(EntityMentionRecord.person_id, EntityMentionRecord.id)
+    ).all()
+    sentences: dict[int, list[str]] = defaultdict(list)
+    for person_id, start, end, offset, window in rows:
+        if person_id is None or len(sentences[person_id]) >= MAX_MENTION_SENTENCES:
+            continue
+        sentence = _mention_sentence(window or "", start - offset, end - offset)
+        if sentence and sentence not in sentences[person_id]:
+            sentences[person_id].append(sentence)
+    return sentences
 
 
 def _event_label(context: _EventContext) -> str:
@@ -263,6 +314,7 @@ class PersonSemanticDocumentBuilder:
             contexts = _load_event_contexts(
                 session, sorted(set().union(*events_by_person.values()))
             )
+            mention_sentences = _load_mention_sentences(session, person_ids)
 
         documents: list[SemanticDocument] = []
         for person in persons:
@@ -286,6 +338,10 @@ class PersonSemanticDocumentBuilder:
                     ]
                     parts.append(f"Признаки: {'; '.join(labels)}.")
                 lines.append(" ".join(parts))
+
+            if mention_sentences.get(person.id):
+                lines.append("Упоминания:")
+                lines.extend(f"- {sentence}." for sentence in mention_sentences[person.id])
 
             person_events = sorted(
                 (

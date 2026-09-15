@@ -81,6 +81,9 @@ def test_person_document_contains_names_classification_and_linked_events(
         "Классификация преследования: политическое. "
         "Основания: Антивоенная деятельность; Политическая статья: 207.3. "
         "Признаки: антивоенная деятельность; политическое обвинение.\n"
+        "Упоминания:\n"
+        "- Мещанский суд арестовал Ивана Иванова за пост против вторжения "
+        "в Украину по статье 207.3 УК.\n"
         "События:\n"
         "- арест, 2024-03-05: Мещанский суд арестовал Ивана Иванова за пост против вторжения "
         "в Украину по статье 207.3 УК. Суд: Мещанский суд. Правовое основание: статье 207.3 УК."
@@ -208,4 +211,27 @@ def test_event_without_participants_or_linked_entities_has_only_its_own_lines(
 
     assert document.text == (
         "Событие: обыск, дата неизвестна.\nФрагмент: В городе прошли обыски.\nИсточник: SOTA."
+    )
+
+
+def test_person_without_events_is_described_by_the_sentences_mentioning_them(
+    session_factory: sessionmaker[Session],
+) -> None:
+    text = (
+        "Суд продлил арест фигурантам дела. "
+        "Антифашист Роман Паклин потерял зрение в колонии. "
+        "Его соседа по камере перевели в другую колонию."
+    )
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source_id = seed.source("ОВД-Инфо", "https://ovd.info")
+        _, run_id = seed.article(source_id, external_id="a2", title="Хроника", text=text)
+        roman = seed.person("Роман Паклин")
+        seed.mention(run_id, "Роман Паклин", person_id=roman)
+        session.commit()
+
+    (document,) = PersonSemanticDocumentBuilder(session_factory).build([roman])
+
+    assert document.text == (
+        "Персона: Роман Паклин.\nУпоминания:\n- Антифашист Роман Паклин потерял зрение в колонии."
     )
