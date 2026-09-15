@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from itertools import pairwise
 
 from extraction.models import (
     EntityType,
@@ -100,6 +101,16 @@ _TEMPORAL_REFERENCE_BEFORE = re.compile(
 # «в апреле 2025 года»: the event happened in that year, not on the publication date.
 # A birth year («1990 года рождения», «1990 г. р.») dates the person, not the event.
 _YEAR = re.compile(r"(?<!\d)(19\d\d|20\d\d)(?!\d)(?!\s*(?:года\s+рождения|г\.\s*р\.))")
+# The year of a trigger is looked up in its time frame: the part of the sentence between a
+# contrast or a present anchor («…, а сегодня его задержали») and the next one. Inside the
+# frame, clauses (split at punctuation) that only describe someone — a relative clause
+# («…, который в 2012 году победил…») or a participial one («Иванова, осужденного в
+# 2024 году, …») — date that description, not the trigger.
+_CLAUSE_PUNCTUATION = re.compile(r"[,;:()]|\s[—–-]\s")
+_TIME_FRAME_START = re.compile(r"(?<![а-яё])(?:а|но|зато|однако|сегодня|вчера|накануне)(?![а-яё])")
+_DESCRIPTIVE_CLAUSE = re.compile(
+    r"^\s*(?:(?:[а-яё]+\s+)?котор[а-яё]+|[а-яё]+(?:вш|ющ|ящ|ащ|ущ|нн)[а-яё]{2,3})(?![а-яё])"
+)
 
 
 class RuleBasedEventExtractor:
@@ -107,7 +118,8 @@ class RuleBasedEventExtractor:
     # 1.3.0: charge/sentence verbs in plural or passive only («обвинил военных» is the
     # person accusing); «согласно приговору» is a reference; a sentence naming another
     # year has no event date.
-    extractor_version = "1.3.0"
+    # 1.3.1: that year is looked up in the trigger's time frame, not the whole sentence.
+    extractor_version = "1.3.1"
 
     def extract(
         self,
@@ -123,7 +135,7 @@ class RuleBasedEventExtractor:
             trigger = self._trigger(lowered)
             if trigger is None:
                 continue
-            event_type, trigger_text = trigger
+            event_type, trigger_text, trigger_start = trigger
             sentence_start = start + document.text[start:end].find(sentence)
             sentence_end = sentence_start + len(sentence)
             links = self._links_for_sentence(mentions, sentence_start, sentence_end, document.text)
@@ -132,7 +144,7 @@ class RuleBasedEventExtractor:
                     event_type=event_type,
                     start_offset=sentence_start,
                     end_offset=sentence_end,
-                    event_date=_event_date(sentence, document.published_at),
+                    event_date=_event_date(lowered, trigger_start, document.published_at),
                     confidence=0.72,
                     attributes={"trigger_text": trigger_text},
                     links=links,
@@ -143,8 +155,8 @@ class RuleBasedEventExtractor:
         return sorted(events, key=lambda event: (event.start_offset, event.event_type.value))
 
     @staticmethod
-    def _trigger(lowered_sentence: str) -> tuple[EventType, str] | None:
-        """The earliest non-negated verb trigger, else the earliest noun trigger."""
+    def _trigger(lowered_sentence: str) -> tuple[EventType, str, int] | None:
+        """The earliest non-negated verb trigger, else the earliest noun trigger, with its start."""
         for triggers in (_VERB_TRIGGERS, _NOUN_TRIGGERS):
             found: list[tuple[int, EventType, str]] = []
             for event_type, pattern in triggers:
@@ -157,8 +169,8 @@ class RuleBasedEventExtractor:
                     found.append((match.start(), event_type, match.group(0)))
                     break
             if found:
-                _, event_type, text = min(found, key=lambda item: item[0])
-                return event_type, text
+                trigger_start, event_type, text = min(found, key=lambda item: item[0])
+                return event_type, text, trigger_start
         return None
 
     @staticmethod
@@ -181,12 +193,35 @@ class RuleBasedEventExtractor:
         return links
 
 
-def _event_date(sentence: str, published_at: datetime | None) -> datetime | None:
-    """The publication date, unless the sentence names another year: then unknown."""
+def _event_date(
+    lowered_sentence: str, trigger_start: int, published_at: datetime | None
+) -> datetime | None:
+    """The publication date, unless another year is written in the trigger's time frame.
+
+    Ownership is decided conservatively: any other year in the frame outside a
+    descriptive clause makes the date unknown (None) rather than a wrong publication date.
+    """
     if published_at is None:
         return None
-    if any(int(year) != published_at.year for year in _YEAR.findall(sentence)):
-        return None
+    frame_start, frame_end = 0, len(lowered_sentence)
+    for match in _TIME_FRAME_START.finditer(lowered_sentence):
+        if match.start() <= trigger_start:
+            frame_start = match.start()
+        else:
+            frame_end = match.start()
+            break
+    frame = lowered_sentence[frame_start:frame_end]
+    trigger_in_frame = trigger_start - frame_start
+    cuts = sorted(
+        {0, len(frame)}
+        | {index for match in _CLAUSE_PUNCTUATION.finditer(frame) for index in match.span()}
+    )
+    for start, end in pairwise(cuts):
+        clause = frame[start:end]
+        if not start <= trigger_in_frame < end and _DESCRIPTIVE_CLAUSE.match(clause):
+            continue
+        if any(int(year) != published_at.year for year in _YEAR.findall(clause)):
+            return None
     return published_at
 
 

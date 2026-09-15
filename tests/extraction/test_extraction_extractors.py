@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from extraction.documents import build_extraction_document_from_parsed_article
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
@@ -280,14 +282,46 @@ def test_according_to_a_sentence_is_a_reference_not_an_event() -> None:
     assert _event_types("Суд вынес приговор активисту.") == ["sentence"]
 
 
-def test_event_with_an_explicit_other_year_has_no_publication_date() -> None:
-    """Real case: «Мампорию задержали … в апреле 2025 года» got the 2026 publication date."""
-    published = datetime(2026, 5, 5, tzinfo=UTC)
-    document = make_document(
-        "Мампорию задержали в апреле 2025 года. Вчера его задержали снова. "
-        "В 2026 году его арестовали. Задержали активиста 1990 года рождения."
-    ).model_copy(update={"published_at": published})
+_PUBLISHED = datetime(2026, 5, 5, tzinfo=UTC)
 
-    dates = [event.event_date for event in RuleBasedEventExtractor().extract(document, [])]
 
-    assert dates == [None, published, published, published]
+def _event_dates(text: str, published_at: datetime | None = _PUBLISHED) -> list[datetime | None]:
+    document = make_document(text).model_copy(update={"published_at": published_at})
+    return [event.event_date for event in RuleBasedEventExtractor().extract(document, [])]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Real case: «Мампорию задержали … в апреле 2025 года» got the 2026 publication date.
+        ("Мампорию задержали в апреле 2025 года.", None),
+        ("В 2025 году Мампорию задержали.", None),
+        ("В апреле 2025 года, по данным правозащитников, Мампорию задержали.", None),
+        # Real case: the year opens the sentence of the detention itself.
+        ("В 2022 году его вместе с женой, с которой он жил в Твери, задержали.", None),
+        ("Мампорию задержали и поместили под домашний арест, это было в апреле 2025 года.", None),
+        # Real case: the year dates a relative clause about another fact.
+        ("Дело возбудили из-за доната, который он перевел ФБК 5 августа 2021 года.", _PUBLISHED),
+        # The year dates another fact of the sentence, not this trigger.
+        ("В 2025 году Иванов переехал в Москву, а сегодня его задержали.", _PUBLISHED),
+        ("Иванова, осужденного в 2024 году, сегодня задержали.", _PUBLISHED),
+        ("После задержания в 2025 году Иванов уехал, а сегодня его арестовали.", _PUBLISHED),
+        ("Задержали активиста 1990 года рождения.", _PUBLISHED),
+        ("В 2026 году его арестовали.", _PUBLISHED),
+    ],
+)
+def test_event_date_uses_the_year_of_its_own_trigger_context(
+    text: str, expected: datetime | None
+) -> None:
+    assert _event_dates(text) == [expected]
+
+
+def test_one_event_per_sentence_is_dated_by_the_earliest_trigger() -> None:
+    """One event per sentence (earliest verb trigger): «задержали» owns 2025, so no date."""
+    text = "В 2025 году Иванова задержали, а сегодня его снова арестовали."
+    assert _event_dates(text) == [None]
+
+
+def test_event_without_a_publication_date_has_no_date() -> None:
+    assert _event_dates("Сегодня его задержали.", published_at=None) == [None]
+    assert _event_dates("В 2025 году его задержали.", published_at=None) == [None]
