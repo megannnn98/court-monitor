@@ -512,7 +512,9 @@
         }
       },
       "known_limitation": "ER has no context features: the second namesake is auto-linked to the first (false person link).",
-      "known_limitation_kinds": ["false_person_link"]
+      "known_limitation_kinds": [
+        "false_person_link"
+      ]
     },
     {
       "id": "swapped_fio_two_articles",
@@ -2244,7 +2246,9 @@
       },
       "review_required": true,
       "known_limitation": "A single existing person with the same full name is auto-linked (ER has no context features).",
-      "known_limitation_kinds": ["false_person_link"]
+      "known_limitation_kinds": [
+        "false_person_link"
+      ]
     },
     {
       "id": "research_persons_from_article_source",
@@ -2415,6 +2419,212 @@
             {
               "article": "a2",
               "surface": "Марину Орлову"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "rf_name_variant_fleeting_vowel",
+      "categories": [
+        "rf_needs_review",
+        "clear_positive"
+      ],
+      "description": "В перечне «Лев Толстой», в статье родительный падеж «Льва Толстого» с беглой гласной: отсутствие в перечне не подтверждено.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Арест за листовки",
+          "text": "Суд арестовал Льва Толстого по делу об антивоенных листовках. Правозащитники считают дело политическим."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Лев Толстой",
+          "09.09.1985"
+        ],
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Льва Толстого"
+        ]
+      },
+      "identities": {
+        "tolstoy": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Льва Толстого"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "needs_review",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "rf_name_variant_hyphenated_surname",
+      "categories": [
+        "rf_needs_review",
+        "clear_positive"
+      ],
+      "description": "В перечне «Иван Римский-Корсаков», в статье обе части фамилии в родительном падеже.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание на пикете",
+          "text": "На антивоенном пикете задержали Ивана Римского-Корсакова. Активиста доставили в отдел полиции."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Иван Римский-Корсаков",
+          "12.12.1988"
+        ],
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Ивана Римского-Корсакова"
+        ]
+      },
+      "identities": {
+        "korsakov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Ивана Римского-Корсакова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "needs_review",
+          "candidate": false
+        }
+      }
+    },
+    {
+      "id": "multiple_persons_same_sentence_clauses",
+      "categories": [
+        "multiple_persons",
+        "clear_negative",
+        "clear_positive"
+      ],
+      "description": "Кража и антивоенный пикет в одном предложении, разные клаузы: контекст не должен перетекать.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Два задержания",
+          "text": "Утром полиция задержала Олега Егорова за кражу велосипеда, а правозащитника Игоря Никитина задержали на антивоенном пикете."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ],
+        [
+          "Олег Соловьев",
+          "11.11.1981"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Олега Егорова",
+          "Игоря Никитина"
+        ]
+      },
+      "identities": {
+        "egorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Олега Егорова"
+            }
+          ],
+          "persecution": [
+            "non_political",
+            "uncertain"
+          ],
+          "rf_status": "not_matched",
+          "candidate": false
+        },
+        "nikitin": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Игоря Никитина"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        }
+      }
+    },
+    {
+      "id": "multiple_persons_shared_clause",
+      "categories": [
+        "multiple_persons",
+        "clear_positive"
+      ],
+      "description": "Двое задержаны вместе на антивоенном пикете: общий контекст относится к обоим.",
+      "articles": [
+        {
+          "external_id": "a1",
+          "title": "Задержание на пикете",
+          "text": "Олега Егорова и Игоря Никитина задержали на антивоенном пикете у здания суда."
+        }
+      ],
+      "rf_snapshot": [
+        [
+          "Петр Петров",
+          "03.03.1970"
+        ]
+      ],
+      "expected_extraction": {
+        "a1": [
+          "Олега Егорова",
+          "Игоря Никитина"
+        ]
+      },
+      "identities": {
+        "egorov": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Олега Егорова"
+            }
+          ],
+          "persecution": [
+            "political"
+          ],
+          "rf_status": "not_matched",
+          "candidate": true
+        },
+        "nikitin": {
+          "mentions": [
+            {
+              "article": "a1",
+              "surface": "Игоря Никитина"
             }
           ],
           "persecution": [
