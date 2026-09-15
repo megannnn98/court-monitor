@@ -40,7 +40,7 @@ real sources → discovery → ingestion → extraction → Person/Event → ER 
 | component | version |
 |---|---|
 | entity_resolution | er-v2 |
-| event_extractor | rule-based-event-extractor@1.2.0 |
+| event_extractor | rule-based-event-extractor@1.3.0 |
 | extractor | rule-based-entity-extractor@1.1.1 |
 | normalizer | rule-based@1.0.0 |
 | persecution_classifier | rule-based-persecution-classifier@1.3.0 |
@@ -48,7 +48,7 @@ real sources → discovery → ingestion → extraction → Person/Event → ER 
 | rosfinmonitoring_matcher | rule-based-rosfinmonitoring-matcher@1.3.0 |
 | semantic_representation | person@2,event@1 |
 
-git commit `e33c06511a7e6786e8b6680867bba6398ab4a3cd-dirty`, split `all` (verified only: False), policy `real-world-policy-v1.1` (36044a1254c5), RF snapshot `rf-eval-v1` (e2615e8e2f66), embedding model `intfloat/multilingual-e5-base`, generated 2026-09-15T10:16:50.876030+00:00.
+git commit `31e5508439606caef2e5687e3190331d32d318c1`, split `all` (verified only: False), policy `real-world-policy-v1.1` (36044a1254c5), RF snapshot `rf-eval-v1` (e2615e8e2f66), embedding model `intfloat/multilingual-e5-base`, generated 2026-09-15T10:26:48.524282+00:00.
 
 ## Metrics
 
@@ -56,7 +56,7 @@ git commit `e33c06511a7e6786e8b6680867bba6398ab4a3cd-dirty`, split `all` (verifi
 |---|---|---|---|
 | person_extraction_precision | 0.8419 | >= 0.97 | FAIL |
 | person_extraction_recall | 0.9176 | >= 0.93 | FAIL |
-| event_precision | 0.6831 | >= 0.9 | FAIL |
+| event_precision | 0.6978 | >= 0.9 | FAIL |
 | event_recall | 0.6978 | >= 0.85 | FAIL |
 | person_event_association_accuracy | 0.5876 | >= 0.95 | FAIL |
 | er_candidate_recall_at_5 | 0.9608 | >= 0.98 | FAIL |
@@ -68,7 +68,7 @@ git commit `e33c06511a7e6786e8b6680867bba6398ab4a3cd-dirty`, split `all` (verifi
 | candidate_with_evidence_rate | 1.0 | >= 1.0 | PASS |
 | relevant_evidence_rate | 1.0 | >= 0.95 | PASS |
 | semantic_recall_at_5 | 0.6719 | >= 0.85 | FAIL |
-| supported_report_claims_rate | 0.8651 | >= 0.98 | FAIL |
+| supported_report_claims_rate | 0.8805 | >= 0.98 | FAIL |
 
 ## Safety Gates
 
@@ -86,14 +86,14 @@ git commit `e33c06511a7e6786e8b6680867bba6398ab4a3cd-dirty`, split `all` (verifi
 | no_snapshot_absence_findings | hard | 0 | <= 0.0 | PASS |  |
 | rf_review_status_findings | hard | 0 | <= 0.0 | PASS |  |
 | db_invariant_violations | hard | 0 | <= 0.0 | PASS |  |
-| gated_dangerous_failures | hard | 60 | <= 0.0 | FAIL | unsupported_event_claim=60 |
+| gated_dangerous_failures | hard | 38 | <= 0.0 | FAIL | unsupported_event_claim=38 |
 | max_manual_reviews_per_100_articles | advisory | 252.56 | <= 20.0 | FAIL | advisory: never fails the evaluation |
 
 ## Extraction
 
 Person mentions: tp=245, fp=46, fn=22, precision=0.8419, recall=0.9176, f1=0.8781
 
-Events: tp=97, fp=45, fn=42, precision=0.6831, recall=0.6978, f1=0.6904
+Events: tp=97, fp=42, fn=42, precision=0.6978, recall=0.6978, f1=0.6978
 
 Historical events (recall): tp=41, fp=0, fn=10, precision=1.0, recall=0.8039, f1=0.8913
 
@@ -152,7 +152,7 @@ CandidateQueryService: tp=12, fp=0, fn=40, precision=1.0, recall=0.2308, f1=0.37
 
 Active monitoring findings: tp=12, fp=0, fn=40, precision=1.0, recall=0.2308, f1=0.375
 
-Evidence: 12 candidates checked, with evidence 1.0, relevant 1.0, supports classification 0.6389, traceable 1.0, offsets valid 1.0 (72 spans)
+Evidence: 12 candidates checked, with evidence 1.0, relevant 1.0, supports classification 0.6479, traceable 1.0, offsets valid 1.0 (71 spans)
 
 ## Semantic Retrieval
 
@@ -160,30 +160,30 @@ Status RUN; model `intfloat/multilingual-e5-base`; 40 queries (36 person, 4 even
 
 | backend | cases | Recall@5 | Recall@10 | MRR | nDCG@5 |
 |---|---|---|---|---|---|
-| lexical | 32 | 0.4688 | 0.5938 | 0.3522 | 0.3609 |
-| dense | 32 | 0.6719 | 0.7156 | 0.5984 | 0.5902 |
-| hybrid | 32 | 0.6594 | 0.7 | 0.5444 | 0.5512 |
+| lexical | 32 | 0.4688 | 0.5938 | 0.3507 | 0.3609 |
+| dense | 32 | 0.6719 | 0.7469 | 0.6001 | 0.5902 |
+| hybrid | 32 | 0.6594 | 0.7 | 0.5671 | 0.5668 |
 
 
-Query-level causes: dense_top5_pushed_out_by_hybrid=2, found_in_top5=16, lexical_rescues_dense=2, lexical_worsens_dense_rank=5, relevant_absent_from_candidates=2, relevant_ranked_below_top5=5
+Query-level causes: dense_top5_pushed_out_by_hybrid=2, found_in_top5=16, lexical_rescues_dense=2, lexical_worsens_dense_rank=5, relevant_absent_from_candidates=3, relevant_ranked_below_top5=4
 
 | query | type | lexical | dense | hybrid | cause |
 |---|---|---|---|---|---|
 | rq-01 | person | — | 2 | 7 | dense_top5_pushed_out_by_hybrid |
-| rq-02 | person | — | 17 | — | relevant_ranked_below_top5 |
+| rq-02 | person | — | 9 | 19 | relevant_ranked_below_top5 |
 | rq-03 | person | — | 1 | 1 | found_in_top5 |
-| rq-04 | person | 7 | — | 14 | relevant_ranked_below_top5 |
+| rq-04 | person | 7 | — | 13 | relevant_ranked_below_top5 |
 | rq-05 | person | 2 | 1 | 1 | found_in_top5 |
 | rq-06 | person | — | — | — | relevant_absent_from_candidates |
 | rq-07 | person | 7 | 11 | 3 | lexical_rescues_dense |
 | rq-08 | person | — | — | — | relevant_absent_from_candidates |
-| rq-09 | person | 12 | 2 | 2 | found_in_top5 |
+| rq-09 | person | 12 | 2 | 1 | found_in_top5 |
 | rq-10 | person | 2 | 1 | 2 | lexical_worsens_dense_rank |
 | rq-11 | person | 1 | 1 | 1 | found_in_top5 |
 | rq-12 | person | 4 | 1 | 2 | lexical_worsens_dense_rank |
 | rq-13 | person | — | 12 | 11 | relevant_ranked_below_top5 |
 | rq-14 | person | 1 | 1 | 1 | found_in_top5 |
-| rq-15 | person | — | 1 | 3 | lexical_worsens_dense_rank |
+| rq-15 | person | — | 1 | 2 | lexical_worsens_dense_rank |
 | rq-17 | person | 8 | 1 | 1 | found_in_top5 |
 | rq-18 | person | 2 | 1 | 1 | found_in_top5 |
 | rq-19 | person | 4 | 6 | 4 | lexical_rescues_dense |
@@ -195,11 +195,11 @@ Query-level causes: dense_top5_pushed_out_by_hybrid=2, found_in_top5=16, lexical
 | rq-26 | person | — | 1 | 5 | lexical_worsens_dense_rank |
 | rq-27 | person | 2 | 3 | 1 | found_in_top5 |
 | rq-28 | person | — | 4 | — | dense_top5_pushed_out_by_hybrid |
-| rq-29 | person | 20 | — | — | relevant_ranked_below_top5 |
+| rq-29 | person | — | — | — | relevant_absent_from_candidates |
 | rq-30 | person | 1 | 1 | 1 | found_in_top5 |
 | rq-31 | person | 1 | 3 | 2 | found_in_top5 |
 | rq-32 | person | 1 | 1 | 1 | found_in_top5 |
-| rq-33 | person | 20 | — | — | relevant_ranked_below_top5 |
+| rq-33 | person | 19 | — | — | relevant_ranked_below_top5 |
 | rq-34 | event | 3 | 1 | 1 | found_in_top5 |
 
 ## Research Reports
@@ -209,11 +209,11 @@ Intake: NOT_RUN (natural-language intake not requested (--llm-intake)); correct 
 
 Persons: tp=41, fp=0, fn=46, precision=1.0, recall=0.4713, f1=0.6407
 
-Claims: SUPPORTED=1026, PARTIALLY_SUPPORTED=11, UNSUPPORTED=73, CONTRADICTED=76, NOT_EVALUATED=3337 (24 distinct contradicted facts); supported rate 0.8651; required missing 2; forbidden present 0
+Claims: SUPPORTED=1017, PARTIALLY_SUPPORTED=11, UNSUPPORTED=51, CONTRADICTED=76, NOT_EVALUATED=3304 (24 distinct contradicted facts); supported rate 0.8805; required missing 2; forbidden present 0
 
-Dangerous claim kinds: false_person_link=0, false_political_classification=0, false_rf_not_matched=0, unsupported_absence_claim=0, cross_person_evidence=0, unsupported_event_claim=60, false_actionable_candidate=0
+Dangerous claim kinds: false_person_link=0, false_political_classification=0, false_rf_not_matched=0, unsupported_absence_claim=0, cross_person_evidence=0, unsupported_event_claim=38, false_actionable_candidate=0
 
-Claim failure causes (occurrences / distinct facts): CONTRADICTED:upstream_persecution_state=76/24, UNSUPPORTED:event_extraction_or_annotation_granularity=60/7, UNSUPPORTED:upstream_persecution_state=12/4, UNSUPPORTED:upstream_rf_state=1/1
+Claim failure causes (occurrences / distinct facts): CONTRADICTED:upstream_persecution_state=76/24, UNSUPPORTED:event_extraction_or_annotation_granularity=38/5, UNSUPPORTED:upstream_persecution_state=12/4, UNSUPPORTED:upstream_rf_state=1/1
 
 ## Monitoring E2E
 
@@ -221,10 +221,10 @@ Status RUN
 
 | period | articles | runs | new documents | new persons | new events | new reviews | new classifications | new RF | new findings | semantic indexed | rerun new rows | seconds |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| T0 | 109 | ovd-info:completed, sota-vision:completed | 109 | 296 | 394 | 167 | 296 | 296 | 41 | 690 | 0 | 27.44 |
-| T1 | 16 | ovd-info:completed, sota-vision:completed | 16 | 62 | 71 | 23 | 62 | 62 | 9 | 133 | 0 | 6.507 |
-| T2 | 15 | ovd-info:completed, sota-vision:completed | 15 | 23 | 31 | 26 | 23 | 23 | 0 | 54 | 0 | 3.335 |
-| T3 | 16 | ovd-info:completed, sota-vision:completed | 16 | 21 | 25 | 39 | 21 | 21 | 3 | 46 | 0 | 3.555 |
+| T0 | 109 | ovd-info:completed, sota-vision:completed | 109 | 296 | 385 | 167 | 296 | 296 | 41 | 681 | 0 | 30.063 |
+| T1 | 16 | ovd-info:completed, sota-vision:completed | 16 | 62 | 70 | 23 | 62 | 62 | 9 | 132 | 0 | 6.954 |
+| T2 | 15 | ovd-info:completed, sota-vision:completed | 15 | 23 | 31 | 26 | 23 | 23 | 0 | 54 | 0 | 3.598 |
+| T3 | 16 | ovd-info:completed, sota-vision:completed | 16 | 21 | 25 | 39 | 21 | 21 | 3 | 46 | 0 | 3.69 |
 
 Rerun duplicates: aliases=0, classifications=0, events=0, extraction_runs=0, findings=0, mentions=0, person_event_links=0, persons=0, resolution_decisions=0, rf_results=0, semantic_documents=0, source_documents=0, static_aliases=0, static_classifications=0, static_events=0, static_findings=0, static_mentions=0, static_persons=0, static_resolution_decisions=0, static_rf_results=0, static_semantic_documents=0, static_source_documents=0
 
@@ -249,18 +249,18 @@ Finding timing: on_time=12, late=0, before_evidence=0, missing=40
 
 ## Performance
 
-Status RUN; 156 articles, 402 persons in 42.572 s (219.86 articles/min, 566.57 persons/min)
+Status RUN; 156 articles, 402 persons in 46.064 s (203.2 articles/min, 523.62 persons/min)
 
 | stage | seconds |
 |---|---|
-| classification | 4.228 |
-| discovery | 0.2 |
-| extraction | 2.751 |
-| findings | 1.033 |
-| ingestion | 1.892 |
-| resolution | 19.298 |
-| rf_matching | 4.299 |
-| semantic_indexing | 7.392 |
+| classification | 4.423 |
+| discovery | 0.202 |
+| extraction | 3.131 |
+| findings | 1.039 |
+| ingestion | 2.185 |
+| resolution | 21.267 |
+| rf_matching | 4.629 |
+| semantic_indexing | 7.657 |
 
 ## Manual Review Workload
 
@@ -288,7 +288,7 @@ DB invariants: orphan_person_mentions=0, broken_mention_offsets=0, broken_event_
 
 ## Critical Failures
 
-Failures by component and severity: ENTITY_RESOLUTION: {'S2': 10}; EVENT_ASSOCIATION: {'S2': 40}; EXTRACTION: {'S2': 110}; PERSECUTION: {'S1': 27, 'S2': 59}; REPORT: {'S2': 46, 'S0': 136, 'S1': 13}; RETRIEVAL: {'S2': 42}; ROSFINMONITORING: {'S2': 12, 'S1': 1}
+Failures by component and severity: ENTITY_RESOLUTION: {'S2': 10}; EVENT_ASSOCIATION: {'S2': 40}; EXTRACTION: {'S2': 110}; PERSECUTION: {'S1': 27, 'S2': 59}; REPORT: {'S2': 46, 'S0': 114, 'S1': 13}; RETRIEVAL: {'S2': 42}; ROSFINMONITORING: {'S2': 12, 'S1': 1}
 
 | severity | component | kind | case | person | gated | detail |
 |---|---|---|---|---|---|---|
@@ -334,6 +334,7 @@ Failures by component and severity: ENTITY_RESOLUTION: {'S2': 10}; EVENT_ASSOCIA
 | S0 | REPORT | claim_contradicted |  | gp-nikandrov-marat | True | rs-10: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
 | S0 | REPORT | claim_contradicted |  | gp-kirman-viktor | True | rs-11: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
 | S0 | REPORT | claim_contradicted |  | gp-shabanov-andrey | True | rs-15: persecution_classification: non_political claimed, annotated ['political'] |
+| S0 | REPORT | claim_contradicted |  | gp-musaeva-zarema | True | rs-23: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
 | S0 | REPORT | claim_contradicted |  | gp-bondarenko-oleg | True | rs-23: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
 | S0 | REPORT | claim_contradicted |  | gp-snegova-maria | True | rs-23: persecution_classification: non_political claimed, annotated ['political'] |
 | S0 | REPORT | claim_contradicted |  | gp-kambieva-yulia | True | rs-23: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
@@ -351,13 +352,12 @@ Failures by component and severity: ENTITY_RESOLUTION: {'S2': 10}; EVENT_ASSOCIA
 | S0 | REPORT | claim_contradicted |  | gp-yakusheva-larisa | True | rs-27: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
 | S0 | REPORT | claim_contradicted |  | gp-darova-svetlana | True | rs-27: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
 | S0 | REPORT | claim_contradicted |  | gp-tukova-anita | True | rs-27: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
-| S0 | REPORT | claim_contradicted |  | gp-primak-olga | True | rs-27: persecution_classification: non_political claimed, annotated ['needs_review', 'political', 'uncertain'] |
-... 117 more in the JSON report
+... 95 more in the JSON report
 
 ## Recommended Next Work
 
-1. **REPORT: research reports state facts the sources contradict** — `contradicted_report_claims` = 76 (target <= 0.0); evidence: claim_contradicted=76, claim_unsupported=73, research_person_missing=46. Possible work: trace each contradicted claim to the component that produced the wrong fact.
-2. **DATA_QUALITY: false statements about real persons remain after gating (see per-kind counts)** — `gated_dangerous_failures` = 60 (target <= 0.0); evidence: no itemized failures. Possible work: group the dangerous failures by kind and trace each kind to the component that produced it.
+1. **REPORT: research reports state facts the sources contradict** — `contradicted_report_claims` = 76 (target <= 0.0); evidence: claim_contradicted=76, claim_unsupported=51, research_person_missing=46. Possible work: trace each contradicted claim to the component that produced the wrong fact.
+2. **DATA_QUALITY: false statements about real persons remain after gating (see per-kind counts)** — `gated_dangerous_failures` = 38 (target <= 0.0); evidence: no itemized failures. Possible work: group the dangerous failures by kind and trace each kind to the component that produced it.
 3. **PERSECUTION: expected main candidates are missing from the candidate query** — `candidate_recall` = 0.2308 (target >= 0.8); evidence: persecution_status=46, candidate_missed=40. Possible work: trace each missed candidate to extraction, ER, classification or RF.
 4. **PERSECUTION: politically persecuted persons are not classified political** — `political_recall` = 0.2623 (target >= 0.85); evidence: persecution_status=46, candidate_missed=40. Possible work: inspect missed political persons: missing evidence types, review outcomes, unmapped persons.
 5. **EVENT_ASSOCIATION: events are linked to the wrong set of persons** — `person_event_association_accuracy` = 0.5876 (target >= 0.95); evidence: event_person_association=40. Possible work: inspect association errors in multi-person sentences and shared events.
