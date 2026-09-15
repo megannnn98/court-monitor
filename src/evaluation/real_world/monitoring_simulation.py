@@ -321,13 +321,29 @@ def rf_review_findings(
 # -- scenarios on a fresh database ------------------------------------------------------
 
 
-def _inject_after(service: MonitoringService, method: str, *, once: bool = True) -> None:
+# Crash stage -> (MonitoringStage metrics key, metric that counts the stage's real work).
+CRASH_STAGE_WORK = {
+    "ingestion": ("ingestion", "ingested"),
+    "extraction": ("extraction", "extracted"),
+    "entity_resolution": ("resolution", "extraction_runs"),
+    "classification": ("classification", "pending"),
+    "semantic_indexing": ("semantic_indexing", "embedded"),
+}
+
+
+def _inject_after(service: MonitoringService, method: str, sources: frozenset[str]) -> None:
+    """Crash once, after `method` completes inside a run of one of `sources`.
+
+    Stage methods take the run handle first; runs of other sources (with no
+    increment work) are left alone, so the crash always hits the tested path.
+    """
     original = getattr(service, method)
     state = {"fired": False}
 
     def wrapped(*args: Any, **kwargs: Any) -> Any:
         result = original(*args, **kwargs)
-        if not (once and state["fired"]):
+        handle = args[0] if args else kwargs.get("handle")
+        if not state["fired"] and getattr(handle, "source", None) in sources:
             state["fired"] = True
             raise InjectedCrash(f"injected failure after {method}")
         return result
@@ -350,6 +366,7 @@ def crash_recovery(
         runner.reset(rf_snapshot)
         runner.run_period("baseline", baseline)
 
+    increment_sources = frozenset(article.source for article in increment)
     prepare(semantic() if semantic else None)
     runner.run_period("increment", increment)
     reference = logical_snapshot(runner.engine)
@@ -365,12 +382,21 @@ def crash_recovery(
             )
             continue
         prepare(semantic() if semantic else None)
-        _inject_after(runner.service, method)
+        _inject_after(runner.service, method, increment_sources)
         crashed = runner.run_period("increment-crash", increment)
         runner.rebuild_service()  # restart: a new process without the fault
         recovered = runner.run_period("increment-restart", [])
         diffs = compare_snapshots(reference, logical_snapshot(runner.engine))
-        failed_first = any(view.status.value == "failed" for view in crashed.runs)
+        failed = [
+            view
+            for view in crashed.runs
+            if view.status.value == "failed" and view.source in increment_sources
+        ]
+        stage_key, work_key = CRASH_STAGE_WORK[stage]
+        work = (
+            int((failed[0].stage_metrics.get(stage_key) or {}).get(work_key) or 0) if failed else 0
+        )
+        failed_first = bool(failed) and work > 0
         results.append(
             ScenarioResult(
                 name=f"crash_after_{stage}",
@@ -383,8 +409,14 @@ def crash_recovery(
                         for d in diffs
                     )
                 )
-                + ("" if failed_first else " (the injected failure did not fail the run)"),
+                + (
+                    ""
+                    if failed_first
+                    else " (the injected failure did not stop a run with work for this stage)"
+                ),
                 metrics={
+                    "crashed_source": failed[0].source or "" if failed else "",
+                    "crashed_stage_work": work,
                     "crashed_run_status": ",".join(v.status.value for v in crashed.runs),
                     "restart_run_status": ",".join(v.status.value for v in recovered.runs),
                     "differing_tables": len(diffs),

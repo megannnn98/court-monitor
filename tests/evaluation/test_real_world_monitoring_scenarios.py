@@ -69,7 +69,9 @@ def _html(title: str, published: datetime, text: str) -> bytes:
     ).encode()
 
 
-def build_corpus(directory: Path) -> tuple[CorpusManifest, RawCorpusCache]:
+def build_corpus(
+    directory: Path, source: str = "ovd-info"
+) -> tuple[CorpusManifest, RawCorpusCache]:
     cache = RawCorpusCache(directory)
     splits = [TemporalPeriod.T0] * 7 + [TemporalPeriod.T1, TemporalPeriod.T2, TemporalPeriod.T3]
     articles = []
@@ -84,11 +86,11 @@ def build_corpus(directory: Path) -> tuple[CorpusManifest, RawCorpusCache]:
             content=_html(f"Новость {index}", published, text),
         )
         cache.append(
-            article_entry("ovd-info", raw, status=CacheEntryStatus.ARTICLE, published_at=published)
+            article_entry(source, raw, status=CacheEntryStatus.ARTICLE, published_at=published)
         )
         articles.append(
             ManifestArticle(
-                source="ovd-info",
+                source=source,
                 external_id=external_id,
                 canonical_url=raw.url,
                 published_at=published,
@@ -220,3 +222,71 @@ def test_manual_review_decision_continues_through_derived_processing(
     run_temporal_simulation(runner, rf_snapshot, rerun=False)
     result = manual_review_continuation(runner, has_semantic=True)
     assert result.status is GateStatus.PASS, result.detail
+
+
+def test_crash_is_injected_into_the_source_that_processes_the_increment(
+    test_engine: Engine, tmp_path: Path, rf_snapshot: RfSnapshotFile
+) -> None:
+    """External review: the crash fired on the first source run of the period even when
+    that source had no increment articles, so recovery could PASS without being tested.
+
+    "ovd-info" runs first and only has a baseline article; the increment is on "sota-vision"
+    (replayed with the OVD-Info parser).
+    """
+    from dataclasses import replace
+
+    truncate_disposable_tables(test_engine)
+    manifest, cache = build_corpus(tmp_path / "cache", source="sota-vision")
+    published = datetime(2026, 3, 2, 18, tzinfo=UTC)
+    external_id = "/express-news/2026/03/02/archive"
+    text = "Суд оштрафовал Павла Зайцева за пикет против войны."
+    raw = RawDocument(
+        external_id=external_id,
+        url=f"https://ovd.info{external_id}",
+        fetched_at=published,
+        content_type="text/html",
+        content=_html("Архив", published, text),
+    )
+    cache.append(
+        article_entry("ovd-info", raw, status=CacheEntryStatus.ARTICLE, published_at=published)
+    )
+    archive = ManifestArticle(
+        source="ovd-info",
+        external_id=external_id,
+        canonical_url=raw.url,
+        published_at=published,
+        content_hash=sha256_text(text),
+        raw_content_hash=sha256_bytes(raw.content),
+        corpus_split=TemporalPeriod.T0,
+        duplicate_group=external_id,
+    )
+    manifest = manifest.model_copy(update={"articles": [*manifest.articles, archive]})
+    runner = CorpusRunner(
+        engine=test_engine,
+        manifest=manifest,
+        cache=cache,
+        definitions={
+            OVD_INFO.name: OVD_INFO,
+            "sota-vision": replace(
+                OVD_INFO, name="sota-vision", source_name="SOTA", base_url="https://sota.vision"
+            ),
+        },
+    )
+    periods = articles_by_period(manifest)
+    try:
+        results = crash_recovery(
+            runner,
+            rf_snapshot,
+            periods[TemporalPeriod.T0],
+            [*periods[TemporalPeriod.T1], *periods[TemporalPeriod.T2]],
+            semantic=lambda: semantic_indexer_factory(
+                runner.session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
+            ),
+        )
+    finally:
+        truncate_disposable_tables(test_engine)
+    for result in results:
+        assert result.status is GateStatus.PASS, result.detail
+        assert result.metrics["crashed_source"] == "sota-vision", result.metrics
+        work = result.metrics["crashed_stage_work"]
+        assert isinstance(work, int) and work > 0, result.metrics
