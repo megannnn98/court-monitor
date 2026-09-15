@@ -7,3 +7,6 @@ article.html
 /.env
 .aider*
 /.qwen/
+
+# Real-world validation raw corpus cache and run artifacts (rebuilt from the sites)
+/var/

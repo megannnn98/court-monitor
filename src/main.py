@@ -13,6 +13,7 @@ from sqlalchemy.exc import NoResultFound
 from candidates.service import CandidateQueryService
 from db.database import create_database_engine, create_session_factory
 from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
+from evaluation.real_world.cli import add_real_world_arguments, run_real_world_command
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
@@ -290,6 +291,7 @@ def main() -> None:
     add_person_resolution_arguments(subparsers)
     add_monitoring_arguments(subparsers)
     add_final_evaluation_arguments(subparsers)
+    add_real_world_arguments(subparsers)
 
     subparsers.add_parser(
         "validate-config",
@@ -327,6 +329,9 @@ def main() -> None:
         run_final_evaluation_command(args)
         return
 
+    # Real-world validation: own disposable database / local cache, never DATABASE_URL.
+    if run_real_world_command(args):
+        return
     if args.command == "evaluate-er":
         # Uses its own disposable database, never DATABASE_URL.
         run_evaluate_er(args)
