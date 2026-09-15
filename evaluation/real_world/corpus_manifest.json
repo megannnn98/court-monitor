@@ -1,0 +1,2813 @@
+{
+  "manifest_version": 1,
+  "dataset_version": "real-world-v1",
+  "period_start": "2026-03-01",
+  "period_end": "2026-08-31",
+  "sampling_seed": 20260301,
+  "targets": {
+    "ovd-info": 600,
+    "sota-vision": 400
+  },
+  "total_target": 1000,
+  "evaluation_sample_size": 200,
+  "built_at": "2026-09-15T03:54:49.425687Z",
+  "sources": [
+    {
+      "source": "ovd-info",
+      "status": "ok",
+      "stop_reason": null,
+      "discovery_limit": 1000,
+      "discovered": 1000,
+      "fetch_candidates": 145,
+      "fetched": 11,
+      "from_cache": 134,
+      "in_period": 144,
+      "out_of_period": 1,
+      "fetch_failed": 0,
+      "parse_failed": 0,
+      "selected": 144,
+      "http_status_counts": {
+        "200": 32
+      },
+      "min_interval_seconds": 1.0
+    },
+    {
+      "source": "sota-vision",
+      "status": "ok",
+      "stop_reason": null,
+      "discovery_limit": 1000,
+      "discovered": 155,
+      "fetch_candidates": 155,
+      "fetched": 4,
+      "from_cache": 151,
+      "in_period": 12,
+      "out_of_period": 139,
+      "fetch_failed": 0,
+      "parse_failed": 4,
+      "selected": 12,
+      "http_status_counts": {
+        "200": 17,
+        "404": 1
+      },
+      "min_interval_seconds": 1.0
+    }
+  ],
+  "articles": [
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek",
+      "canonical_url": "https://ovd.info/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek",
+      "published_at": "2026-03-01T10:00:00+03:00",
+      "content_hash": "d2bac6294bc126f4e7f95323e5712a41b2b31d1a4779108d0c0ad5e02cbd23b3",
+      "raw_content_hash": "f54e7bda06a6337016eefe94af3988d0be720a9a7fcabc9b966d23783f9c8205",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/umer-dramaturg-nikolaj-kolyada/",
+      "canonical_url": "https://sota.vision/umer-dramaturg-nikolaj-kolyada/",
+      "published_at": "2026-03-02T00:00:00+03:00",
+      "content_hash": "4ee621ac993d6b50ee7948b39ab1ca1930199a4f9c70f282744d449b5d54eac8",
+      "raw_content_hash": "0fc13e8b032fcb6638552ec4735256e6a55101d958f9e358b41b6a0d259e31e2",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/umer-dramaturg-nikolaj-kolyada/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/02/verkhovnyy-sud-priznal-antivoennyy-komitet-rossii-terroristicheskoy",
+      "canonical_url": "https://ovd.info/express-news/2026/03/02/verkhovnyy-sud-priznal-antivoennyy-komitet-rossii-terroristicheskoy",
+      "published_at": "2026-03-02T13:41:00+03:00",
+      "content_hash": "2d8e9888444354b36bbade22e5ea0f08c9200d7944cb131ceac82a898f2831b0",
+      "raw_content_hash": "0a079483c2e4c5b8db1ca081b98123a6629bd4ec513d9fd7e55b4589e980c501",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "hyphenated_name",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/02/verkhovnyy-sud-priznal-antivoennyy-komitet-rossii-terroristicheskoy"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/02/ekaterinu-shulman-zaochno-prigovorili-k-godu-kolonii-po-inoagentskoy-state",
+      "canonical_url": "https://ovd.info/express-news/2026/03/02/ekaterinu-shulman-zaochno-prigovorili-k-godu-kolonii-po-inoagentskoy-state",
+      "published_at": "2026-03-02T17:24:00+03:00",
+      "content_hash": "571df186cb4025a1c165c4c95dae9de250473e310b3d7a52786153edf97d77b3",
+      "raw_content_hash": "a2accd78bd56c40fc25785f5ea899e0956cbec38a1599e6447749e770603ca16",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/02/ekaterinu-shulman-zaochno-prigovorili-k-godu-kolonii-po-inoagentskoy-state"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/03/sud-priznal-lgbtk-gruppu-vykhod-ekstremistskoy-organizaciey",
+      "canonical_url": "https://ovd.info/express-news/2026/03/03/sud-priznal-lgbtk-gruppu-vykhod-ekstremistskoy-organizaciey",
+      "published_at": "2026-03-03T17:18:00+03:00",
+      "content_hash": "27f410008cee823f3cd696d4d30193b4de3302ad0b84f8cf3c66536260b6c6cf",
+      "raw_content_hash": "aef09158d6cc3a1ccbc80c9e2a5fbd3b983a106320eb68c1bd3dca42586076db",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/03/sud-priznal-lgbtk-gruppu-vykhod-ekstremistskoy-organizaciey"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh",
+      "canonical_url": "https://ovd.info/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh",
+      "published_at": "2026-03-04T12:21:00+03:00",
+      "content_hash": "27b04926941a5b24d27a662ca1802b48ca6d3c4d905162324950e8c9c2f083ee",
+      "raw_content_hash": "659726f7ae775b07d63b9ef707742a031725cd8f80ee9a3cda8f181b10ff016b",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe",
+      "canonical_url": "https://ovd.info/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe",
+      "published_at": "2026-03-04T14:02:00+03:00",
+      "content_hash": "d3c153674a5c983ba2900b50bfea0ef4053e79d69269cc5b43feee1758a9b220",
+      "raw_content_hash": "c34899a415c1adc19efce29ed6cf2e0d15caae31a983be49c26682d04ea844ee",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/04/sotrudniki-fsb-zaderzhali-zhurnalistku-priekhavshuyu-v-rossiyu-navestit",
+      "canonical_url": "https://ovd.info/express-news/2026/03/04/sotrudniki-fsb-zaderzhali-zhurnalistku-priekhavshuyu-v-rossiyu-navestit",
+      "published_at": "2026-03-04T16:52:00+03:00",
+      "content_hash": "02eb677379f269ced26ab7fca43a2d3d676241ec12deea6bc670369a01fa3072",
+      "raw_content_hash": "88e55aa64da1f75dd01aa602ff793eda0e79b900974c9b6a73522cbe3e61be8b",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/04/sotrudniki-fsb-zaderzhali-zhurnalistku-priekhavshuyu-v-rossiyu-navestit"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/05/nizhegorodca-arestovali-po-delu-ob-ekstremistskoy-organizacii-iz-za-reposta",
+      "canonical_url": "https://ovd.info/express-news/2026/03/05/nizhegorodca-arestovali-po-delu-ob-ekstremistskoy-organizacii-iz-za-reposta",
+      "published_at": "2026-03-05T13:00:00+03:00",
+      "content_hash": "20d987733bdc4f61c08a4e360a13000298d8b6a4197dc912ad066d8b981913d7",
+      "raw_content_hash": "00e50324e8b958cd157cbbdfb4ab3689289ad86623d2606530e0221736566a7c",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "hyphenated_name",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/05/nizhegorodca-arestovali-po-delu-ob-ekstremistskoy-organizacii-iz-za-reposta"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/05/osuzhdennogo-iz-za-antivoennykh-postov-kirovchanina-otpravili-na-polgoda-v",
+      "canonical_url": "https://ovd.info/express-news/2026/03/05/osuzhdennogo-iz-za-antivoennykh-postov-kirovchanina-otpravili-na-polgoda-v",
+      "published_at": "2026-03-05T13:58:00+03:00",
+      "content_hash": "fc5303738a944da5bb42a6f569d44256bc134fd65882e9f777a2739dce382a17",
+      "raw_content_hash": "05d4ba49d1c9eb3cf1e80be3b80ff79857810d9a261d88c0e026f28a5cde190e",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/05/osuzhdennogo-iz-za-antivoennykh-postov-kirovchanina-otpravili-na-polgoda-v"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/05/bloger-zhenonenavistnik-arsen-markaryan-poluchil-realnyy-srok-po-delu-o",
+      "canonical_url": "https://ovd.info/express-news/2026/03/05/bloger-zhenonenavistnik-arsen-markaryan-poluchil-realnyy-srok-po-delu-o",
+      "published_at": "2026-03-05T15:07:00+03:00",
+      "content_hash": "d86c54a12369cf7087cb12a7c9f5893e9028304fb087ae5004fe11290ed8eb52",
+      "raw_content_hash": "483d340f3985af4e1dbe3f8a281df9cf58ac45c94c8cdd62ec93e7638e57088d",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/05/bloger-zhenonenavistnik-arsen-markaryan-poluchil-realnyy-srok-po-delu-o"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/05/zareme-musaevoy-na-mesyac-sokratili-srok-v-kolonii-poselenii",
+      "canonical_url": "https://ovd.info/express-news/2026/03/05/zareme-musaevoy-na-mesyac-sokratili-srok-v-kolonii-poselenii",
+      "published_at": "2026-03-05T16:31:00+03:00",
+      "content_hash": "09a545ae31c53305ec23b0de6ebcd3190c1abad82f747231f92cc67d771caf59",
+      "raw_content_hash": "8a3c1941572a1bc2a12bb40c6b805e0d5bb336cd890a748de125a63e4d765b8b",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/05/zareme-musaevoy-na-mesyac-sokratili-srok-v-kolonii-poselenii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/06/obvinyaemuyu-iz-za-razgovorov-o-legione-svoboda-rossii-prigovorili-k-14",
+      "canonical_url": "https://ovd.info/express-news/2026/03/06/obvinyaemuyu-iz-za-razgovorov-o-legione-svoboda-rossii-prigovorili-k-14",
+      "published_at": "2026-03-06T11:12:00+03:00",
+      "content_hash": "aed18198a9708df8b6d96b0f5318b2d201047023b6c45ddbb495badad7b0b4ec",
+      "raw_content_hash": "9d6a2e596a1821a742a5b3eb356bd878f0341947cb8e41fa452bd981b2b27bb3",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/06/obvinyaemuyu-iz-za-razgovorov-o-legione-svoboda-rossii-prigovorili-k-14"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/06/protiv-politika-iz-udmurtii-kotoryy-bolshe-mesyaca-derzhal-golodovku",
+      "canonical_url": "https://ovd.info/express-news/2026/03/06/protiv-politika-iz-udmurtii-kotoryy-bolshe-mesyaca-derzhal-golodovku",
+      "published_at": "2026-03-06T13:52:00+03:00",
+      "content_hash": "6c7a0a9206ae5677962d789dfb5fbfae46d193a0224cc4a9893d06d528e90d1d",
+      "raw_content_hash": "d27b01fa803c1edd9c911186277d76ca8b082a80d0c44d5d482cac8fac898e08",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/06/protiv-politika-iz-udmurtii-kotoryy-bolshe-mesyaca-derzhal-golodovku"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/06/iz-za-kommentariev-pro-putina-zhitelya-karachaevo-cherkesii-arestovali-na",
+      "canonical_url": "https://ovd.info/express-news/2026/03/06/iz-za-kommentariev-pro-putina-zhitelya-karachaevo-cherkesii-arestovali-na",
+      "published_at": "2026-03-06T14:57:00+03:00",
+      "content_hash": "84a53c9a0413dd871b19c18cf79ae7ae7f12909a7f0ca34c5a2971431f8f5567",
+      "raw_content_hash": "c3fd0359ee6bee1a47451a7339e57a8d5ee934b26101db75f389940d559c5d55",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/06/iz-za-kommentariev-pro-putina-zhitelya-karachaevo-cherkesii-arestovali-na"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/06/advokatu-marii-boncler-uzhestochili-obvinenie-teper-ey-grozit-do-20-let",
+      "canonical_url": "https://ovd.info/express-news/2026/03/06/advokatu-marii-boncler-uzhestochili-obvinenie-teper-ey-grozit-do-20-let",
+      "published_at": "2026-03-06T15:14:00+03:00",
+      "content_hash": "5642132eae53150bd23abce4cc320f590603d889f155a0b668b33cd0fb0a3b0f",
+      "raw_content_hash": "b67a485db9e19771e59aa8f0551ce677006542eeddd60538837749c2b7e208f8",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/06/advokatu-marii-boncler-uzhestochili-obvinenie-teper-ey-grozit-do-20-let"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/10/v-moskve-k-chlenu-yabloka-prishli-s-obyskom-po-delu-o-voennykh-feykakh",
+      "canonical_url": "https://ovd.info/express-news/2026/03/10/v-moskve-k-chlenu-yabloka-prishli-s-obyskom-po-delu-o-voennykh-feykakh",
+      "published_at": "2026-03-10T14:29:00+03:00",
+      "content_hash": "a693a10637557a67b4f4638ffe160f057601354fb954e663bf91f89fa593a1fa",
+      "raw_content_hash": "d1cc248a210a45af4602abbcbcc97b47760640dc22894c5248778b858e622f67",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/10/v-moskve-k-chlenu-yabloka-prishli-s-obyskom-po-delu-o-voennykh-feykakh"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/11/figurant-tyumenskogo-dela-v-zaklyuchenii-oslep-na-odin-glaz-i-ne-mozhet",
+      "canonical_url": "https://ovd.info/express-news/2026/03/11/figurant-tyumenskogo-dela-v-zaklyuchenii-oslep-na-odin-glaz-i-ne-mozhet",
+      "published_at": "2026-03-11T13:13:00+03:00",
+      "content_hash": "348aafd5297a923c2d141c72f4780c6d21833677a025983972c8db52b74f8734",
+      "raw_content_hash": "aafdf23a9248b70213578b8eb08587e8d460cc06effe26c8fe830696546a8f4b",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/11/figurant-tyumenskogo-dela-v-zaklyuchenii-oslep-na-odin-glaz-i-ne-mozhet"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/11/vs-nazval-neobyazatelnym-ispolnenie-zaprosov-komiteta-po-pravam-cheloveka",
+      "canonical_url": "https://ovd.info/express-news/2026/03/11/vs-nazval-neobyazatelnym-ispolnenie-zaprosov-komiteta-po-pravam-cheloveka",
+      "published_at": "2026-03-11T15:57:00+03:00",
+      "content_hash": "0587a3519a419a8e6b0db7621fb358019e33722ed9a02ad38f8364d911e8c395",
+      "raw_content_hash": "307f9149dcf892b1afcb194a80f855e1e8d6f01d914b787e80b4e95b8745f3c6",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/11/vs-nazval-neobyazatelnym-ispolnenie-zaprosov-komiteta-po-pravam-cheloveka"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/11/uralskogo-svyashchennika-nazvavshego-osnovatelya-rdk-krasavchikom-osudili",
+      "canonical_url": "https://ovd.info/express-news/2026/03/11/uralskogo-svyashchennika-nazvavshego-osnovatelya-rdk-krasavchikom-osudili",
+      "published_at": "2026-03-11T18:13:00+03:00",
+      "content_hash": "c5c549db427924981e1b2c8193cbda1422ae1fef481286ad893c895970fe3092",
+      "raw_content_hash": "e06baf37297a9930dd8f98eef96d2653c7043184b2702143ffc4a287727a1874",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/11/uralskogo-svyashchennika-nazvavshego-osnovatelya-rdk-krasavchikom-osudili"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu",
+      "canonical_url": "https://ovd.info/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu",
+      "published_at": "2026-03-12T11:30:00+03:00",
+      "content_hash": "29c28807f5b9b4c86a4d10dcb8db412bcdaf2d54cbf0d5af5b674d71ea92e13f",
+      "raw_content_hash": "2c0626fc246bfe811b0262e24e4216950cdf1c90ff2836dbeacecec2a25733a9",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/12/v-novosibirskoy-oblasti-zaderzhali-protestuyushchikh-protiv-usypleniya",
+      "canonical_url": "https://ovd.info/express-news/2026/03/12/v-novosibirskoy-oblasti-zaderzhali-protestuyushchikh-protiv-usypleniya",
+      "published_at": "2026-03-12T21:12:00+03:00",
+      "content_hash": "e695f0966cdfa521f02ac60ba7572543813a283da5173f276666f60e3087cef2",
+      "raw_content_hash": "b7b4ece8db2007036e8d6872468a1003100d6c4de069823295295366024ef83a",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/12/v-novosibirskoy-oblasti-zaderzhali-protestuyushchikh-protiv-usypleniya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/13/krasnodarca-posle-peresmotra-dela-o-donatakh-fbk-prigovorili-k-shtrafu-300",
+      "canonical_url": "https://ovd.info/express-news/2026/03/13/krasnodarca-posle-peresmotra-dela-o-donatakh-fbk-prigovorili-k-shtrafu-300",
+      "published_at": "2026-03-13T13:03:00+03:00",
+      "content_hash": "8a2ea9b0a733792bdf33ca696712fd8fec788903167637dac303d3b871872e7d",
+      "raw_content_hash": "0fe8654db15fe02424367ff6c7641667c4b18645ea049fa1fd16e60269bd68cc",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/13/krasnodarca-posle-peresmotra-dela-o-donatakh-fbk-prigovorili-k-shtrafu-300"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/16/protesty-fermerov-v-novosibirskoy-oblasti-poslednie-novosti",
+      "canonical_url": "https://ovd.info/express-news/2026/03/16/protesty-fermerov-v-novosibirskoy-oblasti-poslednie-novosti",
+      "published_at": "2026-03-16T18:26:00+03:00",
+      "content_hash": "94f3b9df278d187a94e60dc2f0f5730498ec5e3a2b5b6f5bac224ea01c26bdf4",
+      "raw_content_hash": "7b2c0a138ab3def8e493240436bf25762c6b712aa041fff9db578cdfce088fa3",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "hyphenated_name",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/16/protesty-fermerov-v-novosibirskoy-oblasti-poslednie-novosti"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/film-skuf-s-zubarevym-vasilenko-valej-karnaval-i-yakubovichem-ne-vyjdet-v-rossijskij-prokat/",
+      "canonical_url": "https://sota.vision/film-skuf-s-zubarevym-vasilenko-valej-karnaval-i-yakubovichem-ne-vyjdet-v-rossijskij-prokat/",
+      "published_at": "2026-03-17T00:00:00+03:00",
+      "content_hash": "e814c302ef72677298c5c143d361d8d3583f25efc44e48ef938959f105244bb6",
+      "raw_content_hash": "54b9bd9e347a7912be3a4b163f1cf2506d87d46dfffbae24cf98a9b13f9565a8",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/film-skuf-s-zubarevym-vasilenko-valej-karnaval-i-yakubovichem-ne-vyjdet-v-rossijskij-prokat/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/17/zhitelya-adygei-osudili-na-11-let-kolonii-po-obvineniyu-v-uchastii-v-sovete",
+      "canonical_url": "https://ovd.info/express-news/2026/03/17/zhitelya-adygei-osudili-na-11-let-kolonii-po-obvineniyu-v-uchastii-v-sovete",
+      "published_at": "2026-03-17T15:49:00+03:00",
+      "content_hash": "c6c8ede42d24d9a78eedb52304ff6b6d0b2ac522d9ddf614204bd8bcf4ba82e8",
+      "raw_content_hash": "6d5dd6bef98d2132c2f5ee6af51dd7f0dff6391794202fe50b9cb9a9f02236d8",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/17/zhitelya-adygei-osudili-na-11-let-kolonii-po-obvineniyu-v-uchastii-v-sovete"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/17/fermerov-v-novosibirskoy-oblasti-nachali-massovo-shtrafovat-iz-za-protestov",
+      "canonical_url": "https://ovd.info/express-news/2026/03/17/fermerov-v-novosibirskoy-oblasti-nachali-massovo-shtrafovat-iz-za-protestov",
+      "published_at": "2026-03-17T17:16:00+03:00",
+      "content_hash": "0412f8c2e9028f43816400ab7ae4c67ef93aeb720e73470f859c9a8b749b1c80",
+      "raw_content_hash": "e4524fe97927973d6903a0c4cfe6524388342dbe094199caf6c67965e09390f5",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/17/fermerov-v-novosibirskoy-oblasti-nachali-massovo-shtrafovat-iz-za-protestov"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/18/peterburgskaya-aktivistka-darya-kozyreva-vyshla-iz-kolonii",
+      "canonical_url": "https://ovd.info/express-news/2026/03/18/peterburgskaya-aktivistka-darya-kozyreva-vyshla-iz-kolonii",
+      "published_at": "2026-03-18T11:07:00+03:00",
+      "content_hash": "aa246f83b33173782ccc98f91df98c0ce1fa6ba34d1a7ff82a3e4ae64640fcf3",
+      "raw_content_hash": "a47e6d166c5b7843f37c29378f40db1f4a30fc298d7d8095b219397ee4dae721",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/18/peterburgskaya-aktivistka-darya-kozyreva-vyshla-iz-kolonii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/18/v-sizo-umer-osuzhdennyy-iz-za-antivoennykh-postov-zhitel-podmoskovya",
+      "canonical_url": "https://ovd.info/express-news/2026/03/18/v-sizo-umer-osuzhdennyy-iz-za-antivoennykh-postov-zhitel-podmoskovya",
+      "published_at": "2026-03-18T12:02:00+03:00",
+      "content_hash": "56fdf372e634a7664e8b9d3ac28ab7794395c8eddfc2512907317718be5c9729",
+      "raw_content_hash": "99e5de967245dfb0d59ef24ee1aa34a9e9e3c6f701eb75734754cfda7adbd126",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/18/v-sizo-umer-osuzhdennyy-iz-za-antivoennykh-postov-zhitel-podmoskovya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/20/v-karachaevo-cherkesii-sokratili-sroki-vosmi-figurantam-dela-grazhdan-sssr",
+      "canonical_url": "https://ovd.info/express-news/2026/03/20/v-karachaevo-cherkesii-sokratili-sroki-vosmi-figurantam-dela-grazhdan-sssr",
+      "published_at": "2026-03-20T12:44:00+03:00",
+      "content_hash": "64767227aac9084cdb8501a93e93a98dc693af3839ee0045bb05968ae3f26edf",
+      "raw_content_hash": "a50d2840a9af3a7a554ac42b6136cb7363752abf713470f2fe94938232451e75",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "hyphenated_name",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/20/v-karachaevo-cherkesii-sokratili-sroki-vosmi-figurantam-dela-grazhdan-sssr"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/20/zaderzhanie-80-letnego-piketchika-i-shtraf-za-igru-s-tushey-kozla-novosti",
+      "canonical_url": "https://ovd.info/express-news/2026/03/20/zaderzhanie-80-letnego-piketchika-i-shtraf-za-igru-s-tushey-kozla-novosti",
+      "published_at": "2026-03-20T18:51:00+03:00",
+      "content_hash": "71a7adee7f82481c245342c6692a506bf54dcfb0e92af26bc8402be455e0c0ff",
+      "raw_content_hash": "97da37e3feaab53a0e3b35cae34dd665ea5cffe34994c806583e95b5855ec074",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/20/zaderzhanie-80-letnego-piketchika-i-shtraf-za-igru-s-tushey-kozla-novosti"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu",
+      "canonical_url": "https://ovd.info/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu",
+      "published_at": "2026-03-23T13:59:00+03:00",
+      "content_hash": "b2aabeb14031806993d7a0e3c7e53f01d96f0e7578c7655b22c3a68c48756ca8",
+      "raw_content_hash": "c5070983054982b208b0150d5ce07cd7e6d83277e0ce5238feaf746d7860b1e2",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/23/protesty-fermerov-v-novosibirskoy-oblasti-chto-proizoshlo-za-nedelyu",
+      "canonical_url": "https://ovd.info/express-news/2026/03/23/protesty-fermerov-v-novosibirskoy-oblasti-chto-proizoshlo-za-nedelyu",
+      "published_at": "2026-03-23T17:11:00+03:00",
+      "content_hash": "80b5ef438ac48ea752708e6a66417e6515f796faa86f982e00ab0063b8e076e6",
+      "raw_content_hash": "eac71e312bffa17bb3a63da2d5563883de50937d6ea29fafad353d7851be028a",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/23/protesty-fermerov-v-novosibirskoy-oblasti-chto-proizoshlo-za-nedelyu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/23/vladelicu-gey-kluba-v-chite-prigovorili-k-chetyrem-godam-lisheniya-svobody",
+      "canonical_url": "https://ovd.info/express-news/2026/03/23/vladelicu-gey-kluba-v-chite-prigovorili-k-chetyrem-godam-lisheniya-svobody",
+      "published_at": "2026-03-23T18:58:00+03:00",
+      "content_hash": "920904c46b54e2d57e3c79ec98165a00969836161c7cb51f187fd74548eb0f9f",
+      "raw_content_hash": "3afc4c25ef2f7ee0a6d388243627557897181e4136ef7735fbe9b9652c7e41b3",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/23/vladelicu-gey-kluba-v-chite-prigovorili-k-chetyrem-godam-lisheniya-svobody"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/26/osuzhdennyy-na-14-let-strogogo-rezhima-nikita-zhuravel-propal-vo-vremya",
+      "canonical_url": "https://ovd.info/express-news/2026/03/26/osuzhdennyy-na-14-let-strogogo-rezhima-nikita-zhuravel-propal-vo-vremya",
+      "published_at": "2026-03-26T14:02:00+03:00",
+      "content_hash": "b27facd6c042743735bce3cbb35856535fd9fbe9fd626ceab688a371332e4b7e",
+      "raw_content_hash": "1e5c4411aede368ff21d2e51178ab425d11af22d6598f63ff1984faa05ba89e0",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/26/osuzhdennyy-na-14-let-strogogo-rezhima-nikita-zhuravel-propal-vo-vremya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/27/zhitel-anapy-propal-posle-karuselnykh-arestov",
+      "canonical_url": "https://ovd.info/express-news/2026/03/27/zhitel-anapy-propal-posle-karuselnykh-arestov",
+      "published_at": "2026-03-27T14:19:00+03:00",
+      "content_hash": "8cf297f2b0af1defd1c9a85b44f285ff716278651a28a1aaf5ffaf5b02abfed7",
+      "raw_content_hash": "f232dec1172807b4b8bd2cbf8bcc8b3ac294692412687f045bc1b251f69a1ca7",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/27/zhitel-anapy-propal-posle-karuselnykh-arestov"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/27/memorial-trebuyut-priznat-ekstremistskoy-organizaciey",
+      "canonical_url": "https://ovd.info/express-news/2026/03/27/memorial-trebuyut-priznat-ekstremistskoy-organizaciey",
+      "published_at": "2026-03-27T17:06:00+03:00",
+      "content_hash": "41bc42e08c16292c29837f2445c459e845e15b906b8483532fc8bbf32aeaa66a",
+      "raw_content_hash": "f42b6f22799e840863ad685bcf6a8a649de7321770c22b8df807be87bec280bc",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "political_keywords",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/27/memorial-trebuyut-priznat-ekstremistskoy-organizaciey"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo",
+      "canonical_url": "https://ovd.info/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo",
+      "published_at": "2026-03-29T08:18:00+03:00",
+      "content_hash": "9b6178e871a5ecf795e99a2bf079a40582ec0b285096c32d62f9f407f789c6bb",
+      "raw_content_hash": "24d4486653eaac256099ff3ca91c065907ca98fa0a6c105206a3849226083d47",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/30/vladimirskogo-chinovnika-oshtrafovali-iz-za-otkaza-soglasovat-piket",
+      "canonical_url": "https://ovd.info/express-news/2026/03/30/vladimirskogo-chinovnika-oshtrafovali-iz-za-otkaza-soglasovat-piket",
+      "published_at": "2026-03-30T14:06:00+03:00",
+      "content_hash": "7f2a1d92eed897d768524a9bedfde81065a43d86e6070f19a030b90608404ff0",
+      "raw_content_hash": "ad98ec51944ce969db50d011f91915ccb474dbd41783792b8947d18119547e63",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/30/vladimirskogo-chinovnika-oshtrafovali-iz-za-otkaza-soglasovat-piket"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/03/30/byvshiy-sotrudnik-centrobanka-uekhal-iz-rossii-posle-zaprosa-realnogo-sroka",
+      "canonical_url": "https://ovd.info/express-news/2026/03/30/byvshiy-sotrudnik-centrobanka-uekhal-iz-rossii-posle-zaprosa-realnogo-sroka",
+      "published_at": "2026-03-30T15:45:00+03:00",
+      "content_hash": "b465124b5ea759c853e6e23a745f94e9abf7bf5380106ea117ac05cb27413b0b",
+      "raw_content_hash": "6b7c946557f73dd624bd661096ec590d4bf6cb761cfccb93c368e04597000c28",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/03/30/byvshiy-sotrudnik-centrobanka-uekhal-iz-rossii-posle-zaprosa-realnogo-sroka"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/01/osuzhdennyy-iz-za-podzhoga-voenkomata-rasskazal-o-nasilii-v-tyurme-i",
+      "canonical_url": "https://ovd.info/express-news/2026/04/01/osuzhdennyy-iz-za-podzhoga-voenkomata-rasskazal-o-nasilii-v-tyurme-i",
+      "published_at": "2026-04-01T11:24:00+03:00",
+      "content_hash": "edee7ee867c7c0b4d5f6fe594438fe686106030282bf82f466c4378b7b8813c0",
+      "raw_content_hash": "46c17854ab576adfd71762501dec11e16296bb4f7759ddd7367475559108f9df",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/01/osuzhdennyy-iz-za-podzhoga-voenkomata-rasskazal-o-nasilii-v-tyurme-i"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/marketplejsy-obyazhut-otkryvat-pvz-v-otdeleniyah-pochty-rossii/",
+      "canonical_url": "https://sota.vision/marketplejsy-obyazhut-otkryvat-pvz-v-otdeleniyah-pochty-rossii/",
+      "published_at": "2026-04-02T00:00:00+03:00",
+      "content_hash": "bfeed2ecb20aba42b6850d1ab4b1875e3b7f6359d68a24f0eeadeed5ec36d394",
+      "raw_content_hash": "5c9a2c2f540b981d993880ca43c9a34eff993fd574aa78c641d67dafa5fa7a3f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/marketplejsy-obyazhut-otkryvat-pvz-v-otdeleniyah-pochty-rossii/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/02/kostromicha-soobshchivshego-o-pytkakh-pri-zaderzhanii-osudili-na-6-let",
+      "canonical_url": "https://ovd.info/express-news/2026/04/02/kostromicha-soobshchivshego-o-pytkakh-pri-zaderzhanii-osudili-na-6-let",
+      "published_at": "2026-04-02T12:56:00+03:00",
+      "content_hash": "4c5efd316c5c1a3f5455e39563c7da92babadfd249f1ebe55a4a3cb89b7d5664",
+      "raw_content_hash": "482d3a5a3657958f08fd0b833acb41dd712fca78b97cb78bcc7d3dd62da2d886",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/02/kostromicha-soobshchivshego-o-pytkakh-pri-zaderzhanii-osudili-na-6-let"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/02/na-yaroslavskogo-nacbola-zaveli-delo-po-dadinskoy-state",
+      "canonical_url": "https://ovd.info/express-news/2026/04/02/na-yaroslavskogo-nacbola-zaveli-delo-po-dadinskoy-state",
+      "published_at": "2026-04-02T16:31:00+03:00",
+      "content_hash": "f09e3704d714631bb6d58d77ca3c8663b1f39a3c14f915765ae83e19ddca6de9",
+      "raw_content_hash": "a2860e1dd5ece737d9e825d3226e4fcc1e5ca43d630de0ed02e2b970708be823",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/02/na-yaroslavskogo-nacbola-zaveli-delo-po-dadinskoy-state"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/02/sud-v-vologde-otkazalsya-po-prosbe-fsin-uzhestochit-nakazanie-figurantu",
+      "canonical_url": "https://ovd.info/express-news/2026/04/02/sud-v-vologde-otkazalsya-po-prosbe-fsin-uzhestochit-nakazanie-figurantu",
+      "published_at": "2026-04-02T18:36:00+03:00",
+      "content_hash": "cc89595640e4e293baf4cf7d395f5c7629310fc7f9b8d0de4c4400708b9fc284",
+      "raw_content_hash": "5c8c95ccce3992632ae2b4bc9cd4e5d70870892a7848542f5c449f2e27371370",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/02/sud-v-vologde-otkazalsya-po-prosbe-fsin-uzhestochit-nakazanie-figurantu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/03/politzaklyuchennomu-aleksandru-martynovu-podtverdili-diagnoz-anevrizma",
+      "canonical_url": "https://ovd.info/express-news/2026/04/03/politzaklyuchennomu-aleksandru-martynovu-podtverdili-diagnoz-anevrizma",
+      "published_at": "2026-04-03T15:12:00+03:00",
+      "content_hash": "c4d5cc8d230b72b8c5a4db29c46e9630cd0d6811943f0f8a197a9426dfdc979e",
+      "raw_content_hash": "33dd56f73043a3654230e9027480b370be011e1e9e659c72b23e16f171f5b630",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/03/politzaklyuchennomu-aleksandru-martynovu-podtverdili-diagnoz-anevrizma"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/03/v-ufe-zayavitelnicu-mitinga-protiv-blokirovok-oshtrafovali-po-state-o",
+      "canonical_url": "https://ovd.info/express-news/2026/04/03/v-ufe-zayavitelnicu-mitinga-protiv-blokirovok-oshtrafovali-po-state-o",
+      "published_at": "2026-04-03T18:14:00+03:00",
+      "content_hash": "9269729fa778fe94fed175308190876f51a71317645e5853f54536cff899caf4",
+      "raw_content_hash": "59ed4dfe651cf1e438e77ddbc72691bf2549cb4db0bc537b4405309952218c6f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "hyphenated_name",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/03/v-ufe-zayavitelnicu-mitinga-protiv-blokirovok-oshtrafovali-po-state-o"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/03/61-letnemu-zhitelyu-vyborga-zaprosili-3-goda-kolonii-po-delu-o-kommentarii",
+      "canonical_url": "https://ovd.info/express-news/2026/04/03/61-letnemu-zhitelyu-vyborga-zaprosili-3-goda-kolonii-po-delu-o-kommentarii",
+      "published_at": "2026-04-03T18:25:00+03:00",
+      "content_hash": "316b3b2e77132b1de7c23b2a9e2b712ef629c7fc20ad680313834eb5caf79d35",
+      "raw_content_hash": "c17b26047243fcdc0f09c22599ae92251c5e93cdb28cd62df8d6c55634ad9da1",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/03/61-letnemu-zhitelyu-vyborga-zaprosili-3-goda-kolonii-po-delu-o-kommentarii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/06/v-tyumeni-siloviki-sorvali-pank-koncert-iz-za-podozreniy-v-svyazi-s",
+      "canonical_url": "https://ovd.info/express-news/2026/04/06/v-tyumeni-siloviki-sorvali-pank-koncert-iz-za-podozreniy-v-svyazi-s",
+      "published_at": "2026-04-06T14:22:00+03:00",
+      "content_hash": "95c24dd80f169b7c50b2e7debf7ac8769a709801293d3335b38164fe956d315c",
+      "raw_content_hash": "c2a82fb09bd4b865ac968717142e6e507cd51af6957b2831ea0c7edae9f62552",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "no_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/06/v-tyumeni-siloviki-sorvali-pank-koncert-iz-za-podozreniy-v-svyazi-s"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/07/v-moskve-siloviki-sorvali-buddistskiy-festival-i-zaderzhali-neskolko",
+      "canonical_url": "https://ovd.info/express-news/2026/04/07/v-moskve-siloviki-sorvali-buddistskiy-festival-i-zaderzhali-neskolko",
+      "published_at": "2026-04-07T13:46:00+03:00",
+      "content_hash": "b53b131945c8f5b7832e09d6a249c636ac6a1fe61ad9983ef0f72aa18e80a8e9",
+      "raw_content_hash": "6462b59379c6ae0515078ecc3d52efc6540d19416f001150972b44097ac9b502",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/07/v-moskve-siloviki-sorvali-buddistskiy-festival-i-zaderzhali-neskolko"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/08/figurantov-dela-vesny-prigovorili-k-srokam-ot-6-do-12-let-kolonii",
+      "canonical_url": "https://ovd.info/express-news/2026/04/08/figurantov-dela-vesny-prigovorili-k-srokam-ot-6-do-12-let-kolonii",
+      "published_at": "2026-04-08T12:34:00+03:00",
+      "content_hash": "c2fbebe010181481f21774eef4b837f82b1e95894307c5ced7514ba0b7102129",
+      "raw_content_hash": "b11c6a47372b6720d9b115fe51675c5db2ccfb2e4c7e4434a3078ec896cadc8c",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/08/figurantov-dela-vesny-prigovorili-k-srokam-ot-6-do-12-let-kolonii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/08/blogera-po-prikolu-stavshego-inoagentom-prigovorili-k-uslovnomu-sroku",
+      "canonical_url": "https://ovd.info/express-news/2026/04/08/blogera-po-prikolu-stavshego-inoagentom-prigovorili-k-uslovnomu-sroku",
+      "published_at": "2026-04-08T16:45:00+03:00",
+      "content_hash": "9d2995d86d2435ef8b68da96d8bfc3c5477b1a79adeca2324a56f547ccc17b6c",
+      "raw_content_hash": "1b5d2e1f9b2233ba5d1eacdab1ef4449dec47ef5cd1f93dbaeceb2f45b815d7f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/08/blogera-po-prikolu-stavshego-inoagentom-prigovorili-k-uslovnomu-sroku"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/09/verkhovnyy-sud-obyavil-dvizhenie-memorial-ekstremistskoy-organizaciey",
+      "canonical_url": "https://ovd.info/express-news/2026/04/09/verkhovnyy-sud-obyavil-dvizhenie-memorial-ekstremistskoy-organizaciey",
+      "published_at": "2026-04-09T13:44:00+03:00",
+      "content_hash": "0a992d1bb9ef9b885d93d615f2a9a3f972615a5601de11e44282bca53051c0ae",
+      "raw_content_hash": "9b573360d805ec7de841affef75050da3cfcc0b26e430b1deeab190be8e559e6",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/09/verkhovnyy-sud-obyavil-dvizhenie-memorial-ekstremistskoy-organizaciey"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/09/v-redakcii-novoy-gazety-v-moskve-prokhodit-obysk",
+      "canonical_url": "https://ovd.info/express-news/2026/04/09/v-redakcii-novoy-gazety-v-moskve-prokhodit-obysk",
+      "published_at": "2026-04-09T14:26:00+03:00",
+      "content_hash": "20cbcf2f164bcafc3fb7c164c32522df07ff5e0c7a6f37c8450f88d7e141835b",
+      "raw_content_hash": "b86f086720fb321828d6e537ba7bc7f4e110cd0ff70a7a71295328c40e207954",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "non_political",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/09/v-redakcii-novoy-gazety-v-moskve-prokhodit-obysk"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/09/v-chite-zaderzhali-byvshego-korrespondenta-radio-svoboda-ego-obvinyayut-v",
+      "canonical_url": "https://ovd.info/express-news/2026/04/09/v-chite-zaderzhali-byvshego-korrespondenta-radio-svoboda-ego-obvinyayut-v",
+      "published_at": "2026-04-09T15:06:00+03:00",
+      "content_hash": "77212c1a87893ca7d672c9e97cb539f54aaf1b6e629f426ab3f3754d33cf4487",
+      "raw_content_hash": "805e23f5bcf2486255cf0d6f091fd87a1a1cae92e4f75473865894b37180d6db",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/09/v-chite-zaderzhali-byvshego-korrespondenta-radio-svoboda-ego-obvinyayut-v"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/09/oproverzhenie-v-krasnodare-zaderzhali-devushku-podderzhivayushchuyu",
+      "canonical_url": "https://ovd.info/express-news/2026/04/09/oproverzhenie-v-krasnodare-zaderzhali-devushku-podderzhivayushchuyu",
+      "published_at": "2026-04-09T15:29:00+03:00",
+      "content_hash": "fcb19c8915b87b59df3b6f98c661bb07bcff3ebe8c3f1eaa2fa3194e48bd7785",
+      "raw_content_hash": "fba7a140069e3636292fda439cb8da79acba718e3f56bdf82b5b240c2bacddfb",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/09/oproverzhenie-v-krasnodare-zaderzhali-devushku-podderzhivayushchuyu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/09/v-ofisakh-nezavisimykh-profsoyuzov-proshli-obyski",
+      "canonical_url": "https://ovd.info/express-news/2026/04/09/v-ofisakh-nezavisimykh-profsoyuzov-proshli-obyski",
+      "published_at": "2026-04-09T16:44:00+03:00",
+      "content_hash": "32aab8555d597d05e524b9d1610798e8b5dc8b19619247053e8e7c0bedd6f157",
+      "raw_content_hash": "a503d8ed788e8ac7e2449ee0212ba060d4e01f023d03c80b72588fb9bb53cc3d",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "no_person",
+        "non_political",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/09/v-ofisakh-nezavisimykh-profsoyuzov-proshli-obyski"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/09/iz-za-video-s-olgoy-buzovoy-zhitelnicu-volzhskogo-arestovali-na-pyat-sutok",
+      "canonical_url": "https://ovd.info/express-news/2026/04/09/iz-za-video-s-olgoy-buzovoy-zhitelnicu-volzhskogo-arestovali-na-pyat-sutok",
+      "published_at": "2026-04-09T19:06:00+03:00",
+      "content_hash": "1c6cae731767e46e55fcef42042d3ac28dd645c7b34037c7d3bea0fe458d8e64",
+      "raw_content_hash": "c84ea376cbe9fc798f63d9c320897db4d9b7ec9fdb33639e81da74451c3f30fe",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/09/iz-za-video-s-olgoy-buzovoy-zhitelnicu-volzhskogo-arestovali-na-pyat-sutok"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/10/v-chelyabinske-storonnicu-maoizma-zaderzhali-iz-za-bannera-protiv",
+      "canonical_url": "https://ovd.info/express-news/2026/04/10/v-chelyabinske-storonnicu-maoizma-zaderzhali-iz-za-bannera-protiv",
+      "published_at": "2026-04-10T12:29:00+03:00",
+      "content_hash": "4dedbf034c609a5e6bc5cb3181e714c7f2ec9d759a3d11fac5e47ad6b4d38e8f",
+      "raw_content_hash": "2427e407194bc78e8014666bd370561484410453319133980bec5cee4db9f927",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "no_person",
+        "non_political",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/10/v-chelyabinske-storonnicu-maoizma-zaderzhali-iz-za-bannera-protiv"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/10/zhurnalistu-novoy-gazety-olegu-rolduginu-predyavili-obvinenie",
+      "canonical_url": "https://ovd.info/express-news/2026/04/10/zhurnalistu-novoy-gazety-olegu-rolduginu-predyavili-obvinenie",
+      "published_at": "2026-04-10T17:43:00+03:00",
+      "content_hash": "8b9e1ad8e67ce1dc8475068c151ba31964942bdbe42350e98eca46da952bca86",
+      "raw_content_hash": "b725c4c89cdee9549b4609930d964682ba46dc6c44534324bb9b8d3483fd9224",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/10/zhurnalistu-novoy-gazety-olegu-rolduginu-predyavili-obvinenie"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/13/na-sotrudnicu-moskovskogo-bara-zaveli-delo-ob-oskorblenii-chuvstv",
+      "canonical_url": "https://ovd.info/express-news/2026/04/13/na-sotrudnicu-moskovskogo-bara-zaveli-delo-ob-oskorblenii-chuvstv",
+      "published_at": "2026-04-13T15:38:00+03:00",
+      "content_hash": "30fbd1124da31af1e6566cb4177cfb4ba2e2a6128ab81a188b7fd6f813bdf470",
+      "raw_content_hash": "492f328f5f24fb4d6cc711b7bca864b9835831aa3f61dc211a38e9975221abe3",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/13/na-sotrudnicu-moskovskogo-bara-zaveli-delo-ob-oskorblenii-chuvstv"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/13/osuzhdennyy-politik-aleksandr-shestun-obyavil-sukhuyu-golodovku-v-tyuremnoy",
+      "canonical_url": "https://ovd.info/express-news/2026/04/13/osuzhdennyy-politik-aleksandr-shestun-obyavil-sukhuyu-golodovku-v-tyuremnoy",
+      "published_at": "2026-04-13T19:16:00+03:00",
+      "content_hash": "e7ffd9f19ed036c4c1f9452376155f2a3520db8ef6d7ab39635ecbbe6a388948",
+      "raw_content_hash": "25ebafecf9a7cb5166ee83d500db58e05e697051965a1b28dd861de766814bc2",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/13/osuzhdennyy-politik-aleksandr-shestun-obyavil-sukhuyu-golodovku-v-tyuremnoy"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/14/iz-za-foto-kulicha-i-seks-igrushki-s-podpisyu-khristos-voskres-vozbudili",
+      "canonical_url": "https://ovd.info/express-news/2026/04/14/iz-za-foto-kulicha-i-seks-igrushki-s-podpisyu-khristos-voskres-vozbudili",
+      "published_at": "2026-04-14T13:44:00+03:00",
+      "content_hash": "9dfcd464dc6072dc71b021e12a4ae1274b5e4ca1d392e4474eb913373d96b277",
+      "raw_content_hash": "f664a043e7616e5b9dc93253f9d762a042f74cb1cdeacca37780d009a737f9e1",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "no_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/14/iz-za-foto-kulicha-i-seks-igrushki-s-podpisyu-khristos-voskres-vozbudili"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/14/v-sizo-komsomolska-na-amure-pokonchil-s-soboy-arestovannyy-iz-za",
+      "canonical_url": "https://ovd.info/express-news/2026/04/14/v-sizo-komsomolska-na-amure-pokonchil-s-soboy-arestovannyy-iz-za",
+      "published_at": "2026-04-14T17:32:00+03:00",
+      "content_hash": "2dfae8b6a8a6c12d85a5ccea77e40e893389207bff1fa4a9a604c2a7b46aa0a4",
+      "raw_content_hash": "71202575cbdbda6d3712098266e883291002ffc275de327938b9aa4510ede21f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/14/v-sizo-komsomolska-na-amure-pokonchil-s-soboy-arestovannyy-iz-za"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/14/vo-vladikavkaze-prokhodit-obysk-v-redakcii-nezavisimogo-izdaniya-sapa",
+      "canonical_url": "https://ovd.info/express-news/2026/04/14/vo-vladikavkaze-prokhodit-obysk-v-redakcii-nezavisimogo-izdaniya-sapa",
+      "published_at": "2026-04-14T18:04:00+03:00",
+      "content_hash": "2501752ca649c15c438b1ebaa22423c8be27ef5f15f677f80213d2b450112317",
+      "raw_content_hash": "b1857a89e32ed944cc19574a733686f1c79b0f3d972fa277a170e9b06f9cbd74",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/14/vo-vladikavkaze-prokhodit-obysk-v-redakcii-nezavisimogo-izdaniya-sapa"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/15/vtorogo-storonnika-maoizma-arestovali-na-10-sutok-posle-akcii-protiv",
+      "canonical_url": "https://ovd.info/express-news/2026/04/15/vtorogo-storonnika-maoizma-arestovali-na-10-sutok-posle-akcii-protiv",
+      "published_at": "2026-04-15T13:18:00+03:00",
+      "content_hash": "ff706e7daf5fa0ca16426cb66fcd7c79f7024603dbdc0a766fde6c5d6467de5c",
+      "raw_content_hash": "b2dbf99c33371df36a1a138858489d15a04872191347ebfa48bca98c988a5892",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "no_person",
+        "non_political",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/15/vtorogo-storonnika-maoizma-arestovali-na-10-sutok-posle-akcii-protiv"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/15/vs-mordovii-otmenil-uzhestochenie-rezhima-kolonii-pravozashchitniku-sergeyu",
+      "canonical_url": "https://ovd.info/express-news/2026/04/15/vs-mordovii-otmenil-uzhestochenie-rezhima-kolonii-pravozashchitniku-sergeyu",
+      "published_at": "2026-04-15T14:29:00+03:00",
+      "content_hash": "df23867f2d895bc4f82df7f99d6d3037494b1c3b476774e6f750f42ed0078878",
+      "raw_content_hash": "11408195ae1c42e2e4a3c13953073c862fb1feb3f1bad66d402f3c2b50a991ea",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/15/vs-mordovii-otmenil-uzhestochenie-rezhima-kolonii-pravozashchitniku-sergeyu"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/s-1-iyulya-2026-goda-pri-perevodah-cherez-sbp-stanet-obyazatelnym-ukazanie-inn/",
+      "canonical_url": "https://sota.vision/s-1-iyulya-2026-goda-pri-perevodah-cherez-sbp-stanet-obyazatelnym-ukazanie-inn/",
+      "published_at": "2026-04-16T00:00:00+03:00",
+      "content_hash": "de66d2b49e6483e454a154b2d17567d647f5bd2ca1e67eee6bda1acd50156924",
+      "raw_content_hash": "690e0b4ec60d154b225dbd18623dbedc6863bbdf53be8c650062896ababb3053",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "non_political",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/s-1-iyulya-2026-goda-pri-perevodah-cherez-sbp-stanet-obyazatelnym-ukazanie-inn/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/16/na-press-sekretarya-ovd-info-sostavili-protokol-ob-uchastii-v-nezhelatelnoy",
+      "canonical_url": "https://ovd.info/express-news/2026/04/16/na-press-sekretarya-ovd-info-sostavili-protokol-ob-uchastii-v-nezhelatelnoy",
+      "published_at": "2026-04-16T12:54:00+03:00",
+      "content_hash": "7fbb0f17de07d767c0d0bcc0f992a7358082567c3d1f1f6dec3892cccce607d4",
+      "raw_content_hash": "ed5e2a844f5febf6b657914ca8968c5773be05e5211c0e8c45dbc6955b54321d",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/16/na-press-sekretarya-ovd-info-sostavili-protokol-ob-uchastii-v-nezhelatelnoy"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/17/khudozhnica-lyudmila-razumova-rasskazala-ob-agressivnoy-sokamernice",
+      "canonical_url": "https://ovd.info/express-news/2026/04/17/khudozhnica-lyudmila-razumova-rasskazala-ob-agressivnoy-sokamernice",
+      "published_at": "2026-04-17T13:11:00+03:00",
+      "content_hash": "85b41e20e6d7a6b26bee9c02e88f8264219c0956635bacddd708efd5f08e73f6",
+      "raw_content_hash": "8036af4b6eb2a5a8d6c76b00bd79cdcaa6c35408fb6e2b93ab68f3b78e741d2d",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/17/khudozhnica-lyudmila-razumova-rasskazala-ob-agressivnoy-sokamernice"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/17/shestvie-kitayskikh-rabochikh-i-zapret-krestnogo-khoda-naprotiv-kremlya",
+      "canonical_url": "https://ovd.info/express-news/2026/04/17/shestvie-kitayskikh-rabochikh-i-zapret-krestnogo-khoda-naprotiv-kremlya",
+      "published_at": "2026-04-17T17:05:00+03:00",
+      "content_hash": "bdf15ed01192e0bc21836e1bd9832aaa8f887fcdb9bbfcf6e5de1acfbcd30163",
+      "raw_content_hash": "1b755ba5aa1b23a361bc8e51042a6e378517c08d3790d4d50f8ab1ee2c6c9e5b",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "no_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/17/shestvie-kitayskikh-rabochikh-i-zapret-krestnogo-khoda-naprotiv-kremlya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/17/v-kolonii-umer-khristianskiy-propovednik-khristolyub-vegan-osuzhdennyy-iz",
+      "canonical_url": "https://ovd.info/express-news/2026/04/17/v-kolonii-umer-khristianskiy-propovednik-khristolyub-vegan-osuzhdennyy-iz",
+      "published_at": "2026-04-17T20:32:00+03:00",
+      "content_hash": "8b8e678c0d21e8b9c9b83b8b962c50e2a180f729b9b82e666894868e1db459b4",
+      "raw_content_hash": "5400c6e13110cc623546407653168fcf8989db55ba02feaaae2c07ed638e2636",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/17/v-kolonii-umer-khristianskiy-propovednik-khristolyub-vegan-osuzhdennyy-iz"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/20/na-krymskogo-tatarina-s-opukholyu-mozga-kotoryy-dva-goda-dobivaetsya",
+      "canonical_url": "https://ovd.info/express-news/2026/04/20/na-krymskogo-tatarina-s-opukholyu-mozga-kotoryy-dva-goda-dobivaetsya",
+      "published_at": "2026-04-20T16:01:00+03:00",
+      "content_hash": "79395a53dd37a7f1e2865e121ac2167a789a9cef8e291ea68e1cdbe0c948b096",
+      "raw_content_hash": "b80ed629fd939e815e76672c234c72b941a9287a5ea9c97899284bd55c0102f9",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/20/na-krymskogo-tatarina-s-opukholyu-mozga-kotoryy-dva-goda-dobivaetsya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/21/posle-smerti-v-kolonii-khristolyuba-vegana-vozbudili-delo-o-khalatnosti",
+      "canonical_url": "https://ovd.info/express-news/2026/04/21/posle-smerti-v-kolonii-khristolyuba-vegana-vozbudili-delo-o-khalatnosti",
+      "published_at": "2026-04-21T10:50:00+03:00",
+      "content_hash": "677dd12954bf0285152e13f216ef6774e034cb7c1f9cf7025e4c73a5fabf1c3e",
+      "raw_content_hash": "47f14bc74347c09e69e7198623405d2b618825995931f4aec10ff5d4822a6d1a",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/21/posle-smerti-v-kolonii-khristolyuba-vegana-vozbudili-delo-o-khalatnosti"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/21/u-menedzhmenta-izdatelstva-eksmo-prokhodyat-obyski-po-delu-o-lgbt",
+      "canonical_url": "https://ovd.info/express-news/2026/04/21/u-menedzhmenta-izdatelstva-eksmo-prokhodyat-obyski-po-delu-o-lgbt",
+      "published_at": "2026-04-21T13:21:00+03:00",
+      "content_hash": "e12f0af4bec2b49a6ac0909e163783e2b3fd8efb28e0d864b6f7f6793ab368a2",
+      "raw_content_hash": "9ae7b05c889712330696e589b82bc31064fc948fa9ae485221a8f96ecf614fe6",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/21/u-menedzhmenta-izdatelstva-eksmo-prokhodyat-obyski-po-delu-o-lgbt"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/22/pensionerku-iz-podmoskovya-osudili-na-7-let-kolonii-po-delu-grazhdan-sssr",
+      "canonical_url": "https://ovd.info/express-news/2026/04/22/pensionerku-iz-podmoskovya-osudili-na-7-let-kolonii-po-delu-grazhdan-sssr",
+      "published_at": "2026-04-22T15:21:00+03:00",
+      "content_hash": "4191fb072f8b60edeb9a876a0fa8d32be39f80d688751ef09c7e8ca4e95071e2",
+      "raw_content_hash": "ce47d0ba0774ac3f21dc0fc36beb844b0c1a10549a82f3b5e084166d72cc452e",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/22/pensionerku-iz-podmoskovya-osudili-na-7-let-kolonii-po-delu-grazhdan-sssr"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/22/podmoskovnyy-sud-prekratil-delo-o-voennykh-feykakh-kotoroe-zaveli-na-chlena",
+      "canonical_url": "https://ovd.info/express-news/2026/04/22/podmoskovnyy-sud-prekratil-delo-o-voennykh-feykakh-kotoroe-zaveli-na-chlena",
+      "published_at": "2026-04-22T19:01:00+03:00",
+      "content_hash": "d9bed7b4f1f8cb49957f4669122edc9e6937792da2d4d72d29371399049f6dd8",
+      "raw_content_hash": "deb71bbc857b8063f05484bb24495e24af1ae72cbdd3ce6f7695a6a846958513",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/22/podmoskovnyy-sud-prekratil-delo-o-voennykh-feykakh-kotoroe-zaveli-na-chlena"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/23/lgbtk-media-parni-i-moskovskiy-komyuniti-centr-obyavili-ekstremistskimi",
+      "canonical_url": "https://ovd.info/express-news/2026/04/23/lgbtk-media-parni-i-moskovskiy-komyuniti-centr-obyavili-ekstremistskimi",
+      "published_at": "2026-04-23T15:49:00+03:00",
+      "content_hash": "9ebd88a3ebd25c7718fe3c3da0a6b9b5726380befa4eb6d37641df03c163ba0e",
+      "raw_content_hash": "d1b72a9b970ec367086855fb8e7ff8029edef7846479f56d26cc7f69c971a3e9",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "no_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/23/lgbtk-media-parni-i-moskovskiy-komyuniti-centr-obyavili-ekstremistskimi"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/23/advokat-navalnogo-igor-sergunin-vyshel-na-svobodu",
+      "canonical_url": "https://ovd.info/express-news/2026/04/23/advokat-navalnogo-igor-sergunin-vyshel-na-svobodu",
+      "published_at": "2026-04-23T17:20:00+03:00",
+      "content_hash": "419951710c3dcaabdb52039222d98a3c17145de16ee6f7e8e914b333f0c90f29",
+      "raw_content_hash": "d5b9147d6a70b99b4461d27c37a6c0da8d7c46d109dcbd30e989e02e90544172",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/23/advokat-navalnogo-igor-sergunin-vyshel-na-svobodu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/23/kassacionnyy-sud-ostavil-v-kolonii-primorskogo-politika-s-rakom-kozhi",
+      "canonical_url": "https://ovd.info/express-news/2026/04/23/kassacionnyy-sud-ostavil-v-kolonii-primorskogo-politika-s-rakom-kozhi",
+      "published_at": "2026-04-23T19:22:00+03:00",
+      "content_hash": "cb0842ef6362aa6d4598cb1f91a7a281ea4f39611ef025bb8a8bf149308544d3",
+      "raw_content_hash": "f0e365d81b03a27a3a86ac39a72afb628edc8560a34c893fa2873f7a87fe4011",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/23/kassacionnyy-sud-ostavil-v-kolonii-primorskogo-politika-s-rakom-kozhi"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/24/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+      "canonical_url": "https://ovd.info/express-news/2026/04/24/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+      "published_at": "2026-04-24T14:05:00+03:00",
+      "content_hash": "1610d75b6e23f9288e33270de1c89e56b3d1acc53bdace26d98607833d491f47",
+      "raw_content_hash": "09ab7e54c4f9e084f2562ef7e18b0c6cba747f1129e910fa71ba961c09df9d5f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/24/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/27/v-zaklyuchenii-umer-pensioner-oleg-tyryshkin-osuzhdennyy-iz-za-kommentariya",
+      "canonical_url": "https://ovd.info/express-news/2026/04/27/v-zaklyuchenii-umer-pensioner-oleg-tyryshkin-osuzhdennyy-iz-za-kommentariya",
+      "published_at": "2026-04-27T13:52:00+03:00",
+      "content_hash": "00a8979d817ef0e11848033ad0d97264259c6b5578be9fa07b10dcd840929151",
+      "raw_content_hash": "d00be388a7bdf91d52c1b8fd4d5ff795f9ed785234494b62912543c9b76151f5",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/27/v-zaklyuchenii-umer-pensioner-oleg-tyryshkin-osuzhdennyy-iz-za-kommentariya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/27/na-tulyaka-prishedshego-na-krestnyy-khod-v-maske-satany-zaveli-delo-ob",
+      "canonical_url": "https://ovd.info/express-news/2026/04/27/na-tulyaka-prishedshego-na-krestnyy-khod-v-maske-satany-zaveli-delo-ob",
+      "published_at": "2026-04-27T16:07:00+03:00",
+      "content_hash": "41c8de627a860cea9c6d85e7fd5ef6f9ab873376d540a66456fdb7ccf8f04a4f",
+      "raw_content_hash": "2bb801218e8be14f1d307bf2b269102a7fb9071bbf4e39382f4915a542d1f580",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/27/na-tulyaka-prishedshego-na-krestnyy-khod-v-maske-satany-zaveli-delo-ob"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/27/rossiyskuyu-lgbt-set-obyavili-ekstremistskoy-organizaciey",
+      "canonical_url": "https://ovd.info/express-news/2026/04/27/rossiyskuyu-lgbt-set-obyavili-ekstremistskoy-organizaciey",
+      "published_at": "2026-04-27T16:42:00+03:00",
+      "content_hash": "619f61506ede331cd49688ab88551fe35226f22b83fa9211c2d5b80bac32286a",
+      "raw_content_hash": "e7daa494cab5e461487b9b4e0526ffecefecc3a35db26f9d1500d7b5b900ab4e",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/27/rossiyskuyu-lgbt-set-obyavili-ekstremistskoy-organizaciey"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/27/nastoyatelya-moskovskogo-centra-dzen-prigovorili-k-6-godam-kolonii",
+      "canonical_url": "https://ovd.info/express-news/2026/04/27/nastoyatelya-moskovskogo-centra-dzen-prigovorili-k-6-godam-kolonii",
+      "published_at": "2026-04-28T11:32:00+03:00",
+      "content_hash": "03a6fc74a26806bcca095ea096978d9c1c643f8777568cfef5aa1dfdbff13059",
+      "raw_content_hash": "143e0d2815fb6ac54b70fb9a700d38551e644bd84b2f468051eb8376a798cdfe",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/27/nastoyatelya-moskovskogo-centra-dzen-prigovorili-k-6-godam-kolonii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/28/anarkhista-azata-miftakhova-dostavili-v-koloniyu-za-polyarnym-krugom",
+      "canonical_url": "https://ovd.info/express-news/2026/04/28/anarkhista-azata-miftakhova-dostavili-v-koloniyu-za-polyarnym-krugom",
+      "published_at": "2026-04-28T15:04:00+03:00",
+      "content_hash": "408956cb137728f6d136e8e5ee586a8c0e9d0f056562f9bb8573ebed4a03161f",
+      "raw_content_hash": "194f71824e1054fa75544828d3946e566b406b7a69008a43a0224fa3d3d39f32",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "hyphenated_name",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/28/anarkhista-azata-miftakhova-dostavili-v-koloniyu-za-polyarnym-krugom"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/29/kraeveda-iz-tatarstana-osudili-iz-za-antivoennogo-posta-i-obrashcheniya",
+      "canonical_url": "https://ovd.info/express-news/2026/04/29/kraeveda-iz-tatarstana-osudili-iz-za-antivoennogo-posta-i-obrashcheniya",
+      "published_at": "2026-04-29T12:40:00+03:00",
+      "content_hash": "cef23fd97e33dad409f2553449cf93a976cd4f34224703b0b42cece383d826b1",
+      "raw_content_hash": "061dc03e2944f64c6b7c4636eafa1d94fc3913a622af593c0ae62d59ffbc80a8",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/29/kraeveda-iz-tatarstana-osudili-iz-za-antivoennogo-posta-i-obrashcheniya"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/29/v-ekaterinburge-siloviki-prishli-k-glave-mestnogo-yabloka-i-chlenu-partii",
+      "canonical_url": "https://ovd.info/express-news/2026/04/29/v-ekaterinburge-siloviki-prishli-k-glave-mestnogo-yabloka-i-chlenu-partii",
+      "published_at": "2026-04-29T14:53:00+03:00",
+      "content_hash": "80fbcf83ce280896cc1b2be78c1a0fa5d71b67cb4cc52277973db0b89d5cd38f",
+      "raw_content_hash": "20b4b23d2b0a907e26eb9c2294c12aa970d2202585c5a2472e78ef6df8f4930f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/29/v-ekaterinburge-siloviki-prishli-k-glave-mestnogo-yabloka-i-chlenu-partii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/29/na-byvshego-sotrudnika-shtaba-navalnogo-v-ufe-zaveli-ugolovnoe-delo-po",
+      "canonical_url": "https://ovd.info/express-news/2026/04/29/na-byvshego-sotrudnika-shtaba-navalnogo-v-ufe-zaveli-ugolovnoe-delo-po",
+      "published_at": "2026-04-29T15:28:00+03:00",
+      "content_hash": "5aca5daec5ed93e134271755f00f65064164bf35013a12ab271b812e8b321180",
+      "raw_content_hash": "b6595f65011dbfc5ca7d15dfef4962c8c08a287ec68f6c5a31930452af0f8afd",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/29/na-byvshego-sotrudnika-shtaba-navalnogo-v-ufe-zaveli-ugolovnoe-delo-po"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/04/30/sud-reshil-vydvorit-inostranca-iz-rossii-iz-za-otzyva-na-yubku-na",
+      "canonical_url": "https://ovd.info/express-news/2026/04/30/sud-reshil-vydvorit-inostranca-iz-rossii-iz-za-otzyva-na-yubku-na",
+      "published_at": "2026-04-30T12:47:00+03:00",
+      "content_hash": "238735a37368ac3d52a220d30c7476bf5f9b9af8a26174f364eec219361091ee",
+      "raw_content_hash": "ef1cb919d2400fd1891da39a0b3b76d19e68db703a1a658652771a67d3a6553f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "no_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/04/30/sud-reshil-vydvorit-inostranca-iz-rossii-iz-za-otzyva-na-yubku-na"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/pogibla-uchastnicza-komandy-kvn-utomlennye-solnczem-elena-rybalko/",
+      "canonical_url": "https://sota.vision/pogibla-uchastnicza-komandy-kvn-utomlennye-solnczem-elena-rybalko/",
+      "published_at": "2026-05-02T00:00:00+03:00",
+      "content_hash": "0efbc98d483159cd7d87fea027e60d4c1c940d665f5615f66be24eb9e174c1d7",
+      "raw_content_hash": "1798e2e464a9036a311c1ceb8c8b2431323678c435f2d69e478237680687e431",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "multi_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/pogibla-uchastnicza-komandy-kvn-utomlennye-solnczem-elena-rybalko/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/04/centr-t-obyavili-ekstremistskoy-organizaciey",
+      "canonical_url": "https://ovd.info/express-news/2026/05/04/centr-t-obyavili-ekstremistskoy-organizaciey",
+      "published_at": "2026-05-04T14:04:00+03:00",
+      "content_hash": "9d4aaab7033a5df6f5e17e4872d8b747510db1e9c5e073908b3af1a2c95eeed9",
+      "raw_content_hash": "530cdfe0a0ac5f86c3cb806f41d06476c26720be8b2509b3343ca529ea6fafa7",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "no_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/04/centr-t-obyavili-ekstremistskoy-organizaciey"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/04/kaluzhanina-otbyvshego-srok-iz-za-kommentariya-pro-vzryv-v-fsb-zaderzhali-v",
+      "canonical_url": "https://ovd.info/express-news/2026/05/04/kaluzhanina-otbyvshego-srok-iz-za-kommentariya-pro-vzryv-v-fsb-zaderzhali-v",
+      "published_at": "2026-05-04T16:34:00+03:00",
+      "content_hash": "9f2e93fa011738a15d30b31ffaf97b522d2fc67c9cf8cc6db6fb1839d426ada0",
+      "raw_content_hash": "5e4cfc88c117a9bd26246e28451af8933abb402edf68637dc59c03dcd38f8911",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/04/kaluzhanina-otbyvshego-srok-iz-za-kommentariya-pro-vzryv-v-fsb-zaderzhali-v"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/05/61-letnemu-zhitelyu-vyborga-vynesli-prigovor-po-delu-o-kommentarii-slava",
+      "canonical_url": "https://ovd.info/express-news/2026/05/05/61-letnemu-zhitelyu-vyborga-vynesli-prigovor-po-delu-o-kommentarii-slava",
+      "published_at": "2026-05-05T15:24:00+03:00",
+      "content_hash": "524f8a85f681ceda4c0c223e7aa29b51ac914c9835aba293b2c55452346a7508",
+      "raw_content_hash": "d683b2d35546d247d2b9199d41185d064e97fa66e0b0a46298bb3d368264a17f",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/05/61-letnemu-zhitelyu-vyborga-vynesli-prigovor-po-delu-o-kommentarii-slava"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/05/azat-miftakhov-rasskazal-o-pytkakh-v-kolonii-polyarnaya-sova",
+      "canonical_url": "https://ovd.info/express-news/2026/05/05/azat-miftakhov-rasskazal-o-pytkakh-v-kolonii-polyarnaya-sova",
+      "published_at": "2026-05-05T21:00:00+03:00",
+      "content_hash": "8296d79ee9ff4b11000ca78d5825df343ad6105aa369cdb7849f2f1313f9051f",
+      "raw_content_hash": "4cdf0b892171deb7f198c5d791167f5cace9da7b0451df12dc9331bb88ff85b1",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/05/azat-miftakhov-rasskazal-o-pytkakh-v-kolonii-polyarnaya-sova"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/06/syna-sudi-vs-tatarstana-otpravili-v-koloniyu-po-delu-o-feykakh-i-opravdanii",
+      "canonical_url": "https://ovd.info/express-news/2026/05/06/syna-sudi-vs-tatarstana-otpravili-v-koloniyu-po-delu-o-feykakh-i-opravdanii",
+      "published_at": "2026-05-06T15:59:00+03:00",
+      "content_hash": "1ef8042532132024663497910b7ec2ab61b0b2ed8e1044e904e121a91cd69f8d",
+      "raw_content_hash": "efcc9682e5bed24b8b0f9e59bc7c5912d103e1cdce394c32ae594d7ad282ff82",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/06/syna-sudi-vs-tatarstana-otpravili-v-koloniyu-po-delu-o-feykakh-i-opravdanii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/07/eshche-odna-uchastnica-alogo-lebedya-pokinula-rossiyu",
+      "canonical_url": "https://ovd.info/express-news/2026/05/07/eshche-odna-uchastnica-alogo-lebedya-pokinula-rossiyu",
+      "published_at": "2026-05-07T12:51:00+03:00",
+      "content_hash": "eb39e11b5c317505d9141b804e4f9e1eb17a8bedbf7906863ffd1dd544f73745",
+      "raw_content_hash": "58d6a78c17ae839a01bc2f0046ca64c35c586b5876e396544a0eaee3af6b1aef",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "initials",
+        "non_political",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/07/eshche-odna-uchastnica-alogo-lebedya-pokinula-rossiyu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/07/v-kolonii-pogib-krasnodarec-osuzhdennyy-iz-za-kartinki-s-putinym-i-posta-o",
+      "canonical_url": "https://ovd.info/express-news/2026/05/07/v-kolonii-pogib-krasnodarec-osuzhdennyy-iz-za-kartinki-s-putinym-i-posta-o",
+      "published_at": "2026-05-07T14:28:00+03:00",
+      "content_hash": "314ab317aa6ab59671e6d27c9286c0cba12aed17c366ead186a94f9b1e746c28",
+      "raw_content_hash": "9af41137ca0a1760c842d3bda87e34301764236ce251cdec1d84dd357d433349",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/07/v-kolonii-pogib-krasnodarec-osuzhdennyy-iz-za-kartinki-s-putinym-i-posta-o"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/07/v-ekaterinburge-issledovatelya-stalinskikh-repressiy-arestovali-po-delu-o",
+      "canonical_url": "https://ovd.info/express-news/2026/05/07/v-ekaterinburge-issledovatelya-stalinskikh-repressiy-arestovali-po-delu-o",
+      "published_at": "2026-05-07T15:01:00+03:00",
+      "content_hash": "f75203d6a75c36b6a786c3b7edb0f2df9cdf50b7c941e9f34e21577da4b48e86",
+      "raw_content_hash": "1741c3bad012147592915f7057dd795a8bf0011f1896396e3e34ab582a5db84e",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/07/v-ekaterinburge-issledovatelya-stalinskikh-repressiy-arestovali-po-delu-o"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/07/ekaterinburzhec-rasskazal-o-pytkakh-pri-zaderzhanii-po-delu-o-diskreditacii",
+      "canonical_url": "https://ovd.info/express-news/2026/05/07/ekaterinburzhec-rasskazal-o-pytkakh-pri-zaderzhanii-po-delu-o-diskreditacii",
+      "published_at": "2026-05-07T17:12:00+03:00",
+      "content_hash": "f9ebeeb0a2d2e401fe046ee92c87defe1f6beac15d2ba55c2ee68f8ca9785900",
+      "raw_content_hash": "42fec9fb18a6ad6c464b42b35fe13facbc9ca02c114015f5edffa08e6e0e6550",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/07/ekaterinburzhec-rasskazal-o-pytkakh-pri-zaderzhanii-po-delu-o-diskreditacii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+      "canonical_url": "https://ovd.info/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+      "published_at": "2026-05-07T18:14:00+03:00",
+      "content_hash": "80a8fc4c6a7b043f26a11fa90010753fe3708e8c55e6e60aa9a2b5e6425095a5",
+      "raw_content_hash": "043ed041535d83981ab04c239b411398677a3ba4b6d0f0c164612cb8a7161c16",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/08/osuzhdennyy-po-delu-o-gosizmene-student-iz-buryatii-obyavil-golodovku-iz-za",
+      "canonical_url": "https://ovd.info/express-news/2026/05/08/osuzhdennyy-po-delu-o-gosizmene-student-iz-buryatii-obyavil-golodovku-iz-za",
+      "published_at": "2026-05-08T14:08:00+03:00",
+      "content_hash": "46f801331b5a027168e360f97727cf2b1a78062c9c9f0afdb843e4bfbbd7f4ab",
+      "raw_content_hash": "80f2f9d7d6c449a17bf5af55e6ce7d7bc0f82e3b98c05a79517f8c53bfa4c9c2",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/08/osuzhdennyy-po-delu-o-gosizmene-student-iz-buryatii-obyavil-golodovku-iz-za"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/08/iz-kolonii-vyshel-figurant-mayakovskogo-dela-nikolay-dayneko",
+      "canonical_url": "https://ovd.info/express-news/2026/05/08/iz-kolonii-vyshel-figurant-mayakovskogo-dela-nikolay-dayneko",
+      "published_at": "2026-05-08T15:15:00+03:00",
+      "content_hash": "f17f02438eca760e42c1f738f9dd0c560e034f775a447d0e12d3657bafc6cfd3",
+      "raw_content_hash": "695be399b7185616df56c95271ce025aec5ccda2da36a62f40be25e2c8985a25",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/08/iz-kolonii-vyshel-figurant-mayakovskogo-dela-nikolay-dayneko"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/08/zhitelnica-ekaterinburga-poluchila-poltora-goda-prinuditelnykh-rabot-iz-za",
+      "canonical_url": "https://ovd.info/express-news/2026/05/08/zhitelnica-ekaterinburga-poluchila-poltora-goda-prinuditelnykh-rabot-iz-za",
+      "published_at": "2026-05-08T16:32:00+03:00",
+      "content_hash": "0c907c945e3b3a6425a9e1ec3b91c3e1efabef4ac73eb65b0cc41c01c3ebf706",
+      "raw_content_hash": "b2951cf412d738e2192e156dd51f87f5865b1ea8406246082f773dd281699919",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/08/zhitelnica-ekaterinburga-poluchila-poltora-goda-prinuditelnykh-rabot-iz-za"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/13/press-sekretarya-ovd-info-oshtrafovali-po-delu-ob-uchastii-v-nezhelatelnoy",
+      "canonical_url": "https://ovd.info/express-news/2026/05/13/press-sekretarya-ovd-info-oshtrafovali-po-delu-ob-uchastii-v-nezhelatelnoy",
+      "published_at": "2026-05-13T13:39:00+03:00",
+      "content_hash": "d2df1c34f737ff2a0314fecc50709c225d8d153f1ff3610a506d2f9b1a52ae99",
+      "raw_content_hash": "2e85d10a6e85a769eb7ffd1d24a748d1b486aaa0510f88618b699e0b2ab37d00",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/13/press-sekretarya-ovd-info-oshtrafovali-po-delu-ob-uchastii-v-nezhelatelnoy"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/13/osuzhdennyy-po-delu-o-voennykh-feykakh-orenburgskiy-yurist-bolshe-dvukh",
+      "canonical_url": "https://ovd.info/express-news/2026/05/13/osuzhdennyy-po-delu-o-voennykh-feykakh-orenburgskiy-yurist-bolshe-dvukh",
+      "published_at": "2026-05-13T16:53:00+03:00",
+      "content_hash": "5c0ab1970a4a65e69fd058b788b6b836a28b5910e08121a204e36fe4e157d17d",
+      "raw_content_hash": "6dc97a66b855de0fce73c0904390e3f694d3df747e91bd4d25ca87b353974ac6",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/13/osuzhdennyy-po-delu-o-voennykh-feykakh-orenburgskiy-yurist-bolshe-dvukh"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/vladimir-putin-posetit-kitaj-19-20-maya/",
+      "canonical_url": "https://sota.vision/vladimir-putin-posetit-kitaj-19-20-maya/",
+      "published_at": "2026-05-18T00:00:00+03:00",
+      "content_hash": "ef01a6b01d0900becf3db3f5d8967746a9a261fba3a6e075b1f23e208f2d6bec",
+      "raw_content_hash": "ec6c87d57d1f39b4a08bd89a8184529c0bc30e4f9f58f6bc12562259aab578f9",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/vladimir-putin-posetit-kitaj-19-20-maya/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/18/rostovskiy-khudozhnik-s-fevralya-nakhoditsya-pod-karuselnymi-arestami",
+      "canonical_url": "https://ovd.info/express-news/2026/05/18/rostovskiy-khudozhnik-s-fevralya-nakhoditsya-pod-karuselnymi-arestami",
+      "published_at": "2026-05-18T14:21:00+03:00",
+      "content_hash": "68036de0ed31d4562d5c38bdadf8cbd5fa081263011c4d3c49fd38839400ed39",
+      "raw_content_hash": "d6b98528b9380fd2fc45d19973f275572d63b2d82ea2d497ae5baac317f28197",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/18/rostovskiy-khudozhnik-s-fevralya-nakhoditsya-pod-karuselnymi-arestami"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/19/zapret-lgbt-iniciativy-pytki-aktivista-i-delo-o-prizyve-unichtozhit-kreml",
+      "canonical_url": "https://ovd.info/express-news/2026/05/19/zapret-lgbt-iniciativy-pytki-aktivista-i-delo-o-prizyve-unichtozhit-kreml",
+      "published_at": "2026-05-19T18:02:00+03:00",
+      "content_hash": "f123daab495d70c99e4468d79bb52c80d0d29c15604d1f28722de9c28ff72eb3",
+      "raw_content_hash": "f7d41a9142d0e128f1a5d8c226d394a25f58923c479c9c95288c9324ffd38481",
+      "corpus_split": "T0",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/19/zapret-lgbt-iniciativy-pytki-aktivista-i-delo-o-prizyve-unichtozhit-kreml"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/21/napadenie-na-pravozashchitnika-prigovor-khudozhniku-i-arest-za-listovki",
+      "canonical_url": "https://ovd.info/express-news/2026/05/21/napadenie-na-pravozashchitnika-prigovor-khudozhniku-i-arest-za-listovki",
+      "published_at": "2026-05-21T18:04:00+03:00",
+      "content_hash": "9ab1f509e337f5c9fd610e3e3540871bae9ec7a6aa70e80a8c3a58c43250fa14",
+      "raw_content_hash": "639721874607b09da742f122e7e06843da424eec0aeba13177ee66ee80c108e4",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "initials",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/21/napadenie-na-pravozashchitnika-prigovor-khudozhniku-i-arest-za-listovki"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/25/novoe-delo-osnovatelnicy-astra-piket-u-kremlya-i-uslovnyy-srok",
+      "canonical_url": "https://ovd.info/express-news/2026/05/25/novoe-delo-osnovatelnicy-astra-piket-u-kremlya-i-uslovnyy-srok",
+      "published_at": "2026-05-25T18:02:00+03:00",
+      "content_hash": "18c982b873df829a39d7cf57e6e490f0cb10376bb54dc01ba72d16b03ecb910d",
+      "raw_content_hash": "07b748825f1c158d767bc65818e50f42cd9cc85aaab4992bddb212581e75e22d",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/25/novoe-delo-osnovatelnicy-astra-piket-u-kremlya-i-uslovnyy-srok"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/26/prigovor-matematiku-perevod-iz-pkt-v-shizo-i-novye-mery-dlya-emigrantov",
+      "canonical_url": "https://ovd.info/express-news/2026/05/26/prigovor-matematiku-perevod-iz-pkt-v-shizo-i-novye-mery-dlya-emigrantov",
+      "published_at": "2026-05-26T18:15:00+03:00",
+      "content_hash": "d4f2764a29eae33969416a93243c37682978002a49f2f1319ea90bec9381a9d9",
+      "raw_content_hash": "8308ccd2983aa8f74d6121712b6c153c5135c0a02e929838aeac9dee231f5dd3",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/26/prigovor-matematiku-perevod-iz-pkt-v-shizo-i-novye-mery-dlya-emigrantov"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/27/na-eks-koordinatora-shtaba-navalnogo-v-cheboksarakh-zaveli-novoe-delo-po",
+      "canonical_url": "https://ovd.info/express-news/2026/05/27/na-eks-koordinatora-shtaba-navalnogo-v-cheboksarakh-zaveli-novoe-delo-po",
+      "published_at": "2026-05-27T13:48:00+03:00",
+      "content_hash": "913511754aa78c1628816025a831236b3937197cd880bdcc8447b3e04e831199",
+      "raw_content_hash": "f85ad4cb9f604f1f24018f3f5cc500864de31d922ca5bb481dacc30df84dd3f1",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/27/na-eks-koordinatora-shtaba-navalnogo-v-cheboksarakh-zaveli-novoe-delo-po"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/27/osuzhdennogo-po-delu-seti-mikhaila-kulkova-otpravili-v-pkt-na-pyat-mesyacev",
+      "canonical_url": "https://ovd.info/express-news/2026/05/27/osuzhdennogo-po-delu-seti-mikhaila-kulkova-otpravili-v-pkt-na-pyat-mesyacev",
+      "published_at": "2026-05-27T18:03:00+03:00",
+      "content_hash": "5c5be79c90d1aaf6b363257e18af19f978b60ada52bdcdba8f9c43b398ff2485",
+      "raw_content_hash": "e8aa44ebc41dc8b143fe79f3dcde511a4ed066587de08f7cedb6ae4fc9054ccc",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/27/osuzhdennogo-po-delu-seti-mikhaila-kulkova-otpravili-v-pkt-na-pyat-mesyacev"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/27/prigovor-za-kalyan-na-kuliche-zdorove-shamana-gabysheva-i-shtraf-takim",
+      "canonical_url": "https://ovd.info/express-news/2026/05/27/prigovor-za-kalyan-na-kuliche-zdorove-shamana-gabysheva-i-shtraf-takim",
+      "published_at": "2026-05-27T18:42:00+03:00",
+      "content_hash": "811e85a2efe2fe27accc6180058e09926ef5ad720dadab74853530310e8ec5dc",
+      "raw_content_hash": "82428f9b7b0ddccceefde38344540422e77eef5c4d8b7a0fc7eaa5b494e0626f",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/27/prigovor-za-kalyan-na-kuliche-zdorove-shamana-gabysheva-i-shtraf-takim"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/28/obyski-u-svideteley-iegovy-vydvorenie-za-namaz-i-dosrochnoe-osvobozhdenie",
+      "canonical_url": "https://ovd.info/express-news/2026/05/28/obyski-u-svideteley-iegovy-vydvorenie-za-namaz-i-dosrochnoe-osvobozhdenie",
+      "published_at": "2026-05-28T18:09:00+03:00",
+      "content_hash": "ef0605acfb8f8b26a62c274a9762578b114b0f398aeb7b7eb2e39cf7e4397b01",
+      "raw_content_hash": "3b1fdb6888ad5ab8aa33c49602e78e3cf0d77e0361349d28f3a821149fd48ab3",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/28/obyski-u-svideteley-iegovy-vydvorenie-za-namaz-i-dosrochnoe-osvobozhdenie"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/29/rostovskogo-khudozhnika-posle-karuselnykh-arestov-otpravili-v-sizo-po",
+      "canonical_url": "https://ovd.info/express-news/2026/05/29/rostovskogo-khudozhnika-posle-karuselnykh-arestov-otpravili-v-sizo-po",
+      "published_at": "2026-05-29T15:28:00+03:00",
+      "content_hash": "dd6ecbb539c0bb1b46871afc4515868751b72133ac2a2c4ad7049d53198dcf3e",
+      "raw_content_hash": "402eb987d4543086ad16bc0cfdafdd6fb9833b894ec847f5a65b94ecf356374c",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/29/rostovskogo-khudozhnika-posle-karuselnykh-arestov-otpravili-v-sizo-po"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/05/29/novye-inoagenty-konfiskaciya-telefona-za-logotip-instagram-i-cenzura-pisem",
+      "canonical_url": "https://ovd.info/express-news/2026/05/29/novye-inoagenty-konfiskaciya-telefona-za-logotip-instagram-i-cenzura-pisem",
+      "published_at": "2026-05-29T17:58:00+03:00",
+      "content_hash": "c56f9da07f75eac2c49466ddaa3d057856bda3e84206ebf832fd1de949fd39e4",
+      "raw_content_hash": "2218b2b7ee72bb408aff99ece8f04c2c65b4463c5fe27f1810ec5acc721e59c8",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/05/29/novye-inoagenty-konfiskaciya-telefona-za-logotip-instagram-i-cenzura-pisem"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/06/01/administratora-telegram-kanala-s-memami-svobodnaya-laplandiya-prigovorili-k",
+      "canonical_url": "https://ovd.info/express-news/2026/06/01/administratora-telegram-kanala-s-memami-svobodnaya-laplandiya-prigovorili-k",
+      "published_at": "2026-06-01T14:47:00+03:00",
+      "content_hash": "5efcab61be6ae354d6c9a077be279a2404b165b2a8ac9063c420b28a4c44b584",
+      "raw_content_hash": "700f9bc328f739205d235dbc6e3658e157c3d92f83f94b84dd5404bd3a7e6ea0",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/06/01/administratora-telegram-kanala-s-memami-svobodnaya-laplandiya-prigovorili-k"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/06/01/v-podmoskove-predprinimatelya-prigovorili-k-trem-godam-uslovno-iz-za",
+      "canonical_url": "https://ovd.info/express-news/2026/06/01/v-podmoskove-predprinimatelya-prigovorili-k-trem-godam-uslovno-iz-za",
+      "published_at": "2026-06-01T17:23:00+03:00",
+      "content_hash": "e2a2a3aa2ff45c1c6ffef4436cb0854737984308289ed5db546985356107cc19",
+      "raw_content_hash": "48d5ae8dbfc9d2a46beed2bd542042f70b676be08d683c3830896bc0c3aa3e65",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "political_keywords",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/06/01/v-podmoskove-predprinimatelya-prigovorili-k-trem-godam-uslovno-iz-za"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/06/01/prigovor-altayskoy-aktivistke-i-presledovanie-detey-prygavshikh-na-kubikakh",
+      "canonical_url": "https://ovd.info/express-news/2026/06/01/prigovor-altayskoy-aktivistke-i-presledovanie-detey-prygavshikh-na-kubikakh",
+      "published_at": "2026-06-01T18:14:00+03:00",
+      "content_hash": "6703d3485880fe45a7818ca0e12885ca3a971fe4e1d93bdbda59496dec018433",
+      "raw_content_hash": "26461fc23d5d05e7fa6449b7de8288d59eb2db61454499f577cff1ceb94b235b",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/06/01/prigovor-altayskoy-aktivistke-i-presledovanie-detey-prygavshikh-na-kubikakh"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/06/02/srok-iz-za-perevoda-byvshey-osvobozhdenie-iz-sizo-otmena-vydvoreniya-za",
+      "canonical_url": "https://ovd.info/express-news/2026/06/02/srok-iz-za-perevoda-byvshey-osvobozhdenie-iz-sizo-otmena-vydvoreniya-za",
+      "published_at": "2026-06-02T17:34:00+03:00",
+      "content_hash": "c08845824d42f2f59d0ea1ef50b568fe2525a7c72b91a2f10c13032267dddeeb",
+      "raw_content_hash": "4234dc7fe9113c52f8d9e4addb72a8ef55ff192f213c49e6b9542634a3211c23",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/06/02/srok-iz-za-perevoda-byvshey-osvobozhdenie-iz-sizo-otmena-vydvoreniya-za"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/06/03/tretiy-prigovor-marii-ponomarenko-pokhishchenie-i-pytki-v-chechne-novosti",
+      "canonical_url": "https://ovd.info/express-news/2026/06/03/tretiy-prigovor-marii-ponomarenko-pokhishchenie-i-pytki-v-chechne-novosti",
+      "published_at": "2026-06-03T18:22:00+03:00",
+      "content_hash": "62ba66ff1accd0750bdfa5762ebf471727bfbe969d145c33bec2fe3034984248",
+      "raw_content_hash": "97bc6988c82f3e83390b2724529e9e030b0718d26729d681b3513c5967d4437b",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/06/03/tretiy-prigovor-marii-ponomarenko-pokhishchenie-i-pytki-v-chechne-novosti"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/v-moskve-i-podmoskove-vveli-limity-na-prodazhu-benzina-v-svyazi-s-tekushhej-rynochnoj-obstanovkoj/",
+      "canonical_url": "https://sota.vision/v-moskve-i-podmoskove-vveli-limity-na-prodazhu-benzina-v-svyazi-s-tekushhej-rynochnoj-obstanovkoj/",
+      "published_at": "2026-06-04T00:00:00+03:00",
+      "content_hash": "4e2cfd12aa00972c26b07ac186246ea69ddc05f8ee2f912333b17f9357e3b9b5",
+      "raw_content_hash": "c6b966fd18a195a5cf4c2097a49a44c63f225f04bac3b18032193361519de237",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "no_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/v-moskve-i-podmoskove-vveli-limity-na-prodazhu-benzina-v-svyazi-s-tekushhej-rynochnoj-obstanovkoj/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/06/04/publicista-i-sociologa-igorya-eydmana-zaochno-arestovali",
+      "canonical_url": "https://ovd.info/express-news/2026/06/04/publicista-i-sociologa-igorya-eydmana-zaochno-arestovali",
+      "published_at": "2026-06-04T11:53:00+03:00",
+      "content_hash": "bb0379e13b38af25ece30f7118d5b0f81d7eaca182e2c51f954dc682139f65bc",
+      "raw_content_hash": "cbd406791b4f1f3653b8ac0e7c097c813fc12c73b8acc498767a190a96815569",
+      "corpus_split": "T1",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/06/04/publicista-i-sociologa-igorya-eydmana-zaochno-arestovali"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/britanskij-premer-kir-starmer-podal-v-otstavku/",
+      "canonical_url": "https://sota.vision/britanskij-premer-kir-starmer-podal-v-otstavku/",
+      "published_at": "2026-06-23T00:00:00+03:00",
+      "content_hash": "c5322d84d55fed57118a41becdccc664d14f9ee18e2456cb977470e5de59b568",
+      "raw_content_hash": "6a688fb95b878a3cbd270314e06ab766d46d60f38e57c5386f0ce3441ed3da45",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/britanskij-premer-kir-starmer-podal-v-otstavku/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/06/vlasti-ekaterinburga-obyavili-nezakonnoy-ustanovku-tablichek-poslednego",
+      "canonical_url": "https://ovd.info/express-news/2026/07/06/vlasti-ekaterinburga-obyavili-nezakonnoy-ustanovku-tablichek-poslednego",
+      "published_at": "2026-07-06T16:11:00+03:00",
+      "content_hash": "a10290c71ecc36ae30d6cb1ad32143e4154b0d090a75e277fbed6b546c5005df",
+      "raw_content_hash": "f85c82f8f41eff1f9914443bad6a90726ef62b2a49dbdefb398771d20a5ce0ce",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "historical_reference",
+        "non_political",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/06/vlasti-ekaterinburga-obyavili-nezakonnoy-ustanovku-tablichek-poslednego"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/06/na-saksofonista-andreya-shabanova-napali-v-kolonii",
+      "canonical_url": "https://ovd.info/express-news/2026/07/06/na-saksofonista-andreya-shabanova-napali-v-kolonii",
+      "published_at": "2026-07-06T17:31:00+03:00",
+      "content_hash": "6b2bfb141be09ae5d802a0e6589c751b5930eebecdf27289e63ac55ac6eab6c7",
+      "raw_content_hash": "c8686ce688a3839f9ececd76218acd56b8db34fb4e298d7d79e3604c34d5319d",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/06/na-saksofonista-andreya-shabanova-napali-v-kolonii"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/chlenstvo-olimpijskogo-komiteta-rossii-vremenno-vosstanovili-v-mok/",
+      "canonical_url": "https://sota.vision/chlenstvo-olimpijskogo-komiteta-rossii-vremenno-vosstanovili-v-mok/",
+      "published_at": "2026-07-07T00:00:00+03:00",
+      "content_hash": "1a1034e4b165e869863bc0c1be11ef315eac9413486388341cbfc34a7c707663",
+      "raw_content_hash": "70c9b2b75364832f8c8bb6bb23be687bfd162fb505de738c79c80ff03b1c0e9d",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "historical_reference",
+        "no_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/chlenstvo-olimpijskogo-komiteta-rossii-vremenno-vosstanovili-v-mok/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/07/na-kitay-gorode-siloviki-ustroili-oblavu-na-podrostkov-desyatki-molodykh",
+      "canonical_url": "https://ovd.info/express-news/2026/07/07/na-kitay-gorode-siloviki-ustroili-oblavu-na-podrostkov-desyatki-molodykh",
+      "published_at": "2026-07-07T14:31:00+03:00",
+      "content_hash": "7bdf24655c849b3fbe9608627da755ebdc711d2b7ac519f60f65a722d4c033a4",
+      "raw_content_hash": "34daaf3d7601a48e268302a118f7b37629e0b10cde6190bddffc113e446e2ef7",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "no_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/07/na-kitay-gorode-siloviki-ustroili-oblavu-na-podrostkov-desyatki-molodykh"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/08/esli-ya-propadu-ne-perezhivayte-skoree-vsego-ya-v-shizo-politzaklyuchennomu",
+      "canonical_url": "https://ovd.info/express-news/2026/07/08/esli-ya-propadu-ne-perezhivayte-skoree-vsego-ya-v-shizo-politzaklyuchennomu",
+      "published_at": "2026-07-08T17:05:00+03:00",
+      "content_hash": "91056c4e7e6bfc80e2f912c7a66f55050c0ec4ba3dfad49a66b2689adcd97920",
+      "raw_content_hash": "d89e77961cde50781206187080aeaa18ac215b16457ee95c952108d6f5150249",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/08/esli-ya-propadu-ne-perezhivayte-skoree-vsego-ya-v-shizo-politzaklyuchennomu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/09/v-ufe-67-letnego-aktivista-arestovali-iz-za-piketa-v-zashchitu-bashkirskogo",
+      "canonical_url": "https://ovd.info/express-news/2026/07/09/v-ufe-67-letnego-aktivista-arestovali-iz-za-piketa-v-zashchitu-bashkirskogo",
+      "published_at": "2026-07-09T13:03:00+03:00",
+      "content_hash": "46f83b7ceb590a3a730e7c3fac33530d71fad6217d4193e361f89975b7bb666d",
+      "raw_content_hash": "a1e9ed4f841674f7e8bc802db4c1bdf5e757fdaf887d481d36a1618a2780b9d7",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "court",
+        "initials",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/09/v-ufe-67-letnego-aktivista-arestovali-iz-za-piketa-v-zashchitu-bashkirskogo"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/13/borisa-nadezhdina-zaderzhali-v-podmoskove",
+      "canonical_url": "https://ovd.info/express-news/2026/07/13/borisa-nadezhdina-zaderzhali-v-podmoskove",
+      "published_at": "2026-07-13T14:23:00+03:00",
+      "content_hash": "aa98ec42793aaac3382625167dd211c92424a008d95718dd9ea32112e23451fc",
+      "raw_content_hash": "e10757f823716afcb80b3a82c0349595510b08c1bf705f47ab3394a4a843936d",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "historical_reference",
+        "political_keywords",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/13/borisa-nadezhdina-zaderzhali-v-podmoskove"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno",
+      "canonical_url": "https://ovd.info/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno",
+      "published_at": "2026-07-14T13:21:00+03:00",
+      "content_hash": "a1a648e1efd2f79faa29e8b2a15fdc9e9773aa107f8222aaa61a307bebe37884",
+      "raw_content_hash": "b369256e5551af5b5b118e4ac57b6a49f67e781e68cffb23ad82da6799499b4c",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/17/byvshego-provlastnogo-blogera-ilyu-remeslo-zaderzhali-po-delu-o-voennykh",
+      "canonical_url": "https://ovd.info/express-news/2026/07/17/byvshego-provlastnogo-blogera-ilyu-remeslo-zaderzhali-po-delu-o-voennykh",
+      "published_at": "2026-07-17T14:17:00+03:00",
+      "content_hash": "75465ec27b520e87d2864ef98df84c1fef775ecdb4500d66eb99b268d24038d1",
+      "raw_content_hash": "ca2d4478bd6f7f31fc86f2cc2379868698496fc2d0df8434aaace9b4ac75fb4f",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "no_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/17/byvshego-provlastnogo-blogera-ilyu-remeslo-zaderzhali-po-delu-o-voennykh"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/17/u-menya-dva-puti-lenina-ili-navalnogo-chto-nuzhno-znat-o-borise-nadezhdine",
+      "canonical_url": "https://ovd.info/express-news/2026/07/17/u-menya-dva-puti-lenina-ili-navalnogo-chto-nuzhno-znat-o-borise-nadezhdine",
+      "published_at": "2026-07-17T14:45:00+03:00",
+      "content_hash": "004027eaf8a1bbf322ab10aba8ea142a16b3783cca8e4ec8d83ca48fbea40db7",
+      "raw_content_hash": "17c5c48c5528feac9616e7ee4d7a784586313e37a679fabb1248027da9ce4260",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/17/u-menya-dva-puti-lenina-ili-navalnogo-chto-nuzhno-znat-o-borise-nadezhdine"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/17/aleksey-i-masha-moskalevy-poluchili-politicheskoe-ubezhishche-vo-francii",
+      "canonical_url": "https://ovd.info/express-news/2026/07/17/aleksey-i-masha-moskalevy-poluchili-politicheskoe-ubezhishche-vo-francii",
+      "published_at": "2026-07-17T16:28:00+03:00",
+      "content_hash": "b4ea091adc431741cc5e2e04f080333afbda74f7b99e1e55cf6ee27995b17600",
+      "raw_content_hash": "81a178fc3feec736b809dbc0f4152a08f3015353bb846799e513003824f5365c",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/17/aleksey-i-masha-moskalevy-poluchili-politicheskoe-ubezhishche-vo-francii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/17/byvshego-direktora-ovd-info-aleksandra-polivanova-obyavili-inoagentom",
+      "canonical_url": "https://ovd.info/express-news/2026/07/17/byvshego-direktora-ovd-info-aleksandra-polivanova-obyavili-inoagentom",
+      "published_at": "2026-07-17T18:23:00+03:00",
+      "content_hash": "66b0db41b45d75d26fe5e3fe654e6f71ff59d070d6e8bd6bdc05c90496f3760b",
+      "raw_content_hash": "e31489cf3ad38ea700c1826c8163ebfaece372931adef76080d64b382da21dfa",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "no_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/17/byvshego-direktora-ovd-info-aleksandra-polivanova-obyavili-inoagentom"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/21/richarda-rouza-obvinili-v-opravdanii-igil-i-vlasovcev",
+      "canonical_url": "https://ovd.info/express-news/2026/07/21/richarda-rouza-obvinili-v-opravdanii-igil-i-vlasovcev",
+      "published_at": "2026-07-21T12:11:00+03:00",
+      "content_hash": "04bc9ff0111f6512c648c5b3c73d467c3b750e5bf271ed58e8804e32525b02bf",
+      "raw_content_hash": "09f05a45abc948fad517b8c77194491508543a2efda91c2f031bc68117249436",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/21/richarda-rouza-obvinili-v-opravdanii-igil-i-vlasovcev"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/22/organizatoram-massovykh-besporyadkov-v-baymake-zaprosili-ot-14-do-15-let",
+      "canonical_url": "https://ovd.info/express-news/2026/07/22/organizatoram-massovykh-besporyadkov-v-baymake-zaprosili-ot-14-do-15-let",
+      "published_at": "2026-07-22T15:56:00+03:00",
+      "content_hash": "612dfae66d963d5ad2535c13c4b18ec6f92d3a01fc7df5cde2cd64227973951b",
+      "raw_content_hash": "ee072a6fe74a16d39143f67fcbc655f812816235fef945a255df49744c52d74d",
+      "corpus_split": "T2",
+      "sampling_tags": [
+        "court",
+        "no_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/22/organizatoram-massovykh-besporyadkov-v-baymake-zaprosili-ot-14-do-15-let"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/putin-uchredil-den-hokkeya-ego-budut-otmechat-22-dekabrya/",
+      "canonical_url": "https://sota.vision/putin-uchredil-den-hokkeya-ego-budut-otmechat-22-dekabrya/",
+      "published_at": "2026-07-23T00:00:00+03:00",
+      "content_hash": "fed9f04372d12905f74347e60164098a02735aeba6bfdcd39772f28feefab711",
+      "raw_content_hash": "17c1f0ced38627554e9300fad2364c8bfc44b492175bbe54c2199848f5216b22",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "no_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/putin-uchredil-den-hokkeya-ego-budut-otmechat-22-dekabrya/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/28/privyazyvali-k-krovati-i-nasilno-obkalyvali-preparatami",
+      "canonical_url": "https://ovd.info/express-news/2026/07/28/privyazyvali-k-krovati-i-nasilno-obkalyvali-preparatami",
+      "published_at": "2026-07-28T16:51:00+03:00",
+      "content_hash": "50bc40a593e64d0d05c2be868ddc789c01d0e05d934138bd2523c7d3e01fa862",
+      "raw_content_hash": "0a130f92efb58ce7b9b4891ebbc14032e612e813607209bfe72b2b8ee67a4bb2",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/28/privyazyvali-k-krovati-i-nasilno-obkalyvali-preparatami"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/29/protiv-pavla-durova-vozbudili-ugolovnoe-delo-o-sodeystvii-terrorizmu",
+      "canonical_url": "https://ovd.info/express-news/2026/07/29/protiv-pavla-durova-vozbudili-ugolovnoe-delo-o-sodeystvii-terrorizmu",
+      "published_at": "2026-07-29T12:18:00+03:00",
+      "content_hash": "180fa13355ea2edc7a951c1047a738ba230ec0205a5380419c151d6826053163",
+      "raw_content_hash": "498b72ac342e9d749b0257bf5a7e296d3c100f12ec85dbb4f842f2821090c9d7",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/29/protiv-pavla-durova-vozbudili-ugolovnoe-delo-o-sodeystvii-terrorizmu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/07/29/yabloko-dopustili-do-uchastiya-v-dumskikh-vyborakh-eto-edinstvennaya-v",
+      "canonical_url": "https://ovd.info/express-news/2026/07/29/yabloko-dopustili-do-uchastiya-v-dumskikh-vyborakh-eto-edinstvennaya-v",
+      "published_at": "2026-07-29T12:54:00+03:00",
+      "content_hash": "b6e1b5597462a4de01ca2dfc4bd587dae2b7e7dedea7ae57417fa394af53070f",
+      "raw_content_hash": "48563f4e506d91a62c7d7c43a8724e1158b711b5799cf5b553a2cc7ebc6f47f4",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "historical_reference",
+        "political_keywords",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/07/29/yabloko-dopustili-do-uchastiya-v-dumskikh-vyborakh-eto-edinstvennaya-v"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/03/boris-nadezhdin-uekhal-iz-rossii",
+      "canonical_url": "https://ovd.info/express-news/2026/08/03/boris-nadezhdin-uekhal-iz-rossii",
+      "published_at": "2026-08-03T13:16:00+03:00",
+      "content_hash": "e2dc14d0ddba6b70b9eaf025cbe258ff60995dd30ec5ae891c5c8357b56f6585",
+      "raw_content_hash": "0868db3f8ad0adce3c257470185a09acc2a6fbe82c0823e3f803b99f9d5021ff",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/03/boris-nadezhdin-uekhal-iz-rossii"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/czik-pokazal-byulleten-na-vyborah-v-gosdumu/",
+      "canonical_url": "https://sota.vision/czik-pokazal-byulleten-na-vyborah-v-gosdumu/",
+      "published_at": "2026-08-06T00:00:00+03:00",
+      "content_hash": "89d1722d5f9b8e5f5969c6165a3dda304b911de5163e651c50d7bd70427a60a3",
+      "raw_content_hash": "a8488e2e915332a171f534398e0c7a65b6da2cbadc1825c5d52f23759806c8aa",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "non_political"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/czik-pokazal-byulleten-na-vyborah-v-gosdumu/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/07/eks-direktor-popcorn-books-poluchil-4-goda-uslovno-eto-posledniy-prigovor",
+      "canonical_url": "https://ovd.info/express-news/2026/08/07/eks-direktor-popcorn-books-poluchil-4-goda-uslovno-eto-posledniy-prigovor",
+      "published_at": "2026-08-07T15:24:00+03:00",
+      "content_hash": "584b3f2ebc2f002b08448d007cae3937b11984d1742057f30ae5a455ac1a6ee9",
+      "raw_content_hash": "5672d6e74a92536000751184c99f791f39a5b24a5c8116001eba81160df28dfe",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/07/eks-direktor-popcorn-books-poluchil-4-goda-uslovno-eto-posledniy-prigovor"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/13/analitika-ovd-info-denisa-shedova-obyavili-v-rozysk",
+      "canonical_url": "https://ovd.info/express-news/2026/08/13/analitika-ovd-info-denisa-shedova-obyavili-v-rozysk",
+      "published_at": "2026-08-13T14:33:00+03:00",
+      "content_hash": "90bc54ec3ee0677303238d4052d8bce6118037277a6f44947057ae69cf9e7c78",
+      "raw_content_hash": "6d38b80e4998f825e6aa1a134be6875827daf02dec7c510858cd6e8414a9aa9f",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/13/analitika-ovd-info-denisa-shedova-obyavili-v-rozysk"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/13/na-komika-sashu-dolgopolova-zaveli-delo-o-reabilitacii-nacizma",
+      "canonical_url": "https://ovd.info/express-news/2026/08/13/na-komika-sashu-dolgopolova-zaveli-delo-o-reabilitacii-nacizma",
+      "published_at": "2026-08-13T17:57:00+03:00",
+      "content_hash": "56add2cf4b3c1cebcce12b3dbe1f88a812702c0fb72786c44de6d47344217ed1",
+      "raw_content_hash": "718775aeb15d083edd744fb84d84ba06daa22b527c165ddfe5fdd9eb59016332",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "non_political",
+        "several_events",
+        "single_person"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/13/na-komika-sashu-dolgopolova-zaveli-delo-o-reabilitacii-nacizma"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/17/massovye-zaderzhaniya-u-verkhovnogo-suda-segodnya-tam-zasedanie-po-snyatiyu",
+      "canonical_url": "https://ovd.info/express-news/2026/08/17/massovye-zaderzhaniya-u-verkhovnogo-suda-segodnya-tam-zasedanie-po-snyatiyu",
+      "published_at": "2026-08-17T11:39:00+03:00",
+      "content_hash": "d00bfa80f91feed209001548de4fb5f47462461c6d2ec94fde1172adf6942889",
+      "raw_content_hash": "ac22ee4d3d2b470fb254063939b7374925f4653cc46e618f7977c4da03d733ac",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/17/massovye-zaderzhaniya-u-verkhovnogo-suda-segodnya-tam-zasedanie-po-snyatiyu"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/17/zampreda-yabloka-lva-shlosberga-prigovorili-k-11-godam-i-1-mesyacu-kolonii",
+      "canonical_url": "https://ovd.info/express-news/2026/08/17/zampreda-yabloka-lva-shlosberga-prigovorili-k-11-godam-i-1-mesyacu-kolonii",
+      "published_at": "2026-08-17T16:22:00+03:00",
+      "content_hash": "6f9adeb183ad29c05d5eb7a49e8334a9fe144b9bee3ab394540d0c7b7824b0d1",
+      "raw_content_hash": "c75de87a47db22b277a15da678694309db00f97da171bef7a8236e7721febc80",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/17/zampreda-yabloka-lva-shlosberga-prigovorili-k-11-godam-i-1-mesyacu-kolonii"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/17/yabloko-vse-zhe-snyali-s-vyborov-8-glavnykh-faktov-o-processe",
+      "canonical_url": "https://ovd.info/express-news/2026/08/17/yabloko-vse-zhe-snyali-s-vyborov-8-glavnykh-faktov-o-processe",
+      "published_at": "2026-08-17T17:32:00+03:00",
+      "content_hash": "10ac6c300f4823de6134f326b4a9ecf0be254a85deb93517b63d5af90a0d27b7",
+      "raw_content_hash": "8a0e67a7d568f2de1253d193417843e6c4724b87f0a11337ae1d4bc25af5df36",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/17/yabloko-vse-zhe-snyali-s-vyborov-8-glavnykh-faktov-o-processe"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/19/za-podderzhku-yabloka-vozle-verkhovnogo-suda-arestovali-troikh-moskvichey",
+      "canonical_url": "https://ovd.info/express-news/2026/08/19/za-podderzhku-yabloka-vozle-verkhovnogo-suda-arestovali-troikh-moskvichey",
+      "published_at": "2026-08-19T11:54:00+03:00",
+      "content_hash": "c73d7cdfeb2c41a393f8ad52df8699ff5fea89cd967d43637764d6f02b179634",
+      "raw_content_hash": "cf862700f28fedd2b45bb25646ca420da9f6ac6c51075c5de0713c368822f403",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/19/za-podderzhku-yabloka-vozle-verkhovnogo-suda-arestovali-troikh-moskvichey"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/21/kandidata-na-vyborakh-v-gosdumu-ot-kprf-nikolaya-bondarenko-zaderzhali-za",
+      "canonical_url": "https://ovd.info/express-news/2026/08/21/kandidata-na-vyborakh-v-gosdumu-ot-kprf-nikolaya-bondarenko-zaderzhali-za",
+      "published_at": "2026-08-21T15:07:00+03:00",
+      "content_hash": "b650f03570b520f3e6874a397544791010433c8fb54f97d87b05ba2992b868a2",
+      "raw_content_hash": "e6b39fd0eb47eb1254b1a855edca2dcd3374febf4196f8ebddd0b6fc70fb0d2a",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "political_keywords",
+        "several_events",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/21/kandidata-na-vyborakh-v-gosdumu-ot-kprf-nikolaya-bondarenko-zaderzhali-za"
+    },
+    {
+      "source": "sota-vision",
+      "external_id": "/czifrovoj-rubl-budet-yarko-krasnogo-dofaminovogo-czveta-czb/",
+      "canonical_url": "https://sota.vision/czifrovoj-rubl-budet-yarko-krasnogo-dofaminovogo-czveta-czb/",
+      "published_at": "2026-08-22T00:00:00+03:00",
+      "content_hash": "7d7f0539a562895bdc76c76ab0a1bdd96b46fb511d680e535cbb33b5415c7cf3",
+      "raw_content_hash": "730ed57fff01183b67959864a2a20596f48cd016552911bddc0b381697f5e1b4",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "sota-vision:/czifrovoj-rubl-budet-yarko-krasnogo-dofaminovogo-czveta-czb/"
+    },
+    {
+      "source": "ovd-info",
+      "external_id": "/express-news/2026/08/31/zashchitnicu-azata-miftakhova-obvinili-v-antiobshchestvennom-povedenii-vo",
+      "canonical_url": "https://ovd.info/express-news/2026/08/31/zashchitnicu-azata-miftakhova-obvinili-v-antiobshchestvennom-povedenii-vo",
+      "published_at": "2026-08-31T14:27:00+03:00",
+      "content_hash": "f9113d1b6e123543bf60e8902517cf645c67d6257b551ec95550dc8db77d8e51",
+      "raw_content_hash": "4c3076a3b0747cef228da579af76a7f4a8eecfc510e114e4622c22020c9731e2",
+      "corpus_split": "T3",
+      "sampling_tags": [
+        "court",
+        "historical_reference",
+        "multi_person",
+        "non_political",
+        "shared_sentence"
+      ],
+      "evaluation_sample": true,
+      "duplicate_group": "ovd-info:/express-news/2026/08/31/zashchitnicu-azata-miftakhova-obvinili-v-antiobshchestvennom-povedenii-vo"
+    }
+  ]
+}

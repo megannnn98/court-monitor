@@ -33,7 +33,7 @@ class RawCacheEntry(BaseModel):
     fetched_at: datetime
     published_at: datetime | None = None
     content_type: str = ""
-    # Base64 HTML; only for ARTICLE entries.
+    # Base64 HTML for ARTICLE and PARSE_FAILED entries (a fixed parser can re-read it).
     content_b64: str | None = None
     error: str | None = None
 
@@ -96,7 +96,7 @@ def article_entry(
         content_type=raw.content_type,
         content_b64=(
             base64.b64encode(raw.content).decode("ascii")
-            if status is CacheEntryStatus.ARTICLE
+            if status is not CacheEntryStatus.OUT_OF_PERIOD
             else None
         ),
     )

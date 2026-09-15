@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from evaluation.real_world.cli_helpers import EXIT_INFRASTRUCTURE_ERROR
 from evaluation.real_world.corpus_builder import (
     DEFAULT_DISCOVERY_LIMIT,
     DEFAULT_EVALUATION_SAMPLE_SIZE,
@@ -26,6 +27,8 @@ from evaluation.real_world.corpus_builder import (
     parse_targets,
 )
 from evaluation.real_world.corpus_cache import RawCorpusCache
+from evaluation.real_world.evaluate_cli import add_evaluate_arguments, run_evaluate_command
+from evaluation.real_world.golden_cli import add_golden_arguments, run_golden_command
 from evaluation.real_world.models import (
     DEFAULT_CACHE_DIR,
     DEFAULT_MANIFEST_PATH,
@@ -36,11 +39,6 @@ from evaluation.real_world.models import (
 from evaluation.real_world.replay import CorpusCacheMissError, load_replay_entries
 from observability import configure_logging
 from sources.source_registry import SOURCES
-
-# Documented exit codes (docs/wiki/RealWorldValidation.md).
-EXIT_OK = 0
-EXIT_QUALITY_FAILURE = 1
-EXIT_INFRASTRUCTURE_ERROR = 2
 
 
 def add_real_world_arguments(subparsers: Any) -> None:
@@ -84,6 +82,8 @@ def add_real_world_arguments(subparsers: Any) -> None:
     )
     status.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     status.add_argument("--manifest-path", type=Path, default=DEFAULT_MANIFEST_PATH)
+    add_golden_arguments(subparsers)
+    add_evaluate_arguments(subparsers)
 
 
 def run_real_world_command(args: argparse.Namespace) -> bool:
@@ -92,6 +92,12 @@ def run_real_world_command(args: argparse.Namespace) -> bool:
         return True
     if args.command == "real-world-corpus-status":
         _status(args)
+        return True
+    if args.command == "real-world-golden":
+        run_golden_command(args)
+        return True
+    if args.command == "evaluate-real-world":
+        run_evaluate_command(args)
         return True
     return False
 

@@ -276,7 +276,16 @@ class RealWorldCorpusBuilder:
             )
             parser = source.create_parser()
             for reference in candidates if status is SourceCorpusStatus.OK else []:
-                if reference.external_id in cached:
+                previous = cached.get(reference.external_id)
+                if previous is not None and previous.content_b64 is not None:
+                    # Re-parse: the parser may have changed since the fetch.
+                    entry = self._cache_entry(source.name, previous.raw_document(), parser.parse)
+                    if entry.status is not previous.status:
+                        self._cache.append(entry)
+                        cached[entry.external_id] = entry
+                    counters["from_cache"] += 1
+                    continue
+                if previous is not None and previous.status is CacheEntryStatus.OUT_OF_PERIOD:
                     counters["from_cache"] += 1
                     continue
                 try:
@@ -375,9 +384,12 @@ class RealWorldCorpusBuilder:
         for name, source_entries in entries.items():
             parser = self._sources[name].create_parser()
             for entry in source_entries.values():
-                if entry.status is not CacheEntryStatus.ARTICLE:
+                if entry.content_b64 is None:
                     continue
-                article = parser.parse(entry.raw_document())
+                try:
+                    article = parser.parse(entry.raw_document())
+                except ParseError:
+                    continue
                 if article.published_at is None or not config.in_period(
                     article.published_at.date()
                 ):
