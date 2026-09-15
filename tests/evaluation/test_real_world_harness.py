@@ -603,3 +603,26 @@ def test_incomplete_semantic_index_is_not_run_not_a_quality_result() -> None:
         "semantic index is empty"
     )
     assert semantic_index_problem({"semantic_documents": 700, "semantic_indexed": 700}) is None
+
+
+def test_report_false_not_matched_is_counted_once() -> None:
+    """A contradicted RF claim is both an itemized failure and a research dangerous count;
+    the gate summed both and reported 2 for one false statement."""
+    policy, _ = load_policy(DEFAULT_POLICY_PATH)
+    claim_failure = Failure(
+        component=ErrorComponent.REPORT,
+        severity=Severity.S0,
+        kind="claim_contradicted",
+        detail="rs-17: rosfinmonitoring_status: listed",
+        dangerous_kind=DangerousKind.FALSE_RF_NOT_MATCHED,
+    )
+    research = ResearchSection(
+        status=SectionStatus.RUN, dangerous={DangerousKind.FALSE_RF_NOT_MATCHED.value: 1}
+    )
+    gates = {
+        g.name: g
+        for g in RealWorldSafetyGateEvaluator(policy).evaluate(
+            _inputs([claim_failure], research=research)
+        )
+    }
+    assert gates["false_rf_not_matched"].value == 1

@@ -101,9 +101,9 @@ class RealWorldSafetyGateEvaluator:
                 er.namesake.different_person_auto_links,
                 er.namesake.not_run_reason or "namesake benchmark not run",
             ),
+            # Component and report failures are both itemized: count each once.
             "false_rf_not_matched": (
-                gated_count(failures, dangerous=DangerousKind.FALSE_RF_NOT_MATCHED)
-                + research.dangerous.get(DangerousKind.FALSE_RF_NOT_MATCHED.value, 0),
+                gated_count(failures, dangerous=DangerousKind.FALSE_RF_NOT_MATCHED),
                 None,
             ),
             "cross_person_persecution_attribution": section_value(
