@@ -247,6 +247,16 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
   profile `monitoring` with separate `court_monitor_dagster` database
 - Composition root `application.build_application_services()`
 
+### 16. Production-like Deployment (ADR 0014)
+- One image `court-monitor:local` for API (uvicorn), Dagster and migrations;
+  compose profiles `api`, `production` (PostgreSQL, Qdrant, API, Dagster) and
+  one-shot `migrate` (`alembic upgrade head`, never run by API/Dagster)
+- Container healthchecks: API `/health/live`, Dagster `/server_info`, Qdrant
+  `/readyz`; `/health/ready` for dependency state (503 when DB down or schema
+  not at head)
+- Per-process pool settings passed to API and Dagster; `init`, graceful
+  shutdown periods; all ports bound to `127.0.0.1`
+
 ### 11. API Layer
 - FastAPI endpoints: persons, aliases, persecution, candidates,
   Rosfinmonitoring snapshots/entries, reviews, `POST /research`,
@@ -292,7 +302,9 @@ semantic_query → ResearchPlanner (hybrid) → retrieve_candidates
 - Persecution classification is keyword/rule-based, not NLP.
 - Rosfinmonitoring name-word retrieval uses `ILIKE` substring search per word,
   not an index.
-- API has no authentication/authorization and no rate limiting.
+- API has no authentication/authorization and no rate limiting; the
+  production compose profile binds it to localhost only (ADR 0014). No TLS,
+  secrets management, backups or multi-host deployment.
 - Automated monitoring (ADR 0013): updated upstream documents are not detected
   by regular runs (`--backfill --refetch-known` refetches; no document
   versioning); single Dagster assets cannot be materialized alone (in-memory IO,
