@@ -51,8 +51,11 @@ from semantic_retrieval.relevance import SemanticRetrievalDecision
 
 _PERSECUTION_TEXT: dict[PersecutionClassificationStatus, str] = {
     PersecutionClassificationStatus.POLITICAL: "Преследование классифицировано как политическое",
+    # The rule-based classifier says NON_POLITICAL when it finds no political signal:
+    # that is an absence of evidence, never an established non-political fact.
     PersecutionClassificationStatus.NON_POLITICAL: (
-        "Преследование классифицировано как неполитическое"
+        "Признаков политического преследования в источниках не найдено; это не подтверждает, "
+        "что преследование неполитическое"
     ),
     PersecutionClassificationStatus.UNCERTAIN: (
         "Классификация неопределённа: политический характер преследования не установлен"

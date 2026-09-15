@@ -26,7 +26,8 @@ from semantic_retrieval.models import RetrievalBackend
 
 
 # Bump when report claims, citations or statuses change meaning.
-RESEARCH_REPORT_VERSION = "1"
+# 2: NON_POLITICAL is worded as "no evidence found", never as an established fact.
+RESEARCH_REPORT_VERSION = "2"
 
 
 class ResearchReviewReason(StrEnum):

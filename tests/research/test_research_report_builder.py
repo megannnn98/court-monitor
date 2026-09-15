@@ -391,3 +391,17 @@ def test_builder_is_deterministic() -> None:
         _build(research_request, research_response).model_dump_json()
         == _build(research_request, research_response).model_dump_json()
     )
+
+
+def test_non_political_is_phrased_as_no_evidence_found_not_as_an_established_fact() -> None:
+    """Real-world validation v1: 24 distinct persecuted persons were stored NON_POLITICAL by
+    the rule-based classifier (no political signal found) and the report asserted
+    «Преследование классифицировано как неполитическое». No evidence is not a fact."""
+    item = _single_item(
+        person_result(persecution=classification(PersecutionClassificationStatus.NON_POLITICAL))
+    )
+
+    claim = _claim(item, ResearchClaimType.PERSECUTION_CLASSIFICATION)
+    assert "не найдено" in claim.text
+    assert "не подтверждает" in claim.text
+    assert "классифицировано как неполитическое" not in claim.text
