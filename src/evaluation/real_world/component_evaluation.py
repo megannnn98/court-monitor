@@ -87,10 +87,23 @@ class IdentityMap:
         return person
 
 
-def _related(dataset: GoldenDataset, first: str, second: str) -> bool:
-    persons = {p.golden_person_id: p for p in dataset.persons}
-    a, b = persons.get(first), persons.get(second)
-    return bool(a and second in a.same_as) or bool(b and first in b.same_as)
+def same_as_components(persons: Sequence[GoldenPerson]) -> dict[str, str]:
+    """Golden person -> representative of its same_as group (transitive, symmetric)."""
+    parent = {person.golden_person_id: person.golden_person_id for person in persons}
+
+    def find(key: str) -> str:
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    for person in persons:
+        for other in person.same_as:
+            if other in parent:
+                first, second = find(person.golden_person_id), find(other)
+                if first != second:
+                    parent[max(first, second)] = min(first, second)
+    return {key: find(key) for key in parent}
 
 
 def build_identity_map(dataset: GoldenDataset, state: PipelineState) -> IdentityMap:
@@ -114,13 +127,13 @@ def build_identity_map(dataset: GoldenDataset, state: PipelineState) -> Identity
         ordered = sorted(counts, key=lambda person: (-counts[person], person))
         identity.persons_of_golden[golden_id] = ordered
         identity.true_person[golden_id] = ordered[0] if ordered else None
+    group = same_as_components(dataset.persons)
     for person_id, golden_ids in identity.golden_of_person.items():
         distinct = {
             golden_id
             for golden_id in golden_ids
             if any(
-                other != golden_id and not _related(dataset, golden_id, other)
-                for other in golden_ids
+                group.get(other, other) != group.get(golden_id, golden_id) for other in golden_ids
             )
         }
         if distinct:

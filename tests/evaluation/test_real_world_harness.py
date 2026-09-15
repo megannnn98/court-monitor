@@ -706,3 +706,20 @@ def test_absence_wording_without_a_confirmed_not_matched_is_unsupported(
     )
     support, kind, _ = judge.judge(item, claim)
     assert (support, kind) == (ClaimSupport.UNSUPPORTED, DangerousKind.UNSUPPORTED_ABSENCE_CLAIM)
+
+
+def test_same_as_is_transitive_for_identity_mapping() -> None:
+    """External review: A same_as B and B same_as C left A and C unrelated, so one
+    canonical person holding A and C was reported as a false link."""
+    from evaluation.real_world.component_evaluation import same_as_components
+
+    dataset = golden()
+    persons = [
+        dataset.persons[0].model_copy(update={"golden_person_id": "a", "same_as": ["b"]}),
+        dataset.persons[0].model_copy(update={"golden_person_id": "b", "same_as": ["c"]}),
+        dataset.persons[0].model_copy(update={"golden_person_id": "c"}),
+        dataset.persons[1].model_copy(update={"golden_person_id": "d"}),
+    ]
+    components = same_as_components(persons)
+    assert components["a"] == components["b"] == components["c"]
+    assert components["d"] != components["a"]
