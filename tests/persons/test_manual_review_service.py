@@ -268,3 +268,27 @@ def test_get_nonexistent_review_returns_none(
     with session_factory() as session:
         review = service.get_review(session, 99999)
         assert review is None
+
+
+def test_pending_review_upsert_survives_prepared_statements(
+    session_factory: sessionmaker[Session],
+    service: SqlAlchemyManualReviewService,
+) -> None:
+    """Real-world validation: psycopg prepares a statement after 5 executions on one
+    connection; `ON CONFLICT ... WHERE decision = $1` then no longer matched the partial
+    unique index and every later review in the extraction run failed with
+    "there is no unique or exclusion constraint matching the ON CONFLICT specification"."""
+    with session_factory.begin() as session:
+        subjects = [_create_person(session) for _ in range(12)]
+        created = [
+            service.get_or_create_pending_review(
+                session, review_type=ReviewType.PERSON_MERGE, entity_id=subject, reason="r"
+            )[1]
+            for subject in subjects
+        ]
+        again = service.get_or_create_pending_review(
+            session, review_type=ReviewType.PERSON_MERGE, entity_id=subjects[0], reason="r"
+        )
+
+    assert all(created)
+    assert again[1] is False

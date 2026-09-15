@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Protocol
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -126,7 +126,9 @@ class SqlAlchemyManualReviewService:
             )
             .on_conflict_do_nothing(
                 index_elements=["subject_type", "subject_id"],
-                index_where=ReviewRecordModel.decision == ReviewStatus.PENDING,
+                # A literal predicate, as in the index definition: a bound parameter stops
+                # matching the partial index once psycopg prepares the statement.
+                index_where=text("decision = 'pending'"),
             )
             .returning(ReviewRecordModel.id)
         )
