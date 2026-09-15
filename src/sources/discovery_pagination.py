@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 
 import httpx
@@ -9,6 +10,8 @@ from sources.ingestion_errors import (
     TransientDiscoveryError,
 )
 from sources.models import SourceReference
+
+logger = logging.getLogger("sources")
 
 
 async def fetch_listing_page_with_retry(
@@ -75,6 +78,11 @@ async def discover_paginated_references(
             # Past the last page of the archive; a missing first page is still an error.
             if page == 0:
                 raise
+            logger.warning(
+                "event=discovery_stopped_at_missing_page page=%d references=%d",
+                page,
+                len(references),
+            )
             break
 
         page_references = parse_page(content)
