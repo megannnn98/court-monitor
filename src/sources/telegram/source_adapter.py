@@ -1,13 +1,17 @@
 import asyncio
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
 
 from sources.discovery_pagination import fetch_listing_page_with_retry
+from sources.ingestion_errors import PermanentDiscoveryError
 from sources.models import RawDocument, SourceReference
 from sources.source_adapter import DocumentFetcher
 from sources.telegram.listing_parser import TelegramListingParser
+
+logger = logging.getLogger("sources")
 
 # Discovery never goes further back than this: the first run of a channel loads a month.
 TELEGRAM_HISTORY_DAYS = 30
@@ -56,12 +60,26 @@ class TelegramSourceAdapter:
         references: list[SourceReference] = []
         before: int | None = None
         while True:
-            content = await fetch_listing_page_with_retry(
-                self._client,
-                self._listing_url(before),
-                max_attempts=self._max_attempts,
-                base_delay_seconds=self._base_delay_seconds,
-            )
+            try:
+                content = await fetch_listing_page_with_retry(
+                    self._client,
+                    self._listing_url(before),
+                    max_attempts=self._max_attempts,
+                    base_delay_seconds=self._base_delay_seconds,
+                )
+            except PermanentDiscoveryError as exc:
+                # A chat or a channel with the web preview disabled redirects to its info page.
+                cause = exc.__cause__
+                if (
+                    before is None
+                    and isinstance(cause, httpx.HTTPStatusError)
+                    and cause.response.is_redirect
+                ):
+                    logger.warning(
+                        "event=telegram_web_preview_unavailable username=%s", self._username
+                    )
+                    return references
+                raise
             posts = self._listing_parser.parse(content)
             # A page with no post older than the previous one is the end of the channel.
             posts = [post for post in posts if before is None or post.post_id < before]

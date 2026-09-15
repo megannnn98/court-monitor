@@ -153,3 +153,22 @@ def test_every_channel_of_the_list_is_a_registered_source() -> None:
         assert definition.source_name == channel.title
     assert {"ovd-info", "sota-vision"} <= set(SOURCES)
     assert get_source_definition("tg-ovdinfolive").source_name == "ОВД-Инфо LIVE"
+
+
+def test_a_chat_without_web_preview_yields_no_posts_instead_of_failing() -> None:
+    """Real case: @pochtasizo212 is a chat; t.me/s/<username> redirects to t.me/<username>."""
+    requested: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(302, headers={"location": "https://t.me/chan"})
+
+    async def run() -> list[SourceReference]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+            adapter = TelegramSourceAdapter(
+                client=client, username="chan", document_fetcher=FakeDocumentFetcher()
+            )
+            return await adapter.discover(limit=10)
+
+    assert asyncio.run(run()) == []
+    assert requested == ["https://t.me/s/chan"]
