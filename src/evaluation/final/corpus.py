@@ -13,6 +13,17 @@ DEFAULT_CORPUS_PATH = (
     Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "final_evaluation" / "corpus.json"
 )
 
+# False statements about a real person that the safety gates count.
+DANGEROUS_KINDS = frozenset(
+    {
+        "false_person_link",
+        "false_political_classification",
+        "false_rf_not_matched",
+        "false_actionable_candidate",
+        "unsupported_report_claim",
+    }
+)
+
 RF_NO_SNAPSHOT = "no_snapshot"
 RF_NO_MATCH_RECORD = "no_match_record"
 
@@ -82,11 +93,18 @@ class FinalCase(_Strict):
     review_required: bool | None = None
     requires_semantic_models: bool = False
     # A documented limitation this case demonstrates; it is still scored and
-    # reported, but excluded from the hard safety gates.
+    # reported. Only the dangerous kinds listed in `known_limitation_kinds` are
+    # excluded from the hard safety gates — any other dangerous error still fails.
     known_limitation: str | None = None
+    known_limitation_kinds: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _references_exist(self) -> FinalCase:
+        if self.known_limitation_kinds and self.known_limitation is None:
+            raise ValueError(f"{self.id}: known_limitation_kinds without known_limitation")
+        unknown_kinds = set(self.known_limitation_kinds) - DANGEROUS_KINDS
+        if unknown_kinds:
+            raise ValueError(f"{self.id}: unknown known_limitation_kinds {sorted(unknown_kinds)}")
         article_ids = {article.external_id for article in self.articles}
         for run in self.runs or []:
             unknown = set(run) - article_ids
@@ -124,6 +142,11 @@ class FinalCorpus(_Strict):
         if len(ids) != len(set(ids)):
             raise ValueError("case ids must be unique")
         return self
+
+
+def is_gated(case: FinalCase, kind: str) -> bool:
+    """Whether a dangerous error of `kind` in `case` counts towards the safety gates."""
+    return kind not in case.known_limitation_kinds
 
 
 def load_final_corpus(path: Path = DEFAULT_CORPUS_PATH) -> FinalCorpus:

@@ -511,7 +511,8 @@
           ]
         }
       },
-      "known_limitation": "ER has no context features: the second namesake is auto-linked to the first (false person link)."
+      "known_limitation": "ER has no context features: the second namesake is auto-linked to the first (false person link).",
+      "known_limitation_kinds": ["false_person_link"]
     },
     {
       "id": "swapped_fio_two_articles",
@@ -2242,7 +2243,8 @@
         }
       },
       "review_required": true,
-      "known_limitation": "A single existing person with the same full name is auto-linked (ER has no context features)."
+      "known_limitation": "A single existing person with the same full name is auto-linked (ER has no context features).",
+      "known_limitation_kinds": ["false_person_link"]
     },
     {
       "id": "research_persons_from_article_source",

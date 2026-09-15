@@ -45,6 +45,7 @@ from evaluation.final.corpus import (
     FinalCorpus,
     FinalIdentity,
     FinalResearchCheck,
+    is_gated,
 )
 from evaluation.final.models import CaseResult, Counts, FalsePositive, ResearchOutcome
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
@@ -323,7 +324,7 @@ class FinalEvaluationRunner:
                     case_id=case.id,
                     identity=",".join(sorted(keys)),
                     detail=f"person {person_id} holds {len(keys)} different real people",
-                    gated=case.known_limitation is None,
+                    gated=is_gated(case, "false_person_link"),
                 )
             )
             result.check(f"person[{person_id}].no_false_link", False, f"shared by {sorted(keys)}")
@@ -410,7 +411,7 @@ class FinalEvaluationRunner:
                             case_id=case.id,
                             identity=key,
                             detail=f"expected {identity.persecution}",
-                            gated=case.known_limitation is None,
+                            gated=is_gated(case, "false_political_classification"),
                         )
                     )
             if identity.rf_status is not None:
@@ -436,7 +437,7 @@ class FinalEvaluationRunner:
                             case_id=case.id,
                             identity=key,
                             detail=f"expected {identity.rf_status}",
-                            gated=case.known_limitation is None,
+                            gated=is_gated(case, "false_rf_not_matched"),
                         )
                     )
             if identity.candidate is not None:
@@ -461,7 +462,7 @@ class FinalEvaluationRunner:
                             case_id=case.id,
                             identity=key,
                             detail="monitoring finding for a person who must not be one",
-                            gated=case.known_limitation is None,
+                            gated=is_gated(case, "false_actionable_candidate"),
                         )
                     )
 
@@ -516,7 +517,7 @@ class FinalEvaluationRunner:
                         case_id=case.id,
                         identity=None,
                         detail=problem,
-                        gated=case.known_limitation is None,
+                        gated=is_gated(case, "unsupported_report_claim"),
                     )
                 )
             result.research.append(outcome)
