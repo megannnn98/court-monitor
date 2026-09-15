@@ -266,6 +266,9 @@ class ResearchSection(_Model):
     contradicted_claims: int = 0
     # Distinct (person, claim type, value) behind the contradicted claim occurrences.
     contradicted_claims_unique: int = 0
+    # SUPPORT:category -> count (occurrences / distinct person facts); see claim_failure_category.
+    claim_failure_categories: dict[str, int] = Field(default_factory=dict)
+    claim_failure_categories_unique: dict[str, int] = Field(default_factory=dict)
     unsupported_rf_absence_claims: int = 0
     required_claims_missing: int = 0
     forbidden_claims_present: int = 0

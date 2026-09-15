@@ -276,6 +276,35 @@ class ClaimJudge:
         )
 
 
+def claim_failure_category(
+    item: ResearchReportItem, claim: ResearchClaim, detail: str, state: PipelineState
+) -> str:
+    """Where a contradicted/unsupported claim comes from (diagnostics, not a verdict).
+
+    A claim that repeats the stored domain state is an upstream error; a claim that
+    differs from the stored state was built wrongly by the report layer.
+    """
+    if claim.claim_type is ResearchClaimType.PERSECUTION_CLASSIFICATION:
+        stored = state.classifications.get(item.person_id)
+        claimed = item.persecution_status.value if item.persecution_status else None
+        return "upstream_persecution_state" if stored == claimed else "report_builder_persecution"
+    if claim.claim_type is ResearchClaimType.ROSFINMONITORING_STATUS:
+        if "absence worded" in detail:
+            return "report_builder_rf_absence_wording"
+        stored = state.rf_matches.get(item.person_id)
+        claimed = item.rosfinmonitoring_status.value if item.rosfinmonitoring_status else None
+        return "upstream_rf_state" if stored == claimed else "report_builder_rf"
+    if claim.claim_type is ResearchClaimType.EVENT:
+        if "about other persons" in detail:
+            return "person_event_association"
+        return "event_extraction_or_annotation_granularity"
+    if "without citation" in detail:
+        return "missing_evidence"
+    if "another person" in detail:
+        return "person_evidence_link"
+    return "other"
+
+
 def _claim_value(item: ResearchReportItem, claim: ResearchClaim) -> str:
     if claim.claim_type is ResearchClaimType.PERSECUTION_CLASSIFICATION and item.persecution_status:
         return item.persecution_status.value
@@ -310,6 +339,8 @@ def evaluate_research(
     claims: Counter[str] = Counter()
     dangerous: Counter[str] = Counter()
     contradicted_keys: set[tuple[str | None, str, str]] = set()
+    failure_categories: Counter[str] = Counter()
+    unique_failures: set[tuple[str, str, str | None, str, str]] = set()
     executed = 0
 
     def graph(parser: ResearchRequestParser) -> Any:
@@ -393,6 +424,17 @@ def evaluate_research(
                         (golden_id, claim.claim_type.value, _claim_value(item, claim))
                     )
                 if support in (ClaimSupport.CONTRADICTED, ClaimSupport.UNSUPPORTED):
+                    category = claim_failure_category(item, claim, detail, state)
+                    failure_categories[f"{support.value}:{category}"] += 1
+                    unique_failures.add(
+                        (
+                            support.value,
+                            category,
+                            golden_id,
+                            claim.claim_type.value,
+                            _claim_value(item, claim),
+                        )
+                    )
                     failures.append(
                         Failure(
                             component=ErrorComponent.REPORT,
@@ -439,6 +481,12 @@ def evaluate_research(
     )
     section.contradicted_claims = claims.get(ClaimSupport.CONTRADICTED.value, 0)
     section.contradicted_claims_unique = len(contradicted_keys)
+    section.claim_failure_categories = dict(sorted(failure_categories.items()))
+    section.claim_failure_categories_unique = dict(
+        sorted(
+            Counter(f"{support}:{category}" for support, category, *_ in unique_failures).items()
+        )
+    )
     section.unsupported_rf_absence_claims = dangerous.get(
         DangerousKind.UNSUPPORTED_ABSENCE_CLAIM.value, 0
     )

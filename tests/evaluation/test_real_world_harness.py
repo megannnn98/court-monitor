@@ -750,3 +750,58 @@ def test_unloadable_embedding_model_makes_semantic_retrieval_not_run(
     assert not setup.available
     assert setup.not_run_reason is not None
     assert "Cannot load embedding model" in setup.not_run_reason
+
+
+def test_claim_failures_are_attributed_to_upstream_state_or_report_builder() -> None:
+    """ResearchReport diagnostics: a wrong persecution claim that repeats the stored
+    classification is an upstream error; one that differs from it is the report layer."""
+    from evaluation.real_world.research_eval import claim_failure_category
+    from research.reports.models import (
+        ResearchClaim,
+        ResearchClaimBasis,
+        ResearchClaimType,
+        ResearchReportItem,
+    )
+
+    pipeline = state()  # person 1 stored as political
+    claim = ResearchClaim(
+        claim_type=ResearchClaimType.PERSECUTION_CLASSIFICATION,
+        basis=ResearchClaimBasis.SOURCE_DOCUMENTS,
+        text="x",
+    )
+
+    def item(status: str) -> ResearchReportItem:
+        return ResearchReportItem.model_validate(
+            {"person_id": 1, "canonical_name": "x", "persecution_status": status}
+        )
+
+    assert claim_failure_category(item("political"), claim, "", pipeline) == (
+        "upstream_persecution_state"
+    )
+    assert claim_failure_category(item("non_political"), claim, "", pipeline) == (
+        "report_builder_persecution"
+    )
+    rf = ResearchClaim(
+        claim_type=ResearchClaimType.ROSFINMONITORING_STATUS,
+        basis=ResearchClaimBasis.ROSFINMONITORING_SNAPSHOT,
+        text="x",
+    )
+    rf_item = ResearchReportItem.model_validate(
+        {"person_id": 1, "canonical_name": "x", "rosfinmonitoring_status": "not_matched"}
+    )
+    assert claim_failure_category(rf_item, rf, "", pipeline) == "upstream_rf_state"
+    event = ResearchClaim(
+        claim_type=ResearchClaimType.EVENT, basis=ResearchClaimBasis.SOURCE_DOCUMENTS, text="x"
+    )
+    assert (
+        claim_failure_category(
+            item("political"), event, "the annotated event is about other persons", pipeline
+        )
+        == "person_event_association"
+    )
+    assert (
+        claim_failure_category(
+            item("political"), event, "no annotated release event at this span", pipeline
+        )
+        == "event_extraction_or_annotation_granularity"
+    )

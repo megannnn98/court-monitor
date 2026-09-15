@@ -496,6 +496,17 @@ def render_markdown(report: RealWorldValidationReport) -> str:
     lines.append("")
     lines.append("Dangerous claim kinds: " + ", ".join(f"{k}={v}" for k, v in q.dangerous.items()))
     lines.append("")
+    lines.append(
+        "Claim failure causes (occurrences / distinct facts): "
+        + (
+            ", ".join(
+                f"{k}={v}/{q.claim_failure_categories_unique.get(k, 0)}"
+                for k, v in q.claim_failure_categories.items()
+            )
+            or "none"
+        )
+    )
+    lines.append("")
 
     m = report.monitoring
     lines += ["## Monitoring E2E", ""]
