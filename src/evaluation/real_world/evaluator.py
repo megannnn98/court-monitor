@@ -20,6 +20,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -172,6 +173,8 @@ class SemanticSetup:
     embedding_model_id: str | None
     not_run_reason: str | None
     available: bool
+    # Extra build_research_graph arguments for semantic plans (production wiring).
+    research_graph_extras: Callable[[], dict[str, Any]] = dict
 
 
 def semantic_setup(
@@ -233,6 +236,10 @@ def semantic_setup(
         embedding_model_id=embedder.model_id,
         not_run_reason=None,
         available=True,
+        research_graph_extras=lambda: {
+            "candidate_retriever": components.retriever(RetrievalBackend.HYBRID),
+            "relevance_policy": components.relevance_policy(),
+        },
     )
 
 
@@ -369,7 +376,8 @@ def run_evaluation(
         failures=failures,
         llm_parser=options.llm_parser,
         llm_not_run_reason=options.llm_not_run_reason,
-        semantic_available=semantic.available,
+        semantic_available=semantic.available and index_problem is None,
+        graph_extras=semantic.research_graph_extras,
     )
 
     # 4. Monitoring E2E.

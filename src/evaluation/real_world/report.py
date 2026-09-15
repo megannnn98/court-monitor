@@ -484,6 +484,7 @@ def render_markdown(report: RealWorldValidationReport) -> str:
     lines.append(
         "Claims: "
         + ", ".join(f"{k}={v}" for k, v in q.claims.items())
+        + f" ({q.contradicted_claims_unique} distinct contradicted facts)"
         + f"; supported rate {_fmt(q.supported_claims_rate)}; required missing {q.required_claims_missing}; "
         f"forbidden present {q.forbidden_claims_present}"
     )

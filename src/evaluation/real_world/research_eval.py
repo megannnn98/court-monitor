@@ -310,6 +310,7 @@ def evaluate_research(
     persons = Counts()
     claims: Counter[str] = Counter()
     dangerous: Counter[str] = Counter()
+    contradicted_keys: set[tuple[str | None, str, str]] = set()
     executed = 0
 
     def graph(parser: ResearchRequestParser) -> Any:
@@ -388,6 +389,10 @@ def evaluate_research(
                     ClaimSupport.UNSUPPORTED,
                 ):
                     dangerous[kind.value] += 1
+                if support is ClaimSupport.CONTRADICTED:
+                    contradicted_keys.add(
+                        (golden_id, claim.claim_type.value, _claim_value(item, claim))
+                    )
                 if support in (ClaimSupport.CONTRADICTED, ClaimSupport.UNSUPPORTED):
                     failures.append(
                         Failure(
@@ -434,6 +439,7 @@ def evaluate_research(
         claims.get(ClaimSupport.SUPPORTED.value, 0), evaluated_claims
     )
     section.contradicted_claims = claims.get(ClaimSupport.CONTRADICTED.value, 0)
+    section.contradicted_claims_unique = len(contradicted_keys)
     section.unsupported_rf_absence_claims = dangerous.get(
         DangerousKind.UNSUPPORTED_ABSENCE_CLAIM.value, 0
     )

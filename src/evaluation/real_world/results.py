@@ -264,6 +264,8 @@ class ResearchSection(_Model):
     claims: dict[str, int] = Field(default_factory=dict)
     supported_claims_rate: float | None = None
     contradicted_claims: int = 0
+    # Distinct (person, claim type, value) behind the contradicted claim occurrences.
+    contradicted_claims_unique: int = 0
     unsupported_rf_absence_claims: int = 0
     required_claims_missing: int = 0
     forbidden_claims_present: int = 0
