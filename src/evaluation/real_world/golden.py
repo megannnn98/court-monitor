@@ -322,12 +322,18 @@ class GoldenDataset(_Strict):
         )
 
     def select(self, split: GoldenSplit | None, *, verified_only: bool) -> GoldenDataset:
-        """Articles of one split (all when None) and the persons they mention."""
+        """Articles of one split (all when None) and the persons they mention.
+
+        The locked test split only ever contributes VERIFIED articles.
+        """
         articles = [
             article
             for article in self.articles
             if (split is None or article.split is split)
-            and (not verified_only or article.annotation_status is AnnotationStatus.VERIFIED)
+            and (
+                article.annotation_status is AnnotationStatus.VERIFIED
+                or not (verified_only or article.split is GoldenSplit.TEST)
+            )
         ]
         mentioned = {m.golden_person_id for a in articles for m in a.mentions} | {
             pid for a in articles for e in a.events for pid in e.person_ids

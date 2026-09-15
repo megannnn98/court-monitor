@@ -254,6 +254,11 @@ def test_select_keeps_only_verified_articles_for_locked_test() -> None:
     assert golden.articles[0].annotation_status is AnnotationStatus.DRAFT
     assert not golden.person_verified("gp-petrov")
 
+    locked = dataset([article_payload(split="test")])
+    # A DRAFT locked-test case is never evaluated, not even with --split all.
+    assert locked.select(GoldenSplit.TEST, verified_only=False).articles == []
+    assert locked.select(None, verified_only=False).articles == []
+
 
 def test_assign_splits_is_deterministic_keeps_groups_and_follows_shares() -> None:
     groups = {f"a{index:03d}": f"g{index // 2}" for index in range(100)}
