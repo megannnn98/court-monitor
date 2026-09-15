@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from extraction.models import (
     EntityType,
@@ -74,9 +75,12 @@ _VERB_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     ),
     (
         EventType.CHARGE,
-        _W + r"(?:обвинил\w*|обвиня\w*|предъяв\w*\s+обвинени\w*|стал\w*\s+обвиняем\w*)",
+        # Plural or passive only: «X обвинил военных», «обвинял власти» is X accusing others.
+        _W + r"(?:обвинили|обвиня(?:ли|ют|ется|ются|емы\w*|ем(?:ая|ого|ой|ую))(?![а-яё])|"
+        r"обвинен(?:а|ы|о)?(?![а-яё])|предъяв\w*\s+обвинени\w*|стал\w*\s+обвиняем\w*)",
     ),
-    (EventType.SENTENCE, _W + r"(?:приговорил\w*|осудил\w*|осужден(?:а|ы|о)?(?![а-яё]))"),
+    # «осудил войну» is condemning; a court sentence reads «осудили», «осужден».
+    (EventType.SENTENCE, _W + r"(?:приговорил\w*|осудили|осужден(?:а|ы|о)?(?![а-яё]))"),
     (EventType.FINE, _W + r"(?:оштрафова\w*)"),
     (EventType.RELEASE, _W + r"(?:освобо[дж]\w*|отпустил\w*|вышел\w*\s+на\s+свободу)"),
 )
@@ -87,15 +91,22 @@ _NOUN_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     (EventType.FINE, _W + r"(?:штраф\w*)"),
 )
 _NEGATION_BEFORE = re.compile(r"(?<![а-яё])не\s+(?:[а-яё]+\s+)?$")
-# «до ареста», «после приговора», «перед задержанием»: a reference to another event.
+# «до ареста», «после первого ареста», «согласно второму приговору»: a reference to
+# another event.
 _TEMPORAL_REFERENCE_BEFORE = re.compile(
-    r"(?<![а-яё])(?:до|после|перед|с\s+момента|во\s+время)\s+(?:его\s+|ее\s+|её\s+|их\s+)?$"
+    r"(?<![а-яё])(?:до|после|перед|согласно|с\s+момента|во\s+время)\s+"
+    r"(?:его\s+|ее\s+|её\s+|их\s+)?(?:[а-яё]+(?:ого|ему|ому|ой|ым|им)\s+)?$"
 )
+# «в апреле 2025 года»: the event happened in that year, not on the publication date.
+_YEAR = re.compile(r"(?<!\d)(19\d\d|20\d\d)(?!\d)")
 
 
 class RuleBasedEventExtractor:
     extractor_name = "rule-based-event-extractor"
-    extractor_version = "1.2.0"
+    # 1.3.0: charge/sentence verbs in plural or passive only («обвинил военных» is the
+    # person accusing); «согласно приговору» is a reference; a sentence naming another
+    # year has no event date.
+    extractor_version = "1.3.0"
 
     def extract(
         self,
@@ -120,7 +131,7 @@ class RuleBasedEventExtractor:
                     event_type=event_type,
                     start_offset=sentence_start,
                     end_offset=sentence_end,
-                    event_date=document.published_at,
+                    event_date=_event_date(sentence, document.published_at),
                     confidence=0.72,
                     attributes={"trigger_text": trigger_text},
                     links=links,
@@ -167,6 +178,15 @@ class RuleBasedEventExtractor:
             role = _role_for_entity_type(mention.entity_type)
             links.append(EventEntityLink(role=role, mention_index=index))
         return links
+
+
+def _event_date(sentence: str, published_at: datetime | None) -> datetime | None:
+    """The publication date, unless the sentence names another year: then unknown."""
+    if published_at is None:
+        return None
+    if any(int(year) != published_at.year for year in _YEAR.findall(sentence)):
+        return None
+    return published_at
 
 
 def _is_non_subject(text: str, mention: NormalizedMention, start: int, end: int) -> bool:

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from extraction.documents import build_extraction_document_from_parsed_article
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
@@ -257,3 +259,35 @@ def test_inflected_organization_name_is_not_part_of_a_person_name() -> None:
     ]
 
     assert persons == []
+
+
+def test_person_accusing_or_condemning_others_is_not_charged_or_sentenced() -> None:
+    """Real case: «Мампория … обвинил российских военных в убийстве гражданских»."""
+    assert _event_types("Пенсионер сорвал букву Z и обвинил российских военных в убийствах.") == []
+    assert _event_types("Он публично осудил войну.") == []
+    assert _event_types("Раньше блогер обвинял власти во лжи.") == []
+    assert _event_types("Активиста обвинили в оправдании терроризма.") == ["charge"]
+    assert _event_types("Ее обвиняют в фейках об армии.") == ["charge"]
+    assert _event_types("Его также обвиняли в хранении взрывчатки.") == ["charge"]
+    assert _event_types("Художница обвинена в вандализме.") == ["charge"]
+    assert _event_types("Его осудили на три года.") == ["sentence"]
+
+
+def test_according_to_a_sentence_is_a_reference_not_an_event() -> None:
+    """Real case: «Согласно второму приговору, Мифтахов должен был отбыть…»."""
+    assert _event_types("Согласно второму приговору, он должен был отбыть срок в тюрьме.") == []
+    assert _event_types("После первого ареста он уехал из города.") == []
+    assert _event_types("Суд вынес приговор активисту.") == ["sentence"]
+
+
+def test_event_with_an_explicit_other_year_has_no_publication_date() -> None:
+    """Real case: «Мампорию задержали … в апреле 2025 года» got the 2026 publication date."""
+    published = datetime(2026, 5, 5, tzinfo=UTC)
+    document = make_document(
+        "Мампорию задержали в апреле 2025 года. Вчера его задержали снова. "
+        "В 2026 году его арестовали."
+    ).model_copy(update={"published_at": published})
+
+    dates = [event.event_date for event in RuleBasedEventExtractor().extract(document, [])]
+
+    assert dates == [None, published, published]
