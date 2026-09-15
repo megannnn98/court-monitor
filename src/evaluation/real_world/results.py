@@ -227,6 +227,17 @@ class BackendRetrieval(_Model):
     ndcg_at_5: float
 
 
+class RetrievalQueryDiagnostic(_Model):
+    query_id: str
+    query: str
+    entity_type: str
+    semantic_only: bool
+    # Backend -> 1-based rank of the best relevant entity in the top 20, None if absent.
+    ranks: dict[str, int | None]
+    category: str
+    relevant_documents: list[str] = Field(default_factory=list)
+
+
 class RetrievalSection(_Model):
     status: SectionStatus
     not_run_reason: str | None = None
@@ -236,6 +247,8 @@ class RetrievalSection(_Model):
     event_queries: int = 0
     backends: dict[str, BackendRetrieval] = Field(default_factory=dict)
     semantic_recall_at_5: float | None = None
+    query_error_categories: dict[str, int] = Field(default_factory=dict)
+    query_diagnostics: list[RetrievalQueryDiagnostic] = Field(default_factory=list)
 
 
 class ClaimSupport(StrEnum):

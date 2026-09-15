@@ -92,7 +92,10 @@ from evaluation.real_world.safety import (
 )
 from evaluation.real_world.state_snapshot import check_invariants, table_counts
 from research.workflow.intake import ResearchRequestParser
-from semantic_retrieval.document_store import PostgresLexicalEntityRetriever
+from semantic_retrieval.document_store import (
+    PostgresLexicalEntityRetriever,
+    SqlAlchemySemanticDocumentRepository,
+)
 from semantic_retrieval.factory import SemanticComponents, create_vector_store
 from semantic_retrieval.indexer import SemanticIndexer
 from semantic_retrieval.models import RetrievalBackend, RetrievalEntityType, RetrievalError
@@ -377,6 +380,7 @@ def run_evaluation(
         embedding_model_id=semantic.embedding_model_id,
         not_run_reason=retrieval_not_run,
         failures=failures,
+        document_texts=SqlAlchemySemanticDocumentRepository(session_factory).get_texts,
     )
     research_queries = [q for q in inputs.research_queries if _in_split(options.split, q.split)]
     research = evaluate_research(

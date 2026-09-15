@@ -472,6 +472,29 @@ def render_markdown(report: RealWorldValidationReport) -> str:
         )
     lines.append("")
 
+    if t.query_error_categories:
+        lines += [
+            "",
+            "Query-level causes: "
+            + ", ".join(f"{k}={v}" for k, v in t.query_error_categories.items()),
+        ]
+        lines.append("")
+        lines += _table(
+            ["query", "type", "lexical", "dense", "hybrid", "cause"],
+            [
+                [
+                    d.query_id,
+                    d.entity_type,
+                    d.ranks.get("lexical"),
+                    d.ranks.get("dense"),
+                    d.ranks.get("hybrid"),
+                    d.category,
+                ]
+                for d in t.query_diagnostics
+            ],
+        )
+    lines.append("")
+
     q = report.research
     lines += ["## Research Reports", ""]
     lines.append(

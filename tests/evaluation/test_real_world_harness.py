@@ -846,3 +846,20 @@ def test_rerun_with_zero_new_rows_passes_the_rerun_gate() -> None:
         for g in RealWorldSafetyGateEvaluator(policy).evaluate(_inputs([], monitoring=not_repeated))
     }
     assert gates["rerun_duplicates"].status is GateStatus.NOT_RUN
+
+
+@pytest.mark.parametrize(
+    ("ranks", "category"),
+    [
+        ({"lexical": None, "dense": 2, "hybrid": 7}, "dense_top5_pushed_out_by_hybrid"),
+        ({"lexical": 1, "dense": 9, "hybrid": 3}, "lexical_rescues_dense"),
+        ({"lexical": 8, "dense": 3, "hybrid": 5}, "lexical_worsens_dense_rank"),
+        ({"lexical": None, "dense": None, "hybrid": None}, "relevant_absent_from_candidates"),
+        ({"lexical": 12, "dense": 14, "hybrid": 11}, "relevant_ranked_below_top5"),
+        ({"lexical": 1, "dense": 1, "hybrid": 1}, "found_in_top5"),
+    ],
+)
+def test_retrieval_query_error_category(ranks: dict[str, int | None], category: str) -> None:
+    from evaluation.real_world.retrieval_eval import retrieval_error_category
+
+    assert retrieval_error_category(ranks) == category
