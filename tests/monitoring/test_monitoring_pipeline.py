@@ -47,6 +47,7 @@ from persecution.classifier import RuleBasedPersecutionClassifier
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from persons.resolution.service import RESOLVER_VERSION
+from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from sources.ingestion_errors import TransientDiscoveryError
 
 DOMAIN_TABLES = (
@@ -643,6 +644,10 @@ def test_result_written_during_an_open_evidence_transaction_is_recomputed(
         RuleBasedPersecutionClassifier.classifier_name,
         RuleBasedPersecutionClassifier.classifier_version,
     )
+    matcher = {
+        "matcher_name": RuleBasedRosfinmonitoringMatcher.matcher_name,
+        "matcher_version": RuleBasedRosfinmonitoringMatcher.matcher_version,
+    }
     no_settle = SqlAlchemyMonitoringWorkQueries(
         session_factory, evidence_settle_interval=timedelta(0)
     )
@@ -658,7 +663,7 @@ def test_result_written_during_an_open_evidence_transaction_is_recomputed(
     assert production.persons_pending_classification(
         classifier_name=classifier[0], classifier_version=classifier[1]
     ) == [sidorov]
-    assert production.persons_pending_rf_match(snapshot_id=snapshot_id) == [sidorov]
+    assert production.persons_pending_rf_match(snapshot_id=snapshot_id, **matcher) == [sidorov]
 
     written_after_evidence(f"{int(EVIDENCE_SETTLE_INTERVAL.total_seconds() // 60) + 1} minutes")
     assert (
@@ -667,7 +672,58 @@ def test_result_written_during_an_open_evidence_transaction_is_recomputed(
         )
         == []
     )
-    assert production.persons_pending_rf_match(snapshot_id=snapshot_id) == []
+    assert production.persons_pending_rf_match(snapshot_id=snapshot_id, **matcher) == []
+
+
+def test_rf_match_of_an_older_matcher_version_is_recomputed(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A matcher rule change must reach persisted results: an old NOT_MATCHED must not
+    keep saying "absent from the list" when neither the person nor the snapshot changed."""
+    snapshot_id = import_rf_snapshot(session_factory, [("Петр Петров", "03.03.1970")])
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    service = build_service(session_factory, {"ovd-info": upstream})
+    service.run_source("ovd-info")
+    sidorov = _person_id(session_factory, "Сидоров")
+    work = SqlAlchemyMonitoringWorkQueries(session_factory, evidence_settle_interval=timedelta(0))
+    current = (
+        RuleBasedRosfinmonitoringMatcher.matcher_name,
+        RuleBasedRosfinmonitoringMatcher.matcher_version,
+    )
+
+    def pending() -> list[int]:
+        return work.persons_pending_rf_match(
+            snapshot_id=snapshot_id, matcher_name=current[0], matcher_version=current[1]
+        )
+
+    with session_factory() as session:
+        match = session.scalars(
+            select(RosfinMatchRecord).where(RosfinMatchRecord.person_id == sidorov)
+        ).one()
+    assert (match.matcher_name, match.matcher_version) == current
+    assert pending() == []
+
+    for old_version in ("1.0.0", None):
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE rosfin_matches SET matcher_version = :version, "
+                    "reasons = '[\"stale\"]' WHERE person_id = :id"
+                ),
+                {"version": old_version, "id": sidorov},
+            )
+        assert pending() == [sidorov]
+
+    service.run_derived()
+
+    with session_factory() as session:
+        match = session.scalars(
+            select(RosfinMatchRecord).where(RosfinMatchRecord.person_id == sidorov)
+        ).one()
+    assert (match.matcher_name, match.matcher_version) == current
+    assert match.reasons != ["stale"]
+    assert pending() == []
 
 
 def test_worker_of_an_aborted_run_stops_before_writing_domain_rows(

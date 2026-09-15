@@ -499,6 +499,9 @@ class RosfinMatchRecord(Base):
         JSONB, nullable=False, default=list
     )
     reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    # NULL: written before the matcher version was recorded (treated as outdated).
+    matcher_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    matcher_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

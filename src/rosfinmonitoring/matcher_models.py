@@ -46,6 +46,8 @@ class RosfinMatchResult(BaseModel):
     candidate_entries: list[RosfinCandidateEntry] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     matched_at: datetime | None = None
+    matcher_name: str | None = None
+    matcher_version: str | None = None
 
 
 class RosfinmonitoringMatcher:

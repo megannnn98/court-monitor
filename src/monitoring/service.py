@@ -595,7 +595,11 @@ class MonitoringService:
                 metrics.update(skipped=NO_RF_SNAPSHOT)
                 return None
             self._repository.set_rf_snapshot(handle.run_id, snapshot.snapshot_id)
-            person_ids = self._deps.work.persons_pending_rf_match(snapshot_id=snapshot.snapshot_id)
+            person_ids = self._deps.work.persons_pending_rf_match(
+                snapshot_id=snapshot.snapshot_id,
+                matcher_name=self._deps.rf_matcher.matcher_name,
+                matcher_version=self._deps.rf_matcher.matcher_version,
+            )
             for person_id in person_ids:
                 self._repository.heartbeat(handle.run_id)
                 try:

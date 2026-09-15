@@ -118,6 +118,19 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         conservative birth-date rules below are ready the moment that
         changes, without another signature change.
         """
+        result = self._match_person(person_id, snapshot_id, person_birth_date=person_birth_date)
+        # Persisted with the result: a rule change recomputes older results.
+        return result.model_copy(
+            update={"matcher_name": self.matcher_name, "matcher_version": self.matcher_version}
+        )
+
+    def _match_person(
+        self,
+        person_id: int,
+        snapshot_id: int,
+        *,
+        person_birth_date: datetime | None,
+    ) -> RosfinMatchResult:
         with self._session_factory() as session:
             person = session.scalar(select(PersonRecord).where(PersonRecord.id == person_id))
             if person is None:
