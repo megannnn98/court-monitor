@@ -134,9 +134,8 @@ class ClaimJudge:
     ) -> tuple[ClaimSupport, DangerousKind | None, str]:
         golden_id = _golden_of(self._identity, item.person_id)
         if claim.claim_type is ResearchClaimType.ROSFINMONITORING_STATUS:
-            absence = bool(item.rosfinmonitoring_summary) and str(
-                item.rosfinmonitoring_summary
-            ).startswith(ABSENCE_WORDING)
+            wording = f"{item.rosfinmonitoring_summary or ''} {claim.text}".casefold()
+            absence = ABSENCE_WORDING.casefold() in wording
             status = item.rosfinmonitoring_status.value if item.rosfinmonitoring_status else None
             if absence and (status != "not_matched" or item.snapshot_id is None):
                 return (

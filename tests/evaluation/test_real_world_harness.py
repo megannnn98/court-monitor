@@ -665,3 +665,44 @@ def test_dangerous_failure_gate_is_enforced_even_if_the_policy_omits_it() -> Non
         )
     }
     assert gates["gated_dangerous_failures"].status is GateStatus.FAIL
+
+
+@pytest.mark.parametrize(
+    ("status", "snapshot_id", "summary"),
+    [
+        (None, None, "RF: Не найден в перечне Росфинмониторинга."),
+        ("needs_review", 1, "Итог: не найден в перечне; сопоставление выполнено."),
+        ("not_matched", None, "Не найден в перечне Росфинмониторинга."),
+    ],
+)
+def test_absence_wording_without_a_confirmed_not_matched_is_unsupported(
+    status: str | None, snapshot_id: int | None, summary: str
+) -> None:
+    """External review: absence was detected only at the start of the summary."""
+    from evaluation.real_world.component_evaluation import IdentityMap
+    from evaluation.real_world.research_eval import ClaimJudge
+    from evaluation.real_world.results import ClaimSupport
+    from research.reports.models import (
+        ResearchClaim,
+        ResearchClaimBasis,
+        ResearchClaimType,
+        ResearchReportItem,
+    )
+
+    judge = ClaimJudge(golden(), state(), IdentityMap())
+    item = ResearchReportItem.model_validate(
+        {
+            "person_id": 99,  # outside the golden dataset: absence is still judged
+            "canonical_name": "x",
+            "rosfinmonitoring_status": status,
+            "snapshot_id": snapshot_id,
+            "rosfinmonitoring_summary": summary,
+        }
+    )
+    claim = ResearchClaim(
+        claim_type=ResearchClaimType.ROSFINMONITORING_STATUS,
+        basis=ResearchClaimBasis.ROSFINMONITORING_SNAPSHOT,
+        text=summary,
+    )
+    support, kind, _ = judge.judge(item, claim)
+    assert (support, kind) == (ClaimSupport.UNSUPPORTED, DangerousKind.UNSUPPORTED_ABSENCE_CLAIM)
