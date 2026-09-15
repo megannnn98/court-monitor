@@ -4,12 +4,12 @@
 
 **Overall status: FAILED_GATES** (exit code 1)
 
-- hard safety gates failed: namesake_different_person_auto_link, cross_person_persecution_attribution, contradicted_report_claims
+- hard safety gates failed: namesake_different_person_auto_link, cross_person_persecution_attribution, contradicted_report_claims, gated_dangerous_failures
 - quality targets missed: person_extraction_precision, person_extraction_recall, event_precision, event_recall, person_event_association_accuracy, er_candidate_recall_at_5, political_precision, political_recall, candidate_precision, candidate_recall, semantic_recall_at_5, supported_report_claims_rate
 - not run: dangerous_silent_reinterpretation
 - PRELIMINARY: 0 VERIFIED golden articles (< 100 required) and 36 DRAFT articles evaluated; no production quality claim can be made
 - corpus = 156 real articles; golden draft = 45; golden verified = 0
-- hard gates: 8 pass, 3 fail, 1 not run
+- hard gates: 8 pass, 4 fail, 1 not run
 - DRAFT annotations were written by an AI agent and are not human-verified ground truth.
 
 ## Dataset
@@ -48,7 +48,7 @@ real sources → discovery → ingestion → extraction → Person/Event → ER 
 | rosfinmonitoring_matcher | rule-based-rosfinmonitoring-matcher@1.2.0 |
 | semantic_representation | person@1,event@1 |
 
-git commit `529b97f0aceb8949b62d5d9ec541dfb62ae5fca3-dirty`, split `all` (verified only: False), policy `real-world-policy-v1` (40663c4151a9), RF snapshot `rf-eval-v1` (e2615e8e2f66), embedding model `intfloat/multilingual-e5-base`, generated 2026-09-15T07:30:11.881012+00:00.
+git commit `16b6172e93383d2128ac2735591354523a874250-dirty`, split `all` (verified only: False), policy `real-world-policy-v1.1` (36044a1254c5), RF snapshot `rf-eval-v1` (e2615e8e2f66), embedding model `intfloat/multilingual-e5-base`, generated 2026-09-15T08:24:59.881250+00:00.
 
 ## Metrics
 
@@ -86,6 +86,7 @@ git commit `529b97f0aceb8949b62d5d9ec541dfb62ae5fca3-dirty`, split `all` (verifi
 | no_snapshot_absence_findings | hard | 0 | <= 0.0 | PASS |  |
 | rf_review_status_findings | hard | 0 | <= 0.0 | PASS |  |
 | db_invariant_violations | hard | 0 | <= 0.0 | PASS |  |
+| gated_dangerous_failures | hard | 74 | <= 0.0 | FAIL | cross_person_evidence=7, false_actionable_candidate=7, false_political_classification=40, unsupported_event_claim=20 |
 | max_manual_reviews_per_100_articles | advisory | 151.92 | <= 20.0 | FAIL | advisory: never fails the evaluation |
 
 ## Extraction
@@ -180,10 +181,10 @@ Status RUN
 
 | period | articles | runs | new documents | new persons | new events | new reviews | new classifications | new RF | new findings | semantic indexed | rerun new rows | seconds |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| T0 | 109 | ovd-info:completed, sota-vision:completed | 109 | 326 | 395 | 70 | 326 | 326 | 88 | 721 | 0 | 23.059 |
-| T1 | 16 | ovd-info:completed, sota-vision:completed | 16 | 66 | 82 | 12 | 66 | 66 | 20 | 148 | 0 | 5.986 |
-| T2 | 15 | ovd-info:completed, sota-vision:completed | 15 | 27 | 35 | 14 | 27 | 27 | 1 | 62 | 0 | 3.523 |
-| T3 | 16 | ovd-info:completed, sota-vision:completed | 16 | 30 | 33 | 11 | 30 | 30 | 6 | 63 | 0 | 4.042 |
+| T0 | 109 | ovd-info:completed, sota-vision:completed | 109 | 326 | 395 | 70 | 326 | 326 | 88 | 721 | 0 | 83.614 |
+| T1 | 16 | ovd-info:completed, sota-vision:completed | 16 | 66 | 82 | 12 | 66 | 66 | 20 | 148 | 0 | 28.067 |
+| T2 | 15 | ovd-info:completed, sota-vision:completed | 15 | 27 | 35 | 14 | 27 | 27 | 1 | 62 | 0 | 10.584 |
+| T3 | 16 | ovd-info:completed, sota-vision:completed | 16 | 30 | 33 | 11 | 30 | 30 | 6 | 63 | 0 | 14.794 |
 
 Rerun duplicates: aliases=0, classifications=0, events=0, extraction_runs=0, findings=0, mentions=0, person_event_links=0, persons=0, resolution_decisions=0, rf_results=0, semantic_documents=0, source_documents=0, static_aliases=0, static_classifications=0, static_events=0, static_findings=0, static_mentions=0, static_persons=0, static_resolution_decisions=0, static_rf_results=0, static_semantic_documents=0, static_source_documents=0
 
@@ -208,18 +209,18 @@ Finding timing: on_time=20, late=0, before_evidence=0, missing=32
 
 ## Performance
 
-Status RUN; 156 articles, 449 persons in 38.673 s (242.03 articles/min, 696.61 persons/min)
+Status RUN; 156 articles, 449 persons in 139.236 s (67.22 articles/min, 193.48 persons/min)
 
 | stage | seconds |
 |---|---|
-| classification | 4.458 |
-| discovery | 0.186 |
-| extraction | 2.382 |
-| findings | 1.823 |
-| ingestion | 1.833 |
-| resolution | 15.951 |
-| rf_matching | 4.722 |
-| semantic_indexing | 5.963 |
+| classification | 5.734 |
+| discovery | 0.198 |
+| extraction | 2.618 |
+| findings | 1.956 |
+| ingestion | 1.924 |
+| resolution | 16.401 |
+| rf_matching | 4.857 |
+| semantic_indexing | 104.066 |
 
 ## Manual Review Workload
 
@@ -316,7 +317,7 @@ Failures by component and severity: ENTITY_RESOLUTION: {'S2': 14}; EVENT_ASSOCIA
 ## Recommended Next Work
 
 1. **REPORT: research reports state facts the sources contradict** — `contradicted_report_claims` = 122 (target <= 0.0); evidence: claim_contradicted=122, research_person_missing=58, claim_unsupported=33. Possible work: trace each contradicted claim to the component that produced the wrong fact.
-2. **PERSECUTION: political evidence about one person is attributed to another** — `cross_person_persecution_attribution` = 5 (target <= 0.0); evidence: persecution_status=49, candidate_missed=32, candidate_false_positive=7. Possible work: inspect evidence windows in multi-person sentences and articles.
-3. **ENTITY_RESOLUTION: namesakes (same or near-same name, different person) are auto-linked** — `namesake_different_person_auto_link` = 2 (target <= 0.0); evidence: false_create_new=7, duplicate_canonical_person=7. Possible work: decide which evidence may separate namesakes and when a namesake must go to review.
-4. **EVENT_ASSOCIATION: events are linked to the wrong set of persons** — `person_event_association_accuracy` = 0.369 (target >= 0.95); evidence: event_person_association=53. Possible work: inspect association errors in multi-person sentences and shared events.
-5. **RETRIEVAL: semantic queries miss relevant persons/events in the top 5** — `semantic_recall_at_5` = 0.3871 (target >= 0.85); evidence: retrieval_miss_at_5=60, retrieval_target_not_in_index=9. Possible work: analyse missed queries: document representation vs query wording.
+2. **DATA_QUALITY: false statements about real persons remain after gating (see per-kind counts)** — `gated_dangerous_failures` = 74 (target <= 0.0); evidence: no itemized failures. Possible work: group the dangerous failures by kind and trace each kind to the component that produced it.
+3. **PERSECUTION: political evidence about one person is attributed to another** — `cross_person_persecution_attribution` = 5 (target <= 0.0); evidence: persecution_status=49, candidate_missed=32, candidate_false_positive=7. Possible work: inspect evidence windows in multi-person sentences and articles.
+4. **ENTITY_RESOLUTION: namesakes (same or near-same name, different person) are auto-linked** — `namesake_different_person_auto_link` = 2 (target <= 0.0); evidence: false_create_new=7, duplicate_canonical_person=7. Possible work: decide which evidence may separate namesakes and when a namesake must go to review.
+5. **EVENT_ASSOCIATION: events are linked to the wrong set of persons** — `person_event_association_accuracy` = 0.369 (target >= 0.95); evidence: event_person_association=53. Possible work: inspect association errors in multi-person sentences and shared events.

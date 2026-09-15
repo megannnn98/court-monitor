@@ -6,6 +6,7 @@
 
 ## Страницы
 
+- [Getting Started](Getting-Started.md) — быстрый локальный запуск, ручной pipeline, API, проверки, monitoring, production-like profile
 - [Overview](Overview.md) — архитектура целиком, поток данных
 - [Ingestion](Ingestion.md) — загрузка, разбор HTML, полный текст статьи
 - [Data-Model](Data-Model.md) — таблицы PostgreSQL, persistence
@@ -19,6 +20,7 @@
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
+- [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
 - [Testing](Testing.md) — тесты, линтеры, pre-commit
 

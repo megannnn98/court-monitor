@@ -31,11 +31,23 @@ uv run alembic upgrade head
 Проверить, что база доступна и схема на последней миграции:
 
 ```bash
+uv run python src/main.py validate-config
 uv run alembic current
 uv run alembic heads
 ```
 
-Обе команды должны показывать один и тот же head revision.
+`validate-config` печатает текущую конфигурацию без секретов. `alembic current`
+и `alembic heads` должны показывать один и тот же head revision.
+
+Qdrant нужен только для semantic retrieval / semantic indexing. Для ручного
+structured research без semantic-запросов достаточно PostgreSQL. Если нужен
+semantic:
+
+```bash
+docker compose --profile semantic up -d qdrant
+uv sync --group semantic
+uv run python src/main.py rebuild-semantic-index --entity all
+```
 
 ## 2. Загрузить небольшой набор статей
 
@@ -239,9 +251,14 @@ http://localhost:8001/docs
 
 ```bash
 # терминал 2
-curl "http://localhost:8001/health"
+curl "http://localhost:8001/health/live"
+curl "http://localhost:8001/health/ready"
 curl "http://localhost:8001/candidates?snapshot_id=<real-snapshot-id>&min_confidence=0.7"
 ```
+
+`/health/live` проверяет, что процесс отвечает. `/health/ready` проверяет БД и
+schema head; Qdrant, Together AI и stale monitoring runs попадают в degraded
+status, а не валят процесс.
 
 Если порт `8001` тоже занят, выбрать другой:
 
@@ -274,6 +291,101 @@ export QDRANT_TEST_URL="http://127.0.0.1:6333"
 DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
 uv run pytest
 ```
+
+Product-level evaluation на disposable database:
+
+```bash
+export EVALUATION_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval"
+DATABASE_URL="$EVALUATION_DATABASE_URL" uv run alembic upgrade head
+uv run python src/main.py evaluate-final --no-fail-on-gates
+```
+
+`EVALUATION_DATABASE_URL` должен указывать на одноразовую БД с именем,
+заканчивающимся на `_test` или `_eval`.
+
+## 11. Automated monitoring
+
+Monitoring запускает тот же pipeline повторяемо: discovery/ingestion,
+extraction, ER, classification, RF matching, semantic indexing и findings.
+
+Ручной запуск без Dagster:
+
+```bash
+set -a
+source .env
+set +a
+
+uv run python src/main.py monitor --source ovd-info --dry-run --limit 5
+uv run python src/main.py monitor --source ovd-info --limit 20
+uv run python src/main.py monitor-derived
+uv run python src/main.py monitoring-status
+uv run python src/main.py monitoring-findings --all
+```
+
+Dagster profile:
+
+```bash
+uv run alembic upgrade head
+docker compose --profile monitoring up -d --build
+```
+
+UI: `http://127.0.0.1:3000`. Подробности: `docs/wiki/Monitoring.md`.
+
+## 12. Production-like local profile
+
+Один compose profile поднимает PostgreSQL, Qdrant, API и Dagster. Миграции
+запускаются отдельным шагом:
+
+```bash
+docker compose --profile production build
+docker compose up -d postgres
+docker compose run --rm migrate
+docker compose --profile production up -d
+
+curl -s http://127.0.0.1:8001/health/live
+curl -s http://127.0.0.1:8001/health/ready
+```
+
+Порты опубликованы только на `127.0.0.1`: PostgreSQL `5433`, Qdrant `6333`,
+API `8001`, Dagster `3000`. У API нет auth/rate limiting; наружу только через
+reverse proxy с ними.
+
+## 13. Real-World Validation v1
+
+Real-world validation проверяет pipeline на зафиксированном корпусе реальных
+публикаций. Полные тексты лежат в локальном cache `var/real_world/` и не
+коммитятся; committed data — `evaluation/real_world/`.
+
+Быстрые проверки:
+
+```bash
+uv run python src/main.py real-world-corpus-status
+uv run python src/main.py real-world-golden validate
+```
+
+Полный dev-run:
+
+```bash
+export EVALUATION_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval"
+DATABASE_URL="$EVALUATION_DATABASE_URL" uv run alembic upgrade head
+uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+```
+
+Если cache неполный:
+
+```bash
+uv run python src/main.py build-real-world-corpus --from-manifest
+```
+
+Live discovery/fetch уважает `--min-interval` и не принимает значения ниже
+1 секунды на домен:
+
+```bash
+uv run python src/main.py build-real-world-corpus
+```
+
+Текущий golden dataset draft-only; результат остаётся preliminary, пока cases не
+проверены человеком через `real-world-golden review-sheet` / `verify`.
 
 ## Частые проблемы
 

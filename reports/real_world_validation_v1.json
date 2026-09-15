@@ -3,13 +3,13 @@
   "overall_status": "FAILED_GATES",
   "exit_code": 1,
   "status_reasons": [
-    "hard safety gates failed: namesake_different_person_auto_link, cross_person_persecution_attribution, contradicted_report_claims",
+    "hard safety gates failed: namesake_different_person_auto_link, cross_person_persecution_attribution, contradicted_report_claims, gated_dangerous_failures",
     "quality targets missed: person_extraction_precision, person_extraction_recall, event_precision, event_recall, person_event_association_accuracy, er_candidate_recall_at_5, political_precision, political_recall, candidate_precision, candidate_recall, semantic_recall_at_5, supported_report_claims_rate",
     "not run: dangerous_silent_reinterpretation",
     "PRELIMINARY: 0 VERIFIED golden articles (< 100 required) and 36 DRAFT articles evaluated; no production quality claim can be made"
   ],
   "provenance": {
-    "git_commit": "529b97f0aceb8949b62d5d9ec541dfb62ae5fca3-dirty",
+    "git_commit": "16b6172e93383d2128ac2735591354523a874250-dirty",
     "evaluation_version": "real-world-v1",
     "dataset_version": "real-world-v1-draft.1",
     "corpus_manifest_hash": "05e49c18d2856c71dd975358295a6e07eb0d5890ad418e7d46313e2565e34fc6",
@@ -31,8 +31,8 @@
       "semantic_representation": "person@1,event@1",
       "research_report": "1"
     },
-    "policy_version": "real-world-policy-v1",
-    "policy_hash": "40663c4151a9975c013bb2c4b08b58a69a7cc2f1e25436084a6d4ee09beaaa80",
+    "policy_version": "real-world-policy-v1.1",
+    "policy_hash": "36044a1254c5e1767835e8064923109292a3d63ffbcb5950cfd8610ea8a2bd14",
     "thresholds": {
       "hard_gates": {
         "false_person_auto_link": 0.0,
@@ -46,7 +46,8 @@
         "rerun_duplicates": 0.0,
         "no_snapshot_absence_findings": 0.0,
         "rf_review_status_findings": 0.0,
-        "db_invariant_violations": 0.0
+        "db_invariant_violations": 0.0,
+        "gated_dangerous_failures": 0.0
       },
       "quality_targets": {
         "person_extraction_precision": 0.97,
@@ -85,7 +86,7 @@
       "postgres_interruption",
       "no_rf_snapshot"
     ],
-    "timestamp": "2026-09-15T07:30:11.881012Z"
+    "timestamp": "2026-09-15T08:24:59.881250Z"
   },
   "dataset": {
     "corpus_articles": 156,
@@ -536,7 +537,7 @@
           "findings": 0,
           "semantic_documents": 0
         },
-        "duration_seconds": 23.059
+        "duration_seconds": 83.614
       },
       {
         "period": "T1",
@@ -576,7 +577,7 @@
           "findings": 0,
           "semantic_documents": 0
         },
-        "duration_seconds": 5.986
+        "duration_seconds": 28.067
       },
       {
         "period": "T2",
@@ -616,7 +617,7 @@
           "findings": 0,
           "semantic_documents": 0
         },
-        "duration_seconds": 3.523
+        "duration_seconds": 10.584
       },
       {
         "period": "T3",
@@ -656,7 +657,7 @@
           "findings": 0,
           "semantic_documents": 0
         },
-        "duration_seconds": 4.042
+        "duration_seconds": 14.794
       }
     ],
     "rerun_duplicates": {
@@ -724,6 +725,8 @@
         "status": "PASS",
         "detail": "restart reproduces the uninterrupted state",
         "metrics": {
+          "crashed_source": "ovd-info",
+          "crashed_stage_work": 13,
           "crashed_run_status": "failed,completed",
           "restart_run_status": "completed,completed",
           "differing_tables": 0
@@ -734,6 +737,8 @@
         "status": "PASS",
         "detail": "restart reproduces the uninterrupted state",
         "metrics": {
+          "crashed_source": "ovd-info",
+          "crashed_stage_work": 13,
           "crashed_run_status": "failed,completed",
           "restart_run_status": "completed,completed",
           "differing_tables": 0
@@ -744,6 +749,8 @@
         "status": "PASS",
         "detail": "restart reproduces the uninterrupted state",
         "metrics": {
+          "crashed_source": "ovd-info",
+          "crashed_stage_work": 13,
           "crashed_run_status": "failed,completed",
           "restart_run_status": "completed,completed",
           "differing_tables": 0
@@ -754,6 +761,8 @@
         "status": "PASS",
         "detail": "restart reproduces the uninterrupted state",
         "metrics": {
+          "crashed_source": "ovd-info",
+          "crashed_stage_work": 35,
           "crashed_run_status": "failed,completed",
           "restart_run_status": "completed,completed",
           "differing_tables": 0
@@ -764,6 +773,8 @@
         "status": "PASS",
         "detail": "restart reproduces the uninterrupted state",
         "metrics": {
+          "crashed_source": "ovd-info",
+          "crashed_stage_work": 67,
           "crashed_run_status": "failed,completed",
           "restart_run_status": "completed,completed",
           "differing_tables": 0
@@ -842,18 +853,18 @@
     "status": "RUN",
     "articles": 156,
     "persons": 449,
-    "total_seconds": 38.673,
-    "articles_per_minute": 242.03,
-    "persons_per_minute": 696.61,
+    "total_seconds": 139.236,
+    "articles_per_minute": 67.22,
+    "persons_per_minute": 193.48,
     "stage_seconds": {
-      "classification": 4.458,
-      "discovery": 0.186,
-      "extraction": 2.382,
-      "findings": 1.823,
-      "ingestion": 1.833,
-      "resolution": 15.951,
-      "rf_matching": 4.722,
-      "semantic_indexing": 5.963
+      "classification": 5.734,
+      "discovery": 0.198,
+      "extraction": 2.618,
+      "findings": 1.956,
+      "ingestion": 1.924,
+      "resolution": 16.401,
+      "rf_matching": 4.857,
+      "semantic_indexing": 104.066
     }
   },
   "safety_gates": [
@@ -964,6 +975,15 @@
       "threshold": 0.0,
       "comparator": "<=",
       "detail": null
+    },
+    {
+      "name": "gated_dangerous_failures",
+      "kind": "hard",
+      "status": "FAIL",
+      "value": 74,
+      "threshold": 0.0,
+      "comparator": "<=",
+      "detail": "cross_person_evidence=7, false_actionable_candidate=7, false_political_classification=40, unsupported_event_claim=20"
     },
     {
       "name": "person_extraction_precision",
@@ -10117,6 +10137,16 @@
     },
     {
       "priority": 2,
+      "component": "DATA_QUALITY",
+      "problem": "false statements about real persons remain after gating (see per-kind counts)",
+      "metric": "gated_dangerous_failures",
+      "value": 74,
+      "target": "<= 0.0",
+      "evidence": "no itemized failures",
+      "possible_work": "group the dangerous failures by kind and trace each kind to the component that produced it"
+    },
+    {
+      "priority": 3,
       "component": "PERSECUTION",
       "problem": "political evidence about one person is attributed to another",
       "metric": "cross_person_persecution_attribution",
@@ -10126,7 +10156,7 @@
       "possible_work": "inspect evidence windows in multi-person sentences and articles"
     },
     {
-      "priority": 3,
+      "priority": 4,
       "component": "ENTITY_RESOLUTION",
       "problem": "namesakes (same or near-same name, different person) are auto-linked",
       "metric": "namesake_different_person_auto_link",
@@ -10136,7 +10166,7 @@
       "possible_work": "decide which evidence may separate namesakes and when a namesake must go to review"
     },
     {
-      "priority": 4,
+      "priority": 5,
       "component": "EVENT_ASSOCIATION",
       "problem": "events are linked to the wrong set of persons",
       "metric": "person_event_association_accuracy",
@@ -10144,16 +10174,6 @@
       "target": ">= 0.95",
       "evidence": "event_person_association=53",
       "possible_work": "inspect association errors in multi-person sentences and shared events"
-    },
-    {
-      "priority": 5,
-      "component": "RETRIEVAL",
-      "problem": "semantic queries miss relevant persons/events in the top 5",
-      "metric": "semantic_recall_at_5",
-      "value": 0.3871,
-      "target": ">= 0.85",
-      "evidence": "retrieval_miss_at_5=60, retrieval_target_not_in_index=9",
-      "possible_work": "analyse missed queries: document representation vs query wording"
     }
   ]
 }
