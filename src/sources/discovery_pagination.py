@@ -3,7 +3,11 @@ from collections.abc import Awaitable, Callable
 
 import httpx
 
-from sources.ingestion_errors import PermanentDiscoveryError, TransientDiscoveryError
+from sources.ingestion_errors import (
+    ListingPageNotFoundError,
+    PermanentDiscoveryError,
+    TransientDiscoveryError,
+)
 from sources.models import SourceReference
 
 
@@ -24,6 +28,11 @@ async def fetch_listing_page_with_retry(
             status_code = exc.response.status_code
 
             retryable = status_code == 429 or status_code >= 500
+
+            if status_code == 404:
+                raise ListingPageNotFoundError(
+                    f"Failed to discover articles: HTTP {status_code}"
+                ) from exc
 
             if not retryable:
                 raise PermanentDiscoveryError(
@@ -60,7 +69,13 @@ async def discover_paginated_references(
     page = 0
 
     while len(references) < limit:
-        content = await fetch_page(listing_url_for_page(page))
+        try:
+            content = await fetch_page(listing_url_for_page(page))
+        except ListingPageNotFoundError:
+            # Past the last page of the archive; a missing first page is still an error.
+            if page == 0:
+                raise
+            break
 
         page_references = parse_page(content)
 

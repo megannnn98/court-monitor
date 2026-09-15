@@ -191,3 +191,40 @@ def test_discover_does_not_retry_permanent_http_error() -> None:
         asyncio.run(run())
 
     assert requests == 1
+
+
+def test_discover_stops_at_missing_page_past_the_last_listing_page() -> None:
+    """Real case: sota.vision/category/news/page/20/ answers 404 past the archive end.
+
+    A backfill limit larger than the archive must return what was found, not fail.
+    """
+    requested: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if str(request.url) == "https://sota.vision/category/news/":
+            return httpx.Response(200, content=LISTING_HTML)
+        return httpx.Response(404, request=request)
+
+    async def run() -> list[SourceReference]:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+            adapter = SotaVisionSourceAdapter(
+                client=client,
+                listing_parser=SotaVisionListingParser(),
+                document_fetcher=FakeDocumentFetcher(),
+                max_attempts=3,
+                base_delay_seconds=0,
+            )
+            return await adapter.discover(limit=100)
+
+    references = asyncio.run(run())
+
+    assert [reference.external_id for reference in references] == [
+        "/article-a/",
+        "/article-b/",
+        "/article-c/",
+    ]
+    assert requested == [
+        "https://sota.vision/category/news/",
+        "https://sota.vision/category/news/page/2/",
+    ]

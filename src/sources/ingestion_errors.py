@@ -32,3 +32,7 @@ class TransientDiscoveryError(DiscoveryError):
 
 class PermanentDiscoveryError(DiscoveryError):
     """Permanent discovery failure that should not be retried."""
+
+
+class ListingPageNotFoundError(PermanentDiscoveryError):
+    """A listing page answered HTTP 404 (past the end of a paginated archive)."""
