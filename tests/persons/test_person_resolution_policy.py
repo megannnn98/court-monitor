@@ -367,3 +367,57 @@ def test_exact_complete_form_is_strong_whatever_reading_wins() -> None:
 def test_exact_form_floor_does_not_cover_incomplete_or_initials_names() -> None:
     assert _scored("Иванов", "Иванов").resolution_score < 0.85
     assert _scored("И. Иванов", "И. Иванов").resolution_score < 0.85
+
+
+# --- name-only evidence (real-world validation v1, namesake benchmark) -------------------
+
+
+def _in_article(scored: ScoredPersonCandidate, same_article: bool) -> ScoredPersonCandidate:
+    features = scored.features.model_copy(update={"same_article_mention": same_article})
+    return scored.model_copy(update={"features": features})
+
+
+@pytest.mark.parametrize("incoming", ["Иван Фролов", "Николай Маркин", "Андрея Шабанова"])
+def test_name_without_patronymic_from_another_article_is_not_identity_evidence(
+    incoming: str,
+) -> None:
+    """Real cases ns-30/ns-31: a different journalist «Иван Фролов» and a different
+    «Николай Маркин» were AUTO_LINKed to the only existing person with that name
+    (score 0.85, `exact_complete_form`, patronymic missing). The same name alone
+    must not link across articles."""
+    existing = incoming if incoming != "Андрея Шабанова" else "Андрей Шабанов"
+    candidate = _in_article(_scored(incoming, existing), same_article=False)
+
+    decision = policy.decide(PersonIdentityInput(name=incoming), [candidate])
+
+    assert decision.action is A.REVIEW
+    assert R.NAME_ONLY_EVIDENCE in decision.reasons
+    assert decision.selected_person_id is None
+
+
+def test_repeated_name_in_the_same_article_still_auto_links() -> None:
+    candidate = _in_article(_scored("Иван Фролов", "Иван Фролов"), same_article=True)
+
+    decision = policy.decide(PersonIdentityInput(name="Иван Фролов"), [candidate])
+
+    assert (decision.action, decision.selected_person_id) == (A.AUTO_LINK, 1)
+
+
+def test_full_name_with_matching_patronymic_auto_links_across_articles() -> None:
+    candidate = _in_article(
+        _scored("Мифтахов Азат Фанисович", "Азат Фанисович Мифтахов"), same_article=False
+    )
+
+    decision = policy.decide(PersonIdentityInput(name="Мифтахов Азат Фанисович"), [candidate])
+
+    assert decision.action is A.AUTO_LINK
+    assert R.NAME_ONLY_EVIDENCE not in decision.reasons
+
+
+def test_given_name_and_patronymic_reading_is_still_name_only() -> None:
+    # «Дмитрий Шостакович» may read as given name + patronymic: no surname, no identity proof.
+    candidate = _in_article(_scored("Дмитрий Шостакович", "Дмитрий Шостакович"), same_article=False)
+
+    decision = policy.decide(PersonIdentityInput(name="Дмитрий Шостакович"), [candidate])
+
+    assert decision.action is A.REVIEW

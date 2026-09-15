@@ -263,3 +263,26 @@ no recall@5, so they stay opt-in.
   (typo in every token) can still race into two persons, as before.
 - Advisory locks include given-name tokens and are held for a whole extraction
   run: correct, but concurrent runs with common names serialize.
+
+## Amendment (2026-09-15): name-only evidence
+
+Real-world validation v1 found that a name without patronymic auto-linked
+across articles: a different journalist «Иван Фролов» and a different
+«Николай Маркин» were linked to the only existing person with that name
+(score 0.85 via `exact_complete_form`, patronymic missing). On the real
+corpus every AUTO_LINK (110) rested on such a name match.
+
+Decision: AUTO_LINK additionally requires identity evidence beyond the name —
+surname, given name and patronymic all equal (`full_identity_match`), or the
+candidate already holding a mention of the same article
+(`same_article_mention`, within-article coreference). Otherwise the decision
+is REVIEW with `name_only_evidence`. Known aliases without patronymic are
+names too. Scores and thresholds are unchanged.
+
+Consequences, measured on the real-world corpus (156 articles): namesake
+different-person AUTO_LINK 2 → 0, false links stay 0, ER AUTO_LINK recall on
+golden mentions 0.42 → 0.25, ER reviews per 100 articles 69 → 114. Repeated
+names inside one article still link automatically. A single existing person
+with the same full name *and* patronymic is still linked (limitation above).
+`RESOLVER_VERSION` stays `er-v2`: the rule applies to new decisions; links made
+before it are not revisited automatically (ER never unlinks on its own).

@@ -78,21 +78,24 @@ def test_er_evaluation_has_no_false_links_on_the_corpus(
         for o in namesakes
         if o.category == "ambiguous"
     )
-    # One existing person with the same full name: linked without context, reported apart.
+    # A single existing person with the same full name *and patronymic* is still linked
+    # without context (documented limitation); a name without patronymic is reviewed.
     assert decision.indistinguishable_namesake_links == 1
     assert decision.auto_link_precision == 1.0
     assert decision.false_create_new == 0
-    assert decision.auto_link_recall >= 0.5
+    # Name-only cross-article links are reviewed since real-world validation v1 (0.37 measured).
+    assert decision.auto_link_recall >= 0.35
     recall = {row.generator: row.recall_at for row in run.generators}
     assert recall["exact"][10] < recall["trigram"][10] == 1.0
     assert recall["combined"][5] == 1.0
-    # The calibrated defaults are the lowest auto-link minimum without false links.
+    # Before the name-only evidence rule 0.80 produced false links on this corpus; the
+    # rule, not the threshold, now keeps name matches without patronymic out of AUTO_LINK.
     by_auto = {
         row.auto_link_min_score: row.metrics.false_links
         for row in run.sweep
         if row.review_min_score == 0.4 and row.min_margin == 0.1
     }
-    assert by_auto[0.85] == 0 and by_auto[0.8] > 0
+    assert by_auto[0.85] == 0 and by_auto[0.8] == 0
 
 
 def test_resolve_person_cli_is_a_dry_run(

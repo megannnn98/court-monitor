@@ -375,9 +375,12 @@ def test_political_person_absent_from_rf_becomes_one_finding(
     assert finding.rosfin_match_id == match_id
 
 
-def test_new_evidence_for_a_known_person_reclassifies_and_creates_a_finding(
+def test_same_name_in_new_evidence_waits_for_review_then_reclassifies_and_creates_a_finding(
     session_factory: sessionmaker[Session],
 ) -> None:
+    """A hooligan and an activist named «Петр Петров» in two articles are not linked by
+    name alone (real-world validation v1). Once a reviewer confirms the identity, the
+    derived stages reclassify the person and create the finding without re-ingestion."""
     import_rf_snapshot(session_factory, [("Иван Иванов", "01.01.1980")])
     upstream = FakeUpstream()
     upstream.publish("petrov-hooligan", PETROV)
@@ -398,16 +401,30 @@ def test_new_evidence_for_a_known_person_reclassifies_and_creates_a_finding(
 
     assert first.stage_metrics["classification"]["statuses"] == {"non_political": 1}
     assert first.findings_created == 0
-    assert second.persons_created == 0
-    assert second.persons_linked == 1
-    assert second.classifications_created == 1
-    assert second.stage_metrics["classification"]["statuses"] == {"political": 1}
-    assert second.rf_matches_created == 1
-    assert second.findings_created == 1
-    # The already indexed person document is outdated by the new evidence and re-embedded.
-    assert second.stage_metrics["semantic_indexing"]["pending_persons"] == 1
-    assert second.stage_metrics["semantic_indexing"]["pending_events"] == 1
-    assert second.semantic_entities_indexed == 2
+    assert (second.persons_created, second.persons_linked, second.person_reviews_created) == (
+        0,
+        0,
+        1,
+    )
+    assert second.findings_created == 0
+
+    with session_factory.begin() as session:
+        decision_id = session.scalar(
+            select(PersonResolutionDecisionRecord.id).where(
+                PersonResolutionDecisionRecord.status == "pending_review"
+            )
+        )
+        assert decision_id is not None
+        PersonResolutionReviewService(SqlAlchemyPersonPersistence(session_factory)).apply(
+            session, decision_id, ResolutionReviewAction.LINK_TO_PERSON, person_id=petrov
+        )
+    derived = service.run_derived()
+
+    assert derived.classifications_created == 1
+    assert derived.stage_metrics["classification"]["statuses"] == {"political": 1}
+    assert derived.rf_matches_created == 1
+    assert derived.findings_created == 1
+    assert upstream.fetches == ["petrov-hooligan", "petrov-political"]
     with session_factory() as session:
         assert session.scalars(select(MonitoringFindingRecord.person_id)).all() == [petrov]
 

@@ -159,6 +159,18 @@ class PersonResolutionFeatures(BaseModel):
     incomplete_name: bool
     conflicts: list[IdentityConflict] = Field(default_factory=list)
     semantic_similarity: float | None = None
+    # The candidate already holds a mention of the incoming mention's article
+    # (within-article coreference): the only context that corroborates a name.
+    same_article_mention: bool = False
+
+    @property
+    def full_identity_match(self) -> bool:
+        """Surname, given name and patronymic all present and equal."""
+        return (
+            self.surname is ComponentMatch.EXACT
+            and self.given_name is ComponentMatch.EXACT
+            and self.patronymic is ComponentMatch.EXACT
+        )
 
 
 class PersonResolutionScore(BaseModel):
@@ -205,6 +217,9 @@ class PersonResolutionReason(StrEnum):
     # The strong candidates were already declared different people by a reviewer.
     KNOWN_DISTINCT_PERSONS = "known_distinct_persons"
     INCOMPLETE_NAME = "incomplete_name"
+    # The match is a name without patronymic (or an unparsed form) and the candidate is
+    # not mentioned in the same article: namesakes cannot be told apart by name alone.
+    NAME_ONLY_EVIDENCE = "name_only_evidence"
     INITIALS_ONLY = "initials_only"
     CONFLICTING_IDENTITY_DATA = "conflicting_identity_data"
     LOW_DECISION_MARGIN = "low_decision_margin"

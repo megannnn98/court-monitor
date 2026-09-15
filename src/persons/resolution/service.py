@@ -130,9 +130,14 @@ class PersonResolutionEngine:
             {source.value: count for source, count in generation.counts.items()},
             generation.semantic_source.value,
         )
+        in_article = persons_mentioned_in_article(
+            session, identity.article_id, exclude_mention_id=identity.mention_id
+        )
         scored = []
         for candidate in generation.candidates:
             features = self._extractor.extract(identity, candidate)
+            if candidate.person_id in in_article:
+                features = features.model_copy(update={"same_article_mention": True})
             score = self._scorer.score(features)
             logger.debug(
                 "er_candidate_scored mention_id=%s person_id=%s score=%.4f conflicts=%s",
@@ -168,6 +173,29 @@ class PersonResolutionEngine:
         return ResolutionPlan(
             identity=identity, name=name, generation=generation, decision=decision
         )
+
+
+def persons_mentioned_in_article(
+    session: Session, article_id: int | None, *, exclude_mention_id: int | None = None
+) -> set[int]:
+    """Persons already holding a person mention of this article (any extraction run)."""
+    if article_id is None:
+        return set()
+    query = (
+        select(EntityMentionRecord.person_id)
+        .join(
+            ArticleExtractionRunRecord,
+            ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
+        )
+        .where(
+            ArticleExtractionRunRecord.article_id == article_id,
+            EntityMentionRecord.entity_type == "person",
+            EntityMentionRecord.person_id.is_not(None),
+        )
+    )
+    if exclude_mention_id is not None:
+        query = query.where(EntityMentionRecord.id != exclude_mention_id)
+    return {person_id for person_id in session.scalars(query).all() if person_id is not None}
 
 
 def known_distinct_pairs(session: Session, person_ids: Sequence[int]) -> set[frozenset[int]]:

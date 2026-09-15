@@ -6,7 +6,9 @@ Rules (ADR 0012), in order:
 3. top plausible ≥ auto-link minimum, margin over the second plausible above
    the minimum, a single strong candidate (no possible duplicate persons), a
    single active person with the incoming matching_key (namesakes are never
-   picked by id) and a full (non-initial, complete) incoming name → AUTO_LINK;
+   picked by id), a full (non-initial, complete) incoming name and identity
+   evidence beyond the name — the full name with patronymic, or the candidate
+   already mentioned in the same article — → AUTO_LINK;
    otherwise REVIEW with every reason that blocked it;
 4. top plausible below the auto-link minimum → REVIEW (MEDIUM_CONFIDENCE_MATCH);
 5. nothing plausible → CREATE_NEW, unless the semantic source was unavailable
@@ -149,6 +151,8 @@ class PersonResolutionDecisionPolicy:
             reasons.append(R.INITIALS_ONLY)
         if top.features.incomplete_name:
             reasons.append(R.INCOMPLETE_NAME)
+        if not top.features.full_identity_match and not top.features.same_article_mention:
+            reasons.append(R.NAME_ONLY_EVIDENCE)
 
         if top.resolution_score < self.thresholds.auto_link_min_score:
             return decision(
@@ -164,6 +168,7 @@ class PersonResolutionDecisionPolicy:
             R.POSSIBLE_DUPLICATE_PERSONS,
             R.KNOWN_DISTINCT_PERSONS,
             R.MULTIPLE_EXACT_NAME_MATCHES,
+            R.NAME_ONLY_EVIDENCE,
         }
         if blocked & set(reasons):
             return decision(PersonResolutionAction.REVIEW, reasons, margin=margin)

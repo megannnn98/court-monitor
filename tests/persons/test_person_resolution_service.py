@@ -183,12 +183,46 @@ def test_reordered_full_name_auto_links_through_er_v2_and_promotes_alias(
     assert _count(session_factory, PersonRecord) == 1
 
 
-def test_known_alias_links_a_new_mention(session_factory: sessionmaker[Session]) -> None:
-    person = seed_person(session_factory, "Иван Сергеевич Петров", aliases=("Ваня Петров",))
+def test_known_alias_from_another_article_is_reviewed_not_linked(
+    session_factory: sessionmaker[Session],
+) -> None:
+    # A known alias without patronymic is still only a name: the same form may be a namesake.
+    seed_person(session_factory, "Иван Сергеевич Петров", aliases=("Ваня Петров",))
 
-    _, action, linked = _resolve(session_factory, "Ваня Петров")
+    mention_id, action, linked = _resolve(session_factory, "Ваня Петров")
 
-    assert (action, linked) == (A.AUTO_LINK, person)
+    assert (action, linked) == (A.REVIEW, None)
+    assert "name_only_evidence" in _decision(session_factory, mention_id).reasons
+
+
+def test_name_repeated_in_the_same_article_links_to_the_person_created_there(
+    session_factory: sessionmaker[Session],
+) -> None:
+    run_id, _ = seed_mentions(session_factory, "Иван Фролов", "Иван Фролов")
+    extraction = ExtractionResolutionService(
+        persistence=SqlAlchemyPersonPersistence(session_factory),
+        session_factory=session_factory,
+        person_resolution=_service(session_factory),
+    )
+
+    stats = extraction.resolve_extraction_run(run_id)
+
+    assert (stats.new_persons_created, stats.reviews_pending) == (1, 0)
+    assert _count(session_factory, PersonRecord) == 1
+
+
+def test_same_full_name_in_another_article_is_reviewed(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Real-world validation v1: a different «Иван Фролов» was auto-linked by name alone."""
+    seed_person(session_factory, "Иван Фролов")
+
+    mention_id, action, linked = _resolve(session_factory, "Иван Фролов")
+
+    assert (action, linked) == (A.REVIEW, None)
+    decision = _decision(session_factory, mention_id)
+    assert "name_only_evidence" in decision.reasons
+    assert _count(session_factory, PersonRecord) == 1
 
 
 def test_no_candidate_creates_a_new_person(session_factory: sessionmaker[Session]) -> None:
@@ -251,7 +285,8 @@ def test_repeated_resolution_is_idempotent(session_factory: sessionmaker[Session
     ]
     second = extraction.resolve_extraction_run(run_id)
 
-    assert (first.mentions_resolved, first.new_persons_created, first.reviews_pending) == (2, 1, 1)
+    # «Иван Иванов» from another article is name-only evidence: reviewed, not linked.
+    assert (first.mentions_resolved, first.new_persons_created, first.reviews_pending) == (1, 1, 2)
     assert second.new_persons_created == 0
     assert second.mentions_resolved == first.mentions_resolved
     assert counts == [
@@ -265,17 +300,18 @@ def test_repeated_resolution_is_idempotent(session_factory: sessionmaker[Session
     ]
 
 
-def test_typo_link_does_not_promote_the_typo_to_an_alias(
+def test_typo_match_neither_links_nor_promotes_the_typo_to_an_alias(
     session_factory: sessionmaker[Session],
 ) -> None:
-    person = seed_person(session_factory, "Александр Сергеевич Петров")
+    seed_person(session_factory, "Александр Сергеевич Петров")
     lenient = _service(
         session_factory, {"ER_AUTO_LINK_MIN_SCORE": "0.8", "ER_REVIEW_MIN_SCORE": "0.5"}
     )
 
     _, action, linked = _resolve(session_factory, "Александр Сергеевич Пертров", lenient)
 
-    assert (action, linked) == (A.AUTO_LINK, person)
+    # Even with lowered thresholds a misspelled surname is not full identity evidence.
+    assert (action, linked) == (A.REVIEW, None)
     assert _count(session_factory, PersonAliasRecord) == 0
 
 
