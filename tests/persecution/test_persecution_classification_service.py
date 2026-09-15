@@ -273,11 +273,25 @@ def test_classification_links_nearby_legal_reference_to_event_as_charge(
 
 
 def _seed_people_in_text(
-    session_factory: sessionmaker[Session], text: str, names: list[str]
+    session_factory: sessionmaker[Session],
+    text: str,
+    names: list[str],
+    *,
+    shared_event: bool = False,
 ) -> list[int]:
+    """One detention event per person over their name, or (`shared_event`) one event
+    over the whole text linked to everyone, as the rule-based event extractor does
+    for a sentence naming several people."""
     with session_factory() as session:
         article_id = _create_article(session, text, external_id="adjacent")
         run_id = _create_run(session, article_id)
+        shared_event_id = (
+            _create_event(
+                session, run_id=run_id, event_type="detention", start_offset=0, end_offset=len(text)
+            )
+            if shared_event
+            else None
+        )
         person_ids = []
         for name in names:
             person_id = _create_person(session, name, name.lower())
@@ -290,7 +304,7 @@ def _seed_people_in_text(
                 start_offset=start,
                 end_offset=start + len(name),
             )
-            event_id = _create_event(
+            event_id = shared_event_id or _create_event(
                 session,
                 run_id=run_id,
                 event_type="detention",
@@ -343,23 +357,29 @@ def test_context_in_a_following_sentence_without_other_persons_still_counts(
         "Никитина задержали на антивоенном пикете; Егорова задержали за кражу велосипеда.",
     ],
 )
+@pytest.mark.parametrize("shared_event", [False, True])
 def test_political_context_of_another_persons_clause_does_not_leak_within_a_sentence(
-    session_factory: sessionmaker[Session], text: str
+    session_factory: sessionmaker[Session], text: str, shared_event: bool
 ) -> None:
     """One sentence, two clauses joined by «, а» / «—» / «;»: each person keeps only
-    their own clause."""
-    egorov, nikitin = _seed_people_in_text(session_factory, text, ["Егорова", "Никитина"])
+    their own clause, also when one event spans the sentence and is linked to both."""
+    egorov, nikitin = _seed_people_in_text(
+        session_factory, text, ["Егорова", "Никитина"], shared_event=shared_event
+    )
     service = PersecutionClassificationService(session_factory)
 
     assert service.classify_person(egorov).status != PersecutionClassificationStatus.POLITICAL
     assert service.classify_person(nikitin).status == PersecutionClassificationStatus.POLITICAL
 
 
+@pytest.mark.parametrize("shared_event", [False, True])
 def test_shared_clause_context_belongs_to_every_person_in_it(
-    session_factory: sessionmaker[Session],
+    session_factory: sessionmaker[Session], shared_event: bool
 ) -> None:
     text = "Егорова и Никитина задержали на антивоенном пикете у здания суда."
-    egorov, nikitin = _seed_people_in_text(session_factory, text, ["Егорова", "Никитина"])
+    egorov, nikitin = _seed_people_in_text(
+        session_factory, text, ["Егорова", "Никитина"], shared_event=shared_event
+    )
     service = PersecutionClassificationService(session_factory)
 
     assert service.classify_person(egorov).status == PersecutionClassificationStatus.POLITICAL

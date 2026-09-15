@@ -53,6 +53,33 @@ def _sentence_bounds(text: str, offset: int) -> tuple[int, int]:
     return start, len(text)
 
 
+def _narrow_shared_spans(
+    spans: Sequence[tuple[int, int]],
+    own_mention_spans: Sequence[tuple[int, int]],
+    other_person_spans: Sequence[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """An event span that also contains another person's mention (one detention event
+    over «X — for theft, and Y at an anti-war picket») is replaced by this person's own
+    mentions inside it, so the clause cut in `_merge_windows` has an anchor. Without
+    an own mention inside, the span is kept as it is."""
+    narrowed: list[tuple[int, int]] = []
+    for start, end in spans:
+        if any(
+            start <= other_start and other_end <= end
+            for other_start, other_end in other_person_spans
+        ):
+            inside = [
+                (mention_start, mention_end)
+                for mention_start, mention_end in own_mention_spans
+                if start <= mention_start and mention_end <= end
+            ]
+            if inside:
+                narrowed.extend(inside)
+                continue
+        narrowed.append((start, end))
+    return narrowed
+
+
 class PersecutionClassificationService:
     def __init__(
         self,
@@ -283,14 +310,27 @@ class PersecutionClassificationService:
             if article_id is not None:
                 others_by_article.setdefault(article_id, []).append((start, end))
 
+        own_mentions_by_article: dict[int, list[tuple[int, int]]] = {}
+        for mention in mentions:
+            article_id = article_id_by_run.get(mention.extraction_run_id)
+            if article_id is not None:
+                own_mentions_by_article.setdefault(article_id, []).append(
+                    (mention.start_offset, mention.end_offset)
+                )
+
         result: list[dict[str, Any]] = []
         for article in articles:
+            others = others_by_article.get(article.id, [])
             windows = self._merge_windows(
-                spans_by_article[article.id],
+                _narrow_shared_spans(
+                    spans_by_article[article.id],
+                    own_mentions_by_article.get(article.id, []),
+                    others,
+                ),
                 len(article.text),
                 EVIDENCE_WINDOW_CHARS,
                 text=article.text,
-                other_person_spans=others_by_article.get(article.id, []),
+                other_person_spans=others,
             )
             excerpt = "\n[...]\n".join(article.text[start:end] for start, end in windows)
             result.append(
