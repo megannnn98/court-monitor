@@ -14,6 +14,9 @@ Rules (ADR 0012), in order:
 5. nothing plausible → CREATE_NEW, unless the semantic source was unavailable
    and a non-conflicting candidate shares the surname: then linking vs creating
    stays open without it → REVIEW.
+0. a surname alone (no given name, no initials) whose only same-surname candidate is
+   already mentioned in the same article → AUTO_LINK (SAME_ARTICLE_SURNAME_REFERENCE);
+   two such persons in the article (father and son) fall through to the rules below.
 Semantic similarity never enters these rules except through (5).
 """
 
@@ -105,8 +108,39 @@ class PersonResolutionDecisionPolicy:
                 semantic_source=semantic_source,
             )
 
+        # A single name token (a surname repeated in the text) is a reference, not an
+        # identity: it may link through the same-article rule below, but never creates a
+        # canonical person of its own.
+        single_token = len(identity.name.split()) < 2
         if not ranked:
+            if single_token:
+                return decision(PersonResolutionAction.REVIEW, [R.NO_CANDIDATE, R.INCOMPLETE_NAME])
             return decision(PersonResolutionAction.CREATE_NEW, [R.NO_CANDIDATE])
+
+        # Within-article coreference: «Зареме Мусаевой… Мусаеву признали виновной».
+        referenced = [
+            c
+            for c in ranked
+            if c.features.same_article_mention
+            and not c.is_conflicting
+            and c.features.incomplete_name
+            and not c.features.initials_only
+            and c.features.surname in (ComponentMatch.EXACT, ComponentMatch.TYPO)
+            and c.features.given_name is ComponentMatch.MISSING
+        ]
+        if len(referenced) == 1:
+            return decision(
+                PersonResolutionAction.AUTO_LINK,
+                [R.SAME_ARTICLE_SURNAME_REFERENCE],
+                selected=referenced[0].person_id,
+            )
+        if len(referenced) > 1:
+            # The surname refers to one of several persons of this article: never a new
+            # person, never a guess.
+            return decision(
+                PersonResolutionAction.REVIEW,
+                [R.MULTIPLE_PLAUSIBLE_CANDIDATES, R.INCOMPLETE_NAME],
+            )
 
         plausible = [
             c
@@ -125,6 +159,8 @@ class PersonResolutionDecisionPolicy:
                 return decision(
                     PersonResolutionAction.REVIEW, [*reasons, R.SEMANTIC_SOURCE_UNAVAILABLE]
                 )
+            if single_token:
+                return decision(PersonResolutionAction.REVIEW, [*reasons, R.INCOMPLETE_NAME])
             return decision(PersonResolutionAction.CREATE_NEW, reasons)
 
         top = plausible[0]

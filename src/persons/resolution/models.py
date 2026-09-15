@@ -220,6 +220,8 @@ class PersonResolutionReason(StrEnum):
     # The match is a name without patronymic (or an unparsed form) and the candidate is
     # not mentioned in the same article: namesakes cannot be told apart by name alone.
     NAME_ONLY_EVIDENCE = "name_only_evidence"
+    # A surname alone repeating the only person of that surname named in the same article.
+    SAME_ARTICLE_SURNAME_REFERENCE = "same_article_surname_reference"
     INITIALS_ONLY = "initials_only"
     CONFLICTING_IDENTITY_DATA = "conflicting_identity_data"
     LOW_DECISION_MARGIN = "low_decision_margin"

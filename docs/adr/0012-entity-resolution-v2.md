@@ -286,3 +286,15 @@ names inside one article still link automatically. A single existing person
 with the same full name *and* patronymic is still linked (limitation above).
 `RESOLVER_VERSION` stays `er-v2`: the rule applies to new decisions; links made
 before it are not revisited automatically (ER never unlinks on its own).
+
+## Amendment (2026-09-15): surname references inside an article
+
+The extractor now emits a surname alone when it repeats the surname of a full
+name in the same article («Зареме Мусаевой… Мусаеву признали виновной»).
+Such a mention links automatically when exactly one candidate of that surname
+is already mentioned in the same article (`same_article_surname_reference`);
+with several (father and son in one article) it goes to review. A single name
+token never creates a canonical person: without a same-article reference it is
+reviewed (`incomplete_name`). Real-world evaluation: ER AUTO_LINK precision
+0.991, candidate recall@5 0.95, duplicate canonical persons 11 -> 5 once
+surname references stopped creating persons.

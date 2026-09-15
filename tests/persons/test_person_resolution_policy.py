@@ -210,7 +210,9 @@ def test_semantic_outage_with_weak_surname_overlap_reviews() -> None:
     )
     healthy = weak_policy.decide(PersonIdentityInput(name="Иванов"), candidates)
 
-    assert healthy.action is A.CREATE_NEW
+    # A surname alone never creates a person (real-world validation v1).
+    assert healthy.action is A.REVIEW
+    assert R.INCOMPLETE_NAME in healthy.reasons
     assert outage.action is A.REVIEW
     assert R.SEMANTIC_SOURCE_UNAVAILABLE in outage.reasons
 
@@ -421,3 +423,49 @@ def test_given_name_and_patronymic_reading_is_still_name_only() -> None:
     decision = policy.decide(PersonIdentityInput(name="Дмитрий Шостакович"), [candidate])
 
     assert decision.action is A.REVIEW
+
+
+def test_surname_alone_links_to_the_only_person_of_the_article_with_that_surname() -> None:
+    """«Зареме Мусаевой… Мусаеву признали виновной»: the surname repeats the person named
+    in full earlier in the same article."""
+    candidate = _in_article(_scored("Мусаеву", "Зарема Мусаева"), same_article=True)
+
+    decision = policy.decide(PersonIdentityInput(name="Мусаеву"), [candidate])
+
+    assert (decision.action, decision.selected_person_id) == (A.AUTO_LINK, 1)
+    assert R.SAME_ARTICLE_SURNAME_REFERENCE in decision.reasons
+
+
+def test_surname_alone_with_two_persons_of_that_surname_in_the_article_reviews() -> None:
+    """Real case: father and son Гилманов are both named in one article."""
+    son = _in_article(_scored("Гилманова", "Марат Гилманов", person_id=1), same_article=True)
+    father = _in_article(_scored("Гилманова", "Радик Гилманов", person_id=2), same_article=True)
+
+    decision = policy.decide(PersonIdentityInput(name="Гилманова"), [son, father])
+
+    assert decision.action is A.REVIEW
+
+
+def test_surname_alone_never_links_to_a_person_from_another_article() -> None:
+    candidate = _in_article(_scored("Мусаеву", "Зарема Мусаева"), same_article=False)
+
+    decision = policy.decide(PersonIdentityInput(name="Мусаеву"), [candidate])
+
+    assert decision.action is not A.AUTO_LINK
+
+
+@pytest.mark.parametrize("with_candidate", [False, True])
+def test_surname_alone_never_creates_a_person(with_candidate: bool) -> None:
+    """Real cases: «По словам Фроловой…» and «Мифтаховым» created persons «Фроловая» and
+    «Мифтаховый» when the full name of the article was pending review; later mentions then
+    linked to that duplicate."""
+    candidates = (
+        [_in_article(_scored("Фроловой", "Иван Фролов"), same_article=False)]
+        if with_candidate
+        else []
+    )
+
+    decision = policy.decide(PersonIdentityInput(name="Фроловой"), candidates)
+
+    assert decision.action is A.REVIEW
+    assert R.INCOMPLETE_NAME in decision.reasons
