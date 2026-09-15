@@ -80,10 +80,19 @@ containers. Total connections are roughly
 
 ### Graceful shutdown
 
-Containers run with `init: true` so signals reach the Python process.
+Containers run with `init: true` so signals reach the container's main process.
 uvicorn gets `--timeout-graceful-shutdown 20` inside a 30 s stop grace period.
-Dagster run workers get 60 s: on SIGTERM a monitoring run finishes as failed;
-a run killed harder is aborted as stale by the next run (ADR 0013).
+
+A monitoring run finishes as failed only when its own process is interrupted:
+Ctrl+C on the CLI, or SIGTERM delivered to a Dagster run worker (Dagster maps
+SIGTERM to SIGINT there, and `MonitoringService` finishes the run on the
+resulting `BaseException`). With `QueuedRunCoordinator` and `DefaultRunLauncher`
+run workers are subprocesses of `dagster-daemon`; `tini` forwards the container's
+SIGTERM to the daemon only, so `docker compose stop` is not guaranteed to reach
+a worker before the 60 s grace period ends and the container is killed. Such a
+run stays `running` and is aborted as stale by the next run after
+`MONITORING_STALE_RUN_AFTER_MINUTES` (ADR 0013). Stop the schedules and wait for
+runs to finish before a planned restart. Not verified at runtime.
 
 ### Private deployment
 

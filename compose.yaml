@@ -210,8 +210,8 @@ services:
       - production
     command: ["dagster-daemon", "run", "-w", "/opt/dagster/dagster_home/workspace.yaml"]
     environment: *monitoring-environment
-    # Monitoring run workers get SIGTERM and finish their run as failed; a
-    # killed run is aborted as stale by the next run (ADR 0013).
+    # Run workers are daemon subprocesses; tini forwards SIGTERM to the daemon
+    # only, so a run killed on stop is aborted as stale by the next run (ADR 0014).
     stop_grace_period: 60s
     depends_on:
       dagster-db-init:
