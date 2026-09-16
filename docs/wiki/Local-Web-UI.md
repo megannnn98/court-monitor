@@ -1,6 +1,8 @@
-# Local Web UI
+# Local Web UI / Operator console
 
-Локальная веб-морда живёт в том же FastAPI-приложении, что и JSON API.
+Локальная веб-морда живёт в том же FastAPI-приложении, что и JSON API. Это
+Operator console: рабочий интерфейс для очередей ревью, evidence-проверки,
+поиска и routine pipeline operations. Это не полный web-аналог CLI.
 Аутентификации нет: это соответствует ADR 0014, где API публикуется только на
 `127.0.0.1`.
 
@@ -17,6 +19,7 @@ docker compose --profile api up -d
 
 ## Что есть
 
+- `/ui` — вход в Operator console.
 - `/ui/person-resolution/reviews` — очередь ER-ревью.
 - `/ui/person-resolution/reviews/{decision_id}` — сравнение входящего упоминания
   с кандидатами и явные действия ревьюера.
@@ -26,11 +29,23 @@ docker compose --profile api up -d
   человека подсвечивают evidence span.
 - `/ui/search` — lexical search по статьям через существующий
   `PostgresLexicalSearch`.
+- `/ui/operations` — preview/confirm запуск routine operations.
+- `/ui/operations/runs/{run_id}` — состояние operation run и вывод команды.
+- `/ui/monitoring` — последние monitoring runs и active findings.
+
+Каждая страница содержит короткую контекстную подсказку: зачем она нужна и какое
+следующее действие ожидается от оператора.
 
 ## Границы
 
-- UI не запускает pipeline stages и не меняет extraction/classification/RF matching.
+- Read-only pages открываются сразу.
+- Mutating или долгие операции запускаются только через preview + explicit
+  confirm, см. ADR 0015.
+- Operation run создаётся отдельно от HTTP request; страница run detail показывает
+  status/output, см. ADR 0016.
 - Все факты карточки человека должны вести к span в `ParsedArticle.text`.
+- Developer/evaluation/golden-corpus команды остаются CLI-only, пока не станут
+  routine operator workflow.
 - JSON endpoints остаются основным contract для автоматизации:
   `/persons/{id}/detail`, `/persons/{id}/events`, `/articles/{id}`,
-  `/search/articles`.
+  `/search/articles`, `/operations/runs`.

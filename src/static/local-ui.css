@@ -9,29 +9,79 @@ body {
   font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-header {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  min-height: 48px;
-  padding: 0 20px;
+aside {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 220px;
+  padding: 18px 12px;
   background: #24292f;
 }
 
-header a {
+.brand {
+  margin: 0 8px 18px;
   color: #fff;
+  font-weight: 700;
+}
+
+nav {
+  display: grid;
+  gap: 4px;
+}
+
+nav a {
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: #d0d7de;
   text-decoration: none;
 }
 
+nav a.active,
+nav a:hover {
+  color: #fff;
+  background: #3b434d;
+}
+
 main {
-  max-width: 1280px;
-  margin: 0 auto;
+  margin-left: 220px;
   padding: 20px;
 }
 
 h1,
 h2 {
   margin: 0 0 12px;
+}
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.status-strip span,
+.badge {
+  display: inline-block;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #fff;
+}
+
+.instruction {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #d0d7de;
+  border-left: 4px solid #0969da;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.instruction p {
+  margin: 4px 0;
+}
+
+.warning {
+  color: #9a6700;
 }
 
 .band {
@@ -47,6 +97,7 @@ h2 {
 }
 
 .primary,
+.secondary,
 button {
   display: inline-block;
   border: 1px solid #1f883d;
@@ -56,6 +107,12 @@ button {
   background: #1f883d;
   text-decoration: none;
   cursor: pointer;
+}
+
+.secondary {
+  border-color: #d0d7de;
+  color: #24292f;
+  background: #fff;
 }
 
 button {
@@ -105,13 +162,24 @@ dd {
   margin: 0;
 }
 
-.search {
+.toolbar,
+.search,
+.operation-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  align-items: end;
   margin: 0 0 16px;
 }
 
-input {
+label {
+  display: grid;
+  gap: 4px;
+  color: #656d76;
+}
+
+input,
+select {
   min-width: min(520px, 100%);
   padding: 7px 10px;
   border: 1px solid #d0d7de;
@@ -130,4 +198,76 @@ article {
 mark {
   background: #fff8c5;
   outline: 2px solid #d4a72c;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.side-panel {
+  position: sticky;
+  top: 20px;
+  padding: 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.operation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.operation-card,
+.empty {
+  padding: 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+}
+
+pre {
+  overflow: auto;
+  max-height: 420px;
+  padding: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  white-space: pre-wrap;
+}
+
+.badge.running,
+.badge.pending {
+  border-color: #bf8700;
+  background: #fff8c5;
+}
+
+.badge.succeeded {
+  border-color: #1a7f37;
+  background: #dafbe1;
+}
+
+.badge.failed {
+  border-color: #cf222e;
+  background: #ffebe9;
+}
+
+@media (max-width: 780px) {
+  aside {
+    position: static;
+    width: auto;
+  }
+
+  main {
+    margin-left: 0;
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
 }

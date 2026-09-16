@@ -7,12 +7,13 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from html import escape
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from candidates.service import CandidateQueryService
@@ -20,11 +21,13 @@ from db.database import DatabasePoolSettings, create_database_engine, create_ses
 from db.orm_models import (
     ArticleExtractionRunRecord,
     ExtractedEventRecord,
+    MonitoringRunRecord,
     ParsedArticleRecord,
     PersecutionClassificationRecord,
     PersonAliasRecord,
     PersonEventLinkRecord,
     PersonRecord,
+    PersonResolutionDecisionRecord,
     RosfinMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
@@ -50,6 +53,14 @@ from monitoring.models import (
 )
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from observability import REQUEST_ID_HEADER, configure_logging, normalize_request_id, request_id_var
+from operator_console import (
+    OPERATION_DEFINITIONS,
+    OperationConflictError,
+    OperationNotFoundError,
+    OperationParameters,
+    OperationRegistry,
+    operation_run_to_dict,
+)
 from persecution.queries import latest_persecution_classification_ids
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import (
@@ -83,8 +94,10 @@ from semantic_retrieval.factory import SemanticRetrievalConfig
 from semantic_retrieval.models import SemanticConfigurationError
 from settings import ApplicationConfigurationError, ApplicationSettings
 from sources.models import SearchHit, SearchQuery
+from sources.source_registry import SOURCES
 
 logger = logging.getLogger("api")
+_OPERATION_REGISTRY = OperationRegistry()
 
 
 @asynccontextmanager
@@ -987,7 +1000,66 @@ def apply_person_resolution_review(
     return result
 
 
-def _page(title: str, body: str) -> HTMLResponse:
+def get_operation_registry() -> OperationRegistry:
+    return _OPERATION_REGISTRY
+
+
+class OperationRunResponse(BaseModel):
+    id: int
+    operation: str
+    title: str
+    parameters: dict[str, object]
+    status: str
+    created_at: str
+    started_at: str | None
+    finished_at: str | None
+    duration_seconds: float | None
+    command: list[str]
+    return_code: int | None
+    stdout: str
+    stderr: str
+    error: str | None
+
+
+def _status_counts(db: Session) -> dict[str, object]:
+    pending = db.scalar(
+        select(func.count())
+        .select_from(PersonResolutionDecisionRecord)
+        .where(PersonResolutionDecisionRecord.status == "pending_review")
+    )
+    latest_run = db.scalars(
+        select(MonitoringRunRecord).order_by(MonitoringRunRecord.started_at.desc()).limit(1)
+    ).first()
+    return {
+        "articles": db.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0,
+        "persons": db.scalar(select(func.count()).select_from(PersonRecord)) or 0,
+        "pending_reviews": pending or 0,
+        "latest_run": latest_run.status if latest_run is not None else "нет",
+    }
+
+
+def _page(
+    title: str,
+    body: str,
+    *,
+    active: str,
+    instruction: str,
+    next_action: str,
+    db: Session,
+    warning: str | None = None,
+) -> HTMLResponse:
+    counts = _status_counts(db)
+    nav = [
+        ("review", "ER-ревью", "/ui/person-resolution/reviews"),
+        ("search", "Поиск", "/ui/search"),
+        ("operations", "Операции", "/ui/operations"),
+        ("monitoring", "Monitoring", "/ui/monitoring"),
+    ]
+    links = "\n".join(
+        f'<a class="{"active" if key == active else ""}" href="{href}">{label}</a>'
+        for key, label, href in nav
+    )
+    warning_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     return HTMLResponse(
         f"""<!doctype html>
 <html lang="ru">
@@ -998,12 +1070,25 @@ def _page(title: str, body: str) -> HTMLResponse:
   <link rel="stylesheet" href="/static/local-ui.css">
 </head>
 <body>
-  <header>
-    <a href="/ui/person-resolution/reviews">ER-ревью</a>
-    <a href="/ui/search">Поиск</a>
-    <a href="/candidates?snapshot_id=1">Кандидаты JSON</a>
-  </header>
-  <main>{body}</main>
+  <aside>
+    <div class="brand">court-monitor</div>
+    <nav>{links}</nav>
+  </aside>
+  <main>
+    <section class="status-strip">
+      <span>Статьи: <strong>{counts["articles"]}</strong></span>
+      <span>Persons: <strong>{counts["persons"]}</strong></span>
+      <span>ER pending: <strong>{counts["pending_reviews"]}</strong></span>
+      <span>Последний run: <strong>{escape(str(counts["latest_run"]))}</strong></span>
+    </section>
+    <section class="instruction">
+      <h1>{escape(title)}</h1>
+      <p>{escape(instruction)}</p>
+      <p><strong>Дальше:</strong> {escape(next_action)}</p>
+      {warning_html}
+    </section>
+    {body}
+  </main>
 </body>
 </html>"""
     )
@@ -1048,13 +1133,25 @@ def ui_list_person_resolution_reviews(
 ) -> HTMLResponse:
     reviews = _person_resolution_reviews(db).list_pending(db, limit=limit)
     if not reviews:
-        return _page("ER-ревью", "<h1>ER-ревью</h1><p>Очередь пуста.</p>")
+        return _page(
+            "ER-ревью",
+            '<section class="empty">Очередь пуста.</section>',
+            active="review",
+            instruction="Здесь разбираются pending ER decisions: связать упоминание с Person или создать новую.",
+            next_action="Когда появятся pending decisions, откройте первое и примените явное решение.",
+            db=db,
+        )
     return _page(
         "ER-ревью",
-        f"""<h1>ER-ревью</h1>
-<p class="muted">Показано: {len(reviews)}</p>
+        f"""<section class="toolbar">
+<span class="muted">Показано: {len(reviews)}</span>
 <p><a class="primary" href="/ui/person-resolution/reviews/{reviews[0].decision_id}">Открыть первое</a></p>
+</section>
 {_review_table(reviews)}""",
+        active="review",
+        instruction="Разберите pending ER decisions пачкой: список отсортирован от старых к новым.",
+        next_action="Откройте первое решение, сравните кандидатов и примените действие.",
+        db=db,
     )
 
 
@@ -1120,7 +1217,8 @@ def ui_get_person_resolution_review(
         )
     return _page(
         f"ER-ревью {decision_id}",
-        f"""<h1>ER-ревью #{review.decision_id}</h1>
+        f"""<section class="split">
+<div>
 <section class="band">
   <h2>{escape(review.incoming_name)}</h2>
   <dl>
@@ -1135,7 +1233,18 @@ def ui_get_person_resolution_review(
 <table>
   <thead><tr><th>ID</th><th>Персона</th><th>Score</th><th>ФИО</th><th>Алиасы</th><th>Конфликты</th><th></th></tr></thead>
   <tbody>{"".join(candidates)}</tbody>
-</table>""",
+</table>
+</div>
+<aside class="side-panel">
+  <h2>Быстрые действия</h2>
+  <p>После применения откроется следующий pending item.</p>
+  <a class="secondary" href="/ui/person-resolution/reviews">К списку</a>
+</aside>
+</section>""",
+        active="review",
+        instruction="Сравните входящее упоминание с кандидатами ER и выберите ручное решение.",
+        next_action="Проверьте source/evidence и нажмите безопасное действие в строке кандидата.",
+        db=db,
     )
 
 
@@ -1161,7 +1270,15 @@ def ui_apply_person_resolution_review(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ResolutionReviewStateError as exc:
         db.rollback()
-        return _page("ER-ревью", f"<h1>Не применено</h1><p>{escape(str(exc))}</p>")
+        return _page(
+            "ER-ревью",
+            f'<section class="band"><h2>Не применено</h2><p>{escape(str(exc))}</p></section>',
+            active="review",
+            instruction="Действие ревью не применилось: состояние данных изменилось или параметры неполные.",
+            next_action="Вернитесь к решению, перечитайте кандидатов и выберите действие заново.",
+            db=db,
+            warning="База могла измениться между открытием страницы и нажатием кнопки.",
+        )
     db.commit()
     next_reviews = service.list_pending(db, limit=1)
     if not next_reviews:
@@ -1196,8 +1313,7 @@ def ui_get_person(
     rosfin = detail.rosfinmonitoring.status if detail.rosfinmonitoring else "—"
     return _page(
         detail.person.canonical_name,
-        f"""<h1>{escape(detail.person.canonical_name)}</h1>
-<section class="band">
+        f"""<section class="band">
   <dl>
     <dt>ID</dt><dd>{detail.person.id}</dd>
     <dt>Статус</dt><dd>{escape(detail.person.status)}</dd>
@@ -1212,6 +1328,10 @@ def ui_get_person(
   <thead><tr><th>ID</th><th>Тип</th><th>Дата</th><th>Роль</th><th>Статья</th><th>Span</th></tr></thead>
   <tbody>{events}</tbody>
 </table>""",
+        active="search",
+        instruction="Карточка Person показывает только проверяемые факты с переходом к source span.",
+        next_action="Откройте статью в строке события и проверьте подсвеченный evidence span.",
+        db=db,
     )
 
 
@@ -1232,9 +1352,12 @@ def ui_get_article(
         rendered = escape(text)
     return _page(
         article.title,
-        f"""<h1>{escape(article.title)}</h1>
-<p><a href="{escape(article.url)}">{escape(article.url)}</a></p>
+        f"""<p><a href="{escape(article.url)}">{escape(article.url)}</a></p>
 <article>{rendered}</article>""",
+        active="search",
+        instruction="Это полный ParsedArticle.text — source of truth для evidence.",
+        next_action="Проверьте подсвеченный span или вернитесь к карточке Person.",
+        db=db,
     )
 
 
@@ -1257,12 +1380,258 @@ def ui_search(
     )
     return _page(
         "Поиск",
-        f"""<h1>Поиск</h1>
-<form method="get" class="search">
+        f"""<form method="get" class="search">
   <input name="query" value="{escape(query or "")}" autofocus>
   <button>Искать</button>
 </form>
 <table><thead><tr><th>Статья</th><th>Дата</th><th>Score</th></tr></thead><tbody>{rows}</tbody></table>""",
+        active="search",
+        instruction="Lexical search ищет по ParsedArticle.text через PostgreSQL russian tsvector.",
+        next_action="Введите фразу, откройте статью и используйте её как provenance, не как финальный результат.",
+        db=db,
+    )
+
+
+def _operation_parameters_from_query(
+    source: str | None,
+    limit: int | None,
+    workers: int | None,
+) -> OperationParameters:
+    return OperationParameters(source=source or None, limit=limit, workers=workers)
+
+
+def _operation_form(name: str, params: OperationParameters) -> str:
+    source_options = "".join(
+        f'<option value="{escape(source)}" {"selected" if source == params.source else ""}>{escape(source)}</option>'
+        for source in sorted(SOURCES)
+    )
+    source_field = (
+        f"""<label>Источник
+  <select name="source">{source_options}</select>
+</label>"""
+        if name in {"discover-and-ingest", "extract-entities"}
+        else ""
+    )
+    workers_field = (
+        f"""<label>Workers
+  <input type="number" name="workers" min="1" max="32" value="{params.workers or 1}">
+</label>"""
+        if name == "resolve-people"
+        else ""
+    )
+    return f"""<form method="get" class="operation-form">
+  {source_field}
+  <label>Limit
+    <input type="number" name="limit" min="1" max="100000" value="{params.limit or 100}">
+  </label>
+  {workers_field}
+  <button>Preview</button>
+</form>"""
+
+
+def _operation_query(params: OperationParameters) -> str:
+    values = {key: value for key, value in params.model_dump().items() if value is not None}
+    return urlencode(values)
+
+
+def _run_badge(status: str) -> str:
+    return f'<span class="badge {escape(status)}">{escape(status)}</span>'
+
+
+@app.get("/operations/runs", response_model=list[OperationRunResponse])
+def list_operation_runs(
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> list[OperationRunResponse]:
+    return [OperationRunResponse(**operation_run_to_dict(run)) for run in registry.list_runs()]
+
+
+@app.get("/operations/runs/{run_id}", response_model=OperationRunResponse)
+def get_operation_run(
+    run_id: int,
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> OperationRunResponse:
+    try:
+        return OperationRunResponse(**operation_run_to_dict(registry.get(run_id)))
+    except OperationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Operation run not found") from exc
+
+
+@app.get("/ui/operations")
+def ui_operations(
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse:
+    cards = []
+    for definition in registry.definitions():
+        cards.append(
+            f"""<section class="operation-card">
+  <h2>{escape(definition.title)}</h2>
+  <p>{escape(definition.description)}</p>
+  <p class="muted">{escape(definition.next_action)}</p>
+  <a class="primary" href="/ui/operations/{definition.name}">Настроить</a>
+</section>"""
+        )
+    runs = "".join(
+        f"""<tr>
+  <td><a href="/ui/operations/runs/{run.id}">{run.id}</a></td>
+  <td>{escape(run.operation.title)}</td>
+  <td>{_run_badge(run.status.value)}</td>
+  <td>{_fmt(run.started_at)}</td>
+  <td>{_fmt(run.duration_seconds)}</td>
+</tr>"""
+        for run in registry.list_runs()[:20]
+    )
+    return _page(
+        "Операции",
+        f"""<section class="operation-grid">{"".join(cards)}</section>
+<h2>Последние runs</h2>
+<table><thead><tr><th>ID</th><th>Операция</th><th>Status</th><th>Started</th><th>Duration</th></tr></thead><tbody>{runs}</tbody></table>""",
+        active="operations",
+        instruction="Здесь запускаются routine pipeline operations на живой базе.",
+        next_action="Выберите операцию, проверьте preview и подтвердите run.",
+        db=db,
+        warning="Все операции на этой странице могут менять данные или занимать долгое время.",
+    )
+
+
+@app.get("/ui/operations/{name}")
+def ui_operation_preview(
+    name: str,
+    source: str | None = None,
+    limit: int | None = Query(default=None, ge=1, le=100_000),
+    workers: int | None = Query(default=None, ge=1, le=32),
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse:
+    try:
+        definition = registry.definition(name)
+        params = registry.prepare_parameters(
+            definition, _operation_parameters_from_query(source, limit, workers)
+        )
+    except (OperationNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        command = OPERATION_DEFINITIONS[name].name
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Operation not found") from exc
+    confirm_query = _operation_query(params)
+    return _page(
+        definition.title,
+        f"""{_operation_form(name, params)}
+<section class="band">
+  <h2>Preview</h2>
+  <dl>
+    <dt>Operation</dt><dd>{escape(command)}</dd>
+    <dt>Source</dt><dd>{_fmt(params.source)}</dd>
+    <dt>Limit</dt><dd>{_fmt(params.limit)}</dd>
+    <dt>Workers</dt><dd>{_fmt(params.workers)}</dd>
+  </dl>
+  <form method="post" action="/ui/operations/{escape(name)}/confirm?{escape(confirm_query)}">
+    <button>Подтвердить run</button>
+  </form>
+</section>""",
+        active="operations",
+        instruction=definition.description,
+        next_action=definition.next_action,
+        db=db,
+        warning=definition.warning,
+    )
+
+
+@app.post("/ui/operations/{name}/confirm", response_model=None)
+def ui_operation_confirm(
+    name: str,
+    source: str | None = None,
+    limit: int | None = Query(default=None, ge=1, le=100_000),
+    workers: int | None = Query(default=None, ge=1, le=32),
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> RedirectResponse:
+    try:
+        run = registry.start(name, _operation_parameters_from_query(source, limit, workers))
+    except OperationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Operation not found") from exc
+    except (OperationConflictError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return RedirectResponse(f"/ui/operations/runs/{run.id}", status_code=303)
+
+
+@app.get("/ui/operations/runs/{run_id}")
+def ui_operation_run(
+    run_id: int,
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse:
+    try:
+        run = registry.get(run_id)
+    except OperationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Operation run not found") from exc
+    output = escape(run.stdout or run.stderr or run.error or "Пока нет вывода.")
+    refresh = (
+        '<meta http-equiv="refresh" content="2">'
+        if run.status.value in {"pending", "running"}
+        else ""
+    )
+    body = f"""{refresh}
+<section class="band">
+  <dl>
+    <dt>Status</dt><dd>{_run_badge(run.status.value)}</dd>
+    <dt>Operation</dt><dd>{escape(run.operation.title)}</dd>
+    <dt>Started</dt><dd>{_fmt(run.started_at)}</dd>
+    <dt>Finished</dt><dd>{_fmt(run.finished_at)}</dd>
+    <dt>Duration</dt><dd>{_fmt(run.duration_seconds)}</dd>
+    <dt>Return code</dt><dd>{_fmt(run.return_code)}</dd>
+  </dl>
+</section>
+<h2>Command</h2>
+<pre>{" ".join(escape(part) for part in run.command)}</pre>
+<h2>Output</h2>
+<pre>{output}</pre>"""
+    return _page(
+        f"Run #{run.id}",
+        body,
+        active="operations",
+        instruction="Run detail показывает состояние и последние строки вывода операции.",
+        next_action="Дождитесь завершения, затем проверьте counts/status или откройте новую операцию.",
+        db=db,
+        warning="При reload running run не перезапускается: страница только перечитывает состояние.",
+    )
+
+
+@app.get("/ui/monitoring")
+def ui_monitoring(
+    db: Session = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    runs = list_monitoring_runs(limit=20, db=db)
+    findings = list_monitoring_findings(active_only=True, limit=20, db=db)
+    run_rows = "".join(
+        f"""<tr>
+  <td><a href="/monitoring/runs/{run.id}">{run.id}</a></td>
+  <td>{_fmt(run.scope)}</td>
+  <td>{escape(run.status.value)}</td>
+  <td>{_fmt(run.started_at)}</td>
+  <td>{_fmt(run.duration_seconds)}</td>
+</tr>"""
+        for run in runs
+    )
+    finding_rows = "".join(
+        f"""<tr>
+  <td>{finding.id}</td>
+  <td><a href="/ui/persons/{finding.person_id}">{finding.person_id}</a></td>
+  <td>{escape(finding.finding_type)}</td>
+  <td>{_fmt(finding.last_seen_at)}</td>
+</tr>"""
+        for finding in findings
+    )
+    return _page(
+        "Monitoring",
+        f"""<h2>Последние runs</h2>
+<table><thead><tr><th>ID</th><th>Scope</th><th>Status</th><th>Started</th><th>Duration</th></tr></thead><tbody>{run_rows}</tbody></table>
+<h2>Active findings</h2>
+<table><thead><tr><th>ID</th><th>Person</th><th>Type</th><th>Last seen</th></tr></thead><tbody>{finding_rows}</tbody></table>""",
+        active="monitoring",
+        instruction="Здесь видно свежесть monitoring runs и actionable findings.",
+        next_action="Если данные устарели, запустите нужную операцию на странице Operations.",
+        db=db,
     )
 
 

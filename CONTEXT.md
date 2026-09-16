@@ -64,3 +64,10 @@ _Avoid_: job, задача
 **MonitoringFinding**:
 Факт «в monitoring workflow появился actionable результат» — Person впервые удовлетворил критерию monitoring (MVP: `political_persecution_not_in_rf` / `enbv-v1`). Дедуплицируется по типу, Person и версии критерия; хранит `first_seen_run_id` и `active`. Не статус Person.
 _Avoid_: alert, кандидат (кандидат — результат `CandidateQueryService` в моменте)
+
+**Operator console**:
+Локальный web-интерфейс для оператора, который управляет живым pipeline и очередями
+ревью на приватной базе: запускает рабочие стадии, видит состояние данных, разбирает
+review queue и проверяет факты через evidence. Не является полным web-аналогом CLI:
+developer/evaluation/golden-corpus команды остаются инструментами разработки.
+_Avoid_: admin panel, dashboard, полный web CLI
