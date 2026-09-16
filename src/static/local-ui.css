@@ -1,0 +1,133 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #1f2328;
+  background: #f6f8fa;
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 20px;
+  background: #24292f;
+}
+
+header a {
+  color: #fff;
+  text-decoration: none;
+}
+
+main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1,
+h2 {
+  margin: 0 0 12px;
+}
+
+.band {
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.muted {
+  color: #656d76;
+}
+
+.primary,
+button {
+  display: inline-block;
+  border: 1px solid #1f883d;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #fff;
+  background: #1f883d;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button {
+  font: inherit;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  padding: 8px 10px;
+  border: 1px solid #d0d7de;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f0f3f6;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+dt {
+  color: #656d76;
+}
+
+dd {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.actions form {
+  margin: 0;
+}
+
+.search {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+input {
+  min-width: min(520px, 100%);
+  padding: 7px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font: inherit;
+}
+
+article {
+  white-space: pre-wrap;
+  padding: 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+}
+
+mark {
+  background: #fff8c5;
+  outline: 2px solid #d4a72c;
+}

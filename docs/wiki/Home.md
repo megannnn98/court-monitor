@@ -19,6 +19,7 @@
 - [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm/semantic кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
+- [Local Web UI](Local-Web-UI.md) — локальная веб-морда для ER-ревью, карточки Person, evidence spans и lexical search
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI

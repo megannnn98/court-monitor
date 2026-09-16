@@ -44,5 +44,6 @@ uv run pytest    # для PostgreSQL-тестов нужен TEST_DATABASE_URL, 
 ## Документация
 
 - [docs/wiki](docs/wiki/Home.md) — вики: архитектура, pipeline, entity resolution, классификация, Росфинмониторинг, research, monitoring, evaluation
+- [Local Web UI](docs/wiki/Local-Web-UI.md) — локальная веб-морда для ER-ревью и карточек с evidence spans
 - [docs/adr](docs/adr/) — архитектурные решения
 - [CONTEXT.md](CONTEXT.md) — глоссарий доменных терминов
