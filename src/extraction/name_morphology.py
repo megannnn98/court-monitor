@@ -157,6 +157,18 @@ class NameMorphology:
             return "masc"
         return None
 
+    def part_of_speech(self, word: str) -> str | None:
+        """Part of speech of the best reading, or None when the word is unknown."""
+        parses = self._analyzer.parse(word)
+        return str(parses[0].tag.POS) if parses and parses[0].tag.POS else None
+
+    def is_genitive_noun(self, word: str) -> bool:
+        """Whether every reading of the word is a noun in the genitive («приговора»)."""
+        parses = self._analyzer.parse(word)
+        return bool(parses) and all(
+            str(parse.tag.POS) == "NOUN" and "gent" in parse.tag.grammemes for parse in parses
+        )
+
     def is_verb(self, word: str) -> bool:
         """Whether the word can be a verb («задержали» yes, «адвоката» no)."""
         return any(

@@ -522,3 +522,9 @@ def test_a_masculine_surname_is_not_a_repeat_of_a_feminine_one() -> None:
     assert _people("Анна Иванова выступила. Иванов сообщил другое.") == ["Анна Иванова"]
     # The same person in another case still repeats.
     assert _people("Романа Паклина увезли. Паклин подал жалобу.") == ["Романа Паклина", "Паклин"]
+
+
+def test_defendants_as_a_noun_are_not_a_charge_event() -> None:
+    """Real case: «Все обвиняемые отрицают свою вину» was extracted as a charge."""
+    assert _event_types("Все обвиняемые отрицают свою вину.") == []
+    assert _event_types("Активист стал обвиняемым по делу о фейках.") == ["charge"]

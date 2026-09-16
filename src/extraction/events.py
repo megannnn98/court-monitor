@@ -78,8 +78,9 @@ _VERB_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     (
         EventType.CHARGE,
         # Plural or passive only: «X обвинил военных», «обвинял власти» is X accusing others.
-        _W + r"(?:обвинили|обвиня(?:ли|ют|ется|ются|емы\w*|ем(?:ая|ого|ой|ую))(?![а-яё])|"
+        _W + r"(?:обвинили|обвиня(?:ли|ют|ется|ются)(?![а-яё])|"
         r"обвинен(?:а|ы|о)?(?![а-яё])|предъяв\w*\s+обвинени\w*|стал\w*\s+обвиняем\w*)",
+        # «обвиняемые» alone is a noun for the people, as «задержанные» is.
     ),
     # «осудил войну» is condemning; a court sentence reads «осудили», «осужден».
     (EventType.SENTENCE, _W + r"(?:приговорил\w*|осудили|осужден(?:а|ы|о)?(?![а-яё]))"),
@@ -145,7 +146,9 @@ class RuleBasedEventExtractor:
     # year has no event date.
     # 1.3.1: that year is looked up in the trigger's time frame, not the whole sentence.
     # 1.4.0: a pronoun links the event to the single person named before the sentence.
-    extractor_version = "1.4.0"
+    # 1.5.0: «обвиняемые» is a noun for the people, and a noun trigger governed by another
+    # noun («отмены приговора») refers to an event instead of reporting one.
+    extractor_version = "1.5.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -189,8 +192,22 @@ class RuleBasedEventExtractor:
             )
         return sorted(events, key=lambda event: (event.start_offset, event.event_type.value))
 
-    @staticmethod
-    def _trigger(lowered_sentence: str) -> tuple[EventType, str, int] | None:
+    def _noun_is_a_reference(self, lowered_sentence: str, start: int, trigger: str) -> bool:
+        """A genitive noun governed by another noun refers to an event, it does not report one.
+
+        «добиваться полной отмены приговора», «условия домашнего ареста». The genitive is
+        what makes it a complement: «Второе уголовное дело завели» reports an event.
+        """
+        first = re.match(r"[а-яё]+", trigger)
+        if first is None or not self._morphology.is_genitive_noun(first.group(0)):
+            return False
+        for word in reversed(re.findall(r"[а-яё]+", lowered_sentence[:start])):
+            if self._morphology.is_adjective(word):
+                continue
+            return self._morphology.part_of_speech(word) == "NOUN"
+        return False
+
+    def _trigger(self, lowered_sentence: str) -> tuple[EventType, str, int] | None:
         """The earliest non-negated verb trigger, else the earliest noun trigger, with its start."""
         for triggers in (_VERB_TRIGGERS, _NOUN_TRIGGERS):
             found: list[tuple[int, EventType, str]] = []
@@ -199,7 +216,7 @@ class RuleBasedEventExtractor:
                     prefix = lowered_sentence[: match.start()]
                     if _NEGATION_BEFORE.search(prefix):
                         continue
-                    if triggers is _NOUN_TRIGGERS and _TEMPORAL_REFERENCE_BEFORE.search(prefix):
+                    if triggers is _NOUN_TRIGGERS and (_TEMPORAL_REFERENCE_BEFORE.search(prefix)):
                         continue
                     found.append((match.start(), event_type, match.group(0)))
                     break
