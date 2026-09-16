@@ -28,7 +28,7 @@ def _bar(stream: FakeTerminal, clock: FakeClock, total: int = 10, **kwargs: obje
         now=clock,
         width=10,
         min_redraw_seconds=0.0,
-        **kwargs,  # type: ignore[arg-type]
+        **kwargs,
     )
 
 
