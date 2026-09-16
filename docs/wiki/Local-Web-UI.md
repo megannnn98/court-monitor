@@ -38,6 +38,8 @@ docker compose --profile api up -d
 - `/ui/operations/runs/{run_id}` — состояние operation run и вывод команды.
 - `/ui/monitoring` — последние monitoring runs и active findings.
 - `/ui/wiki` — встроенный справочник проекта; страницы читаются из `docs/wiki`.
+  Fenced-блоки `plantuml` рендерятся в SVG прямо на странице; остальные code
+  blocks показываются как исходный текст.
 
 Каждая страница содержит короткую контекстную подсказку: зачем она нужна и какое
 следующее действие ожидается от оператора.

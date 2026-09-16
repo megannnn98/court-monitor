@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions, seed_person
 from support.research_db_fixtures import ResearchSeeder
 
-from api import app, get_db, get_operation_registry
+from api import _wiki_markdown_to_html, app, get_db, get_operation_registry
 from db.orm_models import (
     EntityMentionRecord,
     EventEntityMentionRecord,
@@ -169,6 +169,22 @@ def test_ui_pages_have_operator_shell_and_contextual_instruction(
     assert "Связать" in review.text
     assert "Local-Web-UI" in wiki.text
     assert "Что такое ER-ревью" in wiki_page.text
+
+
+def test_wiki_renders_plantuml_as_svg(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("api.shutil.which", lambda name: "/usr/bin/plantuml")
+    monkeypatch.setattr(
+        "api.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=["plantuml"], returncode=0, stdout="<svg>diagram</svg>", stderr=""
+        ),
+    )
+
+    markdown = "```plantuml\n@startuml\nAlice -> Bob\n@enduml\n```"
+
+    rendered = _wiki_markdown_to_html(markdown)
+
+    assert '<figure class="wiki-diagram"><svg>diagram</svg></figure>' in rendered
 
 
 def test_operation_preview_confirm_and_run_detail_use_background_registry(

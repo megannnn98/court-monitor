@@ -2,6 +2,8 @@
 
 import logging
 import os
+import shutil
+import subprocess
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
@@ -1426,19 +1428,27 @@ def _wiki_markdown_to_html(markdown: str) -> str:
     rendered: list[str] = []
     in_code = False
     code_lines: list[str] = []
+    code_language = ""
     list_open = False
     for raw_line in markdown.splitlines():
         line = raw_line.rstrip()
         if line.startswith("```"):
             if in_code:
-                rendered.append(f"<pre><code>{escape(chr(10).join(code_lines))}</code></pre>")
+                code = chr(10).join(code_lines)
+                rendered.append(
+                    _render_plantuml(code)
+                    if code_language == "plantuml"
+                    else f"<pre><code>{escape(code)}</code></pre>"
+                )
                 code_lines = []
+                code_language = ""
                 in_code = False
             else:
                 if list_open:
                     rendered.append("</ul>")
                     list_open = False
                 in_code = True
+                code_language = line[3:].strip().lower()
             continue
         if in_code:
             code_lines.append(line)
@@ -1465,10 +1475,43 @@ def _wiki_markdown_to_html(markdown: str) -> str:
                 list_open = False
             rendered.append(f"<p>{escape(line)}</p>")
     if in_code:
-        rendered.append(f"<pre><code>{escape(chr(10).join(code_lines))}</code></pre>")
+        code = chr(10).join(code_lines)
+        rendered.append(
+            _render_plantuml(code)
+            if code_language == "plantuml"
+            else f"<pre><code>{escape(code)}</code></pre>"
+        )
     if list_open:
         rendered.append("</ul>")
     return "\n".join(rendered)
+
+
+def _render_plantuml(source: str) -> str:
+    if shutil.which("plantuml") is None:
+        return (
+            f"<pre><code>{escape(source)}</code></pre>"
+            '<p class="warning">PlantUML не установлен в API-контейнере.</p>'
+        )
+    try:
+        plantuml_env = dict(os.environ)
+        plantuml_env.pop("DISPLAY", None)
+        result = subprocess.run(
+            ["plantuml", "-tsvg", "-pipe"],
+            input=source,
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=15,
+            env=plantuml_env,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (
+            f"<pre><code>{escape(source)}</code></pre>"
+            f'<p class="warning">PlantUML не смог построить диаграмму: {escape(str(exc))}</p>'
+        )
+    if "<svg" not in result.stdout:
+        return f'<pre><code>{escape(source)}</code></pre><p class="warning">PlantUML вернул пустой SVG.</p>'
+    return f'<figure class="wiki-diagram">{result.stdout}</figure>'
 
 
 @app.get("/ui/wiki")
