@@ -221,7 +221,10 @@ def main() -> None:
         "--workers",
         type=int,
         default=1,
-        help="Resolve articles in this many worker processes",
+        help=(
+            "Resolve articles in this many worker processes (bulk rebuild only: "
+            "decisions may differ from a single process)"
+        ),
     )
 
     import_rosfin_parser = subparsers.add_parser(

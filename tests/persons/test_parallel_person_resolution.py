@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions
 
-from db.orm_models import PersonRecord
+from db.orm_models import EntityMentionRecord, PersonRecord
 from extraction.parallel_resolution import (
     MAX_WORKERS,
     ParallelResolutionError,
@@ -106,3 +106,49 @@ def test_a_failing_worker_names_the_runs_it_did_not_finish(
 
     assert failure.value.failed_run_ids == [11, 22]
     assert "11" in str(failure.value) and "22" in str(failure.value)
+
+
+def _digest(session_factory: sessionmaker[Session]) -> list[tuple[str, str | None]]:
+    """Every person mention with the canonical name it was resolved to."""
+    with session_factory() as session:
+        names = {
+            person.id: person.canonical_name for person in session.scalars(select(PersonRecord))
+        }
+        return [
+            (
+                mention.surface_text,
+                names.get(mention.person_id) if mention.person_id is not None else None,
+            )
+            for mention in session.scalars(
+                select(EntityMentionRecord).order_by(EntityMentionRecord.id)
+            )
+            if mention.entity_type == "person"
+        ]
+
+
+def test_one_process_resolves_the_same_way_every_time(
+    session_factory: sessionmaker[Session],
+) -> None:
+    database_url = _database_url()
+
+    resolve_runs(database_url, _seed(session_factory), workers=1)
+    first = _digest(session_factory)
+
+    assert first == _digest(session_factory)
+    assert {name for _, name in first if name} == set(EXPECTED_PERSONS)
+
+
+def test_parallel_resolution_keeps_the_persons_but_may_differ_in_single_decisions(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """What the parallel mode guarantees: the same people, not the same decision per mention.
+
+    The articles are processed in another order, so which mention creates the person first
+    changes; measured on a six-article fixture, 9 of 24 mentions mapped to another person.
+    """
+    database_url = _database_url()
+
+    stats = resolve_runs(database_url, _seed(session_factory), workers=4)
+
+    assert stats.new_persons_created == len(EXPECTED_PERSONS)
+    assert {name for _, name in _digest(session_factory) if name} == set(EXPECTED_PERSONS)

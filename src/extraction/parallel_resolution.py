@@ -52,7 +52,17 @@ def resolve_runs(database_url: str, run_ids: Sequence[int], *, workers: int) -> 
     count = worker_count(workers, run_ids)
     if count == 1:
         return _resolve_chunk(database_url, list(run_ids))
-    chunks = [list(run_ids[index::count]) for index in range(count)]
+    # Sorted, so the same request always splits the same way. This does not make the
+    # result equal to a single process: the articles are processed in another order, and
+    # which mention creates the person first decides how the later ones resolve. Measured
+    # on a six-article fixture: 9 of 24 mentions map to another person than sequentially.
+    chunks = [list(sorted(run_ids)[index::count]) for index in range(count)]
+    logger.warning(
+        "event=person_resolution_parallel workers=%d runs=%d "
+        "note=decisions may differ from a single process; use for bulk rebuilds",
+        count,
+        len(run_ids),
+    )
     total = ResolutionStats()
     with ProcessPoolExecutor(max_workers=count) as pool:
         running = {pool.submit(_resolve_chunk, database_url, chunk): chunk for chunk in chunks}
