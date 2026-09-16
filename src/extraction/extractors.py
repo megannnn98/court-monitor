@@ -256,17 +256,16 @@ def _word_stem(word: str) -> str:
     return lowered
 
 
-def _surname_stem(name: str) -> str | None:
+def _surname_word(name: str) -> str | None:
+    """The surname of a full name: last word, or first when a patronymic closes the name."""
     tokens = [token for token in name.split() if not token.endswith(".")]
     if len(tokens) < 2 and not re.search(_INITIALS, name):
         return None
     if not tokens:
         return None
-    surname = tokens[-1]
     if len(tokens) == 3 and tokens[-1].lower().endswith(_PATRONYMIC_SUFFIXES):
-        surname = tokens[0]
-    stem = _word_stem(surname)
-    return stem if len(stem) >= 4 else None
+        return tokens[0]
+    return tokens[-1]
 
 
 class RuleBasedEntityExtractor:
@@ -373,17 +372,22 @@ class RuleBasedEntityExtractor:
         Only surnames already named in full here are recognised: a capitalized word
         alone is never a person by itself.
         """
-        stems = {
-            stem for start, end in names if (stem := _surname_stem(text[start:end])) is not None
-        }
-        if not stems:
+        keys: set[str] = set()
+        for start, end in names:
+            surname = _surname_word(text[start:end])
+            if surname is not None:
+                # The dictionary base form matches every case («Яроцкий» = «Яроцкого»);
+                # a surname it does not know falls back to the hand-cut stem.
+                keys |= self._morphology.name_normal_forms(surname) or {_word_stem(surname)}
+        if not keys:
             return []
         references = []
         taken = [*names, *occupied]
         for match in _SINGLE_CAPITALIZED.finditer(text):
             if self._overlaps(match.start(), match.end(), taken):
                 continue
-            if _word_stem(match.group(0)) in stems:
+            word = match.group(0)
+            if (self._morphology.name_normal_forms(word) or {_word_stem(word)}) & keys:
                 references.append(
                     self._mention(EntityType.PERSON, text, match.start(), match.end(), 0.6)
                 )

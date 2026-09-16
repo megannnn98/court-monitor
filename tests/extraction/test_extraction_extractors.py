@@ -411,3 +411,24 @@ def test_a_given_name_after_a_patronymic_starts_another_person() -> None:
     assert _people("Суд оставил Мифтахова Азата Фанисовича в колонии.") == [
         "Мифтахова Азата Фанисовича"
     ]
+
+
+def test_a_declined_surname_repeats_the_full_name_of_the_article() -> None:
+    """Real case: «Владимир Яроцкий … Яроцкого обвинили» — the genitive was not recognised."""
+    text = "Владимир Яроцкий умер в колонии. Яроцкого обвинили в «фейках» в 2023 году."
+
+    assert _people(text) == ["Владимир Яроцкий", "Яроцкого"]
+
+
+def test_a_surname_repeats_across_dictionary_gender_and_yo() -> None:
+    """Real cases: «Романа Паклина … Паклин» (the dictionary base form is feminine) and
+    «Анатолия Терешина … Терешин» (the dictionary spells it «Терёшин»)."""
+    assert _people("Романа Паклина увезли. Паклин подал жалобу.") == ["Романа Паклина", "Паклин"]
+    assert _people("Анатолия Терешина судят. Терешин в СИЗО.") == ["Анатолия Терешина", "Терешин"]
+
+
+def test_a_surname_outside_the_dictionary_still_repeats() -> None:
+    """«Мампория» is not in the dictionary; the fallback stem still matches its forms."""
+    text = "Олег Мампория вышел на пикет. Мампорию задержали в апреле."
+
+    assert _people(text) == ["Олег Мампория", "Мампорию"]

@@ -89,6 +89,26 @@ class NameMorphology:
             for parse in parses
         )
 
+    def name_normal_forms(self, word: str) -> frozenset[str]:
+        """Dictionary base forms of the word as a name («Яроцкого» and «Яроцкий» share one).
+
+        A surname also yields its masculine base form, because the dictionary reads
+        «Паклина» as the feminine «паклина» while the article writes «Паклин»; «ё» is
+        folded into «е», as the sources spell «Терешин» and the dictionary «Терёшин».
+        """
+        forms: set[str] = set()
+        for parse in self._name_parses(word):
+            forms.add(parse.normal_form)
+            if "Surn" in parse.tag:
+                masculine = parse.inflect({"masc", "sing", "nomn"})
+                if masculine is not None:
+                    forms.add(masculine.word)
+        keys = {form.replace("ё", "е") for form in forms}
+        # «Паклина» is read as a feminine given name, while the article writes «Паклин»:
+        # the feminine ending is dropped so both forms meet on one key.
+        keys |= {key[:-1] for key in keys if key[-1:] in "ая" and len(key) > 4}
+        return frozenset(keys)
+
     def is_geographic(self, word: str) -> bool:
         """A place name by the dictionary («России», «Калуги»), never a name of its own here."""
         return any("Geox" in parse.tag for parse in self._analyzer.parse(word))
