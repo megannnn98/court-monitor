@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 
 import httpx
@@ -47,8 +47,10 @@ from research.service import ResearchService, ResearchSnapshotNotFoundError
 from research.workflow.graph import run_research_query
 from research.workflow.llm import LlmConfigurationError
 from research.workflow_factory import create_research_graph
+from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from search.evaluation_loader import load_evaluation_cases, load_evaluation_documents
 from search.evaluator import SearchEvaluator
 from search.postgres_lexical import PostgresLexicalSearch
@@ -214,6 +216,23 @@ def main() -> None:
         type=int,
         default=100,
         help="Maximum number of articles to process",
+    )
+
+    import_rosfin_parser = subparsers.add_parser(
+        "import-rosfinmonitoring",
+        help="Import a Rosfinmonitoring list snapshot from a downloaded file",
+    )
+    import_rosfin_parser.add_argument("--file", type=Path, required=True)
+    import_rosfin_parser.add_argument(
+        "--source-url",
+        required=True,
+        help="Where the file was downloaded from; stored with the snapshot",
+    )
+    import_rosfin_parser.add_argument(
+        "--snapshot-date",
+        type=date.fromisoformat,
+        default=None,
+        help="Publication date of the list (YYYY-MM-DD); defaults to now",
     )
 
     match_rosfin_parser = subparsers.add_parser(
@@ -451,6 +470,27 @@ def main() -> None:
             f"created {total_new_persons} persons, "
             f"linked {total_events_linked} events, "
             f"{total_reviews} mentions pending person resolution review"
+        )
+        return
+
+    if args.command == "import-rosfinmonitoring":
+        snapshot_date = (
+            datetime.combine(args.snapshot_date, time.min, UTC)
+            if args.snapshot_date is not None
+            else None
+        )
+        ingestion = RosfinmonitoringIngestionPipeline(RosfinmonitoringPersistence(session_factory))
+        try:
+            ingestion_result = ingestion.ingest_from_file(
+                str(args.file), source_url=args.source_url, snapshot_date=snapshot_date
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from None
+        print(
+            f"snapshot {ingestion_result.snapshot_id}: "
+            f"{ingestion_result.entries_created} entries created, "
+            f"{ingestion_result.entries_updated} updated, "
+            f"{ingestion_result.skipped_duplicates} duplicates skipped"
         )
         return
 

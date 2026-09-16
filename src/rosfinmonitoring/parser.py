@@ -132,6 +132,76 @@ class JsonRosfinmonitoringParser:
         return entries
 
 
+# «12. ИВАНОВ ИВАН ИВАНОВИЧ*, 08.06.1996 г.р. , Г. МОСКВА;» — one published person entry.
+# The asterisk marks the person as listed; the birth date and place may be missing.
+_PERSON_ENTRY = re.compile(
+    r"^\d+\.\s*(?P<name>[^,]+?)\s*(?:,\s*(?P<birth_date>\d{2}\.\d{2}\.\d{4})?\s*(?:г\.?р\.?)?\s*)?"
+    r"(?:,\s*(?P<birth_place>.*?))?\s*;?\s*$"
+)
+_LIST_ITEM = re.compile(r"<li[^>]*>(.*?)</li>", re.DOTALL)
+_TAG = re.compile(r"<[^>]+>")
+# The published page has four sections; only the two person ones are imported.
+_PERSON_SECTION_HEADING = re.compile(r"Физические\s+лица", re.IGNORECASE)
+_SECTION_HEADING = re.compile(r'<div class="panel-heading".*?</div>', re.DOTALL)
+
+
+class HtmlRosfinmonitoringParser:
+    """Parser for the published list page (fedsfm.ru «Перечень террористов и экстремистов»).
+
+    Only individuals are imported: the matcher resolves canonical persons, and an
+    organisation is never a person.
+    """
+
+    def parse(self, raw_content: bytes) -> list[RosfinmonitoringEntry]:
+        text = raw_content.decode("utf-8", errors="replace")
+        entries: list[RosfinmonitoringEntry] = []
+        seen: set[str] = set()
+        for section, is_person_section in _person_sections(text):
+            if not is_person_section:
+                continue
+            for raw_item in _LIST_ITEM.findall(section):
+                item = " ".join(_TAG.sub(" ", raw_item).replace("&nbsp;", " ").split())
+                match = _PERSON_ENTRY.match(item)
+                if match is None:
+                    continue
+                full_name = match.group("name").replace("*", "").strip(" ,")
+                normalized_name = _normalize_name(full_name)
+                if len(normalized_name.split()) < 2:
+                    # A heading or a stray list item, not a person.
+                    continue
+                birth_place = (match.group("birth_place") or "").strip(" ,;") or None
+                key = f"{normalized_name}|{match.group('birth_date') or ''}|{birth_place or ''}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                entries.append(
+                    RosfinmonitoringEntry(
+                        snapshot_id=0,
+                        full_name=full_name,
+                        normalized_name=normalized_name,
+                        matching_key=_create_matching_key(normalized_name),
+                        birth_date=_parse_date(match.group("birth_date")),
+                        birth_place=birth_place,
+                        inclusion_reason=None,
+                        status=RosfinmonitoringEntryStatus.ACTIVE,
+                        raw_data={"entry": item},
+                    )
+                )
+        return entries
+
+
+def _person_sections(text: str) -> list[tuple[str, bool]]:
+    """Page sections with a flag telling whether the heading says «Физические лица»."""
+    sections: list[tuple[str, bool]] = []
+    headings = list(_SECTION_HEADING.finditer(text))
+    for index, heading in enumerate(headings):
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(text)
+        sections.append(
+            (text[heading.end() : end], bool(_PERSON_SECTION_HEADING.search(heading.group(0))))
+        )
+    return sections
+
+
 class XmlRosfinmonitoringParser:
     """Parser for XML format Rosfinmonitoring data."""
 

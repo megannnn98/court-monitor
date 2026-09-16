@@ -11,6 +11,7 @@ from rosfinmonitoring.models import (
 )
 from rosfinmonitoring.parser import (
     CsvRosfinmonitoringParser,
+    HtmlRosfinmonitoringParser,
     JsonRosfinmonitoringParser,
     XmlRosfinmonitoringParser,
 )
@@ -35,7 +36,9 @@ class RosfinmonitoringIngestionPipeline:
         """Detect parser based on content."""
         text = raw_content[:100].decode("utf-8-sig", errors="ignore").strip()
 
-        if text.startswith(("<?xml", "<")):
+        if text.lower().startswith(("<!doctype html", "<html")):
+            return HtmlRosfinmonitoringParser()
+        elif text.startswith(("<?xml", "<")):
             return XmlRosfinmonitoringParser()
         elif text.startswith(("{", "[")):
             return JsonRosfinmonitoringParser()
