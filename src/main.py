@@ -456,6 +456,10 @@ def main() -> None:
                 continue
             run_ids.append(run_id)
 
+        if args.workers > 1:
+            # Worker processes open their own connections; this one's pool must not be
+            # inherited by a fork.
+            database_engine.dispose()
         totals = resolve_runs(settings.database_url, run_ids, workers=args.workers)
 
         print(

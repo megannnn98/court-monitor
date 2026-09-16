@@ -9,13 +9,38 @@ different blocks cannot deadlock.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
-from db.database import create_database_engine, create_session_factory
+from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from extraction.resolution_service import ExtractionResolutionService, ResolutionStats
 from persons.persistence import SqlAlchemyPersonPersistence
+
+logger = logging.getLogger("person_resolution")
+
+# Past this the database saturates: 600 articles took 36 s in one process, 16 s in four
+# and 13 s in eight. Each worker also holds its own connection, and PostgreSQL here
+# allows 100.
+MAX_WORKERS = 8
+# One connection per worker: a worker resolves its articles one after another.
+_WORKER_POOL = DatabasePoolSettings(pool_size=1, max_overflow=0)
+
+
+class ParallelResolutionError(RuntimeError):
+    """A worker failed; the runs it did not finish are named so they can be re-run."""
+
+    def __init__(self, failed_run_ids: list[int], cause: BaseException) -> None:
+        super().__init__(
+            f"Person resolution failed for runs {failed_run_ids}: {type(cause).__name__}"
+        )
+        self.failed_run_ids = failed_run_ids
+
+
+def worker_count(workers: int, run_ids: Sequence[int]) -> int:
+    """Never more workers than articles to resolve, and never more than the cap."""
+    return max(1, min(workers, len(run_ids), MAX_WORKERS))
 
 
 def resolve_runs(database_url: str, run_ids: Sequence[int], *, workers: int) -> ResolutionStats:
@@ -24,19 +49,38 @@ def resolve_runs(database_url: str, run_ids: Sequence[int], *, workers: int) -> 
         raise ValueError("workers must be greater than zero")
     if not run_ids:
         return ResolutionStats()
-    if workers == 1:
+    count = worker_count(workers, run_ids)
+    if count == 1:
         return _resolve_chunk(database_url, list(run_ids))
-    chunks = [list(run_ids[index::workers]) for index in range(workers)]
+    chunks = [list(run_ids[index::count]) for index in range(count)]
     total = ResolutionStats()
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        for stats in pool.map(_resolve_chunk, [database_url] * len(chunks), chunks):
-            total = _add(total, stats)
+    with ProcessPoolExecutor(max_workers=count) as pool:
+        running = {pool.submit(_resolve_chunk, database_url, chunk): chunk for chunk in chunks}
+        failed: list[int] = []
+        first_error: BaseException | None = None
+        for future, chunk in running.items():
+            try:
+                total = _add(total, future.result())
+            except Exception as exc:  # noqa: BLE001 - reported per chunk, re-raised below
+                # Every other worker is still awaited, so the report names every run left
+                # unresolved. An article is its own transaction: finished ones are
+                # committed and a re-run skips them.
+                logger.error(
+                    "event=person_resolution_chunk_failed runs=%s error=%s",
+                    chunk,
+                    type(exc).__name__,
+                )
+                failed.extend(chunk)
+                first_error = first_error or exc
+    if first_error is not None:
+        raise ParallelResolutionError(sorted(failed), first_error) from first_error
     return total
 
 
 def _resolve_chunk(database_url: str, run_ids: list[int]) -> ResolutionStats:
-    # The engine is created inside the worker: connections are never shared across processes.
-    session_factory = create_session_factory(create_database_engine(database_url))
+    # The engine is created inside the worker: connections are never shared across
+    # processes (the caller disposes its own engine before starting them).
+    session_factory = create_session_factory(create_database_engine(database_url, _WORKER_POOL))
     service = ExtractionResolutionService(
         persistence=SqlAlchemyPersonPersistence(session_factory),
         session_factory=session_factory,
@@ -44,6 +88,7 @@ def _resolve_chunk(database_url: str, run_ids: list[int]) -> ResolutionStats:
     total = ResolutionStats()
     for run_id in run_ids:
         total = _add(total, service.resolve_extraction_run(run_id))
+        logger.debug("event=person_resolution_run_completed run_id=%s", run_id)
     return total
 
 

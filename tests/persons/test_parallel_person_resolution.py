@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions
 
 from db.orm_models import PersonRecord
-from extraction.parallel_resolution import resolve_runs
+from extraction.parallel_resolution import (
+    MAX_WORKERS,
+    ParallelResolutionError,
+    resolve_runs,
+    worker_count,
+)
 from extraction.resolution_service import ResolutionStats
 
 NAMES = [
@@ -79,3 +84,25 @@ def test_workers_must_be_positive(session_factory: sessionmaker[Session]) -> Non
 
 def test_nothing_to_resolve_is_not_an_error(session_factory: sessionmaker[Session]) -> None:
     assert resolve_runs(_database_url(), [], workers=4) == ResolutionStats()
+
+
+def test_worker_count_never_exceeds_the_work_or_the_cap() -> None:
+    """Review finding: --workers 1000 for one article started 1000 tasks, 999 of them empty."""
+    assert worker_count(1000, run_ids=[1]) == 1
+    assert worker_count(1000, run_ids=list(range(100))) == MAX_WORKERS
+    assert worker_count(2, run_ids=list(range(100))) == 2
+
+
+def test_a_failing_worker_names_the_runs_it_did_not_finish(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Review finding: a worker error said nothing about which runs were left unresolved."""
+    unreachable = (
+        "postgresql+psycopg://court_monitor:court_monitor_dev@127.0.0.1:1/court_monitor_test"
+    )
+
+    with pytest.raises(ParallelResolutionError) as failure:
+        resolve_runs(unreachable, [11, 22], workers=2)
+
+    assert failure.value.failed_run_ids == [11, 22]
+    assert "11" in str(failure.value) and "22" in str(failure.value)
