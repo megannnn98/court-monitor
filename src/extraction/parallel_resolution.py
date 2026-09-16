@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
@@ -45,15 +45,26 @@ def worker_count(workers: int, run_ids: Sequence[int]) -> int:
     return max(1, min(workers, len(run_ids), MAX_WORKERS))
 
 
-def resolve_runs(database_url: str, run_ids: Sequence[int], *, workers: int) -> ResolutionStats:
-    """Resolve these extraction runs, in `workers` processes (1 = in this process)."""
+def resolve_runs(
+    database_url: str,
+    run_ids: Sequence[int],
+    *,
+    workers: int,
+    on_progress: Callable[[int], None] | None = None,
+) -> ResolutionStats:
+    """Resolve these extraction runs, in `workers` processes (1 = in this process).
+
+    `on_progress` is called with the number of runs just finished: once per run in a
+    single process, once per chunk across several, since a worker process cannot call
+    back into this one.
+    """
     if workers < 1:
         raise ValueError("workers must be greater than zero")
     if not run_ids:
         return ResolutionStats()
     count = worker_count(workers, run_ids)
     if count == 1:
-        return _resolve_chunk(database_url, list(run_ids))
+        return _resolve_chunk(database_url, list(run_ids), on_progress)
     # Sorted, so the same request always splits the same way. This does not make the
     # result equal to a single process: the articles are processed in another order, and
     # which mention creates the person first decides how the later ones resolve. Measured
@@ -73,6 +84,8 @@ def resolve_runs(database_url: str, run_ids: Sequence[int], *, workers: int) -> 
         for future, chunk in running.items():
             try:
                 total = _add(total, future.result())
+                if on_progress is not None:
+                    on_progress(len(chunk))
             except Exception as exc:  # noqa: BLE001 - reported per chunk, re-raised below
                 # Every other worker is still awaited, so the report names every run left
                 # unresolved. An article is its own transaction: finished ones are
@@ -89,7 +102,11 @@ def resolve_runs(database_url: str, run_ids: Sequence[int], *, workers: int) -> 
     return total
 
 
-def _resolve_chunk(database_url: str, run_ids: list[int]) -> ResolutionStats:
+def _resolve_chunk(
+    database_url: str,
+    run_ids: list[int],
+    on_progress: Callable[[int], None] | None = None,
+) -> ResolutionStats:
     # The engine is created inside the worker: connections are never shared across
     # processes (the caller disposes its own engine before starting them).
     session_factory = create_session_factory(create_database_engine(database_url, _WORKER_POOL))
@@ -101,6 +118,8 @@ def _resolve_chunk(database_url: str, run_ids: list[int]) -> ResolutionStats:
     for run_id in run_ids:
         total = _add(total, service.resolve_extraction_run(run_id))
         logger.debug("event=person_resolution_run_completed run_id=%s", run_id)
+        if on_progress is not None:
+            on_progress(1)
     return total
 
 

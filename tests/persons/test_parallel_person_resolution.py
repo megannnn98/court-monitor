@@ -152,3 +152,35 @@ def test_parallel_resolution_keeps_the_persons_but_may_differ_in_single_decision
 
     assert stats.new_persons_created == len(EXPECTED_PERSONS)
     assert {name for _, name in _digest(session_factory) if name} == set(EXPECTED_PERSONS)
+
+
+def test_progress_is_reported_once_per_run_in_a_single_process(
+    session_factory: sessionmaker[Session],
+) -> None:
+    run_ids = _seed(session_factory)
+    steps: list[int] = []
+
+    resolve_runs(_database_url(), run_ids, workers=1, on_progress=steps.append)
+
+    assert steps == [1] * len(run_ids)
+
+
+def test_progress_is_reported_per_chunk_across_worker_processes(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A worker process cannot call back, so a chunk reports once it is finished."""
+    run_ids = _seed(session_factory)
+    steps: list[int] = []
+
+    resolve_runs(_database_url(), run_ids, workers=2, on_progress=steps.append)
+
+    # Two workers split four runs into two chunks, so progress arrives twice, by two.
+    assert steps == [2, 2]
+
+
+def test_resolution_runs_without_a_progress_callback(
+    session_factory: sessionmaker[Session],
+) -> None:
+    run_ids = _seed(session_factory)
+
+    assert resolve_runs(_database_url(), run_ids, workers=1).new_persons_created == 4

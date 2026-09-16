@@ -11,6 +11,7 @@ import httpx
 from sqlalchemy.exc import NoResultFound
 
 from candidates.service import CandidateQueryService
+from cli_progress import ProgressBar
 from db.database import create_database_engine, create_session_factory
 from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
 from evaluation.real_world.cli import add_real_world_arguments, run_real_world_command
@@ -463,7 +464,13 @@ def main() -> None:
             # Worker processes open their own connections; this one's pool must not be
             # inherited by a fork.
             database_engine.dispose()
-        totals = resolve_runs(settings.database_url, run_ids, workers=args.workers)
+        with ProgressBar("resolve-people", len(run_ids)) as progress:
+            totals = resolve_runs(
+                settings.database_url,
+                run_ids,
+                workers=args.workers,
+                on_progress=progress.advance,
+            )
 
         print(
             f"Resolved {totals.mentions_resolved} mentions, "
@@ -510,10 +517,23 @@ def main() -> None:
             if match_result.matched_entry_id:
                 print(f"Matched entry ID: {match_result.matched_entry_id}")
         else:
+            # The matcher decides how many persons there are, so the bar starts
+            # on its first callback rather than before the call.
+            match_progress: ProgressBar | None = None
+
+            def report_match(done: int, total: int) -> None:
+                nonlocal match_progress
+                if match_progress is None:
+                    match_progress = ProgressBar("match-rosfinmonitoring", total)
+                match_progress.advance()
+
             results = matcher.match_all_persons(
                 snapshot_id=args.snapshot_id,
                 limit=args.limit,
+                on_progress=report_match,
             )
+            if match_progress is not None:
+                match_progress.close()
             status_counts: Counter[str] = Counter()
             for match_result_item in results:
                 match_persistence.save_match_result(match_result_item)
@@ -546,11 +566,13 @@ def main() -> None:
             classified_count = 0
             political_count = 0
 
-            for person in persons:
-                classification = classification_service.classify_person(person.id)
-                classified_count += 1
-                if classification.status == "political":
-                    political_count += 1
+            with ProgressBar("classify-persecution", len(persons)) as progress:
+                for person in persons:
+                    classification = classification_service.classify_person(person.id)
+                    classified_count += 1
+                    if classification.status == "political":
+                        political_count += 1
+                    progress.advance()
 
             print(f"Classified {classified_count} persons: {political_count} political persecution")
         return
@@ -649,20 +671,22 @@ def main() -> None:
             )
 
         batch_result = BatchExtractionResult()
-        for extraction_document in extraction_documents:
-            save_result = extraction_pipeline.run(extraction_document)
-            if save_result.status is ExtractionRunStatus.SUCCEEDED:
-                if save_result.skipped_existing:
-                    batch_result.articles_skipped += 1
+        with ProgressBar("extract-entities", len(extraction_documents)) as progress:
+            for extraction_document in extraction_documents:
+                save_result = extraction_pipeline.run(extraction_document)
+                if save_result.status is ExtractionRunStatus.SUCCEEDED:
+                    if save_result.skipped_existing:
+                        batch_result.articles_skipped += 1
+                    else:
+                        batch_result.articles_processed += 1
+                        batch_result.mentions_created += save_result.mentions_created
+                        batch_result.events_created += save_result.events_created
                 else:
-                    batch_result.articles_processed += 1
-                    batch_result.mentions_created += save_result.mentions_created
-                    batch_result.events_created += save_result.events_created
-            else:
-                batch_result.articles_failed += 1
-                batch_result.failures.append(
-                    f"article_id={extraction_document.article_id}: {save_result.error_message}"
-                )
+                    batch_result.articles_failed += 1
+                    batch_result.failures.append(
+                        f"article_id={extraction_document.article_id}: {save_result.error_message}"
+                    )
+                progress.advance()
         print(batch_result.model_dump_json(indent=2))
         return
 

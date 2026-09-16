@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import NamedTuple
 
@@ -361,8 +362,13 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         self,
         snapshot_id: int,
         limit: int | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> list[RosfinMatchResult]:
-        """Match all persons against Rosfinmonitoring entries in a snapshot."""
+        """Match all persons against Rosfinmonitoring entries in a snapshot.
+
+        `on_progress` is called as `(done, total)` after each person, for a caller that
+        reports progress; matching itself does not depend on it.
+        """
         with self._session_factory() as session:
             query = select(PersonRecord.id).where(PersonRecord.merged_into_id.is_(None))
             if limit is not None:
@@ -373,6 +379,8 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         for person_id in person_ids:
             result = self.match_person(person_id, snapshot_id)
             results.append(result)
+            if on_progress is not None:
+                on_progress(len(results), len(person_ids))
 
         return results
 

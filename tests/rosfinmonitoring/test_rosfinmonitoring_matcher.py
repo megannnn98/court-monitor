@@ -908,3 +908,39 @@ def test_same_surname_different_first_name_is_still_not_matched(
     result = matcher.match_person(person_id, snapshot_id)
 
     assert result.status is RosfinMatchStatus.NOT_MATCHED
+
+
+def test_match_all_persons_reports_progress_for_every_person(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    with session_factory() as session:
+        snapshot_id = _create_snapshot(session, datetime(2026, 9, 16, tzinfo=UTC))
+        for index in range(3):
+            _create_person(
+                session,
+                f"Иван Иванов{index}",
+                f"иван иванов{index}",
+                f"иванииванов{index}",
+            )
+
+    reported: list[tuple[int, int]] = []
+
+    results = matcher.match_all_persons(
+        snapshot_id=snapshot_id,
+        on_progress=lambda done, total: reported.append((done, total)),
+    )
+
+    assert len(results) == 3
+    assert reported == [(1, 3), (2, 3), (3, 3)]
+
+
+def test_match_all_persons_works_without_a_progress_callback(
+    session_factory: sessionmaker[Session],
+    matcher: RuleBasedRosfinmonitoringMatcher,
+) -> None:
+    with session_factory() as session:
+        snapshot_id = _create_snapshot(session, datetime(2026, 9, 16, tzinfo=UTC))
+        _create_person(session, "Иван Иванов", "иван иванов", "иванииванов")
+
+    assert len(matcher.match_all_persons(snapshot_id=snapshot_id)) == 1
