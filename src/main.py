@@ -20,9 +20,9 @@ from extraction.extractors import RuleBasedEntityExtractor
 from extraction.metrics import evaluate_golden_dataset
 from extraction.models import BatchExtractionResult, ExtractionRunStatus
 from extraction.normalizers import RuleBasedMentionNormalizer
+from extraction.parallel_resolution import resolve_runs
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
-from extraction.resolution_service import ExtractionResolutionService
 from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
@@ -216,6 +216,12 @@ def main() -> None:
         type=int,
         default=100,
         help="Maximum number of articles to process",
+    )
+    resolve_people_parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Resolve articles in this many worker processes",
     )
 
     import_rosfin_parser = subparsers.add_parser(
@@ -434,12 +440,6 @@ def main() -> None:
     if args.command == "resolve-people":
         document_repository = SqlAlchemyExtractionDocumentRepository(session_factory)
         extraction_persistence = SqlAlchemyExtractionPersistence(session_factory)
-        person_persistence = SqlAlchemyPersonPersistence(session_factory)
-        resolution_service = ExtractionResolutionService(
-            persistence=person_persistence,
-            session_factory=session_factory,
-        )
-
         if args.article_id is not None:
             extraction_documents = [document_repository.get_by_article_id(args.article_id)]
         else:
@@ -448,28 +448,21 @@ def main() -> None:
                 limit=args.limit,
             )
 
-        total_resolved = 0
-        total_new_persons = 0
-        total_events_linked = 0
-        total_reviews = 0
-
+        run_ids = []
         for doc in extraction_documents:
             run_id = extraction_persistence.get_latest_run_by_article_id(doc.article_id)
             if run_id is None:
                 print(f"No extraction run found for article {doc.article_id}, skipping")
                 continue
+            run_ids.append(run_id)
 
-            stats = resolution_service.resolve_extraction_run(run_id)
-            total_resolved += stats.mentions_resolved
-            total_new_persons += stats.new_persons_created
-            total_events_linked += stats.events_linked
-            total_reviews += stats.reviews_pending
+        totals = resolve_runs(settings.database_url, run_ids, workers=args.workers)
 
         print(
-            f"Resolved {total_resolved} mentions, "
-            f"created {total_new_persons} persons, "
-            f"linked {total_events_linked} events, "
-            f"{total_reviews} mentions pending person resolution review"
+            f"Resolved {totals.mentions_resolved} mentions, "
+            f"created {totals.new_persons_created} persons, "
+            f"linked {totals.events_linked} events, "
+            f"{totals.reviews_pending} mentions pending person resolution review"
         )
         return
 
