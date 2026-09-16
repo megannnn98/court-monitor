@@ -5,8 +5,10 @@ import os
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
+from csv import writer
 from functools import lru_cache
 from html import escape
+from io import StringIO
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -1448,6 +1450,7 @@ def ui_candidates(
   <label>Min confidence <input type="number" name="min_confidence" min="0" max="1" step="0.05" value="{min_confidence}"></label>
   <label>Limit <input type="number" name="limit" min="1" max="1000" value="{limit}"></label>
   <button>Обновить</button>
+  <a class="secondary" href="/ui/candidates/export?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать CSV</a>
 </form>
 <p class="muted">Найдено: {len(candidates)}. Статус РФМ: <code>not_matched</code>.</p>
 <table><thead><tr><th>ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
@@ -1455,6 +1458,53 @@ def ui_candidates(
         instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",
         next_action="Откройте Person, проверьте события и evidence spans в исходных статьях.",
         db=db,
+    )
+
+
+@app.get("/ui/candidates/export")
+def ui_candidates_export(
+    snapshot_id: int = Query(..., ge=1),
+    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
+    limit: int = Query(default=100, ge=1, le=1000),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    candidates = list_candidates(
+        snapshot_id=snapshot_id,
+        min_persecution_confidence=min_confidence,
+        limit=limit,
+        db=db,
+    )
+    output = StringIO(newline="")
+    csv_writer = writer(output)
+    csv_writer.writerow(
+        [
+            "person_id",
+            "canonical_name",
+            "persecution_confidence",
+            "persecution_reasons",
+            "event_count",
+            "rosfinmonitoring_status",
+            "rosfinmonitoring_match_confidence",
+        ]
+    )
+    for candidate in candidates:
+        csv_writer.writerow(
+            [
+                candidate.person_id,
+                candidate.canonical_name,
+                candidate.persecution_confidence,
+                "; ".join(candidate.persecution_reasons),
+                candidate.event_count,
+                candidate.rosfinmonitoring_status,
+                candidate.rosfinmonitoring_match_confidence,
+            ]
+        )
+    return Response(
+        content="\ufeff" + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="political-candidates-{snapshot_id}.csv"'
+        },
     )
 
 
