@@ -1601,8 +1601,8 @@ def ui_operation_run(
 def ui_monitoring(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    runs = list_monitoring_runs(limit=20, db=db)
-    findings = list_monitoring_findings(active_only=True, limit=20, db=db)
+    runs = list_monitoring_runs(limit=20, offset=0, db=db)
+    findings = list_monitoring_findings(active_only=True, limit=20, offset=0, db=db)
     run_rows = "".join(
         f"""<tr>
   <td><a href="/monitoring/runs/{run.id}">{run.id}</a></td>

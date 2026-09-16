@@ -141,8 +141,9 @@ def test_ui_pages_have_operator_shell_and_contextual_instruction(
         review = client.get("/ui/person-resolution/reviews")
         search = client.get("/ui/search")
         operations = client.get("/ui/operations")
+        monitoring = client.get("/ui/monitoring")
 
-    for response in (review, search, operations):
+    for response in (review, search, operations, monitoring):
         assert response.status_code == 200
         assert "court-monitor" in response.text
         assert "Дальше:" in response.text
