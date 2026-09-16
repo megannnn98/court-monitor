@@ -71,3 +71,11 @@ def test_words_are_classified_as_name_parts_or_ordinary_words() -> None:
     # Unknown to the dictionary: a foreign surname, not something to drop.
     assert not MORPHOLOGY.is_known_non_name("Тирни")
     assert not MORPHOLOGY.is_known_non_name("Росавиации")
+
+
+def test_the_article_settles_an_ambiguous_gender() -> None:
+    """Real case: «Федора Телина» stayed declined; the same article writes «Телин»."""
+    assert MORPHOLOGY.to_nominative("Федора Телина") == "Федора Телина"
+    assert MORPHOLOGY.to_nominative("Федора Телина", document_words=["Телин"]) == "Фёдор Телин"
+    # The article says the surname is a woman's: «Волкова» stays a woman.
+    assert MORPHOLOGY.to_nominative("Волкова", document_words=["Волковой"]) == "Волкова"

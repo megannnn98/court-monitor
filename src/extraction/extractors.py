@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from itertools import pairwise
 
 from extraction.models import EntityType, ExtractionDocument, RawMention
 from extraction.name_morphology import NameMorphology
@@ -33,12 +34,14 @@ _LEGAL_REFERENCE_PATTERN = re.compile(
 _CAPITALIZED_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+(?:-[А-ЯЁA-Z][а-яёa-z]+)?)"
 _COURT_PREFIX_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+|[а-яё]+)"
 _INITIALS = r"(?:[А-ЯЁA-Z]\.\s*){1,2}"
+# Matched overlapping (a lookahead around each): «Павла Крисевича Елену Иванову» holds two
+# people, and a non-overlapping scan would consume the first word of the second one.
 _PERSON_PATTERNS = [
-    re.compile(rf"\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b"),
-    re.compile(rf"\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b"),
-    re.compile(rf"\b{_INITIALS}{_CAPITALIZED_WORD}\b"),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b))"),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b))"),
+    re.compile(rf"(?=(\b{_INITIALS}{_CAPITALIZED_WORD}\b))"),
     # «Виталия Л.»: a given name with the surname reduced to an initial (OVD-Info style).
-    re.compile(rf"\b{_CAPITALIZED_WORD}\s+[А-ЯЁ]\.(?![А-Яа-яЁё])"),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+[А-ЯЁ]\.(?![А-Яа-яЁё])))"),
 ]
 # Words that may start a capitalized two-word match without being part of the name:
 # sentence adverbs/conjunctions and role or occupation descriptors (by stem).
@@ -166,6 +169,18 @@ _LOCATION_PATTERN = re.compile(
     r"Татарстан|Дагестан|Чечня|"
     r"Краснодарский край|Московская область|Ленинградская область)\b"
 )
+
+
+def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphology) -> int:
+    """Cut the span where another person starts: a given name cannot follow a patronymic.
+
+    «Павла Крисевича Елену» is two people; «Мифтахова Азата Фанисовича» is one.
+    """
+    words = list(re.finditer(r"\S+", text[start:end]))
+    for previous, word in pairwise(words):
+        if morphology.is_patronymic(previous.group(0)) and morphology.is_given_name(word.group(0)):
+            return start + previous.end()
+    return end
 
 
 def _starts_a_sentence(text: str, start: int) -> bool:
@@ -318,8 +333,10 @@ class RuleBasedEntityExtractor:
         spans: list[tuple[int, int]] = []
         for pattern in _PERSON_PATTERNS:
             for match in pattern.finditer(text):
-                start = _trim_leading_non_name(text, match.start(), match.end(), self._morphology)
-                surface = text[start : match.end()]
+                match_end = match.end(1)
+                start = _trim_leading_non_name(text, match.start(1), match_end, self._morphology)
+                span_end = _trim_second_person(text, start, match_end, self._morphology)
+                surface = text[start:span_end]
                 if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
                     continue
                 # «Skandi Klubb», «Frankfurter Allgemeine Zeitung»: people are written in
@@ -330,9 +347,9 @@ class RuleBasedEntityExtractor:
                     surface, self._morphology
                 ):
                     continue
-                if self._overlaps(start, match.end(), occupied_spans):
+                if self._overlaps(start, span_end, occupied_spans):
                     continue
-                spans.append((start, match.end()))
+                spans.append((start, span_end))
         # Overlapping readings of one name («Ольга Иванова» and «Ольга Иванова Петровна»):
         # keep the longest.
         kept: list[tuple[int, int]] = []

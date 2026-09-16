@@ -400,3 +400,14 @@ def test_a_latin_script_span_is_not_a_person() -> None:
     """Real cases: «Skandi Klubb», «Frankfurter Allgemeine Zeitung», «Just Got Lucky»."""
     assert _people("Об этом пишет Frankfurter Allgemeine Zeitung сегодня.") == []
     assert _people("Клуб Skandi Klubb закрыли.") == []
+
+
+def test_a_given_name_after_a_patronymic_starts_another_person() -> None:
+    """Real case: «Павла Крисевича Елену» became one person «Павел Крисевич Елена»."""
+    assert _people("Задержали Павла Крисевича Елену Иванову.") == [
+        "Павла Крисевича",
+        "Елену Иванову",
+    ]
+    assert _people("Суд оставил Мифтахова Азата Фанисовича в колонии.") == [
+        "Мифтахова Азата Фанисовича"
+    ]

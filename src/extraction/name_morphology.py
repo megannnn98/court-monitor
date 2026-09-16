@@ -7,6 +7,7 @@ or patronymic is left as written — a wrong invented form is worse than an obli
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import lru_cache
 
 from pymorphy3 import MorphAnalyzer
@@ -28,10 +29,15 @@ class NameMorphology:
     def __init__(self, analyzer: MorphAnalyzer | None = None) -> None:
         self._analyzer = analyzer or MorphAnalyzer()
 
-    def to_nominative(self, name: str) -> str:
+    def to_nominative(self, name: str, document_words: Sequence[str] = ()) -> str:
+        """`document_words`: other words of the same article, used only to settle the gender."""
         words = name.split()
         parses = [self._name_parses(word) for word in words]
         gender, gender_is_certain = self._gender(parses)
+        if not gender_is_certain and document_words:
+            from_document = self._gender_from_document(parses, document_words)
+            if from_document is not None:
+                gender, gender_is_certain = from_document, True
         return " ".join(
             word
             if not gender_is_certain and _can_be_nominative(word_parses)
@@ -44,6 +50,44 @@ class NameMorphology:
     def is_name_word(self, word: str) -> bool:
         """Whether the dictionary knows the word as a name, a surname or a patronymic."""
         return bool(self._name_parses(word))
+
+    def _gender_from_document(
+        self, parses: list[tuple[Parse, ...]], document_words: Sequence[str]
+    ) -> str | None:
+        """The gender of an unambiguous form of the same name elsewhere in the article.
+
+        «Федора Телина» is ambiguous on its own; an article that also writes «Телин» says
+        the person is a man.
+        """
+        wanted = {
+            parse.normal_form: gender
+            for word_parses in parses
+            for parse in word_parses
+            for gender in _GENDERS
+            if gender in parse.tag.grammemes
+        }
+        found: set[str] = set()
+        for word in document_words:
+            for parse in self._name_parses(word):
+                genders = {gender for gender in _GENDERS if gender in parse.tag.grammemes}
+                if len(genders) == 1 and parse.normal_form in wanted:
+                    found |= genders
+        return found.pop() if len(found) == 1 else None
+
+    def is_patronymic(self, word: str) -> bool:
+        return self._has_only(word, "Patr")
+
+    def is_given_name(self, word: str) -> bool:
+        """A given name that is not also a surname («Елену» yes, «Иванова» no)."""
+        return self._has_only(word, "Name")
+
+    def _has_only(self, word: str, grammeme: str) -> bool:
+        parses = self._name_parses(word)
+        return bool(parses) and all(
+            grammeme in parse.tag.grammemes
+            and not (NAME_GRAMMEMES - {grammeme}) & set(parse.tag.grammemes)
+            for parse in parses
+        )
 
     def is_geographic(self, word: str) -> bool:
         """A place name by the dictionary («России», «Калуги»), never a name of its own here."""

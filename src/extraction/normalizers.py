@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 from extraction.models import (
     EntityType,
@@ -44,6 +45,14 @@ _LOCATION_ALIASES = {
 }
 
 
+def _name_words_of(document: ExtractionDocument) -> list[str]:
+    """Capitalized words of the article, the context that can settle an ambiguous gender."""
+    return _CAPITALIZED_WORDS.findall(document.text)
+
+
+_CAPITALIZED_WORDS = re.compile(r"(?<![\w-])[А-ЯЁ][а-яё]{2,}")
+
+
 class RuleBasedMentionNormalizer:
     normalizer_version = NORMALIZER_VERSION
 
@@ -65,7 +74,9 @@ class RuleBasedMentionNormalizer:
             | LocationNormalizedData
         )
         if mention.entity_type is EntityType.PERSON:
-            normalized_text, normalized_data = self._normalize_person(mention.surface_text)
+            normalized_text, normalized_data = self._normalize_person(
+                mention.surface_text, _name_words_of(document)
+            )
         elif mention.entity_type is EntityType.LEGAL_REFERENCE:
             normalized_text, normalized_data = self._normalize_legal_reference(mention.surface_text)
         elif mention.entity_type is EntityType.COURT:
@@ -98,7 +109,9 @@ class RuleBasedMentionNormalizer:
         """Person name as the pipeline stores it (used by ER v2 dry-run/evaluation)."""
         return self._normalize_person(surface_text)
 
-    def _normalize_person(self, surface_text: str) -> tuple[str, PersonNormalizedData]:
+    def _normalize_person(
+        self, surface_text: str, document_words: Sequence[str] = ()
+    ) -> tuple[str, PersonNormalizedData]:
         words = surface_text.replace("ё", "е").replace("Ё", "Е").split()
         if words and "." in words[0]:
             normalized = " ".join(words)
@@ -111,7 +124,13 @@ class RuleBasedMentionNormalizer:
                 matching_key=matching_key,
             )
 
-        normalized_words = self._name_morphology.to_nominative(" ".join(words)).split()
+        # The dictionary writes «ё»; stored names and matching keys use «е» throughout.
+        normalized_words = (
+            self._name_morphology.to_nominative(" ".join(words), document_words)
+            .replace("ё", "е")
+            .replace("Ё", "Е")
+            .split()
+        )
         normalized = " ".join(normalized_words)
         first_name = normalized_words[0] if len(normalized_words) >= 2 else None
         last_name = normalized_words[1] if len(normalized_words) == 2 else normalized_words[0]
