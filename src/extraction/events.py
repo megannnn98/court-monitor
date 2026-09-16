@@ -146,8 +146,7 @@ class RuleBasedEventExtractor:
     # year has no event date.
     # 1.3.1: that year is looked up in the trigger's time frame, not the whole sentence.
     # 1.4.0: a pronoun links the event to the single person named before the sentence.
-    # 1.5.0: «обвиняемые» is a noun for the people, and a noun trigger governed by another
-    # noun («отмены приговора») refers to an event instead of reporting one.
+    # 1.5.0: «обвиняемые» is a noun for the people, not a charge.
     extractor_version = "1.5.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
@@ -191,21 +190,6 @@ class RuleBasedEventExtractor:
                 )
             )
         return sorted(events, key=lambda event: (event.start_offset, event.event_type.value))
-
-    def _noun_is_a_reference(self, lowered_sentence: str, start: int, trigger: str) -> bool:
-        """A genitive noun governed by another noun refers to an event, it does not report one.
-
-        «добиваться полной отмены приговора», «условия домашнего ареста». The genitive is
-        what makes it a complement: «Второе уголовное дело завели» reports an event.
-        """
-        first = re.match(r"[а-яё]+", trigger)
-        if first is None or not self._morphology.is_genitive_noun(first.group(0)):
-            return False
-        for word in reversed(re.findall(r"[а-яё]+", lowered_sentence[:start])):
-            if self._morphology.is_adjective(word):
-                continue
-            return self._morphology.part_of_speech(word) == "NOUN"
-        return False
 
     def _trigger(self, lowered_sentence: str) -> tuple[EventType, str, int] | None:
         """The earliest non-negated verb trigger, else the earliest noun trigger, with its start."""
