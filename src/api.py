@@ -1132,6 +1132,14 @@ def _review_table(reviews: list[ResolutionReviewView]) -> str:
 </table>"""
 
 
+ER_REVIEW_HELP = """<section class="band">
+<h2>Что такое ER-ревью</h2>
+<p><strong>ER (Entity Resolution)</strong> — связывание имени из статьи с конкретной Person в базе. Один и тот же человек может быть назван полным именем, инициалами, псевдонимом или с опечаткой. Система предлагает совпадения, но не угадывает личность, когда уверенности недостаточно.</p>
+<p><strong>Пример:</strong> в статье найдено упоминание <code>А. П. Иванов</code>. Система показывает Person 42 «Алексей Петров Иванов» и Person 87 «Андрей Павлов Иванов». Откройте source/evidence, сравните город, дату рождения, алиасы и контекст статьи.</p>
+<p><strong>Действия:</strong> <em>Связать</em> — это тот же человек; <em>Отдельная персона</em> — кандидат похож по имени, но это другой человек; <em>Создать новую</em> — подходящего кандидата нет. Решение меняет связи упоминаний и событий, поэтому применяйте его только после проверки evidence.</p>
+</section>"""
+
+
 @app.get("/ui")
 def ui_root() -> RedirectResponse:
     return RedirectResponse("/ui/person-resolution/reviews", status_code=303)
@@ -1146,7 +1154,7 @@ def ui_list_person_resolution_reviews(
     if not reviews:
         return _page(
             "ER-ревью",
-            '<section class="empty">Очередь пуста.</section>',
+            ER_REVIEW_HELP + '<section class="empty">Очередь пуста.</section>',
             active="review",
             instruction="Здесь разбираются pending ER decisions: связать упоминание с Person или создать новую.",
             next_action="Когда появятся pending decisions, откройте первое и примените явное решение.",
@@ -1154,7 +1162,8 @@ def ui_list_person_resolution_reviews(
         )
     return _page(
         "ER-ревью",
-        f"""<section class="toolbar">
+        ER_REVIEW_HELP
+        + f"""<section class="toolbar">
 <span class="muted">Показано: {len(reviews)}</span>
 <p><a class="primary" href="/ui/person-resolution/reviews/{reviews[0].decision_id}">Открыть первое</a></p>
 </section>

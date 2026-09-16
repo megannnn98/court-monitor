@@ -162,6 +162,9 @@ def test_ui_pages_have_operator_shell_and_contextual_instruction(
         assert "court-monitor" in response.text
         assert "Дальше:" in response.text
         assert "ER pending" in response.text
+    assert "Что такое ER-ревью" in review.text
+    assert "А. П. Иванов" in review.text
+    assert "Связать" in review.text
 
 
 def test_operation_preview_confirm_and_run_detail_use_background_registry(
