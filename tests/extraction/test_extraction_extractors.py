@@ -5,7 +5,7 @@ import pytest
 from extraction.documents import build_extraction_document_from_parsed_article
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import EntityType, EventType, ExtractionDocument
+from extraction.models import EntityType, EventEntityRole, EventType, ExtractionDocument
 from extraction.normalizers import RuleBasedMentionNormalizer
 from sources.models import ParsedArticle
 
@@ -432,3 +432,46 @@ def test_a_surname_outside_the_dictionary_still_repeats() -> None:
     text = "Олег Мампория вышел на пикет. Мампорию задержали в апреле."
 
     assert _people(text) == ["Олег Мампория", "Мампорию"]
+
+
+def _event_people(text: str) -> list[list[str]]:
+    """Surface texts of the persons linked to each event of the text."""
+    document = make_document(text)
+    extractor = RuleBasedEntityExtractor()
+    normalizer = RuleBasedMentionNormalizer()
+    mentions = [normalizer.normalize(m, document) for m in extractor.extract(document)]
+    return [
+        [
+            mentions[link.mention_index].surface_text
+            for link in event.links
+            if link.role is EventEntityRole.TARGET
+        ]
+        for event in RuleBasedEventExtractor().extract(document, mentions)
+    ]
+
+
+def test_a_pronoun_links_the_event_to_the_person_named_before() -> None:
+    """Real cases: «Роман Паклин … Его задержали», «Ему предъявили обвинение»."""
+    assert _event_people("Роман Паклин сидит в колонии. Его задержали в августе.") == [
+        ["Роман Паклин"]
+    ]
+    assert _event_people("Зарема Мусаева в колонии. Ее приговорили к трем годам.") == [
+        ["Зарема Мусаева"]
+    ]
+
+
+def test_a_pronoun_of_another_gender_is_not_linked() -> None:
+    """Attributing an event to the wrong person is worse than leaving it unlinked."""
+    assert _event_people("Роман Паклин сидит в колонии. Ее приговорили к трем годам.") == [[]]
+
+
+def test_a_pronoun_is_not_linked_when_two_people_stand_before_it() -> None:
+    text = "Иван Петров и Сергей Сидоров вышли на пикет. Его задержали в августе."
+
+    assert _event_people(text) == [[]]
+
+
+def test_talking_about_an_event_is_not_the_event() -> None:
+    """Real case: «суд рассматривал иск о его освобождении» was extracted as a release."""
+    assert _event_types("Суд рассматривал иск о его освобождении в связи с болезнью.") == []
+    assert _event_types("Его освободили из СИЗО в связи с болезнью.") == ["release"]

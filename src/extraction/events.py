@@ -13,6 +13,7 @@ from extraction.models import (
     ExtractionDocument,
     NormalizedMention,
 )
+from extraction.name_morphology import NameMorphology
 
 _ABBREVIATIONS = ("ст.", "ч.", "п.")
 
@@ -83,7 +84,12 @@ _VERB_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     # «осудил войну» is condemning; a court sentence reads «осудили», «осужден».
     (EventType.SENTENCE, _W + r"(?:приговорил\w*|осудили|осужден(?:а|ы|о)?(?![а-яё]))"),
     (EventType.FINE, _W + r"(?:оштрафова\w*)"),
-    (EventType.RELEASE, _W + r"(?:освобо[дж]\w*|отпустил\w*|вышел\w*\s+на\s+свободу)"),
+    (
+        EventType.RELEASE,
+        # Verb forms only: «иск о его освобождении» talks about a release, it is not one.
+        _W + r"(?:освободил\w*|освобожден(?:а|ы|о)?(?![а-яё])|отпустил\w*|"
+        r"вышел\w*\s+на\s+свободу)",
+    ),
 )
 _NOUN_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     (EventType.CASE_OPENED, _W + r"(?:уголовн\w*\s+дел\w*)"),
@@ -91,11 +97,19 @@ _NOUN_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     (EventType.SENTENCE, _W + r"(?:приговор(?:а|е|ом|у)?)(?![а-яё])"),
     (EventType.FINE, _W + r"(?:штраф\w*)"),
 )
+# «Его задержали», «Ей предъявили обвинение»: the sentence names nobody, the person is
+# the one named before it. Plural pronouns («их», «им») are never resolved: they stand for
+# a group, and attributing an event to the wrong person is worse than leaving it unlinked.
+_MASCULINE_PRONOUN = re.compile(r"(?<![а-яё])(?:его|ему|им|нем|нём|него|нему|ним)(?![а-яё])")
+_FEMININE_PRONOUN = re.compile(r"(?<![а-яё])(?:ее|её|ей|ней|нее|неё|нею)(?![а-яё])")
+
 _NEGATION_BEFORE = re.compile(r"(?<![а-яё])не\s+(?:[а-яё]+\s+)?$")
 # «до ареста», «после первого ареста», «согласно второму приговору»: a reference to
 # another event.
 _TEMPORAL_REFERENCE_BEFORE = re.compile(
-    r"(?<![а-яё])(?:до|после|перед|согласно|с\s+момента|во\s+время)\s+"
+    # «до ареста», «после первого ареста», «согласно второму приговору», and «иск о его
+    # освобождении» — the sentence talks about the event instead of reporting it.
+    r"(?<![а-яё])(?:до|после|перед|согласно|об?|с\s+момента|во\s+время)\s+"
     r"(?:его\s+|ее\s+|её\s+|их\s+)?(?:[а-яё]+(?:ого|ему|ому|ой|ым|им)\s+)?$"
 )
 # «в апреле 2025 года»: the event happened in that year, not on the publication date.
@@ -113,13 +127,22 @@ _DESCRIPTIVE_CLAUSE = re.compile(
 )
 
 
+# How many person mentions before the sentence must agree on one person for a pronoun to
+# be resolved.
+_ANTECEDENT_DEPTH = 2
+
+
 class RuleBasedEventExtractor:
     extractor_name = "rule-based-event-extractor"
     # 1.3.0: charge/sentence verbs in plural or passive only («обвинил военных» is the
     # person accusing); «согласно приговору» is a reference; a sentence naming another
     # year has no event date.
     # 1.3.1: that year is looked up in the trigger's time frame, not the whole sentence.
-    extractor_version = "1.3.1"
+    # 1.4.0: a pronoun links the event to the single person named before the sentence.
+    extractor_version = "1.4.0"
+
+    def __init__(self, morphology: NameMorphology | None = None) -> None:
+        self._morphology = morphology or NameMorphology()
 
     def extract(
         self,
@@ -139,6 +162,12 @@ class RuleBasedEventExtractor:
             sentence_start = start + document.text[start:end].find(sentence)
             sentence_end = sentence_start + len(sentence)
             links = self._links_for_sentence(mentions, sentence_start, sentence_end, document.text)
+            if not any(link.role is EventEntityRole.TARGET for link in links):
+                antecedent = self._antecedent(mentions, sentence, sentence_start)
+                if antecedent is not None:
+                    links.append(
+                        EventEntityLink(role=EventEntityRole.TARGET, mention_index=antecedent)
+                    )
             events.append(
                 EventMention(
                     event_type=event_type,
@@ -172,6 +201,36 @@ class RuleBasedEventExtractor:
                 trigger_start, event_type, text = min(found, key=lambda item: item[0])
                 return event_type, text, trigger_start
         return None
+
+    def _antecedent(
+        self, mentions: list[NormalizedMention], sentence: str, sentence_start: int
+    ) -> int | None:
+        """The person a pronoun of this sentence stands for, when only one person can fit.
+
+        Resolved only when the last person named before the sentence is the single
+        candidate: any other person mention in between makes the reference ambiguous.
+        """
+        lowered = sentence.lower()
+        masculine = _MASCULINE_PRONOUN.search(lowered) is not None
+        feminine = _FEMININE_PRONOUN.search(lowered) is not None
+        if masculine == feminine:
+            # No pronoun at all, or both genders: nothing to resolve.
+            return None
+        before = [
+            index
+            for index, mention in enumerate(mentions)
+            if mention.entity_type is EntityType.PERSON and mention.end_offset <= sentence_start
+        ]
+        if not before:
+            return None
+        candidate = before[-1]
+        name = mentions[candidate].normalized_text
+        if any(mentions[index].normalized_text != name for index in before[-_ANTECEDENT_DEPTH:]):
+            return None
+        gender = self._morphology.gender_of(name)
+        if gender is None or gender != ("masc" if masculine else "femn"):
+            return None
+        return candidate
 
     @staticmethod
     def _links_for_sentence(

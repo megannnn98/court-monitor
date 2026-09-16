@@ -16,6 +16,10 @@ from pymorphy3.analyzer import Parse
 # Dictionary marks for the parts of a personal name.
 NAME_GRAMMEMES = frozenset({"Name", "Surn", "Patr"})
 _GENDERS = ("masc", "femn")
+# Russian surname endings, checked before the dictionary: feminine first, as «-ова» also
+# ends with the masculine «-ов».
+_FEMININE_SURNAME_ENDINGS = ("ова", "ева", "ина", "ына", "ская", "цкая", "ая")
+_MASCULINE_SURNAME_ENDINGS = ("ов", "ев", "ин", "ын", "ский", "цкий", "ый")
 # Surname endings productive enough to decline a name the dictionary does not know, but
 # only once another word of the same name has fixed the gender («Михаила Лисина»).
 _SURNAME_STEMS = ("ов", "ев", "ёв", "ин", "ын", "ск", "цк")
@@ -108,6 +112,28 @@ class NameMorphology:
         # the feminine ending is dropped so both forms meet on one key.
         keys |= {key[:-1] for key in keys if key[-1:] in "ая" and len(key) > 4}
         return frozenset(keys)
+
+    def gender_of(self, name: str) -> str | None:
+        """The gender of a person's name, or None when nothing states it.
+
+        A Russian surname ending says it outright and is trusted first: the dictionary
+        reads «Паклин» as a feminine indeclinable given name, while «-ин» is masculine.
+        """
+        for word in name.lower().replace("ё", "е").split():
+            if word.endswith(_FEMININE_SURNAME_ENDINGS):
+                return "femn"
+            if word.endswith(_MASCULINE_SURNAME_ENDINGS):
+                return "masc"
+        for word in name.split():
+            genders = {
+                gender
+                for parse in self._name_parses(word)
+                for gender in _GENDERS
+                if gender in parse.tag.grammemes
+            }
+            if len(genders) == 1:
+                return genders.pop()
+        return None
 
     def is_geographic(self, word: str) -> bool:
         """A place name by the dictionary («России», «Калуги»), never a name of its own here."""
