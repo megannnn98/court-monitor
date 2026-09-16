@@ -1,5 +1,7 @@
 """Window, merge and dedup rules of the person recognizer — no model is loaded here."""
 
+from itertools import pairwise
+
 import pytest
 
 from extraction.person_ner.models import PersonNameSpan
@@ -168,7 +170,7 @@ def test_windows_overlap_and_cover_the_whole_text() -> None:
 
     assert bounds[0][0] == 0
     assert bounds[-1][1] == 1000
-    for (_, previous_end), (next_start, _) in zip(bounds, bounds[1:], strict=False):
+    for (_, previous_end), (next_start, _) in pairwise(bounds):
         assert next_start < previous_end, "windows must overlap"
 
 

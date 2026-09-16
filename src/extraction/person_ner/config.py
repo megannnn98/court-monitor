@@ -7,13 +7,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
-# Chosen on the candidate comparison: standard B-/I-PER labels, Russian among its
-# training languages, and it clears the hard negatives the rule extractor fails.
-# Licence CC-BY-NC-SA 4.0 — non-commercial use only.
-DEFAULT_MODEL = "Babelscape/wikineural-multilingual-ner"
+# Chosen on a comparison over 45 real corpus articles (evaluation/person_ner): it made
+# none of the rule extractor's semantic false positives — places, organizations, slogans,
+# channel names — kept cleaner name boundaries and read initials whole. Apache-2.0.
+DEFAULT_MODEL = "vladlinv/ru-pii-ner-gliner2.5"
 # Pinned to a commit, not a branch: a silent upstream retrain must not change what the
 # pipeline considers a person.
-DEFAULT_REVISION = "bed6ee7a45d2827b6c90a4fd7983f0241ae0a5c1"
+DEFAULT_REVISION = "7ed92ea48f59ca7044ecde89f9c802fe63d360ee"
 DEFAULT_MIN_SCORE = 0.5
 
 
@@ -26,6 +26,10 @@ class PersonExtractionStrategy(StrEnum):
 
     RULE_BASED = "rule_based"
     NER = "ner"
+    # The two find different things: the model misses inflected bare surnames
+    # («Навального»), the patterns claim multi-word places and organizations. HYBRID takes
+    # the model plus the single-word names it missed, and nothing else from the patterns.
+    HYBRID = "hybrid"
 
 
 @dataclass(frozen=True)

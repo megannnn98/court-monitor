@@ -297,11 +297,13 @@ class RuleBasedEntityExtractor:
         self,
         morphology: NameMorphology | None = None,
         person_recognizer: PersonNameRecognizer | None = None,
+        blend_single_word_names: bool = False,
     ) -> None:
         self._morphology = morphology or NameMorphology()
-        # When a recognizer is given it is the only source of person mentions: two sources
-        # would produce two mentions of the same name.
+        # When a recognizer is given it is the source of person mentions; the patterns only
+        # add back the single-word names it misses, and only when asked to.
         self._person_recognizer = person_recognizer
+        self._blend_single_word_names = blend_single_word_names
         if person_recognizer is not None:
             self.extractor_version = self.ner_extractor_version
 
@@ -315,7 +317,10 @@ class RuleBasedEntityExtractor:
         if self._person_recognizer is None:
             mentions.extend(self._people(document.text, occupied))
         else:
-            mentions.extend(self._recognized_people(document.text, occupied))
+            recognized = self._recognized_people(document.text, occupied)
+            mentions.extend(recognized)
+            if self._blend_single_word_names:
+                mentions.extend(self._missed_single_word_names(document.text, occupied, recognized))
         return sorted(
             self._deduplicate(mentions),
             key=lambda mention: (
@@ -350,6 +355,34 @@ class RuleBasedEntityExtractor:
             self._mention(EntityType.LOCATION, text, match.start(), match.end(), 0.78)
             for match in _LOCATION_PATTERN.finditer(text)
         ]
+
+    def _missed_single_word_names(
+        self,
+        text: str,
+        occupied: Iterable[tuple[int, int]],
+        recognized: list[RawMention],
+    ) -> list[RawMention]:
+        """Names the recognizer missed, taken from the patterns under a narrow rule.
+
+        The model loses inflected bare surnames («Навального», «Жлобицкого»), a common
+        form in these articles; the patterns find them but also claim multi-word place and
+        organization names («Харп Ямало-Ненецкого», «Команда Навального»). One word is the
+        whole rule: it is the shape the model misses, and every pattern mistake measured on
+        the corpus was longer than that.
+
+        A morphological check was tried here too and removed: it rejected 44 real surnames
+        on the same corpus («Ощепов», «Паклин», «Мамаеву») because they are not in the
+        dictionary, costing 2.7 points of recall for no measured gain in precision.
+        """
+        taken = [(mention.start_offset, mention.end_offset) for mention in recognized]
+        missed: list[RawMention] = []
+        for mention in self._people(text, occupied):
+            if len(mention.surface_text.split()) != 1:
+                continue
+            if self._overlaps(mention.start_offset, mention.end_offset, taken):
+                continue
+            missed.append(mention)
+        return missed
 
     def _recognized_people(
         self,

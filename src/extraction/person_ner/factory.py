@@ -32,7 +32,7 @@ def build_entity_extractor(
 
     if recognizer is None:
         # Imported here so the rule-based path never needs transformers or torch.
-        from extraction.person_ner.transformers_recognizer import build_person_recognizer
+        from extraction.person_ner.gliner_recognizer import build_person_recognizer
 
         recognizer = build_person_recognizer(settings)
 
@@ -42,4 +42,8 @@ def build_entity_extractor(
         settings.model_id,
         settings.min_score,
     )
-    return RuleBasedEntityExtractor(morphology, person_recognizer=recognizer)
+    return RuleBasedEntityExtractor(
+        morphology,
+        person_recognizer=recognizer,
+        blend_single_word_names=settings.strategy is PersonExtractionStrategy.HYBRID,
+    )
