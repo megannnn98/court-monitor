@@ -10,6 +10,9 @@ from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
 from sources.source_adapter import DocumentFetcher, SourceAdapter
+from sources.sudrf.article_parser import SudrfArticleParser
+from sources.sudrf.listing_parser import SudrfListingParser
+from sources.sudrf.source_adapter import SudrfSourceAdapter
 from sources.telegram.article_parser import TelegramPostParser
 from sources.telegram.channels import TelegramChannel, load_telegram_channels
 from sources.telegram.source_adapter import TelegramSourceAdapter
@@ -57,6 +60,31 @@ SOTA_VISION = SourceDefinition(
 )
 
 
+def sudrf_source(name: str, title: str, host: str) -> SourceDefinition:
+    """A court press service on the shared `sudrf.ru` engine, addressed by its host."""
+    return SourceDefinition(
+        name=name,
+        source_name=title,
+        base_url=f"https://{host}",
+        create_adapter=lambda client, fetcher: SudrfSourceAdapter(
+            client=client,
+            listing_parser=SudrfListingParser(host),
+            document_fetcher=fetcher,
+            host=host,
+            max_attempts=3,
+            base_delay_seconds=0.5,
+        ),
+        create_parser=SudrfArticleParser,
+    )
+
+
+SUDRF_2ZOVS = sudrf_source(
+    name="sudrf-2zovs",
+    title="2-й Западный окружной военный суд",
+    host="2zovs.msk.sudrf.ru",
+)
+
+
 def telegram_source(channel: TelegramChannel) -> SourceDefinition:
     return SourceDefinition(
         name=channel.source_name,
@@ -78,6 +106,7 @@ TELEGRAM_SOURCES = [telegram_source(channel) for channel in load_telegram_channe
 SOURCES: dict[str, SourceDefinition] = {
     OVD_INFO.name: OVD_INFO,
     SOTA_VISION.name: SOTA_VISION,
+    SUDRF_2ZOVS.name: SUDRF_2ZOVS,
     **{definition.name: definition for definition in TELEGRAM_SOURCES},
 }
 

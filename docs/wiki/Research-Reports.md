@@ -177,8 +177,8 @@ Review-required (`ambiguous`):
 Пустой результат:
 
 ```text
-Report: insufficient_data — В текущей базе найдено 0 подходящих людей. Это не доказывает, что таких людей нет: локальная копия источников может быть неполной. Обновление источников (ovd-info, sota-vision) — рекомендация, оно не выполнялось.
-Source refresh: recommended (ovd-info, sota-vision) — not executed
+Report: insufficient_data — В текущей базе найдено 0 подходящих людей. Это не доказывает, что таких людей нет: локальная копия источников может быть неполной. Обновление источников (ovd-info, sota-vision, sudrf-2zovs, tg-…) — рекомендация, оно не выполнялось.
+Source refresh: recommended (ovd-info, sota-vision, sudrf-2zovs, tg-…) — not executed
 ```
 
 ## Тесты

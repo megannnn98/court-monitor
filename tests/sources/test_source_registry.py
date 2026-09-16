@@ -8,7 +8,15 @@ from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
 from sources.source_adapter import SourceAdapter
-from sources.source_registry import OVD_INFO, SOTA_VISION, SOURCES, get_source_definition
+from sources.source_registry import (
+    OVD_INFO,
+    SOTA_VISION,
+    SOURCES,
+    SUDRF_2ZOVS,
+    get_source_definition,
+)
+from sources.sudrf.article_parser import SudrfArticleParser
+from sources.sudrf.source_adapter import SudrfSourceAdapter
 
 
 class FakeDocumentFetcher:
@@ -67,3 +75,23 @@ def test_sota_vision_definition_builds_working_adapter_and_parser() -> None:
             _accepts_source_adapter(adapter)
 
     asyncio.run(run())
+
+
+def test_sudrf_2zovs_definition_builds_working_adapter_and_parser() -> None:
+    async def run() -> None:
+        async with httpx.AsyncClient() as client:
+            adapter = SUDRF_2ZOVS.create_adapter(client, FakeDocumentFetcher())
+            parser = SUDRF_2ZOVS.create_parser()
+
+            assert isinstance(adapter, SudrfSourceAdapter)
+            assert isinstance(parser, SudrfArticleParser)
+            _accepts_source_adapter(adapter)
+
+    asyncio.run(run())
+
+
+def test_sudrf_2zovs_is_registered_under_its_court_host() -> None:
+    assert get_source_definition("sudrf-2zovs") is SUDRF_2ZOVS
+    assert SUDRF_2ZOVS.base_url == "https://2zovs.msk.sudrf.ru"
+    assert SUDRF_2ZOVS.source_name == "2-й Западный окружной военный суд"
+    assert SOURCES["sudrf-2zovs"] is SUDRF_2ZOVS

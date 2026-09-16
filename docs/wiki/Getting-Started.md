@@ -65,11 +65,24 @@ uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
 uv run python src/main.py ingest "https://ovd.info/news/example"
 ```
 
+`ovd-info` здесь — просто самый удобный источник для первого прогона. Их больше: два
+сайта, пресс-служба суда и несколько десятков публичных Telegram-каналов. Полный
+список ключей — `uv run python src/main.py discover-and-ingest --help`, что за чем
+стоит — на странице [Ingestion](Ingestion.md#источники).
+
 ## 3. Извлечь сущности и события
 
 ```bash
 uv run python src/main.py extract-entities
 ```
+
+> **`--limit` берёт самые старые статьи, а не новые.** У `extract-entities` и
+> `resolve-people` лимит по умолчанию — 100, а выборка идёт `order by id` по
+> возрастанию. На свежей базе из шага 2 это незаметно, но когда статей станет больше
+> лимита, обе команды молча обработают давно разобранный хвост и отчитаются успехом —
+> например, `created 0 persons` при полной базе. Прогоняя пайплайн по всей базе,
+> ставьте лимит заведомо больше числа статей:
+> `--limit 20000`.
 
 Проверить счётчики:
 
@@ -88,6 +101,8 @@ order by table_name;
 ```bash
 uv run python src/main.py resolve-people
 ```
+
+Тот же лимит по умолчанию, что и у `extract-entities` — см. предупреждение в шаге 3.
 
 Посмотреть найденных canonical persons:
 

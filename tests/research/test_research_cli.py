@@ -357,7 +357,7 @@ def test_ask_report_shows_refresh_recommendation_for_empty_result() -> None:
     text = format_query_result(_report_result([], research_request))
 
     assert "Report: insufficient_data" in text
-    assert "Source refresh: recommended (ovd-info, sota-vision, tg-" in text
+    assert "Source refresh: recommended (ovd-info, sota-vision, sudrf-2zovs, tg-" in text
     assert "— not executed" in text
 
 

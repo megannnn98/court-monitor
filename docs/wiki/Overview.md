@@ -47,11 +47,13 @@ end note
 | `main.py` | CLI: `ingest`, `discover-and-ingest --source ...`, `search`, `evaluate-search` |
 | `sources/models.py` | Pydantic-модели домена (`SourceReference` … `SearchHit`) — см. [CONTEXT.md](../../CONTEXT.md) |
 | `sources/source_adapter.py` | `Protocol DocumentFetcher`/`SourceAdapter` — контракт `discover()`/`fetch()` |
-| `sources/source_registry.py` | `SourceDefinition` + реестр источников (`ovd-info`, `sota-vision`) для CLI |
+| `sources/source_registry.py` | `SourceDefinition` + реестр источников (`ovd-info`, `sota-vision`, `sudrf-2zovs`, 70 × `tg-<username>`) для CLI |
 | `sources/source_ingestion.py` | `SourceIngestion` — discover → пройти по ссылкам через pipeline, изолируя ошибки одной статьи |
 | `sources/discovery_pagination.py` | Общий helper: постраничный discovery с dedup/limit + retry/backoff для listing-запросов |
 | `sources/ovd_info/reference.py`, `sources/ovd_info/listing_parser.py`, `sources/ovd_info/source_adapter.py` | Источник ОВД-Инфо: канонический `SourceReference`, парсинг листинга, discovery с pagination |
 | `sources/sota_vision/reference.py`, `sources/sota_vision/listing_parser.py`, `sources/sota_vision/source_adapter.py` | Источник SOTA (sota.vision): то же самое для второго сайта |
+| `sources/telegram/` | Telegram-каналы: список в `channels.csv`, discovery по веб-превью `t.me/s/<username>` с окном в 30 дней |
+| `sources/sudrf/` | Пресс-службы судов на движке `sudrf.ru`: адаптер параметризован хостом, discovery по годовым архивам |
 | `sources/website_adapter.py` | HTTP-загрузка одной публикации (`httpx`) — источник-агностичный `DocumentFetcher` |
 | `sources/retrying_fetcher.py` | Retry/backoff поверх `DocumentFetcher` (только `TransientFetchError`) |
 | `sources/ingestion_errors.py` | Иерархия ошибок: `FetchError`/`ParseError`/`PersistenceError`, `DiscoveryError` (transient/permanent) |
