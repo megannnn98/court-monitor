@@ -52,6 +52,7 @@ def main() -> None:
 
     rule = [s for s in data["spans"] if s["extractor"] == "rule_based"]
     model = [s for s in data["spans"] if s["extractor"] == "gliner"]
+    blended = [s for s in data["spans"] if s["extractor"] == "hybrid"]
     rule_keys = {key(s) for s in rule}
     model_keys = {key(s) for s in model}
 
@@ -80,11 +81,16 @@ def main() -> None:
         keys = {key(s) for s in spans}
         hit = keys & golden_keys
         overlap_hit = {g for g in golden_keys if any(overlaps(g, k) for k in keys)}
+        precision = len(hit) / len(keys) if keys else 0.0
+        recall = len(hit) / len(golden_keys) if golden_keys else 0.0
         return {
             "spans": len(spans),
             "exact_tp": len(hit),
-            "exact_precision": round(len(hit) / len(keys), 4) if keys else 0.0,
-            "exact_recall": round(len(hit) / len(golden_keys), 4) if golden_keys else 0.0,
+            "exact_precision": round(precision, 4),
+            "exact_recall": round(recall, 4),
+            "exact_f1": round(
+                2 * precision * recall / (precision + recall) if precision + recall else 0.0, 4
+            ),
             "overlap_recall": round(len(overlap_hit) / len(golden_keys), 4) if golden_keys else 0.0,
         }
 
@@ -101,9 +107,11 @@ def main() -> None:
         "rule_only": len(rule_unique),
         "gliner_only": len(model_unique),
         "offset_violations": len(data["offset_violations"]),
+        "hybrid_spans": len(blended),
         "vs_golden_PRELIMINARY": {
             "rule_based": against_golden(rule),
             "gliner": against_golden(model),
+            "hybrid": against_golden(blended),
         },
         "shape_rule_only": Counter(classify(s["surface_text"]) for s in rule_unique).most_common(),
         "shape_gliner_only": Counter(

@@ -182,6 +182,64 @@ def _entity_offsets(entity: Any) -> tuple[int | None, int | None]:
     return None, None
 
 
+def hybrid_spans(rule: list[Span], model: list[Span], articles: list[Article]) -> list[Span]:
+    """GLiNER, plus the single-word names it missed that the rule extractor found.
+
+    The model loses inflected bare surnames («Навального», «Жлобицкого»), which are a
+    common form in this corpus; the rule extractor finds them but also claims multi-word
+    place and organization names. So a rule span is only taken when it is one word the
+    morphology recognizes as a name and not as a place — the shape the model misses,
+    without the shape it gets wrong.
+    """
+    from extraction.name_morphology import NameMorphology
+
+    morphology = NameMorphology()
+    texts = {article.case_id: article.text for article in articles}
+    by_article: dict[str, list[Span]] = {}
+    for span in model:
+        by_article.setdefault(span.article, []).append(span)
+
+    added: list[Span] = []
+    for span in rule:
+        if any(
+            span.start_offset < other.end_offset and other.start_offset < span.end_offset
+            for other in by_article.get(span.article, [])
+        ):
+            continue
+        words = span.surface_text.split()
+        if len(words) != 1:
+            continue
+        word = words[0]
+        if not morphology.is_name_word(word) or morphology.is_geographic(word):
+            continue
+        assert texts[span.article][span.start_offset : span.end_offset] == span.surface_text
+        added.append(
+            Span(
+                article=span.article,
+                url=span.url,
+                surface_text=span.surface_text,
+                start_offset=span.start_offset,
+                end_offset=span.end_offset,
+                confidence=span.confidence,
+                extractor="hybrid",
+            )
+        )
+
+    kept = [
+        Span(
+            article=s.article,
+            url=s.url,
+            surface_text=s.surface_text,
+            start_offset=s.start_offset,
+            end_offset=s.end_offset,
+            confidence=s.confidence,
+            extractor="hybrid",
+        )
+        for s in model
+    ]
+    return sorted(kept + added, key=lambda s: (s.article, s.start_offset, s.end_offset))
+
+
 def check_offsets(articles: list[Article], spans: list[Span]) -> list[str]:
     """`article.text[start:end] == surface_text` for every span, or it is reported."""
     texts = {article.case_id: article.text for article in articles}
@@ -220,7 +278,12 @@ def main() -> None:
         f"load={load_seconds:.1f}s device={args.device}"
     )
 
-    broken = check_offsets(articles, rule_spans + model_spans)
+    blended = hybrid_spans(rule_spans, model_spans, articles)
+    print(
+        f"hybrid spans={len(blended)} (gliner {len(model_spans)} + {len(blended) - len(model_spans)} rule-only single-word names)"
+    )
+
+    broken = check_offsets(articles, rule_spans + model_spans + blended)
     print(f"offset_invariant_violations={len(broken)}")
     for line in broken[:10]:
         print("  ", line)
@@ -241,7 +304,8 @@ def main() -> None:
             "load_seconds": round(load_seconds, 1),
         },
         "offset_violations": broken,
-        "spans": [asdict(span) for span in rule_spans + model_spans],
+        "hybrid": {"spans": len(blended)},
+        "spans": [asdict(span) for span in rule_spans + model_spans + blended],
         "golden": {
             article.case_id: [{"start": s, "end": e, "text": t} for s, e, t in article.golden]
             for article in articles
