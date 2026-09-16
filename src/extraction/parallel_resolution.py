@@ -10,6 +10,7 @@ different blocks cannot deadlock.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
@@ -20,10 +21,11 @@ from persons.persistence import SqlAlchemyPersonPersistence
 
 logger = logging.getLogger("person_resolution")
 
-# Past this the database saturates: 600 articles took 36 s in one process, 16 s in four
-# and 13 s in eight. Each worker also holds its own connection, and PostgreSQL here
-# allows 100.
-MAX_WORKERS = 8
+# A guard against a mistyped --workers, not a tuning knob: never more processes than
+# cores, and never more than this ceiling, because every worker holds a connection out of
+# the 100 PostgreSQL allows. Measured on 600 articles: 36 s in one process, 16 s in four,
+# 13 s in eight.
+MAX_WORKERS = min(os.cpu_count() or 4, 16)
 # One connection per worker: a worker resolves its articles one after another.
 _WORKER_POOL = DatabasePoolSettings(pool_size=1, max_overflow=0)
 
