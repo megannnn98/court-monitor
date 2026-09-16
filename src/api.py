@@ -1051,6 +1051,7 @@ def _page(
     counts = _status_counts(db)
     nav = [
         ("review", "ER-ревью", "/ui/person-resolution/reviews"),
+        ("candidates", "Кандидаты", "/ui/candidates"),
         ("search", "Поиск", "/ui/search"),
         ("operations", "Операции", "/ui/operations"),
         ("monitoring", "Monitoring", "/ui/monitoring"),
@@ -1388,6 +1389,71 @@ def ui_search(
         active="search",
         instruction="Lexical search ищет по ParsedArticle.text через PostgreSQL russian tsvector.",
         next_action="Введите фразу, откройте статью и используйте её как provenance, не как финальный результат.",
+        db=db,
+    )
+
+
+@app.get("/ui/candidates")
+def ui_candidates(
+    snapshot_id: int | None = Query(default=None, ge=1),
+    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
+    limit: int = Query(default=100, ge=1, le=1000),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
+    selected_snapshot_id = snapshot_id or (snapshots[0].id if snapshots else None)
+    if selected_snapshot_id is None:
+        return _page(
+            "Кандидаты",
+            '<p class="muted">Snapshot Росфинмониторинга ещё не загружен.</p>',
+            active="candidates",
+            instruction="Здесь люди с политической классификацией и подтверждённым отсутствием в выбранном snapshot РФМ.",
+            next_action="Импортируйте snapshot Росфинмониторинга через CLI, затем вернитесь сюда.",
+            db=db,
+            warning="Без snapshot нельзя отличить подтверждённое отсутствие от отсутствия проверки.",
+        )
+
+    try:
+        candidates = list_candidates(
+            snapshot_id=selected_snapshot_id,
+            min_persecution_confidence=min_confidence,
+            limit=limit,
+            db=db,
+        )
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+        candidates = []
+
+    snapshot_options = "".join(
+        f'<option value="{item.id}" {"selected" if item.id == selected_snapshot_id else ""}>'
+        f"{item.id} — {escape(item.snapshot_date)} ({item.entry_count:,})</option>"
+        for item in snapshots
+    )
+    rows = "".join(
+        f"""<tr>
+  <td><a href="/ui/persons/{candidate.person_id}">{candidate.person_id}</a></td>
+  <td><a href="/ui/persons/{candidate.person_id}">{escape(candidate.canonical_name)}</a></td>
+  <td>{candidate.persecution_confidence:.2f}</td>
+  <td>{candidate.event_count}</td>
+  <td>{escape(candidate.rosfinmonitoring_status)}</td>
+  <td>{escape(", ".join(candidate.persecution_reasons))}</td>
+</tr>"""
+        for candidate in candidates
+    )
+    return _page(
+        "Кандидаты",
+        f"""<form method="get" class="toolbar">
+  <label>Snapshot РФМ <select name="snapshot_id">{snapshot_options}</select></label>
+  <label>Min confidence <input type="number" name="min_confidence" min="0" max="1" step="0.05" value="{min_confidence}"></label>
+  <label>Limit <input type="number" name="limit" min="1" max="1000" value="{limit}"></label>
+  <button>Обновить</button>
+</form>
+<p class="muted">Найдено: {len(candidates)}. Статус РФМ: <code>not_matched</code>.</p>
+<table><thead><tr><th>ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
+        active="candidates",
+        instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",
+        next_action="Откройте Person, проверьте события и evidence spans в исходных статьях.",
         db=db,
     )
 
