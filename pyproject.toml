@@ -18,6 +18,7 @@ dependencies = [
     "pymorphy3>=2.0.6",
     "qdrant-client>=1.15",
     "rapidfuzz>=3.14",
+    "reportlab>=4.0",
     "selectolax>=0.3.29",
     "sqlalchemy>=2.0,<3.0",
     "uvicorn>=0.32.0",
@@ -61,4 +62,9 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # Optional `semantic` uv group; imported lazily. CI quality runs without it.
 module = ["sentence_transformers", "sentence_transformers.*", "torch", "torch.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# ReportLab does not ship type stubs; PDF generation remains runtime-checked.
+module = ["reportlab", "reportlab.*"]
 ignore_missing_imports = true

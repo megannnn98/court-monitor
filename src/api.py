@@ -8,13 +8,21 @@ from contextlib import asynccontextmanager
 from csv import writer
 from functools import lru_cache
 from html import escape
-from io import StringIO
+from io import BytesIO, StringIO
+from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -1451,6 +1459,7 @@ def ui_candidates(
   <label>Limit <input type="number" name="limit" min="1" max="1000" value="{limit}"></label>
   <button>Обновить</button>
   <a class="secondary" href="/ui/candidates/export?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать CSV</a>
+  <a class="secondary" href="/ui/candidates/export.pdf?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать PDF</a>
 </form>
 <p class="muted">Найдено: {len(candidates)}. Статус РФМ: <code>not_matched</code>.</p>
 <table><thead><tr><th>ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
@@ -1504,6 +1513,123 @@ def ui_candidates_export(
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="political-candidates-{snapshot_id}.csv"'
+        },
+    )
+
+
+def _candidate_pdf_font() -> tuple[str, str]:
+    regular_paths = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    )
+    bold_paths = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    )
+    regular = next((Path(path) for path in regular_paths if Path(path).exists()), None)
+    bold = next((Path(path) for path in bold_paths if Path(path).exists()), None)
+    if regular is None or bold is None:
+        raise HTTPException(status_code=503, detail="Cyrillic PDF font is not installed")
+    if "CandidateSans" not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont("CandidateSans", str(regular)))
+    if "CandidateSans-Bold" not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont("CandidateSans-Bold", str(bold)))
+    return "CandidateSans", "CandidateSans-Bold"
+
+
+@app.get("/ui/candidates/export.pdf")
+def ui_candidates_export_pdf(
+    snapshot_id: int = Query(..., ge=1),
+    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
+    limit: int = Query(default=100, ge=1, le=1000),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    candidates = list_candidates(
+        snapshot_id=snapshot_id,
+        min_persecution_confidence=min_confidence,
+        limit=limit,
+        db=db,
+    )
+    regular_font, bold_font = _candidate_pdf_font()
+    buffer = BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "CandidatePdfTitle", parent=styles["Title"], fontName=bold_font, fontSize=14, leading=18
+    )
+    cell_style = ParagraphStyle(
+        "CandidatePdfCell", parent=styles["BodyText"], fontName=regular_font, fontSize=7, leading=9
+    )
+    header_style = ParagraphStyle(
+        "CandidatePdfHeader", parent=cell_style, fontName=bold_font, textColor=colors.white
+    )
+
+    def cell(value: object, *, header: bool = False) -> Paragraph:
+        return Paragraph(escape(str(value)), header_style if header else cell_style)
+
+    headers = [
+        "ID",
+        "Персона",
+        "Political confidence",
+        "Причины",
+        "Events",
+        "RF status",
+        "RF match",
+    ]
+    data = [[cell(header, header=True) for header in headers]]
+    data.extend(
+        [
+            cell(candidate.person_id),
+            cell(candidate.canonical_name),
+            cell(f"{candidate.persecution_confidence:.2f}"),
+            cell("; ".join(candidate.persecution_reasons)),
+            cell(candidate.event_count),
+            cell(candidate.rosfinmonitoring_status),
+            cell(candidate.rosfinmonitoring_match_confidence or "—"),
+        ]
+        for candidate in candidates
+    )
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[14 * mm, 42 * mm, 25 * mm, 88 * mm, 15 * mm, 25 * mm, 22 * mm],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#243447")),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#b7c2cc")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef3f7")]),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    story = [
+        Paragraph("Политические кандидаты вне списка Росфинмониторинга", title_style),
+        Paragraph(
+            f"Snapshot: {snapshot_id}; minimum confidence: {min_confidence:.2f}; найдено: {len(candidates)}",
+            cell_style,
+        ),
+        Spacer(1, 6 * mm),
+        table,
+    ]
+    document.build(story)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="political-candidates-{snapshot_id}.pdf"'
         },
     )
 

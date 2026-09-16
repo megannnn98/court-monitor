@@ -14,7 +14,7 @@ WORKDIR /app
 
 # psycopg2 (a project dependency) builds from source.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc libc6-dev libpq-dev \
+    && apt-get install -y --no-install-recommends gcc libc6-dev libpq-dev fonts-dejavu-core \
     && apt-get clean
 
 # Semantic indexing needs sentence-transformers (large); opt in with

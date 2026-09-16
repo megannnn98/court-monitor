@@ -122,6 +122,7 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         article = client.get(f"/articles/{article_id}")
         search = client.get("/search/articles", params={"query": "пикет"})
         exported = client.get(f"/ui/candidates/export?snapshot_id={snapshot_id}")
+        exported_pdf = client.get(f"/ui/candidates/export.pdf?snapshot_id={snapshot_id}")
 
     assert detail.status_code == 200
     body = detail.json()
@@ -137,6 +138,9 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     assert exported.headers["content-type"].startswith("text/csv")
     assert "Иван Иванов" in exported.text
     assert "not_matched" in exported.text
+    assert exported_pdf.status_code == 200
+    assert exported_pdf.headers["content-type"] == "application/pdf"
+    assert exported_pdf.content.startswith(b"%PDF-")
 
 
 def test_ui_pages_have_operator_shell_and_contextual_instruction(
