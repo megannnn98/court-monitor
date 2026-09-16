@@ -192,15 +192,28 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
         rest = text[start + word.end() : end].split()
         # A name does not start with a word that has no nominative reading: «Калуги Ивана
         # Любшина», «Задержали Ивана». «София Чепик» keeps its first word — it is nominative.
+        unknown_before_full_name = (
+            # «Сколтеха Даниила Меркулова»: an unknown word before a name of its own is not
+            # part of it; with one name word left it may be a foreign given name («Ремзи»).
+            not morphology.is_known(surface)
+            and len(rest) >= 2
+            and all(morphology.is_name_word(other) for other in rest)
+        )
         if (
             rest
-            # A word the dictionary does not know may be a foreign given name: «Ремзи».
-            and morphology.is_known_non_name(surface)
+            and not morphology.is_name_word(surface)
             and any(morphology.is_name_word(other) for other in rest)
             and (
-                not morphology.can_be_nominative(surface)
-                # «Приговор Ремзи Куртнезирову»: the capital letter is the sentence start.
-                or (_starts_a_sentence(text, start) and morphology.is_known_non_name(surface))
+                unknown_before_full_name
+                or (
+                    morphology.is_known_non_name(surface)
+                    and (
+                        not morphology.can_be_nominative(surface)
+                        or morphology.is_adjective(surface)
+                        # «Приговор Ремзи Куртнезирову»: the capital opens the sentence.
+                        or _starts_a_sentence(text, start)
+                    )
+                )
             )
         ):
             start += word.end()
@@ -308,6 +321,10 @@ class RuleBasedEntityExtractor:
                 start = _trim_leading_non_name(text, match.start(), match.end(), self._morphology)
                 surface = text[start : match.end()]
                 if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
+                    continue
+                # «Skandi Klubb», «Frankfurter Allgemeine Zeitung»: people are written in
+                # Cyrillic in these sources, Latin spans are outlets, bands and venues.
+                if not re.search(r"[А-ЯЁа-яё]", surface):
                     continue
                 if self._is_person_stop_word(surface) or _is_not_a_person(
                     surface, self._morphology

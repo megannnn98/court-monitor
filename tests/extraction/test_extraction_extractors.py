@@ -376,3 +376,27 @@ def test_a_given_name_with_a_surname_initial_is_a_person() -> None:
     """Real case: OVD-Info writes «Виталия Л.» when it withholds the surname."""
     assert _people("Суд арестовал Виталия Л. на 15 суток.") == ["Виталия Л."]
     assert _people("Об этом сообщил С. Петров вчера.") == ["С. Петров"]
+
+
+def test_a_plural_place_name_before_the_name_is_trimmed() -> None:
+    """Real case: «Калуги Ивана Любшина» — «калуги» is also a nominative plural."""
+    assert _people("Суд оштрафовал жителя Калуги Ивана Любшина.") == ["Ивана Любшина"]
+
+
+def test_an_unknown_word_before_a_full_name_is_trimmed() -> None:
+    """Real case: «Сколтеха Даниила Меркулова» (an organisation the dictionary lacks)."""
+    assert _people("Задержали выпускника Сколтеха Даниила Меркулова.") == ["Даниила Меркулова"]
+    # One name word left: the unknown word may be a foreign given name and stays.
+    assert _people("Приговор Ремзи Куртнезирову огласили.") == ["Ремзи Куртнезирову"]
+
+
+def test_an_adjective_before_a_name_is_not_part_of_it() -> None:
+    """Real case: «Вечная Слава» became a person («Слава» is a name)."""
+    assert _people("На плите написано Вечная Слава героям.") == []
+    assert _people("Приехал Донской Иван вчера.") == ["Донской Иван"]
+
+
+def test_a_latin_script_span_is_not_a_person() -> None:
+    """Real cases: «Skandi Klubb», «Frankfurter Allgemeine Zeitung», «Just Got Lucky»."""
+    assert _people("Об этом пишет Frankfurter Allgemeine Zeitung сегодня.") == []
+    assert _people("Клуб Skandi Klubb закрыли.") == []

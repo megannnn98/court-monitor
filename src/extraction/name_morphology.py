@@ -50,8 +50,19 @@ class NameMorphology:
         return any("Geox" in parse.tag for parse in self._analyzer.parse(word))
 
     def can_be_nominative(self, word: str) -> bool:
-        """Whether any reading of the word is nominative («София» yes, «Калуги» no)."""
-        return any("nomn" in parse.tag for parse in self._analyzer.parse(word))
+        """Whether the word can be a singular nominative («София» yes, «Калуги» only plural)."""
+        return any(
+            "nomn" in parse.tag and "plur" not in parse.tag.grammemes
+            for parse in self._analyzer.parse(word)
+        )
+
+    def is_adjective(self, word: str) -> bool:
+        """An adjective is never part of a person name («Вечная Слава»)."""
+        parses = self._analyzer.parse(word)
+        return bool(parses) and all("ADJ" in str(parse.tag.POS or "") for parse in parses)
+
+    def is_known(self, word: str) -> bool:
+        return any(parse.is_known for parse in self._analyzer.parse(word))
 
     def is_known_non_name(self, word: str) -> bool:
         """A dictionary word that is never part of a name («Федерации», «Суда», «Танцы»).
