@@ -4,6 +4,7 @@ import re
 from collections.abc import Iterable
 
 from extraction.models import EntityType, ExtractionDocument, RawMention
+from extraction.name_morphology import NameMorphology
 
 _LEGAL_CODE = r"(?:УК\s+РФ|КоАП\s+РФ|Уголовного\s+кодекса\s+РФ|Уголовный\s+кодекс\s+РФ)"
 # After an article number the code is usually written without «РФ»: «ст. 207.3 УК».
@@ -36,6 +37,8 @@ _PERSON_PATTERNS = [
     re.compile(rf"\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b"),
     re.compile(rf"\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b"),
     re.compile(rf"\b{_INITIALS}{_CAPITALIZED_WORD}\b"),
+    # «Виталия Л.»: a given name with the surname reduced to an initial (OVD-Info style).
+    re.compile(rf"\b{_CAPITALIZED_WORD}\s+[А-ЯЁ]\.(?![А-Яа-яЁё])"),
 ]
 # Words that may start a capitalized two-word match without being part of the name:
 # sentence adverbs/conjunctions and role or occupation descriptors (by stem).
@@ -165,17 +168,56 @@ _LOCATION_PATTERN = re.compile(
 )
 
 
-def _trim_leading_non_name(text: str, start: int, end: int) -> int:
-    """Skip a leading sentence word or role descriptor captured by a capitalized match."""
+def _starts_a_sentence(text: str, start: int) -> bool:
+    """A capital letter at the start of a sentence says nothing about the word being a name."""
+    before = text[:start].rstrip()
+    return not before or before[-1] in ".!?:;»\n"
+
+
+def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorphology) -> int:
+    """Skip leading words that are not part of the name.
+
+    Sentence words and role descriptors by their own lists, plus a place name written
+    before the name itself: «России Мария Захарова», «Калуги Ивана Любшина».
+    """
     while True:
         word = re.match(r"\S+\s+", text[start:end])
         if word is None:
             return start
-        lowered = word.group(0).strip().lower()
+        surface = word.group(0).strip()
+        lowered = surface.lower()
         if lowered in _LEADING_NON_NAME_WORDS or lowered.startswith(_LEADING_ROLE_STEMS):
             start += word.end()
             continue
+        rest = text[start + word.end() : end].split()
+        # A name does not start with a word that has no nominative reading: «Калуги Ивана
+        # Любшина», «Задержали Ивана». «София Чепик» keeps its first word — it is nominative.
+        if (
+            rest
+            # A word the dictionary does not know may be a foreign given name: «Ремзи».
+            and morphology.is_known_non_name(surface)
+            and any(morphology.is_name_word(other) for other in rest)
+            and (
+                not morphology.can_be_nominative(surface)
+                # «Приговор Ремзи Куртнезирову»: the capital letter is the sentence start.
+                or (_starts_a_sentence(text, start) and morphology.is_known_non_name(surface))
+            )
+        ):
+            start += word.end()
+            continue
         return start
+
+
+def _is_not_a_person(surface: str, morphology: NameMorphology) -> bool:
+    """No word is a name and at least one is an ordinary dictionary word.
+
+    «Российской Федерации», «Танцы Минус», «Глава Росавиации». A span whose words the
+    dictionary does not know at all may be a foreign name («Джейкоб Тирни») and is kept.
+    """
+    words = surface.split()
+    if not words or any(morphology.is_name_word(word) for word in words):
+        return False
+    return any(morphology.is_known_non_name(word) for word in words)
 
 
 def _word_stem(word: str) -> str:
@@ -204,7 +246,12 @@ class RuleBasedEntityExtractor:
     # 1.1.0: surname-only references to a full name in the same article; leading role
     # and sentence words trimmed from names; overlapping name spans keep the longest.
     # 1.1.1: inflected organization names («Минюста», «Медиазоны») occupy their span.
-    extractor_version = "1.1.1"
+    # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
+    # not a person, both decided by the morphological dictionary.
+    extractor_version = "1.2.0"
+
+    def __init__(self, morphology: NameMorphology | None = None) -> None:
+        self._morphology = morphology or NameMorphology()
 
     def extract(self, document: ExtractionDocument) -> list[RawMention]:
         mentions: list[RawMention] = []
@@ -258,11 +305,13 @@ class RuleBasedEntityExtractor:
         spans: list[tuple[int, int]] = []
         for pattern in _PERSON_PATTERNS:
             for match in pattern.finditer(text):
-                start = _trim_leading_non_name(text, match.start(), match.end())
+                start = _trim_leading_non_name(text, match.start(), match.end(), self._morphology)
                 surface = text[start : match.end()]
                 if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
                     continue
-                if self._is_person_stop_word(surface):
+                if self._is_person_stop_word(surface) or _is_not_a_person(
+                    surface, self._morphology
+                ):
                     continue
                 if self._overlaps(start, match.end(), occupied_spans):
                     continue

@@ -281,7 +281,8 @@ def test_inflected_organization_name_is_not_part_of_a_person_name() -> None:
         if mention.entity_type is EntityType.PERSON
     ]
 
-    assert persons == []
+    # The organisation names stay out of the name; the person is the one the golden marks.
+    assert persons == ["Виталия Л."]
 
 
 def test_person_accusing_or_condemning_others_is_not_charged_or_sentenced() -> None:
@@ -346,3 +347,32 @@ def test_one_event_per_sentence_is_dated_by_the_earliest_trigger() -> None:
 def test_event_without_a_publication_date_has_no_date() -> None:
     assert _event_dates("Сегодня его задержали.", published_at=None) == [None]
     assert _event_dates("В 2025 году его задержали.", published_at=None) == [None]
+
+
+def test_a_place_name_before_the_name_is_not_part_of_it() -> None:
+    """Real cases: «России Мария Захарова», «Калуги Иван Любшин», «Подмосковья Александр Шестун»."""
+    assert _people("Об этом заявила России Мария Захарова.") == ["Мария Захарова"]
+    assert _people("Задержали Калуги Ивана Любшина.") == ["Ивана Любшина"]
+    assert _people("Дело Подмосковья Александра Шестуна закрыли.") == ["Александра Шестуна"]
+
+
+def test_a_place_name_is_kept_when_only_one_name_word_would_remain() -> None:
+    """«София» is also a city: trimming it would leave a single word and lose the person."""
+    assert _people("Активистка София Чепик уехала.") == ["София Чепик"]
+    assert _people("Приговор Ремзи Куртнезирову огласили.") == ["Ремзи Куртнезирову"]
+
+
+def test_a_span_of_ordinary_words_is_not_a_person() -> None:
+    """Real cases from the Telegram corpus: «Российской Федерации» (470 mentions),
+    «Танцы Минус», «Верховного Суда» were all stored as persons."""
+    assert _people("Это закон Российской Федерации.") == []
+    assert _people("Выступали Танцы Минус на площади.") == []
+    assert _people("Решение принял Верховного Суда представитель.") == []
+    # Unknown to the dictionary: a foreign name must survive.
+    assert _people("Приехал Джейкоб Тирни вчера.") == ["Джейкоб Тирни"]
+
+
+def test_a_given_name_with_a_surname_initial_is_a_person() -> None:
+    """Real case: OVD-Info writes «Виталия Л.» when it withholds the surname."""
+    assert _people("Суд арестовал Виталия Л. на 15 суток.") == ["Виталия Л."]
+    assert _people("Об этом сообщил С. Петров вчера.") == ["С. Петров"]

@@ -57,3 +57,17 @@ def test_one_unambiguous_word_settles_the_gender_of_the_whole_name() -> None:
     """«Андрея» is masculine in every reading, so the surname follows it."""
     assert MORPHOLOGY.to_nominative("Андрея Волкова") == "Андрей Волков"
     assert MORPHOLOGY.to_nominative("Ольгу Волкову") == "Ольга Волкова"
+
+
+def test_words_are_classified_as_name_parts_or_ordinary_words() -> None:
+    """Real cases: «России Мария Захарова», «Российской Федерации» as a person."""
+    assert MORPHOLOGY.is_name_word("Мария") and MORPHOLOGY.is_name_word("Захарова")
+    assert MORPHOLOGY.is_name_word("Роман")  # both a name and a common noun
+    assert not MORPHOLOGY.is_name_word("России")
+
+    assert MORPHOLOGY.is_known_non_name("Федерации")
+    assert MORPHOLOGY.is_known_non_name("России")
+    assert not MORPHOLOGY.is_known_non_name("Мария")
+    # Unknown to the dictionary: a foreign surname, not something to drop.
+    assert not MORPHOLOGY.is_known_non_name("Тирни")
+    assert not MORPHOLOGY.is_known_non_name("Росавиации")

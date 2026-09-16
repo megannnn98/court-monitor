@@ -41,6 +41,29 @@ class NameMorphology:
             for word, word_parses in zip(words, parses, strict=True)
         )
 
+    def is_name_word(self, word: str) -> bool:
+        """Whether the dictionary knows the word as a name, a surname or a patronymic."""
+        return bool(self._name_parses(word))
+
+    def is_geographic(self, word: str) -> bool:
+        """A place name by the dictionary («России», «Калуги»), never a name of its own here."""
+        return any("Geox" in parse.tag for parse in self._analyzer.parse(word))
+
+    def can_be_nominative(self, word: str) -> bool:
+        """Whether any reading of the word is nominative («София» yes, «Калуги» no)."""
+        return any("nomn" in parse.tag for parse in self._analyzer.parse(word))
+
+    def is_known_non_name(self, word: str) -> bool:
+        """A dictionary word that is never part of a name («Федерации», «Суда», «Танцы»).
+
+        A word the dictionary does not know (a foreign or rare name: «Тирни», «Росавиации»)
+        is not judged here — dropping it would lose real people.
+        """
+        parses = self._analyzer.parse(word)
+        return (
+            bool(parses) and any(parse.is_known for parse in parses) and not self.is_name_word(word)
+        )
+
     @lru_cache(maxsize=100_000)  # noqa: B019 - one analyzer per normalizer, bounded cache
     def _name_parses(self, word: str) -> tuple[Parse, ...]:
         """Singular name/surname/patronymic parses, best score first."""
