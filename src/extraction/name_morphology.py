@@ -93,7 +93,7 @@ class NameMorphology:
             for parse in parses
         )
 
-    def name_normal_forms(self, word: str) -> frozenset[str]:
+    def name_normal_forms(self, word: str, *, fold_feminine: bool = False) -> frozenset[str]:
         """Dictionary base forms of the word as a name («Яроцкого» and «Яроцкий» share one).
 
         A surname also yields its masculine base form, because the dictionary reads
@@ -108,9 +108,12 @@ class NameMorphology:
                 if masculine is not None:
                     forms.add(masculine.word)
         keys = {form.replace("ё", "е") for form in forms}
-        # «Паклина» is read as a feminine given name, while the article writes «Паклин»:
-        # the feminine ending is dropped so both forms meet on one key.
-        keys |= {key[:-1] for key in keys if key[-1:] in "ая" and len(key) > 4}
+        if fold_feminine:
+            # «Романа Паклина» is a man in the genitive, but the dictionary reads «Паклина»
+            # as a feminine given name: dropping the ending lets both forms meet on one key.
+            # Only for a name written in an oblique case — «Анна Иванова» must not fold into
+            # «Иванов», who is another person (review finding).
+            keys |= {key[:-1] for key in keys if key[-1:] in "ая" and len(key) > 4}
         return frozenset(keys)
 
     def gender_of(self, name: str) -> str | None:
@@ -134,6 +137,32 @@ class NameMorphology:
             if len(genders) == 1:
                 return genders.pop()
         return None
+
+    def certain_gender(self, word: str) -> str | None:
+        """The gender when every reading of the word as a name agrees on it («Анна»)."""
+        genders = {
+            gender
+            for parse in self._name_parses(word)
+            for gender in _GENDERS
+            if gender in parse.tag.grammemes
+        }
+        return genders.pop() if len(genders) == 1 else None
+
+    def surname_gender(self, word: str) -> str | None:
+        """Gender by the Russian surname ending («Иванова» feminine, «Иванов» masculine)."""
+        lowered = word.lower().replace("ё", "е")
+        if lowered.endswith(_FEMININE_SURNAME_ENDINGS):
+            return "femn"
+        if lowered.endswith(_MASCULINE_SURNAME_ENDINGS):
+            return "masc"
+        return None
+
+    def is_verb(self, word: str) -> bool:
+        """Whether the word can be a verb («задержали» yes, «адвоката» no)."""
+        return any(
+            str(parse.tag.POS or "") in {"VERB", "INFN", "PRTF", "PRTS", "GRND"}
+            for parse in self._analyzer.parse(word)
+        )
 
     def is_geographic(self, word: str) -> bool:
         """A place name by the dictionary («России», «Калуги»), never a name of its own here."""

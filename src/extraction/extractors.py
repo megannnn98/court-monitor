@@ -183,6 +183,17 @@ def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphol
     return end
 
 
+def _capitalized_run(text: str, start: int, end: int) -> list[str]:
+    """The uninterrupted run of capitalized words this span belongs to."""
+    left = start
+    while (previous := re.search(rf"({_CAPITALIZED_WORD})\s+$", text[:left])) is not None:
+        left = previous.start(1)
+    right = end
+    while (following := re.match(rf"\s+({_CAPITALIZED_WORD})", text[right:])) is not None:
+        right += following.end(1)
+    return text[left:right].split()
+
+
 def _starts_a_sentence(text: str, start: int) -> bool:
     """A capital letter at the start of a sentence says nothing about the word being a name."""
     before = text[:start].rstrip()
@@ -348,6 +359,8 @@ class RuleBasedEntityExtractor:
                     continue
                 if self._overlaps(start, span_end, occupied_spans):
                     continue
+                if not self._is_plausible_full_name(text, start, span_end):
+                    continue
                 spans.append((start, span_end))
         # Overlapping readings of one name («Ольга Иванова» and «Ольга Иванова Петровна»):
         # keep the longest.
@@ -372,13 +385,32 @@ class RuleBasedEntityExtractor:
         Only surnames already named in full here are recognised: a capitalized word
         alone is never a person by itself.
         """
-        keys: set[str] = set()
+        # A surname key per required gender. The dictionary base form of «Иванова» is the
+        # masculine «иванов», so a name written in the nominative only matches a repeat of
+        # the same gender: «Анна Иванова» and «Иванов» are two people (review finding). A
+        # name in an oblique case («Романа Паклина») carries a case ending, not a feminine
+        # one, so its key is folded and matches any gender.
+        keys: dict[str | None, set[str]] = {}
         for start, end in names:
-            surname = _surname_word(text[start:end])
-            if surname is not None:
-                # The dictionary base form matches every case («Яроцкий» = «Яроцкого»);
-                # a surname it does not know falls back to the hand-cut stem.
-                keys |= self._morphology.name_normal_forms(surname) or {_word_stem(surname)}
+            full_name = text[start:end]
+            surname = _surname_word(full_name)
+            if surname is None:
+                continue
+            oblique = any(
+                not self._morphology.can_be_nominative(word) for word in full_name.split()
+            )
+            # Only a given name that states its gender outright («Анна Иванова») requires
+            # the repeat to agree: «Романа Паклина» reads as either gender, and demanding
+            # agreement there cost 16 mentions on the validation corpus.
+            words = full_name.split()
+            gender = None if oblique else self._morphology.certain_gender(words[0])
+            # «Романа Паклина»: unless the given name says the person is a woman, a final
+            # «а» is a case ending and the key is folded; for «Анна Иванова» the gender
+            # above blocks a repeat written as «Иванов».
+            forms = self._morphology.name_normal_forms(surname, fold_feminine=gender != "femn") or {
+                _word_stem(surname)
+            }
+            keys.setdefault(gender, set()).update(forms)
         if not keys:
             return []
         references = []
@@ -387,11 +419,44 @@ class RuleBasedEntityExtractor:
             if self._overlaps(match.start(), match.end(), taken):
                 continue
             word = match.group(0)
-            if (self._morphology.name_normal_forms(word) or {_word_stem(word)}) & keys:
+            forms = self._morphology.name_normal_forms(
+                word, fold_feminine=not self._morphology.can_be_nominative(word)
+            ) or {_word_stem(word)}
+            # Only one direction is blocked: a woman's surname does not repeat as a
+            # masculine form («Анна Иванова» and «Иванов» are two people). The reverse is
+            # normal Russian: «Андрея Акузина» is a man's surname in the genitive, whose
+            # ending looks feminine.
+            masculine_form = self._morphology.surname_gender(word) == "masc"
+            allowed = {
+                key
+                for gender, gender_keys in keys.items()
+                for key in gender_keys
+                if not (gender == "femn" and masculine_form)
+            }
+            if forms & allowed:
                 references.append(
                     self._mention(EntityType.PERSON, text, match.start(), match.end(), 0.6)
                 )
         return references
+
+    def _is_plausible_full_name(self, text: str, start: int, end: int) -> bool:
+        """Reject a three-word span that cuts across a list of people.
+
+        «Иван Петров Сергей Сидоров» is four capitalized words in a row with no
+        patronymic: two names, not one (review finding). A three-word name standing on its
+        own is kept even without a patronymic («Дон Виктор Кирман»), because requiring one
+        measured worse: duplicate persons 1 -> 2 on the validation corpus.
+        """
+        words = text[start:end].split()
+        if len(words) < 3 or any(self._morphology.is_patronymic(word) for word in words):
+            return True
+        # Only name words count: «Задержали Дон Виктор Кирман» is one name after a verb.
+        run = [
+            word
+            for word in _capitalized_run(text, start, end)
+            if self._morphology.is_name_word(word)
+        ]
+        return len(run) < 4
 
     @staticmethod
     def _is_person_stop_word(surface: str) -> bool:

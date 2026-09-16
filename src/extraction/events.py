@@ -98,10 +98,16 @@ _NOUN_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     (EventType.FINE, _W + r"(?:штраф\w*)"),
 )
 # «Его задержали», «Ей предъявили обвинение»: the sentence names nobody, the person is
-# the one named before it. Plural pronouns («их», «им») are never resolved: they stand for
-# a group, and attributing an event to the wrong person is worse than leaving it unlinked.
-_MASCULINE_PRONOUN = re.compile(r"(?<![а-яё])(?:его|ему|им|нем|нём|него|нему|ним)(?![а-яё])")
+# the one named before it. Plural pronouns («их», «им», «ими») are never resolved — they
+# stand for a group — and «им» is only plural here, since the masculine instrumental
+# «ним» is written with the preposition.
+_MASCULINE_PRONOUN = re.compile(r"(?<![а-яё])(?:его|ему|нем|нём|него|нему|ним)(?![а-яё])")
 _FEMININE_PRONOUN = re.compile(r"(?<![а-яё])(?:ее|её|ей|ней|нее|неё|нею)(?![а-яё])")
+# «Его адвоката задержали», «Ее дочь оштрафовали»: the pronoun belongs to the next word,
+# and the event is about that person, not about its owner.
+_PRONOUN_WITH_OWNER = re.compile(
+    r"(?<![а-яё])(?:его|ее|её|их)\s+(?P<owned>[а-яёa-z]+)(?![а-яё])", re.IGNORECASE
+)
 
 _NEGATION_BEFORE = re.compile(r"(?<![а-яё])не\s+(?:[а-яё]+\s+)?$")
 # «до ареста», «после первого ареста», «согласно второму приговору»: a reference to
@@ -163,7 +169,7 @@ class RuleBasedEventExtractor:
             sentence_end = sentence_start + len(sentence)
             links = self._links_for_sentence(mentions, sentence_start, sentence_end, document.text)
             if not any(link.role is EventEntityRole.TARGET for link in links):
-                antecedent = self._antecedent(mentions, sentence, sentence_start)
+                antecedent = self._antecedent(mentions, sentence, sentence_start, document.text)
                 if antecedent is not None:
                     links.append(
                         EventEntityLink(role=EventEntityRole.TARGET, mention_index=antecedent)
@@ -203,7 +209,11 @@ class RuleBasedEventExtractor:
         return None
 
     def _antecedent(
-        self, mentions: list[NormalizedMention], sentence: str, sentence_start: int
+        self,
+        mentions: list[NormalizedMention],
+        sentence: str,
+        sentence_start: int,
+        text: str,
     ) -> int | None:
         """The person a pronoun of this sentence stands for, when only one person can fit.
 
@@ -216,21 +226,49 @@ class RuleBasedEventExtractor:
         if masculine == feminine:
             # No pronoun at all, or both genders: nothing to resolve.
             return None
+        if self._only_owns_the_next_word(lowered):
+            return None
         before = [
             index
             for index, mention in enumerate(mentions)
             if mention.entity_type is EntityType.PERSON and mention.end_offset <= sentence_start
         ]
-        if not before:
+        if len(before) < _ANTECEDENT_DEPTH:
             return None
         candidate = before[-1]
-        name = mentions[candidate].normalized_text
-        if any(mentions[index].normalized_text != name for index in before[-_ANTECEDENT_DEPTH:]):
+        # A pronoun does not reach into the previous paragraph.
+        if "\n\n" in text[mentions[candidate].end_offset : sentence_start]:
             return None
+        # The recent mentions must all be the same person: «Роман Паклин» and «Паклин» are,
+        # «Иван Петров» and «Сергей Сидоров» are not.
+        surname = self._surname_keys(mentions[candidate].normalized_text)
+        if not surname or any(
+            not (surname & self._surname_keys(mentions[index].normalized_text))
+            for index in before[-_ANTECEDENT_DEPTH:]
+        ):
+            return None
+        name = mentions[candidate].normalized_text
         gender = self._morphology.gender_of(name)
         if gender is None or gender != ("masc" if masculine else "femn"):
             return None
         return candidate
+
+    def _surname_keys(self, name: str) -> frozenset[str]:
+        words = name.split()
+        return self._morphology.name_normal_forms(words[-1]) if words else frozenset()
+
+    def _only_owns_the_next_word(self, lowered_sentence: str) -> bool:
+        """Every pronoun of the sentence is possessive («его адвоката», «ее дочь»)."""
+        owners = list(_PRONOUN_WITH_OWNER.finditer(lowered_sentence))
+        if not owners:
+            return False
+        pronouns = len(_MASCULINE_PRONOUN.findall(lowered_sentence)) + len(
+            _FEMININE_PRONOUN.findall(lowered_sentence)
+        )
+        possessive = sum(
+            1 for match in owners if not self._morphology.is_verb(match.group("owned"))
+        )
+        return possessive >= pronouns
 
     @staticmethod
     def _links_for_sentence(

@@ -452,17 +452,19 @@ def _event_people(text: str) -> list[list[str]]:
 
 def test_a_pronoun_links_the_event_to_the_person_named_before() -> None:
     """Real cases: «Роман Паклин … Его задержали», «Ему предъявили обвинение»."""
-    assert _event_people("Роман Паклин сидит в колонии. Его задержали в августе.") == [
-        ["Роман Паклин"]
-    ]
-    assert _event_people("Зарема Мусаева в колонии. Ее приговорили к трем годам.") == [
-        ["Зарема Мусаева"]
-    ]
+    assert _event_people(
+        "Роман Паклин сидит в колонии. Паклин потерял зрение. Его задержали в августе."
+    ) == [["Паклин"]]
+    assert _event_people(
+        "Зарема Мусаева в колонии. Мусаева больна. Ее приговорили к трем годам."
+    ) == [["Мусаева"]]
 
 
 def test_a_pronoun_of_another_gender_is_not_linked() -> None:
     """Attributing an event to the wrong person is worse than leaving it unlinked."""
-    assert _event_people("Роман Паклин сидит в колонии. Ее приговорили к трем годам.") == [[]]
+    assert _event_people(
+        "Роман Паклин сидит в колонии. Паклин молчал. Ее приговорили к трем годам."
+    ) == [[]]
 
 
 def test_a_pronoun_is_not_linked_when_two_people_stand_before_it() -> None:
@@ -475,3 +477,48 @@ def test_talking_about_an_event_is_not_the_event() -> None:
     """Real case: «суд рассматривал иск о его освобождении» was extracted as a release."""
     assert _event_types("Суд рассматривал иск о его освобождении в связи с болезнью.") == []
     assert _event_types("Его освободили из СИЗО в связи с болезнью.") == ["release"]
+
+
+def test_a_possessive_pronoun_does_not_link_the_event_to_its_owner() -> None:
+    """Review finding: «Его адвоката задержали» is about the lawyer, not about him."""
+    assert _event_people("Иван Петров в СИЗО. Петров молчал. Его адвоката задержали вчера.") == [[]]
+    assert _event_people("Зарема Мусаева в колонии. Мусаева больна. Ее дочь оштрафовали.") == [[]]
+
+
+def test_a_plural_pronoun_never_resolves_to_one_person() -> None:
+    """Review finding: «им» is also the plural dative and stood in the masculine set."""
+    assert _event_people("Иван Петров выступал. Петров молчал. Им предъявили обвинение.") == [[]]
+    assert _event_people("Иван Петров выступал. Петров молчал. Их задержали в августе.") == [[]]
+
+
+def test_a_single_earlier_mention_is_not_enough_for_a_pronoun() -> None:
+    """Review finding: the depth of two was not enforced — one mention passed the check."""
+    assert _event_people("Иван Петров выступал вчера. Его задержали в августе.") == [[]]
+    assert _event_people(
+        "Иван Петров выступал вчера. Иван Петров молчал. Его задержали в августе."
+    ) == [["Иван Петров"]]
+
+
+def test_a_pronoun_does_not_reach_across_a_paragraph() -> None:
+    text = "Иван Петров выступал. Иван Петров молчал.\n\nЕго задержали в августе."
+
+    assert _event_people(text) == [[]]
+
+
+def test_two_names_in_a_row_are_not_one_three_word_span() -> None:
+    """Review finding: «Иван Петров Сергей Сидоров» produced «Петров Сергей Сидоров»."""
+    assert _people("Задержали Иван Петров Сергей Сидоров.") == ["Иван Петров", "Сергей Сидоров"]
+
+
+def test_a_three_word_name_with_a_patronymic_stays_whole() -> None:
+    assert _people("Суд оставил Мифтахова Азата Фанисовича в колонии.") == [
+        "Мифтахова Азата Фанисовича"
+    ]
+    assert _people("Шевченко Татьяна Андреевна подала жалобу.") == ["Шевченко Татьяна Андреевна"]
+
+
+def test_a_masculine_surname_is_not_a_repeat_of_a_feminine_one() -> None:
+    """Review finding: folding «иванова» to «иванов» made a man a repeat of a woman."""
+    assert _people("Анна Иванова выступила. Иванов сообщил другое.") == ["Анна Иванова"]
+    # The same person in another case still repeats.
+    assert _people("Романа Паклина увезли. Паклин подал жалобу.") == ["Романа Паклина", "Паклин"]
