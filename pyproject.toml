@@ -40,10 +40,15 @@ mcp = [
 semantic = [
     "sentence-transformers>=5.0",
 ]
+# Person-name detection: the recognizer model and the experiment that chose it.
+# Not needed by the rule-based person extraction, so it stays an opt-in group:
+# `uv sync --group ner`. Deliberately not gliner2's "local" extra, which pins
+# transformers<5 and would downgrade the semantic stack.
 ner = [
-    # Person-name detection; the model is a token-classification encoder.
-    "transformers>=5.0",
+    "gliner2>=2.0",
+    "peft>=0.10",
     "torch>=2.4",
+    "transformers>=5.0",
 ]
 
 [tool.uv]
@@ -74,6 +79,8 @@ module = [
     "torch.*",
     "transformers",
     "transformers.*",
+    "gliner2",
+    "gliner2.*",
 ]
 ignore_missing_imports = true
 
