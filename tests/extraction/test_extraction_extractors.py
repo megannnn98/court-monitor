@@ -70,7 +70,9 @@ def test_normalizes_person_and_legal_reference() -> None:
 
     normalized = [normalizer.normalize(mention, document) for mention in mentions]
 
-    assert ("person", "Александр Иванов") in {
+    # «Александра Иванова» is both a masculine genitive and a feminine nominative; the
+    # normalizer does not guess and keeps the surface (see test_name_morphology.py).
+    assert ("person", "Александра Иванова") in {
         (mention.entity_type.value, mention.normalized_text) for mention in normalized
     }
     legal = next(

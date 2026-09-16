@@ -12,8 +12,11 @@ from extraction.models import (
     PersonNormalizedData,
     RawMention,
 )
+from extraction.name_morphology import NameMorphology
 
-NORMALIZER_VERSION = "1.0.0"
+# 1.1.0: personal names are brought to the nominative case with a morphological
+# dictionary instead of a suffix table («Ольгу Комлеву» → «Ольга Комлева»).
+NORMALIZER_VERSION = "1.1.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -31,23 +34,6 @@ _LEGAL_CODES = (
     ("Уголовного кодекса", "УК"),
     ("Уголовный кодекс", "УК"),
 )
-_CASE_SUFFIXES = (
-    ("ого", "ый"),
-    ("его", "ий"),
-    ("ому", "ый"),
-    ("ему", "ий"),
-    ("ым", "ый"),
-    ("им", "ий"),
-    ("ую", "ая"),
-    ("ой", "ая"),
-    ("ых", "ый"),
-    ("их", "ий"),
-    ("а", ""),
-    ("у", ""),
-    ("ом", ""),
-    ("ым", ""),
-    ("е", ""),
-)
 _LOCATION_ALIASES = {
     "москве": "Москва",
     "москвы": "Москва",
@@ -60,6 +46,9 @@ _LOCATION_ALIASES = {
 
 class RuleBasedMentionNormalizer:
     normalizer_version = NORMALIZER_VERSION
+
+    def __init__(self, name_morphology: NameMorphology | None = None) -> None:
+        self._name_morphology = name_morphology or NameMorphology()
 
     def supports(self, entity_type: EntityType) -> bool:
         return entity_type in set(EntityType)
@@ -122,7 +111,7 @@ class RuleBasedMentionNormalizer:
                 matching_key=matching_key,
             )
 
-        normalized_words = [self._normalize_name_word(word) for word in words]
+        normalized_words = self._name_morphology.to_nominative(" ".join(words)).split()
         normalized = " ".join(normalized_words)
         first_name = normalized_words[0] if len(normalized_words) >= 2 else None
         last_name = normalized_words[1] if len(normalized_words) == 2 else normalized_words[0]
@@ -185,16 +174,6 @@ class RuleBasedMentionNormalizer:
             matching_key=self._matching_key(name),
         )
         return name, data
-
-    @staticmethod
-    def _normalize_name_word(word: str) -> str:
-        clean = word.strip()
-        lowered = clean.lower()
-        for suffix, replacement in _CASE_SUFFIXES:
-            if len(lowered) > len(suffix) + 2 and lowered.endswith(suffix):
-                lowered = lowered[: -len(suffix)] + replacement
-                break
-        return lowered[:1].upper() + lowered[1:]
 
     @staticmethod
     def _matching_key(value: str) -> str:

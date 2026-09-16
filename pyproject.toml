@@ -15,6 +15,7 @@ dependencies = [
     "psycopg2>=2.9.13",
     "psycopg[binary]>=3.2",
     "pydantic>=2.11.0",
+    "pymorphy3>=2.0.6",
     "qdrant-client>=1.15",
     "rapidfuzz>=3.14",
     "selectolax>=0.3.29",
@@ -51,6 +52,11 @@ markers = [
     "qdrant: needs a running Qdrant service; opt-in via QDRANT_TEST_URL",
     "semantic_models: loads real embedding/reranker models; opt-in via SEMANTIC_MODEL_TESTS=1",
 ]
+
+[[tool.mypy.overrides]]
+# Morphological dictionary for personal names; ships no type information.
+module = ["pymorphy3", "pymorphy3.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # Optional `semantic` uv group; imported lazily. CI quality runs without it.
