@@ -155,6 +155,20 @@
       "historical": true
     },
     {
+      "event_id": "e4",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-mamedov-rafael"
+      ],
+      "evidence": {
+        "start": 517,
+        "end": 589,
+        "text": "Изначально его обвиняли только в участии в террористической организации."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
       "event_id": "e3",
       "event_type": "charge",
       "person_ids": [

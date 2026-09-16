@@ -141,6 +141,18 @@
       "historical": false
     },
     {
+      "event_id": "e5",
+      "event_type": "release",
+      "person_ids": [],
+      "evidence": {
+        "start": 1298,
+        "end": 1393,
+        "text": "11:38 Защитница Ольга сообщила, что задержанных было 16 и из отдела отпустили еще одну девушку."
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
       "event_id": "e4",
       "event_type": "release",
       "person_ids": [],
@@ -156,7 +168,8 @@
   "disputed": [
     "The source spells the journalist both Ощепков and Ощепов (typo); annotated as one person.",
     "«Ольга» is a defender known only by given name.",
-    "Are a journalist and a bystander detained at a rally 'politically persecuted'? Annotated political with uncertain/needs_review acceptable."
+    "Are a journalist and a bystander detained at a rally 'politically persecuted'? Annotated political with uncertain/needs_review acceptable.",
+    "The live blog also gives running totals of releases («отпустили шесть человек», «уже восемь задержанных»); those restate earlier releases and are not annotated again."
   ],
   "notes": null,
   "known_limitation": null,

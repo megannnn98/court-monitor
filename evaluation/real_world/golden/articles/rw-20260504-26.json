@@ -181,15 +181,15 @@
       "historical": false
     },
     {
-      "event_id": "e5",
-      "event_type": "arrest",
+      "event_id": "e8",
+      "event_type": "charge",
       "person_ids": [
         "gp-lyubshin-ivan"
       ],
       "evidence": {
-        "start": 1960,
-        "end": 2020,
-        "text": "17:26 Судья Александр Сенькин арестовал Любшина на 12 суток."
+        "start": 1434,
+        "end": 1534,
+        "text": "Его обвинили в том, что он ругался матом в общественном месте и не реагировал на замечания прохожих."
       },
       "shared": false,
       "historical": false
@@ -207,6 +207,20 @@
       },
       "shared": false,
       "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-lyubshin-ivan"
+      ],
+      "evidence": {
+        "start": 1960,
+        "end": 2020,
+        "text": "17:26 Судья Александр Сенькин арестовал Любшина на 12 суток."
+      },
+      "shared": false,
+      "historical": false
     },
     {
       "event_id": "e7",

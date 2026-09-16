@@ -136,6 +136,20 @@
       "historical": true
     },
     {
+      "event_id": "e5",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-badmaev-alexey"
+      ],
+      "evidence": {
+        "start": 1812,
+        "end": 1926,
+        "text": "В оправдании терроризма Бадмаева обвинили из-за комментариев во «ВКонтакте», посвященных легиону «Свобода России»."
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
       "event_id": "e4",
       "event_type": "sentence",
       "person_ids": [

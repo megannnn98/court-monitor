@@ -1,6 +1,6 @@
 {
-  "dataset_version": "real-world-v1-draft.1",
-  "golden_dataset_hash": "8753c6ae0543e1c74ad54b7cece39fbc7ef4932f986f54f327efbb57053314f0",
+  "dataset_version": "real-world-v1-draft.2",
+  "golden_dataset_hash": "8628af56149456128f040503d045ab851ebcbfeee7b448df97db0cf3fc220c78",
   "rf_snapshot_id": "rf-eval-v1",
   "rf_snapshot_path": "evaluation/real_world/rf_snapshot_eval_v1.csv"
 }
