@@ -156,8 +156,10 @@ def test_ui_pages_have_operator_shell_and_contextual_instruction(
         operations = client.get("/ui/operations")
         monitoring = client.get("/ui/monitoring")
         candidates = client.get("/ui/candidates")
+        wiki = client.get("/ui/wiki")
+        wiki_page = client.get("/ui/wiki/Local-Web-UI")
 
-    for response in (review, search, operations, monitoring, candidates):
+    for response in (review, search, operations, monitoring, candidates, wiki, wiki_page):
         assert response.status_code == 200
         assert "court-monitor" in response.text
         assert "Дальше:" in response.text
@@ -165,6 +167,8 @@ def test_ui_pages_have_operator_shell_and_contextual_instruction(
     assert "Что такое ER-ревью" in review.text
     assert "А. П. Иванов" in review.text
     assert "Связать" in review.text
+    assert "Local-Web-UI" in wiki.text
+    assert "Что такое ER-ревью" in wiki_page.text
 
 
 def test_operation_preview_confirm_and_run_detail_use_background_registry(

@@ -10,7 +10,7 @@ from functools import lru_cache
 from html import escape
 from io import BytesIO, StringIO
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -1065,6 +1065,7 @@ def _page(
         ("search", "Поиск", "/ui/search"),
         ("operations", "Операции", "/ui/operations"),
         ("monitoring", "Monitoring", "/ui/monitoring"),
+        ("wiki", "Wiki", "/ui/wiki"),
     ]
     links = "\n".join(
         f'<a class="{"active" if key == active else ""}" href="{href}">{label}</a>'
@@ -1398,6 +1399,7 @@ def ui_search(
 </tr>"""
         for hit in results
     )
+
     return _page(
         "Поиск",
         f"""<form method="get" class="search">
@@ -1408,6 +1410,94 @@ def ui_search(
         active="search",
         instruction="Lexical search ищет по ParsedArticle.text через PostgreSQL russian tsvector.",
         next_action="Введите фразу, откройте статью и используйте её как provenance, не как финальный результат.",
+        db=db,
+    )
+
+
+def _wiki_root() -> Path:
+    return Path(__file__).resolve().parent.parent / "docs" / "wiki"
+
+
+def _wiki_pages() -> list[Path]:
+    return sorted(_wiki_root().glob("*.md"), key=lambda path: path.name.lower())
+
+
+def _wiki_markdown_to_html(markdown: str) -> str:
+    rendered: list[str] = []
+    in_code = False
+    code_lines: list[str] = []
+    list_open = False
+    for raw_line in markdown.splitlines():
+        line = raw_line.rstrip()
+        if line.startswith("```"):
+            if in_code:
+                rendered.append(f"<pre><code>{escape(chr(10).join(code_lines))}</code></pre>")
+                code_lines = []
+                in_code = False
+            else:
+                if list_open:
+                    rendered.append("</ul>")
+                    list_open = False
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(line)
+            continue
+        if not line:
+            if list_open:
+                rendered.append("</ul>")
+                list_open = False
+            continue
+        if line.startswith("#"):
+            if list_open:
+                rendered.append("</ul>")
+                list_open = False
+            level = min(len(line) - len(line.lstrip("#")), 4)
+            rendered.append(f"<h{level}>{escape(line[level:].strip())}</h{level}>")
+        elif line.startswith("- "):
+            if not list_open:
+                rendered.append("<ul>")
+                list_open = True
+            rendered.append(f"<li>{escape(line[2:])}</li>")
+        else:
+            if list_open:
+                rendered.append("</ul>")
+                list_open = False
+            rendered.append(f"<p>{escape(line)}</p>")
+    if in_code:
+        rendered.append(f"<pre><code>{escape(chr(10).join(code_lines))}</code></pre>")
+    if list_open:
+        rendered.append("</ul>")
+    return "\n".join(rendered)
+
+
+@app.get("/ui/wiki")
+def ui_wiki_index(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
+    pages = "".join(
+        f'<li><a href="/ui/wiki/{quote(page.stem)}">{escape(page.stem)}</a></li>'
+        for page in _wiki_pages()
+    )
+    return _page(
+        "Wiki",
+        f'<ul class="wiki-index">{pages}</ul>',
+        active="wiki",
+        instruction="Wiki — справочник по проекту, pipeline и операторской консоли.",
+        next_action="Откройте страницу, которая нужна для текущей операции.",
+        db=db,
+    )
+
+
+@app.get("/ui/wiki/{slug}")
+def ui_wiki_page(slug: str, db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
+    page = _wiki_root() / f"{slug}.md"
+    if page.parent != _wiki_root() or not page.is_file():
+        raise HTTPException(status_code=404, detail="Wiki page not found")
+    return _page(
+        page.stem,
+        _wiki_markdown_to_html(page.read_text(encoding="utf-8")),
+        active="wiki",
+        instruction="Wiki — справочная страница проекта.",
+        next_action="Вернитесь в Operator console через навигацию слева.",
         db=db,
     )
 

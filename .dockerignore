@@ -8,4 +8,6 @@
 .aider*
 .qwen
 tests
-docs
+docs/*
+!docs/wiki/
+!docs/wiki/**

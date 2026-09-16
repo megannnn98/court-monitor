@@ -37,6 +37,7 @@ docker compose --profile api up -d
 - `/ui/operations` — preview/confirm запуск routine operations.
 - `/ui/operations/runs/{run_id}` — состояние operation run и вывод команды.
 - `/ui/monitoring` — последние monitoring runs и active findings.
+- `/ui/wiki` — встроенный справочник проекта; страницы читаются из `docs/wiki`.
 
 Каждая страница содержит короткую контекстную подсказку: зачем она нужна и какое
 следующее действие ожидается от оператора.

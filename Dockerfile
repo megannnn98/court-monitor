@@ -29,6 +29,7 @@ RUN if [ "$INSTALL_SEMANTIC" = "1" ]; then \
 
 COPY src ./src
 COPY migrations ./migrations
+COPY docs/wiki ./docs/wiki
 COPY alembic.ini ./
 COPY docker/dagster/dagster.yaml docker/dagster/workspace.yaml /opt/dagster/dagster_home/
 
