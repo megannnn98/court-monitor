@@ -121,6 +121,7 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         ui_person = client.get(f"/ui/persons/{person_id}")
         article = client.get(f"/articles/{article_id}")
         search = client.get("/search/articles", params={"query": "пикет"})
+        candidates_page = client.get(f"/ui/candidates?snapshot_id={snapshot_id}")
         exported = client.get(f"/ui/candidates/export?snapshot_id={snapshot_id}")
         exported_pdf = client.get(f"/ui/candidates/export.pdf?snapshot_id={snapshot_id}")
 
@@ -134,6 +135,9 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     assert "Суд назначил штраф Ивану Иванову" in ui_person.text
     assert article.json()["text"].startswith("Иван Иванов участвовал")
     assert [hit["article_id"] for hit in search.json()] == [article_id]
+    assert candidates_page.status_code == 200
+    assert "<th>№</th>" in candidates_page.text
+    assert "<td>1</td>" in candidates_page.text
     assert exported.status_code == 200
     assert exported.headers["content-type"].startswith("text/csv")
     assert "Иван Иванов" in exported.text

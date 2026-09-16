@@ -1442,6 +1442,7 @@ def ui_candidates(
     )
     rows = "".join(
         f"""<tr>
+  <td>{position}</td>
   <td><a href="/ui/persons/{candidate.person_id}">{candidate.person_id}</a></td>
   <td><a href="/ui/persons/{candidate.person_id}">{escape(candidate.canonical_name)}</a></td>
   <td>{candidate.persecution_confidence:.2f}</td>
@@ -1449,7 +1450,7 @@ def ui_candidates(
   <td>{escape(candidate.rosfinmonitoring_status)}</td>
   <td>{escape(", ".join(candidate.persecution_reasons))}</td>
 </tr>"""
-        for candidate in candidates
+        for position, candidate in enumerate(candidates, start=1)
     )
     return _page(
         "Кандидаты",
@@ -1462,7 +1463,7 @@ def ui_candidates(
   <a class="secondary" href="/ui/candidates/export.pdf?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать PDF</a>
 </form>
 <p class="muted">Найдено: {len(candidates)}. Статус РФМ: <code>not_matched</code>.</p>
-<table><thead><tr><th>ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
+<table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
         active="candidates",
         instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",
         next_action="Откройте Person, проверьте события и evidence spans в исходных статьях.",
@@ -1575,6 +1576,7 @@ def ui_candidates_export_pdf(
         return Paragraph(escape(str(value)), header_style if header else cell_style)
 
     headers = [
+        "№",
         "ID",
         "Персона",
         "Political confidence",
@@ -1586,6 +1588,7 @@ def ui_candidates_export_pdf(
     data = [[cell(header, header=True) for header in headers]]
     data.extend(
         [
+            cell(position),
             cell(candidate.person_id),
             cell(candidate.canonical_name),
             cell(f"{candidate.persecution_confidence:.2f}"),
@@ -1594,12 +1597,12 @@ def ui_candidates_export_pdf(
             cell(candidate.rosfinmonitoring_status),
             cell(candidate.rosfinmonitoring_match_confidence or "—"),
         ]
-        for candidate in candidates
+        for position, candidate in enumerate(candidates, start=1)
     )
     table = Table(
         data,
         repeatRows=1,
-        colWidths=[14 * mm, 42 * mm, 25 * mm, 88 * mm, 15 * mm, 25 * mm, 22 * mm],
+        colWidths=[10 * mm, 18 * mm, 42 * mm, 25 * mm, 78 * mm, 15 * mm, 25 * mm, 22 * mm],
     )
     table.setStyle(
         TableStyle(
