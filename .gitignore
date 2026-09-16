@@ -10,3 +10,4 @@ article.html
 
 # Real-world validation raw corpus cache and run artifacts (rebuilt from the sites)
 /var/
+/.codegraph
