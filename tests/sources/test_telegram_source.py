@@ -145,8 +145,8 @@ def test_discovery_stops_when_a_page_has_no_older_posts() -> None:
 def test_every_channel_of_the_list_is_a_registered_source() -> None:
     channels = load_telegram_channels()
 
-    assert len(channels) == 69
-    assert len({channel.source_name for channel in channels}) == 69
+    assert len(channels) == 70
+    assert len({channel.source_name for channel in channels}) == 70
     for channel in channels:
         definition = get_source_definition(channel.source_name)
         assert definition.base_url == f"https://t.me/{channel.username}"
