@@ -6,6 +6,7 @@ from itertools import pairwise
 
 from extraction.models import EntityType, ExtractionDocument, RawMention
 from extraction.name_morphology import NameMorphology
+from extraction.person_ner.models import PersonNameRecognizer
 
 _LEGAL_CODE = r"(?:УК\s+РФ|КоАП\s+РФ|Уголовного\s+кодекса\s+РФ|Уголовный\s+кодекс\s+РФ)"
 # After an article number the code is usually written without «РФ»: «ст. 207.3 УК».
@@ -286,10 +287,23 @@ class RuleBasedEntityExtractor:
     # 1.1.1: inflected organization names («Минюста», «Медиазоны») occupy their span.
     # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
     # not a person, both decided by the morphological dictionary.
+    # 2.0.0: person names come from a recognizer model instead of the capitalized-word
+    # patterns; the rest of the entity types are unchanged. The version differs so
+    # extraction runs of the two person sources are never reused for one another.
     extractor_version = "1.2.0"
+    ner_extractor_version = "2.0.0"
 
-    def __init__(self, morphology: NameMorphology | None = None) -> None:
+    def __init__(
+        self,
+        morphology: NameMorphology | None = None,
+        person_recognizer: PersonNameRecognizer | None = None,
+    ) -> None:
         self._morphology = morphology or NameMorphology()
+        # When a recognizer is given it is the only source of person mentions: two sources
+        # would produce two mentions of the same name.
+        self._person_recognizer = person_recognizer
+        if person_recognizer is not None:
+            self.extractor_version = self.ner_extractor_version
 
     def extract(self, document: ExtractionDocument) -> list[RawMention]:
         mentions: list[RawMention] = []
@@ -298,7 +312,10 @@ class RuleBasedEntityExtractor:
         mentions.extend(self._organizations(document.text))
         mentions.extend(self._locations(document.text))
         occupied = [(mention.start_offset, mention.end_offset) for mention in mentions]
-        mentions.extend(self._people(document.text, occupied))
+        if self._person_recognizer is None:
+            mentions.extend(self._people(document.text, occupied))
+        else:
+            mentions.extend(self._recognized_people(document.text, occupied))
         return sorted(
             self._deduplicate(mentions),
             key=lambda mention: (
@@ -333,6 +350,32 @@ class RuleBasedEntityExtractor:
             self._mention(EntityType.LOCATION, text, match.start(), match.end(), 0.78)
             for match in _LOCATION_PATTERN.finditer(text)
         ]
+
+    def _recognized_people(
+        self,
+        text: str,
+        occupied: Iterable[tuple[int, int]],
+    ) -> list[RawMention]:
+        """Person mentions from the recognizer, in this extractor's mention shape.
+
+        A span that lies inside an organization or a court name is dropped: «Басманный
+        районный суд» is one entity, and a person cannot be a part of it.
+        """
+        occupied_spans = list(occupied)
+        mentions: list[RawMention] = []
+        for span in self._person_recognizer.recognize(text) if self._person_recognizer else []:
+            if self._overlaps(span.start_offset, span.end_offset, occupied_spans):
+                continue
+            mentions.append(
+                self._mention(
+                    EntityType.PERSON,
+                    text,
+                    span.start_offset,
+                    span.end_offset,
+                    span.confidence,
+                )
+            )
+        return mentions
 
     def _people(
         self,

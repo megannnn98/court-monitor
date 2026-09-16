@@ -7,11 +7,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
-# Chosen on the comparison in docs/wiki/Person-NER.md: standard B-/I-PER labels, Russian
-# among its training languages, and it clears the hard negatives the rule extractor fails.
+# Chosen on the candidate comparison: standard B-/I-PER labels, Russian among its
+# training languages, and it clears the hard negatives the rule extractor fails.
+# Licence CC-BY-NC-SA 4.0 — non-commercial use only.
 DEFAULT_MODEL = "Babelscape/wikineural-multilingual-ner"
-# Pinned so a silent upstream retrain cannot change extraction under us.
-DEFAULT_REVISION = "main"
+# Pinned to a commit, not a branch: a silent upstream retrain must not change what the
+# pipeline considers a person.
+DEFAULT_REVISION = "bed6ee7a45d2827b6c90a4fd7983f0241ae0a5c1"
 DEFAULT_MIN_SCORE = 0.5
 
 
