@@ -41,9 +41,10 @@ logger = logging.getLogger("cli_batches")
 DEFAULT_WORKERS = 8
 # Every worker holds a connection out of the 100 PostgreSQL allows.
 MAX_WORKERS = min(os.cpu_count() or 4, 16)
-# A worker running the person recognizer on the GPU holds its own copy of the model:
-# 1.2 GiB of memory measured on an RTX 3060 (12 GiB), plus the CUDA context.
-MAX_GPU_WORKERS = 4
+# A worker running the person recognizer on the GPU holds its own copy of the model, and
+# the corpus's longest article needs 4.3 GiB on top of it: four workers ran a 12 GiB
+# RTX 3060 out of memory. The card is saturated at two anyway.
+MAX_GPU_WORKERS = 2
 # Small enough for a smooth progress bar, large enough that pickling is negligible.
 CHUNK_SIZE = 25
 _WORKER_POOL = DatabasePoolSettings(pool_size=1, max_overflow=0)

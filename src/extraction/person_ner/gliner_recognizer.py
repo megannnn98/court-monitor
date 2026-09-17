@@ -21,6 +21,10 @@ from extraction.person_ner.spans import deduplicate
 logger = logging.getLogger("person_ner")
 
 PERSON_LABEL = "PERSON"
+# A long article leaves GiBs in PyTorch's cache (6.4 GiB reserved after the corpus's
+# longest, 8 770 characters); above this the cache is released for the other workers on
+# the same card.
+CUDA_CACHE_RELEASE_BYTES = 2 * 2**30
 
 
 class GlinerPersonNameRecognizer:
@@ -84,6 +88,12 @@ class GlinerPersonNameRecognizer:
                 include_confidence=True,
                 include_spans=True,
             )
+
+        if (
+            self._device.startswith("cuda")
+            and self._torch.cuda.memory_reserved() > CUDA_CACHE_RELEASE_BYTES
+        ):
+            self._torch.cuda.empty_cache()
 
         entities = result.get("entities", result)
         spans: list[PersonNameSpan] = []

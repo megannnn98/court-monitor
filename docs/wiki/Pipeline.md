@@ -64,7 +64,8 @@ matching 2 000 persons 163 s → 18 s (trigram index on
 
 The person recognizer (`PERSON_EXTRACTION_STRATEGY=ner|hybrid`) runs on CUDA when it is
 available: 26 ms per article against 269 ms on the CPU. Each worker loads its own copy of
-the model (1.2 GiB), so extraction with the model on the GPU uses at most 4 workers. In
+the model, and the longest article needs 4.3 GiB more, so extraction with the model on
+the GPU uses at most 2 workers (four ran a 12 GiB card out of memory). In
 Docker the GPU needs `compose.gpu.yaml` (see the file header for the host setup). Changing
 the strategy changes the extraction run version: every article is extracted again.
 
