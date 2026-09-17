@@ -609,3 +609,8 @@ def test_a_name_with_initials_is_brought_to_the_nominative_case() -> None:
     _, data = normalizer.normalize_person("Е.А. Аничкиной")
     assert data.last_name == "Аничкина"
     assert data.matching_key == normalizer.normalize_person("Е.А. Аничкина")[1].matching_key
+
+
+def test_a_dash_opens_a_sentence() -> None:
+    """Review request: a capitalized common noun after a dash is not part of a name."""
+    assert _people("Он заявил — Приговор Иванову изменили.") == []
