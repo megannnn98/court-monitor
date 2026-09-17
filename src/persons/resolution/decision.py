@@ -7,8 +7,10 @@ Rules (ADR 0012), in order:
    the minimum, a single strong candidate (no possible duplicate persons), a
    single active person with the incoming matching_key (namesakes are never
    picked by id), a full (non-initial, complete) incoming name and identity
-   evidence beyond the name — the full name with patronymic, or the candidate
-   already mentioned in the same article — → AUTO_LINK;
+   evidence beyond the name — the full name with patronymic, the candidate already
+   mentioned in the same article, or the case context (the mention is the target of a
+   persecution event and the candidate is named in news of the same half year) —
+   → AUTO_LINK;
    otherwise REVIEW with every reason that blocked it;
 4. top plausible below the auto-link minimum → REVIEW (MEDIUM_CONFIDENCE_MATCH);
 5. nothing plausible → CREATE_NEW, unless the semantic source was unavailable
@@ -188,7 +190,10 @@ class PersonResolutionDecisionPolicy:
         if top.features.incomplete_name:
             reasons.append(R.INCOMPLETE_NAME)
         if not top.features.full_identity_match and not top.features.same_article_mention:
-            reasons.append(R.NAME_ONLY_EVIDENCE)
+            if top.features.case_context_match:
+                reasons.append(R.CASE_CONTEXT_MATCH)
+            else:
+                reasons.append(R.NAME_ONLY_EVIDENCE)
 
         if top.resolution_score < self.thresholds.auto_link_min_score:
             return decision(

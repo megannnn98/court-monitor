@@ -23,6 +23,7 @@ from persons.resolution.evaluation import (
 )
 from persons.resolution.factory import build_person_resolution_engine
 from persons.resolution.models import ScoredPersonCandidate
+from persons.resolution.redecide import redecide_name_only_reviews
 from persons.resolution.review import (
     PersonResolutionReviewService,
     ResolutionReviewAction,
@@ -65,6 +66,14 @@ def add_person_resolution_arguments(subparsers: Any) -> None:
         help="merge_persons: person merged away; keep_separate: the different person",
     )
     apply.add_argument("--note", default=None)
+    redecide = actions.add_parser(
+        "redecide-name-only",
+        help="Re-decide pending name-only reviews under the current rules (dry run by default)",
+    )
+    redecide.add_argument(
+        "--apply", action="store_true", help="Link the accepted reviews (writes to the database)"
+    )
+    redecide.add_argument("--limit", type=int, default=None)
 
     evaluate = subparsers.add_parser(
         "evaluate-er",
@@ -273,6 +282,16 @@ def run_person_resolution_command(
             elif args.review_command == "show":
                 with session_factory() as session:
                     print(format_review(reviews.get(session, args.decision_id)))
+            elif args.review_command == "redecide-name-only":
+                summary = redecide_name_only_reviews(
+                    session_factory, apply=args.apply, limit=args.limit, reviews=reviews
+                )
+                mode = "linked" if args.apply else "dry run, would link"
+                print(
+                    f"Checked {summary.checked} name-only reviews: "
+                    f"{summary.linkable} accepted by the current rules; "
+                    f"{mode} {summary.linked if args.apply else summary.linkable}."
+                )
             else:
                 with session_factory.begin() as session:
                     result = reviews.apply(

@@ -298,3 +298,40 @@ token never creates a canonical person: without a same-article reference it is
 reviewed (`incomplete_name`). Real-world evaluation: ER AUTO_LINK precision
 0.991, candidate recall@5 0.95, duplicate canonical persons 11 -> 5 once
 surname references stopped creating persons.
+
+## Amendment (2026-09-17): case context corroborates a name
+
+The name-only rule kept every repeated full name of a persecuted person in
+review: on the production data 12 571 of 22 903 pending decisions were
+`name_only_evidence` alone, 2 513 of them targets of case events in news since
+August. Those persons never received their events, so they were never
+classified political — the main reason the candidate list stayed short (the
+customer's case «Светлана Савельева»: five articles, all mentions in review).
+
+Decision: a name-only match auto-links when the case context corroborates it —
+the incoming mention is the **only** target of a persecution event
+(`case_opened`, `charge`, `arrest`, `detention`, `sentence`, `search`, `fine`)
+and the candidate is named in news published within 180 days of the mention's
+article (`case_context_match`). Every other block stays (namesakes with the
+same key, initials, incomplete names, margins). An event with several targets
+does not count: the extractor makes every person of the sentence a target
+(«Мифтахова обвинили в том, что он одобрил поступок Михаила Жлобицкого»), and
+linking such a mention handed the charge to the wrong person. Event extractor
+1.7.0 also stops making a person named after a subordinate clause's own
+pronoun subject a target.
+
+Measured:
+
+- A sample of 30 links of the rule on production data: 30 were the same person.
+  Links without the case event (the pre-amendment rule) had 2–3 wrong in 25.
+- Real-world validation: namesake different-person AUTO_LINK stays 0, AUTO_LINK
+  precision stays 1.0, ER reviews 181 → 152, no new hard gate. Without the
+  single-target condition and the event change, a different person
+  (Жлобицкий) was classified political on another person's charge.
+- On a copy of production data (events still 1.6.0): 3 379 queued reviews
+  linked, candidates 142 → 197, the default table 41 → 77.
+
+`RESOLVER_VERSION` stays `er-v2`. The queue built before the rule is re-decided
+once with `person-resolution-reviews redecide-name-only [--apply]`, which links
+the accepted reviews through the reviewer's path with an audit note; a rebuild
+of the derived data applies the rule to every mention anyway.

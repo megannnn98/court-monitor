@@ -162,6 +162,9 @@ class PersonResolutionFeatures(BaseModel):
     # The candidate already holds a mention of the incoming mention's article
     # (within-article coreference): the only context that corroborates a name.
     same_article_mention: bool = False
+    # The incoming mention is the target of a persecution event, and the candidate is
+    # named in news of the same half year: the case context corroborates the name.
+    case_context_match: bool = False
 
     @property
     def full_identity_match(self) -> bool:
@@ -222,6 +225,8 @@ class PersonResolutionReason(StrEnum):
     NAME_ONLY_EVIDENCE = "name_only_evidence"
     # A surname alone repeating the only person of that surname named in the same article.
     SAME_ARTICLE_SURNAME_REFERENCE = "same_article_surname_reference"
+    # A name-only match corroborated by the case context (amendment 2026-09-17).
+    CASE_CONTEXT_MATCH = "case_context_match"
     INITIALS_ONLY = "initials_only"
     CONFLICTING_IDENTITY_DATA = "conflicting_identity_data"
     LOW_DECISION_MARGIN = "low_decision_margin"

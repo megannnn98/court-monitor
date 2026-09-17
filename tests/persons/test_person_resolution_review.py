@@ -360,3 +360,89 @@ def test_reviewer_created_person_is_serialized_with_er_workers(
     finally:
         release.set()
         thread.join(10)
+
+
+def test_redeciding_name_only_reviews_links_only_the_corroborated_ones(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The review queue built before the case-context rule is re-decided once: a pending
+    name-only decision the rule now accepts is linked, the rest stay pending, and a dry
+    run writes nothing."""
+    from datetime import UTC, datetime
+
+    from db.orm_models import (
+        ArticleExtractionRunRecord,
+        EventEntityMentionRecord,
+        ExtractedEventRecord,
+        ParsedArticleRecord,
+    )
+    from persons.resolution.redecide import redecide_name_only_reviews
+
+    def mention(surface: str, published_at: datetime, *, event: bool, person: int | None) -> int:
+        run_id, (mention_id,) = seed_mentions(session_factory, surface)
+        with session_factory.begin() as session:
+            run = session.get_one(ArticleExtractionRunRecord, run_id)
+            session.get_one(ParsedArticleRecord, run.article_id).published_at = published_at
+            session.get_one(EntityMentionRecord, mention_id).person_id = person
+            if event:
+                record = ExtractedEventRecord(
+                    extraction_run_id=run_id,
+                    event_type="arrest",
+                    start_offset=0,
+                    end_offset=len(surface),
+                    confidence=0.72,
+                    attributes={},
+                    extractor_name="test",
+                    extractor_version="1",
+                )
+                session.add(record)
+                session.flush()
+                session.add(
+                    EventEntityMentionRecord(
+                        event_id=record.id, mention_id=mention_id, role="target"
+                    )
+                )
+        return mention_id
+
+    person = seed_person(session_factory, "Светлана Савельева")
+    mention("Светлана Савельева", datetime(2026, 9, 14, tzinfo=UTC), event=False, person=person)
+    corroborated = mention(
+        "Светлана Савельева", datetime(2026, 9, 15, tzinfo=UTC), event=True, person=None
+    )
+    uncorroborated = mention(
+        "Светлана Савельева", datetime(2026, 9, 15, tzinfo=UTC), event=False, person=None
+    )
+    # The queue as it was built before the rule: both pending with name-only evidence.
+    for mention_id in (corroborated, uncorroborated):
+        with session_factory.begin() as session:
+            session.add(
+                PersonResolutionDecisionRecord(
+                    mention_id=mention_id,
+                    identity={"name": "Светлана Савельева", "matching_key": "светланасавельева"},
+                    candidates=[],
+                    reasons=["name_only_evidence"],
+                    resolution_score=0.85,
+                    resolver_version="er-v2",
+                    method="er_v2",
+                    action="review",
+                    status="pending_review",
+                    semantic_source="disabled",
+                )
+            )
+
+    dry = redecide_name_only_reviews(session_factory, apply=False)
+    assert (dry.checked, dry.linkable, dry.linked) == (2, 1, 0)
+    with session_factory() as session:
+        assert session.get_one(EntityMentionRecord, corroborated).person_id is None
+
+    applied = redecide_name_only_reviews(session_factory, apply=True)
+    assert (applied.checked, applied.linkable, applied.linked) == (2, 1, 1)
+    with session_factory() as session:
+        assert session.get_one(EntityMentionRecord, corroborated).person_id == person
+        assert session.get_one(EntityMentionRecord, uncorroborated).person_id is None
+        statuses = {
+            record.mention_id: record.status
+            for record in session.scalars(select(PersonResolutionDecisionRecord))
+        }
+    assert statuses[corroborated] == "reviewed"
+    assert statuses[uncorroborated] == "pending_review"

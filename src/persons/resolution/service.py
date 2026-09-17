@@ -14,16 +14,19 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from db.orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+    ParsedArticleRecord,
     PersonResolutionDecisionRecord,
 )
 from persons.manual_review_service import SqlAlchemyManualReviewService
@@ -52,6 +55,10 @@ logger = logging.getLogger("person_resolution")
 
 RESOLVER_VERSION = "er-v2"
 REVIEW_SUBJECT_TYPE = "person_resolution"
+# The events of a persecution case: a mention that is their target is about a case.
+CASE_EVENT_TYPES = ("case_opened", "charge", "arrest", "detention", "sentence", "search", "fine")
+# How far apart news about one case may be for the case context to corroborate a name.
+CASE_CONTEXT_WINDOW = timedelta(days=180)
 
 
 class ResolutionMethod(StrEnum):
@@ -133,11 +140,18 @@ class PersonResolutionEngine:
         in_article = persons_mentioned_in_article(
             session, identity.article_id, exclude_mention_id=identity.mention_id
         )
+        in_case_context = persons_in_case_context(
+            session,
+            identity,
+            [candidate.person_id for candidate in generation.candidates],
+        )
         scored = []
         for candidate in generation.candidates:
             features = self._extractor.extract(identity, candidate)
             if candidate.person_id in in_article:
                 features = features.model_copy(update={"same_article_mention": True})
+            if candidate.person_id in in_case_context:
+                features = features.model_copy(update={"case_context_match": True})
             score = self._scorer.score(features)
             logger.debug(
                 "er_candidate_scored mention_id=%s person_id=%s score=%.4f conflicts=%s",
@@ -195,6 +209,64 @@ def persons_mentioned_in_article(
     )
     if exclude_mention_id is not None:
         query = query.where(EntityMentionRecord.id != exclude_mention_id)
+    return {person_id for person_id in session.scalars(query).all() if person_id is not None}
+
+
+def persons_in_case_context(
+    session: Session, identity: PersonIdentityInput, person_ids: Sequence[int]
+) -> set[int]:
+    """Candidates the case context corroborates for this mention.
+
+    The mention must be the only target of a persecution event, and the candidate must
+    be named in news published within `CASE_CONTEXT_WINDOW` of the mention's article.
+    An event with several targets does not count: the extractor makes every person of
+    the sentence a target («Мифтахова обвинили в том, что он одобрил поступок Михаила
+    Жлобицкого»), and linking such a mention hands the case to the wrong person.
+    """
+    if not person_ids or identity.mention_id is None or identity.article_id is None:
+        return set()
+    target = aliased(EventEntityMentionRecord)
+    targets_of_event = (
+        select(func.count())
+        .where(
+            target.event_id == EventEntityMentionRecord.event_id,
+            target.role == "target",
+        )
+        .scalar_subquery()
+    )
+    is_case_target = session.scalar(
+        select(EventEntityMentionRecord.event_id)
+        .join(ExtractedEventRecord, ExtractedEventRecord.id == EventEntityMentionRecord.event_id)
+        .where(
+            EventEntityMentionRecord.mention_id == identity.mention_id,
+            EventEntityMentionRecord.role == "target",
+            ExtractedEventRecord.event_type.in_(CASE_EVENT_TYPES),
+            targets_of_event == 1,
+        )
+        .limit(1)
+    )
+    published_at = session.scalar(
+        select(ParsedArticleRecord.published_at).where(
+            ParsedArticleRecord.id == identity.article_id
+        )
+    )
+    if is_case_target is None or published_at is None:
+        return set()
+    query = (
+        select(EntityMentionRecord.person_id)
+        .join(
+            ArticleExtractionRunRecord,
+            ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
+        )
+        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
+        .where(
+            EntityMentionRecord.person_id.in_(person_ids),
+            ParsedArticleRecord.published_at.between(
+                published_at - CASE_CONTEXT_WINDOW, published_at + CASE_CONTEXT_WINDOW
+            ),
+        )
+        .distinct()
+    )
     return {person_id for person_id in session.scalars(query).all() if person_id is not None}
 
 

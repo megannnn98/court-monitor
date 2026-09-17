@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -12,7 +13,11 @@ from support.person_resolution_fixtures import seed_mentions, seed_person
 from support.semantic_fakes import StaticRetriever
 
 from db.orm_models import (
+    ArticleExtractionRunRecord,
     EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+    ParsedArticleRecord,
     PersonAliasRecord,
     PersonRecord,
     PersonResolutionDecisionRecord,
@@ -482,3 +487,129 @@ def test_namesakes_stay_visible_with_the_smallest_candidate_limit(
     decision = _decision(session_factory, mention_id)
     assert len(decision.candidates) == 2
     assert "multiple_exact_name_matches" in decision.reasons
+
+
+def _mention_in_article(
+    session_factory: sessionmaker[Session],
+    surface: str,
+    published_at: datetime,
+    *,
+    person_id: int | None = None,
+    event_type: str | None = None,
+) -> int:
+    """A mention of `surface` in an article of `published_at`, linked to `person_id` and
+    the target of an `event_type` event when given."""
+    run_id, (mention_id,) = seed_mentions(session_factory, surface)
+    with session_factory.begin() as session:
+        run = session.get_one(ArticleExtractionRunRecord, run_id)
+        session.get_one(ParsedArticleRecord, run.article_id).published_at = published_at
+        mention = session.get_one(EntityMentionRecord, mention_id)
+        mention.person_id = person_id
+        if event_type is not None:
+            event = ExtractedEventRecord(
+                extraction_run_id=run_id,
+                event_type=event_type,
+                start_offset=0,
+                end_offset=len(surface),
+                confidence=0.72,
+                attributes={},
+                extractor_name="test",
+                extractor_version="1",
+            )
+            session.add(event)
+            session.flush()
+            session.add(
+                EventEntityMentionRecord(event_id=event.id, mention_id=mention_id, role="target")
+            )
+    return mention_id
+
+
+def _resolve_mention(
+    session_factory: sessionmaker[Session], mention_id: int
+) -> tuple[A, int | None]:
+    with session_factory.begin() as session:
+        mention = session.get_one(EntityMentionRecord, mention_id)
+        outcome = _service(session_factory).resolve_mention(session, mention)
+        assert outcome is not None
+        return outcome.action, outcome.person_id
+
+
+def test_the_target_of_a_case_event_links_to_the_person_named_in_recent_news(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Real case: five articles on «Светлана Савельева» (14–15.09.2026) stayed in review,
+    so the person had no events and was never a candidate."""
+    person = seed_person(session_factory, "Светлана Савельева")
+    _mention_in_article(
+        session_factory, "Светлана Савельева", datetime(2026, 9, 14, tzinfo=UTC), person_id=person
+    )
+    mention_id = _mention_in_article(
+        session_factory,
+        "Светлану Савельеву",
+        datetime(2026, 9, 15, tzinfo=UTC),
+        event_type="sentence",
+    )
+
+    assert _resolve_mention(session_factory, mention_id) == (A.AUTO_LINK, person)
+    assert "case_context_match" in _decision(session_factory, mention_id).reasons
+
+
+def test_old_news_or_no_case_event_keeps_a_name_only_match_in_review(
+    session_factory: sessionmaker[Session],
+) -> None:
+    person = seed_person(session_factory, "Иван Фролов")
+    _mention_in_article(
+        session_factory, "Иван Фролов", datetime(2025, 1, 10, tzinfo=UTC), person_id=person
+    )
+    far = _mention_in_article(
+        session_factory, "Иван Фролов", datetime(2026, 9, 15, tzinfo=UTC), event_type="detention"
+    )
+    no_event = _mention_in_article(
+        session_factory, "Иван Фролов", datetime(2025, 1, 12, tzinfo=UTC)
+    )
+    witness = _mention_in_article(
+        session_factory, "Иван Фролов", datetime(2025, 1, 12, tzinfo=UTC), event_type="release"
+    )
+
+    for mention_id in (far, no_event, witness):
+        assert _resolve_mention(session_factory, mention_id) == (A.REVIEW, None)
+        assert "name_only_evidence" in _decision(session_factory, mention_id).reasons
+
+
+def test_a_mention_sharing_the_event_with_another_target_is_not_corroborated(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Real-world validation: «Мифтахова обвинили в том, что он одобрил поступок Михаила
+    Жлобицкого» made both targets of the charge; linking Жлобицкий by the case context
+    classified him political on Мифтахов's charge."""
+    person = seed_person(session_factory, "Михаил Жлобицкий")
+    _mention_in_article(
+        session_factory, "Михаил Жлобицкий", datetime(2026, 9, 1, tzinfo=UTC), person_id=person
+    )
+    run_id, (other_id, mention_id) = seed_mentions(
+        session_factory, "Азата Мифтахова", "Михаила Жлобицкого"
+    )
+    with session_factory.begin() as session:
+        run = session.get_one(ArticleExtractionRunRecord, run_id)
+        session.get_one(ParsedArticleRecord, run.article_id).published_at = datetime(
+            2026, 9, 2, tzinfo=UTC
+        )
+        event = ExtractedEventRecord(
+            extraction_run_id=run_id,
+            event_type="charge",
+            start_offset=0,
+            end_offset=40,
+            confidence=0.72,
+            attributes={},
+            extractor_name="test",
+            extractor_version="1",
+        )
+        session.add(event)
+        session.flush()
+        for target in (other_id, mention_id):
+            session.add(
+                EventEntityMentionRecord(event_id=event.id, mention_id=target, role="target")
+            )
+
+    assert _resolve_mention(session_factory, mention_id) == (A.REVIEW, None)
+    assert "name_only_evidence" in _decision(session_factory, mention_id).reasons

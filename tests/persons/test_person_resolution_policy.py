@@ -469,3 +469,49 @@ def test_surname_alone_never_creates_a_person(with_candidate: bool) -> None:
 
     assert decision.action is A.REVIEW
     assert R.INCOMPLETE_NAME in decision.reasons
+
+
+def _in_case_context(scored: ScoredPersonCandidate, context: bool) -> ScoredPersonCandidate:
+    features = scored.features.model_copy(update={"case_context_match": context})
+    return scored.model_copy(update={"features": features})
+
+
+def test_name_only_match_in_a_persecution_case_context_auto_links() -> None:
+    """Amendment 2026-09-17: the incoming mention is the target of a persecution event and
+    the candidate is named in news of the last half year. Measured on the stored queue: 30
+    of 30 sampled links were the same person («Светлана Савельева», 5 articles)."""
+    candidate = _in_case_context(_scored("Светлана Савельева", "Светлана Савельева"), True)
+
+    decision = policy.decide(PersonIdentityInput(name="Светлана Савельева"), [candidate])
+
+    assert (decision.action, decision.selected_person_id) == (A.AUTO_LINK, 1)
+    assert R.CASE_CONTEXT_MATCH in decision.reasons
+    assert R.NAME_ONLY_EVIDENCE not in decision.reasons
+
+
+def test_case_context_does_not_lift_the_other_blocks() -> None:
+    namesakes = [
+        _in_case_context(_scored("Иван Фролов", "Иван Фролов", person_id=i), True) for i in (1, 2)
+    ]
+    namesakes = [
+        item.model_copy(
+            update={"features": item.features.model_copy(update={"exact_matching_key": True})}
+        )
+        for item in namesakes
+    ]
+    decision = policy.decide(PersonIdentityInput(name="Иван Фролов"), namesakes)
+    assert decision.action is A.REVIEW
+    assert R.MULTIPLE_EXACT_NAME_MATCHES in decision.reasons
+
+    initials = _in_case_context(_scored("И. Фролов", "Иван Фролов"), True)
+    decision = policy.decide(PersonIdentityInput(name="И. Фролов"), [initials])
+    assert decision.action is A.REVIEW
+
+
+def test_without_case_context_a_name_only_match_is_still_reviewed() -> None:
+    candidate = _in_case_context(_scored("Иван Фролов", "Иван Фролов"), False)
+
+    decision = policy.decide(PersonIdentityInput(name="Иван Фролов"), [candidate])
+
+    assert decision.action is A.REVIEW
+    assert R.NAME_ONLY_EVIDENCE in decision.reasons
