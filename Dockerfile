@@ -23,10 +23,11 @@ RUN apt-get update \
 ARG INSTALL_SEMANTIC=0
 ARG INSTALL_NER=0
 COPY pyproject.toml uv.lock ./
+# --no-cache: the download cache would otherwise stay in the layer, doubling its size.
 RUN groups=""; \
     if [ "$INSTALL_SEMANTIC" = "1" ]; then groups="$groups --group semantic"; fi; \
     if [ "$INSTALL_NER" = "1" ]; then groups="$groups --group ner"; fi; \
-    uv sync --frozen --no-default-groups --no-install-project $groups
+    uv sync --frozen --no-cache --no-default-groups --no-install-project $groups
 
 COPY src ./src
 COPY migrations ./migrations
