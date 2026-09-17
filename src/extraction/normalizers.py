@@ -17,7 +17,9 @@ from extraction.name_morphology import NameMorphology
 
 # 1.1.0: personal names are brought to the nominative case with a morphological
 # dictionary instead of a suffix table («Ольгу Комлеву» → «Ольга Комлева»).
-NORMALIZER_VERSION = "1.1.0"
+# 1.2.0: the article settles an ambiguous gender even though it also holds the mention
+# itself («Даниила Меркулова» → «Даниил Меркулов»).
+NORMALIZER_VERSION = "1.2.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)

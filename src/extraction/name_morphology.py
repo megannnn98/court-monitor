@@ -72,10 +72,17 @@ class NameMorphology:
         }
         found: set[str] = set()
         for word in document_words:
-            for parse in self._name_parses(word):
-                genders = {gender for gender in _GENDERS if gender in parse.tag.grammemes}
-                if len(genders) == 1 and parse.normal_form in wanted:
-                    found |= genders
+            # Only a word whose readings of this name agree on the gender says anything:
+            # the ambiguous «Телина» (the mention itself) reads as both and settles nothing.
+            genders = {
+                gender
+                for parse in self._name_parses(word)
+                if parse.normal_form in wanted
+                for gender in _GENDERS
+                if gender in parse.tag.grammemes
+            }
+            if len(genders) == 1:
+                found |= genders
         return found.pop() if len(found) == 1 else None
 
     def is_patronymic(self, word: str) -> bool:

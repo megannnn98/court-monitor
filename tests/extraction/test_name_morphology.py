@@ -87,3 +87,17 @@ def test_a_patronymic_with_a_rare_surname_reading_is_still_a_patronymic() -> Non
     assert MORPHOLOGY.is_patronymic("Сергеевна")
     assert not MORPHOLOGY.is_patronymic("Иванова")
     assert not MORPHOLOGY.is_patronymic("Мария")
+
+
+def test_the_mention_itself_in_the_article_does_not_block_the_gender() -> None:
+    """Real case: the pipeline passes every capitalized word of the article, including the
+    ambiguous «Телина» itself, which read as both genders and cancelled «Телин»."""
+    article = ["Дело", "Федора", "Телина", "Телин", "Россию"]
+    assert MORPHOLOGY.to_nominative("Федора Телина", document_words=article) == "Фёдор Телин"
+    article = ["Суд", "Даниила", "Меркулова", "Меркулов"]
+    assert MORPHOLOGY.to_nominative("Даниила Меркулова", article) == "Даниил Меркулов"
+    # A woman: «Волковой» settles it, the ambiguous «Волкову» does not get in the way.
+    article = ["Ольгу", "Волкову", "Волковой"]
+    assert MORPHOLOGY.to_nominative("Ольгу Волкову", article) == "Ольга Волкова"
+    article = ["Юлию", "Молчанову", "Молчановой"]
+    assert MORPHOLOGY.to_nominative("Юлию Молчанову", article) == "Юлия Молчанова"
