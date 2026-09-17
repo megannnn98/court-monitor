@@ -390,6 +390,17 @@ def test_an_unknown_word_before_a_full_name_is_trimmed() -> None:
     assert _people("Приговор Ремзи Куртнезирову огласили.") == ["Ремзи Куртнезирову"]
 
 
+def test_an_unknown_word_before_a_patronymic_is_part_of_the_name() -> None:
+    """Real cases: court releases write «Горинов Алексей Александрович», the surname
+    first; «Мемет Решатович Белялов» has a given name the dictionary lacks."""
+    assert _people("Приговор Горинову огласили: Скобов Александр Валерьевич осужден.") == [
+        "Скобов Александр Валерьевич"
+    ]
+    assert _people("Задержан Мемет Решатович Белялов.") == ["Мемет Решатович Белялов"]
+    # An ordinary word before the name stays out.
+    assert _people("Вчера задержали Ивана Ивановича Петрова.") == ["Ивана Ивановича Петрова"]
+
+
 def test_an_adjective_before_a_name_is_not_part_of_it() -> None:
     """Real case: «Вечная Слава» became a person («Слава» is a name)."""
     assert _people("На плите написано Вечная Слава героям.") == []

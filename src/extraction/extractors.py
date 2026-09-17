@@ -257,6 +257,22 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
             start += word.end()
             continue
         rest = text[start + word.end() : end].split()
+        # «Мемет Решатович Белялов», «Ярош Сергей Васильевич»: a patronymic right after the
+        # word, or «given name, patronymic» after it, makes an unfamiliar word the given name
+        # or the surname. An ordinary word stays out: «Задержали Ивана Ивановича».
+        if (
+            rest
+            and not morphology.is_known_non_name(surface)
+            and (
+                morphology.is_patronymic(rest[0])
+                or (
+                    len(rest) == 2
+                    and morphology.is_given_name(rest[0])
+                    and morphology.is_patronymic(rest[1])
+                )
+            )
+        ):
+            return start
         # A name does not start with a word that has no nominative reading: «Калуги Ивана
         # Любшина», «Задержали Ивана». «София Чепик» keeps its first word — it is nominative.
         unknown_before_full_name = (
@@ -350,14 +366,17 @@ class RuleBasedEntityExtractor:
     # «given name, surname» is not part of the name; a bullet opens a sentence.
     # 1.4.0: every article of an enumeration gets the code at its end («ст. 275 ч. 2
     # ст. 205.4, …, ч. 4 ст. 222.1 УК РФ»).
-    extractor_version = "1.4.0"
+    # 1.5.0: an unfamiliar word before a patronymic, or before «given name, patronymic», is
+    # part of the name («Мемет Решатович Белялов», «Ярош Сергей Васильевич»).
+    extractor_version = "1.5.0"
     # 2.0.0: person names come from a recognizer model instead of the capitalized-word
     # patterns; the rest of the entity types are unchanged. The version differs so
     # extraction runs of the two person sources are never reused for one another.
     # 2.1.0: the organization and location patterns and the single-word names blended
     # in from the patterns follow the rule changes of 1.3.0.
     # 2.2.0: the legal reference enumerations of 1.4.0.
-    ner_extractor_version = "2.2.0"
+    # 2.3.0: the leading-word rule of 1.5.0.
+    ner_extractor_version = "2.3.0"
 
     def __init__(
         self,
