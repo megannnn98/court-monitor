@@ -8,11 +8,14 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from csv import writer
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from html import escape
 from io import BytesIO, StringIO
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import quote, urlencode
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -29,6 +32,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from candidates.models import PoliticalPersecutionCandidate
 from candidates.service import CandidateQueryService
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from db.orm_models import (
@@ -1552,6 +1556,8 @@ def ui_candidates(
     snapshot_id: int | None = Query(default=None, ge=1),
     min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
     limit: int = Query(default=100, ge=1, le=1000),
+    date_from: str | None = Query(default=None),
+    include_administrative: bool = Query(default=False),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
@@ -1567,17 +1573,19 @@ def ui_candidates(
             warning="Без snapshot нельзя отличить подтверждённое отсутствие от отсутствия проверки.",
         )
 
+    period_start = _period_start(date_from)
     try:
-        candidates = list_candidates(
+        candidate_rows = _candidate_rows(
+            db,
             snapshot_id=selected_snapshot_id,
-            min_persecution_confidence=min_confidence,
-            limit=limit,
-            db=db,
+            min_confidence=min_confidence,
+            period_start=period_start,
+            include_administrative=include_administrative,
         )
     except HTTPException as exc:
         if exc.status_code != 404:
             raise
-        candidates = []
+        candidate_rows = []
 
     snapshot_options = "".join(
         f'<option value="{item.id}" {"selected" if item.id == selected_snapshot_id else ""}>'
@@ -1589,26 +1597,38 @@ def ui_candidates(
   <td>{position}</td>
   <td><a href="/ui/persons/{candidate.person_id}">{candidate.person_id}</a></td>
   <td><a href="/ui/persons/{candidate.person_id}">{escape(candidate.canonical_name)}</a></td>
+  <td>{_news_day(news.published_at).strftime("%d.%m.%Y") if news and news.published_at else ""}</td>
+  <td>{escape(_CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)) if news and news.event_type else ""}</td>
   <td>{candidate.persecution_confidence:.2f}</td>
   <td>{candidate.event_count}</td>
   <td>{escape(candidate.rosfinmonitoring_status)}</td>
   <td>{escape(", ".join(candidate.persecution_reasons))}</td>
 </tr>"""
-        for position, candidate in enumerate(candidates, start=1)
+        for position, (candidate, news) in enumerate(candidate_rows[:limit], start=1)
     )
+    legacy_filters = urlencode(
+        {"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit}
+    )
+    filters = _candidate_filters(
+        selected_snapshot_id, min_confidence, period_start, include_administrative
+    )
+    period_value = period_start.isoformat() if period_start is not None else ""
+    administrative_checked = "checked" if include_administrative else ""
     return _page(
         "Кандидаты",
         f"""<form method="get" class="toolbar">
   <label>Snapshot РФМ <select name="snapshot_id">{snapshot_options}</select></label>
   <label>Min confidence <input type="number" name="min_confidence" min="0" max="1" step="0.05" value="{min_confidence}"></label>
   <label>Limit <input type="number" name="limit" min="1" max="1000" value="{limit}"></label>
+  <label>Новости с <input type="date" name="date_from" value="{period_value}"></label>
+  <label><input type="checkbox" name="include_administrative" value="1" {administrative_checked}> Включая административные</label>
   <button>Обновить</button>
-  <a class="secondary" href="/ui/candidates/export?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать CSV</a>
-  <a class="secondary" href="/ui/candidates/export.pdf?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать PDF</a>
-  <a class="secondary" href="/ui/candidates/export.xlsx?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence})}">Export to Excel</a>
+  <a class="secondary" href="/ui/candidates/export?{legacy_filters}">Скачать CSV</a>
+  <a class="secondary" href="/ui/candidates/export.pdf?{legacy_filters}">Скачать PDF</a>
+  <a class="secondary" href="/ui/candidates/export.xlsx?{filters}">Export to Excel</a>
 </form>
-<p class="muted">Найдено: {len(candidates)}. Статус РФМ: <code>not_matched</code>.</p>
-<table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
+<p class="muted">Найдено: {len(candidate_rows)}, показано: {min(len(candidate_rows), limit)}. Статус РФМ: <code>not_matched</code>. Сначала новые дела, аресты и приговоры, затем по дате новости.</p>
+<table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Дата новости</th><th>Категория</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
         active="candidates",
         instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",
         next_action="Откройте Person, проверьте события и evidence spans в исходных статьях.",
@@ -1663,7 +1683,48 @@ def ui_candidates_export(
     )
 
 
-def _candidate_news_urls(db: Session, person_ids: list[int]) -> dict[int, str]:
+class _CandidateNews(NamedTuple):
+    url: str
+    published_at: datetime | None
+    event_type: str | None
+
+
+class _CandidateRow(NamedTuple):
+    candidate: PoliticalPersecutionCandidate
+    news: _CandidateNews | None
+
+
+# The categories of the customer's table, by the event the row links to.
+_CANDIDATE_CATEGORIES = {
+    "case_opened": "Возбуждено дело",
+    "charge": "Обвинение",
+    "arrest": "Арест",
+    "sentence": "Приговор",
+    "detention": "Задержание",
+    "search": "Обыск",
+    "fine": "Штраф",
+    "release": "Освобождение",
+    "other": "Другое",
+}
+# New cases and sentences first (customer priority), then detentions and searches.
+_CATEGORY_PRIORITY = {
+    "case_opened": 0,
+    "charge": 0,
+    "arrest": 0,
+    "sentence": 0,
+    "detention": 1,
+    "search": 1,
+}
+_OTHER_CATEGORY_PRIORITY = 2
+# The customer reviews the last month and a half.
+_DEFAULT_NEWS_PERIOD = timedelta(days=45)
+# The sources publish in Moscow time; a news day is a Moscow day.
+_NEWS_TIMEZONE = ZoneInfo("Europe/Moscow")
+_POLITICAL_CHARGE_REASON = "Политическая статья:"
+_PATRONYMIC_ENDINGS = ("вич", "вна", "ична")
+
+
+def _candidate_news(db: Session, person_ids: list[int]) -> dict[int, _CandidateNews]:
     """The source article of each person's latest event, as the person card orders them.
 
     A person without events gets the article of their first mention.
@@ -1671,7 +1732,12 @@ def _candidate_news_urls(db: Session, person_ids: list[int]) -> dict[int, str]:
     if not person_ids:
         return {}
     from_events = db.execute(
-        select(PersonEventLinkRecord.person_id, SourceDocument.canonical_url)
+        select(
+            PersonEventLinkRecord.person_id,
+            SourceDocument.canonical_url,
+            ParsedArticleRecord.published_at,
+            ExtractedEventRecord.event_type,
+        )
         .join(ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id)
         .join(
             ArticleExtractionRunRecord,
@@ -1687,11 +1753,18 @@ def _candidate_news_urls(db: Session, person_ids: list[int]) -> dict[int, str]:
             ExtractedEventRecord.id.desc(),
         )
     ).tuples()
-    urls = dict(from_events.all())
-    without_events = [person_id for person_id in person_ids if person_id not in urls]
+    news = {
+        person_id: _CandidateNews(url, published_at, event_type)
+        for person_id, url, published_at, event_type in from_events.all()
+    }
+    without_events = [person_id for person_id in person_ids if person_id not in news]
     if without_events:
         from_mentions = db.execute(
-            select(EntityMentionRecord.person_id, SourceDocument.canonical_url)
+            select(
+                EntityMentionRecord.person_id,
+                SourceDocument.canonical_url,
+                ParsedArticleRecord.published_at,
+            )
             .join(
                 ArticleExtractionRunRecord,
                 ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
@@ -1709,19 +1782,49 @@ def _candidate_news_urls(db: Session, person_ids: list[int]) -> dict[int, str]:
                 EntityMentionRecord.id,
             )
         ).tuples()
-        urls.update(
-            (person_id, url) for person_id, url in from_mentions.all() if person_id is not None
+        news.update(
+            (person_id, _CandidateNews(url, published_at, None))
+            for person_id, url, published_at in from_mentions.all()
+            if person_id is not None
         )
-    return urls
+    return news
 
 
-@app.get("/ui/candidates/export.xlsx")
-def ui_candidates_export_xlsx(
-    snapshot_id: int = Query(..., ge=1),
-    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> Response:
-    """All candidates matching the page filters; the page `limit` is deliberately not applied."""
+def _news_day(moment: datetime) -> date:
+    return moment.astimezone(_NEWS_TIMEZONE).date()
+
+
+def _period_start(date_from: str | None) -> date | None:
+    """The first news day to show: the default period when not given, none when empty."""
+    if date_from is None:
+        return datetime.now(_NEWS_TIMEZONE).date() - _DEFAULT_NEWS_PERIOD
+    if not date_from.strip():
+        return None
+    try:
+        return date.fromisoformat(date_from)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid date_from: {date_from!r}") from exc
+
+
+def _is_administrative_only(reasons: list[str]) -> bool:
+    """Every political article of the person is from КоАП: an administrative case."""
+    charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
+    return bool(charges) and not any("УК" in charge for charge in charges)
+
+
+def _candidate_rows(
+    db: Session,
+    *,
+    snapshot_id: int,
+    min_confidence: float,
+    period_start: date | None,
+    include_administrative: bool,
+) -> list[_CandidateRow]:
+    """The candidates of the page and its Excel export, filtered and in the table order.
+
+    The candidate definition stays the service's; the period, the administrative cases
+    and the order are the customer's view of it.
+    """
     try:
         result = CandidateQueryService(db).get_candidates(
             snapshot_id=snapshot_id,
@@ -1731,28 +1834,107 @@ def ui_candidates_export_xlsx(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    news = _candidate_news(db, [candidate.person_id for candidate in result.candidates])
+    rows: list[_CandidateRow] = []
+    for candidate in result.candidates:
+        if not include_administrative and _is_administrative_only(candidate.persecution_reasons):
+            continue
+        item = news.get(candidate.person_id)
+        published_at = item.published_at if item is not None else None
+        if period_start is not None and (
+            published_at is None or _news_day(published_at) < period_start
+        ):
+            continue
+        rows.append(_CandidateRow(candidate, item))
 
-    news_urls = _candidate_news_urls(db, [candidate.person_id for candidate in result.candidates])
+    def order(row: _CandidateRow) -> tuple[int, int, float, int]:
+        event_type = row.news.event_type if row.news is not None else None
+        published_at = row.news.published_at if row.news is not None else None
+        return (
+            _CATEGORY_PRIORITY.get(event_type or "", _OTHER_CATEGORY_PRIORITY),
+            0 if published_at is not None else 1,
+            -published_at.timestamp() if published_at is not None else 0.0,
+            row.candidate.person_id,
+        )
+
+    return sorted(rows, key=order)
+
+
+def _surname_first(name: str) -> str:
+    """«Иван Иванов» → «Иванов Иван»; a name ending in a patronymic already starts with it."""
+    words = name.split()
+    if len(words) < 2:
+        return name
+    if "." in words[0]:
+        initials = [word for word in words if "." in word]
+        return " ".join([*(word for word in words if "." not in word), *initials])
+    if words[-1].lower().endswith(_PATRONYMIC_ENDINGS):
+        return name
+    if len(words) == 3 and words[1].lower().endswith(_PATRONYMIC_ENDINGS):
+        return " ".join([words[2], words[0], words[1]])
+    return " ".join([words[-1], *words[:-1]])
+
+
+def _candidate_filters(
+    snapshot_id: int,
+    min_confidence: float,
+    period_start: date | None,
+    include_administrative: bool,
+) -> str:
+    params: dict[str, str | int | float] = {
+        "snapshot_id": snapshot_id,
+        "min_confidence": min_confidence,
+        "date_from": period_start.isoformat() if period_start is not None else "",
+    }
+    if include_administrative:
+        params["include_administrative"] = "1"
+    return urlencode(params)
+
+
+@app.get("/ui/candidates/export.xlsx")
+def ui_candidates_export_xlsx(
+    snapshot_id: int = Query(..., ge=1),
+    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
+    date_from: str | None = Query(default=None),
+    include_administrative: bool = Query(default=False),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """The page's candidates in the page's order; the page `limit` is deliberately not applied."""
+    rows = _candidate_rows(
+        db,
+        snapshot_id=snapshot_id,
+        min_confidence=min_confidence,
+        period_start=_period_start(date_from),
+        include_administrative=include_administrative,
+    )
     workbook = Workbook()
     sheet = workbook.active
     assert sheet is not None
     sheet.title = "Кандидаты"
-    sheet.append(["№", "Имя человека", "Причины", "Ссылка"])
-    for position, candidate in enumerate(result.candidates, start=1):
-        link = news_urls.get(candidate.person_id)
+    sheet.append(["№", "Фамилия Имя", "Дата новости", "Категория", "Причины", "Ссылка"])
+    for position, (candidate, news) in enumerate(rows, start=1):
+        link = news.url if news is not None else None
+        published = _news_day(news.published_at) if news is not None and news.published_at else None
+        category = (
+            _CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)
+            if news is not None and news.event_type
+            else None
+        )
         # The same «Причины» as the PDF export.
         reasons = "; ".join(candidate.persecution_reasons) or None
-        sheet.append([position, candidate.canonical_name, reasons, link])
+        sheet.append(
+            [position, _surname_first(candidate.canonical_name), published, category, reasons, link]
+        )
         row = position + 1
         # Names and URLs come from scraped sources: never let a leading "=" become a formula.
-        sheet.cell(row=row, column=2).data_type = "s"
-        if reasons is not None:
-            sheet.cell(row=row, column=3).data_type = "s"
-        if link is not None:
-            sheet.cell(row=row, column=4).data_type = "s"
-            # Only web links are clickable: a scraped «javascript:» URL stays plain text.
-            if link.startswith(("http://", "https://")):
-                sheet.cell(row=row, column=4).hyperlink = link
+        for column, value in ((2, True), (5, reasons), (6, link)):
+            if value is not None:
+                sheet.cell(row=row, column=column).data_type = "s"
+        if published is not None:
+            sheet.cell(row=row, column=3).number_format = "DD.MM.YYYY"
+        # Only web links are clickable: a scraped «javascript:» URL stays plain text.
+        if link is not None and link.startswith(("http://", "https://")):
+            sheet.cell(row=row, column=6).hyperlink = link
     buffer = BytesIO()
     workbook.save(buffer)
     return Response(

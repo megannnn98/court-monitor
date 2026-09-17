@@ -121,7 +121,8 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         ui_person = client.get(f"/ui/persons/{person_id}")
         article = client.get(f"/articles/{article_id}")
         search = client.get("/search/articles", params={"query": "пикет"})
-        candidates_page = client.get(f"/ui/candidates?snapshot_id={snapshot_id}")
+        # The seeded news is dated 2024: no period filter.
+        candidates_page = client.get(f"/ui/candidates?snapshot_id={snapshot_id}&date_from=")
         exported = client.get(f"/ui/candidates/export?snapshot_id={snapshot_id}")
         exported_pdf = client.get(f"/ui/candidates/export.pdf?snapshot_id={snapshot_id}")
 
