@@ -53,6 +53,18 @@ def test_an_ambiguous_word_is_left_as_written_when_the_name_states_no_gender() -
     assert MORPHOLOGY.to_nominative("Александра Иванова") == "Александра Иванова"
 
 
+def test_the_words_of_a_name_are_read_in_one_gender() -> None:
+    """«Даниила» may be a woman's name; the unknown «Неонова» was declined as a man's.
+
+    Real corpus: «Даниила Неонов» half-declined matched neither «Даниил Неонов» nor
+    anything else, and none of his ten mentions reached his person.
+    """
+    assert MORPHOLOGY.to_nominative("Даниила Неонова") == "Даниил Неонов"
+    assert MORPHOLOGY.to_nominative("Станислава Зимина") == "Станислав Зимин"
+    # Nothing was declined: the name stays as written, as one reading.
+    assert MORPHOLOGY.to_nominative("Александра Новака") == "Александра Новака"
+
+
 def test_one_unambiguous_word_settles_the_gender_of_the_whole_name() -> None:
     """«Андрея» is masculine in every reading, so the surname follows it."""
     assert MORPHOLOGY.to_nominative("Андрея Волкова") == "Андрей Волков"

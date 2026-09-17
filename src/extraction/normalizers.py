@@ -24,7 +24,9 @@ from extraction.name_morphology import NameMorphology
 # («Елене Перепелице», «Антона Зарецкого»); a name with initials is declined too.
 # 1.3.0: the part and clause of an article are the ones written before it, so each
 # article of an enumeration keeps its own («ст. 275 ч. 2 ст. 205.4 … УК РФ»).
-NORMALIZER_VERSION = "1.3.0"
+# 1.4.0: the words of a name are read in one gender: once the guessed gender declines a
+# word, the ones kept as written follow it («Даниила Неонова» → «Даниил Неонов»).
+NORMALIZER_VERSION = "1.4.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)

@@ -70,14 +70,26 @@ class NameMorphology:
             for grammeme in parse.tag.grammemes
             if grammeme in _CASES
         }
-        return " ".join(
-            word
-            if not gender_is_certain and _can_be_nominative(word_parses)
-            # «Волкова О. Н.» must not become «Волков О. Н.»: without a gender in the name,
-            # a word that can already be nominative stays as written.
-            else self._word_to_nominative(word, word_parses, gender, cases)
-            for word, word_parses in zip(words, parses, strict=True)
-        )
+        # «Волкова О. Н.» must not become «Волков О. Н.»: without a gender in the name, a
+        # word that can already be nominative stays as written.
+        kept = [not gender_is_certain and _can_be_nominative(word_parses) for word_parses in parses]
+        declined = [
+            word if keep else self._word_to_nominative(word, word_parses, gender, cases)
+            for word, word_parses, keep in zip(words, parses, kept, strict=True)
+        ]
+        # One reading for the whole name, though: once the guessed gender has changed a
+        # word, the words kept as written follow it — «Даниила Неонова» is «Даниил Неонов»,
+        # not «Даниила Неонов». Initials are never declined, so they change nothing.
+        if any(
+            not keep and new != word for word, new, keep in zip(words, declined, kept, strict=True)
+        ):
+            declined = [
+                self._word_to_nominative(word, word_parses, gender, cases)
+                if keep and not word.endswith(".")
+                else new
+                for word, word_parses, keep, new in zip(words, parses, kept, declined, strict=True)
+            ]
+        return " ".join(declined)
 
     def is_name_word(self, word: str) -> bool:
         """Whether the dictionary knows the word as a name, a surname or a patronymic."""
