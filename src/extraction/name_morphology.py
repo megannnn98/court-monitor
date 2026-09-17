@@ -79,7 +79,12 @@ class NameMorphology:
         return found.pop() if len(found) == 1 else None
 
     def is_patronymic(self, word: str) -> bool:
-        return self._has_only(word, "Patr")
+        """A patronymic reading and no given-name one («Александрович» is also a rare
+        indeclinable surname in the dictionary, and still a patronymic)."""
+        parses = self._name_parses(word)
+        return any("Patr" in parse.tag for parse in parses) and not any(
+            "Name" in parse.tag for parse in parses
+        )
 
     def is_given_name(self, word: str) -> bool:
         """A given name that is not also a surname («Елену» yes, «Иванова» no)."""

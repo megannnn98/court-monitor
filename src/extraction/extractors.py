@@ -173,7 +173,7 @@ _LOCATION_PATTERN = re.compile(
     r"\b(?:Россия|Беларусь|Украина|Москва|Москве|Москвы|Санкт-Петербург|Петербург|"
     r"Санкт-Петербурге|Казань|Казани|Екатеринбург|Екатеринбурге|Новосибирск|Новосибирске|"
     r"Татарстан|Дагестан|Чечня|"
-    r"Краснодарский край|Московская область|Ленинградская область)\b"
+    r"Краснодарский край|Московская область|Ленинградская область|Марий Эл)\b"
 )
 
 
@@ -246,18 +246,35 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
             and (
                 unknown_before_full_name
                 or (
-                    morphology.is_known_non_name(surface)
-                    and (
-                        not morphology.can_be_nominative(surface)
-                        or morphology.is_adjective(surface)
-                        # «Приговор Ремзи Куртнезирову»: the capital opens the sentence.
-                        or _starts_a_sentence(text, start)
+                    # «Коми Игоря Сажина»: a place before a full name is not part of it.
+                    (morphology.is_geographic(surface) and len(rest) >= 2)
+                    or (
+                        morphology.is_known_non_name(surface)
+                        and (
+                            not morphology.can_be_nominative(surface)
+                            or morphology.is_adjective(surface)
+                            # «Приговор Ремзи Куртнезирову»: the capital opens the sentence.
+                            or _starts_a_sentence(text, start)
+                        )
                     )
                 )
             )
         ):
             start += word.end()
             continue
+        # «Глазова Андрея Едигарева», «Навального Сергея Бойко»: without a patronymic a
+        # name is «given name, surname», so a surname or place before a given name
+        # belongs to the words around the name.
+        # The word after the span counts too: «Навального Сергея» is followed by «Бойко».
+        following = re.match(rf"{_SPACE}({_CAPITALIZED_WORD})", text[end:])
+        name = [*rest, following.group(1)] if following is not None and len(rest) == 1 else rest
+        if (
+            len(name) >= 2
+            and morphology.is_given_name(name[0])
+            and not morphology.is_given_name(surface)
+            and not any(morphology.is_patronymic(other) for other in name[:2])
+        ):
+            start += word.end()
         return start
 
 
@@ -302,7 +319,8 @@ class RuleBasedEntityExtractor:
     # not a person, both decided by the morphological dictionary.
     # 1.3.0: overlapping name spans prefer more name words over more characters;
     # «Свидетели Иеговы» is an organization; a Latin word is never part of a name;
-    # a name does not continue on the next line.
+    # a name does not continue on the next line; a place or a surname before
+    # «given name, surname» is not part of the name.
     extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:

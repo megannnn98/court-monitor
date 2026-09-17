@@ -79,3 +79,11 @@ def test_the_article_settles_an_ambiguous_gender() -> None:
     assert MORPHOLOGY.to_nominative("Федора Телина", document_words=["Телин"]) == "Фёдор Телин"
     # The article says the surname is a woman's: «Волкова» stays a woman.
     assert MORPHOLOGY.to_nominative("Волкова", document_words=["Волковой"]) == "Волкова"
+
+
+def test_a_patronymic_with_a_rare_surname_reading_is_still_a_patronymic() -> None:
+    """The dictionary also reads «Александрович» as an indeclinable feminine surname."""
+    assert MORPHOLOGY.is_patronymic("Александрович")
+    assert MORPHOLOGY.is_patronymic("Сергеевна")
+    assert not MORPHOLOGY.is_patronymic("Иванова")
+    assert not MORPHOLOGY.is_patronymic("Мария")

@@ -567,3 +567,17 @@ def test_a_name_does_not_span_a_line_break() -> None:
     were read as one name «Бонцлер На Старом»."""
     assert _people("в поддержку Марии Бонцлер\nНа Старом Арбате прошел пикет") == ["Марии Бонцлер"]
     assert _people("Задержаны:\nПетров\nСидоров") == []
+
+
+def test_a_surname_or_place_before_a_given_name_is_not_part_of_the_name() -> None:
+    """Real cases: «Глазов Андрей Едигарев», «Навальный Сергей Бойко», «Коми Игорь Сажин»,
+    «Марий Эл Алексей». Without a patronymic a Russian name is «given name, surname»."""
+    assert _people("Против депутата из Глазова Андрея Едигарева возбудили дело.") == [
+        "Андрея Едигарева"
+    ]
+    assert _people("Суд арестовал координатора штаба Навального Сергея Бойко.") == ["Сергея Бойко"]
+    assert _people("Обыск прошел у правозащитника из Коми Игоря Сажина.") == ["Игоря Сажина"]
+    assert _people("Задержали жителя Республики Марий Эл Алексея Петрова.") == ["Алексея Петрова"]
+    # «Surname, given name, patronymic» stays whole, including a patronymic the
+    # dictionary also knows as a surname.
+    assert _people("Поспелов Дмитрий Александрович осужден.") == ["Поспелов Дмитрий Александрович"]
