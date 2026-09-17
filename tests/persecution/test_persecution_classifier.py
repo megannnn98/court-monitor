@@ -386,3 +386,74 @@ def test_political_article_numbers_only_count_in_their_own_code(charge: str) -> 
     )
 
     assert PersecutionEvidenceType.POLITICAL_CHARGE not in classification.evidence_types
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Его осудили за госизмену.",
+        "Суд признал его виновным в государственной измене.",
+        "По версии следствия, он получил задание от сотрудника ГУР.",
+        "Он передавал сведения СБУ.",
+    ],
+)
+def test_treason_and_ukrainian_services_are_signs_of_political_persecution(text: str) -> None:
+    """The customer counts treason and GUR/SBU cases as political persecution."""
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[],
+        articles=[{"title": "", "text": text}],
+    )
+
+    assert PersecutionEvidenceType.POLITICAL_ARTICLE in classification.evidence_types
+
+
+def test_a_word_starting_like_an_intelligence_service_is_not_one() -> None:
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[],
+        articles=[{"title": "", "text": "Гуров и Сбуев пришли на заседание."}],
+    )
+
+    assert classification.evidence_types == []
+
+
+def test_a_charge_listing_several_articles_is_political_if_one_of_them_is() -> None:
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[
+            {
+                "id": 1,
+                "event_type": "sentence",
+                "attributes": {"charge": "УК РФ ст. 222.1 ч. 4; УК РФ ст. 275"},
+            }
+        ],
+        articles=[],
+    )
+
+    assert classification.status == PersecutionClassificationStatus.POLITICAL
+    # КоАП and УК numbers stay apart inside one listing.
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[
+            {
+                "id": 1,
+                "event_type": "sentence",
+                "attributes": {"charge": "КоАП РФ ст. 20.1; УК РФ ст. 158"},
+            }
+        ],
+        articles=[],
+    )
+    assert classification.status == PersecutionClassificationStatus.NON_POLITICAL
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[
+            {
+                "id": 1,
+                "event_type": "sentence",
+                "attributes": {"charge": "КоАП РФ ст. 20.1; УК РФ ст. 275"},
+            }
+        ],
+        articles=[],
+    )
+    assert classification.status == PersecutionClassificationStatus.POLITICAL

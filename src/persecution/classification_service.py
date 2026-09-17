@@ -220,13 +220,17 @@ class PersecutionClassificationService:
         for event in events:
             attributes = dict(event.attributes)
             if not attributes.get("charge"):
-                nearest = self._nearest_legal_reference(
+                nearest = self._nearest_legal_references(
                     legal_mentions_by_run.get(event.extraction_run_id, []),
                     event.start_offset,
                     event.end_offset,
                 )
-                if nearest is not None:
-                    attributes["charge"] = nearest.normalized_text
+                if nearest:
+                    # Every article at the nearest distance: an enumeration («ст. 275 …,
+                    # ч. 4 ст. 222.1 УК РФ») is one charge of several articles.
+                    attributes["charge"] = "; ".join(
+                        sorted({mention.normalized_text for mention in nearest})
+                    )
 
             result.append(
                 {
@@ -240,13 +244,13 @@ class PersecutionClassificationService:
         return result
 
     @staticmethod
-    def _nearest_legal_reference(
+    def _nearest_legal_references(
         candidates: list[EntityMentionRecord],
         start_offset: int,
         end_offset: int,
-    ) -> EntityMentionRecord | None:
-        best: EntityMentionRecord | None = None
-        best_distance = LEGAL_REFERENCE_LINK_WINDOW_CHARS + 1
+    ) -> list[EntityMentionRecord]:
+        """The legal references at the smallest distance from the event, within the window."""
+        by_distance: dict[int, list[EntityMentionRecord]] = {}
         for mention in candidates:
             if mention.end_offset <= start_offset:
                 distance = start_offset - mention.end_offset
@@ -254,10 +258,9 @@ class PersecutionClassificationService:
                 distance = mention.start_offset - end_offset
             else:
                 distance = 0  # overlapping spans
-            if distance <= LEGAL_REFERENCE_LINK_WINDOW_CHARS and distance < best_distance:
-                best = mention
-                best_distance = distance
-        return best
+            if distance <= LEGAL_REFERENCE_LINK_WINDOW_CHARS:
+                by_distance.setdefault(distance, []).append(mention)
+        return by_distance[min(by_distance)] if by_distance else []
 
     def _windowed_articles_for_person(
         self,
