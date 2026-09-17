@@ -550,3 +550,13 @@ def test_jehovahs_witnesses_are_an_organization_not_part_of_a_name() -> None:
     assert _people("38-летняя Свидетельница Иеговы Сона Олопова освободилась.") == ["Сона Олопова"]
     assert _people("63-летний Свидетель Иеговы вышел на свободу.") == []
     assert _people("Свидители Иеговы Ирину Ушакову задержали.") == ["Ирину Ушакову"]
+
+
+def test_a_latin_word_is_not_part_of_a_person_name() -> None:
+    """Real cases: people are written in Cyrillic in these sources, while mixed spans were
+    outlets and brands around a name («The Insider Романа», «Say Agency Анна»)."""
+    assert _people("Главреда The Insider Романа Доброхотова объявили в розыск.") == [
+        "Романа Доброхотова"
+    ]
+    assert _people("Фотографа Say Agency Анну Петрову задержали.") == ["Анну Петрову"]
+    assert _people("Канал Соловьев Live закрыли.") == []

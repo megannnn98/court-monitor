@@ -196,6 +196,10 @@ def _capitalized_run(text: str, start: int, end: int) -> list[str]:
     return text[left:right].split()
 
 
+def _is_latin(word: str) -> bool:
+    return re.search(r"[А-ЯЁа-яё]", word) is None
+
+
 def _starts_a_sentence(text: str, start: int) -> bool:
     """A capital letter at the start of a sentence says nothing about the word being a name."""
     before = text[:start].rstrip()
@@ -214,7 +218,11 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
             return start
         surface = word.group(0).strip()
         lowered = surface.lower()
-        if lowered in _LEADING_NON_NAME_WORDS or lowered.startswith(_LEADING_ROLE_STEMS):
+        if (
+            lowered in _LEADING_NON_NAME_WORDS
+            or lowered.startswith(_LEADING_ROLE_STEMS)
+            or _is_latin(surface)
+        ):
             start += word.end()
             continue
         rest = text[start + word.end() : end].split()
@@ -289,7 +297,7 @@ class RuleBasedEntityExtractor:
     # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
     # not a person, both decided by the morphological dictionary.
     # 1.3.0: overlapping name spans prefer more name words over more characters;
-    # «Свидетели Иеговы» is an organization.
+    # «Свидетели Иеговы» is an organization; a Latin word is never part of a name.
     extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
@@ -353,9 +361,9 @@ class RuleBasedEntityExtractor:
                 surface = text[start:span_end]
                 if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
                     continue
-                # «Skandi Klubb», «Frankfurter Allgemeine Zeitung»: people are written in
-                # Cyrillic in these sources, Latin spans are outlets, bands and venues.
-                if not re.search(r"[А-ЯЁа-яё]", surface):
+                # «Skandi Klubb», «Соловьев Live»: people are written in Cyrillic in these
+                # sources, Latin words are outlets, bands and venues.
+                if any(_is_latin(word) for word in surface.split()):
                     continue
                 if self._is_person_stop_word(surface) or _is_not_a_person(
                     surface, self._morphology
