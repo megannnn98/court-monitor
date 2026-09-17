@@ -691,3 +691,37 @@ def test_a_person_in_a_subordinate_clause_is_not_the_target_of_the_main_event() 
     assert _event_people("Суд арестовал Ивана Петрова, Олега Сидорова и Анну Смирнову.") == [
         ["Ивана Петрова", "Олега Сидорова", "Анну Смирнову"]
     ]
+
+
+def _normalized_legal(text: str) -> list[str]:
+    document = make_document(text)
+    normalizer = RuleBasedMentionNormalizer()
+    return [
+        normalizer.normalize(mention, document).normalized_text
+        for mention in RuleBasedEntityExtractor().extract(document)
+        if mention.entity_type is EntityType.LEGAL_REFERENCE
+    ]
+
+
+def test_every_article_of_an_enumeration_gets_the_code_at_its_end() -> None:
+    """Real case (uovs_info/1385, treason on a GUR task): only the last article before
+    «УК РФ» was recognised, 222.1, so the person was classified non-political."""
+    text = (
+        "Состоялось оглашение приговора по уголовному делу в отношении Корнилова Алексея "
+        "Леонидовича, обвиняемого в совершении преступлений, предусмотренных ст. 275 ч. 2 "
+        "ст. 205.4, ст. 205.3, ч. 3ст. 205.1, ч. 4 ст. 222.1 УК РФ."
+    )
+    assert _normalized_legal(text) == [
+        "УК РФ ст. 275",
+        "УК РФ ст. 205.4 ч. 2",
+        "УК РФ ст. 205.3",
+        "УК РФ ст. 205.1 ч. 3",
+        "УК РФ ст. 222.1 ч. 4",
+    ]
+
+
+def test_an_enumeration_does_not_reach_across_another_code() -> None:
+    text = "Его оштрафовали по ст. 20.3.3 КоАП, а затем обвинили по ч. 1 ст. 280.3 УК РФ."
+    assert _normalized_legal(text) == ["КоАП РФ ст. 20.3.3", "УК РФ ст. 280.3 ч. 1"]
+    text = "Дело возбудили по п. «а» ч. 2 ст. 282 и ст. 280 УК РФ."
+    assert _normalized_legal(text) == ["УК РФ ст. 282 ч. 2 п. а", "УК РФ ст. 280"]

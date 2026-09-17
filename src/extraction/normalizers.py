@@ -22,7 +22,9 @@ from extraction.name_morphology import NameMorphology
 # itself («Даниила Меркулова» → «Даниил Меркулов»); a guessed or surname-only reading
 # does not fix the gender; surnames outside the dictionary are declined by their ending
 # («Елене Перепелице», «Антона Зарецкого»); a name with initials is declined too.
-NORMALIZER_VERSION = "1.2.0"
+# 1.3.0: the part and clause of an article are the ones written before it, so each
+# article of an enumeration keeps its own («ст. 275 ч. 2 ст. 205.4 … УК РФ»).
+NORMALIZER_VERSION = "1.3.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -168,8 +170,16 @@ class RuleBasedMentionNormalizer:
             if alias.lower() in surface_text.lower()
         )
         article_match = _LEGAL_ARTICLE_PATTERN.search(surface_text)
-        part_match = _LEGAL_PART_PATTERN.search(surface_text)
-        clause_match = _LEGAL_CLAUSE_PATTERN.search(surface_text)
+        # The part and clause of an article are written before it. Only a single
+        # reference may have them after it («ст. 282 ч. 2 УК»): in an enumeration
+        # («ст. 275 ч. 2 ст. 205.4 … УК РФ») the part after belongs to the next article.
+        qualifiers = surface_text
+        if article_match is not None:
+            before = surface_text[: article_match.start()]
+            single = len(_LEGAL_ARTICLE_PATTERN.findall(surface_text)) == 1
+            qualifiers = surface_text if single and not before.strip() else before
+        part_match = _LEGAL_PART_PATTERN.search(qualifiers)
+        clause_match = _LEGAL_CLAUSE_PATTERN.search(qualifiers)
         data = LegalReferenceNormalizedData(
             code=code,
             article=article_match.group(1) if article_match else None,

@@ -32,6 +32,22 @@ _LEGAL_REFERENCE_PATTERN = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# One article of an enumeration that ends with a single code: «ст. 275 ч. 2 ст. 205.4,
+# ст. 205.3, ч. 3ст. 205.1, ч. 4 ст. 222.1 УК РФ». Found right-to-left from the
+# code-anchored reference, each with the separator after it.
+_ENUMERATED_ARTICLE_BEFORE = re.compile(
+    r"""
+    (?P<item>
+        (?:(?:п\.|пункт)\s*[«"]?[а-яa-z]["»]?\s*)?
+        (?:(?:ч\.|част[ьи])\s*\d+(?:\.\d+)?\s*)?
+        (?:ст\.|стать[еяи])\s*\d+(?:\.\d+)*
+    )
+    (?:\s*[,;]\s*(?:и\s+)?|\s+и\s+|\s+)$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+_ENUMERATION_LOOKBACK_CHARS = 120
+
 _CAPITALIZED_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+(?:-[А-ЯЁA-Z][а-яёa-z]+)?)"
 _COURT_PREFIX_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+|[а-яё]+)"
 # A name never continues on the next line: a title and the text below it are separate.
@@ -332,13 +348,16 @@ class RuleBasedEntityExtractor:
     # «Свидетели Иеговы» is an organization; a Latin word is never part of a name;
     # a name does not continue on the next line; a place or a surname before
     # «given name, surname» is not part of the name; a bullet opens a sentence.
-    extractor_version = "1.3.0"
+    # 1.4.0: every article of an enumeration gets the code at its end («ст. 275 ч. 2
+    # ст. 205.4, …, ч. 4 ст. 222.1 УК РФ»).
+    extractor_version = "1.4.0"
     # 2.0.0: person names come from a recognizer model instead of the capitalized-word
     # patterns; the rest of the entity types are unchanged. The version differs so
     # extraction runs of the two person sources are never reused for one another.
     # 2.1.0: the organization and location patterns and the single-word names blended
     # in from the patterns follow the rule changes of 1.3.0.
-    ner_extractor_version = "2.1.0"
+    # 2.2.0: the legal reference enumerations of 1.4.0.
+    ner_extractor_version = "2.2.0"
 
     def __init__(
         self,
@@ -378,11 +397,29 @@ class RuleBasedEntityExtractor:
         )
 
     def _legal_references(self, text: str) -> list[RawMention]:
-        return [
-            self._mention(EntityType.LEGAL_REFERENCE, text, match.start(), match.end(), 0.95)
-            for match in _LEGAL_REFERENCE_PATTERN.finditer(text)
-            if match.group(0).strip()
-        ]
+        mentions: list[RawMention] = []
+        for match in _LEGAL_REFERENCE_PATTERN.finditer(text):
+            if not match.group(0).strip():
+                continue
+            # The earlier articles of an enumeration share the code at its end; each one
+            # spans from its own start to that code, so the code stays in its text.
+            item_start = match.start()
+            enumerated: list[int] = []
+            while (
+                previous := _ENUMERATED_ARTICLE_BEFORE.search(
+                    text[max(0, item_start - _ENUMERATION_LOOKBACK_CHARS) : item_start]
+                )
+            ) is not None:
+                item_start = max(0, item_start - _ENUMERATION_LOOKBACK_CHARS) + previous.start()
+                enumerated.append(item_start)
+            mentions.extend(
+                self._mention(EntityType.LEGAL_REFERENCE, text, start, match.end(), 0.9)
+                for start in reversed(enumerated)
+            )
+            mentions.append(
+                self._mention(EntityType.LEGAL_REFERENCE, text, match.start(), match.end(), 0.95)
+            )
+        return mentions
 
     def _courts(self, text: str) -> list[RawMention]:
         return [
