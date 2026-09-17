@@ -186,6 +186,15 @@ def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphol
     for previous, word in pairwise(words):
         if morphology.is_patronymic(previous.group(0)) and morphology.is_given_name(word.group(0)):
             return start + previous.end()
+    # «Рамзана Кадырова Никиту Журавеля»: a given name closing a span without a patronymic,
+    # with a capitalized word right after it, opens the next person's name.
+    if (
+        len(words) == 3
+        and morphology.is_given_name(words[2].group(0))
+        and not any(morphology.is_patronymic(word.group(0)) for word in words)
+        and re.match(rf"{_SPACE}{_CAPITALIZED_WORD}", text[end:]) is not None
+    ):
+        return start + words[1].end()
     return end
 
 

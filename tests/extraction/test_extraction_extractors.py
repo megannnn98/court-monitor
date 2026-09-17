@@ -588,3 +588,12 @@ def test_a_bullet_opens_a_sentence() -> None:
     the capitalized common noun as part of a name."""
     assert _people("🔹 Приговор Иванову увеличили до 20 лет") == []
     assert _people("• Приговор Иванову увеличили до 20 лет") == []
+
+
+def test_a_given_name_ending_a_span_starts_the_next_person() -> None:
+    """Real case: «бойца Рамзана Кадырова Никиту Журавеля» — preferring more name words
+    picked «Рамзана Кадырова Никиту» over the two people."""
+    assert _people("Бойцы Рамзана Кадырова Никиту Журавеля избили.") == [
+        "Рамзана Кадырова",
+        "Никиту Журавеля",
+    ]
