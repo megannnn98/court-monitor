@@ -44,8 +44,18 @@ class NameMorphology:
     def __init__(self, analyzer: MorphAnalyzer | None = None) -> None:
         self._analyzer = analyzer or MorphAnalyzer()
 
-    def to_nominative(self, name: str, document_words: Sequence[str] = ()) -> str:
-        """`document_words`: other words of the same article, used only to settle the gender."""
+    def to_nominative(
+        self,
+        name: str,
+        document_words: Sequence[str] = (),
+        genitive_document_words: Sequence[str] = (),
+    ) -> str:
+        """`document_words`: other words of the same article, used only to settle the gender.
+
+        `genitive_document_words`: words of the article right after a preposition that
+        takes only the genitive. «для Евгения Поливко» says «Евгения» is a man's name, for
+        that mention and for the same name written elsewhere without a preposition.
+        """
         words = name.split()
         parses = [self._name_parses(word) for word in words]
         gender, gender_is_certain = self._gender(parses)
@@ -56,8 +66,10 @@ class NameMorphology:
             for word, word_parses in zip(words, parses, strict=True)
         ):
             gender, gender_is_certain = "masc", True
-        if not gender_is_certain and document_words:
-            from_document = self._gender_from_document(parses, document_words)
+        if not gender_is_certain and (document_words or genitive_document_words):
+            from_document = self._gender_from_document(
+                parses, document_words, genitive_document_words
+            )
             if from_document is not None:
                 gender, gender_is_certain = from_document, True
         # The case the other words of the name are in («Екатерину» is accusative): a
@@ -96,7 +108,10 @@ class NameMorphology:
         return bool(self._name_parses(word))
 
     def _gender_from_document(
-        self, parses: list[tuple[Parse, ...]], document_words: Sequence[str]
+        self,
+        parses: list[tuple[Parse, ...]],
+        document_words: Sequence[str],
+        genitive_document_words: Sequence[str] = (),
     ) -> str | None:
         """The gender of an unambiguous form of the same name elsewhere in the article.
 
@@ -111,12 +126,17 @@ class NameMorphology:
             if gender in parse.tag.grammemes
         }
         found: set[str] = set()
-        for word in document_words:
+        readings = [(word, self._name_parses(word)) for word in document_words]
+        readings += [
+            (word, tuple(p for p in self._name_parses(word) if "gent" in p.tag.grammemes))
+            for word in genitive_document_words
+        ]
+        for _word, word_parses in readings:
             # Only a word whose readings of this name agree on the gender says anything:
             # the ambiguous «Телина» (the mention itself) reads as both and settles nothing.
             genders = {
                 gender
-                for parse in self._name_parses(word)
+                for parse in word_parses
                 if parse.normal_form in wanted
                 for gender in _GENDERS
                 if gender in parse.tag.grammemes

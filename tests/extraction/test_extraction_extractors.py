@@ -643,6 +643,27 @@ def test_a_surname_alone_in_the_article_still_settles_the_gender() -> None:
     assert _normalized_people(text)["Федора Телина"] == "Федор Телин"
 
 
+def test_a_genitive_preposition_settles_the_gender_of_the_name_after_it() -> None:
+    """Real case (a fundraising post): after «для» the name is genitive, so «Евгения»
+    is a man; the same name later without a preposition follows it."""
+    text = (
+        "Сбор на посылку для Евгения Поливко. Из-за трёх комментариев о президенте "
+        "Евгения Поливко приговорили к 7 годам."
+    )
+    people = RuleBasedEntityExtractor().extract(make_document(text))
+    document = make_document(text)
+    normalizer = RuleBasedMentionNormalizer()
+    assert [
+        normalizer.normalize(mention, document).normalized_text
+        for mention in people
+        if mention.entity_type is EntityType.PERSON
+    ] == ["Евгений Поливко", "Евгений Поливко"]
+    # Without a genitive preposition the name stays as written.
+    assert _normalized_people("Суд приговорил Евгения Поливко.")["Евгения Поливко"] == (
+        "Евгения Поливко"
+    )
+
+
 def test_a_surname_repeated_alone_is_still_settled_by_the_full_name() -> None:
     """A bare surname is settled by the full name written elsewhere in the article."""
     text = "Владимир Путин подписал закон. Критику Путина задержали."

@@ -26,7 +26,9 @@ from extraction.name_morphology import NameMorphology
 # article of an enumeration keeps its own («ст. 275 ч. 2 ст. 205.4 … УК РФ»).
 # 1.4.0: the words of a name are read in one gender: once the guessed gender declines a
 # word, the ones kept as written follow it («Даниила Неонова» → «Даниил Неонов»).
-NORMALIZER_VERSION = "1.4.0"
+# 1.5.0: a name after a preposition that takes only the genitive settles the gender of that
+# name in the article («для Евгения Поливко» → «Евгений Поливко»).
+NORMALIZER_VERSION = "1.5.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -59,6 +61,22 @@ def _name_words_of(document: ExtractionDocument) -> list[str]:
     return _CAPITALIZED_WORDS.findall(document.text)
 
 
+# Prepositions that take only the genitive: the name after one of them is in that case.
+_GENITIVE_PREPOSITIONS = frozenset(
+    {"для", "у", "от", "из-за", "без", "против", "после", "вместо", "ради", "кроме", "около"}
+)
+
+
+def _genitive_words_of(document: ExtractionDocument) -> list[str]:
+    """Capitalized words right after a preposition that takes only the genitive."""
+    return [
+        match.group(2)
+        for match in _GENITIVE_PHRASE.finditer(document.text)
+        if match.group(1).lower() in _GENITIVE_PREPOSITIONS
+    ]
+
+
+_GENITIVE_PHRASE = re.compile(r"(?<![\w-])([А-ЯЁа-яё-]+)\s+([А-ЯЁ][а-яё]{2,})")
 _CAPITALIZED_WORDS = re.compile(r"(?<![\w-])[А-ЯЁ][а-яё]{2,}")
 
 
@@ -84,7 +102,9 @@ class RuleBasedMentionNormalizer:
         )
         if mention.entity_type is EntityType.PERSON:
             normalized_text, normalized_data = self._normalize_person(
-                mention.surface_text, _name_words_of(document)
+                mention.surface_text,
+                _name_words_of(document),
+                _genitive_words_of(document),
             )
         elif mention.entity_type is EntityType.LEGAL_REFERENCE:
             normalized_text, normalized_data = self._normalize_legal_reference(mention.surface_text)
@@ -119,7 +139,10 @@ class RuleBasedMentionNormalizer:
         return self._normalize_person(surface_text)
 
     def _normalize_person(
-        self, surface_text: str, document_words: Sequence[str] = ()
+        self,
+        surface_text: str,
+        document_words: Sequence[str] = (),
+        genitive_words: Sequence[str] = (),
     ) -> tuple[str, PersonNormalizedData]:
         words = surface_text.replace("ё", "е").replace("Ё", "Е").split()
         if words and "." in words[0]:
@@ -128,7 +151,9 @@ class RuleBasedMentionNormalizer:
             surname = words[len(initials) :]
             if surname:
                 surname = (
-                    self._name_morphology.to_nominative(" ".join(surname), document_words)
+                    self._name_morphology.to_nominative(
+                        " ".join(surname), document_words, genitive_words
+                    )
                     .replace("ё", "е")
                     .replace("Ё", "Е")
                     .split()
@@ -145,7 +170,7 @@ class RuleBasedMentionNormalizer:
 
         # The dictionary writes «ё»; stored names and matching keys use «е» throughout.
         normalized_words = (
-            self._name_morphology.to_nominative(" ".join(words), document_words)
+            self._name_morphology.to_nominative(" ".join(words), document_words, genitive_words)
             .replace("ё", "е")
             .replace("Ё", "Е")
             .split()
