@@ -14,7 +14,6 @@ from support.monitoring_fixtures import IVANOV, PETROV, SIDOROV, import_rf_snaps
 import cli_batches
 from cli_batches import (
     BatchWorkerError,
-    classify_persons,
     extract_articles,
     match_persons,
     merge_extraction_results,
@@ -25,7 +24,6 @@ from db.maintenance import truncate_disposable_tables
 from db.orm_models import (
     EntityMentionRecord,
     ParsedArticleRecord,
-    PersecutionClassificationRecord,
     PersonRecord,
     RosfinMatchRecord,
 )
@@ -156,7 +154,7 @@ def test_parallel_extraction_finds_what_one_process_finds(
     assert parallel == sequential
 
 
-def test_parallel_matching_and_classification_agree_with_one_process(
+def test_parallel_matching_agrees_with_one_process(
     test_engine: Engine, session_factory: sessionmaker[Session]
 ) -> None:
     database_url = _database_url(test_engine)
@@ -177,14 +175,7 @@ def test_parallel_matching_and_classification_agree_with_one_process(
                 total[status] = total.get(status, 0) + count
         return total
 
-    def classified(workers: int) -> tuple[int, int]:
-        work = partial(classify_persons, database_url)
-        chunks = run_chunks("classify", work, person_ids, workers=workers)
-        return sum(c.classified for c in chunks), sum(c.political for c in chunks)
-
-    def persons_with(
-        record: type[RosfinMatchRecord | PersecutionClassificationRecord],
-    ) -> list[int]:
+    def persons_with(record: type[RosfinMatchRecord]) -> list[int]:
         with session_factory() as session:
             return sorted(set(session.scalars(select(record.person_id)).all()))
 
@@ -193,9 +184,3 @@ def test_parallel_matching_and_classification_agree_with_one_process(
     # Saved by the worker itself, not returned for the caller to save.
     assert persons_with(RosfinMatchRecord) == person_ids
     assert matched(workers=3) == sequential_matches
-
-    sequential_classes = classified(workers=1)
-    assert sequential_classes[0] == len(person_ids)
-    assert persons_with(PersecutionClassificationRecord) == person_ids
-    assert sequential_classes[1] >= 1
-    assert classified(workers=3) == sequential_classes

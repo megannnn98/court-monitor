@@ -44,9 +44,9 @@ The court-monitor pipeline processes articles from multiple sources through seve
 
 ## Bulk rebuild: workers and GPU
 
-`extract-entities`, `match-rosfinmonitoring` and `classify-persecution` take
-`--workers N` (default 8, capped by the CPU count). Their items are independent, so the
-result does not depend on N; workers are spawned processes with their own connection.
+`extract-entities` and `match-rosfinmonitoring` take `--workers N` (default 8, capped by
+the CPU count). Their items are independent, so the result does not depend on N; workers
+are spawned processes with their own connection.
 `resolve-people --workers N` stays opt-in (default 1): its decisions depend on the order
 (see Entity-Resolution).
 
@@ -59,8 +59,8 @@ court-monitor classify-persecution --limit 100000
 
 Measured on the working corpus (20 996 articles, 12 cores): extraction 242 s → 80 s;
 matching 2 000 persons 163 s → 18 s (trigram index on
-`rosfinmonitoring_entries.normalized_name`, then 8 workers); classifying 2 000 persons
-11.7 s → 7.8 s.
+`rosfinmonitoring_entries.normalized_name`, then 8 workers). Classification stays in one
+process: 8 workers saved about 30 s of a 50 s run.
 
 The person recognizer (`PERSON_EXTRACTION_STRATEGY=ner|hybrid`) runs on CUDA when it is
 available: 26 ms per article against 269 ms on the CPU. Each worker loads its own copy of

@@ -15,7 +15,6 @@ from candidates.service import CandidateQueryService
 from cli_batches import (
     DEFAULT_WORKERS,
     MAX_GPU_WORKERS,
-    classify_persons,
     extract_articles,
     extraction_uses_gpu,
     match_persons,
@@ -306,12 +305,6 @@ def main() -> None:
         default=100,
         help="Maximum number of persons to process",
     )
-    classify_persecution_parser.add_argument(
-        "--workers",
-        type=int,
-        default=DEFAULT_WORKERS,
-        help="Classify persons in this many worker processes",
-    )
 
     list_candidates_parser = subparsers.add_parser(
         "list-candidates",
@@ -583,24 +576,17 @@ def main() -> None:
                 for reason in classification.reasons:
                     print(f"  - {reason}")
         else:
-            person_ids = [
-                person.id for person in person_persistence.list_active_persons(limit=args.limit)
-            ]
-            classify_workers = worker_count(args.workers, len(person_ids))
-            if classify_workers > 1:
-                database_engine.dispose()
+            persons = person_persistence.list_active_persons(limit=args.limit)
             classified_count = 0
             political_count = 0
-            with ProgressBar("classify-persecution", len(person_ids)) as progress:
-                for chunk_totals in run_chunks(
-                    "classify-persecution",
-                    partial(classify_persons, settings.database_url),
-                    person_ids,
-                    workers=classify_workers,
-                    on_progress=progress.advance,
-                ):
-                    classified_count += chunk_totals.classified
-                    political_count += chunk_totals.political
+
+            with ProgressBar("classify-persecution", len(persons)) as progress:
+                for person in persons:
+                    classification = classification_service.classify_person(person.id)
+                    classified_count += 1
+                    if classification.status == "political":
+                        political_count += 1
+                    progress.advance()
 
             print(f"Classified {classified_count} persons: {political_count} political persecution")
         return

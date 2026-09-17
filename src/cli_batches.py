@@ -1,7 +1,7 @@
-"""The bulk CLI stages — extraction, Rosfinmonitoring matching, classification — in workers.
+"""The bulk CLI stages — extraction and Rosfinmonitoring matching — in workers.
 
 Each item of these stages is independent of the others: an article is extracted on its
-own, a person is matched and classified from their own rows. Unlike person resolution
+own, a person is matched from their own rows. Unlike person resolution
 (`extraction.parallel_resolution`), the result therefore does not depend on the order or
 on the number of workers.
 
@@ -17,7 +17,6 @@ import os
 from collections import Counter
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
 from functools import cache
 from multiprocessing import get_context
 
@@ -32,7 +31,6 @@ from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.person_ner.config import PersonExtractionStrategy, PersonNerSettings
 from extraction.person_ner.factory import build_entity_extractor
 from extraction.pipeline import ExtractionPipeline
-from persecution.classification_service import PersecutionClassificationService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 
@@ -56,12 +54,6 @@ class BatchWorkerError(RuntimeError):
     def __init__(self, stage: str, failed_ids: list[int], cause: BaseException) -> None:
         super().__init__(f"{stage} failed for ids {failed_ids}: {type(cause).__name__}: {cause}")
         self.failed_ids = failed_ids
-
-
-@dataclass(frozen=True)
-class ClassificationTotals:
-    classified: int = 0
-    political: int = 0
 
 
 def worker_count(workers: int, items: int, *, uses_gpu: bool = False) -> int:
@@ -193,12 +185,3 @@ def match_persons(database_url: str, snapshot_id: int, person_ids: list[int]) ->
         persistence.save_match_result(match_result)
         statuses[match_result.status.value] += 1
     return statuses
-
-
-def classify_persons(database_url: str, person_ids: list[int]) -> ClassificationTotals:
-    service = PersecutionClassificationService(_session_factory(database_url))
-    political = 0
-    for person_id in person_ids:
-        if service.classify_person(person_id).status == "political":
-            political += 1
-    return ClassificationTotals(classified=len(person_ids), political=political)
