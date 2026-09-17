@@ -95,7 +95,7 @@ SUDRF_2ZOVS = sudrf_source(
 )
 
 
-# The registry of persecuted people: a structured card per person (ADR 0015).
+# The registry of persecuted people: a structured card per person (ADR 0017).
 MEMOPZK_FIGURANTS = SourceDefinition(
     name="memopzk-figurants",
     source_name=MEMOPZK_REGISTRY_SOURCE_NAME,
@@ -109,7 +109,7 @@ MEMOPZK_FIGURANTS = SourceDefinition(
     supports_direct_fetch=False,
 )
 
-# Kommersant's site names defendants its Telegram channel leaves unnamed (ADR 0015).
+# Kommersant's site names defendants its Telegram channel leaves unnamed (ADR 0017).
 KOMMERSANT = SourceDefinition(
     name="kommersant",
     source_name="Коммерсантъ (сайт)",

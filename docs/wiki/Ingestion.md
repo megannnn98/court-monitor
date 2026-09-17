@@ -15,6 +15,8 @@
 | SOTA (`sota-vision`) | `SotaVisionSourceAdapter` | `https://sota.vision/category/news/`, pagination `/page/N/` (WordPress) | `SotaVisionArticleParser` |
 | Telegram-каналы (`tg-<username>`, 70 шт.) | `TelegramSourceAdapter` | публичное веб-превью `https://t.me/s/<username>`, pagination `?before=<id>` | `TelegramPostParser` |
 | 2-й Западный окружной военный суд (`sudrf-2zovs`) | `SudrfSourceAdapter` | `https://2zovs.msk.sudrf.ru/modules.php?name=press_dep`, pagination по годам `&op=12&arc_list=YYYY` | `SudrfArticleParser` |
+| Реестр фигурантов «Мемориала» (`memopzk-figurants`) | `MemopzkFigurantAdapter` | REST `https://memopzk.org/wp-json/wp/v2/figurant`, по 100 карточек, сначала изменённые, пауза 10 с | `FigurantParser` |
+| Коммерсантъ, сайт (`kommersant`) | `RssSourceAdapter` | RSS `https://www.kommersant.ru/RSS/news.xml`, фильтр по рубрике и словам о суде | `KommersantArticleParser` |
 
 Все реализуют один и тот же `Protocol SourceAdapter` (`sources/source_adapter.py`) и берут загрузку листинга из общего `sources/discovery_pagination.py`: `fetch_listing_page_with_retry` (retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry). Обход страниц общий — `discover_paginated_references` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок) — только у `ovd-info` и `sota-vision`: они нумеруют страницы подряд. Telegram листает по `?before=<id>` до границы по дате, а `sudrf` — по годовым архивам, ссылки на которые читает с уже загруженной страницы, поэтому у обоих свой цикл обхода.
 
@@ -36,6 +38,20 @@
 - Страницы отдают windows-1251 и объявляют кодировку в `<meta>`; `selectolax` её учитывает, поэтому разбор идёт из байтов без явного decode.
 - Суд публикует ссылки на себя под хостом `2zovs--msk.sudrf.ru`, который редиректит на канонический. Оба хоста заданы явным allowlist (`sudrf_host_aliases`), а не заменой всех `--` на точку: такая замена приняла бы и `2zovs.msk.sudrf--ru` — отдельно регистрируемый домен.
 - Тело новости начинается с повторения заголовка отдельным абзацем. Парсер отбрасывает этот абзац при точном совпадении с заголовком: иначе extractor читает каждый приговор дважды.
+
+### Реестр фигурантов «Мемориала» (ADR 0017)
+
+Карточка реестра — один преследуемый человек: ФИО, статьи, регион, стадия, мера, категория, список. Поля есть в самом листинге, поэтому адаптер не скачивает страницы: `fetch` отдаёт карточку, найденную при discovery (кеш процесса переживает экземпляр адаптера — мониторинг ищет и загружает разными экземплярами); карточка вне листинга скачивается отдельно с паузой `Crawl-delay`. Полная первичная загрузка — 72 запроса, около 12 минут:
+
+```bash
+court-monitor discover-and-ingest --source memopzk-figurants --limit 8000
+```
+
+`FigurantParser` пишет из карточки короткий текст («Ярош Сергей Васильевич обвиняется по статьям: ч. 2 ст. 205.2 УК РФ…»). Заголовок карточки — ФИО в именительном падеже: для этого источника извлечение берёт человека из заголовка и не склоняет его. Карточка без полного имени (одни инициалы) не загружается. Изменённая после загрузки карточка не перечитывается.
+
+### Коммерсантъ
+
+Сайт называет подсудимых, которых Telegram-канал издания оставляет без имени. Из RSS берутся только новости вне рубрик «Мир», «Спорт», «Бизнес» и т. п. со словами о суде, задержании или деле (около 25 в день); скачиваются только их страницы (`p.doc__text`, дата из JSON-LD).
 
 ### Канонический `SourceReference`
 
