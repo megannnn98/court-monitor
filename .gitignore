@@ -11,3 +11,5 @@ article.html
 # Real-world validation raw corpus cache and run artifacts (rebuilt from the sites)
 /var/
 /.codegraph
+/var/person_ner
+/var/person_ner_cpu

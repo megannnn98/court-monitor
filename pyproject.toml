@@ -42,6 +42,16 @@ mcp = [
 semantic = [
     "sentence-transformers>=5.0",
 ]
+# Person-name detection: the recognizer model and the experiment that chose it.
+# Not needed by the rule-based person extraction, so it stays an opt-in group:
+# `uv sync --group ner`. Deliberately not gliner2's "local" extra, which pins
+# transformers<5 and would downgrade the semantic stack.
+ner = [
+    "gliner2>=2.0",
+    "peft>=0.10",
+    "torch>=2.4",
+    "transformers>=5.0",
+]
 
 [tool.uv]
 # Development installs the MCP adapter too (type checks and tests cover it);
@@ -54,6 +64,7 @@ markers = [
     "live_together: calls the real Together AI API; opt-in via TOGETHER_LIVE_TESTS=1 or LIVE_LLM_TESTS=1",
     "qdrant: needs a running Qdrant service; opt-in via QDRANT_TEST_URL",
     "semantic_models: loads real embedding/reranker models; opt-in via SEMANTIC_MODEL_TESTS=1",
+    "person_ner_model: downloads and runs the person NER model; opt-in via PERSON_NER_MODEL_TESTS=1",
 ]
 
 [[tool.mypy.overrides]]
@@ -63,7 +74,16 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # Optional `semantic` uv group; imported lazily. CI quality runs without it.
-module = ["sentence_transformers", "sentence_transformers.*", "torch", "torch.*"]
+module = [
+    "sentence_transformers",
+    "sentence_transformers.*",
+    "torch",
+    "torch.*",
+    "transformers",
+    "transformers.*",
+    "gliner2",
+    "gliner2.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

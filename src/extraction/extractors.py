@@ -6,6 +6,7 @@ from itertools import pairwise
 
 from extraction.models import EntityType, ExtractionDocument, RawMention
 from extraction.name_morphology import NameMorphology
+from extraction.person_ner.models import PersonNameRecognizer
 
 _LEGAL_CODE = r"(?:УК\s+РФ|КоАП\s+РФ|Уголовного\s+кодекса\s+РФ|Уголовный\s+кодекс\s+РФ)"
 # After an article number the code is usually written without «РФ»: «ст. 207.3 УК».
@@ -332,9 +333,26 @@ class RuleBasedEntityExtractor:
     # a name does not continue on the next line; a place or a surname before
     # «given name, surname» is not part of the name; a bullet opens a sentence.
     extractor_version = "1.3.0"
+    # 2.0.0: person names come from a recognizer model instead of the capitalized-word
+    # patterns; the rest of the entity types are unchanged. The version differs so
+    # extraction runs of the two person sources are never reused for one another.
+    # 2.1.0: the organization and location patterns and the single-word names blended
+    # in from the patterns follow the rule changes of 1.3.0.
+    ner_extractor_version = "2.1.0"
 
-    def __init__(self, morphology: NameMorphology | None = None) -> None:
+    def __init__(
+        self,
+        morphology: NameMorphology | None = None,
+        person_recognizer: PersonNameRecognizer | None = None,
+        blend_single_word_names: bool = False,
+    ) -> None:
         self._morphology = morphology or NameMorphology()
+        # When a recognizer is given it is the source of person mentions; the patterns only
+        # add back the single-word names it misses, and only when asked to.
+        self._person_recognizer = person_recognizer
+        self._blend_single_word_names = blend_single_word_names
+        if person_recognizer is not None:
+            self.extractor_version = self.ner_extractor_version
 
     def extract(self, document: ExtractionDocument) -> list[RawMention]:
         mentions: list[RawMention] = []
@@ -343,7 +361,13 @@ class RuleBasedEntityExtractor:
         mentions.extend(self._organizations(document.text))
         mentions.extend(self._locations(document.text))
         occupied = [(mention.start_offset, mention.end_offset) for mention in mentions]
-        mentions.extend(self._people(document.text, occupied))
+        if self._person_recognizer is None:
+            mentions.extend(self._people(document.text, occupied))
+        else:
+            recognized = self._recognized_people(document.text, occupied)
+            mentions.extend(recognized)
+            if self._blend_single_word_names:
+                mentions.extend(self._missed_single_word_names(document.text, occupied, recognized))
         return sorted(
             self._deduplicate(mentions),
             key=lambda mention: (
@@ -378,6 +402,60 @@ class RuleBasedEntityExtractor:
             self._mention(EntityType.LOCATION, text, match.start(), match.end(), 0.78)
             for match in _LOCATION_PATTERN.finditer(text)
         ]
+
+    def _missed_single_word_names(
+        self,
+        text: str,
+        occupied: Iterable[tuple[int, int]],
+        recognized: list[RawMention],
+    ) -> list[RawMention]:
+        """Names the recognizer missed, taken from the patterns under a narrow rule.
+
+        The model loses inflected bare surnames («Навального», «Жлобицкого»), a common
+        form in these articles; the patterns find them but also claim multi-word place and
+        organization names («Харп Ямало-Ненецкого», «Команда Навального»). One word is the
+        whole rule: it is the shape the model misses, and every pattern mistake measured on
+        the corpus was longer than that.
+
+        A morphological check was tried here too and removed: it rejected 44 real surnames
+        on the same corpus («Ощепов», «Паклин», «Мамаеву») because they are not in the
+        dictionary, costing 2.7 points of recall for no measured gain in precision.
+        """
+        taken = [(mention.start_offset, mention.end_offset) for mention in recognized]
+        missed: list[RawMention] = []
+        for mention in self._people(text, occupied):
+            if len(mention.surface_text.split()) != 1:
+                continue
+            if self._overlaps(mention.start_offset, mention.end_offset, taken):
+                continue
+            missed.append(mention)
+        return missed
+
+    def _recognized_people(
+        self,
+        text: str,
+        occupied: Iterable[tuple[int, int]],
+    ) -> list[RawMention]:
+        """Person mentions from the recognizer, in this extractor's mention shape.
+
+        A span that lies inside an organization or a court name is dropped: «Басманный
+        районный суд» is one entity, and a person cannot be a part of it.
+        """
+        occupied_spans = list(occupied)
+        mentions: list[RawMention] = []
+        for span in self._person_recognizer.recognize(text) if self._person_recognizer else []:
+            if self._overlaps(span.start_offset, span.end_offset, occupied_spans):
+                continue
+            mentions.append(
+                self._mention(
+                    EntityType.PERSON,
+                    text,
+                    span.start_offset,
+                    span.end_offset,
+                    span.confidence,
+                )
+            )
+        return mentions
 
     def _people(
         self,
