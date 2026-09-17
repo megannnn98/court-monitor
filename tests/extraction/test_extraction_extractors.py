@@ -636,3 +636,27 @@ def test_a_surname_repeated_alone_is_still_settled_by_the_full_name() -> None:
     """A bare surname is settled by the full name written elsewhere in the article."""
     text = "Владимир Путин подписал закон. Критику Путина задержали."
     assert _normalized_people(text)["Путина"] == "Путин"
+
+
+def test_a_person_named_beside_a_document_verdict_gets_no_event() -> None:
+    """Real case: «…поддерживает идеологию Брейвика, и даже приложило к делу переведенный
+    с норвежского приговор неонацисту» made Брейвик the target of a sentence and a
+    politically persecuted candidate.
+
+    Dropping a name that owns a noun («идеологию Брейвика») was tried and rejected: over
+    all 20 996 stored articles it cut 1 081 correct links («в отношении Алексея Суслова»,
+    «жителя Кинешмы Олега Гребенюка»).
+    """
+    text = (
+        "Суд назначил Светлане Махнорыловой лечение. Следствие сочло, что она поддерживает "
+        "идеологию Андреаса Брейвика, и даже приложило к делу переведенный с норвежского "
+        "приговор неонацисту."
+    )
+    assert [people for people in _event_people(text) if "Андреаса Брейвика" in people] == []
+
+
+def test_a_sentence_document_is_not_a_sentence_event() -> None:
+    """«приложило к делу … приговор», «текст приговора»: the verdict is a document here."""
+    assert _event_types("Следствие приложило к делу переведенный с норвежского приговор.") == []
+    assert _event_types("Журналисты опубликовали копию приговора.") == []
+    assert _event_types("Суд огласил приговор активисту.") == ["sentence"]

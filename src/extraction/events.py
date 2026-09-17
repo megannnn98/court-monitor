@@ -110,6 +110,12 @@ _PRONOUN_WITH_OWNER = re.compile(
     r"(?<![а-яё])(?:его|ее|её|их)\s+(?P<owned>[а-яёa-z]+)(?![а-яё])", re.IGNORECASE
 )
 
+# «приложило к делу переведенный … приговор», «копию приговора»: the verdict is a
+# document here, not an event.
+_DOCUMENT_BEFORE = re.compile(
+    r"(?<![а-яё])(?:приложил\w*|переведенн\w*|переведённ\w*|текст\w*|копи[юяие]\w*)\s+"
+    r"(?:[а-яё-]+\s+){0,3}$"
+)
 _NEGATION_BEFORE = re.compile(r"(?<![а-яё])не\s+(?:[а-яё]+\s+)?$")
 # «до ареста», «после первого ареста», «согласно второму приговору»: a reference to
 # another event.
@@ -147,7 +153,8 @@ class RuleBasedEventExtractor:
     # 1.3.1: that year is looked up in the trigger's time frame, not the whole sentence.
     # 1.4.0: a pronoun links the event to the single person named before the sentence.
     # 1.5.0: «обвиняемые» is a noun for the people, not a charge.
-    extractor_version = "1.5.0"
+    # 1.6.0: a verdict that is a document («приложило к делу … приговор») is not an event.
+    extractor_version = "1.6.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -200,7 +207,9 @@ class RuleBasedEventExtractor:
                     prefix = lowered_sentence[: match.start()]
                     if _NEGATION_BEFORE.search(prefix):
                         continue
-                    if triggers is _NOUN_TRIGGERS and (_TEMPORAL_REFERENCE_BEFORE.search(prefix)):
+                    if triggers is _NOUN_TRIGGERS and (
+                        _TEMPORAL_REFERENCE_BEFORE.search(prefix) or _DOCUMENT_BEFORE.search(prefix)
+                    ):
                         continue
                     found.append((match.start(), event_type, match.group(0)))
                     break
