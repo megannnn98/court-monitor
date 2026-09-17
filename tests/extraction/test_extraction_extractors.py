@@ -581,3 +581,10 @@ def test_a_surname_or_place_before_a_given_name_is_not_part_of_the_name() -> Non
     # «Surname, given name, patronymic» stays whole, including a patronymic the
     # dictionary also knows as a surname.
     assert _people("Поспелов Дмитрий Александрович осужден.") == ["Поспелов Дмитрий Александрович"]
+
+
+def test_a_bullet_opens_a_sentence() -> None:
+    """Real case: Telegram digests start items with «🔹», and «🔹 Приговор Гладких…» kept
+    the capitalized common noun as part of a name."""
+    assert _people("🔹 Приговор Иванову увеличили до 20 лет") == []
+    assert _people("• Приговор Иванову увеличили до 20 лет") == []

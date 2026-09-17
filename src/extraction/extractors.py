@@ -207,7 +207,8 @@ def _is_latin(word: str) -> bool:
 def _starts_a_sentence(text: str, start: int) -> bool:
     """A capital letter at the start of a sentence says nothing about the word being a name."""
     before = text[:start].rstrip()
-    return not before or before[-1] in ".!?:;»\n"
+    # Anything but a word or a comma ends what came before: «🔹 Приговор…», «• Приговор…».
+    return not before or not (before[-1].isalnum() or before[-1] in ',«"(')
 
 
 def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorphology) -> int:
@@ -320,7 +321,7 @@ class RuleBasedEntityExtractor:
     # 1.3.0: overlapping name spans prefer more name words over more characters;
     # «Свидетели Иеговы» is an organization; a Latin word is never part of a name;
     # a name does not continue on the next line; a place or a surname before
-    # «given name, surname» is not part of the name.
+    # «given name, surname» is not part of the name; a bullet opens a sentence.
     extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
