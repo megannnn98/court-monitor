@@ -135,6 +135,12 @@ _YEAR = re.compile(r"(?<!\d)(19\d\d|20\d\d)(?!\d)(?!\s*(?:года\s+рожде�
 # 2024 году, …») — date that description, not the trigger.
 _CLAUSE_PUNCTUATION = re.compile(r"[,;:()]|\s[—–-]\s")
 _TIME_FRAME_START = re.compile(r"(?<![а-яё])(?:а|но|зато|однако|сегодня|вчера|накануне)(?![а-яё])")
+# A subordinate clause («…, что он одобрил поступок Жлобицкого», «…, в котором он назвал
+# Жлобицкого»): a person named only there is not the target of the main clause's event.
+_SUBORDINATE_CLAUSE_START = re.compile(
+    r"^\s*(?:[а-яё]+\s+)?(?:котор[а-яё]*|что|чтобы|где)(?![а-яё])", re.IGNORECASE
+)
+_CLAUSE_SUBJECT_PRONOUN = re.compile(r"(?<![а-яё])(?:он|она|они)(?![а-яё])", re.IGNORECASE)
 _DESCRIPTIVE_CLAUSE = re.compile(
     r"^\s*(?:(?:[а-яё]+\s+)?котор[а-яё]+|[а-яё]+(?:вш|ющ|ящ|ащ|ущ|нн)[а-яё]{2,3})(?![а-яё])"
 )
@@ -154,7 +160,10 @@ class RuleBasedEventExtractor:
     # 1.4.0: a pronoun links the event to the single person named before the sentence.
     # 1.5.0: «обвиняемые» is a noun for the people, not a charge.
     # 1.6.0: a verdict that is a document («приложило к делу … приговор») is not an event.
-    extractor_version = "1.6.0"
+    # 1.7.0: a person named only in a subordinate clause without the trigger, after that
+    # clause's own pronoun subject («…, что он одобрил поступок Жлобицкого»), is not the
+    # event's target.
+    extractor_version = "1.7.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -176,7 +185,13 @@ class RuleBasedEventExtractor:
             event_type, trigger_text, trigger_start = trigger
             sentence_start = start + document.text[start:end].find(sentence)
             sentence_end = sentence_start + len(sentence)
-            links = self._links_for_sentence(mentions, sentence_start, sentence_end, document.text)
+            links = self._links_for_sentence(
+                mentions,
+                sentence_start,
+                sentence_end,
+                document.text,
+                trigger_offset=sentence_start + trigger_start,
+            )
             if not any(link.role is EventEntityRole.TARGET for link in links):
                 antecedent = self._antecedent(mentions, sentence, sentence_start, document.text)
                 if antecedent is not None:
@@ -286,13 +301,16 @@ class RuleBasedEventExtractor:
         start: int,
         end: int,
         text: str = "",
+        *,
+        trigger_offset: int | None = None,
     ) -> list[EventEntityLink]:
         links: list[EventEntityLink] = []
         for index, mention in enumerate(mentions):
             if mention.start_offset < start or mention.end_offset > end:
                 continue
-            if mention.entity_type is EntityType.PERSON and _is_non_subject(
-                text, mention, start, end
+            if mention.entity_type is EntityType.PERSON and (
+                _is_non_subject(text, mention, start, end)
+                or _in_a_clause_without_the_trigger(text, mention, start, end, trigger_offset)
             ):
                 continue
             role = _role_for_entity_type(mention.entity_type)
@@ -347,6 +365,32 @@ def _is_non_subject(text: str, mention: NormalizedMention, start: int, end: int)
         or _SOURCE_BEFORE_NAME.search(before)
         or _SPEECH_AFTER_NAME.match(after)
     )
+
+
+def _in_a_clause_without_the_trigger(
+    text: str, mention: NormalizedMention, start: int, end: int, trigger_offset: int | None
+) -> bool:
+    """The person is named only in a subordinate clause that does not hold the trigger,
+    after a pronoun that is that clause's own subject («…, что он одобрил поступок
+    Жлобицкого»). A person who is the clause's subject («приговор, которым Люлюков
+    признан виновным») is still the one the event is about."""
+    if not text or trigger_offset is None:
+        return False
+    sentence = text[start:end]
+    cuts = sorted(
+        {0, len(sentence)}
+        | {index for match in _CLAUSE_PUNCTUATION.finditer(sentence) for index in match.span()}
+    )
+    position = mention.start_offset - start
+    for clause_start, clause_end in pairwise(cuts):
+        if clause_start <= position < clause_end:
+            clause = sentence[clause_start:clause_end]
+            if not _SUBORDINATE_CLAUSE_START.match(clause):
+                return False
+            if _CLAUSE_SUBJECT_PRONOUN.search(clause[: position - clause_start]) is None:
+                return False
+            return not clause_start <= trigger_offset - start < clause_end
+    return False
 
 
 def _role_for_entity_type(entity_type: EntityType) -> EventEntityRole:

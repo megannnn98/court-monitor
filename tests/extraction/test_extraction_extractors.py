@@ -660,3 +660,34 @@ def test_a_sentence_document_is_not_a_sentence_event() -> None:
     assert _event_types("Следствие приложило к делу переведенный с норвежского приговор.") == []
     assert _event_types("Журналисты опубликовали копию приговора.") == []
     assert _event_types("Суд огласил приговор активисту.") == ["sentence"]
+
+
+def test_a_person_in_a_subordinate_clause_is_not_the_target_of_the_main_event() -> None:
+    """Real-world validation: «Мифтахова обвинили в том, что… он одобрил поступок Михаила
+    Жлобицкого» and «Калужанина осудили из-за комментария, в котором он назвал… Михаила
+    Жлобицкого» made Жлобицкий the target of a charge and a sentence, and once his
+    mentions were linked he was classified political on the others' articles."""
+    assert _event_people(
+        "Азата Мифтахова обвинили в том, что в разговоре он одобрил поступок Михаила Жлобицкого."
+    ) == [["Азата Мифтахова"]]
+    assert _event_people(
+        "Калужанина осудили из-за комментария, в котором он назвал героем Михаила Жлобицкого."
+    ) == [[]]
+    # The trigger inside the clause keeps its own people.
+    assert _event_people("Стало известно, что суд арестовал Ивана Петрова.") == [["Ивана Петрова"]]
+    # A relative clause after the target does not remove the target.
+    assert _event_people("Суд арестовал Ивана Петрова, который выступал против войны.") == [
+        ["Ивана Петрова"]
+    ]
+    # The person as the subject of the clause is still the one the event is about
+    # (measured: without this, 179 links were dropped and half of them wrongly).
+    assert _event_people(
+        "Суд отклонил жалобу на приговор, которым Владимир Люлюков признан виновным."
+    ) == [["Владимир Люлюков"]]
+    assert _event_people(
+        "Известно, что в отношении Анны Становой, научной сотрудницы, возбудили дело."
+    ) == [["Анны Становой"]]
+    # A list of people is not a subordinate clause.
+    assert _event_people("Суд арестовал Ивана Петрова, Олега Сидорова и Анну Смирнову.") == [
+        ["Ивана Петрова", "Олега Сидорова", "Анну Смирнову"]
+    ]
