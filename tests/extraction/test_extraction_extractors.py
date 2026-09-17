@@ -614,3 +614,25 @@ def test_a_name_with_initials_is_brought_to_the_nominative_case() -> None:
 def test_a_dash_opens_a_sentence() -> None:
     """Review request: a capitalized common noun after a dash is not part of a name."""
     assert _people("Он заявил — Приговор Иванову изменили.") == []
+
+
+def _normalized_people(text: str) -> dict[str, str]:
+    document = make_document(text)
+    normalizer = RuleBasedMentionNormalizer()
+    return {
+        mention.surface_text: normalizer.normalize(mention, document).normalized_text
+        for mention in RuleBasedEntityExtractor().extract(document)
+        if mention.entity_type is EntityType.PERSON
+    }
+
+
+def test_a_surname_alone_in_the_article_still_settles_the_gender() -> None:
+    """The case the article evidence exists for: «Телин» says «Федора Телина» is a man."""
+    text = "Дело возбудили против юриста Федора Телина. Телин покинул Россию в 2021 году."
+    assert _normalized_people(text)["Федора Телина"] == "Федор Телин"
+
+
+def test_a_surname_repeated_alone_is_still_settled_by_the_full_name() -> None:
+    """A bare surname is settled by the full name written elsewhere in the article."""
+    text = "Владимир Путин подписал закон. Критику Путина задержали."
+    assert _normalized_people(text)["Путина"] == "Путин"
