@@ -17,7 +17,10 @@ from api import app, get_db
 from db.orm_models import SourceDocument
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-HEADER = ("№", "Имя человека", "Ссылка")
+HEADER = ("№", "Имя человека", "Причины", "Ссылка")
+# The PDF export's «Причины» column: the classifier's reasons joined by «; ».
+REASONS = ["Статья содержит признаки политического преследования", "Антивоенная деятельность"]
+REASONS_TEXT = "; ".join(REASONS)
 EVENT_DATE = datetime(2026, 9, 1, tzinfo=UTC)
 
 
@@ -43,7 +46,7 @@ def _seed_candidate(
     rf_status: str = "not_matched",
 ) -> int:
     person_id = seed.person(name)
-    seed.classification(person_id, "political", confidence)
+    seed.classification(person_id, "political", confidence, reasons=REASONS)
     seed.match(person_id, snapshot_id, rf_status, 0.8)
     _seed_news(seed, person_id, name, f"news-{person_id}", EVENT_DATE)
     return person_id
@@ -94,12 +97,12 @@ def test_export_returns_downloadable_xlsx_with_candidate_row(
     )
     sheet = load_workbook(BytesIO(response.content)).active
     assert sheet is not None
-    assert sheet.max_column == 3
+    assert sheet.max_column == 4
     assert list(sheet.iter_rows(values_only=True)) == [
         HEADER,
-        (1, "Иван Иванов", _news_url(person_id)),
+        (1, "Иван Иванов", REASONS_TEXT, _news_url(person_id)),
     ]
-    hyperlink = sheet.cell(row=2, column=3).hyperlink
+    hyperlink = sheet.cell(row=2, column=4).hyperlink
     assert hyperlink is not None
     assert hyperlink.target == _news_url(person_id)
 
@@ -121,7 +124,7 @@ def test_export_keeps_service_order_for_several_candidates(
     assert _rows(response.content) == [
         HEADER,
         *[
-            (position, name, _news_url(person_id))
+            (position, name, REASONS_TEXT, _news_url(person_id))
             for position, (name, person_id) in enumerate(zip(names, ids, strict=True), start=1)
         ],
     ]
@@ -144,7 +147,7 @@ def test_export_applies_active_filters(session_factory: sessionmaker[Session]) -
             params={"snapshot_id": snapshot_id, "min_confidence": 0.9},
         )
 
-    assert _rows(response.content) == [HEADER, (1, "Иван Иванов", _news_url(strong))]
+    assert _rows(response.content) == [HEADER, (1, "Иван Иванов", REASONS_TEXT, _news_url(strong))]
 
 
 def test_export_contains_all_candidates_not_only_the_page_limit(
@@ -245,8 +248,8 @@ def test_link_points_to_the_article_of_the_latest_event(
 
     sheet = load_workbook(BytesIO(response.content)).active
     assert sheet is not None
-    assert sheet.cell(row=2, column=3).value == "https://example.test/later-news"
-    hyperlink = sheet.cell(row=2, column=3).hyperlink
+    assert sheet.cell(row=2, column=4).value == "https://example.test/later-news"
+    hyperlink = sheet.cell(row=2, column=4).hyperlink
     assert hyperlink is not None
     assert hyperlink.target == "https://example.test/later-news"
 
@@ -272,7 +275,7 @@ def test_link_without_events_points_to_the_article_that_mentions_the_person(
 
     assert _rows(response.content) == [
         HEADER,
-        (1, "Иван Иванов", "https://example.test/mention-news"),
+        (1, "Иван Иванов", None, "https://example.test/mention-news"),
     ]
 
 
@@ -292,5 +295,5 @@ def test_only_a_web_link_is_clickable(session_factory: sessionmaker[Session]) ->
 
     sheet = load_workbook(BytesIO(response.content)).active
     assert sheet is not None
-    assert sheet.cell(row=2, column=3).value == "javascript:alert(1)"
-    assert sheet.cell(row=2, column=3).hyperlink is None
+    assert sheet.cell(row=2, column=4).value == "javascript:alert(1)"
+    assert sheet.cell(row=2, column=4).hyperlink is None

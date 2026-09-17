@@ -1737,17 +1737,22 @@ def ui_candidates_export_xlsx(
     sheet = workbook.active
     assert sheet is not None
     sheet.title = "Кандидаты"
-    sheet.append(["№", "Имя человека", "Ссылка"])
+    sheet.append(["№", "Имя человека", "Причины", "Ссылка"])
     for position, candidate in enumerate(result.candidates, start=1):
         link = news_urls.get(candidate.person_id)
-        sheet.append([position, candidate.canonical_name, link])
+        # The same «Причины» as the PDF export.
+        reasons = "; ".join(candidate.persecution_reasons) or None
+        sheet.append([position, candidate.canonical_name, reasons, link])
+        row = position + 1
         # Names and URLs come from scraped sources: never let a leading "=" become a formula.
-        sheet.cell(row=position + 1, column=2).data_type = "s"
+        sheet.cell(row=row, column=2).data_type = "s"
+        if reasons is not None:
+            sheet.cell(row=row, column=3).data_type = "s"
         if link is not None:
-            sheet.cell(row=position + 1, column=3).data_type = "s"
+            sheet.cell(row=row, column=4).data_type = "s"
             # Only web links are clickable: a scraped «javascript:» URL stays plain text.
             if link.startswith(("http://", "https://")):
-                sheet.cell(row=position + 1, column=3).hyperlink = link
+                sheet.cell(row=row, column=4).hyperlink = link
     buffer = BytesIO()
     workbook.save(buffer)
     return Response(
