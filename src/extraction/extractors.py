@@ -286,7 +286,8 @@ class RuleBasedEntityExtractor:
     # 1.1.1: inflected organization names («Минюста», «Медиазоны») occupy their span.
     # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
     # not a person, both decided by the morphological dictionary.
-    extractor_version = "1.2.0"
+    # 1.3.0: overlapping name spans prefer more name words over more characters.
+    extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -362,10 +363,18 @@ class RuleBasedEntityExtractor:
                 if not self._is_plausible_full_name(text, start, span_end):
                     continue
                 spans.append((start, span_end))
+
         # Overlapping readings of one name («Ольга Иванова» and «Ольга Иванова Петровна»):
-        # keep the longest.
+        # keep the one with the most name words, then the longest. By length alone
+        # «Popcorn Books Дмитрия» beat «Дмитрия Протопопова» and the surname was lost.
+        def preference(span: tuple[int, int]) -> tuple[int, int, int]:
+            name_words = sum(
+                self._morphology.is_name_word(word) for word in text[span[0] : span[1]].split()
+            )
+            return (-name_words, span[0] - span[1], span[0])
+
         kept: list[tuple[int, int]] = []
-        for start, end in sorted(set(spans), key=lambda span: (span[0] - span[1], span[0])):
+        for start, end in sorted(set(spans), key=preference):
             if not self._overlaps(start, end, kept):
                 kept.append((start, end))
         mentions = [

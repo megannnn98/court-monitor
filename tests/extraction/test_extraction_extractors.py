@@ -528,3 +528,14 @@ def test_defendants_as_a_noun_are_not_a_charge_event() -> None:
     """Real case: «Все обвиняемые отрицают свою вину» was extracted as a charge."""
     assert _event_types("Все обвиняемые отрицают свою вину.") == []
     assert _event_types("Активист стал обвиняемым по делу о фейках.") == ["charge"]
+
+
+def test_overlapping_spans_keep_the_one_with_more_name_words() -> None:
+    """Real cases: a longer span of outlet or agency words beat the trimmed full name and
+    the person lost the surname («Popcorn Books Дмитрия», «Росмолодежи Ксения»)."""
+    assert _people("Редактора Popcorn Books Дмитрия Протопопова осудили.") == [
+        "Дмитрия Протопопова"
+    ]
+    assert _people("Против экс-главы Росмолодежи Ксении Разуваевой возбудили дело.") == [
+        "Ксении Разуваевой"
+    ]
