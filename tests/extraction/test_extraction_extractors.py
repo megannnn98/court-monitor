@@ -539,3 +539,14 @@ def test_overlapping_spans_keep_the_one_with_more_name_words() -> None:
     assert _people("Против экс-главы Росмолодежи Ксении Разуваевой возбудили дело.") == [
         "Ксении Разуваевой"
     ]
+
+
+def test_jehovahs_witnesses_are_an_organization_not_part_of_a_name() -> None:
+    """Real cases: the dictionary reads «Иеговы» as a given name, and 21 persons were stored
+    as «Иегова Виктор Урс», «Свидетель Иегова» and alike."""
+    assert _people("Суд приговорил 60-летнего Свидетеля Иеговы Виктора Урсу к шести годам.") == [
+        "Виктора Урсу"
+    ]
+    assert _people("38-летняя Свидетельница Иеговы Сона Олопова освободилась.") == ["Сона Олопова"]
+    assert _people("63-летний Свидетель Иеговы вышел на свободу.") == []
+    assert _people("Свидители Иеговы Ирину Ушакову задержали.") == ["Ирину Ушакову"]

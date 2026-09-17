@@ -160,7 +160,9 @@ _ORG_PATTERN = re.compile(
     r"\b(?:ОВД-Инфо|SOTA|Медиазон[аеуы]|Роскомсвобод[аеуы]|Мемориал|Следственный комитет|"
     r"СК РФ|МВД|ФСБ|ФСИН|прокуратур[аеуы]|Генпрокуратур[аеуы]|Минюст|полици[яиюей]|"
     # Case endings too: «охранника Минюста Виталия» must not read as a name.
-    r"Комитет против пыток|Росфинмониторинг)(?:[а-яё]{1,2})?\b",
+    r"Комитет против пыток|Росфинмониторинг|"
+    # The dictionary reads «Иеговы» as a given name: «Свидетеля Иеговы Виктора Урсу».
+    r"Свид[еи]тел[а-яё]*\s+Иегов[а-яё]*)(?:[а-яё]{1,2})?\b",
     re.IGNORECASE,
 )
 _LOCATION_PATTERN = re.compile(
@@ -286,7 +288,8 @@ class RuleBasedEntityExtractor:
     # 1.1.1: inflected organization names («Минюста», «Медиазоны») occupy their span.
     # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
     # not a person, both decided by the morphological dictionary.
-    # 1.3.0: overlapping name spans prefer more name words over more characters.
+    # 1.3.0: overlapping name spans prefer more name words over more characters;
+    # «Свидетели Иеговы» is an organization.
     extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
