@@ -164,11 +164,12 @@ def test_save_failed_does_not_overwrite_existing_successful_run(
     successful = pipeline.run(document)
     persistence = SqlAlchemyExtractionPersistence(session_factory)
 
+    versions = pipeline.versions
     failed = persistence.save_failed(
         document,
-        extractor_name="rule-based-entity-extractor",
-        extractor_version=RuleBasedEntityExtractor.extractor_version,
-        normalizer_version=RuleBasedMentionNormalizer.normalizer_version,
+        extractor_name=versions.extractor_name,
+        extractor_version=versions.extractor_version,
+        normalizer_version=versions.normalizer_version,
         error_message="duplicate key value violates unique constraint",
     )
 
@@ -197,15 +198,17 @@ def test_save_replaces_existing_failed_run(
     )
     document = SqlAlchemyExtractionDocumentRepository(session_factory).get_by_article_id(article_id)
     persistence = SqlAlchemyExtractionPersistence(session_factory)
+    pipeline = _pipeline(session_factory)
+    versions = pipeline.versions
     failed = persistence.save_failed(
         document,
-        extractor_name="rule-based-entity-extractor",
-        extractor_version=RuleBasedEntityExtractor.extractor_version,
-        normalizer_version=RuleBasedMentionNormalizer.normalizer_version,
+        extractor_name=versions.extractor_name,
+        extractor_version=versions.extractor_version,
+        normalizer_version=versions.normalizer_version,
         error_message="temporary failure",
     )
 
-    successful = _pipeline(session_factory).run(document)
+    successful = pipeline.run(document)
 
     assert successful.run_id == failed.run_id
     assert successful.status is ExtractionRunStatus.SUCCEEDED

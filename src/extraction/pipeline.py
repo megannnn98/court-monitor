@@ -45,11 +45,23 @@ class ExtractionPipeline:
 
     @property
     def versions(self) -> ExtractionVersions:
-        """The identity an extraction run of this pipeline is stored under."""
+        """The identity an extraction run of this pipeline is stored under.
+
+        The event extractor is part of it: the run stores the events too, so a change to
+        the event rules must make the stored runs stale.
+        """
         return ExtractionVersions(
-            extractor_name="+".join(extractor.extractor_name for extractor in self._extractors),
+            extractor_name="+".join(
+                [
+                    *(extractor.extractor_name for extractor in self._extractors),
+                    self._event_extractor.extractor_name,
+                ]
+            ),
             extractor_version="+".join(
-                extractor.extractor_version for extractor in self._extractors
+                [
+                    *(extractor.extractor_version for extractor in self._extractors),
+                    self._event_extractor.extractor_version,
+                ]
             ),
             normalizer_version="+".join(
                 sorted({normalizer.normalizer_version for normalizer in self._normalizers})

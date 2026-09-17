@@ -180,3 +180,20 @@ def test_pipeline_does_not_convert_programmer_error_to_failed_run() -> None:
     with pytest.raises(RuntimeError, match="programmer bug"):
         pipeline.run(make_document())
     assert persistence.failed is None
+
+
+def test_the_run_identity_includes_the_event_extractor() -> None:
+    """A stored run is reused by its versions: an event rule change («приложило к делу …
+    приговор» is not an event) must make the stored runs stale, as an entity rule change
+    does."""
+    pipeline = ExtractionPipeline(
+        extractors=[FakeExtractor()],
+        normalizers=[FakeNormalizer()],
+        event_extractor=RuleBasedEventExtractor(),
+        persistence=FakePersistence(),
+    )
+
+    versions = pipeline.versions
+
+    assert versions.extractor_name == f"fake+{RuleBasedEventExtractor.extractor_name}"
+    assert versions.extractor_version == f"1+{RuleBasedEventExtractor.extractor_version}"
