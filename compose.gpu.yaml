@@ -27,7 +27,10 @@ x-gpu-device: &gpu-device
           capabilities: [gpu]
 
 x-person-ner-environment: &person-ner-environment
-  PERSON_EXTRACTION_STRATEGY: ${PERSON_EXTRACTION_STRATEGY:-hybrid}
+  # Rule-based until the hybrid's spans are fixed: on the working corpus it merged a
+  # preceding word into names («Щукино Даниил Неонов») and left inflected forms, splitting
+  # persons and losing 26 of 190 candidates. Set hybrid explicitly to try it.
+  PERSON_EXTRACTION_STRATEGY: ${PERSON_EXTRACTION_STRATEGY:-rule_based}
   PERSON_NER_DEVICE: ${PERSON_NER_DEVICE:-cuda}
   # The model is downloaded once into the hf_cache volume.
   HF_HOME: /opt/hf_cache

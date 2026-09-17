@@ -220,7 +220,7 @@ uv run alembic upgrade head
 docker compose --profile monitoring up -d --build   # webserver :3000, daemon
 ```
 
-`dagster-db-init` создаёт отдельную БД `DAGSTER_PG_DB` (по умолчанию `court_monitor_dagster`); таблицы Dagster не смешиваются с доменными. Semantic-этап в контейнерах: собрать образ с `--build-arg INSTALL_SEMANTIC=1`, поднять `--profile semantic` и задать `MONITORING_QDRANT_URL=http://qdrant:6333`. На видеокарте NVIDIA: `compose.gpu.yaml` собирает образ с semantic и распознавателем имён (GLiNER), отдаёт GPU контейнерам `api` и `dagster-daemon` и включает `PERSON_EXTRACTION_STRATEGY=hybrid` и semantic-этап; подготовка хоста описана в заголовке файла.
+`dagster-db-init` создаёт отдельную БД `DAGSTER_PG_DB` (по умолчанию `court_monitor_dagster`); таблицы Dagster не смешиваются с доменными. Semantic-этап в контейнерах: собрать образ с `--build-arg INSTALL_SEMANTIC=1`, поднять `--profile semantic` и задать `MONITORING_QDRANT_URL=http://qdrant:6333`. На видеокарте NVIDIA: `compose.gpu.yaml` собирает образ с semantic и распознавателем имён (GLiNER), отдаёт GPU контейнерам `api` и `dagster-daemon` включает semantic-этап и позволяет задать `PERSON_EXTRACTION_STRATEGY=hybrid` (по умолчанию `rule_based`: гибрид пока дробит персоны, см. комментарий в файле); подготовка хоста описана в заголовке файла.
 
 ## Ограничения
 
