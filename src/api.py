@@ -17,6 +17,7 @@ from urllib.parse import quote, urlencode
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from openpyxl import Workbook
 from pydantic import BaseModel, ConfigDict, Field
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -1603,6 +1604,7 @@ def ui_candidates(
   <button>Обновить</button>
   <a class="secondary" href="/ui/candidates/export?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать CSV</a>
   <a class="secondary" href="/ui/candidates/export.pdf?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence, "limit": limit})}">Скачать PDF</a>
+  <a class="secondary" href="/ui/candidates/export.xlsx?{urlencode({"snapshot_id": selected_snapshot_id, "min_confidence": min_confidence})}">Export to Excel</a>
 </form>
 <p class="muted">Найдено: {len(candidates)}. Статус РФМ: <code>not_matched</code>.</p>
 <table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
@@ -1656,6 +1658,46 @@ def ui_candidates_export(
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="political-candidates-{snapshot_id}.csv"'
+        },
+    )
+
+
+@app.get("/ui/candidates/export.xlsx")
+def ui_candidates_export_xlsx(
+    request: Request,
+    snapshot_id: int = Query(..., ge=1),
+    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> Response:
+    """All candidates matching the page filters; the page `limit` is deliberately not applied."""
+    try:
+        result = CandidateQueryService(db).get_candidates(
+            snapshot_id=snapshot_id,
+            min_persecution_confidence=min_confidence,
+            limit=None,
+            session=db,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "Кандидаты"
+    sheet.append(["№", "Имя человека", "Ссылка"])
+    for position, candidate in enumerate(result.candidates, start=1):
+        link = str(request.url_for("ui_get_person", person_id=candidate.person_id))
+        sheet.append([position, candidate.canonical_name, link])
+        # Names come from scraped articles: never let a leading "=" become a formula.
+        sheet.cell(row=position + 1, column=2).data_type = "s"
+        sheet.cell(row=position + 1, column=3).hyperlink = link
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="political-candidates-{snapshot_id}.xlsx"'
         },
     )
 
