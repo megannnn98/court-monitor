@@ -5,6 +5,8 @@ The one place that decides who owns person detection, so no call site has to kno
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 
 from extraction.extractors import RuleBasedEntityExtractor
@@ -42,8 +44,26 @@ def build_entity_extractor(
         settings.model_id,
         settings.min_score,
     )
-    return RuleBasedEntityExtractor(
+    extractor = RuleBasedEntityExtractor(
         morphology,
         person_recognizer=recognizer,
         blend_single_word_names=settings.strategy is PersonExtractionStrategy.HYBRID,
     )
+    # A stored extraction run is reused by version: every configuration that changes what
+    # is found gets its own, so NER and HYBRID, or two models, never share a run.
+    extractor.extractor_version = (
+        f"{RuleBasedEntityExtractor.ner_extractor_version}+{_configuration_identity(settings)}"
+    )
+    return extractor
+
+
+def _configuration_identity(settings: PersonNerSettings) -> str:
+    """A short, stable hash of the settings that change the result; not the device."""
+    identity = {
+        "strategy": settings.strategy.value,
+        "model_id": settings.model_id,
+        "revision": settings.revision,
+        "min_score": settings.min_score,
+    }
+    payload = json.dumps(identity, sort_keys=True).encode()
+    return hashlib.sha256(payload).hexdigest()[:12]

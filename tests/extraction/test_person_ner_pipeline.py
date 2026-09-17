@@ -191,3 +191,29 @@ def test_the_factory_blends_only_for_the_hybrid_strategy() -> None:
 
     assert _people(blended, text) == ["Алексея Навального", "Навального"]
     assert _people(model_only, text) == ["Алексея Навального"]
+
+
+def test_every_recognizer_configuration_has_its_own_extractor_version() -> None:
+    """Review finding: NER and HYBRID shared one version, so a stored run of one was
+    reused for the other; a different model or threshold was reused the same way."""
+
+    def version(env: dict[str, str]) -> str:
+        settings = PersonNerSettings.from_env(env)
+        return build_entity_extractor(
+            settings, recognizer=FakePersonNameRecognizer([])
+        ).extractor_version
+
+    ner = version({"PERSON_EXTRACTION_STRATEGY": "ner"})
+    versions = {
+        ner,
+        version({"PERSON_EXTRACTION_STRATEGY": "hybrid"}),
+        version({"PERSON_EXTRACTION_STRATEGY": "ner", "PERSON_NER_MIN_SCORE": "0.6"}),
+        version({"PERSON_EXTRACTION_STRATEGY": "ner", "PERSON_NER_MODEL": "other/model"}),
+        version({"PERSON_EXTRACTION_STRATEGY": "ner", "PERSON_NER_REVISION": "abc"}),
+    }
+    assert len(versions) == 5
+    # The device changes where the model runs, not what it finds.
+    assert version({"PERSON_EXTRACTION_STRATEGY": "ner", "PERSON_NER_DEVICE": "cpu"}) == ner
+    assert ner.startswith(RuleBasedEntityExtractor.ner_extractor_version + "+")
+    # The stored column is String(64).
+    assert all(len(item) <= 64 for item in versions)
