@@ -560,3 +560,10 @@ def test_a_latin_word_is_not_part_of_a_person_name() -> None:
     ]
     assert _people("Фотографа Say Agency Анну Петрову задержали.") == ["Анну Петрову"]
     assert _people("Канал Соловьев Live закрыли.") == []
+
+
+def test_a_name_does_not_span_a_line_break() -> None:
+    """Real case: the title «…в поддержку Марии Бонцлер» and the text «На Старом Арбате…»
+    were read as one name «Бонцлер На Старом»."""
+    assert _people("в поддержку Марии Бонцлер\nНа Старом Арбате прошел пикет") == ["Марии Бонцлер"]
+    assert _people("Задержаны:\nПетров\nСидоров") == []

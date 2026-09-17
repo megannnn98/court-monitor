@@ -33,15 +33,19 @@ _LEGAL_REFERENCE_PATTERN = re.compile(
 
 _CAPITALIZED_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+(?:-[А-ЯЁA-Z][а-яёa-z]+)?)"
 _COURT_PREFIX_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+|[а-яё]+)"
-_INITIALS = r"(?:[А-ЯЁA-Z]\.\s*){1,2}"
+# A name never continues on the next line: a title and the text below it are separate.
+_SPACE = r"[^\S\n]+"
+_INITIALS = r"(?:[А-ЯЁA-Z]\.[^\S\n]*){1,2}"
 # Matched overlapping (a lookahead around each): «Павла Крисевича Елену Иванову» holds two
 # people, and a non-overlapping scan would consume the first word of the second one.
 _PERSON_PATTERNS = [
-    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b))"),
-    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b))"),
+    re.compile(
+        rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}{_CAPITALIZED_WORD}{_SPACE}{_CAPITALIZED_WORD}\b))"
+    ),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}{_CAPITALIZED_WORD}\b))"),
     re.compile(rf"(?=(\b{_INITIALS}{_CAPITALIZED_WORD}\b))"),
     # «Виталия Л.»: a given name with the surname reduced to an initial (OVD-Info style).
-    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+[А-ЯЁ]\.(?![А-Яа-яЁё])))"),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}[А-ЯЁ]\.(?![А-Яа-яЁё])))"),
 ]
 # Words that may start a capitalized two-word match without being part of the name:
 # sentence adverbs/conjunctions and role or occupation descriptors (by stem).
@@ -188,10 +192,10 @@ def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphol
 def _capitalized_run(text: str, start: int, end: int) -> list[str]:
     """The uninterrupted run of capitalized words this span belongs to."""
     left = start
-    while (previous := re.search(rf"({_CAPITALIZED_WORD})\s+$", text[:left])) is not None:
+    while (previous := re.search(rf"({_CAPITALIZED_WORD}){_SPACE}$", text[:left])) is not None:
         left = previous.start(1)
     right = end
-    while (following := re.match(rf"\s+({_CAPITALIZED_WORD})", text[right:])) is not None:
+    while (following := re.match(rf"{_SPACE}({_CAPITALIZED_WORD})", text[right:])) is not None:
         right += following.end(1)
     return text[left:right].split()
 
@@ -297,7 +301,8 @@ class RuleBasedEntityExtractor:
     # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
     # not a person, both decided by the morphological dictionary.
     # 1.3.0: overlapping name spans prefer more name words over more characters;
-    # «Свидетели Иеговы» is an organization; a Latin word is never part of a name.
+    # «Свидетели Иеговы» is an organization; a Latin word is never part of a name;
+    # a name does not continue on the next line.
     extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
