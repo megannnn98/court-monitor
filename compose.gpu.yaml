@@ -1,0 +1,60 @@
+# GPU override: the person recognizer (GLiNER) and semantic indexing on the NVIDIA card.
+#
+# Host prerequisite (Arch Linux), once:
+#   sudo pacman -S nvidia-container-toolkit
+#   sudo nvidia-ctk runtime configure --runtime=docker
+#   sudo systemctl restart docker
+#
+# Use it with every compose command, or put it in .env:
+#   COMPOSE_FILE=compose.yaml:compose.gpu.yaml
+#   docker compose --profile production build
+#   docker compose --profile production up -d
+#
+# Switching the person-extraction strategy changes the extraction run version: monitoring
+# re-extracts every article, and a bulk rebuild is the faster way (docs/wiki/Pipeline.md).
+x-gpu-build: &gpu-build
+  context: .
+  args:
+    INSTALL_SEMANTIC: "1"
+    INSTALL_NER: "1"
+
+x-gpu-device: &gpu-device
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [gpu]
+
+x-person-ner-environment: &person-ner-environment
+  PERSON_EXTRACTION_STRATEGY: ${PERSON_EXTRACTION_STRATEGY:-hybrid}
+  PERSON_NER_DEVICE: ${PERSON_NER_DEVICE:-cuda}
+  # The model is downloaded once into the hf_cache volume.
+  HF_HOME: /opt/hf_cache
+
+services:
+  migrate:
+    build: *gpu-build
+
+  api:
+    build: *gpu-build
+    deploy: *gpu-device
+    environment:
+      <<: *person-ner-environment
+    volumes:
+      - hf_cache:/opt/hf_cache
+
+  # Builds the image the daemon runs; the webserver itself never extracts.
+  dagster-webserver:
+    build: *gpu-build
+
+  dagster-daemon:
+    deploy: *gpu-device
+    environment:
+      <<: *person-ner-environment
+      QDRANT_URL: ${MONITORING_QDRANT_URL:-http://qdrant:6333}
+    volumes:
+      - hf_cache:/opt/hf_cache
+
+volumes:
+  hf_cache:

@@ -42,6 +42,32 @@ The court-monitor pipeline processes articles from multiple sources through seve
 └─────────────┘
 ```
 
+## Bulk rebuild: workers and GPU
+
+`extract-entities`, `match-rosfinmonitoring` and `classify-persecution` take
+`--workers N` (default 8, capped by the CPU count). Their items are independent, so the
+result does not depend on N; workers are spawned processes with their own connection.
+`resolve-people --workers N` stays opt-in (default 1): its decisions depend on the order
+(see Entity-Resolution).
+
+```bash
+court-monitor extract-entities --limit 100000
+court-monitor resolve-people --limit 100000 --workers 8
+court-monitor match-rosfinmonitoring --snapshot-id 1 --limit 100000
+court-monitor classify-persecution --limit 100000
+```
+
+Measured on the working corpus (20 996 articles, 12 cores): extraction 242 s → 80 s;
+matching 2 000 persons 163 s → 18 s (trigram index on
+`rosfinmonitoring_entries.normalized_name`, then 8 workers); classifying 2 000 persons
+11.7 s → 7.8 s.
+
+The person recognizer (`PERSON_EXTRACTION_STRATEGY=ner|hybrid`) runs on CUDA when it is
+available: 26 ms per article against 269 ms on the CPU. Each worker loads its own copy of
+the model (1.2 GiB), so extraction with the model on the GPU uses at most 4 workers. In
+Docker the GPU needs `compose.gpu.yaml` (see the file header for the host setup). Changing
+the strategy changes the extraction run version: every article is extracted again.
+
 ## Stage Details
 
 ### 1. Source Ingestion

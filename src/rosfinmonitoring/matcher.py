@@ -358,6 +358,18 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
                 matched_at=datetime.now(UTC),
             )
 
+    def person_ids_to_match(self, limit: int | None = None) -> list[int]:
+        """The persons a full matching pass covers: every one not merged into another."""
+        with self._session_factory() as session:
+            query = (
+                select(PersonRecord.id)
+                .where(PersonRecord.merged_into_id.is_(None))
+                .order_by(PersonRecord.id)
+            )
+            if limit is not None:
+                query = query.limit(limit)
+            return list(session.scalars(query).all())
+
     def match_all_persons(
         self,
         snapshot_id: int,
@@ -369,12 +381,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         `on_progress` is called as `(done, total)` after each person, for a caller that
         reports progress; matching itself does not depend on it.
         """
-        with self._session_factory() as session:
-            query = select(PersonRecord.id).where(PersonRecord.merged_into_id.is_(None))
-            if limit is not None:
-                query = query.limit(limit)
-            person_ids = session.scalars(query).all()
-
+        person_ids = self.person_ids_to_match(limit=limit)
         results: list[RosfinMatchResult] = []
         for person_id in person_ids:
             result = self.match_person(person_id, snapshot_id)

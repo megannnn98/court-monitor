@@ -34,6 +34,7 @@ class GlinerPersonNameRecognizer:
         self,
         model_id: str,
         *,
+        revision: str | None = None,
         device: str | None = None,
         min_score: float = 0.5,
     ) -> None:
@@ -48,7 +49,8 @@ class GlinerPersonNameRecognizer:
         self._min_score = min_score
         self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        model = AutoExtractor.from_pretrained(model_id)
+        # The pinned commit, not the branch head: see `config.DEFAULT_REVISION`.
+        model = AutoExtractor.from_pretrained(model_id, revision=revision)
         move = getattr(model, "to", None)
         if callable(move):
             model = move(self._device)
@@ -118,6 +120,7 @@ def build_person_recognizer(settings: PersonNerSettings) -> GlinerPersonNameReco
     """The configured recognizer; the model id lives in settings, not in the call sites."""
     return GlinerPersonNameRecognizer(
         settings.model_id,
+        revision=settings.revision,
         device=settings.device,
         min_score=settings.min_score,
     )

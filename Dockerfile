@@ -18,14 +18,15 @@ RUN apt-get update \
     && apt-get clean
 
 # Semantic indexing needs sentence-transformers (large); opt in with
-# `docker compose build --build-arg INSTALL_SEMANTIC=1`.
+# `docker compose build --build-arg INSTALL_SEMANTIC=1`. The person recognizer (GLiNER,
+# torch with CUDA) likewise with INSTALL_NER=1; compose.gpu.yaml sets both.
 ARG INSTALL_SEMANTIC=0
+ARG INSTALL_NER=0
 COPY pyproject.toml uv.lock ./
-RUN if [ "$INSTALL_SEMANTIC" = "1" ]; then \
-        uv sync --frozen --no-default-groups --no-install-project --group semantic; \
-    else \
-        uv sync --frozen --no-default-groups --no-install-project; \
-    fi
+RUN groups=""; \
+    if [ "$INSTALL_SEMANTIC" = "1" ]; then groups="$groups --group semantic"; fi; \
+    if [ "$INSTALL_NER" = "1" ]; then groups="$groups --group ner"; fi; \
+    uv sync --frozen --no-default-groups --no-install-project $groups
 
 COPY src ./src
 COPY migrations ./migrations

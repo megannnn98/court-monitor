@@ -5,25 +5,32 @@ import logging
 import sys
 from collections import Counter
 from datetime import UTC, date, datetime, time
+from functools import partial
 from pathlib import Path
 
 import httpx
 from sqlalchemy.exc import NoResultFound
 
 from candidates.service import CandidateQueryService
+from cli_batches import (
+    DEFAULT_WORKERS,
+    MAX_GPU_WORKERS,
+    classify_persons,
+    extract_articles,
+    extraction_uses_gpu,
+    match_persons,
+    merge_extraction_results,
+    run_chunks,
+    worker_count,
+)
 from cli_progress import ProgressBar
 from db.database import create_database_engine, create_session_factory
 from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
 from evaluation.real_world.cli import add_real_world_arguments, run_real_world_command
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
 from extraction.metrics import evaluate_golden_dataset
-from extraction.models import BatchExtractionResult, ExtractionRunStatus
-from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.parallel_resolution import resolve_runs
 from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.pipeline import ExtractionPipeline
 from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
@@ -186,6 +193,15 @@ def main() -> None:
     extract_entities_parser.add_argument("--article-id", type=int, default=None)
     extract_entities_parser.add_argument("--source", choices=sorted(SOURCES), default=None)
     extract_entities_parser.add_argument("--limit", type=int, default=100)
+    extract_entities_parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help=(
+            "Extract articles in this many worker processes, at most "
+            f"{MAX_GPU_WORKERS} with the person recognizer on the GPU"
+        ),
+    )
 
     evaluate_extraction_parser = subparsers.add_parser(
         "evaluate-extraction",
@@ -267,6 +283,12 @@ def main() -> None:
         default=100,
         help="Maximum number of persons to process",
     )
+    match_rosfin_parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help="Match persons in this many worker processes",
+    )
 
     classify_persecution_parser = subparsers.add_parser(
         "classify-persecution",
@@ -283,6 +305,12 @@ def main() -> None:
         type=int,
         default=100,
         help="Maximum number of persons to process",
+    )
+    classify_persecution_parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help="Classify persons in this many worker processes",
     )
 
     list_candidates_parser = subparsers.add_parser(
@@ -517,32 +545,25 @@ def main() -> None:
             if match_result.matched_entry_id:
                 print(f"Matched entry ID: {match_result.matched_entry_id}")
         else:
-            # The matcher decides how many persons there are, so the bar starts
-            # on its first callback rather than before the call.
-            match_progress: ProgressBar | None = None
-
-            def report_match(done: int, total: int) -> None:
-                nonlocal match_progress
-                if match_progress is None:
-                    match_progress = ProgressBar("match-rosfinmonitoring", total)
-                match_progress.advance()
-
-            results = matcher.match_all_persons(
-                snapshot_id=args.snapshot_id,
-                limit=args.limit,
-                on_progress=report_match,
-            )
-            if match_progress is not None:
-                match_progress.close()
+            person_ids = matcher.person_ids_to_match(limit=args.limit)
+            match_workers = worker_count(args.workers, len(person_ids))
+            if match_workers > 1:
+                database_engine.dispose()
             status_counts: Counter[str] = Counter()
-            for match_result_item in results:
-                match_persistence.save_match_result(match_result_item)
-                status_counts[match_result_item.status.value] += 1
+            with ProgressBar("match-rosfinmonitoring", len(person_ids)) as progress:
+                for chunk_counts in run_chunks(
+                    "match-rosfinmonitoring",
+                    partial(match_persons, settings.database_url, args.snapshot_id),
+                    person_ids,
+                    workers=match_workers,
+                    on_progress=progress.advance,
+                ):
+                    status_counts.update(chunk_counts)
 
             breakdown = ", ".join(
                 f"{count} {status}" for status, count in sorted(status_counts.items())
             )
-            print(f"Matched {len(results)} persons: {breakdown}")
+            print(f"Matched {status_counts.total()} persons: {breakdown}")
         return
 
     if args.command == "classify-persecution":
@@ -562,17 +583,24 @@ def main() -> None:
                 for reason in classification.reasons:
                     print(f"  - {reason}")
         else:
-            persons = person_persistence.list_active_persons(limit=args.limit)
+            person_ids = [
+                person.id for person in person_persistence.list_active_persons(limit=args.limit)
+            ]
+            classify_workers = worker_count(args.workers, len(person_ids))
+            if classify_workers > 1:
+                database_engine.dispose()
             classified_count = 0
             political_count = 0
-
-            with ProgressBar("classify-persecution", len(persons)) as progress:
-                for person in persons:
-                    classification = classification_service.classify_person(person.id)
-                    classified_count += 1
-                    if classification.status == "political":
-                        political_count += 1
-                    progress.advance()
+            with ProgressBar("classify-persecution", len(person_ids)) as progress:
+                for chunk_totals in run_chunks(
+                    "classify-persecution",
+                    partial(classify_persons, settings.database_url),
+                    person_ids,
+                    workers=classify_workers,
+                    on_progress=progress.advance,
+                ):
+                    classified_count += chunk_totals.classified
+                    political_count += chunk_totals.political
 
             print(f"Classified {classified_count} persons: {political_count} political persecution")
         return
@@ -649,44 +677,39 @@ def main() -> None:
 
     if args.command == "extract-entities":
         document_repository = SqlAlchemyExtractionDocumentRepository(session_factory)
-        extraction_persistence = SqlAlchemyExtractionPersistence(session_factory)
-        extraction_pipeline = ExtractionPipeline(
-            extractors=[RuleBasedEntityExtractor()],
-            normalizers=[RuleBasedMentionNormalizer()],
-            event_extractor=RuleBasedEventExtractor(),
-            persistence=extraction_persistence,
-        )
         if args.article_id is not None:
             try:
-                extraction_documents = [document_repository.get_by_article_id(args.article_id)]
+                document_repository.get_by_article_id(args.article_id)
             except NoResultFound:
                 raise SystemExit(f"Article not found: {args.article_id}") from None
+            article_ids = [args.article_id]
         else:
             source_name = (
                 get_source_definition(args.source).source_name if args.source is not None else None
             )
-            extraction_documents = document_repository.list_documents(
-                source_name=source_name,
-                limit=args.limit,
-            )
+            article_ids = [
+                document.article_id
+                for document in document_repository.list_documents(
+                    source_name=source_name,
+                    limit=args.limit,
+                )
+            ]
 
-        batch_result = BatchExtractionResult()
-        with ProgressBar("extract-entities", len(extraction_documents)) as progress:
-            for extraction_document in extraction_documents:
-                save_result = extraction_pipeline.run(extraction_document)
-                if save_result.status is ExtractionRunStatus.SUCCEEDED:
-                    if save_result.skipped_existing:
-                        batch_result.articles_skipped += 1
-                    else:
-                        batch_result.articles_processed += 1
-                        batch_result.mentions_created += save_result.mentions_created
-                        batch_result.events_created += save_result.events_created
-                else:
-                    batch_result.articles_failed += 1
-                    batch_result.failures.append(
-                        f"article_id={extraction_document.article_id}: {save_result.error_message}"
-                    )
-                progress.advance()
+        extract_workers = worker_count(
+            args.workers, len(article_ids), uses_gpu=extraction_uses_gpu()
+        )
+        if extract_workers > 1:
+            database_engine.dispose()
+        with ProgressBar("extract-entities", len(article_ids)) as progress:
+            batch_result = merge_extraction_results(
+                run_chunks(
+                    "extract-entities",
+                    partial(extract_articles, settings.database_url),
+                    article_ids,
+                    workers=extract_workers,
+                    on_progress=progress.advance,
+                )
+            )
         print(batch_result.model_dump_json(indent=2))
         return
 

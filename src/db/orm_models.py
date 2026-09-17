@@ -437,6 +437,13 @@ class RosfinmonitoringEntryRecord(Base):
         Index("ix_rosfinmonitoring_entries_snapshot_id", "snapshot_id"),
         Index("ix_rosfinmonitoring_entries_matching_key", "matching_key"),
         Index("ix_rosfinmonitoring_entries_normalized_name", "normalized_name"),
+        # The matcher's `ILIKE '%stem%'` candidate fetch (pg_trgm).
+        Index(
+            "ix_rosfinmonitoring_entries_normalized_name_trgm",
+            "normalized_name",
+            postgresql_using="gin",
+            postgresql_ops={"normalized_name": "gin_trgm_ops"},
+        ),
         UniqueConstraint(
             "snapshot_id",
             "full_name",
