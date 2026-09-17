@@ -474,3 +474,34 @@ def test_article_title_naming_the_person_still_counts(
     classification = PersecutionClassificationService(session_factory).classify_person(person_id)
 
     assert classification.status == PersecutionClassificationStatus.POLITICAL
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_every_equally_near_article_counts_as_the_charge(reverse: bool) -> None:
+    """Real case (uovs_info/1385): an enumeration «ст. 275 …, ч. 4 ст. 222.1 УК РФ» inside
+    the event sentence. Only the first reference found was taken as the charge, and it
+    could be the non-political 222.1."""
+    mentions = [
+        EntityMentionRecord(
+            entity_type="legal_reference",
+            surface_text=surface,
+            normalized_text=normalized,
+            start_offset=start,
+            end_offset=40,
+        )
+        for surface, normalized, start in [
+            ("ч. 4 ст. 222.1 УК РФ", "УК РФ ст. 222.1 ч. 4", 20),
+            ("ст. 275 и ч. 4 ст. 222.1 УК РФ", "УК РФ ст. 275", 10),
+            # Farther away: not part of this event's charge.
+            ("ст. 282 УК РФ", "УК РФ ст. 282", 250),
+        ]
+    ]
+    if reverse:
+        mentions.reverse()
+
+    charges = PersecutionClassificationService._nearest_legal_references(mentions, 0, 45)
+
+    assert sorted(mention.normalized_text for mention in charges) == [
+        "УК РФ ст. 222.1 ч. 4",
+        "УК РФ ст. 275",
+    ]

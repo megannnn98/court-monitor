@@ -83,13 +83,20 @@ POLITICAL_KEYWORDS = {
     "религиозное преследование",
     "Свидетели Иеговы",
     "вероисповедание",
+    # The customer counts treason and cases on a Ukrainian service's task as political.
+    "госизмен",
+    "государственная измена",
+    "государственной измене",
+    "государственную измену",
+    "ГУР",
+    "СБУ",
 }
 
 
 # Short abbreviations only count as whole words («сми», not «Смирнов»; «гей»,
 # not «Сергей»). Every other keyword counts at the start of a word, so stems
 # («журналист», «антивоен») still match their inflected forms.
-_WHOLE_WORD_KEYWORDS = frozenset({"гей", "геи", "сми", "медиа", "sota"})
+_WHOLE_WORD_KEYWORDS = frozenset({"гей", "геи", "сми", "медиа", "sota", "гур", "сбу"})
 
 
 def _keyword_pattern(keywords: Sequence[str]) -> re.Pattern[str]:
@@ -129,7 +136,9 @@ class RuleBasedPersecutionClassifier:
     # are not evidence; political articles are matched within their own code
     # (УК or КоАП), with the articles OVD-Info practice uses (212.1, 282.3, 330.1,
     # КоАП 20.3.3, 20.33, 19.34, …).
-    classifier_version = "1.3.0"
+    # 1.4.0: a charge may list several articles, and each counts in its own code;
+    # treason and a GUR/SBU task are signs of political persecution.
+    classifier_version = "1.4.0"
 
     def classify(
         self,
@@ -217,14 +226,18 @@ class RuleBasedPersecutionClassifier:
     def _is_political_charge(self, charge: str) -> bool:
         if not charge:
             return False
-        # An article number only counts in its own code: КоАП ст. 282 is not УК ст. 282.
-        articles = (
-            POLITICAL_ADMINISTRATIVE_ARTICLES if "коап" in charge.lower() else POLITICAL_ARTICLES
-        )
-        for article in articles:
-            pattern = rf"(?<![\d.]){re.escape(article)}(?![\d.])"
-            if re.search(pattern, charge):
-                return True
+        # A charge may list several articles («УК РФ ст. 222.1 ч. 4; УК РФ ст. 275»); each
+        # counts in its own code: КоАП ст. 282 is not УК ст. 282.
+        for reference in charge.split(";"):
+            articles = (
+                POLITICAL_ADMINISTRATIVE_ARTICLES
+                if "коап" in reference.lower()
+                else POLITICAL_ARTICLES
+            )
+            for article in articles:
+                pattern = rf"(?<![\d.]){re.escape(article)}(?![\d.])"
+                if re.search(pattern, reference):
+                    return True
 
         return False
 
