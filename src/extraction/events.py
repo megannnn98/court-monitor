@@ -61,6 +61,13 @@ _SPEECH_AFTER_NAME = re.compile(
     re.IGNORECASE,
 )
 _CONTEXT_CHARS = 60
+# The person a crime was aimed at: «подготовке убийства бывшего республиканского министра
+# курортов и туризма Вадима Волченко». Only lowercase words may stand between.
+_VICTIM_BEFORE_NAME = re.compile(
+    r"(?<![а-яё])(?:убийств[аеоу]?|покушени[еяи]\s+на|нападени[еяи]\s+на|похищени[еяи])"
+    r"\s+(?:[а-яё-]+\s+){0,7}$"
+)
+_VICTIM_CONTEXT_CHARS = 120
 
 # Triggers match at a word start. Verb (or verb-like) triggers state that the event
 # happened in this sentence; noun triggers («приговора», «ареста») often only refer to
@@ -163,7 +170,9 @@ class RuleBasedEventExtractor:
     # 1.7.0: a person named only in a subordinate clause without the trigger, after that
     # clause's own pronoun subject («…, что он одобрил поступок Жлобицкого»), is not the
     # event's target.
-    extractor_version = "1.7.0"
+    # 1.8.0: the person a crime was aimed at («подготовке убийства … Вадима Волченко») is
+    # not the event's target.
+    extractor_version = "1.8.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -351,7 +360,8 @@ def _event_date(
 
 
 def _is_non_subject(text: str, mention: NormalizedMention, start: int, end: int) -> bool:
-    """A reporting source or a procedural actor in the event sentence: not its subject.
+    """A reporting source, a procedural actor or a victim in the event sentence: not its
+    subject.
 
     Ambiguous cases stay unlinked: a wrongly attributed event is worse than a missed one.
     """
@@ -359,8 +369,12 @@ def _is_non_subject(text: str, mention: NormalizedMention, start: int, end: int)
         return False
     before = text[max(start, mention.start_offset - _CONTEXT_CHARS) : mention.start_offset]
     after = text[mention.end_offset : min(end, mention.end_offset + _CONTEXT_CHARS)]
+    victim_before = text[
+        max(start, mention.start_offset - _VICTIM_CONTEXT_CHARS) : mention.start_offset
+    ]
     return bool(
-        _ROLE_AS_FIRST_TOKEN.match(mention.surface_text)
+        _VICTIM_BEFORE_NAME.search(victim_before)
+        or _ROLE_AS_FIRST_TOKEN.match(mention.surface_text)
         or _ROLE_BEFORE_NAME.search(before)
         or _SOURCE_BEFORE_NAME.search(before)
         or _SPEECH_AFTER_NAME.match(after)

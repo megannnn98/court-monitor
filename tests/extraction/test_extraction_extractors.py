@@ -670,6 +670,20 @@ def test_a_surname_repeated_alone_is_still_settled_by_the_full_name() -> None:
     assert _normalized_people(text)["Путина"] == "Путин"
 
 
+def test_the_victim_of_the_crime_is_not_the_target() -> None:
+    """Real case (Kommersant): the minister a defendant allegedly plotted to kill became a
+    second target of the detention, and so a persecution candidate."""
+    text = (
+        "27-летнего жителя Советского района Мамута Белялова задержали в сентябре 2022 года "
+        "в Феодосии по обвинению в подготовке убийства бывшего республиканского министра "
+        "курортов и туризма Вадима Волченко."
+    )
+    assert _event_people(text) == [["Мамута Белялова"]]
+    assert _event_people("Суд арестовал обвиняемого в нападении на политика Леонида Волкова.") == [
+        []
+    ]
+
+
 def test_a_person_named_beside_a_document_verdict_gets_no_event() -> None:
     """Real case: «…поддерживает идеологию Брейвика, и даже приложило к делу переведенный
     с норвежского приговор неонацисту» made Брейвик the target of a sentence and a
