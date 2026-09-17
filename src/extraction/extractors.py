@@ -33,15 +33,19 @@ _LEGAL_REFERENCE_PATTERN = re.compile(
 
 _CAPITALIZED_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+(?:-[А-ЯЁA-Z][а-яёa-z]+)?)"
 _COURT_PREFIX_WORD = r"(?:[А-ЯЁA-Z][а-яёa-z]+|[а-яё]+)"
-_INITIALS = r"(?:[А-ЯЁA-Z]\.\s*){1,2}"
+# A name never continues on the next line: a title and the text below it are separate.
+_SPACE = r"[^\S\n]+"
+_INITIALS = r"(?:[А-ЯЁA-Z]\.[^\S\n]*){1,2}"
 # Matched overlapping (a lookahead around each): «Павла Крисевича Елену Иванову» holds two
 # people, and a non-overlapping scan would consume the first word of the second one.
 _PERSON_PATTERNS = [
-    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b))"),
-    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+{_CAPITALIZED_WORD}\b))"),
+    re.compile(
+        rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}{_CAPITALIZED_WORD}{_SPACE}{_CAPITALIZED_WORD}\b))"
+    ),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}{_CAPITALIZED_WORD}\b))"),
     re.compile(rf"(?=(\b{_INITIALS}{_CAPITALIZED_WORD}\b))"),
     # «Виталия Л.»: a given name with the surname reduced to an initial (OVD-Info style).
-    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}\s+[А-ЯЁ]\.(?![А-Яа-яЁё])))"),
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}[А-ЯЁ]\.(?![А-Яа-яЁё])))"),
 ]
 # Words that may start a capitalized two-word match without being part of the name:
 # sentence adverbs/conjunctions and role or occupation descriptors (by stem).
@@ -160,14 +164,16 @@ _ORG_PATTERN = re.compile(
     r"\b(?:ОВД-Инфо|SOTA|Медиазон[аеуы]|Роскомсвобод[аеуы]|Мемориал|Следственный комитет|"
     r"СК РФ|МВД|ФСБ|ФСИН|прокуратур[аеуы]|Генпрокуратур[аеуы]|Минюст|полици[яиюей]|"
     # Case endings too: «охранника Минюста Виталия» must not read as a name.
-    r"Комитет против пыток|Росфинмониторинг)(?:[а-яё]{1,2})?\b",
+    r"Комитет против пыток|Росфинмониторинг|"
+    # The dictionary reads «Иеговы» as a given name: «Свидетеля Иеговы Виктора Урсу».
+    r"Свид[еи]тел[а-яё]*\s+Иегов[а-яё]*)(?:[а-яё]{1,2})?\b",
     re.IGNORECASE,
 )
 _LOCATION_PATTERN = re.compile(
     r"\b(?:Россия|Беларусь|Украина|Москва|Москве|Москвы|Санкт-Петербург|Петербург|"
     r"Санкт-Петербурге|Казань|Казани|Екатеринбург|Екатеринбурге|Новосибирск|Новосибирске|"
     r"Татарстан|Дагестан|Чечня|"
-    r"Краснодарский край|Московская область|Ленинградская область)\b"
+    r"Краснодарский край|Московская область|Ленинградская область|Марий Эл)\b"
 )
 
 
@@ -180,24 +186,38 @@ def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphol
     for previous, word in pairwise(words):
         if morphology.is_patronymic(previous.group(0)) and morphology.is_given_name(word.group(0)):
             return start + previous.end()
+    # «Рамзана Кадырова Никиту Журавеля»: a given name closing a span without a patronymic,
+    # with a capitalized word right after it, opens the next person's name.
+    if (
+        len(words) == 3
+        and morphology.is_given_name(words[2].group(0))
+        and not any(morphology.is_patronymic(word.group(0)) for word in words)
+        and re.match(rf"{_SPACE}{_CAPITALIZED_WORD}", text[end:]) is not None
+    ):
+        return start + words[1].end()
     return end
 
 
 def _capitalized_run(text: str, start: int, end: int) -> list[str]:
     """The uninterrupted run of capitalized words this span belongs to."""
     left = start
-    while (previous := re.search(rf"({_CAPITALIZED_WORD})\s+$", text[:left])) is not None:
+    while (previous := re.search(rf"({_CAPITALIZED_WORD}){_SPACE}$", text[:left])) is not None:
         left = previous.start(1)
     right = end
-    while (following := re.match(rf"\s+({_CAPITALIZED_WORD})", text[right:])) is not None:
+    while (following := re.match(rf"{_SPACE}({_CAPITALIZED_WORD})", text[right:])) is not None:
         right += following.end(1)
     return text[left:right].split()
+
+
+def _is_latin(word: str) -> bool:
+    return re.search(r"[А-ЯЁа-яё]", word) is None
 
 
 def _starts_a_sentence(text: str, start: int) -> bool:
     """A capital letter at the start of a sentence says nothing about the word being a name."""
     before = text[:start].rstrip()
-    return not before or before[-1] in ".!?:;»\n"
+    # Anything but a word or a comma ends what came before: «🔹 Приговор…», «• Приговор…».
+    return not before or not (before[-1].isalnum() or before[-1] in ',«"(')
 
 
 def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorphology) -> int:
@@ -212,7 +232,11 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
             return start
         surface = word.group(0).strip()
         lowered = surface.lower()
-        if lowered in _LEADING_NON_NAME_WORDS or lowered.startswith(_LEADING_ROLE_STEMS):
+        if (
+            lowered in _LEADING_NON_NAME_WORDS
+            or lowered.startswith(_LEADING_ROLE_STEMS)
+            or _is_latin(surface)
+        ):
             start += word.end()
             continue
         rest = text[start + word.end() : end].split()
@@ -232,18 +256,35 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
             and (
                 unknown_before_full_name
                 or (
-                    morphology.is_known_non_name(surface)
-                    and (
-                        not morphology.can_be_nominative(surface)
-                        or morphology.is_adjective(surface)
-                        # «Приговор Ремзи Куртнезирову»: the capital opens the sentence.
-                        or _starts_a_sentence(text, start)
+                    # «Коми Игоря Сажина»: a place before a full name is not part of it.
+                    (morphology.is_geographic(surface) and len(rest) >= 2)
+                    or (
+                        morphology.is_known_non_name(surface)
+                        and (
+                            not morphology.can_be_nominative(surface)
+                            or morphology.is_adjective(surface)
+                            # «Приговор Ремзи Куртнезирову»: the capital opens the sentence.
+                            or _starts_a_sentence(text, start)
+                        )
                     )
                 )
             )
         ):
             start += word.end()
             continue
+        # «Глазова Андрея Едигарева», «Навального Сергея Бойко»: without a patronymic a
+        # name is «given name, surname», so a surname or place before a given name
+        # belongs to the words around the name.
+        # The word after the span counts too: «Навального Сергея» is followed by «Бойко».
+        following = re.match(rf"{_SPACE}({_CAPITALIZED_WORD})", text[end:])
+        name = [*rest, following.group(1)] if following is not None and len(rest) == 1 else rest
+        if (
+            len(name) >= 2
+            and morphology.is_given_name(name[0])
+            and not morphology.is_given_name(surface)
+            and not any(morphology.is_patronymic(other) for other in name[:2])
+        ):
+            start += word.end()
         return start
 
 
@@ -286,7 +327,11 @@ class RuleBasedEntityExtractor:
     # 1.1.1: inflected organization names («Минюста», «Медиазоны») occupy their span.
     # 1.2.0: a word before the name is trimmed and a span of ordinary dictionary words is
     # not a person, both decided by the morphological dictionary.
-    extractor_version = "1.2.0"
+    # 1.3.0: overlapping name spans prefer more name words over more characters;
+    # «Свидетели Иеговы» is an organization; a Latin word is never part of a name;
+    # a name does not continue on the next line; a place or a surname before
+    # «given name, surname» is not part of the name; a bullet opens a sentence.
+    extractor_version = "1.3.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -349,9 +394,9 @@ class RuleBasedEntityExtractor:
                 surface = text[start:span_end]
                 if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
                     continue
-                # «Skandi Klubb», «Frankfurter Allgemeine Zeitung»: people are written in
-                # Cyrillic in these sources, Latin spans are outlets, bands and venues.
-                if not re.search(r"[А-ЯЁа-яё]", surface):
+                # «Skandi Klubb», «Соловьев Live»: people are written in Cyrillic in these
+                # sources, Latin words are outlets, bands and venues.
+                if any(_is_latin(word) for word in surface.split()):
                     continue
                 if self._is_person_stop_word(surface) or _is_not_a_person(
                     surface, self._morphology
@@ -362,10 +407,18 @@ class RuleBasedEntityExtractor:
                 if not self._is_plausible_full_name(text, start, span_end):
                     continue
                 spans.append((start, span_end))
+
         # Overlapping readings of one name («Ольга Иванова» and «Ольга Иванова Петровна»):
-        # keep the longest.
+        # keep the one with the most name words, then the longest. By length alone
+        # «Popcorn Books Дмитрия» beat «Дмитрия Протопопова» and the surname was lost.
+        def preference(span: tuple[int, int]) -> tuple[int, int, int]:
+            name_words = sum(
+                self._morphology.is_name_word(word) for word in text[span[0] : span[1]].split()
+            )
+            return (-name_words, span[0] - span[1], span[0])
+
         kept: list[tuple[int, int]] = []
-        for start, end in sorted(set(spans), key=lambda span: (span[0] - span[1], span[0])):
+        for start, end in sorted(set(spans), key=preference):
             if not self._overlaps(start, end, kept):
                 kept.append((start, end))
         mentions = [

@@ -528,3 +528,84 @@ def test_defendants_as_a_noun_are_not_a_charge_event() -> None:
     """Real case: «Все обвиняемые отрицают свою вину» was extracted as a charge."""
     assert _event_types("Все обвиняемые отрицают свою вину.") == []
     assert _event_types("Активист стал обвиняемым по делу о фейках.") == ["charge"]
+
+
+def test_overlapping_spans_keep_the_one_with_more_name_words() -> None:
+    """Real cases: a longer span of outlet or agency words beat the trimmed full name and
+    the person lost the surname («Popcorn Books Дмитрия», «Росмолодежи Ксения»)."""
+    assert _people("Редактора Popcorn Books Дмитрия Протопопова осудили.") == [
+        "Дмитрия Протопопова"
+    ]
+    assert _people("Против экс-главы Росмолодежи Ксении Разуваевой возбудили дело.") == [
+        "Ксении Разуваевой"
+    ]
+
+
+def test_jehovahs_witnesses_are_an_organization_not_part_of_a_name() -> None:
+    """Real cases: the dictionary reads «Иеговы» as a given name, and 21 persons were stored
+    as «Иегова Виктор Урс», «Свидетель Иегова» and alike."""
+    assert _people("Суд приговорил 60-летнего Свидетеля Иеговы Виктора Урсу к шести годам.") == [
+        "Виктора Урсу"
+    ]
+    assert _people("38-летняя Свидетельница Иеговы Сона Олопова освободилась.") == ["Сона Олопова"]
+    assert _people("63-летний Свидетель Иеговы вышел на свободу.") == []
+    assert _people("Свидители Иеговы Ирину Ушакову задержали.") == ["Ирину Ушакову"]
+
+
+def test_a_latin_word_is_not_part_of_a_person_name() -> None:
+    """Real cases: people are written in Cyrillic in these sources, while mixed spans were
+    outlets and brands around a name («The Insider Романа», «Say Agency Анна»)."""
+    assert _people("Главреда The Insider Романа Доброхотова объявили в розыск.") == [
+        "Романа Доброхотова"
+    ]
+    assert _people("Фотографа Say Agency Анну Петрову задержали.") == ["Анну Петрову"]
+    assert _people("Канал Соловьев Live закрыли.") == []
+
+
+def test_a_name_does_not_span_a_line_break() -> None:
+    """Real case: the title «…в поддержку Марии Бонцлер» and the text «На Старом Арбате…»
+    were read as one name «Бонцлер На Старом»."""
+    assert _people("в поддержку Марии Бонцлер\nНа Старом Арбате прошел пикет") == ["Марии Бонцлер"]
+    assert _people("Задержаны:\nПетров\nСидоров") == []
+
+
+def test_a_surname_or_place_before_a_given_name_is_not_part_of_the_name() -> None:
+    """Real cases: «Глазов Андрей Едигарев», «Навальный Сергей Бойко», «Коми Игорь Сажин»,
+    «Марий Эл Алексей». Without a patronymic a Russian name is «given name, surname»."""
+    assert _people("Против депутата из Глазова Андрея Едигарева возбудили дело.") == [
+        "Андрея Едигарева"
+    ]
+    assert _people("Суд арестовал координатора штаба Навального Сергея Бойко.") == ["Сергея Бойко"]
+    assert _people("Обыск прошел у правозащитника из Коми Игоря Сажина.") == ["Игоря Сажина"]
+    assert _people("Задержали жителя Республики Марий Эл Алексея Петрова.") == ["Алексея Петрова"]
+    # «Surname, given name, patronymic» stays whole, including a patronymic the
+    # dictionary also knows as a surname.
+    assert _people("Поспелов Дмитрий Александрович осужден.") == ["Поспелов Дмитрий Александрович"]
+
+
+def test_a_bullet_opens_a_sentence() -> None:
+    """Real case: Telegram digests start items with «🔹», and «🔹 Приговор Гладких…» kept
+    the capitalized common noun as part of a name."""
+    assert _people("🔹 Приговор Иванову увеличили до 20 лет") == []
+    assert _people("• Приговор Иванову увеличили до 20 лет") == []
+
+
+def test_a_given_name_ending_a_span_starts_the_next_person() -> None:
+    """Real case: «бойца Рамзана Кадырова Никиту Журавеля» — preferring more name words
+    picked «Рамзана Кадырова Никиту» over the two people."""
+    assert _people("Бойцы Рамзана Кадырова Никиту Журавеля избили.") == [
+        "Рамзана Кадырова",
+        "Никиту Журавеля",
+    ]
+
+
+def test_a_name_with_initials_is_brought_to_the_nominative_case() -> None:
+    """Real cases: «Е.А. Аничкиной», «Ф.Э. Дзержинского» were stored as written."""
+    normalizer = RuleBasedMentionNormalizer()
+    assert normalizer.normalize_person("Е.А. Аничкиной")[0] == "Е.А. Аничкина"
+    assert normalizer.normalize_person("Ф. Э. Дзержинского")[0] == "Ф. Э. Дзержинский"
+    # No gender in the name: an ambiguous surname stays as written.
+    assert normalizer.normalize_person("В. Волкова")[0] == "В. Волкова"
+    _, data = normalizer.normalize_person("Е.А. Аничкиной")
+    assert data.last_name == "Аничкина"
+    assert data.matching_key == normalizer.normalize_person("Е.А. Аничкина")[1].matching_key

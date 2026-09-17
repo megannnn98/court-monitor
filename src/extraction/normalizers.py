@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from itertools import takewhile
 
 from extraction.models import (
     EntityType,
@@ -17,7 +18,11 @@ from extraction.name_morphology import NameMorphology
 
 # 1.1.0: personal names are brought to the nominative case with a morphological
 # dictionary instead of a suffix table («Ольгу Комлеву» → «Ольга Комлева»).
-NORMALIZER_VERSION = "1.1.0"
+# 1.2.0: the article settles an ambiguous gender even though it also holds the mention
+# itself («Даниила Меркулова» → «Даниил Меркулов»); a guessed or surname-only reading
+# does not fix the gender; surnames outside the dictionary are declined by their ending
+# («Елене Перепелице», «Антона Зарецкого»); a name with initials is declined too.
+NORMALIZER_VERSION = "1.2.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -114,11 +119,21 @@ class RuleBasedMentionNormalizer:
     ) -> tuple[str, PersonNormalizedData]:
         words = surface_text.replace("ё", "е").replace("Ё", "Е").split()
         if words and "." in words[0]:
-            normalized = " ".join(words)
+            # «Е.А. Аничкиной»: the initials stay, the surname is brought to the nominative.
+            initials = list(takewhile(lambda word: "." in word, words))
+            surname = words[len(initials) :]
+            if surname:
+                surname = (
+                    self._name_morphology.to_nominative(" ".join(surname), document_words)
+                    .replace("ё", "е")
+                    .replace("Ё", "Е")
+                    .split()
+                )
+            normalized = " ".join([*initials, *surname])
             matching_key = self._matching_key(normalized)
             return normalized, PersonNormalizedData(
                 full_name=normalized,
-                last_name=words[-1] if words else None,
+                last_name=(surname or words)[-1],
                 first_name=None,
                 patronymic=None,
                 matching_key=matching_key,
