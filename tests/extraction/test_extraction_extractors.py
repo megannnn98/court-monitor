@@ -597,3 +597,15 @@ def test_a_given_name_ending_a_span_starts_the_next_person() -> None:
         "Рамзана Кадырова",
         "Никиту Журавеля",
     ]
+
+
+def test_a_name_with_initials_is_brought_to_the_nominative_case() -> None:
+    """Real cases: «Е.А. Аничкиной», «Ф.Э. Дзержинского» were stored as written."""
+    normalizer = RuleBasedMentionNormalizer()
+    assert normalizer.normalize_person("Е.А. Аничкиной")[0] == "Е.А. Аничкина"
+    assert normalizer.normalize_person("Ф. Э. Дзержинского")[0] == "Ф. Э. Дзержинский"
+    # No gender in the name: an ambiguous surname stays as written.
+    assert normalizer.normalize_person("В. Волкова")[0] == "В. Волкова"
+    _, data = normalizer.normalize_person("Е.А. Аничкиной")
+    assert data.last_name == "Аничкина"
+    assert data.matching_key == normalizer.normalize_person("Е.А. Аничкина")[1].matching_key
