@@ -144,3 +144,11 @@ def test_ambiguous_names_are_settled_by_the_weight_of_their_readings() -> None:
     assert MORPHOLOGY.to_nominative("Вячеславу Авдашеву") == "Вячеслав Авдашев"
     assert MORPHOLOGY.to_nominative("Владлена Татарского") == "Владлен Татарский"
     assert MORPHOLOGY.to_nominative("Юлию Емельянову") == "Юлия Емельянова"
+
+
+def test_a_womans_surname_ending_in_a_consonant_is_indeclinable() -> None:
+    """Real case: «Марии Бонцлер» was stored as «Мария Бонцлера»."""
+    assert MORPHOLOGY.to_nominative("Марии Бонцлер") == "Мария Бонцлер"
+    assert MORPHOLOGY.to_nominative("Айшат Кадыровой") == "Айшат Кадырова"
+    # «-м» is an instrumental ending, not a consonant-final surname.
+    assert MORPHOLOGY.to_nominative("Набиюллой Балабековым") != "Набиюлла Балабековым"

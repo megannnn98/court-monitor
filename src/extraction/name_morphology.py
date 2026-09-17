@@ -289,6 +289,10 @@ class NameMorphology:
     def _word_to_nominative(
         word: str, parses: tuple[Parse, ...], gender: str | None, cases: set[str]
     ) -> str:
+        # «Марии Бонцлер»: a woman's name ending in a consonant does not decline («-м» is
+        # an instrumental ending: «Балабековым»).
+        if gender == "femn" and word[-1:].lower() not in _NOT_CONSONANTS | {"м"}:
+            return word
         preferred = [
             parse
             for parse in parses
