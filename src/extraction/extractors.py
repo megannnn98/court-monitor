@@ -4,7 +4,7 @@ import re
 from collections.abc import Iterable
 from itertools import pairwise
 
-from extraction.models import EntityType, ExtractionDocument, RawMention
+from extraction.models import NAMED_TITLE_SOURCES, EntityType, ExtractionDocument, RawMention
 from extraction.name_morphology import NameMorphology
 from extraction.person_ner.models import PersonNameRecognizer
 
@@ -237,6 +237,12 @@ def _starts_a_sentence(text: str, start: int) -> bool:
     return not before or not (before[-1].isalnum() or before[-1] in ',«"(')
 
 
+_SURNAME_ENDING = re.compile(
+    r"(?:ов|ев|ёв|ин|ын|ский|цкий|ской|ова|ева|ёва|ина|ына|ская|цкая|ко|ук|юк|ян|янц|дзе|"
+    r"швили|ых|их|ец)$"
+)
+
+
 def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorphology) -> int:
     """Skip leading words that are not part of the name.
 
@@ -260,15 +266,17 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
         # «Мемет Решатович Белялов», «Ярош Сергей Васильевич»: a patronymic right after the
         # word, or «given name, patronymic» after it, makes an unfamiliar word the given name
         # or the surname. An ordinary word stays out: «Задержали Ивана Ивановича».
-        if (
-            rest
-            and not morphology.is_known_non_name(surface)
-            and (
-                morphology.is_patronymic(rest[0])
-                or (
-                    len(rest) == 2
-                    and morphology.is_given_name(rest[0])
-                    and morphology.is_patronymic(rest[1])
+        if rest and (
+            (morphology.is_patronymic(rest[0]) and not morphology.is_known_non_name(surface))
+            or (
+                len(rest) == 2
+                and morphology.is_given_name(rest[0])
+                and morphology.is_patronymic(rest[1])
+                # «Салманов» is also an ordinary word in the dictionary; its ending says
+                # surname. «Задержали Ивана Ивановича» has neither.
+                and (
+                    not morphology.is_known_non_name(surface)
+                    or _SURNAME_ENDING.search(surface.lower()) is not None
                 )
             )
         ):
@@ -367,7 +375,8 @@ class RuleBasedEntityExtractor:
     # 1.4.0: every article of an enumeration gets the code at its end («ст. 275 ч. 2
     # ст. 205.4, …, ч. 4 ст. 222.1 УК РФ»).
     # 1.5.0: an unfamiliar word before a patronymic, or before «given name, patronymic», is
-    # part of the name («Мемет Решатович Белялов», «Ярош Сергей Васильевич»).
+    # part of the name («Мемет Решатович Белялов», «Ярош Сергей Васильевич»); a registry
+    # card's person is its title.
     extractor_version = "1.5.0"
     # 2.0.0: person names come from a recognizer model instead of the capitalized-word
     # patterns; the rest of the entity types are unchanged. The version differs so
@@ -399,7 +408,9 @@ class RuleBasedEntityExtractor:
         mentions.extend(self._organizations(document.text))
         mentions.extend(self._locations(document.text))
         occupied = [(mention.start_offset, mention.end_offset) for mention in mentions]
-        if self._person_recognizer is None:
+        if document.source_name in NAMED_TITLE_SOURCES:
+            mentions.extend(self._title_name(document))
+        elif self._person_recognizer is None:
             mentions.extend(self._people(document.text, occupied))
         else:
             recognized = self._recognized_people(document.text, occupied)
@@ -414,6 +425,16 @@ class RuleBasedEntityExtractor:
                 mention.entity_type.value,
             ),
         )
+
+    def _title_name(self, document: ExtractionDocument) -> list[RawMention]:
+        """Every occurrence of the title, which is the person's full name."""
+        name = document.title.strip()
+        if not name:
+            return []
+        return [
+            self._mention(EntityType.PERSON, document.text, match.start(), match.end(), 0.99)
+            for match in re.finditer(re.escape(name), document.text)
+        ]
 
     def _legal_references(self, text: str) -> list[RawMention]:
         mentions: list[RawMention] = []

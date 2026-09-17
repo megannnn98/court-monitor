@@ -35,6 +35,7 @@ _GUESSED_WEIGHT = 0.5
 _CASES = frozenset({"nomn", "gent", "datv", "accs", "ablt", "loct"})
 _ADJECTIVAL_ENDINGS = ("ого", "ому")
 _MASCULINE_ADJECTIVAL_ENDINGS = ("ского", "цкого", "скому", "цкому", "ским", "цким")
+_FEMININE_NOMINATIVE = ("ова", "ева", "ёва", "ина", "ына", "ская", "цкая")
 _NOT_CONSONANTS = frozenset("аеёиоуыэюяьъй")
 
 
@@ -302,6 +303,18 @@ class NameMorphology:
                 certain[gender] = certain.get(gender, False) or _is_surname_only(word_parses)
         if len(certain) == 1:
             return next(iter(certain)), True
+        # A patronymic states the gender outright, before a surname the dictionary knows in
+        # one gender only: «Ипатова Елена Анатольевна» is a woman.
+        patronymic_genders = {
+            gender
+            for word_parses in parses
+            if word_parses and all("Patr" in parse.tag for parse in word_parses)
+            for parse in word_parses
+            for gender in _GENDERS
+            if gender in parse.tag.grammemes
+        }
+        if len(patronymic_genders) == 1:
+            return next(iter(patronymic_genders)), True
         surname_genders = [gender for gender, by_surname in certain.items() if by_surname]
         if len(surname_genders) == 1:
             return surname_genders[0], True
@@ -330,6 +343,10 @@ class NameMorphology:
             for parse in parses
             if gender is None or gender in parse.tag.grammemes or not _has_gender(parse)
         ]
+        if not preferred and gender == "femn" and word.lower().endswith(_FEMININE_NOMINATIVE):
+            # «Ипатова Елена Анатольевна»: the dictionary knows «Ипатова» only as a man's
+            # surname in another case; a woman's is already nominative.
+            return word
         for parse in preferred or parses:
             inflected = parse.inflect({"nomn", "sing"}) or parse.inflect({"nomn"})
             if inflected is not None:

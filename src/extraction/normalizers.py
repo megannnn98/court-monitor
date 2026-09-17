@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from itertools import takewhile
 
 from extraction.models import (
+    NAMED_TITLE_SOURCES,
     EntityType,
     ExtractionDocument,
     LegalReferenceNormalizedData,
@@ -27,7 +28,9 @@ from extraction.name_morphology import NameMorphology
 # 1.4.0: the words of a name are read in one gender: once the guessed gender declines a
 # word, the ones kept as written follow it («Даниила Неонова» → «Даниил Неонов»).
 # 1.5.0: a name after a preposition that takes only the genitive settles the gender of that
-# name in the article («для Евгения Поливко» → «Евгений Поливко»).
+# name in the article («для Евгения Поливко» → «Евгений Поливко»); a patronymic states the
+# gender before a one-gender dictionary surname («Ипатова Елена Анатольевна»); a registry
+# card's name is kept as written.
 NORMALIZER_VERSION = "1.5.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
@@ -100,7 +103,13 @@ class RuleBasedMentionNormalizer:
             | OrganizationNormalizedData
             | LocationNormalizedData
         )
-        if mention.entity_type is EntityType.PERSON:
+        if (
+            mention.entity_type is EntityType.PERSON
+            and document.source_name in NAMED_TITLE_SOURCES
+            and mention.surface_text == document.title
+        ):
+            normalized_text, normalized_data = self._registry_name(mention.surface_text)
+        elif mention.entity_type is EntityType.PERSON:
             normalized_text, normalized_data = self._normalize_person(
                 mention.surface_text,
                 _name_words_of(document),
@@ -132,6 +141,18 @@ class RuleBasedMentionNormalizer:
             extractor_name=mention.extractor_name,
             extractor_version=mention.extractor_version,
             normalizer_version=self.normalizer_version,
+        )
+
+    def _registry_name(self, name: str) -> tuple[str, PersonNormalizedData]:
+        """A registry's «Фамилия Имя Отчество», already nominative: kept as written."""
+        normalized = " ".join(name.replace("ё", "е").replace("Ё", "Е").split())
+        words = normalized.split()
+        return normalized, PersonNormalizedData(
+            full_name=normalized,
+            last_name=words[0],
+            first_name=words[1] if len(words) >= 2 else None,
+            patronymic=words[2] if len(words) >= 3 else None,
+            matching_key=self._matching_key(normalized),
         )
 
     def normalize_person(self, surface_text: str) -> tuple[str, PersonNormalizedData]:

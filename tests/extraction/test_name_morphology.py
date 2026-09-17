@@ -65,6 +65,13 @@ def test_the_words_of_a_name_are_read_in_one_gender() -> None:
     assert MORPHOLOGY.to_nominative("Александра Новака") == "Александра Новака"
 
 
+def test_a_patronymic_settles_the_gender_before_a_one_gender_surname() -> None:
+    """Real registry card: the dictionary knows «Ипатова» only as a man's surname in the
+    genitive, and «Ипатова Елена Анатольевна» became «Ипатов»."""
+    assert MORPHOLOGY.to_nominative("Ипатова Елена Анатольевна") == "Ипатова Елена Анатольевна"
+    assert MORPHOLOGY.to_nominative("Ипатова Ивана Петровича") == "Ипатов Иван Петрович"
+
+
 def test_one_unambiguous_word_settles_the_gender_of_the_whole_name() -> None:
     """«Андрея» is masculine in every reading, so the surname follows it."""
     assert MORPHOLOGY.to_nominative("Андрея Волкова") == "Андрей Волков"

@@ -3,9 +3,19 @@ from dataclasses import dataclass
 
 import httpx
 
+from extraction.models import MEMOPZK_REGISTRY_SOURCE_NAME
 from sources.article_parser import ArticleParser, OvdInfoArticleParser
+from sources.kommersant.article_parser import (
+    KOMMERSANT_FEED_URL,
+    KommersantArticleParser,
+    is_case_news,
+    kommersant_external_id,
+)
+from sources.memopzk.article_parser import FigurantParser
+from sources.memopzk.source_adapter import MEMOPZK_BASE_URL, MemopzkFigurantAdapter
 from sources.ovd_info.listing_parser import OvdInfoListingParser
 from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
+from sources.rss.source_adapter import RssSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
@@ -85,6 +95,36 @@ SUDRF_2ZOVS = sudrf_source(
 )
 
 
+# The registry of persecuted people: a structured card per person (ADR 0015).
+MEMOPZK_FIGURANTS = SourceDefinition(
+    name="memopzk-figurants",
+    source_name=MEMOPZK_REGISTRY_SOURCE_NAME,
+    base_url=MEMOPZK_BASE_URL,
+    create_adapter=lambda client, fetcher: MemopzkFigurantAdapter(
+        client=client,
+        document_fetcher=fetcher,
+    ),
+    create_parser=FigurantParser,
+    # A card is addressed by its registry id, not by a page URL.
+    supports_direct_fetch=False,
+)
+
+# Kommersant's site names defendants its Telegram channel leaves unnamed (ADR 0015).
+KOMMERSANT = SourceDefinition(
+    name="kommersant",
+    source_name="Коммерсантъ (сайт)",
+    base_url="https://www.kommersant.ru",
+    create_adapter=lambda client, fetcher: RssSourceAdapter(
+        client=client,
+        feed_url=KOMMERSANT_FEED_URL,
+        document_fetcher=fetcher,
+        include=is_case_news,
+        external_id=kommersant_external_id,
+    ),
+    create_parser=KommersantArticleParser,
+)
+
+
 def telegram_source(channel: TelegramChannel) -> SourceDefinition:
     return SourceDefinition(
         name=channel.source_name,
@@ -107,6 +147,8 @@ SOURCES: dict[str, SourceDefinition] = {
     OVD_INFO.name: OVD_INFO,
     SOTA_VISION.name: SOTA_VISION,
     SUDRF_2ZOVS.name: SUDRF_2ZOVS,
+    MEMOPZK_FIGURANTS.name: MEMOPZK_FIGURANTS,
+    KOMMERSANT.name: KOMMERSANT,
     **{definition.name: definition for definition in TELEGRAM_SOURCES},
 }
 

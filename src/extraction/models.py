@@ -45,6 +45,12 @@ class ExtractionRunStatus(StrEnum):
     FAILED = "failed"
 
 
+# Sources whose document title is one person's full name in the nominative, surname first
+# (a registry card): the name is taken from the title, never searched for or declined.
+MEMOPZK_REGISTRY_SOURCE_NAME = "Поддержка политзаключённых. Мемориал: реестр"
+NAMED_TITLE_SOURCES = frozenset({MEMOPZK_REGISTRY_SOURCE_NAME})
+
+
 class ExtractionDocument(BaseModel):
     article_id: int
     title: str

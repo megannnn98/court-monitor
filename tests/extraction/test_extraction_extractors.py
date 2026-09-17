@@ -397,6 +397,8 @@ def test_an_unknown_word_before_a_patronymic_is_part_of_the_name() -> None:
         "Скобов Александр Валерьевич"
     ]
     assert _people("Задержан Мемет Решатович Белялов.") == ["Мемет Решатович Белялов"]
+    # «Салманов» is also an ordinary word in the dictionary; its ending says surname.
+    assert _people("Суд осудил: Салманов Рамиль Дилгамович.") == ["Салманов Рамиль Дилгамович"]
     # An ordinary word before the name stays out.
     assert _people("Вчера задержали Ивана Ивановича Петрова.") == ["Ивана Ивановича Петрова"]
 
