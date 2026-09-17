@@ -4,17 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from io import BytesIO
 
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.research_db_fixtures import ResearchSeeder
 
 from api import app, get_db
+from db.orm_models import SourceDocument
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 HEADER = ("№", "Имя человека", "Ссылка")
+EVENT_DATE = datetime(2026, 9, 1, tzinfo=UTC)
 
 
 @contextmanager
@@ -41,7 +45,24 @@ def _seed_candidate(
     person_id = seed.person(name)
     seed.classification(person_id, "political", confidence)
     seed.match(person_id, snapshot_id, rf_status, 0.8)
+    _seed_news(seed, person_id, name, f"news-{person_id}", EVENT_DATE)
     return person_id
+
+
+def _seed_news(
+    seed: ResearchSeeder, person_id: int, name: str, external_id: str, event_date: datetime
+) -> None:
+    source_id = seed.source(f"source-{external_id}", f"https://{external_id}.example.test")
+    _, run_id = seed.article(
+        source_id, external_id=external_id, title="Арест", text=f"Суд арестовал {name}."
+    )
+    seed.event(
+        run_id,
+        f"Суд арестовал {name}",
+        event_type="arrest",
+        event_date=event_date,
+        links=[(person_id, "subject")],
+    )
 
 
 def _rows(content: bytes) -> list[tuple[object, ...]]:
@@ -50,8 +71,8 @@ def _rows(content: bytes) -> list[tuple[object, ...]]:
     return list(sheet.iter_rows(values_only=True))
 
 
-def _person_url(person_id: int) -> str:
-    return f"http://testserver/ui/persons/{person_id}"
+def _news_url(person_id: int) -> str:
+    return f"https://example.test/news-{person_id}"
 
 
 def test_export_returns_downloadable_xlsx_with_candidate_row(
@@ -76,11 +97,11 @@ def test_export_returns_downloadable_xlsx_with_candidate_row(
     assert sheet.max_column == 3
     assert list(sheet.iter_rows(values_only=True)) == [
         HEADER,
-        (1, "Иван Иванов", _person_url(person_id)),
+        (1, "Иван Иванов", _news_url(person_id)),
     ]
     hyperlink = sheet.cell(row=2, column=3).hyperlink
     assert hyperlink is not None
-    assert hyperlink.target == _person_url(person_id)
+    assert hyperlink.target == _news_url(person_id)
 
 
 def test_export_keeps_service_order_for_several_candidates(
@@ -100,7 +121,7 @@ def test_export_keeps_service_order_for_several_candidates(
     assert _rows(response.content) == [
         HEADER,
         *[
-            (position, name, _person_url(person_id))
+            (position, name, _news_url(person_id))
             for position, (name, person_id) in enumerate(zip(names, ids, strict=True), start=1)
         ],
     ]
@@ -123,7 +144,7 @@ def test_export_applies_active_filters(session_factory: sessionmaker[Session]) -
             params={"snapshot_id": snapshot_id, "min_confidence": 0.9},
         )
 
-    assert _rows(response.content) == [HEADER, (1, "Иван Иванов", _person_url(strong))]
+    assert _rows(response.content) == [HEADER, (1, "Иван Иванов", _news_url(strong))]
 
 
 def test_export_contains_all_candidates_not_only_the_page_limit(
@@ -206,3 +227,70 @@ def test_export_writes_formula_like_name_as_text(
     name_cell = sheet.cell(row=2, column=2)
     assert name_cell.value == name
     assert name_cell.data_type == "s"
+
+
+def test_link_points_to_the_article_of_the_latest_event(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        snapshot_id = seed.snapshot()
+        person_id = _seed_candidate(seed, snapshot_id, "Иван Иванов")
+        _seed_news(seed, person_id, "Иван Иванов", "later-news", datetime(2026, 9, 10, tzinfo=UTC))
+        _seed_news(seed, person_id, "Иван Иванов", "older-news", datetime(2026, 8, 1, tzinfo=UTC))
+        session.commit()
+
+    with _client(session_factory) as client:
+        response = client.get("/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id})
+
+    sheet = load_workbook(BytesIO(response.content)).active
+    assert sheet is not None
+    assert sheet.cell(row=2, column=3).value == "https://example.test/later-news"
+    hyperlink = sheet.cell(row=2, column=3).hyperlink
+    assert hyperlink is not None
+    assert hyperlink.target == "https://example.test/later-news"
+
+
+def test_link_without_events_points_to_the_article_that_mentions_the_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        snapshot_id = seed.snapshot()
+        person_id = seed.person("Иван Иванов")
+        seed.classification(person_id, "political", 0.9)
+        seed.match(person_id, snapshot_id, "not_matched", 0.8)
+        source_id = seed.source("mention-source", "https://example.test")
+        _, run_id = seed.article(
+            source_id, external_id="mention-news", title="Пикет", text="Иван Иванов вышел."
+        )
+        seed.mention(run_id, "Иван Иванов", person_id=person_id)
+        session.commit()
+
+    with _client(session_factory) as client:
+        response = client.get("/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id})
+
+    assert _rows(response.content) == [
+        HEADER,
+        (1, "Иван Иванов", "https://example.test/mention-news"),
+    ]
+
+
+def test_only_a_web_link_is_clickable(session_factory: sessionmaker[Session]) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        snapshot_id = seed.snapshot()
+        person_id = _seed_candidate(seed, snapshot_id, "Иван Иванов")
+        document = session.scalars(
+            select(SourceDocument).where(SourceDocument.external_id == f"news-{person_id}")
+        ).one()
+        document.canonical_url = "javascript:alert(1)"
+        session.commit()
+
+    with _client(session_factory) as client:
+        response = client.get("/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id})
+
+    sheet = load_workbook(BytesIO(response.content)).active
+    assert sheet is not None
+    assert sheet.cell(row=2, column=3).value == "javascript:alert(1)"
+    assert sheet.cell(row=2, column=3).hyperlink is None

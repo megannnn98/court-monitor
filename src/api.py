@@ -33,6 +33,7 @@ from candidates.service import CandidateQueryService
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from db.orm_models import (
     ArticleExtractionRunRecord,
+    EntityMentionRecord,
     ExtractedEventRecord,
     MonitoringRunRecord,
     ParsedArticleRecord,
@@ -1662,9 +1663,60 @@ def ui_candidates_export(
     )
 
 
+def _candidate_news_urls(db: Session, person_ids: list[int]) -> dict[int, str]:
+    """The source article of each person's latest event, as the person card orders them.
+
+    A person without events gets the article of their first mention.
+    """
+    if not person_ids:
+        return {}
+    from_events = db.execute(
+        select(PersonEventLinkRecord.person_id, SourceDocument.canonical_url)
+        .join(ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id)
+        .join(
+            ArticleExtractionRunRecord,
+            ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
+        )
+        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
+        .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
+        .where(PersonEventLinkRecord.person_id.in_(person_ids))
+        .distinct(PersonEventLinkRecord.person_id)
+        .order_by(
+            PersonEventLinkRecord.person_id,
+            ExtractedEventRecord.event_date.desc().nullslast(),
+            ExtractedEventRecord.id.desc(),
+        )
+    ).tuples()
+    urls = dict(from_events.all())
+    without_events = [person_id for person_id in person_ids if person_id not in urls]
+    if without_events:
+        from_mentions = db.execute(
+            select(EntityMentionRecord.person_id, SourceDocument.canonical_url)
+            .join(
+                ArticleExtractionRunRecord,
+                ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
+            )
+            .join(
+                ParsedArticleRecord,
+                ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id,
+            )
+            .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
+            .where(EntityMentionRecord.person_id.in_(without_events))
+            .distinct(EntityMentionRecord.person_id)
+            .order_by(
+                EntityMentionRecord.person_id,
+                ParsedArticleRecord.published_at.asc().nullslast(),
+                EntityMentionRecord.id,
+            )
+        ).tuples()
+        urls.update(
+            (person_id, url) for person_id, url in from_mentions.all() if person_id is not None
+        )
+    return urls
+
+
 @app.get("/ui/candidates/export.xlsx")
 def ui_candidates_export_xlsx(
-    request: Request,
     snapshot_id: int = Query(..., ge=1),
     min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
     db: Session = Depends(get_db),  # noqa: B008
@@ -1680,17 +1732,22 @@ def ui_candidates_export_xlsx(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    news_urls = _candidate_news_urls(db, [candidate.person_id for candidate in result.candidates])
     workbook = Workbook()
     sheet = workbook.active
     assert sheet is not None
     sheet.title = "Кандидаты"
     sheet.append(["№", "Имя человека", "Ссылка"])
     for position, candidate in enumerate(result.candidates, start=1):
-        link = str(request.url_for("ui_get_person", person_id=candidate.person_id))
+        link = news_urls.get(candidate.person_id)
         sheet.append([position, candidate.canonical_name, link])
-        # Names come from scraped articles: never let a leading "=" become a formula.
+        # Names and URLs come from scraped sources: never let a leading "=" become a formula.
         sheet.cell(row=position + 1, column=2).data_type = "s"
-        sheet.cell(row=position + 1, column=3).hyperlink = link
+        if link is not None:
+            sheet.cell(row=position + 1, column=3).data_type = "s"
+            # Only web links are clickable: a scraped «javascript:» URL stays plain text.
+            if link.startswith(("http://", "https://")):
+                sheet.cell(row=position + 1, column=3).hyperlink = link
     buffer = BytesIO()
     workbook.save(buffer)
     return Response(
