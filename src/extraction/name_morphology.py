@@ -23,8 +23,19 @@ _MASCULINE_SURNAME_ENDINGS = ("ов", "ев", "ин", "ын", "ский", "цк�
 # Surname endings productive enough to decline a name the dictionary does not know, but
 # only once another word of the same name has fixed the gender («Михаила Лисина»).
 _SURNAME_STEMS = ("ов", "ев", "ёв", "ин", "ын", "ск", "цк")
-_MASCULINE_ENDINGS = ("ым", "им", "ом", "ем", "а", "я", "у", "ю", "е")
+_ADJECTIVAL_SURNAME_STEMS = ("ск", "цк")
+_MASCULINE_ENDINGS = ("ого", "ому", "ым", "им", "ом", "ем", "а", "я", "у", "ю", "е")
 _FEMININE_ENDINGS = (("ой", "а"), ("ей", "я"), ("ую", "ая"), ("ы", "а"), ("у", "а"), ("е", "а"))
+_FEMININE_A_ENDINGS = (
+    ("ы", frozenset({"gent"})),
+    ("у", frozenset({"accs"})),
+    ("е", frozenset({"datv", "loct"})),
+)
+_GUESSED_WEIGHT = 0.5
+_CASES = frozenset({"nomn", "gent", "datv", "accs", "ablt", "loct"})
+_ADJECTIVAL_ENDINGS = ("ого", "ому")
+_MASCULINE_ADJECTIVAL_ENDINGS = ("ского", "цкого", "скому", "цкому", "ским", "цким")
+_NOT_CONSONANTS = frozenset("аеёиоуыэюяьъй")
 
 
 class NameMorphology:
@@ -38,16 +49,33 @@ class NameMorphology:
         words = name.split()
         parses = [self._name_parses(word) for word in words]
         gender, gender_is_certain = self._gender(parses)
+        # «Владлена Татарского»: an adjectival surname outside the dictionary in «-ского»
+        # is a man's.
+        if not gender_is_certain and any(
+            not word_parses and word.lower().endswith(_MASCULINE_ADJECTIVAL_ENDINGS)
+            for word, word_parses in zip(words, parses, strict=True)
+        ):
+            gender, gender_is_certain = "masc", True
         if not gender_is_certain and document_words:
             from_document = self._gender_from_document(parses, document_words)
             if from_document is not None:
                 gender, gender_is_certain = from_document, True
+        # The case the other words of the name are in («Екатерину» is accusative): a
+        # surname outside the dictionary is only declined from an ending of that case.
+        cases = {
+            grammeme
+            for word_parses in parses
+            for parse in word_parses
+            if parse.is_known and (gender is None or gender in parse.tag.grammemes)
+            for grammeme in parse.tag.grammemes
+            if grammeme in _CASES
+        }
         return " ".join(
             word
             if not gender_is_certain and _can_be_nominative(word_parses)
             # «Волкова О. Н.» must not become «Волков О. Н.»: without a gender in the name,
             # a word that can already be nominative stays as written.
-            else self._word_to_nominative(word, word_parses, gender)
+            else self._word_to_nominative(word, word_parses, gender, cases)
             for word, word_parses in zip(words, parses, strict=True)
         )
 
@@ -224,7 +252,13 @@ class NameMorphology:
         either a woman in the nominative or a man in the genitive: the guess from dictionary
         frequencies is reported as uncertain, and the caller then leaves such a word alone.
         """
+        # A reading the dictionary only guessed («Мониавы» as a masculine name) does not
+        # state the gender outright. When two words state opposite genders, the surname
+        # wins: «Айшат» is a masculine name in the dictionary, «Кадыровой» a woman's surname.
+        certain: dict[str, bool] = {}
         for word_parses in parses:
+            if not word_parses or not all(parse.is_known for parse in word_parses):
+                continue
             genders = {
                 gender
                 for parse in word_parses
@@ -232,15 +266,18 @@ class NameMorphology:
                 if gender in parse.tag.grammemes
             }
             if len(genders) == 1:
-                return genders.pop(), True
+                gender = genders.pop()
+                certain[gender] = certain.get(gender, False) or _is_surname_only(word_parses)
+        if len(certain) == 1:
+            return next(iter(certain)), True
+        surname_genders = [gender for gender, by_surname in certain.items() if by_surname]
+        if len(surname_genders) == 1:
+            return surname_genders[0], True
+        # All dictionary readings of a word count: «Лидии» is three feminine cases and one
+        # masculine. A guessed word («Мониавы») repeats its guesses, so only its best one
+        # counts, and for half.
         totals = {
-            gender: sum(
-                max(
-                    (parse.score for parse in word_parses if gender in parse.tag.grammemes),
-                    default=0.0,
-                )
-                for word_parses in parses
-            )
+            gender: sum(_gender_weight(word_parses, gender) for word_parses in parses)
             for gender in _GENDERS
         }
         # On a tie the feminine reading wins: «задержали Юлию Емельянову» (accusative) is
@@ -249,7 +286,9 @@ class NameMorphology:
         return (best, False) if totals[best] > 0 else (None, False)
 
     @staticmethod
-    def _word_to_nominative(word: str, parses: tuple[Parse, ...], gender: str | None) -> str:
+    def _word_to_nominative(
+        word: str, parses: tuple[Parse, ...], gender: str | None, cases: set[str]
+    ) -> str:
         preferred = [
             parse
             for parse in parses
@@ -259,26 +298,64 @@ class NameMorphology:
             inflected = parse.inflect({"nomn", "sing"}) or parse.inflect({"nomn"})
             if inflected is not None:
                 return _capitalize(inflected.word)
-        return _undeclined_surname(word, gender) if not parses else word
+        return _undeclined_surname(word, gender, cases) if not parses else word
+
+
+def _gender_weight(parses: tuple[Parse, ...], gender: str) -> float:
+    known: list[float] = [
+        parse.score for parse in parses if parse.is_known and gender in parse.tag.grammemes
+    ]
+    guessed: list[float] = [
+        parse.score for parse in parses if not parse.is_known and gender in parse.tag.grammemes
+    ]
+    return sum(known) + _GUESSED_WEIGHT * max(guessed, default=0.0)
+
+
+def _is_surname_only(parses: tuple[Parse, ...]) -> bool:
+    return all("Surn" in parse.tag and "Name" not in parse.tag for parse in parses)
 
 
 def _can_be_nominative(parses: tuple[Parse, ...]) -> bool:
     return any("nomn" in parse.tag.grammemes for parse in parses)
 
 
-def _undeclined_surname(word: str, gender: str | None) -> str:
+def _undeclined_surname(word: str, gender: str | None, cases: set[str]) -> str:
     """A surname outside the dictionary, declined by its ending once the gender is known."""
     lowered = word.lower()
     if gender == "masc":
         for ending in _MASCULINE_ENDINGS:
             stem = lowered.removesuffix(ending)
-            if stem != lowered and stem.endswith(_SURNAME_STEMS):
+            if stem == lowered:
+                continue
+            # «Зарецкого», «Зарецким»: an adjectival surname, «Зарецкий».
+            if stem.endswith(_ADJECTIVAL_SURNAME_STEMS):
+                return _capitalize(stem + "ий")
+            # «Постового» may be «Постовой» or «Постовый»: not guessed.
+            if ending in _ADJECTIVAL_ENDINGS:
+                continue
+            if stem.endswith(_SURNAME_STEMS):
                 return _capitalize(stem)
     elif gender == "femn":
         for ending, replacement in _FEMININE_ENDINGS:
             stem = lowered.removesuffix(ending)
-            if stem != lowered and stem.endswith(_SURNAME_STEMS):
+            if stem == lowered:
+                continue
+            if stem.endswith(_ADJECTIVAL_SURNAME_STEMS):
+                return _capitalize(stem + "ая")
+            if stem.endswith(_SURNAME_STEMS):
                 return _capitalize(stem + replacement)
+        # «Елене Перепелице», «Юлию Таратуту»: a woman's surname in «-а» written in an
+        # oblique case. A surname ending in a consonant or «-о» is indeclinable and stays.
+        # «Екатерину Котрикадзе»: an «-е» that is not the case of the name is no ending.
+        for ending, ending_cases in _FEMININE_A_ENDINGS:
+            stem = lowered.removesuffix(ending)
+            if (
+                stem != lowered
+                and cases & ending_cases
+                and len(stem) >= 3
+                and stem[-1] not in _NOT_CONSONANTS
+            ):
+                return _capitalize(stem + "а")
     return word
 
 

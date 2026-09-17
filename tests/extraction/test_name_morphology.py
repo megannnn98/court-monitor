@@ -101,3 +101,46 @@ def test_the_mention_itself_in_the_article_does_not_block_the_gender() -> None:
     assert MORPHOLOGY.to_nominative("Ольгу Волкову", article) == "Ольга Волкова"
     article = ["Юлию", "Молчанову", "Молчановой"]
     assert MORPHOLOGY.to_nominative("Юлию Молчанову", article) == "Юлия Молчанова"
+
+
+def test_a_guessed_reading_does_not_fix_the_gender() -> None:
+    """Real case: «Лидии Мониавы» became «Лидий»: the dictionary does not know «Мониавы»
+    and its guessed masculine reading settled the name."""
+    assert MORPHOLOGY.to_nominative("Лидии Мониавы").split()[0] == "Лидия"
+    # Real case: «Айшат» is a masculine name in the dictionary; the surname says otherwise.
+    assert MORPHOLOGY.to_nominative("Айшат Кадыровой") == "Айшат Кадырова"
+
+
+@pytest.mark.parametrize(
+    ("surface", "expected"),
+    [
+        # Real cases: feminine surnames outside the dictionary kept their case ending.
+        ("Елене Перепелице", "Елена Перепелица"),
+        ("Юлию Таратуту", "Юлия Таратута"),
+        ("Лилию Хвыльку", "Лилия Хвылька"),
+        ("Лидии Мониавы", "Лидия Мониава"),
+        # Real case «Антона Зарецкого»; «Зарецк» and «Зарецка» were invented stems.
+        ("Антона Зарецкого", "Антон Зарецкий"),
+        ("Антону Зарецкому", "Антон Зарецкий"),
+        ("Антоном Зарецким", "Антон Зарецкий"),
+        ("Анне Зарецкой", "Анна Зарецкая"),
+        ("Анну Зарецкую", "Анна Зарецкая"),
+        # Indeclinable: a woman's surname that does not end in a case ending stays.
+        ("Ксению Сиваконь", "Ксения Сиваконь"),
+        ("Анастасию Гордиенко", "Анастасия Гордиенко"),
+        ("Екатерину Котрикадзе", "Екатерина Котрикадзе"),
+        # «Постового» may be «Постовой» or «Постовый».
+        ("Олега Постового", "Олег Постового"),
+    ],
+)
+def test_a_surname_outside_the_dictionary_is_declined_once_the_gender_is_known(
+    surface: str, expected: str
+) -> None:
+    assert MORPHOLOGY.to_nominative(surface) == expected
+
+
+def test_ambiguous_names_are_settled_by_the_weight_of_their_readings() -> None:
+    """Real cases found by re-normalizing the stored mentions."""
+    assert MORPHOLOGY.to_nominative("Вячеславу Авдашеву") == "Вячеслав Авдашев"
+    assert MORPHOLOGY.to_nominative("Владлена Татарского") == "Владлен Татарский"
+    assert MORPHOLOGY.to_nominative("Юлию Емельянову") == "Юлия Емельянова"
