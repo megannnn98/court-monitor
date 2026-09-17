@@ -51,7 +51,6 @@ class MemopzkFigurantAdapter:
         self._base_delay_seconds = base_delay_seconds
         self._crawl_delay_seconds = crawl_delay_seconds
         self._now = now
-        self._cards: dict[str, dict[str, Any]] = {}
 
     async def discover(self, *, limit: int) -> list[SourceReference]:
         """The most recently changed cards first, up to `limit`."""
@@ -77,7 +76,7 @@ class MemopzkFigurantAdapter:
                 return references
             for card in cards:
                 reference = _reference(card)
-                self._cards[reference.external_id] = card
+                _remember(reference.external_id, card)
                 references.append(reference)
                 if len(references) == limit:
                     return references
@@ -87,9 +86,10 @@ class MemopzkFigurantAdapter:
             await asyncio.sleep(self._crawl_delay_seconds)
 
     async def fetch(self, reference: SourceReference) -> RawDocument:
-        card = self._cards.get(reference.external_id)
+        card = _LISTED_CARDS.pop(reference.external_id, None)
         if card is None:
-            # Not listed by this adapter (research fetches a card by its page URL).
+            # Not listed in this process: one request for the card, under the crawl delay.
+            await asyncio.sleep(self._crawl_delay_seconds)
             card = await self._fetch_card(reference.external_id)
         return RawDocument(
             external_id=reference.external_id,
@@ -110,6 +110,18 @@ class MemopzkFigurantAdapter:
         if not isinstance(card, dict):
             raise TypeError(f"Unexpected figurant card {external_id}")
         return card
+
+
+# Cards listed by discovery, until ingestion takes them. Monitoring discovers and ingests
+# with two adapter instances, so the cards outlive the instance that listed them.
+_LISTED_CARDS: dict[str, dict[str, Any]] = {}
+_MAX_LISTED_CARDS = 20_000
+
+
+def _remember(external_id: str, card: dict[str, Any]) -> None:
+    if len(_LISTED_CARDS) >= _MAX_LISTED_CARDS:
+        _LISTED_CARDS.clear()
+    _LISTED_CARDS[external_id] = card
 
 
 def _listing_url(page: int, per_page: int) -> str:

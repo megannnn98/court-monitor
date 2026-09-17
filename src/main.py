@@ -4,6 +4,7 @@ import json
 import logging
 import sys
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, date, datetime, time
 from functools import partial
 from pathlib import Path
@@ -88,15 +89,22 @@ FIXED_EVALUATION_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 async def discover_and_ingest(
     *,
     limit: int,
-    pipeline: ArticleIngestionPipeline,
+    pipeline: ArticleIngestionPipeline | None = None,
     fetcher: DocumentFetcher,
     source: SourceDefinition = OVD_INFO,
+    create_pipeline: Callable[[DocumentFetcher], ArticleIngestionPipeline] | None = None,
 ) -> None:
+    """`create_pipeline` builds the pipeline on the source's adapter, as monitoring does:
+    a source may serve its documents itself (the Memorial registry does)."""
     async with httpx.AsyncClient(
         timeout=5.0,
         headers={"User-Agent": "my-app/1.0"},
     ) as client:
         source_adapter = source.create_adapter(client, fetcher)
+        if create_pipeline is not None:
+            pipeline = create_pipeline(source_adapter)
+        if pipeline is None:
+            raise ValueError("a pipeline or create_pipeline is required")
 
         source_ingestion = SourceIngestion(
             source_adapter=source_adapter,
@@ -716,18 +724,16 @@ def main() -> None:
             base_delay_seconds=0.5,
         )
 
-        ingestion_pipeline = IngestionPipeline(
-            source_adapter=retrying_fetcher,
-            parser=source_definition.create_parser(),
-            persistence=persistence,
-        )
-
         asyncio.run(
             discover_and_ingest(
                 limit=args.limit,
-                pipeline=ingestion_pipeline,
                 fetcher=retrying_fetcher,
                 source=source_definition,
+                create_pipeline=lambda adapter: IngestionPipeline(
+                    source_adapter=adapter,
+                    parser=source_definition.create_parser(),
+                    persistence=persistence,
+                ),
             )
         )
         return

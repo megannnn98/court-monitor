@@ -368,3 +368,38 @@ def test_discover_and_ingest_selects_source_by_definition(
     output = capsys.readouterr().out
 
     assert "completed: 2 saved, 0 failed" in output
+
+
+def test_discover_and_ingest_can_build_the_pipeline_on_the_source_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A source that serves its documents itself (the Memorial registry) needs its own
+    adapter in the pipeline, as monitoring builds it."""
+
+    def handle_request(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=LISTING_HTML, request=request)
+
+    transport = httpx.MockTransport(handle_request)
+    original_async_client = httpx.AsyncClient
+
+    def create_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = transport
+        return original_async_client(*args, **kwargs)
+
+    monkeypatch.setattr("main.httpx.AsyncClient", create_client)
+    pipeline = FakePipeline()
+    adapters: list[object] = []
+
+    def create_pipeline(adapter: object) -> FakePipeline:
+        adapters.append(adapter)
+        return pipeline
+
+    asyncio.run(
+        discover_and_ingest(limit=1, fetcher=FakeFetcher(), create_pipeline=create_pipeline)
+    )
+
+    assert len(adapters) == 1
+    assert type(adapters[0]).__name__ == "OvdInfoSourceAdapter"
+    assert len(pipeline.references) == 1
+    assert "1 saved" in capsys.readouterr().out

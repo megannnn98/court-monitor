@@ -106,19 +106,54 @@ def test_a_failing_first_page_is_a_discovery_error() -> None:
 
 
 def test_fetch_serves_the_listed_card_without_a_request() -> None:
+    """Monitoring discovers and ingests with two adapter instances."""
     handle, requests = _pages(page_size=1, total_pages=1)
 
     async def run() -> RawDocument:
-        adapter, client = _adapter(handle)
-        async with client:
-            [reference] = await adapter.discover(limit=1)
-            listed = len(requests)
-            document = await adapter.fetch(reference)
-            assert len(requests) == listed
-            return document
+        discovering, discovery_client = _adapter(handle)
+        async with discovery_client:
+            [reference] = await discovering.discover(limit=1)
+        listed = len(requests)
+        ingesting, ingestion_client = _adapter(handle)
+        async with ingestion_client:
+            document = await ingesting.fetch(reference)
+        assert len(requests) == listed
+        return document
 
     document = asyncio.run(run())
     assert json.loads(document.content)["title"]["rendered"] == "Ярош Сергей Васильевич"
+
+
+def test_an_unlisted_card_is_fetched_alone_under_the_crawl_delay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested: list[str] = []
+    delays: list[float] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(200, json=CARDS[1])
+
+    async def fake_sleep(seconds: float) -> None:
+        delays.append(seconds)
+
+    monkeypatch.setattr("sources.memopzk.source_adapter.asyncio.sleep", fake_sleep)
+
+    async def run() -> RawDocument:
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+        adapter = MemopzkFigurantAdapter(client=client, document_fetcher=FailingFetcher())
+        async with client:
+            return await adapter.fetch(
+                SourceReference(external_id="999001", url="https://memopzk.org/f/unlisted")
+            )
+
+    document = asyncio.run(run())
+
+    assert delays == [10.0]
+    assert requested == [
+        f"{FIGURANT_COLLECTION_URL}/999001?_fields=" + requested[0].split("=", 1)[1]
+    ]
+    assert json.loads(document.content)["id"] == CARDS[1]["id"]
 
 
 def _raw(card: dict[str, object]) -> RawDocument:
