@@ -84,7 +84,9 @@ def test_the_queue_leaves_out_the_published_and_keeps_people_on_the_list(
 
     assert response.status_code == 200
     drafts = _drafts(response.text)
-    assert [draft.split("\n", 1)[0] for draft in drafts] == ["Сергей Ярош", "Дмитрий Коротков"]
+    # Names are written surname first, as the customer's table does.
+    assert [draft.split("\n", 1)[0] for draft in drafts] == ["Ярош Сергей", "Коротков Дмитрий"]
+    assert "Сергей Ярош" not in response.text
     assert "Внимание: в перечне Росфинмониторинга." in drafts[1]
     assert "Вынесен приговор, статьи: ст. 275 УК РФ." in drafts[0]
     assert "В очереди: 2 (уже опубликовано в канале: 1)" in response.text

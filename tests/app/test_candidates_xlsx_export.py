@@ -238,6 +238,9 @@ def test_the_default_period_is_the_last_45_days(session_factory: sessionmaker[Se
     assert [row[1] for row in _rows(response.content)[1:]] == ["Свежий Иван"]
     default_from = (today - timedelta(days=45)).date()
     assert f'name="date_from" value="{default_from.isoformat()}"' in page.text
+    # The page writes names as the customer's table does: surname first.
+    assert "Свежий Иван" in page.text
+    assert "Иван Свежий" not in page.text
 
 
 def test_administrative_cases_are_left_out_unless_asked_for(
@@ -290,7 +293,7 @@ def test_export_contains_all_candidates_not_only_the_page_limit(
         page = client.get("/ui/candidates", params=params)
         response = client.get("/ui/candidates/export.xlsx", params=params)
 
-    assert page.text.count("Кандидат</a>") == 2
+    assert page.text.count(">Кандидат ") == 2
     assert len(_rows(response.content)) == 1 + len(names)
 
 

@@ -70,9 +70,16 @@ def articles_of(reasons: Iterable[str]) -> list[str]:
     return found
 
 
-def draft_post(candidate: PoliticalPersecutionCandidate, source: QueueSource | None) -> str:
-    """A starting point for the post: who, what happened, on which articles, where from."""
-    lines = [candidate.canonical_name]
+def draft_post(
+    candidate: PoliticalPersecutionCandidate,
+    source: QueueSource | None,
+    name: str | None = None,
+) -> str:
+    """A starting point for the post: who, what happened, on which articles, where from.
+
+    `name`: how to write the person, surname first as the customer's table does.
+    """
+    lines = [name or candidate.canonical_name]
     happened = _EVENT_WORDS.get(source.event_type or "") if source is not None else None
     articles = articles_of(candidate.persecution_reasons)
     facts = ", ".join(

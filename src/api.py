@@ -1601,7 +1601,7 @@ def ui_candidates(
         f"""<tr>
   <td>{position}</td>
   <td><a href="/ui/persons/{candidate.person_id}">{candidate.person_id}</a></td>
-  <td><a href="/ui/persons/{candidate.person_id}">{escape(candidate.canonical_name)}</a></td>
+  <td><a href="/ui/persons/{candidate.person_id}">{escape(_surname_first(candidate.canonical_name))}</a></td>
   <td>{_news_day(news.published_at).strftime("%d.%m.%Y") if news and news.published_at else ""}</td>
   <td>{escape(_CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)) if news and news.event_type else ""}</td>
   <td>{candidate.persecution_confidence:.2f}</td>
@@ -1949,10 +1949,10 @@ def ui_channel(
     items = "".join(
         f"""<tr>
   <td>{position}</td>
-  <td><a href="/ui/persons/{row.candidate.person_id}">{escape(row.candidate.canonical_name)}</a></td>
+  <td><a href="/ui/persons/{row.candidate.person_id}">{escape(_surname_first(row.candidate.canonical_name))}</a></td>
   <td>{_news_day(row.news.published_at).strftime("%d.%m.%Y") if row.news and row.news.published_at else ""}</td>
   <td>{escape(str(row.candidate.rosfinmonitoring_status))}</td>
-  <td><textarea readonly rows="5" cols="60">{escape(draft_post(row.candidate, QueueSource(row.news.url, row.news.event_type) if row.news else None))}</textarea></td>
+  <td><textarea readonly rows="5" cols="60">{escape(draft_post(row.candidate, QueueSource(row.news.url, row.news.event_type) if row.news else None, name=_surname_first(row.candidate.canonical_name)))}</textarea></td>
 </tr>"""
         for position, row in enumerate(queue, start=1)
     )
