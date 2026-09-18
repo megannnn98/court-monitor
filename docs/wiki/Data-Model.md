@@ -2,6 +2,8 @@
 
 ## Схема (актуальная, по миграциям + `db/orm_models.py`)
 
+Модели лежат по доменам в `db/models/` (`sources`, `extraction`, `persons`, `persecution`, `rosfinmonitoring`, `semantic`, `monitoring`, `operations`) на общем `Base` из `db/models/base.py`; `db/orm_models.py` импортирует их все, чтобы весь код и Alembic видели одну `Base.metadata`.
+
 ```plantuml
 @startuml
 top to bottom direction
