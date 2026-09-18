@@ -130,6 +130,27 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 
 `article_chunks` — это уже история: таблица существовала до удаления `ArticleChunk` из домена, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md). Старые миграции не переписаны задним числом.
 
+## `operator_operation_runs`
+
+Запуски routine operations из операторской консоли (`operator_console.OperationRegistry`, миграция `s3t4u5v6w7x8`). Источник истины — PostgreSQL: все процессы API видят одни и те же runs, перезапуск API историю не теряет.
+
+| Поле | Тип | Смысл |
+|---|---|---|
+| `id` | serial PK | номер run |
+| `operation_name` | varchar(64) | операция из allowlist (`discover-and-ingest`, `extract-entities`, `resolve-people`, `classify-persecution`) |
+| `parameters` | jsonb | проверенные параметры (`source`, `limit`, `workers`) |
+| `command` | jsonb | argv процесса, собранный из allowlist; shell не используется |
+| `status` | varchar(16) | `pending` → `running` → `succeeded` / `failed`; `interrupted` — процесс пропал (CHECK) |
+| `created_at`, `started_at`, `heartbeat_at`, `finished_at` | timestamptz | время по часам базы (`now()`) |
+| `return_code` | int | код возврата процесса |
+| `stdout`, `stderr` | text | последние 20 000 символов |
+| `error` | text | исключение запуска или причина `interrupted` |
+| `worker_id` | varchar(128) | `host:pid` процесса, который выполняет run |
+
+- Частичный уникальный индекс `uq_operator_operation_runs_active_operation` по `operation_name` для `pending`/`running`: одна живая операция на всю базу, второй запуск получает 409.
+- Процесс шлёт heartbeat каждые 15 с. Живой run без heartbeat дольше 5 мин получает `interrupted` при следующем чтении или запуске — операция снова свободна. Запись результата требует, чтобы run ещё был `running` у того же `worker_id`: поздний результат не перезаписывает `interrupted`.
+- Выполнение — поток процесса API, принявшего запуск; confirm только создаёт run и сразу возвращает redirect.
+
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`
 
 `src/sources/sqlalchemy_persistence.py`. Одна транзакция (`session_factory.begin()`), upsert по естественным ключам на каждом уровне:

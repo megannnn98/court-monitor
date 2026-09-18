@@ -6,6 +6,7 @@ from sqlalchemy import Engine, text
 
 # Every table research, extraction and semantic retrieval write to.
 DISPOSABLE_TABLES = (
+    "operator_operation_runs",
     "monitoring_findings",
     "monitoring_run_items",
     "source_monitoring_state",

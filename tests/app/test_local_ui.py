@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
@@ -19,7 +19,7 @@ from db.orm_models import (
     ExtractedEventRecord,
     PersonResolutionDecisionRecord,
 )
-from operator_console import OperationRegistry
+from operator_console import OperationRegistry, ProcessResult
 from persons.resolution.factory import build_person_resolution_service
 from web.wiki import _wiki_markdown_to_html
 
@@ -194,12 +194,13 @@ def test_wiki_renders_plantuml_as_svg(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_operation_preview_confirm_and_run_detail_use_background_registry(
     session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    registry = OperationRegistry()
+    def fake_process(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+        return ProcessResult(return_code=0, stdout="done\n", stderr="")
 
-    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(args=["fake"], returncode=0, stdout="done\n", stderr="")
-
-    monkeypatch.setattr("operator_console.subprocess.run", fake_run)
+    # The run executes right away, so the detail page sees it finished.
+    registry = OperationRegistry(
+        session_factory, executor=lambda work: work(), process_runner=fake_process
+    )
 
     def override_registry() -> OperationRegistry:
         return registry
@@ -217,7 +218,9 @@ def test_operation_preview_confirm_and_run_detail_use_background_registry(
                 follow_redirects=False,
             )
             run = client.get(started.headers["location"])
-            api_run = client.get("/operations/runs/1")
+            api_run = client.get(
+                f"/operations/runs/{started.headers['location'].rsplit('/', 1)[1]}"
+            )
     finally:
         app.dependency_overrides.pop(get_operation_registry, None)
 
@@ -225,8 +228,8 @@ def test_operation_preview_confirm_and_run_detail_use_background_registry(
     assert "Preview" in preview.text
     assert "Операция ходит в сеть" in preview.text
     assert started.status_code == 303
-    assert started.headers["location"] == "/ui/operations/runs/1"
+    assert started.headers["location"].startswith("/ui/operations/runs/")
     assert run.status_code == 200
-    assert "Run #1" in run.text
+    assert "Run #" in run.text
     assert "done" in run.text
     assert api_run.json()["parameters"] == {"source": "ovd-info", "limit": 3, "workers": None}

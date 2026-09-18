@@ -41,6 +41,9 @@ docker compose --profile api up -d
   из другого источника за ±3 дня (подсказка, около 3 из 4 верны).
 - `/ui/operations` — preview/confirm запуск routine operations.
 - `/ui/operations/runs/{run_id}` — состояние operation run и вывод команды.
+  Runs хранятся в PostgreSQL (`operator_operation_runs`, см. [Data-Model](Data-Model.md)):
+  переживают перезапуск API, видны всем процессам, одна операция не запускается
+  дважды одновременно, пропавший процесс даёт статус `interrupted`.
 - `/ui/monitoring` — последние monitoring runs и active findings.
 - `/ui/wiki` — встроенный справочник проекта; страницы читаются из `docs/wiki`.
   Кнопка «Скачать вики в PDF» (на оглавлении и на странице Home,

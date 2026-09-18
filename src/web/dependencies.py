@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from functools import lru_cache
 
 import httpx
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session, sessionmaker
 
 from candidates.service import CandidateQueryService
@@ -34,9 +34,6 @@ from semantic_retrieval.factory import SemanticRetrievalConfig
 from semantic_retrieval.models import SemanticConfigurationError
 
 logger = logging.getLogger("api")
-
-
-_OPERATION_REGISTRY = OperationRegistry()
 
 
 # Database dependency
@@ -97,8 +94,10 @@ def get_research_query_graph() -> ResearchGraph:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-def get_operation_registry() -> OperationRegistry:
-    return _OPERATION_REGISTRY
+def get_operation_registry(db: Session = Depends(get_db)) -> OperationRegistry:  # noqa: B008
+    """Runs live in PostgreSQL, so a registry holds no state of its own: one per request,
+    on the engine of the request's session (an overridden `get_db` included)."""
+    return OperationRegistry(session_factory_for(db))
 
 
 def get_published_name_keys() -> frozenset[str]:
