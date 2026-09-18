@@ -12,9 +12,10 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /app
 
-# psycopg2 (a project dependency) builds from source.
+# No compiler or libpq: every Python dependency installs from a wheel (psycopg and
+# psycopg2-binary bundle libpq). DejaVu is the Cyrillic font of the PDF exports.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc libc6-dev libpq-dev fonts-dejavu-core plantuml \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core plantuml \
     && apt-get clean
 
 # Semantic indexing needs sentence-transformers (large); opt in with

@@ -28,6 +28,8 @@ docker compose up -d
 uv run alembic upgrade head
 ```
 
+`uv sync --frozen` не собирает ничего из исходников: все зависимости ставятся колёсами, PostgreSQL-драйверы (`psycopg`, `psycopg2-binary` от `dagster-postgres`) несут libpq с собой, поэтому ни `pg_config`, ни компилятор не нужны. Системные пакеты нужны только для веб-интерфейса вики: `plantuml` и `graphviz` для диаграмм, Pango для выгрузки вики в PDF (WeasyPrint). На Arch: `sudo pacman -S plantuml graphviz pango`.
+
 Проверить, что база доступна и схема на последней миграции:
 
 ```bash
