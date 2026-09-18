@@ -94,6 +94,21 @@ class OperationRun:
 
 
 OPERATION_DEFINITIONS: dict[str, OperationDefinition] = {
+    "monitor": OperationDefinition(
+        name="monitor",
+        title="Докачать новые публикации",
+        description=(
+            "Для каждого источника (или одного выбранного) загрузить публикации, появившиеся "
+            "после прошлой загрузки, извлечь людей и события; затем один раз "
+            "классифицировать, сверить с перечнем РФМ и обновить находки."
+        ),
+        next_action="Оставьте «Все источники» и limit 50, затем подтвердите run.",
+        warning=(
+            "Операция ходит в сеть по всем источникам и пишет в живую базу; "
+            "первая докачка после перерыва может идти десятки минут."
+        ),
+        default_parameters=OperationParameters(limit=50),
+    ),
     "discover-and-ingest": OperationDefinition(
         name="discover-and-ingest",
         title="Загрузить публикации",
@@ -414,7 +429,12 @@ def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
 
 def _command_for(name: str, parameters: OperationParameters) -> list[str]:
     command = [sys.executable, str(_repo_root() / "src" / "main.py"), name]
-    if name == "discover-and-ingest":
+    if name == "monitor":
+        command.append("--catch-up")
+        if parameters.source:
+            command += ["--source", _require_source(parameters.source)]
+        command += ["--limit", str(_require_limit(parameters.limit))]
+    elif name == "discover-and-ingest":
         source = _require_source(parameters.source)
         command += ["--source", source, "--limit", str(_require_limit(parameters.limit))]
     elif name == "extract-entities":

@@ -63,6 +63,11 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         action="store_true",
         help="With --backfill: fetch already ingested documents again",
     )
+    monitor.add_argument(
+        "--catch-up",
+        action="store_true",
+        help="New publications of every source first, then the derived stages once",
+    )
 
     subparsers.add_parser(
         "monitor-derived",
@@ -129,6 +134,8 @@ def run_monitoring_command(
             raise SystemExit(MONITOR_EXIT_FAILED)
         return True
 
+    if args.catch_up and (args.dry_run or args.backfill):
+        raise SystemExit("--catch-up cannot be combined with --dry-run or --backfill")
     if args.refetch_known and not args.backfill:
         raise SystemExit("--refetch-known requires --backfill")
     if args.backfill and (args.source is None or args.limit is None):
@@ -154,6 +161,7 @@ def run_monitoring_command(
                 trigger=trigger,
                 discovery_limit=args.limit,
                 refetch_known=args.refetch_known,
+                with_derived=not args.catch_up,
             )
         except MonitoringAlreadyRunningError as exc:
             results.append(
@@ -170,6 +178,16 @@ def run_monitoring_command(
         results.append(run.model_dump(mode="json"))
         if run.status is MonitoringRunStatus.FAILED:
             exit_code = MONITOR_EXIT_FAILED
+    if args.catch_up:
+        try:
+            derived = monitoring.run_derived(trigger=MonitoringTrigger.MANUAL)
+        except MonitoringAlreadyRunningError as exc:
+            results.append({"skipped": "already_running", "running_run_id": exc.running_run_id})
+            exit_code = exit_code or MONITOR_EXIT_ALREADY_RUNNING
+        else:
+            results.append(derived.model_dump(mode="json"))
+            if derived.status is MonitoringRunStatus.FAILED:
+                exit_code = MONITOR_EXIT_FAILED
     _print(results)
     if exit_code:
         raise SystemExit(exit_code)

@@ -30,7 +30,12 @@ def _operation_parameters_from_query(
 
 
 def _operation_form(name: str, params: OperationParameters) -> str:
-    source_options = "".join(
+    every_source = (
+        f'<option value="" {"selected" if params.source is None else ""}>Все источники</option>'
+        if name == "monitor"
+        else ""
+    )
+    source_options = every_source + "".join(
         f'<option value="{escape(source)}" {"selected" if source == params.source else ""}>{escape(source)}</option>'
         for source in sorted(SOURCES)
     )
@@ -38,7 +43,7 @@ def _operation_form(name: str, params: OperationParameters) -> str:
         f"""<label>Источник
   <select name="source">{source_options}</select>
 </label>"""
-        if name in {"discover-and-ingest", "extract-entities"}
+        if name in {"monitor", "discover-and-ingest", "extract-entities"}
         else ""
     )
     workers_field = (

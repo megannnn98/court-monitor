@@ -290,8 +290,12 @@ class MonitoringService:
         trigger: MonitoringTrigger = MonitoringTrigger.MANUAL,
         discovery_limit: int | None = None,
         refetch_known: bool = False,
+        with_derived: bool = True,
     ) -> MonitoringRunView:
-        """One full source run: source stages, then the derived stages."""
+        """One full source run: source stages, then the derived stages.
+
+        `with_derived=False` stops after resolution, for a catch-up over many sources that
+        runs the derived stages once at the end."""
         handle = self.start_source_run(
             source, trigger=trigger, discovery_limit=discovery_limit, refetch_known=refetch_known
         )
@@ -300,7 +304,8 @@ class MonitoringService:
             ingestion = self.ingest(handle, discovery)
             self.extract(handle, ingestion)
             self.resolve(handle)
-            self._run_derived_stages(handle)
+            if with_derived:
+                self._run_derived_stages(handle)
         except MonitoringRunAbortedError:
             logger.warning(
                 "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id

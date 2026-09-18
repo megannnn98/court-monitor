@@ -187,6 +187,10 @@ uv run alembic upgrade head
 uv run python src/main.py monitor
 # один источник
 uv run python src/main.py monitor --source ovd-info
+# докачка: все источники до resolution, затем classification / RF / semantic / findings
+# один раз (без флага они идут после каждого источника); кнопка «Докачать новые
+# публикации» в /ui/operations запускает именно это
+uv run python src/main.py monitor --catch-up
 # только discovery: ничего не пишет, checkpoint не меняет
 uv run python src/main.py monitor --source ovd-info --dry-run --limit 5
 # backfill (checkpoint не меняет)

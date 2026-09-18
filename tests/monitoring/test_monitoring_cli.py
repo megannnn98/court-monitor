@@ -110,12 +110,70 @@ def test_monitor_reports_an_already_running_source(
     ]
 
 
+SOURCE_STAGES = {"discovery", "ingestion", "extraction", "resolution"}
+
+
+def test_catch_up_runs_the_derived_stages_once_after_every_source(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    sota = FakeUpstream()
+    sota.publish("petrov", PETROV)
+
+    runs = _run(
+        session_factory, {"ovd-info": ovd, "sota-vision": sota}, capsys, "monitor", "--catch-up"
+    )
+
+    assert isinstance(runs, list)
+    *sources, derived = runs
+    assert [(run["source"], run["status"], run["documents_ingested"]) for run in sources] == [
+        ("ovd-info", "completed", 1),
+        ("sota-vision", "completed", 1),
+    ]
+    assert all(set(run["stage_metrics"]) == SOURCE_STAGES for run in sources)
+    assert (derived["scope"], derived["status"]) == ("derived", "completed")
+    assert "classification" in derived["stage_metrics"]
+    assert derived["classifications_created"] >= 1  # the persons of both sources
+
+
+def test_catch_up_goes_on_after_a_failed_source(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    broken = FakeUpstream()
+    broken.discovery_error = RuntimeError("listing is down")
+    sota = FakeUpstream()
+    sota.publish("petrov", PETROV)
+
+    with pytest.raises(SystemExit) as raised:
+        _run(
+            session_factory,
+            {"ovd-info": broken, "sota-vision": sota},
+            capsys,
+            "monitor",
+            "--catch-up",
+        )
+
+    assert raised.value.code == 1
+    runs = json.loads(capsys.readouterr().out)
+    assert [(run.get("source"), run["status"]) for run in runs] == [
+        ("ovd-info", "failed"),
+        ("sota-vision", "completed"),
+        (None, "completed"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("argv", "message"),
     [
         (("monitor", "--backfill", "--source", "ovd-info"), "--backfill requires"),
         (("monitor", "--refetch-known"), "--refetch-known requires --backfill"),
         (("monitor", "--source", "unknown"), "Unknown source: unknown"),
+        (("monitor", "--catch-up", "--dry-run"), "--catch-up cannot"),
+        (
+            ("monitor", "--catch-up", "--backfill", "--source", "ovd-info", "--limit", "5"),
+            "--catch-up cannot",
+        ),
     ],
 )
 def test_monitor_rejects_invalid_options(

@@ -263,6 +263,49 @@ def test_the_command_is_an_argv_from_the_allowlist(session_factory: sessionmaker
     assert command[2:] == ["resolve-people", "--limit", "7", "--workers", "2"]
 
 
+@pytest.mark.parametrize(
+    ("parameters", "arguments"),
+    [
+        (OperationParameters(), ["--catch-up", "--limit", "50"]),
+        (
+            OperationParameters(source="ovd-info", limit=20),
+            ["--catch-up", "--source", "ovd-info", "--limit", "20"],
+        ),
+    ],
+)
+def test_the_catch_up_runs_monitor_over_every_source_or_one(
+    session_factory: sessionmaker[Session],
+    parameters: OperationParameters,
+    arguments: list[str],
+) -> None:
+    commands: list[list[str]] = []
+
+    def recording(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+        commands.append(command)
+        return ProcessResult(0, "", "")
+
+    _registry(session_factory, recording).start("monitor", parameters)
+
+    [command] = commands
+    assert command[2:] == ["monitor", *arguments]
+
+
+def test_the_catch_up_form_offers_every_source(session_factory: sessionmaker[Session]) -> None:
+    def override_get_db() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        page = TestClient(app).get("/ui/operations/monitor")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert page.status_code == 200
+    assert '<option value="" selected>Все источники</option>' in page.text
+    assert 'value="50"' in page.text
+
+
 @contextmanager
 def _client(
     session_factory: sessionmaker[Session], registry: OperationRegistry
