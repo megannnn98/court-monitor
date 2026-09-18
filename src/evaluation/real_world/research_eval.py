@@ -20,7 +20,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
 from evaluation.final.models import Counts
 from evaluation.real_world.component_evaluation import IdentityMap
 from evaluation.real_world.db_state import PipelineState
@@ -44,8 +43,8 @@ from evaluation.real_world.results import (
 )
 from research.planning.planner import ResearchPlanner
 from research.reports.models import ResearchClaim, ResearchClaimType, ResearchReportItem
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import build_research_graph, run_research_query
 from research.workflow.intake import PreparedRequestParser, ResearchRequestParser
 from research.workflow.models import ResearchQueryResult, WorkflowStatus
@@ -347,8 +346,7 @@ def evaluate_research(
         return build_research_graph(
             request_parser=parser,
             research_service=ResearchService(
-                repository=SqlAlchemyPersonResearchRepository(session_factory),
-                candidate_query=CandidateQueryService(session_factory),
+                unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
             ),
             snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
             planner=ResearchPlanner(SOURCES),

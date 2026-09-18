@@ -6,11 +6,10 @@ from collections.abc import Mapping
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
 from llm.together_client import TogetherConfig, TogetherStructuredLlmClient
 from research.planning.planner import ResearchPlanner
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import ResearchGraph, build_research_graph
 from research.workflow.intake import LlmResearchRequestParser
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -41,8 +40,7 @@ def create_research_graph(
     return build_research_graph(
         request_parser=LlmResearchRequestParser(llm_client),
         research_service=ResearchService(
-            repository=SqlAlchemyPersonResearchRepository(session_factory),
-            candidate_query=CandidateQueryService(session_factory),
+            unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
         ),
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
         planner=ResearchPlanner(

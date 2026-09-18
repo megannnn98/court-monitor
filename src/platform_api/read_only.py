@@ -12,18 +12,17 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
 from monitoring.findings import MonitoringFindingService
 from monitoring.models import MonitoringFindingView, MonitoringStatusView
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from research.models import PersonResearchResult, ResearchRequest, ResearchResponse
 from research.planning.planner import ResearchPlanner
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import (
     ResearchCandidatesRequiredError,
     ResearchService,
     ResearchSnapshotNotFoundError,
 )
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import build_research_graph, run_research_query
 from research.workflow.intake import PreparedRequestParser
 from research.workflow.models import ResearchQueryResult
@@ -77,8 +76,7 @@ class ReadOnlyPlatform:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
         self._research = ResearchService(
-            repository=SqlAlchemyPersonResearchRepository(session_factory),
-            candidate_query=CandidateQueryService(session_factory),
+            unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
         )
         self._monitoring = SqlAlchemyMonitoringRepository(session_factory)
         self._findings = MonitoringFindingService(session_factory)

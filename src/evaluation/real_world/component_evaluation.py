@@ -39,8 +39,8 @@ from evaluation.real_world.results import (
 )
 from persecution.models import PersecutionClassificationStatus
 from research.models import MAX_RESEARCH_LIMIT, ResearchRequest
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 
 POLITICAL = PersecutionClassificationStatus.POLITICAL.value
 NON_POLITICAL = PersecutionClassificationStatus.NON_POLITICAL.value
@@ -629,8 +629,7 @@ def evaluate_evidence(
 ) -> EvidenceSection:
     """Evidence the research layer returns for each actual main candidate."""
     service = ResearchService(
-        repository=SqlAlchemyPersonResearchRepository(session_factory),
-        candidate_query=CandidateQueryService(session_factory),
+        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
     )
     articles_by_id = state.article_by_id()
     golden_by_key = {article.key: article for article in dataset.articles}

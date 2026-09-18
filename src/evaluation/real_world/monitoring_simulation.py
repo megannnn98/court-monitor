@@ -59,8 +59,8 @@ from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from research.models import ResearchRequest
 from research.planning.planner import ResearchPlanner
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import build_research_graph, run_research_query
 from research.workflow.llm import LlmUnavailableError
 from research.workflow.models import ResearchIntake, WorkflowStatus
@@ -614,8 +614,7 @@ def together_failure(runner: CorpusRunner) -> ScenarioResult:
     graph = build_research_graph(
         request_parser=_UnavailableParser(),
         research_service=ResearchService(
-            repository=SqlAlchemyPersonResearchRepository(session_factory),
-            candidate_query=CandidateQueryService(session_factory),
+            unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
         ),
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
         planner=ResearchPlanner(SOURCES),
@@ -642,8 +641,7 @@ def no_rf_snapshot(runner: CorpusRunner) -> ScenarioResult:
         )
         matches = int(connection.execute(text("SELECT count(*) FROM rosfin_matches")).scalar_one())
     response = ResearchService(
-        repository=SqlAlchemyPersonResearchRepository(session_factory),
-        candidate_query=CandidateQueryService(session_factory),
+        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
     ).execute(
         ResearchRequest.model_validate(
             {

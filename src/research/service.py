@@ -8,7 +8,7 @@ LLMs: adapters build a `ResearchRequest` and serialize the `ResearchResponse`.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,9 @@ from research.models import (
     ResearchRosfinmonitoring,
     ResearchSource,
 )
+
+if TYPE_CHECKING:
+    from research.unit_of_work import ResearchReaders, ResearchUnitOfWork
 
 
 class ResearchCandidatesRequiredError(ValueError):
@@ -106,14 +109,30 @@ class CandidateQuery(Protocol):
 
 
 class ResearchService:
+    """Deterministic research. Each `execute` reads through one unit of work: with
+    `SqlAlchemyResearchUnitOfWork`, one read-only REPEATABLE READ transaction, so the
+    answer never mixes two moments of the database.
+
+    `repository` and `candidate_query` given directly are used as they are (test
+    doubles); production callers pass `unit_of_work`.
+    """
+
     def __init__(
         self,
         *,
-        repository: PersonResearchRepository,
-        candidate_query: CandidateQuery,
+        unit_of_work: ResearchUnitOfWork | None = None,
+        repository: PersonResearchRepository | None = None,
+        candidate_query: CandidateQuery | None = None,
     ) -> None:
-        self._repository = repository
-        self._candidate_query = candidate_query
+        from research.unit_of_work import FixedResearchReaders, ResearchReaders
+
+        if unit_of_work is None:
+            if repository is None or candidate_query is None:
+                raise ValueError("pass unit_of_work, or both repository and candidate_query")
+            unit_of_work = FixedResearchReaders(ResearchReaders(repository, candidate_query))
+        elif repository is not None or candidate_query is not None:
+            raise ValueError("pass unit_of_work or repository/candidate_query, not both")
+        self._unit_of_work = unit_of_work
 
     def execute(
         self,
@@ -129,28 +148,31 @@ class ResearchService:
         criteria = request.criteria
         if criteria.semantic_query is not None and candidate_person_ids is None:
             raise ResearchCandidatesRequiredError()
-        if criteria.snapshot_id is not None and not self._repository.snapshot_exists(
-            criteria.snapshot_id
-        ):
-            raise ResearchSnapshotNotFoundError(criteria.snapshot_id)
+        with self._unit_of_work.read() as readers:
+            # The snapshot id may come from before this transaction (the workflow
+            # resolves "the latest snapshot" first); its existence is checked here.
+            if criteria.snapshot_id is not None and not readers.repository.snapshot_exists(
+                criteria.snapshot_id
+            ):
+                raise ResearchSnapshotNotFoundError(criteria.snapshot_id)
 
-        person_ids = self._filter_person_ids(criteria, candidate_person_ids)
-        page = person_ids[: request.limit]
+            person_ids = self._filter_person_ids(readers, criteria, candidate_person_ids)
+            page = person_ids[: request.limit]
 
-        details = self._repository.get_person_details(page)
-        classifications = self._repository.get_latest_classifications(page)
-        rosfinmonitoring = (
-            self._repository.get_rosfinmonitoring(page, criteria.snapshot_id)
-            if criteria.snapshot_id is not None
-            else {}
-        )
+            details = readers.repository.get_person_details(page)
+            classifications = readers.repository.get_latest_classifications(page)
+            rosfinmonitoring = (
+                readers.repository.get_rosfinmonitoring(page, criteria.snapshot_id)
+                if criteria.snapshot_id is not None
+                else {}
+            )
 
         results: list[PersonResearchResult] = []
         for person_id in page:
             person_details = details.get(person_id)
             if person_details is None:
-                # Removed between filtering and loading (repository calls use
-                # separate sessions); skip rather than fail the whole request.
+                # Only with readers outside one snapshot (a person removed between
+                # filtering and loading); skip rather than fail the whole request.
                 continue
             persecution = classifications.get(person_id)
             rf = rosfinmonitoring.get(person_id)
@@ -178,23 +200,26 @@ class ResearchService:
 
     def _filter_person_ids(
         self,
+        readers: ResearchReaders,
         criteria: PersonResearchCriteria,
         candidate_person_ids: Sequence[int] | None,
     ) -> list[int]:
         if candidate_person_ids is None:
-            return self._apply_status_filters(criteria, self._repository.find_person_ids(criteria))
+            return self._apply_status_filters(
+                readers, criteria, readers.repository.find_person_ids(criteria)
+            )
         pool = list(dict.fromkeys(candidate_person_ids))
         if not pool:
             return []
         allowed = set(
             self._apply_status_filters(
-                criteria, self._repository.find_person_ids(criteria, restrict_to=pool)
+                readers, criteria, readers.repository.find_person_ids(criteria, restrict_to=pool)
             )
         )
         return [person_id for person_id in pool if person_id in allowed]
 
     def _apply_status_filters(
-        self, criteria: PersonResearchCriteria, person_ids: list[int]
+        self, readers: ResearchReaders, criteria: PersonResearchCriteria, person_ids: list[int]
     ) -> list[int]:
         if (
             criteria.persecution_status is PersecutionClassificationStatus.POLITICAL
@@ -203,7 +228,7 @@ class ResearchService:
         ):
             # "Politically persecuted AND <RF status>" is the existing product
             # query; reuse it instead of re-deriving its rules here.
-            candidates = self._candidate_query.get_candidates(
+            candidates = readers.candidate_query.get_candidates(
                 criteria.snapshot_id,
                 min_persecution_confidence=(
                     criteria.persecution_min_confidence
@@ -217,7 +242,7 @@ class ResearchService:
             return [person_id for person_id in person_ids if person_id in allowed]
 
         if criteria.persecution_status is not None:
-            classifications = self._repository.get_latest_classifications(person_ids)
+            classifications = readers.repository.get_latest_classifications(person_ids)
             threshold = criteria.effective_persecution_min_confidence
             person_ids = [
                 person_id
@@ -228,7 +253,7 @@ class ResearchService:
             ]
 
         if criteria.rosfinmonitoring_status is not None and criteria.snapshot_id is not None:
-            statuses = self._repository.get_rosfinmonitoring(person_ids, criteria.snapshot_id)
+            statuses = readers.repository.get_rosfinmonitoring(person_ids, criteria.snapshot_id)
             person_ids = [
                 person_id
                 for person_id in person_ids

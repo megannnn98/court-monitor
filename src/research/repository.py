@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime, time, timedelta
 
 from sqlalchemy import ColumnElement, exists, func, or_, select
@@ -52,21 +53,34 @@ MAX_EVENTS_PER_PERSON = 50
 
 
 class SqlAlchemyPersonResearchRepository:
+    """Reads for research. Given a `Session`, every read goes through it: one research
+    request then sees one database snapshot (`research.unit_of_work`). Given a session
+    factory, each read opens its own session."""
+
     def __init__(
         self,
-        session_factory: sessionmaker[Session],
+        session_factory_or_session: sessionmaker[Session] | Session,
         *,
         max_mentions_per_person: int = MAX_MENTIONS_PER_PERSON,
         max_events_per_person: int = MAX_EVENTS_PER_PERSON,
     ) -> None:
         if max_mentions_per_person < 1 or max_events_per_person < 1:
             raise ValueError("evidence limits must be greater than zero")
-        self._session_factory = session_factory
+        self._source = session_factory_or_session
         self._max_mentions = max_mentions_per_person
         self._max_events = max_events_per_person
 
+    @contextmanager
+    def _session(self) -> Iterator[Session]:
+        if isinstance(self._source, Session):
+            # The unit of work owns this session and its transaction: not closed here.
+            yield self._source
+            return
+        with self._source() as session:
+            yield session
+
     def snapshot_exists(self, snapshot_id: int) -> bool:
-        with self._session_factory() as session:
+        with self._session() as session:
             return session.get(RosfinmonitoringSnapshotRecord, snapshot_id) is not None
 
     def find_person_ids(
@@ -130,7 +144,7 @@ class SqlAlchemyPersonResearchRepository:
                 )
             )
 
-        with self._session_factory() as session:
+        with self._session() as session:
             return list(session.scalars(query.order_by(PersonRecord.id)).all())
 
     @staticmethod
@@ -170,7 +184,7 @@ class SqlAlchemyPersonResearchRepository:
     ) -> dict[int, PersecutionClassification]:
         if not person_ids:
             return {}
-        with self._session_factory() as session:
+        with self._session() as session:
             records = session.scalars(
                 select(PersecutionClassificationRecord).where(
                     PersecutionClassificationRecord.person_id.in_(person_ids),
@@ -184,7 +198,7 @@ class SqlAlchemyPersonResearchRepository:
     ) -> dict[int, ResearchRosfinmonitoring]:
         if not person_ids:
             return {}
-        with self._session_factory() as session:
+        with self._session() as session:
             records = session.scalars(
                 select(RosfinMatchRecord).where(
                     RosfinMatchRecord.snapshot_id == snapshot_id,
@@ -202,7 +216,7 @@ class SqlAlchemyPersonResearchRepository:
     def get_person_details(self, person_ids: Sequence[int]) -> dict[int, PersonResearchDetails]:
         if not person_ids:
             return {}
-        with self._session_factory() as session:
+        with self._session() as session:
             persons = session.scalars(
                 select(PersonRecord).where(PersonRecord.id.in_(person_ids))
             ).all()

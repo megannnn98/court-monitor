@@ -9,7 +9,6 @@ import httpx
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
 from channel_feed.published import load_published_keys
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from health import (
@@ -23,10 +22,10 @@ from monitoring.models import (
 from operator_console import (
     OperationRegistry,
 )
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import (
     ResearchService,
 )
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import ResearchGraph
 from research.workflow.llm import LlmConfigurationError
 from research.workflow_factory import create_research_graph
@@ -76,8 +75,7 @@ def get_research_service() -> ResearchService:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return ResearchService(
-        repository=SqlAlchemyPersonResearchRepository(session_factory),
-        candidate_query=CandidateQueryService(session_factory),
+        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
     )
 
 

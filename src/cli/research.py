@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 
-from candidates.service import CandidateQueryService
 from cli.context import CliContext
 from cli.external import register_group
 from research.cli import (
@@ -19,8 +18,8 @@ from research.cli import (
     format_research_response,
     format_structured_request,
 )
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService, ResearchSnapshotNotFoundError
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import run_research_query
 from research.workflow.llm import LlmConfigurationError
 from research.workflow_factory import create_research_graph
@@ -39,8 +38,7 @@ def run_research(args: argparse.Namespace, context: CliContext) -> None:
     except ResearchCliError as exc:
         raise SystemExit(str(exc)) from None
     research_service = ResearchService(
-        repository=SqlAlchemyPersonResearchRepository(session_factory),
-        candidate_query=CandidateQueryService(session_factory),
+        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
     )
     try:
         research_response = research_service.execute(research_request)

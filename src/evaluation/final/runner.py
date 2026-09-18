@@ -56,8 +56,8 @@ from persons.persistence import SqlAlchemyPersonPersistence
 from research.models import MAX_RESEARCH_LIMIT, ResearchRequest
 from research.planning.planner import ResearchPlanner
 from research.reports.provenance import verify_report_provenance
-from research.repository import SqlAlchemyPersonResearchRepository
 from research.service import ResearchService
+from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import build_research_graph, run_research_query
 from research.workflow.intake import PreparedRequestParser
 from research.workflow.models import WorkflowStatus
@@ -172,8 +172,7 @@ class FinalEvaluationRunner:
         """The domain review policy (research warnings) over every person of the case."""
         criteria: dict[str, object] = {} if snapshot_id is None else {"snapshot_id": snapshot_id}
         response = ResearchService(
-            repository=SqlAlchemyPersonResearchRepository(self._session_factory),
-            candidate_query=CandidateQueryService(self._session_factory),
+            unit_of_work=SqlAlchemyResearchUnitOfWork(self._session_factory),
         ).execute(
             ResearchRequest.model_validate(
                 {"object_type": "person", "criteria": criteria, "limit": MAX_RESEARCH_LIMIT}
@@ -529,8 +528,7 @@ class FinalEvaluationRunner:
         graph = build_research_graph(
             request_parser=PreparedRequestParser(check.request),
             research_service=ResearchService(
-                repository=SqlAlchemyPersonResearchRepository(session_factory),
-                candidate_query=CandidateQueryService(session_factory),
+                unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
             ),
             snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
             planner=ResearchPlanner(SOURCES),

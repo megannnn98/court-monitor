@@ -147,17 +147,12 @@ returns, it must feed deterministic criteria (e.g. person ids), not replace them
   now considers only each person's latest classification. Previously any
   historical POLITICAL record qualified, which could list a person whose current
   classification is not political and returned duplicates per classifier version.
-- Repository calls use separate read-only sessions; a person removed between
-  filtering and loading details is skipped (still counted in `total_matched`).
-- Known limitation / TODO: `find_person_ids()`, `get_person_details()`,
-  `get_latest_classifications()`, `get_rosfinmonitoring()` (and the
-  `CandidateQueryService` call) may each open their own database session, so
-  data can change between these reads within one `execute()` (e.g. a
-  reclassification or re-match committed mid-request). Future improvement:
-  a single read transaction / consistent snapshot (e.g. one `REPEATABLE READ`
-  session shared by the repository and the candidate query for the whole
-  request). Not implemented yet because it needs a session-scoping redesign of
-  the repository and `CandidateQueryService` construction.
+- One `execute()` reads one database snapshot (updated 2026-09-18): the
+  repository and `CandidateQueryService` share one session in a read-only
+  `REPEATABLE READ` transaction (`research.unit_of_work`), rolled back at the
+  end; nothing commits. LLM intake and semantic retrieval in Qdrant run before
+  it, the report after it. The workflow resolves "the latest snapshot" before
+  the transaction; the chosen id is re-checked inside it.
 - Known data-model gaps (documented in `docs/wiki/Research.md`): no region/city,
   court or organization filters (not linked to persons); no evidence spans behind classification reasons; name
   filter does not fold ё/е; only `active` persons are searchable.
