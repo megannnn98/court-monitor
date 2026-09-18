@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 import pytest
 
-from main import discover_and_ingest
+from cli.ingestion import discover_and_ingest
 from sources.ingestion_errors import ParseError
 from sources.models import (
     IngestionResult,
@@ -127,7 +127,7 @@ def test_discover_and_ingest_processes_discovered_articles(
         return original_async_client(*args, **kwargs)
 
     monkeypatch.setattr(
-        "main.httpx.AsyncClient",
+        "cli.ingestion.httpx.AsyncClient",
         create_client,
     )
 
@@ -175,7 +175,7 @@ def test_discover_and_ingest_continues_after_article_failure(
         return original_async_client(*args, **kwargs)
 
     monkeypatch.setattr(
-        "main.httpx.AsyncClient",
+        "cli.ingestion.httpx.AsyncClient",
         create_client,
     )
 
@@ -228,7 +228,7 @@ def test_discover_and_ingest_handles_empty_discovery(
         return original_async_client(*args, **kwargs)
 
     monkeypatch.setattr(
-        "main.httpx.AsyncClient",
+        "cli.ingestion.httpx.AsyncClient",
         create_client,
     )
 
@@ -286,7 +286,7 @@ def test_discover_and_ingest_respects_limit(
         return original_async_client(*args, **kwargs)
 
     monkeypatch.setattr(
-        "main.httpx.AsyncClient",
+        "cli.ingestion.httpx.AsyncClient",
         create_client,
     )
 
@@ -344,7 +344,7 @@ def test_discover_and_ingest_selects_source_by_definition(
         return original_async_client(*args, **kwargs)
 
     monkeypatch.setattr(
-        "main.httpx.AsyncClient",
+        "cli.ingestion.httpx.AsyncClient",
         create_client,
     )
 
@@ -387,7 +387,7 @@ def test_discover_and_ingest_can_build_the_pipeline_on_the_source_adapter(
         kwargs["transport"] = transport
         return original_async_client(*args, **kwargs)
 
-    monkeypatch.setattr("main.httpx.AsyncClient", create_client)
+    monkeypatch.setattr("cli.ingestion.httpx.AsyncClient", create_client)
     pipeline = FakePipeline()
     adapters: list[object] = []
 

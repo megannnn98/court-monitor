@@ -45,7 +45,7 @@ end note
 | Модуль | Роль |
 |---|---|
 | `api.py`, `web/` | HTTP: `api.py` — точка входа `uvicorn api:app`; `web/app.py` собирает приложение, `web/dependencies.py` — сессия БД и общие сервисы, `web/routers/` — REST, `web/ui/` — операторская консоль, `web/exports.py` и `web/wiki.py` — выгрузки и рендер вики без HTTP |
-| `main.py` | CLI: `ingest`, `discover-and-ingest --source ...`, `search`, `evaluate-search` |
+| `main.py`, `cli/` | CLI: `main.py` — точка входа `python src/main.py <команда>`; `cli/app.py` собирает парсер из `register` каждой области (`ingestion`, `search`, `extraction`, `persons`, `rosfinmonitoring`, `persecution`, `candidates`, `research`, `areas` — semantic/ER-ревью/monitoring/оценки, `config`) и вызывает обработчик команды; `cli/context.py` — единственный корень композиции: настройки, engine и фабрика сессий строятся при первом обращении, так что `--help`, `validate-config` и оценки на одноразовой базе не читают `DATABASE_URL` |
 | `sources/models.py` | Pydantic-модели домена (`SourceReference` … `SearchHit`) — см. [CONTEXT.md](../../CONTEXT.md) |
 | `sources/source_adapter.py` | `Protocol DocumentFetcher`/`SourceAdapter` — контракт `discover()`/`fetch()` |
 | `sources/source_registry.py` | `SourceDefinition` + реестр источников (`ovd-info`, `sota-vision`, `sudrf-2zovs`, `memopzk-figurants`, `kommersant`, 70 × `tg-<username>`) для CLI |
