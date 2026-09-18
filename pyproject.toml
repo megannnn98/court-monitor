@@ -23,6 +23,7 @@ dependencies = [
     "selectolax>=0.3.29",
     "sqlalchemy>=2.0,<3.0",
     "uvicorn>=0.32.0",
+    "weasyprint>=70.0",
 ]
 
 [tool.ruff]
@@ -89,4 +90,9 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # ReportLab does not ship type stubs; PDF generation remains runtime-checked.
 module = ["reportlab", "reportlab.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# WeasyPrint does not ship type stubs either; it prints the wiki to PDF.
+module = ["weasyprint", "weasyprint.*"]
 ignore_missing_imports = true

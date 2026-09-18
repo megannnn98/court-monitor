@@ -30,9 +30,10 @@ RUN groups=""; \
     uv sync --frozen --no-cache --no-default-groups --no-install-project $groups
 
 # PlantUML draws every diagram but a sequence one with Graphviz, which the package only
-# recommends. Its own layer, so adding it does not rebuild the dependency layer above.
+# recommends; WeasyPrint prints the wiki to PDF with Pango. Their own layer, so adding
+# them does not rebuild the dependency layer above.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends graphviz \
+    && apt-get install -y --no-install-recommends graphviz libpango-1.0-0 libpangoft2-1.0-0 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

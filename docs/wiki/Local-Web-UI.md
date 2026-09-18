@@ -43,6 +43,11 @@ docker compose --profile api up -d
 - `/ui/operations/runs/{run_id}` — состояние operation run и вывод команды.
 - `/ui/monitoring` — последние monitoring runs и active findings.
 - `/ui/wiki` — встроенный справочник проекта; страницы читаются из `docs/wiki`.
+  Кнопка «Скачать вики в PDF» (на оглавлении и на странице Home,
+  `/ui/wiki/export.pdf`) собирает все страницы в один PDF через WeasyPrint:
+  оглавление с номерами страниц, Home первой, каждая страница с нового листа,
+  диаграммы векторные и вписаны в лист. Сборка занимает ~15 с (PlantUML
+  рисует диаграммы заново).
   Fenced-блоки `plantuml` рендерятся в SVG прямо на странице; остальные code
   blocks показываются как исходный текст.
 

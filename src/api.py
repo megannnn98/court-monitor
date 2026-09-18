@@ -1525,6 +1525,62 @@ def _render_plantuml(source: str) -> str:
     return f'<figure class="wiki-diagram">{result.stdout}</figure>'
 
 
+_WIKI_PDF_BUTTON = '<p><a class="secondary" href="/ui/wiki/export.pdf">Скачать вики в PDF</a></p>'
+_WIKI_PDF_CSS = """
+@page { size: A4; margin: 18mm 16mm 20mm;
+  @bottom-right { content: counter(page); font-size: 9pt; color: #57606a; } }
+body { font: 10.5pt/1.45 "DejaVu Sans", sans-serif; color: #1f2328; }
+.wiki-page { break-before: page; }
+h1 { font-size: 20pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; }
+pre { white-space: pre-wrap; font: 8.5pt/1.35 "DejaVu Sans Mono", monospace;
+  background: #f6f8fa; padding: 6pt; }
+table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+th, td { border: 1px solid #d0d7de; padding: 3pt 5pt; vertical-align: top; }
+figure.wiki-diagram { margin: 8pt 0; text-align: center; }
+/* A diagram is scaled to fit one sheet: an SVG cannot be split across pages. */
+figure.wiki-diagram svg { max-width: 100%; max-height: 220mm; width: auto; height: auto; }
+.toc a { color: inherit; text-decoration: none; }
+.toc a::after { content: leader(".") target-counter(attr(href), page); }
+"""
+
+
+def _wiki_pdf_html() -> str:
+    """The whole wiki as one HTML document: a contents page, then every page from a new
+    sheet, Home first. Diagrams are the same SVG the site shows."""
+    pages = sorted(_wiki_pages(), key=lambda path: (path.stem != "Home", path.name.lower()))
+    contents = "".join(
+        f'<li><a href="#wiki-{escape(page.stem)}">{escape(page.stem)}</a></li>' for page in pages
+    )
+    body = "".join(
+        f'<section class="wiki-page" id="wiki-{escape(page.stem)}">'
+        f"{_wiki_markdown_to_html(page.read_text(encoding='utf-8'))}</section>"
+        for page in pages
+    )
+    return (
+        f'<!doctype html><html lang="ru"><head><meta charset="utf-8">'
+        f"<style>{_WIKI_PDF_CSS}</style></head><body>"
+        f'<h1>court-monitor — вики</h1><ol class="toc">{contents}</ol>{body}</body></html>'
+    )
+
+
+def _wiki_pdf() -> bytes:
+    from weasyprint import HTML  # heavy; loaded only when a PDF is asked for
+
+    pdf = HTML(string=_wiki_pdf_html()).write_pdf()
+    if pdf is None:
+        raise HTTPException(status_code=500, detail="PDF was not produced")
+    return pdf
+
+
+@app.get("/ui/wiki/export.pdf")
+def ui_wiki_export_pdf() -> Response:
+    return Response(
+        content=_wiki_pdf(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="court-monitor-wiki.pdf"'},
+    )
+
+
 @app.get("/ui/wiki")
 def ui_wiki_index(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     pages = "".join(
@@ -1533,7 +1589,7 @@ def ui_wiki_index(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     )
     return _page(
         "Wiki",
-        f'<ul class="wiki-index">{pages}</ul>',
+        f'{_WIKI_PDF_BUTTON}<ul class="wiki-index">{pages}</ul>',
         active="wiki",
         instruction="Wiki — справочник по проекту, pipeline и операторской консоли.",
         next_action="Откройте страницу, которая нужна для текущей операции.",
@@ -1546,9 +1602,10 @@ def ui_wiki_page(slug: str, db: Session = Depends(get_db)) -> HTMLResponse:  # n
     page = _wiki_root() / f"{slug}.md"
     if page.parent != _wiki_root() or not page.is_file():
         raise HTTPException(status_code=404, detail="Wiki page not found")
+    button = _WIKI_PDF_BUTTON if page.stem == "Home" else ""
     return _page(
         page.stem,
-        _wiki_markdown_to_html(page.read_text(encoding="utf-8")),
+        button + _wiki_markdown_to_html(page.read_text(encoding="utf-8")),
         active="wiki",
         instruction="Wiki — справочная страница проекта.",
         next_action="Вернитесь в Operator console через навигацию слева.",
