@@ -155,6 +155,7 @@ def _wiki_pdf() -> bytes:
     from weasyprint import HTML  # heavy; loaded only when a PDF is asked for
 
     pdf = HTML(string=_wiki_pdf_html()).write_pdf()
-    if pdf is None:
+    # WeasyPrint ships no types: the check also narrows its result to bytes.
+    if not isinstance(pdf, bytes):
         raise HTTPException(status_code=500, detail="PDF was not produced")
     return pdf
