@@ -1,12 +1,22 @@
 """Rendering docs/wiki: Markdown to HTML, PlantUML to SVG, the whole wiki to PDF."""
 
 import os
+import re
 import shutil
 import subprocess
+from collections.abc import Sequence
 from html import escape
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import HTTPException
+
+# markdown-it-py comes locked through dagster -> rich; declaring it would rebuild the
+# image's dependency layer for a package already in it.
+from markdown_it import MarkdownIt
+from markdown_it.renderer import RendererHTML
+from markdown_it.token import Token
+from markdown_it.utils import EnvType, OptionsDict
 
 
 def _wiki_root() -> Path:
@@ -24,66 +34,52 @@ def _wiki_pages() -> list[Path]:
     return sorted(_wiki_root().glob("*.md"), key=lambda path: path.name.lower())
 
 
-def _wiki_markdown_to_html(markdown: str) -> str:
-    rendered: list[str] = []
-    in_code = False
-    code_lines: list[str] = []
-    code_language = ""
-    list_open = False
-    for raw_line in markdown.splitlines():
-        line = raw_line.rstrip()
-        if line.startswith("```"):
-            if in_code:
-                code = chr(10).join(code_lines)
-                rendered.append(
-                    _render_plantuml(code)
-                    if code_language == "plantuml"
-                    else f"<pre><code>{escape(code)}</code></pre>"
-                )
-                code_lines = []
-                code_language = ""
-                in_code = False
-            else:
-                if list_open:
-                    rendered.append("</ul>")
-                    list_open = False
-                in_code = True
-                code_language = line[3:].strip().lower()
-            continue
-        if in_code:
-            code_lines.append(line)
-            continue
-        if not line:
-            if list_open:
-                rendered.append("</ul>")
-                list_open = False
-            continue
-        if line.startswith("#"):
-            if list_open:
-                rendered.append("</ul>")
-                list_open = False
-            level = min(len(line) - len(line.lstrip("#")), 4)
-            rendered.append(f"<h{level}>{escape(line[level:].strip())}</h{level}>")
-        elif line.startswith("- "):
-            if not list_open:
-                rendered.append("<ul>")
-                list_open = True
-            rendered.append(f"<li>{escape(line[2:])}</li>")
-        else:
-            if list_open:
-                rendered.append("</ul>")
-                list_open = False
-            rendered.append(f"<p>{escape(line)}</p>")
-    if in_code:
-        code = chr(10).join(code_lines)
-        rendered.append(
-            _render_plantuml(code)
-            if code_language == "plantuml"
-            else f"<pre><code>{escape(code)}</code></pre>"
-        )
-    if list_open:
-        rendered.append("</ul>")
-    return "\n".join(rendered)
+_WIKI_PAGE_LINK = re.compile(r"^(?P<slug>[A-Za-z0-9_-]+)\.md(?:#.*)?$")
+
+
+def _wiki_markdown_to_html(markdown: str, *, page_link_prefix: str = "/ui/wiki/") -> str:
+    """CommonMark with tables; raw HTML in the page is shown as text.
+
+    A link to another wiki page (`Page.md`) goes to `page_link_prefix + Page`: the page on
+    the site, or its section in the PDF. Other relative links (ADRs, the README) have no
+    place to go on the site or in the PDF, so they keep their text without a target.
+    """
+    renderer = MarkdownIt("commonmark", {"html": False}).enable("table")
+
+    def fence(
+        self: RendererHTML,
+        tokens: Sequence[Token],
+        idx: int,
+        options: OptionsDict,
+        env: EnvType,
+    ) -> str:
+        token = tokens[idx]
+        code = token.content.rstrip("\n")
+        if token.info.strip().lower() == "plantuml":
+            return _render_plantuml(code)
+        return f"<pre><code>{escape(code)}</code></pre>\n"
+
+    def link_open(
+        self: RendererHTML,
+        tokens: Sequence[Token],
+        idx: int,
+        options: OptionsDict,
+        env: EnvType,
+    ) -> str:
+        token = tokens[idx]
+        href = str(token.attrGet("href") or "")
+        page = _WIKI_PAGE_LINK.match(href)
+        if page is not None:
+            token.attrSet("href", page_link_prefix + quote(page.group("slug")))
+        elif not href.startswith(("http://", "https://", "mailto:", "#")):
+            del token.attrs["href"]
+        return self.renderToken(tokens, idx, options, env)
+
+    renderer.add_render_rule("fence", fence)
+    renderer.add_render_rule("code_block", fence)
+    renderer.add_render_rule("link_open", link_open)
+    html: str = renderer.render(markdown)
+    return html
 
 
 def _render_plantuml(source: str) -> str:
@@ -122,6 +118,11 @@ body { font: 10.5pt/1.45 "DejaVu Sans", sans-serif; color: #1f2328; }
 h1 { font-size: 20pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; }
 pre { white-space: pre-wrap; font: 8.5pt/1.35 "DejaVu Sans Mono", monospace;
   background: #f6f8fa; padding: 6pt; }
+code { font-family: "DejaVu Sans Mono", monospace; font-size: 0.9em;
+  background: #f6f8fa; padding: 0 2pt; }
+pre code { padding: 0; font-size: inherit; }
+a { color: #0969da; text-decoration: none; }
+a:not([href]) { color: inherit; }
 table { border-collapse: collapse; width: 100%; font-size: 9pt; }
 th, td { border: 1px solid #d0d7de; padding: 3pt 5pt; vertical-align: top; }
 figure.wiki-diagram { margin: 8pt 0; text-align: center; }
@@ -141,7 +142,8 @@ def _wiki_pdf_html() -> str:
     )
     body = "".join(
         f'<section class="wiki-page" id="wiki-{escape(page.stem)}">'
-        f"{_wiki_markdown_to_html(page.read_text(encoding='utf-8'))}</section>"
+        f"{_wiki_markdown_to_html(page.read_text(encoding='utf-8'), page_link_prefix='#wiki-')}"
+        "</section>"
         for page in pages
     )
     return (

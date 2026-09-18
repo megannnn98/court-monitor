@@ -241,6 +241,13 @@ pre {
   white-space: pre-wrap;
 }
 
+:not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #f0f3f6;
+  font-size: 0.9em;
+}
+
 .wiki-diagram {
   margin: 16px 0;
   overflow-x: auto;
