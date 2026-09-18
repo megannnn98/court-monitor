@@ -25,7 +25,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
@@ -38,6 +38,7 @@ OUTPUT_LIMIT = 20_000
 HEARTBEAT_INTERVAL = timedelta(seconds=15)
 # A live run whose heartbeat is older than this lost its process.
 STALE_AFTER = timedelta(minutes=5)
+ACTIVE_RUN_INDEX = "uq_operator_operation_runs_active_operation"
 
 
 class OperationRunStatus(StrEnum):
@@ -163,13 +164,19 @@ def _run_process(command: list[str], heartbeat: Callable[[], None]) -> ProcessRe
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    while True:
-        try:
-            stdout, stderr = process.communicate(timeout=HEARTBEAT_INTERVAL.total_seconds())
-        except subprocess.TimeoutExpired:
-            heartbeat()
-            continue
-        return ProcessResult(process.returncode, stdout, stderr)
+    try:
+        while True:
+            try:
+                stdout, stderr = process.communicate(timeout=HEARTBEAT_INTERVAL.total_seconds())
+            except subprocess.TimeoutExpired:
+                heartbeat()
+                continue
+            return ProcessResult(process.returncode, stdout, stderr)
+    except BaseException:
+        # The run is about to be recorded as ended: its process must not live on unseen.
+        process.kill()
+        process.wait()
+        raise
 
 
 class OperationRegistry:
@@ -238,7 +245,11 @@ class OperationRegistry:
                 session.flush()
                 run = _to_run(record)
         except IntegrityError as exc:
-            # The partial unique index: another process already has a live run of it.
+            # Only the partial unique index means another process has a live run of it.
+            if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != (
+                ACTIVE_RUN_INDEX
+            ):
+                raise
             raise OperationConflictError(f"operation {name} is already running") from exc
         self._executor(lambda: self._execute(run.id))
         return run
@@ -285,13 +296,13 @@ class OperationRegistry:
         try:
             result = self._process_runner(self._command(run_id), lambda: self._heartbeat(run_id))
         except BaseException as exc:  # noqa: BLE001 - recorded for operator inspection
-            self._finish(
+            self._finish_or_log(
                 run_id,
                 status=OperationRunStatus.FAILED,
                 error=f"{type(exc).__name__}: {exc}",
             )
             return
-        self._finish(
+        self._finish_or_log(
             run_id,
             status=(
                 OperationRunStatus.SUCCEEDED
@@ -329,8 +340,25 @@ class OperationRegistry:
         return claimed is not None
 
     def _heartbeat(self, run_id: int) -> None:
-        with self._session_factory.begin() as session:
-            session.execute(self._running_here(run_id).values(heartbeat_at=func.now()))
+        # A missed beat is not the end of the run: the process goes on, and a database
+        # that stays away makes the run stale, then interrupted.
+        try:
+            with self._session_factory.begin() as session:
+                session.execute(self._running_here(run_id).values(heartbeat_at=func.now()))
+        except SQLAlchemyError:
+            logger.exception("event=operation_run_heartbeat_failed run_id=%s", run_id)
+
+    def _finish_or_log(self, run_id: int, *, status: OperationRunStatus, **values: Any) -> None:
+        # Unrecorded, the run turns interrupted as stale; the log keeps the real ending.
+        try:
+            self._finish(run_id, status=status, **values)
+        except Exception:
+            logger.exception(
+                "event=operation_run_finish_failed run_id=%s status=%s return_code=%s",
+                run_id,
+                status.value,
+                values.get("return_code"),
+            )
 
     def _finish(self, run_id: int, *, status: OperationRunStatus, **values: Any) -> None:
         # Fencing: a run interrupted as stale while its process lived keeps `interrupted`.

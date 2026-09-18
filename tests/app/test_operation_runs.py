@@ -3,14 +3,18 @@ processes, status transitions, stale runs, output limits, and the API reading th
 
 from __future__ import annotations
 
+import os
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import timedelta
+from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from api import app, get_db, get_operation_registry
@@ -326,3 +330,80 @@ def test_the_real_process_runner_captures_output_and_beats(
 
     assert (result.return_code, result.stdout) == (0, "out\n")
     assert len(beats) >= 2
+
+
+def test_a_failed_heartbeat_does_not_end_the_run(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A database blip while beating must not mark the run failed while its process
+    goes on: the operation would look free and could start a second time."""
+    status_after_beat: list[OperationRunStatus] = []
+    holder: list[OperationRegistry] = []
+
+    def beating(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+        heartbeat()
+        status_after_beat.append(holder[0].list_runs()[0].status)
+        return ProcessResult(0, "done\n", "")
+
+    registry = _registry(session_factory, beating)
+    holder.append(registry)
+    original = OperationRegistry._running_here
+
+    def broken_once(self: OperationRegistry, run_id: int) -> Any:
+        monkeypatch.setattr(OperationRegistry, "_running_here", original)
+        raise OperationalError("UPDATE", {}, Exception("server closed the connection"))
+
+    monkeypatch.setattr(OperationRegistry, "_running_here", broken_once)
+
+    run = registry.start("discover-and-ingest", INGEST)
+
+    assert status_after_beat == [OperationRunStatus.RUNNING]
+    assert registry.get(run.id).status is OperationRunStatus.SUCCEEDED
+
+
+def test_an_exception_while_waiting_kills_the_process(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The run is recorded failed; its process must not live on unseen."""
+    import sys
+
+    import operator_console
+
+    monkeypatch.setattr(operator_console, "HEARTBEAT_INTERVAL", timedelta(seconds=0.1))
+    pid_file = tmp_path / "pid"
+    command = [
+        sys.executable,
+        "-c",
+        f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(60)",
+    ]
+
+    def stop(*_: object) -> None:
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        operator_console._run_process(command, stop)
+
+    pid = int(pid_file.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+def test_only_the_live_run_index_means_already_running(
+    session_factory: sessionmaker[Session], test_engine: Engine
+) -> None:
+    """Any other constraint violation is a real error, not a conflict."""
+    with test_engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE operator_operation_runs ADD CONSTRAINT ck_test_no_ingest "
+                "CHECK (operation_name <> 'discover-and-ingest') NOT VALID"
+            )
+        )
+    try:
+        with pytest.raises(IntegrityError, match="ck_test_no_ingest"):
+            _registry(session_factory).start("discover-and-ingest", INGEST)
+    finally:
+        with test_engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE operator_operation_runs DROP CONSTRAINT ck_test_no_ingest")
+            )
