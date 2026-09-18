@@ -44,6 +44,7 @@ end note
 
 | Модуль | Роль |
 |---|---|
+| `api.py`, `web/` | HTTP: `api.py` — точка входа `uvicorn api:app`; `web/app.py` собирает приложение, `web/dependencies.py` — сессия БД и общие сервисы, `web/routers/` — REST, `web/ui/` — операторская консоль, `web/exports.py` и `web/wiki.py` — выгрузки и рендер вики без HTTP |
 | `main.py` | CLI: `ingest`, `discover-and-ingest --source ...`, `search`, `evaluate-search` |
 | `sources/models.py` | Pydantic-модели домена (`SourceReference` … `SearchHit`) — см. [CONTEXT.md](../../CONTEXT.md) |
 | `sources/source_adapter.py` | `Protocol DocumentFetcher`/`SourceAdapter` — контракт `discover()`/`fetch()` |

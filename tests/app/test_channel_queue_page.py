@@ -14,9 +14,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 from support.research_db_fixtures import ResearchSeeder
 
-import api
 from api import app, get_db, get_published_name_keys
 from channel_feed.published import name_key
+from web import dependencies
 
 NEWS_TIME = datetime.now(UTC) - timedelta(days=2)
 
@@ -99,7 +99,7 @@ def test_an_unreadable_channel_leaves_nothing_out_and_says_so(
     def unreachable(ttl_seconds: float = 3600.0) -> frozenset[str]:
         raise httpx.ConnectError("no network")
 
-    monkeypatch.setattr(api, "load_published_keys", unreachable)
+    monkeypatch.setattr(dependencies, "load_published_keys", unreachable)
 
     assert get_published_name_keys() == frozenset()
 

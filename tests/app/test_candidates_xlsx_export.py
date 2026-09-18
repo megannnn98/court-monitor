@@ -140,7 +140,7 @@ def test_export_returns_downloadable_xlsx_with_candidate_row(
 
 def test_names_are_written_surname_first() -> None:
     """Customer request: «сначала фамилию, потом имя», for searching the table."""
-    from api import _surname_first
+    from web.candidate_rows import _surname_first
 
     assert _surname_first("Иван Иванов") == "Иванов Иван"
     assert _surname_first("Владимир Николаевич Казанцев") == "Казанцев Владимир Николаевич"

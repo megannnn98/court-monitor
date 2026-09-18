@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions, seed_person
 from support.research_db_fixtures import ResearchSeeder
 
-from api import _wiki_markdown_to_html, app, get_db, get_operation_registry
+from api import app, get_db, get_operation_registry
 from db.orm_models import (
     EntityMentionRecord,
     EventEntityMentionRecord,
@@ -21,6 +21,7 @@ from db.orm_models import (
 )
 from operator_console import OperationRegistry
 from persons.resolution.factory import build_person_resolution_service
+from web.wiki import _wiki_markdown_to_html
 
 
 @contextmanager
@@ -175,9 +176,9 @@ def test_ui_pages_have_operator_shell_and_contextual_instruction(
 
 
 def test_wiki_renders_plantuml_as_svg(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("api.shutil.which", lambda name: "/usr/bin/plantuml")
+    monkeypatch.setattr("web.wiki.shutil.which", lambda name: "/usr/bin/plantuml")
     monkeypatch.setattr(
-        "api.subprocess.run",
+        "web.wiki.subprocess.run",
         lambda *args, **kwargs: subprocess.CompletedProcess(
             args=["plantuml"], returncode=0, stdout="<svg>diagram</svg>", stderr=""
         ),

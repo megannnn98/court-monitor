@@ -14,7 +14,7 @@ title court-monitor architecture
 
 rectangle "Dagster\n(schedules, monitoring_job, monitoring_derived_job)" as Dagster #EEF
 rectangle "CLI (main.py)" as CLI
-rectangle "FastAPI (api.py)" as API
+rectangle "FastAPI (web/, entry point api.py)" as API
 
 rectangle "application.build_application_services()" as Root
 

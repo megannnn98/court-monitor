@@ -11,8 +11,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-import api
-from api import _wiki_pdf_html, app, get_db
+from api import app, get_db
+from web import wiki as wiki_rendering
+from web.wiki import _wiki_pdf_html
 
 BUTTON = 'href="/ui/wiki/export.pdf"'
 
@@ -27,10 +28,10 @@ def wiki(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (tmp_path / "Setup.md").write_text(
         "# Setup\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", encoding="utf-8"
     )
-    monkeypatch.setattr(api, "_wiki_root", lambda: tmp_path)
-    monkeypatch.setattr("api.shutil.which", lambda name: "/usr/bin/plantuml")
+    monkeypatch.setattr(wiki_rendering, "_wiki_root", lambda: tmp_path)
+    monkeypatch.setattr("web.wiki.shutil.which", lambda name: "/usr/bin/plantuml")
     monkeypatch.setattr(
-        "api.subprocess.run",
+        "web.wiki.subprocess.run",
         lambda *args, **kwargs: subprocess.CompletedProcess(
             args=["plantuml"],
             returncode=0,
@@ -80,5 +81,7 @@ def test_the_export_is_a_downloadable_pdf(wiki: Path, client: TestClient) -> Non
 
 def test_the_button_is_on_the_wiki_home_and_contents_only(wiki: Path, client: TestClient) -> None:
     assert BUTTON in client.get("/ui/wiki").text
-    assert BUTTON in client.get("/ui/wiki/Home").text
+    home = client.get("/ui/wiki/Home").text
+    assert BUTTON in home
+    assert "Начало." in home  # the stand-in wiki, not docs/wiki
     assert BUTTON not in client.get("/ui/wiki/Setup").text
