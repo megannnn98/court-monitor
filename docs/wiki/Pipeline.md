@@ -285,8 +285,9 @@ See [Research](Research.md) and [ADR 0008](../adr/0008-research-domain-and-resea
 Run each stage separately:
 
 ```bash
-# 1. Ingest articles
+# 1. Ingest articles (and the Memorial registry: 7 000+ cards, ~12 min under its crawl delay)
 court-monitor discover-and-ingest --source ovd-info --limit 100
+court-monitor discover-and-ingest --source memopzk-figurants --limit 8000
 
 # 2. Extract entities and events
 court-monitor extract-entities

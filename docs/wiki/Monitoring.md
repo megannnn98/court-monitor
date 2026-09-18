@@ -224,6 +224,8 @@ docker compose --profile monitoring up -d --build   # webserver :3000, daemon
 
 ## Ограничения
 
+- Источники по умолчанию — все из `source_registry.SOURCES`, включая реестр «Мемориала» (`memopzk-figurants`) и сайт «Коммерсанта» (`kommersant`). Реестр за run берёт 50 последних изменённых карточек — один запрос; изменённая после загрузки карточка не перечитывается (external id — id карточки). «Коммерсант» — только новости из RSS с судебными словами вне рубрик «Мир», «Спорт», «Бизнес».
+
 - Изменившийся на источнике документ обычным run'ом не перечитывается; `--backfill --refetch-known` перечитает, extraction создаст run для нового content hash рядом со старым (versioning документов не делался).
 - Отдельные assets и «re-execute from failure» в Dagster для `monitoring_job` не поддерживаются (in-memory IO: handle упавшего процесса потерян) — запускать job целиком заново, это безопасно; изоляция этапов — через `monitoring_derived_job` / `monitor-derived`.
 - Settle-интервал предполагает расхождение часов приложения и БД меньше 10 минут.
