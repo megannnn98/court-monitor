@@ -29,6 +29,13 @@ RUN groups=""; \
     if [ "$INSTALL_NER" = "1" ]; then groups="$groups --group ner"; fi; \
     uv sync --frozen --no-cache --no-default-groups --no-install-project $groups
 
+# PlantUML draws every diagram but a sequence one with Graphviz, which the package only
+# recommends. Its own layer, so adding it does not rebuild the dependency layer above.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends graphviz \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY src ./src
 COPY migrations ./migrations
 COPY docs/wiki ./docs/wiki
