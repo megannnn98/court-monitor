@@ -134,6 +134,8 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     assert body["events"][0]["evidence"]["text"] == "Суд назначил штраф Ивану Иванову"
     assert ui_person.status_code == 200
     assert "Суд назначил штраф Ивану Иванову" in ui_person.text
+    # The card's heading writes the name surname first, as the tables do.
+    assert "<title>Иванов Иван</title>" in ui_person.text
     assert article.json()["text"].startswith("Иван Иванов участвовал")
     assert [hit["article_id"] for hit in search.json()] == [article_id]
     assert candidates_page.status_code == 200

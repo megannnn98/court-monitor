@@ -1346,7 +1346,7 @@ def ui_get_person(
     persecution = detail.persecution.status if detail.persecution else "—"
     rosfin = detail.rosfinmonitoring.status if detail.rosfinmonitoring else "—"
     return _page(
-        detail.person.canonical_name,
+        _surname_first(detail.person.canonical_name),
         f"""<section class="band">
   <dl>
     <dt>ID</dt><dd>{detail.person.id}</dd>
