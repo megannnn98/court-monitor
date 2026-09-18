@@ -6,6 +6,7 @@
 
 ## Страницы
 
+- [Implementation Status](Implementation-Status.md) — единственный источник текущего статуса: проверки последнего прогона, компоненты, CLI, профили, ограничения
 - [Getting Started](Getting-Started.md) — быстрый локальный запуск, ручной pipeline, API, проверки, monitoring, production-like profile
 - [Overview](Overview.md) — архитектура целиком, поток данных
 - [Ingestion](Ingestion.md) — загрузка, разбор HTML, полный текст статьи
