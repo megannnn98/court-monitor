@@ -224,6 +224,35 @@ services:
       dagster-webserver:
         condition: service_started
 
+  # Telegram bot (ADR 0019): docker compose --profile telegram up -d telegram-bot
+  # Long polling only: it dials out to Telegram, so no port is published.
+  # Apply migrations first: docker compose run --rm migrate
+  telegram-bot:
+    image: court-monitor:local
+    restart: unless-stopped
+    init: true
+    profiles:
+      - telegram
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Never written into the image or this file: it comes from the environment.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:?TELEGRAM_ALLOWED_USER_IDS is required}
+      TELEGRAM_BOT_TIMEZONE: ${TELEGRAM_BOT_TIMEZONE:-Europe/Moscow}
+      TELEGRAM_PEOPLE_DEFAULT_LIMIT: ${TELEGRAM_PEOPLE_DEFAULT_LIMIT:-50}
+      TELEGRAM_PEOPLE_MAX_LIMIT: ${TELEGRAM_PEOPLE_MAX_LIMIT:-200}
+      MONITORING_ENABLED_SOURCES: ${MONITORING_ENABLED_SOURCES:-}
+      MONITORING_DISCOVERY_LIMIT: ${MONITORING_DISCOVERY_LIMIT:-50}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
+    command: ["python", "-m", "telegram_bot"]
+    # `/update` starts a `monitor --catch-up` subprocess: it gets time to finish
+    # the source it is on, and tini forwards SIGTERM to the polling loop.
+    stop_grace_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   qdrant_data:
