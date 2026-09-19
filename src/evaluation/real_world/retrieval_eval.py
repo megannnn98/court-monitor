@@ -13,7 +13,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from evaluation.real_world.component_evaluation import IdentityMap
 from evaluation.real_world.db_state import PipelineState
@@ -37,6 +37,12 @@ DEFAULT_RETRIEVAL_QUERIES_PATH = DEFAULT_DATA_DIR / "retrieval_queries.json"
 SEMANTIC_BACKENDS = (RetrievalBackend.DENSE, RetrievalBackend.HYBRID)
 
 
+# Judgment keys for pooled entities that are not golden (persons or events of the
+# corpus articles without annotation): stable across deterministic replays.
+EXTRA_PERSON_PREFIX = "extra-person:"
+EXTRA_EVENT_PREFIX = "extra-event:"
+
+
 class RealRetrievalQuery(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -44,11 +50,73 @@ class RealRetrievalQuery(BaseModel):
     text: str
     entity_type: RetrievalEntityType
     split: GoldenSplit
-    # Golden person id (persons) or "case_id/event_id" (events) -> grade 1 or 2.
-    judgments: dict[str, int] = Field(min_length=1)
+    # Golden person id (persons) or "case_id/event_id" (events) -> grade:
+    # 2 highly relevant, 1 relevant, 0 judged not relevant. An entity that is not
+    # a key here is UNJUDGED: it is never counted as not relevant.
+    judgments: dict[str, int] = Field(default_factory=dict)
+    # No entity of the corpus should be accepted (off-topic or hard in-domain negative).
+    expected_no_match: bool = False
     # No shared word stem between the query and the relevant documents.
     semantic_only: bool = False
+    tags: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _grades(self) -> RealRetrievalQuery:
+        if any(grade not in (0, 1, 2) for grade in self.judgments.values()):
+            raise ValueError(f"{self.query_id}: grades must be 0, 1 or 2")
+        has_relevant = any(grade > 0 for grade in self.judgments.values())
+        if self.expected_no_match:
+            if has_relevant or self.semantic_only:
+                raise ValueError(
+                    f"{self.query_id}: an expected_no_match query cannot have a relevant "
+                    "entity or be semantic_only"
+                )
+        elif not has_relevant:
+            raise ValueError(f"{self.query_id}: no relevant entity (grade 1 or 2)")
+        return self
+
+    @property
+    def relevant(self) -> dict[str, int]:
+        return {key: grade for key, grade in self.judgments.items() if grade > 0}
+
+
+def query_problems(queries: Sequence[RealRetrievalQuery], dataset: GoldenDataset) -> list[str]:
+    """Dataset-level checks: unique ids, tags, known keys, no relevant entity of another split."""
+    problems: list[str] = []
+    seen: set[str] = set()
+    persons = {person.golden_person_id for person in dataset.persons}
+    event_split = {
+        f"{article.case_id}/{event.event_id}": article.split
+        for article in dataset.articles
+        for event in article.events
+    }
+    for query in queries:
+        if query.query_id in seen:
+            problems.append(f"{query.query_id}: duplicate query_id")
+        seen.add(query.query_id)
+        if not query.tags:
+            problems.append(f"{query.query_id}: no tags")
+        for key, grade in query.judgments.items():
+            if key.startswith((EXTRA_PERSON_PREFIX, EXTRA_EVENT_PREFIX)):
+                continue
+            if query.entity_type is RetrievalEntityType.PERSON:
+                if key not in persons:
+                    problems.append(f"{query.query_id}: unknown golden person {key}")
+                    continue
+                split = dataset.person_split(key)
+            else:
+                if key not in event_split:
+                    problems.append(f"{query.query_id}: unknown golden event {key}")
+                    continue
+                split = event_split[key]
+            # A relevant entity of another split would leak its articles into this one.
+            if grade > 0 and split is not query.split:
+                problems.append(
+                    f"{query.query_id} ({query.split.value}): relevant {key} is in "
+                    f"{split.value if split else 'no'} split"
+                )
+    return problems
 
 
 DIAGNOSTIC_POOL = 20
@@ -158,8 +226,11 @@ def evaluate_retrieval(
     ids = entity_ids(dataset, state, identity)
     cases: list[EntityRetrievalCase] = []
     for query in queries:
+        if query.expected_no_match:
+            # No relevant entity: ranking metrics are undefined (acceptance only).
+            continue
         known = ids.ids_for(query.entity_type)
-        judgments = {key: grade for key, grade in query.judgments.items() if key in known}
+        judgments = {key: grade for key, grade in query.relevant.items() if key in known}
         if not judgments:
             failures.append(
                 Failure(
