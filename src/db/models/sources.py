@@ -62,6 +62,8 @@ class ParsedArticleRecord(Base):
             "search_vector",
             postgresql_using="gin",
         ),
+        # "People in the news of a period" filters articles by publication date.
+        Index("ix_parsed_articles_published_at", "published_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

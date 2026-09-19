@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -83,6 +84,8 @@ class EntityMentionRecord(Base):
 
 class ExtractedEventRecord(Base):
     __tablename__ = "extracted_events"
+    # From an event back to its article: the person → event → article path of the bot.
+    __table_args__ = (Index("ix_extracted_events_extraction_run_id", "extraction_run_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     extraction_run_id: Mapped[int] = mapped_column(

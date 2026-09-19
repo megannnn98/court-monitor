@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 
 import httpx
 
@@ -28,6 +29,17 @@ from sources.telegram.channels import TelegramChannel, load_telegram_channels
 from sources.telegram.source_adapter import TelegramSourceAdapter
 
 
+class SourceKind(StrEnum):
+    """What a source publishes, for consumers that must not mix the two.
+
+    A news source publishes dated articles about events; a registry publishes a card
+    per person, which carries no news date and must stay out of "people in the news".
+    """
+
+    NEWS = "news"
+    REGISTRY = "registry"
+
+
 @dataclass(frozen=True)
 class SourceDefinition:
     name: str
@@ -35,6 +47,7 @@ class SourceDefinition:
     base_url: str
     create_adapter: Callable[[httpx.AsyncClient, DocumentFetcher], SourceAdapter]
     create_parser: Callable[[], ArticleParser]
+    kind: SourceKind = SourceKind.NEWS
     # Declared capabilities used by research source routing. Every adapter
     # here implements SourceAdapter: listing discovery and direct fetch.
     supports_discovery: bool = True
@@ -105,6 +118,7 @@ MEMOPZK_FIGURANTS = SourceDefinition(
         document_fetcher=fetcher,
     ),
     create_parser=FigurantParser,
+    kind=SourceKind.REGISTRY,
     # A card is addressed by its registry id, not by a page URL.
     supports_direct_fetch=False,
 )
@@ -158,3 +172,10 @@ def get_source_definition(name: str) -> SourceDefinition:
         return SOURCES[name]
     except KeyError:
         raise ValueError(f"Unknown source: {name}") from None
+
+
+def news_source_base_urls() -> list[str]:
+    """Base URLs of the news sources, as stored in `sources.base_url`."""
+    return sorted(
+        definition.base_url for definition in SOURCES.values() if definition.kind is SourceKind.NEWS
+    )
