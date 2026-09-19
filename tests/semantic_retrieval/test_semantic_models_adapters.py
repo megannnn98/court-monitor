@@ -24,7 +24,9 @@ from semantic_retrieval.cli import (
 )
 from semantic_retrieval.embeddings import (
     EmbeddingConfig,
+    EmbeddingProfile,
     SentenceTransformerEmbedder,
+    embedding_profile,
     parse_device,
     uses_e5_prefixes,
 )
@@ -50,6 +52,8 @@ from semantic_retrieval.vector_store import QdrantVectorStore
 
 class _FakeSentenceTransformer:
     instances: ClassVar[list[_FakeSentenceTransformer]] = []
+    # Set by the embedder only when the model's profile limits the input.
+    max_seq_length: int
 
     def __init__(self, model_id: str, device: str) -> None:
         self.model_id = model_id
@@ -128,6 +132,48 @@ def test_embedder_is_lazy_and_never_mixes_query_and_passage_encoding(fake_models
         ["passage: Персона: Иван.", "passage: Персона: Анна."],
     ]
     assert embedder.dimension == 3
+
+
+def test_bge_m3_encodes_without_prefixes_and_with_the_e5_input_length(
+    fake_models: None,
+) -> None:
+    """BGE-M3's dense embedding takes no instruction; E5's "query: "/"passage: " must not
+    leak into it. Its 8192-token window is cut to E5's 512, so both models see the same
+    document text (0.9% of person documents are longer)."""
+    embedder = SentenceTransformerEmbedder(EmbeddingConfig(model_id="BAAI/bge-m3"))
+
+    embedder.embed_query("антивоенная позиция")
+    embedder.embed_documents(["Персона: Иван."])
+
+    (model,) = _FakeSentenceTransformer.instances
+    assert model.encoded == [["антивоенная позиция"], ["Персона: Иван."]]
+    assert model.max_seq_length == 512
+
+
+def test_e5_keeps_its_prefixes_and_its_own_input_length(fake_models: None) -> None:
+    embedder = SentenceTransformerEmbedder(
+        EmbeddingConfig(model_id="intfloat/multilingual-e5-base")
+    )
+
+    embedder.embed_query("x")
+
+    (model,) = _FakeSentenceTransformer.instances
+    assert model.encoded == [["query: x"]]
+    assert not hasattr(model, "max_seq_length")  # the model's own limit stays
+
+
+def test_embedding_profiles_are_explicit_per_model() -> None:
+    assert embedding_profile("intfloat/multilingual-e5-base") == EmbeddingProfile(
+        query_prefix="query: ", document_prefix="passage: ", max_seq_length=None
+    )
+    assert embedding_profile("BAAI/bge-m3") == EmbeddingProfile(
+        query_prefix="", document_prefix="", max_seq_length=512
+    )
+    # Unknown models keep the earlier rule: E5 names get E5's prefixes, others none.
+    assert embedding_profile("intfloat/multilingual-e5-large").query_prefix == "query: "
+    assert embedding_profile("sentence-transformers/LaBSE") == EmbeddingProfile("", "", None)
+    # "bge" alone is not the BGE-M3 profile: another model gets no guessed settings.
+    assert embedding_profile("BAAI/bge-small-en").max_seq_length is None
 
 
 def test_cuda_requested_without_cuda_is_an_embedding_error(fake_models: None) -> None:

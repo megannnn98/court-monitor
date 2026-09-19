@@ -86,6 +86,33 @@ def uses_e5_prefixes(model_id: str) -> bool:
     return "e5" in model_id.lower()
 
 
+@dataclass(frozen=True)
+class EmbeddingProfile:
+    """How a model wants its input: what it was trained with, not a guess from its name."""
+
+    query_prefix: str
+    document_prefix: str
+    # None: the model's own maximum sequence length.
+    max_seq_length: int | None
+
+
+KNOWN_EMBEDDING_PROFILES: Mapping[str, EmbeddingProfile] = {
+    "intfloat/multilingual-e5-base": EmbeddingProfile("query: ", "passage: ", None),
+    # BGE-M3's dense embedding needs no instruction on either side. Its window is 8192
+    # tokens; cut to E5's 512 so a comparison feeds both models the same document text.
+    "BAAI/bge-m3": EmbeddingProfile("", "", 512),
+}
+
+
+def embedding_profile(model_id: str) -> EmbeddingProfile:
+    known = KNOWN_EMBEDDING_PROFILES.get(model_id)
+    if known is not None:
+        return known
+    # Unknown models keep the earlier rule.
+    prefixes = ("query: ", "passage: ") if uses_e5_prefixes(model_id) else ("", "")
+    return EmbeddingProfile(*prefixes, None)
+
+
 class SentenceTransformerEmbedder:
     def __init__(self, config: EmbeddingConfig) -> None:
         self._config = config
@@ -119,6 +146,9 @@ class SentenceTransformerEmbedder:
             model = SentenceTransformer(self._config.model_id, device=device)
         except (OSError, ValueError, RuntimeError) as exc:  # not found, bad config, CUDA init
             raise EmbeddingError(f"Cannot load embedding model {self._config.model_id}") from exc
+        max_seq_length = embedding_profile(self._config.model_id).max_seq_length
+        if max_seq_length is not None:
+            model.max_seq_length = max_seq_length
         dimension = model.get_embedding_dimension()
         if not isinstance(dimension, int):
             raise EmbeddingError(f"Model {self._config.model_id} does not report a dimension")
@@ -162,11 +192,11 @@ class SentenceTransformerEmbedder:
         return result
 
     def embed_query(self, text: str) -> list[float]:
-        prefix = "query: " if uses_e5_prefixes(self.model_id) else ""
+        prefix = embedding_profile(self.model_id).query_prefix
         return self._encode([f"{prefix}{text}"])[0]
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
-        prefix = "passage: " if uses_e5_prefixes(self.model_id) else ""
+        prefix = embedding_profile(self.model_id).document_prefix
         return self._encode([f"{prefix}{text}" for text in texts])

@@ -1,0 +1,49 @@
+{
+  "model": "intfloat/multilingual-e5-base",
+  "profile": {
+    "query_prefix": "query: ",
+    "document_prefix": "passage: ",
+    "max_seq_length": null
+  },
+  "gpu": "NVIDIA GeForce RTX 3060",
+  "documents_sampled": 4000,
+  "dimension": 768,
+  "load_seconds": 12.0,
+  "pooling": "Pooling({'embedding_dimension': 768, 'pooling_mode': 'mean', 'include_prompt': True})",
+  "max_seq_length": 512,
+  "vram_after_load_mb": 1061,
+  "document_throughput": {
+    "16": {
+      "documents_per_second": 223.0,
+      "vram_peak_mb": 1361
+    },
+    "32": {
+      "documents_per_second": 224.0,
+      "vram_peak_mb": 1615
+    },
+    "64": {
+      "documents_per_second": 205.2,
+      "vram_peak_mb": 2153
+    }
+  },
+  "query_latency_ms": {
+    "p50": 7.69,
+    "p95": 9.55,
+    "max": 10.96
+  },
+  "pgvector": {
+    "person": {
+      "stored": 2000,
+      "top100_returned": 100
+    },
+    "event": {
+      "stored": 2000,
+      "top100_returned": 100
+    },
+    "hnsw_indexes": [
+      "ix_semvec_hnsw_events_semantic_768"
+    ],
+    "rows_out_of_line": 0,
+    "vector_bytes": 3080
+  }
+}

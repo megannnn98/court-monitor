@@ -1,0 +1,49 @@
+{
+  "model": "BAAI/bge-m3",
+  "profile": {
+    "query_prefix": "",
+    "document_prefix": "",
+    "max_seq_length": 512
+  },
+  "gpu": "NVIDIA GeForce RTX 3060",
+  "documents_sampled": 4000,
+  "dimension": 1024,
+  "load_seconds": 166.2,
+  "pooling": "Pooling({'embedding_dimension': 1024, 'pooling_mode': 'cls', 'include_prompt': True})",
+  "max_seq_length": 512,
+  "vram_after_load_mb": 2166,
+  "document_throughput": {
+    "16": {
+      "documents_per_second": 75.0,
+      "vram_peak_mb": 2563
+    },
+    "32": {
+      "documents_per_second": 73.9,
+      "vram_peak_mb": 2898
+    },
+    "64": {
+      "documents_per_second": 73.3,
+      "vram_peak_mb": 3609
+    }
+  },
+  "query_latency_ms": {
+    "p50": 13.42,
+    "p95": 15.4,
+    "max": 16.86
+  },
+  "pgvector": {
+    "person": {
+      "stored": 2000,
+      "top100_returned": 100
+    },
+    "event": {
+      "stored": 2000,
+      "top100_returned": 100
+    },
+    "hnsw_indexes": [
+      "ix_semvec_hnsw_events_semantic_1024"
+    ],
+    "rows_out_of_line": 0,
+    "vector_bytes": 4104
+  }
+}
