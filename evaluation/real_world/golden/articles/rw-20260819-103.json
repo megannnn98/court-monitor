@@ -1,0 +1,105 @@
+{
+  "case_id": "rw-20260819-103",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/08/19/za-podderzhku-yabloka-vozle-verkhovnogo-suda-arestovali-troikh-moskvichey",
+  "canonical_url": "https://ovd.info/express-news/2026/08/19/za-podderzhku-yabloka-vozle-verkhovnogo-suda-arestovali-troikh-moskvichey",
+  "published_at": "2026-08-19T11:54:00+03:00",
+  "content_hash": "c73d7cdfeb2c41a393f8ad52df8699ff5fea89cd967d43637764d6f02b179634",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "group_case",
+    "shared_event",
+    "spouses",
+    "administrative"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 598,
+      "text": "Суд в Москве назначил от 10 до 15 суток административного ареста 51-летнему Вячеславу Авдашеву, а также супругам из Москвы Наби Балабекову и Дарье Буньковой. 10 августа они пришли к зданию Верховного суда, где рассматривали снятие «Яблока» с выборов. Бунькова и Балабеков также раздавали листовки в поддержку партии.\n\nВсех троих задержали неделю спустя — их обвинили в участии в несанкционированном митинге, мешающем движению.\n\nПо данным «Медиазоны», супругов допрашивали сотрудники центра «Э». В момент задержания у Балабекова была высокая температура, в отдел приезжала скорая медицинская помощь."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 76,
+      "end": 94,
+      "text": "Вячеславу Авдашеву",
+      "golden_person_id": "gp-avdashev-vyacheslav"
+    },
+    {
+      "start": 123,
+      "end": 138,
+      "text": "Наби Балабекову",
+      "golden_person_id": "gp-balabekov-nabi"
+    },
+    {
+      "start": 141,
+      "end": 156,
+      "text": "Дарье Буньковой",
+      "golden_person_id": "gp-bunkova-darya"
+    },
+    {
+      "start": 251,
+      "end": 259,
+      "text": "Бунькова",
+      "golden_person_id": "gp-bunkova-darya"
+    },
+    {
+      "start": 262,
+      "end": 271,
+      "text": "Балабеков",
+      "golden_person_id": "gp-balabekov-nabi"
+    },
+    {
+      "start": 517,
+      "end": 527,
+      "text": "Балабекова",
+      "golden_person_id": "gp-balabekov-nabi"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-avdashev-vyacheslav",
+        "gp-balabekov-nabi",
+        "gp-bunkova-darya"
+      ],
+      "evidence": {
+        "start": 13,
+        "end": 64,
+        "text": "назначил от 10 до 15 суток административного ареста"
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-avdashev-vyacheslav",
+        "gp-balabekov-nabi",
+        "gp-bunkova-darya"
+      ],
+      "evidence": {
+        "start": 318,
+        "end": 352,
+        "text": "Всех троих задержали неделю спустя"
+      },
+      "shared": true,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Balabekov and Bunkova are spouses; all three arrested for the same gathering.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

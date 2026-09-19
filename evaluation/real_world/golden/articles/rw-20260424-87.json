@@ -1,0 +1,150 @@
+{
+  "case_id": "rw-20260424-87",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/24/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+  "canonical_url": "https://ovd.info/express-news/2026/04/24/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+  "published_at": "2026-04-24T14:05:00+03:00",
+  "content_hash": "1610d75b6e23f9288e33270de1c89e56b3d1acc53bdace26d98607833d491f47",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "administrative",
+    "several_events",
+    "opposition_party"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1753,
+      "text": "Суд в городе Шелехов признал главу регионального отделения «Яблока» Григория Грибенко виновным в неповиновении полиции (ч. 1 ст. 19.3 КоАП) и арестовал его на 12 суток. Об этом сообщает активист Павел Харитоненко в своем телеграм-канале.\n\nВчера днем дома у Грибенко прошел осмотр под предлогом поиска наркотиков. После него политика доставили в отдел. Полицейские обвинили Грибенко в неповиновении их требованиям.\n\nИз поста правозащитника Святослава Хроменкова следует, что как неповиновение расценили отказ политика пустить силовиков в свою квартиру. Грибенко говорит, что сначала не принял людей в масках и гражданской одежде за полицейских, но когда убедился, что это силовики, открыл им дверь и показал паспорт.\n\nПолицейские уже задерживали Грибенко 10 апреля. Тогда его заставили пройти медосвидетельствование. В городском наркодиспансере утверждали, что у него в организме нашли следы марихуаны. В тот же день в частной клинике в анализах у Грибенко ничего не обнаружили.\n\nРанее политик пытался организовать в Иркутске митинг против блокировок, а после отказов мэрии он подал на нее в суд.\n\n27 апреля Грибенко арестовали не по статье о неповиновении полиции, а по статье об отказе от медосвидетельствования (ч. 1 ст. 6.9 КоАП), уточнил активист Павел Харитоненко.\n\nПройти освидетельствование политику предложили прямо в отделе полиции, но он отказался из-за недоверия после прошлых результатов в наркодиспансере.\n\nПресс-служба судов общей юрисдикции Иркутской области сообщила, что Грибенко также обязали пройти «диагностику, профилактические мероприятия, лечение от наркомании и (или) медицинскую и (или) социальную реабилитацию в связи с потреблением наркотических средств».\n\nПротокол о неповиновении полиции на Грибенко суд еще не рассматривал."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 68,
+      "end": 85,
+      "text": "Григория Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 195,
+      "end": 212,
+      "text": "Павел Харитоненко",
+      "golden_person_id": "gp-kharitonenko-pavel"
+    },
+    {
+      "start": 257,
+      "end": 265,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 373,
+      "end": 381,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 439,
+      "end": 460,
+      "text": "Святослава Хроменкова",
+      "golden_person_id": "gp-khromenkov-svyatoslav"
+    },
+    {
+      "start": 552,
+      "end": 560,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 745,
+      "end": 753,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 947,
+      "end": 955,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 1107,
+      "end": 1115,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 1251,
+      "end": 1268,
+      "text": "Павел Харитоненко",
+      "golden_person_id": "gp-kharitonenko-pavel"
+    },
+    {
+      "start": 1488,
+      "end": 1496,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 1720,
+      "end": 1728,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-gribenko-grigory"
+      ],
+      "evidence": {
+        "start": 142,
+        "end": 167,
+        "text": "арестовал его на 12 суток"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "search",
+      "person_ids": [
+        "gp-gribenko-grigory"
+      ],
+      "evidence": {
+        "start": 239,
+        "end": 311,
+        "text": "Вчера днем дома у Грибенко прошел осмотр под предлогом поиска наркотиков"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-gribenko-grigory"
+      ],
+      "evidence": {
+        "start": 717,
+        "end": 763,
+        "text": "Полицейские уже задерживали Грибенко 10 апреля"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Kharitonenko and Khromenkov report the case.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,147 @@
+{
+  "case_id": "rw-20260312-55",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu",
+  "canonical_url": "https://ovd.info/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu",
+  "published_at": "2026-03-12T11:30:00+03:00",
+  "content_hash": "29c28807f5b9b4c86a4d10dcb8db412bcdaf2d54cbf0d5af5b674d71ea92e13f",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "group_case",
+    "multi_person",
+    "diminutive",
+    "search",
+    "journalists"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1298,
+      "text": "Сегодня утром в Москве с обыском пришли к журналистке Юлии Морозовой, которая ранее работала с разными изданиями. Об этом ОВД-Инфо рассказала адвокат Наталия Тихонова.\n\nЖурналистка перестала выходить на связь. Обыск, вероятно, связан с ее профессиональной деятельностью.\n\n«Только что прошел звонок коротко от Юли, но я даже не успела нажать на экран, чтобы принять вызов. Перезваниваю — не брала трубку и снова отключен телефон теперь», — написала Тихонова в своем телеграм-канале.\n\n12:21 Обыск у Морозовой закончился, сообщила ОВД-Инфо адвокат Наталия Тихонова.\n\nОна рассказала, что силовики не разрешили журналистке открыть дверь защитнице и обыск прошел без ее участия. У Морозовой изъяли всю технику кроме фотоаппарата.\n\nКроме того, с обыском в Москве приходили к еще одной журналистке Полине Чистовой, рассказала ее знакомая.\n\n«Слово защите» сообщило, что этим утром прошло несколько обысков. Они связаны с уголовным делом журналистов SOTA Петра Иванова и Руслана Терехова, которых обвиняют в незаконном пересечении границы (ст. 322 УК) из-за поездки в 2024 году на территорию Курской области, на тот момент занятую ВСУ.\n\nПо данным издания, с обысками также приходили к активистам, которые знали Терехова еще до 2022 года.\n\nЗаголовок новости изменен после появления информации о других обысках"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 54,
+      "end": 68,
+      "text": "Юлии Морозовой",
+      "golden_person_id": "gp-morozova-yulia"
+    },
+    {
+      "start": 150,
+      "end": 166,
+      "text": "Наталия Тихонова",
+      "golden_person_id": "gp-tikhonova-natalia"
+    },
+    {
+      "start": 309,
+      "end": 312,
+      "text": "Юли",
+      "golden_person_id": "gp-morozova-yulia"
+    },
+    {
+      "start": 448,
+      "end": 456,
+      "text": "Тихонова",
+      "golden_person_id": "gp-tikhonova-natalia"
+    },
+    {
+      "start": 497,
+      "end": 506,
+      "text": "Морозовой",
+      "golden_person_id": "gp-morozova-yulia"
+    },
+    {
+      "start": 545,
+      "end": 561,
+      "text": "Наталия Тихонова",
+      "golden_person_id": "gp-tikhonova-natalia"
+    },
+    {
+      "start": 675,
+      "end": 684,
+      "text": "Морозовой",
+      "golden_person_id": "gp-morozova-yulia"
+    },
+    {
+      "start": 790,
+      "end": 805,
+      "text": "Полине Чистовой",
+      "golden_person_id": "gp-chistova-polina"
+    },
+    {
+      "start": 945,
+      "end": 958,
+      "text": "Петра Иванова",
+      "golden_person_id": "gp-ivanov-petr"
+    },
+    {
+      "start": 961,
+      "end": 977,
+      "text": "Руслана Терехова",
+      "golden_person_id": "gp-terekhov-ruslan"
+    },
+    {
+      "start": 1201,
+      "end": 1209,
+      "text": "Терехова",
+      "golden_person_id": "gp-terekhov-ruslan"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [
+        "gp-morozova-yulia"
+      ],
+      "evidence": {
+        "start": 23,
+        "end": 68,
+        "text": "с обыском пришли к журналистке Юлии Морозовой"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "search",
+      "person_ids": [
+        "gp-chistova-polina"
+      ],
+      "evidence": {
+        "start": 737,
+        "end": 805,
+        "text": "с обыском в Москве приходили к еще одной журналистке Полине Чистовой"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-ivanov-petr",
+        "gp-terekhov-ruslan"
+      ],
+      "evidence": {
+        "start": 979,
+        "end": 1041,
+        "text": "которых обвиняют в незаконном пересечении границы (ст. 322 УК)"
+      },
+      "shared": true,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "'Юли' is Yulia Morozova. Ivanov and Terekhov are the accused SOTA journalists; the searches are in their case.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

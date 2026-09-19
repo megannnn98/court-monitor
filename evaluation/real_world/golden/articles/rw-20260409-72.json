@@ -1,0 +1,53 @@
+{
+  "case_id": "rw-20260409-72",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/09/verkhovnyy-sud-obyavil-dvizhenie-memorial-ekstremistskoy-organizaciey",
+  "canonical_url": "https://ovd.info/express-news/2026/04/09/verkhovnyy-sud-obyavil-dvizhenie-memorial-ekstremistskoy-organizaciey",
+  "published_at": "2026-04-09T13:44:00+03:00",
+  "content_hash": "0a992d1bb9ef9b885d93d615f2a9a3f972615a5601de11e44282bca53051c0ae",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "organization_event",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1108,
+      "text": "Верховный суд России объявил «Международное общественное движение „Мемориал“» экстремистской организацией и запретил его деятельность. Об этом сообщают «Осторожно, новости».\n\nИск о запрете «Мемориала» подал Минюст России.\n\nЦентр защиты прав человека «Мемориал» отмечал, что организации с названием, указанным в иске, не существует.\n\n«Обычно власти начинают преследовать участников любых инициатив, которые ассоциируются с запрещенным „движением“. То есть под удар попадут все „мемориальские“ организации», — предполагают правозащитники.\n\nВ декабре 2021 года российские суды ликвидировали Правозащитный центр «Мемориал» и «Международный Мемориал». Представители прокуратуры тогда обвиняли Правозащитный центр «Мемориал» в поддержке протестов, а также в дезинформации граждан и формировании превратного мнения о государстве с помощью списка политзаключенных. «Международный Мемориал» обвинили в искажении исторической памяти и создании «лживого образа СССР».\n\nВ 2022 году «Мемориал» вместе с украинским «Центром гражданских свобод» и правозащитником из Беларуси Алесем Беляцким получил Нобелевскую премию мира."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 1060,
+      "end": 1075,
+      "text": "Алесем Беляцким",
+      "golden_person_id": "gp-bialiatski-ales"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 105,
+        "text": "Верховный суд России объявил «Международное общественное движение „Мемориал“» экстремистской организацией"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "About an organization; Bialiatski is mentioned as a Nobel laureate.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

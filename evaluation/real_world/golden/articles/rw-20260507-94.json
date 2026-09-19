@@ -1,0 +1,94 @@
+{
+  "case_id": "rw-20260507-94",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+  "canonical_url": "https://ovd.info/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv",
+  "published_at": "2026-05-07T18:14:00+03:00",
+  "content_hash": "80a8fc4c6a7b043f26a11fa90010753fe3708e8c55e6e60aa9a2b5e6425095a5",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "follow_up",
+    "administrative",
+    "repeated_arrests"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1030,
+      "text": "Лидера регионального отделения партии «Яблоко» Григория Грибенко арестовали еще на десять суток, сообщает в своем телеграм-канале активист Павел Харитоненко.\n\nНа этот раз Грибенко арестовали по статье о неповиновении полиции (ч. 1 ст. 19.3 КоАП). Этот протокол на него составили после осмотра его квартиры в рамках оперативно-розыскных мероприятий, которые проводили под предлогом поиска наркотиков.\n\nДо этого он отбыл 12 суток ареста из-за отказа от медосвидетельствования (ч. 1 ст. 6.9 КоАП). Политик должен был освободиться вечером 6 мая, но его снова задержали полицейские.\n\nВ первый раз Грибенко задержали 10 апреля. Его заставили пройти освидетельствование. В городском наркодиспансере утверждали, что в организме политика нашли следы марихуаны. В частной клинике в тот же день в анализах Грибенко ничего не нашли. Из-за этого при следующем задержании он отказался проходить освидетельствование.\n\nПолитик пытался организовать в Иркутске митинг против блокировок интернета. После отказов мэрии он стал судиться с чиновниками."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 47,
+      "end": 64,
+      "text": "Григория Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 139,
+      "end": 156,
+      "text": "Павел Харитоненко",
+      "golden_person_id": "gp-kharitonenko-pavel"
+    },
+    {
+      "start": 171,
+      "end": 179,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 592,
+      "end": 600,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    },
+    {
+      "start": 795,
+      "end": 803,
+      "text": "Грибенко",
+      "golden_person_id": "gp-gribenko-grigory"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-gribenko-grigory"
+      ],
+      "evidence": {
+        "start": 65,
+        "end": 95,
+        "text": "арестовали еще на десять суток"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-gribenko-grigory"
+      ],
+      "evidence": {
+        "start": 545,
+        "end": 576,
+        "text": "его снова задержали полицейские"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Same person as the 2026-04-24 article.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

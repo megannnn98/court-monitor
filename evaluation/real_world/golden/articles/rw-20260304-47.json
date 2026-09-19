@@ -1,0 +1,172 @@
+{
+  "case_id": "rw-20260304-47",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe",
+  "canonical_url": "https://ovd.info/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe",
+  "published_at": "2026-03-04T14:02:00+03:00",
+  "content_hash": "d3c153674a5c983ba2900b50bfea0ef4053e79d69269cc5b43feee1758a9b220",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "minor",
+    "historical_reference",
+    "several_events",
+    "declined_names",
+    "given_name_only"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 2338,
+      "text": "Пермяка Арсения Турбина 3 марта поместили в карцер в пермском СИЗО-5, сообщает «Пермское правозащитное издание». Это телеграм-канал журналистки Оксана Асауленко, которая входит в местную общественную наблюдательную комиссию.\n\nВ этот день Асауленко пыталась передать 17-летнему Турбину продукты. Из-за спора с сотрудницей СИЗО, которая не хотела принимать передачу без записи, ей пришлось звонить в спецчасть. Там сказали, что без записи тоже можно передать продукты и попросили подождать. Когда дошла очередь до передачи школьнику, та же сотрудница СИЗО кому-то позвонила, а затем сообщила журналистке, что Турбин в карцере и передачу не примет.\n\n«За два часа, пока мы ждали, он вдруг там оказался? Я сообщаю новости маме Арсения. Она звонит воспитателю. Тот говорит, что Арсений не в карцере, у него все в порядке, это в комнате передач что-то напутали», — пишет Асауленко.\n\nПосле этого она сообщила сотруднице СИЗО, что воспитатель не подтвердил информацию о карцере. «Воспитатель еще не знает. Его сегодня отправят все равно. Я не могу принять», — ответила сотрудница СИЗО.\n\nАсауленко отмечает, что обычно в случае нарушений рапорт пишет именно воспитатель. Она предполагает, что решение о взыскании, из-за которого Турбина отправили в карцер, единолично вынес начальник СИЗО. Журналистка также отметила, что до этого в СИЗО школьника содержали в одиночной камере.\n\nВ феврале против школьника возбудили дело новое дело. По данным группы поддержки, его обвиняют в участии в массовых беспорядках (ч. 2 ст. 212 УК). Как предполагает Асауленко, дело связано с бунтом в воспитательной колонии, в которой Турбин отбывал наказание. Она отметила, что информация о бунте появлялась в январе, но официального подтверждения не было.\n\nТурбина задержали в 2023 году, когда ему было 15 лет. Его обвинили в участии в деятельности террористической организации (ч. 2 ст. 205.5 УК). Силовики утверждали, что школьник написал в телеграм-бот легиона «Свобода России» и заполнил анкету на вступление, а затем в качестве участника подразделения разложил по почтовым ящикам в нескольких домах листовки «Тебе нужен такой президент?» и публиковал посты с критикой властей.\n\nШкольник признал, что разложил листовки, но говорил, что делал это по собственной инициативе, а в легион «Свобода России» он не вступал. В 2024 году его приговорили к пяти годам колонии."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 8,
+      "end": 23,
+      "text": "Арсения Турбина",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 144,
+      "end": 160,
+      "text": "Оксана Асауленко",
+      "golden_person_id": "gp-asaulenko-oksana"
+    },
+    {
+      "start": 238,
+      "end": 247,
+      "text": "Асауленко",
+      "golden_person_id": "gp-asaulenko-oksana"
+    },
+    {
+      "start": 277,
+      "end": 284,
+      "text": "Турбину",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 607,
+      "end": 613,
+      "text": "Турбин",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 722,
+      "end": 729,
+      "text": "Арсения",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 772,
+      "end": 779,
+      "text": "Арсений",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 864,
+      "end": 873,
+      "text": "Асауленко",
+      "golden_person_id": "gp-asaulenko-oksana"
+    },
+    {
+      "start": 1078,
+      "end": 1087,
+      "text": "Асауленко",
+      "golden_person_id": "gp-asaulenko-oksana"
+    },
+    {
+      "start": 1219,
+      "end": 1226,
+      "text": "Турбина",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 1533,
+      "end": 1542,
+      "text": "Асауленко",
+      "golden_person_id": "gp-asaulenko-oksana"
+    },
+    {
+      "start": 1602,
+      "end": 1608,
+      "text": "Турбин",
+      "golden_person_id": "gp-turbin-arseny"
+    },
+    {
+      "start": 1726,
+      "end": 1733,
+      "text": "Турбина",
+      "golden_person_id": "gp-turbin-arseny"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-turbin-arseny"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 50,
+        "text": "Пермяка Арсения Турбина 3 марта поместили в карцер"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-turbin-arseny"
+      ],
+      "evidence": {
+        "start": 1369,
+        "end": 1421,
+        "text": "В феврале против школьника возбудили дело новое дело"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-turbin-arseny"
+      ],
+      "evidence": {
+        "start": 1726,
+        "end": 1755,
+        "text": "Турбина задержали в 2023 году"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-turbin-arseny"
+      ],
+      "evidence": {
+        "start": 2289,
+        "end": 2337,
+        "text": "В 2024 году его приговорили к пяти годам колонии"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "The journalist Asaulenko reports; she is not persecuted. 'маме Арсения' refers to Turbin.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,112 @@
+{
+  "case_id": "rw-20260402-69",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/02/sud-v-vologde-otkazalsya-po-prosbe-fsin-uzhestochit-nakazanie-figurantu",
+  "canonical_url": "https://ovd.info/express-news/2026/04/02/sud-v-vologde-otkazalsya-po-prosbe-fsin-uzhestochit-nakazanie-figurantu",
+  "published_at": "2026-04-02T18:36:00+03:00",
+  "content_hash": "cc89595640e4e293baf4cf7d395f5c7629310fc7f9b8d0de4c4400708b9fc284",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "prison_discipline",
+    "historical_reference",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1462,
+      "text": "Вологодский городской суд отказался заменить Сергею Мазину принудительные работы на реальный срок. Об этом сообщил его адвокат от ОВД-Инфо _.\n\nОб ужесточении наказания просил начальник исправительного центра № 2 Альберт Таланцев. Он указывал, что 14 января Мазина признали злостным нарушителем.\n\nПеред этим осужденный получил четыре взыскания. В декабре 2025 года ему сделали выговор из-за того, что в холодильнике нашли упаковку с пресервами горбуши, просроченную на два дня. Мазин сообщил, что это не его рыба. По словам адвоката, сотрудники ФСИН не смогли доказать, что она принадлежала его подзащитному.\n\nЕще два взыскания он получил 10 января. Одно — за съемку на телефон процесса подачи заявления в дежурную часть, а второе за отказ давать объяснения по поводу съемки. За это Мазин получил 14 суток в помещении для нарушителей и выговор соответственно.\n\nПоследнее взыскание, тоже выговор, он получил 13 января — из-за того, что Мазин при входе сотрудников ФСИН не сказал, сколько осужденных находятся в помещении для нарушителей и что происходит по распорядку дня. По словам осужденного, он не знал, что должен докладывать об этом.\n\nВ декабре 2024 года суд приговорил Мазина к полутора годам принудительных работ, признав его виновным в повторной дискредитации армии (ч. 1 ст. 280.3 УК). Его осудили из-за публикации нескольких видео с критикой вторжения России в Украину.\n\nМазин отбывает наказание с февраля 2025 года. Его срок истекает 2 августа 2026-го."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 45,
+      "end": 58,
+      "text": "Сергею Мазину",
+      "golden_person_id": "gp-mazin-sergey"
+    },
+    {
+      "start": 212,
+      "end": 228,
+      "text": "Альберт Таланцев",
+      "golden_person_id": "gp-talantsev-albert"
+    },
+    {
+      "start": 257,
+      "end": 263,
+      "text": "Мазина",
+      "golden_person_id": "gp-mazin-sergey"
+    },
+    {
+      "start": 477,
+      "end": 482,
+      "text": "Мазин",
+      "golden_person_id": "gp-mazin-sergey"
+    },
+    {
+      "start": 782,
+      "end": 787,
+      "text": "Мазин",
+      "golden_person_id": "gp-mazin-sergey"
+    },
+    {
+      "start": 934,
+      "end": 939,
+      "text": "Мазин",
+      "golden_person_id": "gp-mazin-sergey"
+    },
+    {
+      "start": 1174,
+      "end": 1180,
+      "text": "Мазина",
+      "golden_person_id": "gp-mazin-sergey"
+    },
+    {
+      "start": 1380,
+      "end": 1385,
+      "text": "Мазин",
+      "golden_person_id": "gp-mazin-sergey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-mazin-sergey"
+      ],
+      "evidence": {
+        "start": 26,
+        "end": 97,
+        "text": "отказался заменить Сергею Мазину принудительные работы на реальный срок"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-mazin-sergey"
+      ],
+      "evidence": {
+        "start": 1139,
+        "end": 1218,
+        "text": "В декабре 2024 года суд приговорил Мазина к полутора годам принудительных работ"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Talantsev heads the correctional center; not persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

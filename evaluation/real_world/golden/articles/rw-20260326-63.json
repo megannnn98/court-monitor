@@ -1,0 +1,161 @@
+{
+  "case_id": "rw-20260326-63",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/26/osuzhdennyy-na-14-let-strogogo-rezhima-nikita-zhuravel-propal-vo-vremya",
+  "canonical_url": "https://ovd.info/express-news/2026/03/26/osuzhdennyy-na-14-let-strogogo-rezhima-nikita-zhuravel-propal-vo-vremya",
+  "published_at": "2026-03-26T14:02:00+03:00",
+  "content_hash": "b27facd6c042743735bce3cbb35856535fd9fbe9fd626ceab688a371332e4b7e",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "namesake_family",
+    "given_name_only",
+    "treason",
+    "historical_reference",
+    "several_events",
+    "ambiguous_persecution"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1879,
+      "text": "Избитый сыном Рамзана Кадырова Никита Журавель пропал во время этапирования. Об этом сообщает член СПЧ Ева Меркачева. Последнее письмо родственники от него получили 24 декабря. Никакой другой информации о его местоположении за три месяца не было. Близкие опасаются, что молодой человек погиб.\n\n14:53 Во ФСИН отрицают пропажу Никиты Журавеля, там заявили что он находится «в одном из учреждений уголовно-исполнительной системы Российской Федерации». Там также заявили, что 21 января 2026 года «осужденный уже получил письмо от матери».\n\nПри этом сама мама Журавеля отрицает, что писала сыну письмо в колонию. Женщина утверждает, что не получала уведомление о том, куда этапировали молодого человека, поэтому и не писала ему писем в новую колонию.\n\nВ ноябре 2024 года Никиту Журавеля приговорили к 13,5 годам строгого режима по делу о госизмене (ст. 275 УК). С учетом неотбытого срока по предыдущему приговору, суммарный срок заключения составил 14 лет. По версии следствия, Журавель связался с представителями спецслужб Украины и предложил сотрудничество. В марте 2023 года он якобы отправил украинской стороне видео с железнодорожным составом, перевозившим военную технику российской армии, военных самолетов, а также данные о передвижении служебного автомобиля одной из частей.\n\nВ конце февраля 2024 года волгоградца Никиту Журавеля приговорили к трем с половиной годам колонии из-за видео с сожжением Корана. Его обвинили в оскорблении чувств верующих (ч. 2 ст. 148 УК) и хулиганстве по мотиву религиозной ненависти (ч. 2 ст. 213 УК). Приговора молодой человек ждал в СИЗО Грозного. Пока он находится там, в сети появились сообщения о том, что 15-летний сын главы Чечни Рамзана Кадырова Адам избил Журавеля в СИЗО. Позже в соцсетях опубликовали видео с избиением, а чеченские политики и сам глава Чечни Рамзан Кадыров не только не отрицали этот поступок, но и поддержали Адама."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 14,
+      "end": 30,
+      "text": "Рамзана Кадырова",
+      "golden_person_id": "gp-kadyrov-ramzan"
+    },
+    {
+      "start": 31,
+      "end": 46,
+      "text": "Никита Журавель",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 103,
+      "end": 116,
+      "text": "Ева Меркачева",
+      "golden_person_id": "gp-merkacheva-eva"
+    },
+    {
+      "start": 325,
+      "end": 340,
+      "text": "Никиты Журавеля",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 555,
+      "end": 563,
+      "text": "Журавеля",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 766,
+      "end": 781,
+      "text": "Никиту Журавеля",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 973,
+      "end": 981,
+      "text": "Журавель",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 1318,
+      "end": 1333,
+      "text": "Никиту Журавеля",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 1672,
+      "end": 1688,
+      "text": "Рамзана Кадырова",
+      "golden_person_id": "gp-kadyrov-ramzan"
+    },
+    {
+      "start": 1689,
+      "end": 1693,
+      "text": "Адам",
+      "golden_person_id": "gp-kadyrov-adam"
+    },
+    {
+      "start": 1700,
+      "end": 1708,
+      "text": "Журавеля",
+      "golden_person_id": "gp-zhuravel-nikita"
+    },
+    {
+      "start": 1805,
+      "end": 1819,
+      "text": "Рамзан Кадыров",
+      "golden_person_id": "gp-kadyrov-ramzan"
+    },
+    {
+      "start": 1873,
+      "end": 1878,
+      "text": "Адама",
+      "golden_person_id": "gp-kadyrov-adam"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-zhuravel-nikita"
+      ],
+      "evidence": {
+        "start": 31,
+        "end": 75,
+        "text": "Никита Журавель пропал во время этапирования"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-zhuravel-nikita"
+      ],
+      "evidence": {
+        "start": 747,
+        "end": 822,
+        "text": "В ноябре 2024 года Никиту Журавеля приговорили к 13,5 годам строгого режима"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-zhuravel-nikita"
+      ],
+      "evidence": {
+        "start": 1334,
+        "end": 1409,
+        "text": "приговорили к трем с половиной годам колонии из-за видео с сожжением Корана"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [
+    "Treason for contacting Ukrainian services and the Quran burning: whether the persecution is political is debatable."
+  ],
+  "notes": "Ramzan Kadyrov and his son Adam (named by given name only). Zhuravel's treason and Quran-burning convictions: political motive debatable.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

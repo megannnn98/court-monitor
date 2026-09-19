@@ -1,0 +1,59 @@
+{
+  "case_id": "rw-20260427-88",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/27/rossiyskuyu-lgbt-set-obyavili-ekstremistskoy-organizaciey",
+  "canonical_url": "https://ovd.info/express-news/2026/04/27/rossiyskuyu-lgbt-set-obyavili-ekstremistskoy-organizaciey",
+  "published_at": "2026-04-27T16:42:00+03:00",
+  "content_hash": "619f61506ede331cd49688ab88551fe35226f22b83fa9211c2d5b80bac32286a",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "organization_event",
+    "lgbt"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1204,
+      "text": "Санкт-Петербургский городской суд удовлетворил иск Минюста о запрете Межрегионального общественного движения «Российская ЛГБТ-сеть». Об этом сообщает пресс-служба городских судов.\n\n«Суд посчитал экстремистской деятельность по защите прав ЛГБТ-людей, мониторингу нарушений прав квир-людей и предоставлению докладов специальной докладчице ООН по вопросам прав человека в России Мариане Кацаровой. По сути, „Российскую ЛГБТ-сеть“ запретили из-за ее правозащитной деятельности. Это решение не имеет ничего общего с правом», — говорит юрист Максим Оленичев (цитата по «Первому отделу»).\n\n«ЛГБТ-сеть» — крупнейшее межрегиональное движение в России, защищающее права ЛГБТК+людей. Оно работает уже 20 лет. Движение будет обжаловать постановление суда.\n\nЭто уже шестое подобное решение с начала года. За это время экстремистскими признали еще пять организаций, помогавших квир-людям:\n\nекатеринбургский «Ресурсный центр ЛГБТ»\n\nпетербургскую ЛГБТК+ группу «Выход»;\n\nСамарскую общественную организацию ЛГБТ+ «Ирида»;\n\nМосковский комьюнити-центр для ЛГБТ-инициатив;\n\nквир-медиа «Парни+».\n\nТакже Минюст требует запретить ярославское движение «Каллисто» и помогавшие трансгендерным людям организации «Центр Т» и T9 NSK."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 376,
+      "end": 393,
+      "text": "Мариане Кацаровой",
+      "golden_person_id": "gp-katsarova-mariana"
+    },
+    {
+      "start": 536,
+      "end": 551,
+      "text": "Максим Оленичев",
+      "golden_person_id": "gp-olenichev-maxim"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [],
+      "evidence": {
+        "start": 34,
+        "end": 131,
+        "text": "удовлетворил иск Минюста о запрете Межрегионального общественного движения «Российская ЛГБТ-сеть»"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "About an organization; the UN rapporteur and the lawyer are not persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,103 @@
+{
+  "case_id": "rw-20260330-67",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/30/byvshiy-sotrudnik-centrobanka-uekhal-iz-rossii-posle-zaprosa-realnogo-sroka",
+  "canonical_url": "https://ovd.info/express-news/2026/03/30/byvshiy-sotrudnik-centrobanka-uekhal-iz-rossii-posle-zaprosa-realnogo-sroka",
+  "published_at": "2026-03-30T15:45:00+03:00",
+  "content_hash": "b465124b5ea759c853e6e23a745f94e9abf7bf5380106ea117ac05cb27413b0b",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "donations_fbk",
+    "emigrated",
+    "in_absentia",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 800,
+      "text": "Бывший сотрудник Центробанка и «Транснефти» Вячеслав Крысько покинул страну, после того как прокурор в прениях запросил ему четыре года колонии общего режима по делу о финансировании экстремистской деятельности (ч. 1 ст. 282.3 УК). Об этом он сам рассказал ОВД-Инфо.\n\nПрения прошли в Мещанском районной суде Москвы 13 марта. «Медиазона» писала, что на следующее заседание 16 марта Крысько не пришел.\n\n25 марта суд приостановил рассмотрение дела из-за того, что подсудимый скрылся. Крысько заочно арестовали и объявили в розыск.\n\nМужчину задержали в июле прошлого года. У него дома провели обыск. На время следствия в качестве меры пресечения ему избрали запрет определенных действий.\n\nДело возбудили из-за доната в тысячу рублей, который Крысько перевел Фонду борьбы с коррупцией 5 августа 2021 года."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 44,
+      "end": 60,
+      "text": "Вячеслав Крысько",
+      "golden_person_id": "gp-krysko-vyacheslav"
+    },
+    {
+      "start": 381,
+      "end": 388,
+      "text": "Крысько",
+      "golden_person_id": "gp-krysko-vyacheslav"
+    },
+    {
+      "start": 481,
+      "end": 488,
+      "text": "Крысько",
+      "golden_person_id": "gp-krysko-vyacheslav"
+    },
+    {
+      "start": 738,
+      "end": 745,
+      "text": "Крысько",
+      "golden_person_id": "gp-krysko-vyacheslav"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-krysko-vyacheslav"
+      ],
+      "evidence": {
+        "start": 481,
+        "end": 526,
+        "text": "Крысько заочно арестовали и объявили в розыск"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-krysko-vyacheslav"
+      ],
+      "evidence": {
+        "start": 529,
+        "end": 567,
+        "text": "Мужчину задержали в июле прошлого года"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "search",
+      "person_ids": [
+        "gp-krysko-vyacheslav"
+      ],
+      "evidence": {
+        "start": 569,
+        "end": 594,
+        "text": "У него дома провели обыск"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

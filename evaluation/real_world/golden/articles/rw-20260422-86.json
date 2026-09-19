@@ -1,0 +1,100 @@
+{
+  "case_id": "rw-20260422-86",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/22/podmoskovnyy-sud-prekratil-delo-o-voennykh-feykakh-kotoroe-zaveli-na-chlena",
+  "canonical_url": "https://ovd.info/express-news/2026/04/22/podmoskovnyy-sud-prekratil-delo-o-voennykh-feykakh-kotoroe-zaveli-na-chlena",
+  "published_at": "2026-04-22T19:01:00+03:00",
+  "content_hash": "d9bed7b4f1f8cb49957f4669122edc9e6937792da2d4d72d29371399049f6dd8",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "known_person_new_article",
+    "case_closed",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1448,
+      "text": "Раменский городской суд прекратил уголовное дело бывшего председателя местного отделения «Яблока», экоактивиста Николая Маркина, которого обвиняли в распространении «фейков» о российской армии (ч. 1 ст. 207.3 УК). Об этом сообщает RusNews.\n\nМаркин признал вину и просил рассмотреть его дело в особом порядке — без исследования доказательств. Его дело прекратили из-за истечения сроков давности.\n\nВ суде активист сказал, что теперь полностью поддерживает политику государства, включая «СВО», и участвует в акциях «Единой России».\n\nДело возбудили из-за постов во «ВКонтакте» от марта 2022 года, в которых говорилось о событиях в Мариуполе.\n\nКак пишет RusNews, ранее Маркин утверждал, что оговорил себя по совету защитника, чтобы избежать ареста. Активист говорил, что посты, которые ему вменили, он не публиковал. Помимо этого, он рассказывал, что показания против него дала зоозащитница, с которой он был знаком по соцсетям.\n\nМаркина задержали 10 марта. Уголовное дело изначально возбудили по более тяжкой статье о военных «фейках» по мотиву ненависти (п. «д» ч. 2 ст. 207.3 УК). После допроса, который длился несколько часов, Маркина отпустили под подписку о невыезде.\n\nВ 2017 году Маркин пытался избраться от КПРФ в совет депутатов московского округа Сокол, а в 2019-м — в совет депутатов в Раменском городском округе. С 2010-х он выступает против вырубок лесов в Раменском. Последняя кампания, в которой он участвовал, — в защиту Булонского леса."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 112,
+      "end": 127,
+      "text": "Николая Маркина",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 241,
+      "end": 247,
+      "text": "Маркин",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 664,
+      "end": 670,
+      "text": "Маркин",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 925,
+      "end": 932,
+      "text": "Маркина",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 1126,
+      "end": 1133,
+      "text": "Маркина",
+      "golden_person_id": "gp-markin-nikolay"
+    },
+    {
+      "start": 1182,
+      "end": 1188,
+      "text": "Маркин",
+      "golden_person_id": "gp-markin-nikolay"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 48,
+        "text": "Раменский городской суд прекратил уголовное дело"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-markin-nikolay"
+      ],
+      "evidence": {
+        "start": 925,
+        "end": 951,
+        "text": "Маркина задержали 10 марта"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Markin also appears in rw-20260310-06 (test). The witness is not named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

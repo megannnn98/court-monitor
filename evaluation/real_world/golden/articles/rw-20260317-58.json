@@ -1,0 +1,101 @@
+{
+  "case_id": "rw-20260317-58",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/17/fermerov-v-novosibirskoy-oblasti-nachali-massovo-shtrafovat-iz-za-protestov",
+  "canonical_url": "https://ovd.info/express-news/2026/03/17/fermerov-v-novosibirskoy-oblasti-nachali-massovo-shtrafovat-iz-za-protestov",
+  "published_at": "2026-03-17T17:16:00+03:00",
+  "content_hash": "0412f8c2e9028f43816400ab7ae4c67ef93aeb720e73470f859c9a8b749b1c80",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "farmers_protest",
+    "group_case",
+    "multi_person",
+    "shared_surname",
+    "garbled_name",
+    "shared_event"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1745,
+      "text": "Ордынский районный суд Новосибирской области оштрафовал семерых жителей села Козиха, которые участвовали в протестах против конфискации их скота, на 12 тысяч рублей каждого. Информация об этом опубликована на сайте суда, на нее обратило внимание «Агентство».\n\nВсем семерым — Иван Скосырский, Светлана Борисенко, Татьяна Андрияноу, Сергей и Михаил Андриновы, Михаил Выгузов и Иван Кузин — вменили организацию массового пребывания граждан в общественных местах (ст. 20.2.2 КоАП), говорится в карточках на сайте суда.\n\nОдин из собеседников «Агентства» рассказал, что оштрафованные 11 марта присутствовали при попытке остановить технику, приехавшую рыть могильник у местного предприятия «Водолей».\n\n«То, что сейчас происходит, мне бы в страшном сне не приснилось. Никогда не думала, что в нашей стране будет такой ужас твориться. И у нас ощущение, что всех наказывают, кто слово скажет», — рассказала «Агентству» жительница села.\n\nУсыпление животных началось еще в феврале. Только вчера выяснилось, что тогда же в регионе ввели режим ЧС. Публично власти объясняют происходящее вспышками пастереллеза и бешенства. Однако при выездах в села чиновники отказываются назвать конкретное заболевание, из-за которого они собираются усыплять животных. Чиновники ссылаются на распоряжение губернатора с грифом «для служебного пользования».\n\nФермеры настаивают, что у их коров и других животных нет симптомов заболеваний. К тому же пастереллез лечится антибиотиками и не предполагает обязательное усыпление. Источники «Коммерсанта» на аграрном рынке делились опасениями, что речь может идти о более опасном заболевании ящуре, которое угрожает экспорту мяса и молочной продукции за рубеж.\n\nПодробнее о ситуации в Новосибирской области можно прочитать по ссылке."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 275,
+      "end": 290,
+      "text": "Иван Скосырский",
+      "golden_person_id": "gp-skosyrsky-ivan"
+    },
+    {
+      "start": 292,
+      "end": 310,
+      "text": "Светлана Борисенко",
+      "golden_person_id": "gp-borisenko-svetlana"
+    },
+    {
+      "start": 312,
+      "end": 329,
+      "text": "Татьяна Андрияноу",
+      "golden_person_id": "gp-andriyanou-tatiana"
+    },
+    {
+      "start": 331,
+      "end": 337,
+      "text": "Сергей",
+      "golden_person_id": "gp-andrinov-sergey"
+    },
+    {
+      "start": 340,
+      "end": 356,
+      "text": "Михаил Андриновы",
+      "golden_person_id": "gp-andrinov-mikhail"
+    },
+    {
+      "start": 358,
+      "end": 372,
+      "text": "Михаил Выгузов",
+      "golden_person_id": "gp-vyguzov-mikhail"
+    },
+    {
+      "start": 375,
+      "end": 385,
+      "text": "Иван Кузин",
+      "golden_person_id": "gp-kuzin-ivan"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-skosyrsky-ivan",
+        "gp-borisenko-svetlana",
+        "gp-andriyanou-tatiana",
+        "gp-andrinov-mikhail",
+        "gp-andrinov-sergey",
+        "gp-vyguzov-mikhail",
+        "gp-kuzin-ivan"
+      ],
+      "evidence": {
+        "start": 45,
+        "end": 83,
+        "text": "оштрафовал семерых жителей села Козиха"
+      },
+      "shared": true,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Seven residents of Kozikha fined together. 'Сергей и Михаил Андриновы' are two persons sharing a surname; 'Андрияноу' is a garbled surname as published.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

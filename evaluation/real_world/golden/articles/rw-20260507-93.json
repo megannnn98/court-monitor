@@ -1,0 +1,80 @@
+{
+  "case_id": "rw-20260507-93",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/07/v-ekaterinburge-issledovatelya-stalinskikh-repressiy-arestovali-po-delu-o",
+  "canonical_url": "https://ovd.info/express-news/2026/05/07/v-ekaterinburge-issledovatelya-stalinskikh-repressiy-arestovali-po-delu-o",
+  "published_at": "2026-05-07T15:01:00+03:00",
+  "content_hash": "f75203d6a75c36b6a786c3b7edb0f2df9cdf50b7c941e9f34e21577da4b48e86",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "historian",
+    "rf_listed_in_text",
+    "arrest"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 872,
+      "text": "37-летнего историка Олега Новоселова заключили под стражу по статье о содействии террористической деятельности (ст. 205.1 УК). Об этом сообщает 66.ru со ссылкой на пресс-службу Верх-Исетского районного суда Екатеринбурга.\n\nИмя Новоселова появилось в списке «террористов и экстремистов» Росфинмониторинга 28 апреля. Телеграм-канал историка «Репрессии в Свердловске» не обновлялся с 20 апреля.\n\nС чем связано уголовное дело, неизвестно.\n\nНовоселов исследовал сталинские репрессии на Урале. Он с 2018 года изучал документы в Госархиве административных органов Свердловской области. Свою работу он начинал в качестве волонтера «Мемориала». Осенью 2025 года Новоселов первым рассказал, что архив стал ограничивать доступ к делам реабилитированных жертв политический репрессий.\n\nВ новости исправлено ошибочное указание, что Новоселов был волонтером екатеринбургского «Мемориала»"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 20,
+      "end": 36,
+      "text": "Олега Новоселова",
+      "golden_person_id": "gp-novoselov-oleg"
+    },
+    {
+      "start": 227,
+      "end": 237,
+      "text": "Новоселова",
+      "golden_person_id": "gp-novoselov-oleg"
+    },
+    {
+      "start": 436,
+      "end": 445,
+      "text": "Новоселов",
+      "golden_person_id": "gp-novoselov-oleg"
+    },
+    {
+      "start": 653,
+      "end": 662,
+      "text": "Новоселов",
+      "golden_person_id": "gp-novoselov-oleg"
+    },
+    {
+      "start": 818,
+      "end": 827,
+      "text": "Новоселов",
+      "golden_person_id": "gp-novoselov-oleg"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-novoselov-oleg"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 57,
+        "text": "37-летнего историка Олега Новоселова заключили под стражу"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "The article says he was added to the Rosfinmonitoring list on 28 April; the evaluation snapshot rf-eval-v1 does not contain him.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

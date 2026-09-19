@@ -1,0 +1,134 @@
+{
+  "case_id": "rw-20260527-99",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/27/na-eks-koordinatora-shtaba-navalnogo-v-cheboksarakh-zaveli-novoe-delo-po",
+  "canonical_url": "https://ovd.info/express-news/2026/05/27/na-eks-koordinatora-shtaba-navalnogo-v-cheboksarakh-zaveli-novoe-delo-po",
+  "published_at": "2026-05-27T13:48:00+03:00",
+  "content_hash": "913511754aa78c1628816025a831236b3937197cd880bdcc8447b3e04e831199",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "inoagent",
+    "in_absentia",
+    "emigrated",
+    "historical_reference",
+    "public_figure_mention"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1755,
+      "text": "Следственный комитет возбудил второе уголовное дело в отношении создателя телеграм-канала «Сердитая Чувашия» Семена Кочкина по статье об уклонении от исполнения обязанностей «иноагента» (ч. 2 ст. 330.1 УК).\n\nДело завели в марте. Согласно обвинительному заключению (есть в распоряжении ОВД-Инфо), в этот раз поводом для уголовного преследования стало непредоставление в Минюст «иноагентских» ежеквартальных отчетов в 2025 году.\n\n24 апреля Кочкина по этому делу заочно арестовали. Спустя шесть дней его дело поступило в Московский районный суд Чебоксар, а 26 мая его начали рассматривать по существу. При этом дела по части 2 статьи 330.1 УК подсудны мировым судьям.\n\nВ качестве защитника Кочкина в деле участвует адвокат по назначению Анатолий Петров. Активисту не удалось с ним связаться: адвокат не отвечает на его сообщения.\n\nВ декабре 2025 года Кочкина заочно приговорили к двум годам колонии по обвинениям в дискредитации армии (ч. 1 ст. 280.3 УК), участии в экстремистской организации (ч. 2 ст. 282.2 УК) и уклонении от исполнения обязанностей «иноагента» (ч. 2 ст. 330.1 УК).\n\nДискредитацию Кочкину вменили из-за постов «Сердитой Чувашии», а участие в экстремистской организации — из-за публикаций о работе Фонда борьбы с коррупцией и подпольных штабов Навального. «Иноагентскую» статью ему тогда предъявили из-за того, что он не маркировал свои посты как «иноагент».\n\nАктивиста также обвиняли в повторной демонстрации запрещенной символики из-за упоминаний легиона «Свобода России». Но до суда это обвинение так и не вошло.\n\nКочкин уехал из России в 2021 году, после запрета ФБК и штабов Навального. В 2022-м его внесли в список «иноагентов». После отъезда активист рассказывал о давлении силовиков на его сестру, которая навещала брата за рубежом."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 109,
+      "end": 123,
+      "text": "Семена Кочкина",
+      "golden_person_id": "gp-kochkin-semen"
+    },
+    {
+      "start": 438,
+      "end": 445,
+      "text": "Кочкина",
+      "golden_person_id": "gp-kochkin-semen"
+    },
+    {
+      "start": 687,
+      "end": 694,
+      "text": "Кочкина",
+      "golden_person_id": "gp-kochkin-semen"
+    },
+    {
+      "start": 734,
+      "end": 749,
+      "text": "Анатолий Петров",
+      "golden_person_id": "gp-petrov-anatoly"
+    },
+    {
+      "start": 848,
+      "end": 855,
+      "text": "Кочкина",
+      "golden_person_id": "gp-kochkin-semen"
+    },
+    {
+      "start": 1097,
+      "end": 1104,
+      "text": "Кочкину",
+      "golden_person_id": "gp-kochkin-semen"
+    },
+    {
+      "start": 1259,
+      "end": 1269,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 1532,
+      "end": 1538,
+      "text": "Кочкин",
+      "golden_person_id": "gp-kochkin-semen"
+    },
+    {
+      "start": 1595,
+      "end": 1605,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-kochkin-semen"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 123,
+        "text": "Следственный комитет возбудил второе уголовное дело в отношении создателя телеграм-канала «Сердитая Чувашия» Семена Кочкина"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-kochkin-semen"
+      ],
+      "evidence": {
+        "start": 438,
+        "end": 477,
+        "text": "Кочкина по этому делу заочно арестовали"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kochkin-semen"
+      ],
+      "evidence": {
+        "start": 828,
+        "end": 895,
+        "text": "В декабре 2025 года Кочкина заочно приговорили к двум годам колонии"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "The appointed lawyer Petrov is not persecuted; the sister is not named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

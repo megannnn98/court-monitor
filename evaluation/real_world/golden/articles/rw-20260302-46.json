@@ -1,0 +1,95 @@
+{
+  "case_id": "rw-20260302-46",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/02/ekaterinu-shulman-zaochno-prigovorili-k-godu-kolonii-po-inoagentskoy-state",
+  "canonical_url": "https://ovd.info/express-news/2026/03/02/ekaterinu-shulman-zaochno-prigovorili-k-godu-kolonii-po-inoagentskoy-state",
+  "published_at": "2026-03-02T17:24:00+03:00",
+  "content_hash": "571df186cb4025a1c165c4c95dae9de250473e310b3d7a52786153edf97d77b3",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "in_absentia",
+    "inoagent",
+    "witness",
+    "known_person_new_article"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 928,
+      "text": "Суд в Москве заочно назначил политологине Екатерине Шульман год колонии по обвинению в уклонении от исполнения обязанностей «иноагента» (ч. 2 ст. 330.1 УК). Об этом сообщает «Медиазона».\n\nГособвинительница запрашивала для нее 1 год и 11 месяцев колонии. Она указала как смягчающее обстоятельство то, что у Шульман есть несовершеннолетние дети. Отягчающим обстоятельством прокурорка назвала мотив политической ненависти или вражды.\n\nУголовное дело против политологини возбудили из-за трех публикаций в сервисе Teletype без плашки «иностранного агента». Также обвинение утверждало, что она разместила на ютубе видео без маркировки. До этого Шульман минимум дважды штрафовали по административным делам о нарушении «иноагентского» законодательства (ст. 19.34 КоАП).\n\nВ суде в качестве свидетельницы обвинения выступила Анжелика Щедрова, которая рассказала, что следит за публикациями Шульман, и обвинила ее в «работе против России»."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 42,
+      "end": 59,
+      "text": "Екатерине Шульман",
+      "golden_person_id": "gp-shulman-ekaterina"
+    },
+    {
+      "start": 306,
+      "end": 313,
+      "text": "Шульман",
+      "golden_person_id": "gp-shulman-ekaterina"
+    },
+    {
+      "start": 639,
+      "end": 646,
+      "text": "Шульман",
+      "golden_person_id": "gp-shulman-ekaterina"
+    },
+    {
+      "start": 815,
+      "end": 831,
+      "text": "Анжелика Щедрова",
+      "golden_person_id": "gp-shchedrova-anzhelika"
+    },
+    {
+      "start": 880,
+      "end": 887,
+      "text": "Шульман",
+      "golden_person_id": "gp-shulman-ekaterina"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-shulman-ekaterina"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 71,
+        "text": "Суд в Москве заочно назначил политологине Екатерине Шульман год колонии"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-shulman-ekaterina"
+      ],
+      "evidence": {
+        "start": 639,
+        "end": 698,
+        "text": "Шульман минимум дважды штрафовали по административным делам"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Shulman also appears in rw-20260302-01 (validation). The witness Shchedrova is not persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

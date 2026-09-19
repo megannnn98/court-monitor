@@ -1,0 +1,101 @@
+{
+  "case_id": "rw-20260415-78",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/15/vs-mordovii-otmenil-uzhestochenie-rezhima-kolonii-pravozashchitniku-sergeyu",
+  "canonical_url": "https://ovd.info/express-news/2026/04/15/vs-mordovii-otmenil-uzhestochenie-rezhima-kolonii-pravozashchitniku-sergeyu",
+  "published_at": "2026-04-15T14:29:00+03:00",
+  "content_hash": "df23867f2d895bc4f82df7f99d6d3037494b1c3b476774e6f750f42ed0078878",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "prison_discipline",
+    "human_rights_defender",
+    "historical_reference",
+    "public_figure_mention"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1506,
+      "text": "Верховный суд Мордовии отменил решении о переводе 70-летнего правозащитника Сергея Марьина из колонии-поселения в колонию общего режима.\n\nЧем суд мотивировал это решение, пока неизвестно. На заседании огласили только резолютивную часть.\n\nОб ужесточении режима колонии просили сотрудники ФСИН. В феврале Зубово-Полянский районный суд удовлетворил ходатайство.\n\nСейчас Марьин находится в колонии-поселении № 14 в мордовском поселке Парца. Там он получил пять взысканий, после чего его признали злостным нарушителем.\n\nСначала Марьину сделали два выговора из-за несоответствия личных вещей описи. Затем на том же основании его отправили в ШИЗО на трое суток. Четвертое взыскание он получил из-за того, что не встал по команде «подъем» — из-за этого ему назначили еще 14 суток ШИЗО. Потом он получил выговор из-за надписи на кровати.\n\nМарьин рассказал, что перед рассмотрением ходатайства ему также подбросили лезвия.\n\nВ марте 2025 года правозащитника приговорили к году колонии-поселения по обвинению в повторной дискредитации армии (ч. 1 ст. 280.3 УК). Поводом для уголовного дела стали пикет, пост и комментарий от 24 февраля 2024 года. Они были посвящены годовщине начала вторжения в Украину и гибели политика Алексея Навального.\n\nМарьин около 20 лет защищал права заключенных в Мордовии. Он посещал их в колониях и представлял их интересы в судебных спорах с представителями ФСИН. ОВД-Инфо рассказывал о его правозащитной работе и преследовании из-за антивоенной позиции, в котором поучаствовал доносчик.\n\n"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 76,
+      "end": 90,
+      "text": "Сергея Марьина",
+      "golden_person_id": "gp-maryin-sergey"
+    },
+    {
+      "start": 367,
+      "end": 373,
+      "text": "Марьин",
+      "golden_person_id": "gp-maryin-sergey"
+    },
+    {
+      "start": 523,
+      "end": 530,
+      "text": "Марьину",
+      "golden_person_id": "gp-maryin-sergey"
+    },
+    {
+      "start": 830,
+      "end": 836,
+      "text": "Марьин",
+      "golden_person_id": "gp-maryin-sergey"
+    },
+    {
+      "start": 1209,
+      "end": 1227,
+      "text": "Алексея Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 1230,
+      "end": 1236,
+      "text": "Марьин",
+      "golden_person_id": "gp-maryin-sergey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-maryin-sergey"
+      ],
+      "evidence": {
+        "start": 23,
+        "end": 90,
+        "text": "отменил решении о переводе 70-летнего правозащитника Сергея Марьина"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-maryin-sergey"
+      ],
+      "evidence": {
+        "start": 914,
+        "end": 983,
+        "text": "В марте 2025 года правозащитника приговорили к году колонии-поселения"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Navalny is mentioned as the subject of the picket.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

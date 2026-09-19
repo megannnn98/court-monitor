@@ -1,0 +1,94 @@
+{
+  "case_id": "rw-20260318-59",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/18/peterburgskaya-aktivistka-darya-kozyreva-vyshla-iz-kolonii",
+  "canonical_url": "https://ovd.info/express-news/2026/03/18/peterburgskaya-aktivistka-darya-kozyreva-vyshla-iz-kolonii",
+  "published_at": "2026-03-18T11:07:00+03:00",
+  "content_hash": "aa246f83b33173782ccc98f91df98c0ce1fa6ba34d1a7ff82a3e4ae64640fcf3",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "release",
+    "historical_reference",
+    "historical_figure"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1195,
+      "text": "20-летняя Дарья Козырева, осужденная по делу о повторной дискредитации армии (ч. 1 ст. 280.3 УК), освободилась из исправительной колонии № 3 в Кинешме Ивановской области, сообщают «Бумага» и RusNews.\n\nАктивистку выпустили сегодня в 7 утра, еще до прибытия в город первого поезда, отмечает RusNews. Из-за этого журналисты не смогли встретить ее у колонии.\n\nСотрудники ФСИН сообщили журналистам, что Козырева уже находится со своей семьей. Близкие также подтвердили освобождение активистки.\n\nСиловики не подпустили журналистов к колонии, сославшись на «антитеррористические учения».\n\nВ апреле 2025 года Козыреву приговорили к двум годам и восьми месяцам колонии общего режима. Также еще два с половиной года ей запрещено делать публикации в интернете.\n\nУголовное дело о дискредитации армии возбудили после акции в годовщину начала войны в 2024 году. Тогда Козырева наклеила на памятник поэту Тарасу Шевченко листок с цитатой из его стихотворения: «Поховайте та вставайте /Кайдани порвіте / І вражою злою кров’ю / Волю окропіте». Затем в деле появился второй эпизод: интервью изданию «Север.Реалии», в котором активистка критиковала вторжение в Украину и называла войну «чудовищной» и «преступной»."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 10,
+      "end": 24,
+      "text": "Дарья Козырева",
+      "golden_person_id": "gp-kozyreva-darya"
+    },
+    {
+      "start": 398,
+      "end": 406,
+      "text": "Козырева",
+      "golden_person_id": "gp-kozyreva-darya"
+    },
+    {
+      "start": 601,
+      "end": 609,
+      "text": "Козыреву",
+      "golden_person_id": "gp-kozyreva-darya"
+    },
+    {
+      "start": 854,
+      "end": 862,
+      "text": "Козырева",
+      "golden_person_id": "gp-kozyreva-darya"
+    },
+    {
+      "start": 890,
+      "end": 905,
+      "text": "Тарасу Шевченко",
+      "golden_person_id": "gp-shevchenko-taras"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "release",
+      "person_ids": [
+        "gp-kozyreva-darya"
+      ],
+      "evidence": {
+        "start": 98,
+        "end": 150,
+        "text": "освободилась из исправительной колонии № 3 в Кинешме"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kozyreva-darya"
+      ],
+      "evidence": {
+        "start": 582,
+        "end": 673,
+        "text": "В апреле 2025 года Козыреву приговорили к двум годам и восьми месяцам колонии общего режима"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Taras Shevchenko is the poet whose monument she decorated.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

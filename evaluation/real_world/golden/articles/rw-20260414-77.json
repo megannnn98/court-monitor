@@ -1,0 +1,56 @@
+{
+  "case_id": "rw-20260414-77",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/14/iz-za-foto-kulicha-i-seks-igrushki-s-podpisyu-khristos-voskres-vozbudili",
+  "canonical_url": "https://ovd.info/express-news/2026/04/14/iz-za-foto-kulicha-i-seks-igrushki-s-podpisyu-khristos-voskres-vozbudili",
+  "published_at": "2026-04-14T13:44:00+03:00",
+  "content_hash": "9dfcd464dc6072dc71b021e12a4ae1274b5e4ca1d392e4474eb913373d96b277",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "given_name_only",
+    "religious_feelings",
+    "lexically_similar"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 496,
+      "text": "Против 20-летней жительницы Мурина возбудили уголовное дело об оскорблении чувств верующих (ч. 1 ст. 148 УК) из-за фото с куличом и секс-игрушкой. На новость обратили внимание RusNews.\n\nУточняется, что Татьяна опубликовала фото кулича и секс-игрушки с подписью «Христос воскрес!» в телеграм-канале. Девушка уже удалила фото и извинилась. «Я сама крещеная и не вкладывала ни капли негатива в выложенный мною пост, не хотела кого-либо этим задеть, оскорбить или осквернить религию», — отметила она."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 202,
+      "end": 209,
+      "text": "Татьяна",
+      "golden_person_id": "gp-tatiana-murino"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-tatiana-murino"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 59,
+        "text": "Против 20-летней жительницы Мурина возбудили уголовное дело"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Named only by given name 'Татьяна'. A near-duplicate situation to the Kisski bar case but a different person.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,154 @@
+{
+  "case_id": "rw-20260525-98",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/25/novoe-delo-osnovatelnicy-astra-piket-u-kremlya-i-uslovnyy-srok",
+  "canonical_url": "https://ovd.info/express-news/2026/05/25/novoe-delo-osnovatelnicy-astra-piket-u-kremlya-i-uslovnyy-srok",
+  "published_at": "2026-05-25T18:02:00+03:00",
+  "content_hash": "18c982b873df829a39d7cf57e6e490f0cb10376bb54dc01ba72d16b03ecb910d",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "multi_person",
+    "namesake_across_articles",
+    "several_events",
+    "jehovahs_witnesses"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1610,
+      "text": "Против основательницы и главреда издания Astra Анастасии Чумаковой возбудили уголовное дело об уклонении от обязанностей «иностранного агента» (ч. 2 ст. 330.1 УК). Следователи из Ульяновска открыли дело 26 января, но известно о нем стало только сейчас. Сейчас дела Чумаковой о «фейках» про армию и об уклонении от обязанностей «иноагента» объединены в одно производство.\n\nНа активистку Марина Халандач, задержанную после пикета на Красной площади в поддержку разработчика комплекса «Оберег 24», составили административный протокол. Ее плакат забрали и порвали. Халандач рассказала, что в отделе полиции ей вызывали психиатрическую бригаду.\n\nСупруга правозащитника Бахрома Хамроева сообщила о резком ухудшении его здоровья в колонии «Полярная сова» в Харпе. По ее словам, Хамроев не получает необходимые лекарства, заметно похудел и жалуется на тяжелое самочувствие.\n\nПетроградский районный суд Петербурга приговорил Константина Егорова к штрафу в 550 тысяч рублей по статье о финансировании экстремистской деятельности (ч. 1 ст. 282.3 УК). По версии суда, с августа 2021 года Егоров перечислил 7 тысяч рублей в пользу ФБК. Его мобильный телефон конфисковали.\n\nСуд в Приморском крае 22 мая 2026 года приговорил 63-летнего Свидетеля Иеговы Виктора Чернова к трем годам условно за исповедание веры в кругу друзей.\n\nВо Фрунзенском районном суде Петербурга начали рассматривать дело сотрудника Росреестра Сергея Суптели по статье о «фейках» об армии. По версии следствия, 15 октября 2022 года он оставил комментарий о ситуации в Белгороде в одном из телеграм-каналов. Мужчина признал вину, он находится под стражей."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 47,
+      "end": 66,
+      "text": "Анастасии Чумаковой",
+      "golden_person_id": "gp-chumakova-anastasia"
+    },
+    {
+      "start": 265,
+      "end": 274,
+      "text": "Чумаковой",
+      "golden_person_id": "gp-chumakova-anastasia"
+    },
+    {
+      "start": 386,
+      "end": 401,
+      "text": "Марина Халандач",
+      "golden_person_id": "gp-khalandach-marina"
+    },
+    {
+      "start": 561,
+      "end": 569,
+      "text": "Халандач",
+      "golden_person_id": "gp-khalandach-marina"
+    },
+    {
+      "start": 664,
+      "end": 680,
+      "text": "Бахрома Хамроева",
+      "golden_person_id": "gp-khamroev-bakhrom"
+    },
+    {
+      "start": 771,
+      "end": 778,
+      "text": "Хамроев",
+      "golden_person_id": "gp-khamroev-bakhrom"
+    },
+    {
+      "start": 916,
+      "end": 935,
+      "text": "Константина Егорова",
+      "golden_person_id": "gp-egorov-konstantin"
+    },
+    {
+      "start": 1076,
+      "end": 1082,
+      "text": "Егоров",
+      "golden_person_id": "gp-egorov-konstantin"
+    },
+    {
+      "start": 1238,
+      "end": 1253,
+      "text": "Виктора Чернова",
+      "golden_person_id": "gp-chernov-viktor"
+    },
+    {
+      "start": 1400,
+      "end": 1414,
+      "text": "Сергея Суптели",
+      "golden_person_id": "gp-suptelya-sergey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-chumakova-anastasia"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 91,
+        "text": "Против основательницы и главреда издания Astra Анастасии Чумаковой возбудили уголовное дело"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-khalandach-marina"
+      ],
+      "evidence": {
+        "start": 403,
+        "end": 446,
+        "text": "задержанную после пикета на Красной площади"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-egorov-konstantin"
+      ],
+      "evidence": {
+        "start": 905,
+        "end": 963,
+        "text": "приговорил Константина Егорова к штрафу в 550 тысяч рублей"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-chernov-viktor"
+      ],
+      "evidence": {
+        "start": 1199,
+        "end": 1274,
+        "text": "приговорил 63-летнего Свидетеля Иеговы Виктора Чернова к трем годам условно"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Konstantin Egorov (FBK donations) is not the Vladimir vice-mayor Denis Egorov. Khamroev's wife is not named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

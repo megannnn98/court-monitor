@@ -1,0 +1,74 @@
+{
+  "case_id": "rw-20260416-79",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/16/na-press-sekretarya-ovd-info-sostavili-protokol-ob-uchastii-v-nezhelatelnoy",
+  "canonical_url": "https://ovd.info/express-news/2026/04/16/na-press-sekretarya-ovd-info-sostavili-protokol-ob-uchastii-v-nezhelatelnoy",
+  "published_at": "2026-04-16T12:54:00+03:00",
+  "content_hash": "7fbb0f17de07d767c0d0bcc0f992a7358082567c3d1f1f6dec3892cccce607d4",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "known_person_new_article",
+    "administrative",
+    "undesirable_organization"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1327,
+      "text": "Прокуратура составила протокол на пресс-секретаря ОВД-Инфо Дмитрия Анисимова еще 13 марта, следует из материалов дела (есть в распоряжении редакции).\n\nПоводом для административного дела стало его участие в обсуждении политических репрессий на ютуб-канале «Транзит» — это проект Free Russia Foundation. Фонд объявили «нежелательной организацией» в июне 2019 года.\n\nАнисимов рассказывал о современных политических преследованиях в России и способах поддержать политзаключенных.\n\nПри сборе материалов Центр «Э» запросил портретное исследование. Сотрудник экспертного центра ГУВД Москвы сравнивал фото Анисимова с сайта ОВД-Инфо и кадры программы на ютубе и заключил, что это один и тот же человек.\n\n«В материалах моего дела 33 листа. Несколько специальных людей с высшим образованием транскрибировали мой комментарий, сопоставляли мои фотографии, писали друг другу заявления и акты проверок — и для суда по административному делу явно потребуется еще немало их деятельного участия. Какая важная причина тратить ресурсы государства!\n\nВпрочем, если это поможет отвлечь их внимание от политического преследования кого-то в более уязвимом положении, то я не против. Только бумагу жалко», — прокомментировал Анисимов свое преследование.\n\n13 апреля его дело поступило в Симоновский районный суд. 13 мая должно пройти судебное заседание."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 59,
+      "end": 76,
+      "text": "Дмитрия Анисимова",
+      "golden_person_id": "gp-anisimov-dmitry"
+    },
+    {
+      "start": 364,
+      "end": 372,
+      "text": "Анисимов",
+      "golden_person_id": "gp-anisimov-dmitry"
+    },
+    {
+      "start": 598,
+      "end": 607,
+      "text": "Анисимова",
+      "golden_person_id": "gp-anisimov-dmitry"
+    },
+    {
+      "start": 1200,
+      "end": 1208,
+      "text": "Анисимов",
+      "golden_person_id": "gp-anisimov-dmitry"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-anisimov-dmitry"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 76,
+        "text": "Прокуратура составила протокол на пресс-секретаря ОВД-Инфо Дмитрия Анисимова"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Anisimov also appears in rw-20260513-33 (dev).",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

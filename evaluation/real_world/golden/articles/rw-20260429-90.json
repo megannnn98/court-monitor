@@ -1,0 +1,217 @@
+{
+  "case_id": "rw-20260429-90",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/29/v-ekaterinburge-siloviki-prishli-k-glave-mestnogo-yabloka-i-chlenu-partii",
+  "canonical_url": "https://ovd.info/express-news/2026/04/29/v-ekaterinburge-siloviki-prishli-k-glave-mestnogo-yabloka-i-chlenu-partii",
+  "published_at": "2026-04-29T14:53:00+03:00",
+  "content_hash": "80fbcf83ce280896cc1b2be78c1a0fa5d71b67cb4cc52277973db0b89d5cd38f",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "group_case",
+    "multi_person",
+    "opposition_party",
+    "several_events",
+    "public_figure_mention"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 2451,
+      "text": "В Екатеринбурге прошли обыски у председателя регионального отделения «Яблока» Максима Петлина и члена партии Егора Ткаченко, сообщает пресс-служба «Яблока».\n\nС Петлиным и Ткаченко проводят оперативно-розыскные мероприятия. Они оба не выходят на связь.\n\nВ партии отметили, что пока неизвестно о предъявлении Петлину и Ткаченко каких-либо обвинений.\n\nРанее глава московского отделения «Яблока» Кирилл Гончаров сообщил, что у Ткаченко забрали телефон и ноутбук, после чего его увезли в неизвестном направлении.\n\n«Яблоко» связывает задержание своих членов с предстоящими выборами в Заксобрание Свердловской области. Региональное отделение собиралось участвовать в выборах и составило список из 48 кандидатов в местный парламент.\n\n18:24 К задержанным уже несколько часов не пускают адвоката, сообщает пресс-служба партии «Яблоко».\n\nПредположительно, они находятся в отделе полиции № 1. Хотя адвокат предоставил все необходимые документы, его не пускают.\n\nТакже «Яблоко» узнало о еще одной задержанной — стороннице партии Елизавете Кабак.\n\n30 апреля Максима Петлина, Егора Ткаченко и Елизавету Кабак вчера вечером отпустили из отдела полиции без предъявления обвинений, сообщила пресс-служба «Яблока».\n\n«Так называемые „оперативно-розыскные мероприятия“, включавшие сегодня обыски и задержания „яблочников“, были связаны с прошлогодними обысками в офисе Екатеринбургского „Яблока“», — уточнила пресс-служба.\n\nРечь идет о визите силовиков на вечер писем политзаключенным в местном офисе «Яблока» в мае 2025 года. «Медиазона» пишет, что с задержанных вчера брали объяснения об этом мероприятии.\n\nНи к кому из задержанных так и не допустили адвокатов.\n\nНа прошлой неделе двух членов «Яблока», собиравшихся вновь избираться в региональные парламенты в этом году, оштрафовали по статье о демонстрации запрещенной символики (ч. 1 ст. 20.3 КоАП). Привлечение к ответственности по этой статье запрещает выдвигаться на выборах в течение года.\n\nТак, главу карельского «Яблока» Эмилию Слабунову оштрафовали на тысячу рублей из-за фото Алексея Навального в посте 2020 года, а лидера фракции «Яблока» в петербургском Заксобрании Александра Шишлова оштрафовали на полторы тысячи из-за видеоинтервью Григория Явлинского, в котором прозвучала фамилия Навального.\n\nЕсли эти решения вступят в силу, Слабунова и Шишлов не смогут в этом году вновь баллотироваться в Заксобрания своих регионов. Шишлов отказался от своего действующего мандата, чтобы его место занял однопартиец."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 78,
+      "end": 93,
+      "text": "Максима Петлина",
+      "golden_person_id": "gp-petlin-maxim"
+    },
+    {
+      "start": 109,
+      "end": 123,
+      "text": "Егора Ткаченко",
+      "golden_person_id": "gp-tkachenko-egor"
+    },
+    {
+      "start": 160,
+      "end": 168,
+      "text": "Петлиным",
+      "golden_person_id": "gp-petlin-maxim"
+    },
+    {
+      "start": 171,
+      "end": 179,
+      "text": "Ткаченко",
+      "golden_person_id": "gp-tkachenko-egor"
+    },
+    {
+      "start": 307,
+      "end": 314,
+      "text": "Петлину",
+      "golden_person_id": "gp-petlin-maxim"
+    },
+    {
+      "start": 317,
+      "end": 325,
+      "text": "Ткаченко",
+      "golden_person_id": "gp-tkachenko-egor"
+    },
+    {
+      "start": 392,
+      "end": 407,
+      "text": "Кирилл Гончаров",
+      "golden_person_id": "gp-goncharov-kirill"
+    },
+    {
+      "start": 423,
+      "end": 431,
+      "text": "Ткаченко",
+      "golden_person_id": "gp-tkachenko-egor"
+    },
+    {
+      "start": 1016,
+      "end": 1031,
+      "text": "Елизавете Кабак",
+      "golden_person_id": "gp-kabak-elizaveta"
+    },
+    {
+      "start": 1044,
+      "end": 1059,
+      "text": "Максима Петлина",
+      "golden_person_id": "gp-petlin-maxim"
+    },
+    {
+      "start": 1061,
+      "end": 1075,
+      "text": "Егора Ткаченко",
+      "golden_person_id": "gp-tkachenko-egor"
+    },
+    {
+      "start": 1078,
+      "end": 1093,
+      "text": "Елизавету Кабак",
+      "golden_person_id": "gp-kabak-elizaveta"
+    },
+    {
+      "start": 1961,
+      "end": 1977,
+      "text": "Эмилию Слабунову",
+      "golden_person_id": "gp-slabunova-emilia"
+    },
+    {
+      "start": 2018,
+      "end": 2036,
+      "text": "Алексея Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 2110,
+      "end": 2128,
+      "text": "Александра Шишлова",
+      "golden_person_id": "gp-shishlov-alexander"
+    },
+    {
+      "start": 2179,
+      "end": 2198,
+      "text": "Григория Явлинского",
+      "golden_person_id": "gp-yavlinsky-grigory"
+    },
+    {
+      "start": 2229,
+      "end": 2239,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 2275,
+      "end": 2284,
+      "text": "Слабунова",
+      "golden_person_id": "gp-slabunova-emilia"
+    },
+    {
+      "start": 2287,
+      "end": 2293,
+      "text": "Шишлов",
+      "golden_person_id": "gp-shishlov-alexander"
+    },
+    {
+      "start": 2368,
+      "end": 2374,
+      "text": "Шишлов",
+      "golden_person_id": "gp-shishlov-alexander"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [
+        "gp-petlin-maxim",
+        "gp-tkachenko-egor"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 123,
+        "text": "В Екатеринбурге прошли обыски у председателя регионального отделения «Яблока» Максима Петлина и члена партии Егора Ткаченко"
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "release",
+      "person_ids": [
+        "gp-petlin-maxim",
+        "gp-tkachenko-egor",
+        "gp-kabak-elizaveta"
+      ],
+      "evidence": {
+        "start": 1044,
+        "end": 1135,
+        "text": "Максима Петлина, Егора Ткаченко и Елизавету Кабак вчера вечером отпустили из отдела полиции"
+      },
+      "shared": true,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-slabunova-emilia"
+      ],
+      "evidence": {
+        "start": 1934,
+        "end": 2006,
+        "text": "главу карельского «Яблока» Эмилию Слабунову оштрафовали на тысячу рублей"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e4",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-shishlov-alexander"
+      ],
+      "evidence": {
+        "start": 2110,
+        "end": 2158,
+        "text": "Александра Шишлова оштрафовали на полторы тысячи"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Petlin, Tkachenko and Kabak were detained together; Slabunova and Shishlov fined separately; Goncharov and Yavlinsky are not persecuted here.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

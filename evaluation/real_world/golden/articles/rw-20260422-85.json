@@ -1,0 +1,68 @@
+{
+  "case_id": "rw-20260422-85",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/22/pensionerku-iz-podmoskovya-osudili-na-7-let-kolonii-po-delu-grazhdan-sssr",
+  "canonical_url": "https://ovd.info/express-news/2026/04/22/pensionerku-iz-podmoskovya-osudili-na-7-let-kolonii-po-delu-grazhdan-sssr",
+  "published_at": "2026-04-22T15:21:00+03:00",
+  "content_hash": "4191fb072f8b60edeb9a876a0fa8d32be39f80d688751ef09c7e8ca4e95071e2",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "extremist_organization",
+    "sentence",
+    "ambiguous_persecution"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1207,
+      "text": "Преображенский суд Москвы приговорил 64-летнюю жительницу Красногорска Галину Шустанову к семи годам колонии общего режима по статьям об организации деятельности экстремистской организации (ч. 1 ст. 282.2 УК) и участии в ней (ч. 2 ст. 282.2 УК). Об этом сообщила слушательница из зала суда.\n\nШустанову взяли под стражу в зале суда. Прокурор запрашивал для нее восемь лет колонии.\n\nПо версии обвинения, пенсионерка создала объединение «Советский народ», которое продолжало деятельность межрегиональной общественной организации «Граждане СССР». В 2022 году ее признали экстремистской (фактически решение суда касалось самарской группы «граждан СССР»).\n\nГособвинительница утверждала, что целью «Советского народа» была смена политического режима и Конституции и восстановление СССР. В объединение якобы вступили несколько человек, а Шустанова собирала деньги на его деятельность.\n\nПенсионерка не признала вину. Она настаивала, что не имела отношения к самарской группе «граждан СССР».\n\n«Я никогда не шла против страны, я работала на нее 40 лет. Да, мы обсуждали СВО, но ничего плохого не говорили. Я нахожусь в ужасе последний год из-за этих обвинений», — говорила она в последнем слове (цитата по SOTAvision)."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 71,
+      "end": 87,
+      "text": "Галину Шустанову",
+      "golden_person_id": "gp-shustanova-galina"
+    },
+    {
+      "start": 292,
+      "end": 301,
+      "text": "Шустанову",
+      "golden_person_id": "gp-shustanova-galina"
+    },
+    {
+      "start": 830,
+      "end": 839,
+      "text": "Шустанова",
+      "golden_person_id": "gp-shustanova-galina"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-shustanova-galina"
+      ],
+      "evidence": {
+        "start": 26,
+        "end": 122,
+        "text": "приговорил 64-летнюю жительницу Красногорска Галину Шустанову к семи годам колонии общего режима"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "'Граждане СССР' cases: a political motive is debated.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

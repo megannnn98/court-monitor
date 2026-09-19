@@ -1,0 +1,79 @@
+{
+  "case_id": "rw-20260417-81",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/17/shestvie-kitayskikh-rabochikh-i-zapret-krestnogo-khoda-naprotiv-kremlya",
+  "canonical_url": "https://ovd.info/express-news/2026/04/17/shestvie-kitayskikh-rabochikh-i-zapret-krestnogo-khoda-naprotiv-kremlya",
+  "published_at": "2026-04-17T17:05:00+03:00",
+  "content_hash": "bdf15ed01192e0bc21836e1bd9832aaa8f887fcdb9bbfcf6e5de1acfbcd30163",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "anonymous_persons",
+    "lexically_similar",
+    "public_figure_mention"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1541,
+      "text": "В Комсомольске-на-Амуре пятерых китайских рабочих привлекли к административной ответственности после шествия против невыплаты зарплат. Их обвинили в организации массового пребывания граждан в общественном месте (ч. 1 ст. 20.2.2 КоАП). Двум назначили штрафы по 10 и 50 тысяч рублей, какое наказание получили остальные — неизвестно.\n\nВ Челябинске двоих сторонников маоизма арестовали на 10 суток из-за баннера против блокировки Telegram. Их признали виновными в проведении несогласованной акции (ч. 2 ст. 20.2 КоАП). Одного из них избили силовики.\n\nМэрия Москвы объяснила сохранение запрета митингов под предлогом ковидных ограничений «высоким риском» заболеваемости. Запрет действует в городе уже больше шести лет.\n\nПод предлогом этих ограничений власти впервые за 30 лет запретили Крестный ход напротив Кремля, который проводят прихожане храма мученицы Татианы при МГУ. Верующим не разрешили выходить за пределы двора факультета журналистики.\n\nИркутские чиновники объяснили отказ в митинге против блокировок тем, что они насчитали «70 тысяч просмотров и реакций» под постами о предстоящей акции, а в городе нет площадки для такого количества людей.\n\nАктивисты из Якутска и Иркутска столкнулись с давлением после попыток согласовать митинги против блокировок. В Якутске активиста оштрафовали из-за репоста 2021 года с требованием освободить Навального (ч. 1 ст. 20.3 КоАП). В Иркутске заявителя митинга принудительно доставили на освидетельствование. Наркодиспансер нашел у него следы марихуаны; частная клиника в тот же день ничего не нашла."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 1340,
+      "end": 1350,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "fine",
+      "person_ids": [],
+      "evidence": {
+        "start": 235,
+        "end": 280,
+        "text": "Двум назначили штрафы по 10 и 50 тысяч рублей"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [],
+      "evidence": {
+        "start": 345,
+        "end": 393,
+        "text": "двоих сторонников маоизма арестовали на 10 суток"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "fine",
+      "person_ids": [],
+      "evidence": {
+        "start": 1259,
+        "end": 1314,
+        "text": "В Якутске активиста оштрафовали из-за репоста 2021 года"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "A digest: the Chinese workers, the Maoists and the activists are not named. Navalny is named in a repost's demand.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

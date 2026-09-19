@@ -1,0 +1,129 @@
+{
+  "case_id": "rw-20260403-70",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/03/politzaklyuchennomu-aleksandru-martynovu-podtverdili-diagnoz-anevrizma",
+  "canonical_url": "https://ovd.info/express-news/2026/04/03/politzaklyuchennomu-aleksandru-martynovu-podtverdili-diagnoz-anevrizma",
+  "published_at": "2026-04-03T15:12:00+03:00",
+  "content_hash": "c4d5cc8d230b72b8c5a4db29c46e9630cd0d6811943f0f8a197a9426dfdc979e",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "prison_conditions",
+    "former_spouses",
+    "historical_reference",
+    "shared_event"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1570,
+      "text": "Политзаключенному Александру Мартынову утвердили диагноз — аневризма аорты, но не назначили никакого лечения. Об этом со ссылкой на адвоката пишет его группа поддержки.\n\n«Лечения никакого не назначили. Как обычно — рекомендации ушли „местному врачу“, а дальше все зависит от того, вызовут его или нет. С системой записи и приема врачей там по-прежнему все сложно и непонятно. Напомним, что так и не решен вопрос с зубным, у него постоянное воспаление слизистой уже четыре года с ареста, он почти не может есть нормальную еду», — отметили в группе поддержки.\n\nАдвокат также рассказал, что несколько дней назад Мартынова выпустили из ШИЗО. Сейчас политзаключенному тяжело: он плохо спит и заново привыкает к жизни в общем бараке после изоляции. После выхода из ШИЗО мужчина целый день разбирал письма, он уточнил, что некоторые письма хранит отдельно, как талисман.\n\nАлександр Мартынов больше четырех месяцев, с 6 ноября, находился в штрафном изоляторе.\n\nВы можете поддержать Александра Мартынова, отправив ему письмо через наш сервис «Весточка».\n\n67-летний Мартынов находится в заключении уже почти четыре года. В 2022 году его вместе художницей Людмилой Разумовой, с которой он на тот момент состоял в браке, задержали из-за антивоенных надписей и рисунков, оставленных в нескольких деревнях Тверской области. Мартынов также публиковал антивоенные посты. В 2023 году его приговорили к шести с половиной годам колонии общего режима, а Разумову — к семи годам колонии. Их осудили по статьям о военных «фейках» (п. «д» ч. 2 ст. 207.3 УК) и вандализме (ч. 2 ст. 214 УК).\n\n\n\n"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 18,
+      "end": 38,
+      "text": "Александру Мартынову",
+      "golden_person_id": "gp-martynov-alexander"
+    },
+    {
+      "start": 609,
+      "end": 618,
+      "text": "Мартынова",
+      "golden_person_id": "gp-martynov-alexander"
+    },
+    {
+      "start": 865,
+      "end": 883,
+      "text": "Александр Мартынов",
+      "golden_person_id": "gp-martynov-alexander"
+    },
+    {
+      "start": 974,
+      "end": 994,
+      "text": "Александра Мартынова",
+      "golden_person_id": "gp-martynov-alexander"
+    },
+    {
+      "start": 1056,
+      "end": 1064,
+      "text": "Мартынов",
+      "golden_person_id": "gp-martynov-alexander"
+    },
+    {
+      "start": 1145,
+      "end": 1163,
+      "text": "Людмилой Разумовой",
+      "golden_person_id": "gp-razumova-lyudmila"
+    },
+    {
+      "start": 1310,
+      "end": 1318,
+      "text": "Мартынов",
+      "golden_person_id": "gp-martynov-alexander"
+    },
+    {
+      "start": 1434,
+      "end": 1442,
+      "text": "Разумову",
+      "golden_person_id": "gp-razumova-lyudmila"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-martynov-alexander"
+      ],
+      "evidence": {
+        "start": 609,
+        "end": 636,
+        "text": "Мартынова выпустили из ШИЗО"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-martynov-alexander",
+        "gp-razumova-lyudmila"
+      ],
+      "evidence": {
+        "start": 1209,
+        "end": 1256,
+        "text": "задержали из-за антивоенных надписей и рисунков"
+      },
+      "shared": true,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-martynov-alexander",
+        "gp-razumova-lyudmila"
+      ],
+      "evidence": {
+        "start": 1355,
+        "end": 1465,
+        "text": "В 2023 году его приговорили к шести с половиной годам колонии общего режима, а Разумову — к семи годам колонии"
+      },
+      "shared": true,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Martynov and the artist Razumova were detained and sentenced in one case.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

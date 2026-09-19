@@ -1,0 +1,94 @@
+{
+  "case_id": "rw-20260323-62",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/23/vladelicu-gey-kluba-v-chite-prigovorili-k-chetyrem-godam-lisheniya-svobody",
+  "canonical_url": "https://ovd.info/express-news/2026/03/23/vladelicu-gey-kluba-v-chite-prigovorili-k-chetyrem-godam-lisheniya-svobody",
+  "published_at": "2026-03-23T18:58:00+03:00",
+  "content_hash": "920904c46b54e2d57e3c79ec98165a00969836161c7cb51f187fd74548eb0f9f",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "lgbt",
+    "sentence",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1000,
+      "text": "23-летнюю владелицу закрытого гей-клуба в Чите Татьяну Зорину приговорили к четырем годам колонии. Об этом сообщает «Чита.ру».\n\nИнгодинский районный суд признал девушку виновной в организации деятельности экстремистской организации (ч. 1 ст. 282.2 УК). По версии следствия, она проводила мероприятия и вела соцсети гей-клуба «Джексон». По словам знакомой Зориной, сначала она работала там диджеем, а после покупки бизнеса стала заниматься управлением и костюмами.Приговора Зорина ждала под домашним арестом. Девушку взяли под стражу в зале суда. Ей также запретили в течение четырех леи заниматься деятельностью, связанной с управлением общественными организациями и администрированием интернет-страниц, а после освобождения ей назначили ограничение свободы сроком на полтора года.В октябре 2024 года в «Джексоне» прошел рейд, во время которого и задержали Зорину. Движение «Русская община» и провластных блогер Владислав Поздняков публиковали видео, на которых силовики унижали работников заведения."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 47,
+      "end": 61,
+      "text": "Татьяну Зорину",
+      "golden_person_id": "gp-zorina-tatiana"
+    },
+    {
+      "start": 355,
+      "end": 362,
+      "text": "Зориной",
+      "golden_person_id": "gp-zorina-tatiana"
+    },
+    {
+      "start": 473,
+      "end": 479,
+      "text": "Зорина",
+      "golden_person_id": "gp-zorina-tatiana"
+    },
+    {
+      "start": 857,
+      "end": 863,
+      "text": "Зорину",
+      "golden_person_id": "gp-zorina-tatiana"
+    },
+    {
+      "start": 912,
+      "end": 931,
+      "text": "Владислав Поздняков",
+      "golden_person_id": "gp-pozdnyakov-vladislav"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-zorina-tatiana"
+      ],
+      "evidence": {
+        "start": 47,
+        "end": 97,
+        "text": "Татьяну Зорину приговорили к четырем годам колонии"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-zorina-tatiana"
+      ],
+      "evidence": {
+        "start": 827,
+        "end": 863,
+        "text": "во время которого и задержали Зорину"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Pozdnyakov is a pro-government blogger, not persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

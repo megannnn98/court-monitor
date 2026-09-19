@@ -1,0 +1,98 @@
+{
+  "case_id": "rw-20260306-51",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/06/obvinyaemuyu-iz-za-razgovorov-o-legione-svoboda-rossii-prigovorili-k-14",
+  "canonical_url": "https://ovd.info/express-news/2026/03/06/obvinyaemuyu-iz-za-razgovorov-o-legione-svoboda-rossii-prigovorili-k-14",
+  "published_at": "2026-03-06T11:12:00+03:00",
+  "content_hash": "aed18198a9708df8b6d96b0f5318b2d201047023b6c45ddbb495badad7b0b4ec",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "informer",
+    "sentence",
+    "legion_svoboda_rossii"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1378,
+      "text": "Центральный окружной военный суд Самары приговорил 27-летнюю Полину Евтушенко к 14 годам колонии общего режима. Об этом сообщает RusNews.\n\nПрокурор запрашивала 18 лет, отметив в качестве смягчающего обстоятельства, что у девушки есть семилетняя дочь.\n\nЕвтушенко обвиняют по шести статьям:\n\n🟧 приготовление к госизмене;\n\n🟧 призывы к экстремизму;\n\n🟧 призывы к терроризму;\n\n🟧 реабилитация нацизма;\n\n🟧 военные «фейки»;\n\n🟧 финансирование терроризма.\n\nБольшинство обвинений касаются постов в соцсетях. Девушка находится в заключении с июля 2023 года. На момент ареста ее дочери было пять лет.\n\nИзначально Евтушенко обвиняли только в приготовлении к госизмене. В ФСБ утверждали, что она склоняла самарца к вступлению в легион «Свобода России» и публиковала инструкции для российских военных по сдаче в плен.\n\n«Холод» выяснил, что дело возбудили после доноса 36-летнего самарца Николая Комарова. Он сам познакомился с Евтушенко во «ВКонтакте», где она публиковала антивоенные посты. Комаров много спрашивал ее про легион «Свобода России» и втайне записывал их разговоры.\n\n«Записи обрезанные. Моменты, которые могли бы оправдать меня — исключены, и это слышно, так как разговоры просто обрываются», — писала Евтушенко журналистам из СИЗО.\n\nОна настаивает, что из полных записей их разговоров понятно, что она не склоняет Комарова, а наоборот, отговаривает от участия в войне в Украине.\n\n"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 61,
+      "end": 77,
+      "text": "Полину Евтушенко",
+      "golden_person_id": "gp-evtushenko-polina"
+    },
+    {
+      "start": 252,
+      "end": 261,
+      "text": "Евтушенко",
+      "golden_person_id": "gp-evtushenko-polina"
+    },
+    {
+      "start": 599,
+      "end": 608,
+      "text": "Евтушенко",
+      "golden_person_id": "gp-evtushenko-polina"
+    },
+    {
+      "start": 870,
+      "end": 886,
+      "text": "Николая Комарова",
+      "golden_person_id": "gp-komarov-nikolay"
+    },
+    {
+      "start": 910,
+      "end": 919,
+      "text": "Евтушенко",
+      "golden_person_id": "gp-evtushenko-polina"
+    },
+    {
+      "start": 975,
+      "end": 982,
+      "text": "Комаров",
+      "golden_person_id": "gp-komarov-nikolay"
+    },
+    {
+      "start": 1199,
+      "end": 1208,
+      "text": "Евтушенко",
+      "golden_person_id": "gp-evtushenko-polina"
+    },
+    {
+      "start": 1312,
+      "end": 1320,
+      "text": "Комарова",
+      "golden_person_id": "gp-komarov-nikolay"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-evtushenko-polina"
+      ],
+      "evidence": {
+        "start": 40,
+        "end": 110,
+        "text": "приговорил 27-летнюю Полину Евтушенко к 14 годам колонии общего режима"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Komarov is the informer who recorded the conversations; not persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

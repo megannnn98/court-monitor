@@ -1,0 +1,116 @@
+{
+  "case_id": "rw-20260421-84",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/21/u-menedzhmenta-izdatelstva-eksmo-prokhodyat-obyski-po-delu-o-lgbt",
+  "canonical_url": "https://ovd.info/express-news/2026/04/21/u-menedzhmenta-izdatelstva-eksmo-prokhodyat-obyski-po-delu-o-lgbt",
+  "published_at": "2026-04-21T13:21:00+03:00",
+  "content_hash": "e12f0af4bec2b49a6ac0909e163783e2b3fd8efb28e0d864b6f7f6793ab368a2",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "group_case",
+    "lgbt",
+    "publishers",
+    "namesake_across_articles",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1056,
+      "text": "У менеджмента издательства «Эксмо» в Москве проходят обыски по делу о распространении ЛГБТ-литературы среди несовершеннолетних. Об этом пишет РЕН ТВ.\n\nПо информации издания, обыски проходят по нескольким адресам по статье об организации деятельности экстремистской организации. Гендиректор издательства Евгений Капьев задержан.\n\n16:05 На допрос в СК доставили гендиректора издательства «Эксмо» Евгения Капьева, финансового директора директора по дистрибуции и директора по коммуникациям. Об этом рассказала директор департамента стратегических коммуникаций «Эксмо-АСТ» Екатерина Кожанова каналу «Осторожно, новости».\n\nСледственные действия связаны с «делом издателей» — почти год назад, в мае 2025, силовики провели массовые обыски у сотрудников «Эксмо», Popcorn books и Individuum по делу об экстремизме из-за распространения книг издательства Popcorn Books. Тогда директора по продажам издательств Popcorn books и Individuum Павла Иванова, менеджера склада Артема Вахляева и исполнительного директора Дмитрия Протопопова отправили под домашний арест.\n\n\n\n"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 303,
+      "end": 317,
+      "text": "Евгений Капьев",
+      "golden_person_id": "gp-kapyev-evgeny"
+    },
+    {
+      "start": 394,
+      "end": 409,
+      "text": "Евгения Капьева",
+      "golden_person_id": "gp-kapyev-evgeny"
+    },
+    {
+      "start": 569,
+      "end": 587,
+      "text": "Екатерина Кожанова",
+      "golden_person_id": "gp-kozhanova-ekaterina"
+    },
+    {
+      "start": 927,
+      "end": 940,
+      "text": "Павла Иванова",
+      "golden_person_id": "gp-ivanov-pavel"
+    },
+    {
+      "start": 959,
+      "end": 974,
+      "text": "Артема Вахляева",
+      "golden_person_id": "gp-vakhlyaev-artem"
+    },
+    {
+      "start": 1003,
+      "end": 1022,
+      "text": "Дмитрия Протопопова",
+      "golden_person_id": "gp-protopopov-dmitry"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [],
+      "evidence": {
+        "start": 0,
+        "end": 59,
+        "text": "У менеджмента издательства «Эксмо» в Москве проходят обыски"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-kapyev-evgeny"
+      ],
+      "evidence": {
+        "start": 278,
+        "end": 326,
+        "text": "Гендиректор издательства Евгений Капьев задержан"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-ivanov-pavel",
+        "gp-vakhlyaev-artem",
+        "gp-protopopov-dmitry"
+      ],
+      "evidence": {
+        "start": 1023,
+        "end": 1051,
+        "text": "отправили под домашний арест"
+      },
+      "shared": true,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Pavel Ivanov (Popcorn Books/Individuum) is not Petr Ivanov (SOTA) of another article. Kozhanova speaks for the publisher.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

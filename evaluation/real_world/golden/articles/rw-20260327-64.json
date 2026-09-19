@@ -1,0 +1,83 @@
+{
+  "case_id": "rw-20260327-64",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/27/zhitel-anapy-propal-posle-karuselnykh-arestov",
+  "canonical_url": "https://ovd.info/express-news/2026/03/27/zhitel-anapy-propal-posle-karuselnykh-arestov",
+  "published_at": "2026-03-27T14:19:00+03:00",
+  "content_hash": "8cf297f2b0af1defd1c9a85b44f285ff716278651a28a1aaf5ffaf5b02abfed7",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "carousel_arrests",
+    "missing_person",
+    "administrative",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 706,
+      "text": "Местонахождение Максима Овчинникова неизвестно с февраля. Об этом ОВД-Инфо сообщила его мать. Молодого человека задержали 27 января сотрудники ФСБ. По словам матери, силовики избили Овчинникова, после чего ему пришлось ехать в больницу. На следующий день его арестовали по статье о неповиновении полиции (ст. 19.3 КоАП). Овчинников должен был выйти на свободу 12 февраля, но вместо этого его снова задержали и отвезли в Геленджик, продержали сутки в отделе полиции, после чего назначили 15 суток по той же статье.Уже 27 февраля молодого человека снова увезли сотрудники ФСБ. Его мать написала заявление на розыск. Она предполагает, что против ее сына могли возбудить уголовное дело по политическим мотивам."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 16,
+      "end": 35,
+      "text": "Максима Овчинникова",
+      "golden_person_id": "gp-ovchinnikov-maxim"
+    },
+    {
+      "start": 182,
+      "end": 193,
+      "text": "Овчинникова",
+      "golden_person_id": "gp-ovchinnikov-maxim"
+    },
+    {
+      "start": 321,
+      "end": 331,
+      "text": "Овчинников",
+      "golden_person_id": "gp-ovchinnikov-maxim"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-ovchinnikov-maxim"
+      ],
+      "evidence": {
+        "start": 94,
+        "end": 146,
+        "text": "Молодого человека задержали 27 января сотрудники ФСБ"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-ovchinnikov-maxim"
+      ],
+      "evidence": {
+        "start": 237,
+        "end": 303,
+        "text": "На следующий день его арестовали по статье о неповиновении полиции"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "The mother is not named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

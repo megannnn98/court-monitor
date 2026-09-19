@@ -1,0 +1,49 @@
+{
+  "case_id": "rw-20260409-74",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/09/oproverzhenie-v-krasnodare-zaderzhali-devushku-podderzhivayushchuyu",
+  "canonical_url": "https://ovd.info/express-news/2026/04/09/oproverzhenie-v-krasnodare-zaderzhali-devushku-podderzhivayushchuyu",
+  "published_at": "2026-04-09T15:29:00+03:00",
+  "content_hash": "fcb19c8915b87b59df3b6f98c661bb07bcff3ebe8c3f1eaa2fa3194e48bd7785",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "refuted",
+    "anonymous_persons",
+    "no_named_person"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 791,
+      "text": "ОПРОВЕРЖЕНИЕ: RusNews пишет, что опубликованное видео старое и не связано с акцией 12 апреля, задержание не подтвердилось.\n\nВ Краснодаре задержали девушку, поддерживавшую Крестный ход против блокировок телеграма и обязательного использования госмессенджера Max. Об этом сообщает RusNews.\n\nПо версии силовиков, организаторы акции «действовали по указке западных спецслужб», а у задержанной обнаружили переписку с другими предполагаемыми участниками. По информации издания, девушке хотят вменить статью об экстремизме.\n\nRusNews также опубликовали видео предположительно с обыска в квартире девушки. На видео она просит силовиков позвонить ее маме.Организаторы Крестного хода планировали провести 12 марта мирное шествие и митинги против блокировок мессенджера телеграм и за свободный интернет."
+    }
+  ],
+  "mentions": [],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 124,
+        "end": 154,
+        "text": "В Краснодаре задержали девушку"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "The source retracted the detention: the event did not happen as reported."
+  ],
+  "notes": "The detention was refuted by the source itself; nobody is named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

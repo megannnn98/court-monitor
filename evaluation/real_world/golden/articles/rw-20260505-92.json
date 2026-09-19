@@ -1,0 +1,155 @@
+{
+  "case_id": "rw-20260505-92",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/05/azat-miftakhov-rasskazal-o-pytkakh-v-kolonii-polyarnaya-sova",
+  "canonical_url": "https://ovd.info/express-news/2026/05/05/azat-miftakhov-rasskazal-o-pytkakh-v-kolonii-polyarnaya-sova",
+  "published_at": "2026-05-05T21:00:00+03:00",
+  "content_hash": "8296d79ee9ff4b11000ca78d5825df343ad6105aa369cdb7849f2f1313f9051f",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "known_person_new_article",
+    "torture",
+    "given_name_only",
+    "same_given_name_different_person",
+    "rf_listed",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1548,
+      "text": "Политзаключенный Азат Мифтахов сообщил о пытках в исправительной колонии № 18 «Полярная сова» в Харпе. Его историю опубликовало издание The Insider.\n\nПо словам Мифтахова, 21 апреля — на следующий день после этапирования — его отвели в оперативный отдел колонии. Там сотрудники и осужденные требовали выполнять их распоряжения, в том числе чистить унитаз. После отказа, как утверждает политзаключенный, его начали избивать.\n\nМифтахов рассказывает, что его повалили на пол, связали скотчем и били — в том числе деревянным молотком по пяткам. Позже, по его словам, к нему применяли электрический ток. «Они повалили меня на пол. Буланов уселся на мое туловище. <…> Михаил уселся мне на ноги и начал обматывать их скотчем. <…> Михаил несколько раз ударил кулаком мне в пах, чтобы я перестал сопротивляться», — рассказывает Мифтахов.\n\nОн также сообщил об угрозах изнасилованием и попытках унизить его. Сотрудники требовали полного подчинения. Когда он отказывался — насилие продолжалось.\n\nАзат Мифтахов — математик, аспирант мехмата МГУ. В 2021 году его приговорили к шести годам колонии по делу о нападении на офис «Единой России», вину он отрицал.\n\nВ сентябре 2025 года его задержали сразу после освобождения и обвинили в «оправдании терроризма». По версии следствия, он якобы одобрил поступок Михаила Жлобицкого (17-летний учащийся Архангельского политехнического техникума с анархистскими взглядами взорвал бомбу в управлении ФСБ Архангельска в октябре 2018 года). Сам Мифтахов это отрицает.\n\nПозже суд приговорил его к четырем годам лишения свободы."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 17,
+      "end": 30,
+      "text": "Азат Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 160,
+      "end": 169,
+      "text": "Мифтахова",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 424,
+      "end": 432,
+      "text": "Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 625,
+      "end": 632,
+      "text": "Буланов",
+      "golden_person_id": "gp-bulanov"
+    },
+    {
+      "start": 661,
+      "end": 667,
+      "text": "Михаил",
+      "golden_person_id": "gp-mikhail-kharp"
+    },
+    {
+      "start": 722,
+      "end": 728,
+      "text": "Михаил",
+      "golden_person_id": "gp-mikhail-kharp"
+    },
+    {
+      "start": 818,
+      "end": 826,
+      "text": "Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 983,
+      "end": 996,
+      "text": "Азат Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    },
+    {
+      "start": 1290,
+      "end": 1308,
+      "text": "Михаила Жлобицкого",
+      "golden_person_id": "gp-zhlobitsky-mikhail"
+    },
+    {
+      "start": 1467,
+      "end": 1475,
+      "text": "Мифтахов",
+      "golden_person_id": "gp-miftakhov-azat"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 31,
+        "end": 77,
+        "text": "сообщил о пытках в исправительной колонии № 18"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 1032,
+        "end": 1081,
+        "text": "В 2021 году его приговорили к шести годам колонии"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 1145,
+        "end": 1204,
+        "text": "В сентябре 2025 года его задержали сразу после освобождения"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-miftakhov-azat"
+      ],
+      "evidence": {
+        "start": 1491,
+        "end": 1547,
+        "text": "Позже суд приговорил его к четырем годам лишения свободы"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "'Михаил' (a torturer, given name only) is not Mikhail Zhlobitsky. Bulanov is named by surname only. Miftakhov and Zhlobitsky also appear in validation articles.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

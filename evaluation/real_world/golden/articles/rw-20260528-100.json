@@ -1,0 +1,187 @@
+{
+  "case_id": "rw-20260528-100",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/28/obyski-u-svideteley-iegovy-vydvorenie-za-namaz-i-dosrochnoe-osvobozhdenie",
+  "canonical_url": "https://ovd.info/express-news/2026/05/28/obyski-u-svideteley-iegovy-vydvorenie-za-namaz-i-dosrochnoe-osvobozhdenie",
+  "published_at": "2026-05-28T18:09:00+03:00",
+  "content_hash": "ef0605acfb8f8b26a62c274a9762578b114b0f398aeb7b7eb2e39cf7e4397b01",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "multi_person",
+    "jehovahs_witnesses",
+    "crimean_tatars",
+    "several_events",
+    "religious"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1620,
+      "text": "В Кемерово 20 мая прошли массовые обыски и допросы у Свидетелей Иеговы, силовики задержали 27-летнего Кирилла Тарасова и отправили его в СИЗО. Тарасова подозревают в организации деятельности экстремистской организации (ч. 1 ст. 282.2 УК), дело возбудили 14 мая.\n\n65-летнего крымскотатарского активиста Сервета Газиева доставили в больницу при исправительной колонии № 5 Петропавловска-Камчатского с высоким давлением. Сейчас он получает лечение. По словам сестры, его состояние немного улучшилось. Газиев — один из осужденных по делу «второй симферопольской» группы «Хизб ут-Тахрир», в январе 2023 года его приговорили к 13 годам лишения свободы. С момента ареста в 2019 году Газиев регулярно сообщает о проблемах со здоровьем.\n\nТагилстроевский районный суд Нижнего Тагила условно-досрочно освободил Вилюра Карачурина, осужденного по «баймакскому делу». Карачурина приговорили к пяти годам колонии за участие в массовых беспорядках и применение насилия к силовикам после событий в Баймаке в январе 2024 года.\n\nВ Красноярском крае полицейские задержали жительницу Шарыповского района Юлию Молчанову, пытавшуюся согласовать митинг против высоких тарифов ЖКХ. На нее составили протокол из-за поста с анонсом мероприятия во «ВКонтакте». Молчанову удерживали в отделе почти четыре часа. Полицейские также провели беседу с ее знакомой, помогавшей готовить обращение в администрацию.\n\nПервореченский районный суд Владивостока назначил мусульманину Ойбеку Усмонову штраф 36 тысяч рублей и решил выдворить его из страны за намаз на детской площадке. Усмонова признали виновным в нарушении требований к миссионерской деятельности."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 102,
+      "end": 118,
+      "text": "Кирилла Тарасова",
+      "golden_person_id": "gp-tarasov-kirill"
+    },
+    {
+      "start": 143,
+      "end": 151,
+      "text": "Тарасова",
+      "golden_person_id": "gp-tarasov-kirill"
+    },
+    {
+      "start": 302,
+      "end": 317,
+      "text": "Сервета Газиева",
+      "golden_person_id": "gp-gaziev-servet"
+    },
+    {
+      "start": 498,
+      "end": 504,
+      "text": "Газиев",
+      "golden_person_id": "gp-gaziev-servet"
+    },
+    {
+      "start": 676,
+      "end": 682,
+      "text": "Газиев",
+      "golden_person_id": "gp-gaziev-servet"
+    },
+    {
+      "start": 800,
+      "end": 817,
+      "text": "Вилюра Карачурина",
+      "golden_person_id": "gp-karachurin-vilyur"
+    },
+    {
+      "start": 854,
+      "end": 864,
+      "text": "Карачурина",
+      "golden_person_id": "gp-karachurin-vilyur"
+    },
+    {
+      "start": 1083,
+      "end": 1097,
+      "text": "Юлию Молчанову",
+      "golden_person_id": "gp-molchanova-yulia"
+    },
+    {
+      "start": 1233,
+      "end": 1242,
+      "text": "Молчанову",
+      "golden_person_id": "gp-molchanova-yulia"
+    },
+    {
+      "start": 1441,
+      "end": 1456,
+      "text": "Ойбеку Усмонову",
+      "golden_person_id": "gp-usmonov-oybek"
+    },
+    {
+      "start": 1541,
+      "end": 1549,
+      "text": "Усмонова",
+      "golden_person_id": "gp-usmonov-oybek"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "search",
+      "person_ids": [],
+      "evidence": {
+        "start": 18,
+        "end": 70,
+        "text": "прошли массовые обыски и допросы у Свидетелей Иеговы"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-tarasov-kirill"
+      ],
+      "evidence": {
+        "start": 72,
+        "end": 118,
+        "text": "силовики задержали 27-летнего Кирилла Тарасова"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-gaziev-servet"
+      ],
+      "evidence": {
+        "start": 584,
+        "end": 645,
+        "text": "в январе 2023 года его приговорили к 13 годам лишения свободы"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "release",
+      "person_ids": [
+        "gp-karachurin-vilyur"
+      ],
+      "evidence": {
+        "start": 773,
+        "end": 817,
+        "text": "условно-досрочно освободил Вилюра Карачурина"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e5",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-molchanova-yulia"
+      ],
+      "evidence": {
+        "start": 1042,
+        "end": 1097,
+        "text": "задержали жительницу Шарыповского района Юлию Молчанову"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e6",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-usmonov-oybek"
+      ],
+      "evidence": {
+        "start": 1419,
+        "end": 1478,
+        "text": "назначил мусульманину Ойбеку Усмонову штраф 36 тысяч рублей"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Five unrelated cases; Gaziev's sister is not named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

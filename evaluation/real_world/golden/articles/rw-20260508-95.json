@@ -1,0 +1,74 @@
+{
+  "case_id": "rw-20260508-95",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/08/zhitelnica-ekaterinburga-poluchila-poltora-goda-prinuditelnykh-rabot-iz-za",
+  "canonical_url": "https://ovd.info/express-news/2026/05/08/zhitelnica-ekaterinburga-poluchila-poltora-goda-prinuditelnykh-rabot-iz-za",
+  "published_at": "2026-05-08T16:32:00+03:00",
+  "content_hash": "0c907c945e3b3a6425a9e1ec3b91c3e1efabef4ac73eb65b0cc41c01c3ebf706",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "ambiguous_persecution",
+    "sentence",
+    "lgbt_adjacent"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1051,
+      "text": "Ленинский районный суд Екатеринбурга приговорил 36-летнюю фотографку и стилистку Александру Кузык к полутора годам принудительных работ по обвинению в незаконном изготовлении порнографии (п. «б» ч. 3 ст. 242 УК), сообщает «Комсомольская правда — Екатеринбург».\n\nПрокурор запрашивал для нее четыре года колонии.\n\nГазета уточняет, что Кузык осудили из-за двух книжек с фанфиками.\n\nДело возбудили в мае 2025 года. На стилистку написала донос женщина, которая обнаружила у своей несовершеннолетней дочери книгу с фанфиками, написанную Кузык.\n\nИзначально КП сообщала, что дело завели из-за фанфиков с ЛГБТК+ персонажами, которые стилистка публиковала в интернете. Затем журналисты выяснили, что обвинение связано не с онлайн-публикациями, а с книгами.\n\nКак отмечала газета, они имели похожее содержание. При этом в книгах не было изображений. Следствие ссылалось на психолого-лингивистическую экспертизу, которая нашла в книгах «признаки порнографического содержания».\n\nКузык полностью признала вину. Она рассказала, что написание фанфиков ее давнее хобби."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 81,
+      "end": 97,
+      "text": "Александру Кузык",
+      "golden_person_id": "gp-kuzyk-alexandra"
+    },
+    {
+      "start": 333,
+      "end": 338,
+      "text": "Кузык",
+      "golden_person_id": "gp-kuzyk-alexandra"
+    },
+    {
+      "start": 531,
+      "end": 536,
+      "text": "Кузык",
+      "golden_person_id": "gp-kuzyk-alexandra"
+    },
+    {
+      "start": 965,
+      "end": 970,
+      "text": "Кузык",
+      "golden_person_id": "gp-kuzyk-alexandra"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-kuzyk-alexandra"
+      ],
+      "evidence": {
+        "start": 37,
+        "end": 135,
+        "text": "приговорил 36-летнюю фотографку и стилистку Александру Кузык к полутора годам принудительных работ"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Convicted for fan-fiction books under the pornography article; a political motive is not established.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

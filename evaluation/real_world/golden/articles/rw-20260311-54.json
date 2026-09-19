@@ -1,0 +1,113 @@
+{
+  "case_id": "rw-20260311-54",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/11/uralskogo-svyashchennika-nazvavshego-osnovatelya-rdk-krasavchikom-osudili",
+  "canonical_url": "https://ovd.info/express-news/2026/03/11/uralskogo-svyashchennika-nazvavshego-osnovatelya-rdk-krasavchikom-osudili",
+  "published_at": "2026-03-11T18:13:00+03:00",
+  "content_hash": "c5c549db427924981e1b2c8193cbda1422ae1fef481286ad893c895970fe3092",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "religious_name",
+    "clergy",
+    "historical_reference",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1526,
+      "text": "Центральный окружной военный суд в Екатеринбурге приговорил 55-летнего иеромонаха Евгения Пинчука (Никандра) к пяти с половиной годам колонии общего режима по обвинению в оправдании терроризма (ч. 2 ст. 205.2 УК). Об этом сообщает петербургский священник Иоанн Курмояров, который отбыл срок по делу о военных «фейках».\n\nПо его данным, прокурор запрашивал шесть с половиной лет колонии.\n\nО приговоре также сообщил Следственный комитет. Там уточнили, что Пинчука осудили из-за положительного комментария «о деятельности представителей организации», признанной в России террористической. Этот комментарий он опубликовал в июле 2023 года.\n\nПо словам источника «Коммерсанта», дело возбудили из-за того, что Пинчук назвал основателя «Русского добровольческого корпуса» «красавчиком» и выразил ему «респект».\n\nПинчук находится в СИЗО с октября 2025 года.\n\nПо данным проекта «Поддержка политзаключенных. Мемориал», против священника также возбуждено дело о реабилитации нацизма (ст. 354.1 УК) и призывах к экстремизму (ст. 280 УК). О двух других уголовных обвинения, помимо оправдания терроризма, сообщает и Курмояров.\n\nЕвгений Пинчук возглавлял в Верхотурье приход Русской православной церкви за границей. В октябре 2022 года его осудили по уголовному делу о повторной дискредитации армии (ч. 1 ст. 280.3 УК). Тогда его оштрафовали на 100 тысяч рублей из-за поста, в котором он назвал действия российских военных в Украине захватническими. До этого его привлекали к административной ответственности из-за антивоенного высказывания.\n\n"
+    }
+  ],
+  "mentions": [
+    {
+      "start": 82,
+      "end": 97,
+      "text": "Евгения Пинчука",
+      "golden_person_id": "gp-pinchuk-evgeny"
+    },
+    {
+      "start": 99,
+      "end": 107,
+      "text": "Никандра",
+      "golden_person_id": "gp-pinchuk-evgeny"
+    },
+    {
+      "start": 255,
+      "end": 270,
+      "text": "Иоанн Курмояров",
+      "golden_person_id": "gp-kurmoyarov-ioann"
+    },
+    {
+      "start": 453,
+      "end": 460,
+      "text": "Пинчука",
+      "golden_person_id": "gp-pinchuk-evgeny"
+    },
+    {
+      "start": 702,
+      "end": 708,
+      "text": "Пинчук",
+      "golden_person_id": "gp-pinchuk-evgeny"
+    },
+    {
+      "start": 803,
+      "end": 809,
+      "text": "Пинчук",
+      "golden_person_id": "gp-pinchuk-evgeny"
+    },
+    {
+      "start": 1100,
+      "end": 1109,
+      "text": "Курмояров",
+      "golden_person_id": "gp-kurmoyarov-ioann"
+    },
+    {
+      "start": 1112,
+      "end": 1126,
+      "text": "Евгений Пинчук",
+      "golden_person_id": "gp-pinchuk-evgeny"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-pinchuk-evgeny"
+      ],
+      "evidence": {
+        "start": 49,
+        "end": 155,
+        "text": "приговорил 55-летнего иеромонаха Евгения Пинчука (Никандра) к пяти с половиной годам колонии общего режима"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-pinchuk-evgeny"
+      ],
+      "evidence": {
+        "start": 1303,
+        "end": 1344,
+        "text": "Тогда его оштрафовали на 100 тысяч рублей"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Hieromonk Evgeny Pinchuk's monastic name is Nikandr. Kurmoyarov is a priest who served a sentence himself.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,120 @@
+{
+  "case_id": "rw-20260529-101",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/29/rostovskogo-khudozhnika-posle-karuselnykh-arestov-otpravili-v-sizo-po",
+  "canonical_url": "https://ovd.info/express-news/2026/05/29/rostovskogo-khudozhnika-posle-karuselnykh-arestov-otpravili-v-sizo-po",
+  "published_at": "2026-05-29T15:28:00+03:00",
+  "content_hash": "dd6ecbb539c0bb1b46871afc4515868751b72133ac2a2c4ad7049d53198dcf3e",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "namesake_family",
+    "rf_namesake",
+    "treason",
+    "carousel_arrests",
+    "torture"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1969,
+      "text": "Суд в Ростове-на-Дону заключил под стражу 63-летнего художника Виктора Кирмана по делу о госизмене (ст. 275 УК).\n\nХудожник будет находиться в ростовском СИЗО-4, подконтрольном ФСБ.\n\nЖена Кирмана сообщила дочери, что перед арестом видела его избитым: «Вся голова желтая, лицо в синяках». На нем были гематомы, кровоподтеки вокруг глаз, особенно на правой стороне лица. Кроме того, его одежда была грязной.\n\nПо словам художника, силовики избили его 25 мая. Они требовали подписать некие бумаги и признаться в том, что он переводил деньги в Украину.\n\nНелли Кирман говорит, что следствие делает упор на то, что у отца есть родственники в Украине. В том числе там живут обе его дочери. Художник родился в Кировоградской области, но последние 40 лет постоянно жил в Ростове-на-Дону, отмечает Нелли Кирман.\n\nХудожник не признает вину по делу о госизмене.\n\nКирмана задержали 26 февраля. После этого его девять раз арестовывали по административным делам под разными предлогами. Во время «карусельных арестов» он сообщил близким о пытках. По словам Кирмана, во время допросов его избивали и обливали водой, имитируя утопление. Также к нему применяли ток.\n\nВиктор Кирман — член Союза художников России и Международной ассоциации изобразительного искусства при ЮНЕСКО. Он занимался живописью, керамикой, реставрацией и дизайном интерьеров.\n\nКирман родом из Украины, но впоследствии переехал в Россию. Он окончил художественно-графический факультет Ростовского педагогического университета, а позднее преподавал на кафедре декоративно-прикладного искусства и дизайна ЮФУ. Также у него есть студия в Ростове-на-Дону, в которой он проводил мастер-классы по живописи для взрослых и детей.\n\nВ разные годы художник работал в России и Украине. В том числе он реставрировал экспонаты российских и украинских музеев. В 2010-х при поддержке Ростовской региональной украинской национально-культурной автономии Кирман вместе с дочерью проводил выставки в городах Луганской и Донецкой областей."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 63,
+      "end": 78,
+      "text": "Виктора Кирмана",
+      "golden_person_id": "gp-kirman-viktor"
+    },
+    {
+      "start": 187,
+      "end": 194,
+      "text": "Кирмана",
+      "golden_person_id": "gp-kirman-viktor"
+    },
+    {
+      "start": 548,
+      "end": 560,
+      "text": "Нелли Кирман",
+      "golden_person_id": "gp-kirman-nelli"
+    },
+    {
+      "start": 786,
+      "end": 798,
+      "text": "Нелли Кирман",
+      "golden_person_id": "gp-kirman-nelli"
+    },
+    {
+      "start": 849,
+      "end": 856,
+      "text": "Кирмана",
+      "golden_person_id": "gp-kirman-viktor"
+    },
+    {
+      "start": 1039,
+      "end": 1046,
+      "text": "Кирмана",
+      "golden_person_id": "gp-kirman-viktor"
+    },
+    {
+      "start": 1146,
+      "end": 1159,
+      "text": "Виктор Кирман",
+      "golden_person_id": "gp-kirman-viktor"
+    },
+    {
+      "start": 1329,
+      "end": 1335,
+      "text": "Кирман",
+      "golden_person_id": "gp-kirman-viktor"
+    },
+    {
+      "start": 1887,
+      "end": 1893,
+      "text": "Кирман",
+      "golden_person_id": "gp-kirman-viktor"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-kirman-viktor"
+      ],
+      "evidence": {
+        "start": 22,
+        "end": 98,
+        "text": "заключил под стражу 63-летнего художника Виктора Кирмана по делу о госизмене"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-kirman-viktor"
+      ],
+      "evidence": {
+        "start": 849,
+        "end": 877,
+        "text": "Кирмана задержали 26 февраля"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Viktor Kirman is not АРКАДИЙ КИРМАН of the RF snapshot (same surname, other given name). Nelli Kirman is his daughter. The wife is not named.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

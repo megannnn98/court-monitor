@@ -1,0 +1,83 @@
+{
+  "case_id": "rw-20260313-56",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/13/krasnodarca-posle-peresmotra-dela-o-donatakh-fbk-prigovorili-k-shtrafu-300",
+  "canonical_url": "https://ovd.info/express-news/2026/03/13/krasnodarca-posle-peresmotra-dela-o-donatakh-fbk-prigovorili-k-shtrafu-300",
+  "published_at": "2026-03-13T13:03:00+03:00",
+  "content_hash": "8a2ea9b0a733792bdf33ca696712fd8fec788903167637dac303d3b871872e7d",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "donations_fbk",
+    "retrial",
+    "declined_names",
+    "historical_reference"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 841,
+      "text": "Прикубанский районный суд Краснодара приговорил Дмитрия Дыбу к штрафу 300 тысяч рублей по обвинению в финансировании экстремистской деятельности (ч. 1 ст. 282.3 УК). Об этом ОВД-Инфо сообщил его адвокат _.\n\nДело против краснодарца возбудили из-за семи донатов ФБК по 150 рублей (всего он отправил 1050 рублей).\n\nВ июне 2025 года тот же суд приговорил Дыбу к полутора годам принудительных работ. Через месяц Краснодарский краевой суд отменил приговор и отправил дело на новое рассмотрение. Коллегия судей указала, что предъявленная Дыбе статья не предполагает наказание в виде полутора лет принудительных работ, и указала на формальные нарушения в решении суда первой инстанции.\n\nПрокурор при первом рассмотрении дела запрашивал для краснодарца три года принудительных работ. Во время нового рассмотрение он запросил три года лишения свободы."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 48,
+      "end": 60,
+      "text": "Дмитрия Дыбу",
+      "golden_person_id": "gp-dyba-dmitry"
+    },
+    {
+      "start": 351,
+      "end": 355,
+      "text": "Дыбу",
+      "golden_person_id": "gp-dyba-dmitry"
+    },
+    {
+      "start": 531,
+      "end": 535,
+      "text": "Дыбе",
+      "golden_person_id": "gp-dyba-dmitry"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-dyba-dmitry"
+      ],
+      "evidence": {
+        "start": 37,
+        "end": 86,
+        "text": "приговорил Дмитрия Дыбу к штрафу 300 тысяч рублей"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-dyba-dmitry"
+      ],
+      "evidence": {
+        "start": 329,
+        "end": 393,
+        "text": "тот же суд приговорил Дыбу к полутора годам принудительных работ"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": null,
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

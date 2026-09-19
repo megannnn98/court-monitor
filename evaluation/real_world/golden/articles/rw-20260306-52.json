@@ -1,0 +1,75 @@
+{
+  "case_id": "rw-20260306-52",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/06/iz-za-kommentariev-pro-putina-zhitelya-karachaevo-cherkesii-arestovali-na",
+  "canonical_url": "https://ovd.info/express-news/2026/03/06/iz-za-kommentariev-pro-putina-zhitelya-karachaevo-cherkesii-arestovali-na",
+  "published_at": "2026-03-06T14:57:00+03:00",
+  "content_hash": "84a53c9a0413dd871b19c18cf79ae7ae7f12909a7f0ca34c5a2971431f8f5567",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "misspelled_name",
+    "administrative",
+    "speech",
+    "public_figure_mention"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 582,
+      "text": "Хабезский районный суд Карачаево-Черкесской республики арестовал на 15 суток местного жителя Мухараба Шебзухова из-за комментариев про Владимира Путина в нескольких сообществах во «ВКонтакте». На информацию на сайте суда обратила внимание SOTA.Суд решил, что Шебузов оскорбил в комментариях социальную группу «русские» и президента России. В постановлении суда указаны фразы: «он молодых губит», «Путин вас отправляет как свиней на убой», «просто молодую нацию губяд», «как раком до Шанхая», «как щенят кормит», «как свиней на убой».\n\nКомментарии обнаружили сотрудники «Центра „Э“»."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 93,
+      "end": 111,
+      "text": "Мухараба Шебзухова",
+      "golden_person_id": "gp-shebzukhov-mukharab"
+    },
+    {
+      "start": 135,
+      "end": 151,
+      "text": "Владимира Путина",
+      "golden_person_id": "gp-putin-vladimir"
+    },
+    {
+      "start": 259,
+      "end": 266,
+      "text": "Шебузов",
+      "golden_person_id": "gp-shebzukhov-mukharab"
+    },
+    {
+      "start": 397,
+      "end": 402,
+      "text": "Путин",
+      "golden_person_id": "gp-putin-vladimir"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-shebzukhov-mukharab"
+      ],
+      "evidence": {
+        "start": 55,
+        "end": 111,
+        "text": "арестовал на 15 суток местного жителя Мухараба Шебзухова"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "The source writes the surname once as 'Шебузов'. Putin is the object of the comments.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

@@ -1,0 +1,110 @@
+{
+  "case_id": "rw-20260409-73",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/09/v-chite-zaderzhali-byvshego-korrespondenta-radio-svoboda-ego-obvinyayut-v",
+  "canonical_url": "https://ovd.info/express-news/2026/04/09/v-chite-zaderzhali-byvshego-korrespondenta-radio-svoboda-ego-obvinyayut-v",
+  "published_at": "2026-04-09T15:06:00+03:00",
+  "content_hash": "77212c1a87893ca7d672c9e97cb539f54aaf1b6e629f426ab3f3754d33cf4487",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "identity_by_media",
+    "treason",
+    "search",
+    "historical_figures",
+    "namesake_across_articles"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1669,
+      "text": "В Забайкальском крае задержали бывшего внештатного корреспондента Радио Свобода. Его имя официально не называется, однако, по данным местных СМИ, речь идет о 66-летнем журналисте из Читы Александре Андрееве. Об этом пишут Крым.Реалии со ссылкой на сообщение спецслужб.\n\nВ чем его обвиняют:\n\nЖурналиста обвиняют в госизмене. По версии ФСБ, задержанный передавал через Телеграм сведения Службе безопасности Украины — в частности, об объектах, на которые позже были совершены «компьютерные атаки». Среди них — местное издание, освещающее ход войны, и объект «критической инфраструктуры региона».\n\nПри обыске у корреспондента изъяли технику и средства связи. Кроме того, ФСБ распространила видео задержания мужчины: на кадрах силовики показывают скриншоты сообщений корреспондента в Телеграм — в них он только выражал поддержку Украины.\n\nКто такой Александр Андреев:\n\nПредполагаемый задержанный сотрудничал с Русской службой Радио Свобода в первой половине 2010-х годов, готовил материалы для программы «Корреспондентский час», а также писал для изданий «Каспаров.ру» и «МБХ медиа». В 2014 году возглавлял читинское отделение партии «Западный выбор» — ее основали оппозиционные политики Константин Боровой и Валерия Новодворская, однако уже в 2014 году регистрация партии была аннулирована.\n\nЧто известно помимо официальной версии:\n\nПервым о задержании журналиста еще 1 апреля сообщило издание «Чита.ру» — тогда без официального подтверждения. По данным источника издания, обыски прошли также у двух знакомых задержанного, в том числе у бывшего главы Могочинского района Дмитрия Плюхина — правозащитника, который в 2012 году победил на выборах кандидата от «Единой России»."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 187,
+      "end": 206,
+      "text": "Александре Андрееве",
+      "golden_person_id": "gp-andreev-alexander"
+    },
+    {
+      "start": 844,
+      "end": 861,
+      "text": "Александр Андреев",
+      "golden_person_id": "gp-andreev-alexander"
+    },
+    {
+      "start": 1183,
+      "end": 1201,
+      "text": "Константин Боровой",
+      "golden_person_id": "gp-borovoy-konstantin"
+    },
+    {
+      "start": 1204,
+      "end": 1224,
+      "text": "Валерия Новодворская",
+      "golden_person_id": "gp-novodvorskaya-valeria"
+    },
+    {
+      "start": 1567,
+      "end": 1582,
+      "text": "Дмитрия Плюхина",
+      "golden_person_id": "gp-plyukhin-dmitry"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-andreev-alexander"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 79,
+        "text": "В Забайкальском крае задержали бывшего внештатного корреспондента Радио Свобода"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "charge",
+      "person_ids": [
+        "gp-andreev-alexander"
+      ],
+      "evidence": {
+        "start": 291,
+        "end": 322,
+        "text": "Журналиста обвиняют в госизмене"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e3",
+      "event_type": "search",
+      "person_ids": [
+        "gp-plyukhin-dmitry"
+      ],
+      "evidence": {
+        "start": 1469,
+        "end": 1517,
+        "text": "обыски прошли также у двух знакомых задержанного"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "The detainee is named only 'по данным местных СМИ'. Borovoy and Novodvorskaya are historical founders of a party. Plyukhin was searched.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

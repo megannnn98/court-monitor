@@ -1,0 +1,88 @@
+{
+  "case_id": "rw-20260519-97",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/05/19/zapret-lgbt-iniciativy-pytki-aktivista-i-delo-o-prizyve-unichtozhit-kreml",
+  "canonical_url": "https://ovd.info/express-news/2026/05/19/zapret-lgbt-iniciativy-pytki-aktivista-i-delo-o-prizyve-unichtozhit-kreml",
+  "published_at": "2026-05-19T18:02:00+03:00",
+  "content_hash": "f123daab495d70c99e4468d79bb52c80d0d29c15604d1f28722de9c28ff72eb3",
+  "split": "validation",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "digest",
+    "multi_person",
+    "anonymous_persons",
+    "rf_listed_in_text",
+    "torture"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1324,
+      "text": "Суд в Новосибирске признал ЛГБТ-инициативу Т9 NSK экстремистской организацией и запретил ее деятельность. По мнению суда, организация занималась деятельностью, направленной на «уничтожение фундаментальных российских духовно-нравственных ценностей». Это уже девятое подобное решение российских судов за три месяца.\n\nВоронежский активист Кирилл Деревский рассказал, что сотрудники центра «Э» избили его и применяли шокер после задержания на урбанистической встрече 17 мая. По словам Деревского, силовики требовали разблокировать телефон, угрожали тюрьмой, били и рвали волосы. Позже его доставили в отдел полиции и забрали кандидатское удостоверение.\n\nФемактивистку Дарью Серенко внесли в перечень «террористов и экстремистов» Росфинмониторинга. В 2024 году против нее возбудили уголовное дело о несоблюдении обязанностей «иностранного агента», она объявлена в розыск. По какому делу ее внесли в перечень, неясно.\n\nМинюст включил «Международную ассоциацию российских адвокатов», зарегистрированную во Франции, в список «нежелательных организаций». Ассоциация находится в Страсбурге, ее возглавляет Каринна Москаленко.\n\nВ Крыму российские силовики задержали 48-летнего жителя Симферополя по обвинению в призывах в интернете «уничтожить Кремль». По версии ФСБ, мужчина размещал такие комментарии в украинских группах в Telegram."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 336,
+      "end": 352,
+      "text": "Кирилл Деревский",
+      "golden_person_id": "gp-derevsky-kirill"
+    },
+    {
+      "start": 481,
+      "end": 491,
+      "text": "Деревского",
+      "golden_person_id": "gp-derevsky-kirill"
+    },
+    {
+      "start": 664,
+      "end": 677,
+      "text": "Дарью Серенко",
+      "golden_person_id": "gp-serenko-darya"
+    },
+    {
+      "start": 1096,
+      "end": 1114,
+      "text": "Каринна Москаленко",
+      "golden_person_id": "gp-moskalenko-karinna"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-derevsky-kirill"
+      ],
+      "evidence": {
+        "start": 419,
+        "end": 469,
+        "text": "после задержания на урбанистической встрече 17 мая"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "detention",
+      "person_ids": [],
+      "evidence": {
+        "start": 1117,
+        "end": 1184,
+        "text": "В Крыму российские силовики задержали 48-летнего жителя Симферополя"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "The Simferopol resident is not named. Serenko is said to be on the Rosfinmonitoring list; the snapshot rf-eval-v1 does not contain her.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

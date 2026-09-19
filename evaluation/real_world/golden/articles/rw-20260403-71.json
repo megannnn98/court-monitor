@@ -1,0 +1,107 @@
+{
+  "case_id": "rw-20260403-71",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/03/61-letnemu-zhitelyu-vyborga-zaprosili-3-goda-kolonii-po-delu-o-kommentarii",
+  "canonical_url": "https://ovd.info/express-news/2026/04/03/61-letnemu-zhitelyu-vyborga-zaprosili-3-goda-kolonii-po-delu-o-kommentarii",
+  "published_at": "2026-04-03T18:25:00+03:00",
+  "content_hash": "316b3b2e77132b1de7c23b2a9e2b712ef629c7fc20ad680313834eb5caf79d35",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "known_person_new_article",
+    "historical_reference",
+    "several_events",
+    "declined_names"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1472,
+      "text": "61-летнему Олегу Мампории, обвиняемому в повторной демонстрации запрещенной атрибутики или символики (ч. 1 ст. 282.4 УК), запросили 3 года лишения свободы. Об этом сообщил его адвокат от ОВД-Инфо _.\n\nВ январе Мампорию перевели из-под домашнего ареста под стражу, он находится в выборгском СИЗО-3. Суд принял такое решение на основе рапорта из уголовно-исполнительной инспекции. В нем утверждалось, что мужчина оставлял комментарии в интернете, хотя условия домашнего ареста это запрещали.\n\nМампорию задержали и поместили под домашний арест в апреле. С сентября его дело рассматривает суд.\n\nПоводом для уголовного преследования стал комментарий в чате телгерам-канала «Время Шариковых». По версии силовиков, Мампория написал «Слава Украине». Этот лозунг силовики приписали легиону «Свобода России», который признан властями террористической организацией.\n\nВ 2024 году Мампорию арестовали на 10 суток по административной статье о демонстрации запрещенной символики (ч. 1 ст. 20.3 КоАП). Тогда протокол составили из-за поста во «ВКонтакте» с тем же лозунгом. В нем он рассказывал о своих украинских корнях, делился впечатлениями от поездок в Киев и Одессу.\n\nКроме того, мужчину штрафовали по статье о дискредитации армии (ч. 1 ст. 20.3.3 КоАП) из-за высказываний во время ссоры с зятем соседки, воевавшим в Украине. Мампория тогда сорвал с его машины букву Z и обвинил российских военных в убийстве гражданских. Участник войны в Украине после этого написал на Мампорию донос."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 11,
+      "end": 25,
+      "text": "Олегу Мампории",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 209,
+      "end": 217,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 490,
+      "end": 498,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 707,
+      "end": 715,
+      "text": "Мампория",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 867,
+      "end": 875,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 1313,
+      "end": 1321,
+      "text": "Мампория",
+      "golden_person_id": "gp-mamporia-oleg"
+    },
+    {
+      "start": 1457,
+      "end": 1465,
+      "text": "Мампорию",
+      "golden_person_id": "gp-mamporia-oleg"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 122,
+        "end": 154,
+        "text": "запросили 3 года лишения свободы"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-mamporia-oleg"
+      ],
+      "evidence": {
+        "start": 855,
+        "end": 898,
+        "text": "В 2024 году Мампорию арестовали на 10 суток"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Mamporia also appears in rw-20260505-27 (dev).",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

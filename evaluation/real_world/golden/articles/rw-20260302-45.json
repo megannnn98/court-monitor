@@ -1,0 +1,47 @@
+{
+  "case_id": "rw-20260302-45",
+  "source": "sota-vision",
+  "external_id": "/umer-dramaturg-nikolaj-kolyada/",
+  "canonical_url": "https://sota.vision/umer-dramaturg-nikolaj-kolyada/",
+  "published_at": "2026-03-02T00:00:00+03:00",
+  "content_hash": "4ee621ac993d6b50ee7948b39ab1ca1930199a4f9c70f282744d449b5d54eac8",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "non_political",
+    "death",
+    "public_figure"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 328,
+      "text": "В ночь на 2 марта в Екатеринбурге скончался театральный режиссер, директор и художественный руководитель «Коляда-театра» Николай Коляда. Об этом сообщил губернатор Свердловской области Денис Паслер.\n\nЛегендарному российскому драматургу было 68 лет. На прошлой неделе его госпитализировали в реанимацию с двусторонней пневмонией."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 121,
+      "end": 135,
+      "text": "Николай Коляда",
+      "golden_person_id": "gp-kolyada-nikolay"
+    },
+    {
+      "start": 185,
+      "end": 197,
+      "text": "Денис Паслер",
+      "golden_person_id": "gp-pasler-denis"
+    }
+  ],
+  "events": [],
+  "disputed": [],
+  "notes": "An obituary: nobody here is persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

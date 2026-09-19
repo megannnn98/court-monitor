@@ -1,0 +1,47 @@
+{
+  "case_id": "rw-20260518-96",
+  "source": "sota-vision",
+  "external_id": "/vladimir-putin-posetit-kitaj-19-20-maya/",
+  "canonical_url": "https://sota.vision/vladimir-putin-posetit-kitaj-19-20-maya/",
+  "published_at": "2026-05-18T00:00:00+03:00",
+  "content_hash": "ef01a6b01d0900becf3db3f5d8967746a9a261fba3a6e075b1f23e208f2d6bec",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "non_political",
+    "public_figure",
+    "off_topic"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 523,
+      "text": "Поездка приурочена к 25-летию подписания Договора о добрососедстве, дружбе и сотрудничестве.\n\n«Владимир Путин и Си Цзиньпин обсудят актуальные вопросы двусторонних отношений, пути дальнейшего углубления всеобъемлющего партнерства и стратегического взаимодействия между Российской Федерацией и Китайской Народной Республикой, обменяются мнениями по основным международным и региональным проблемам»,— сообщили в Кремле.\n\nПланируется подписание совместного заявления на высшем уровне и других документов по итогам переговоров."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 95,
+      "end": 109,
+      "text": "Владимир Путин",
+      "golden_person_id": "gp-putin-vladimir"
+    },
+    {
+      "start": 112,
+      "end": 123,
+      "text": "Си Цзиньпин",
+      "golden_person_id": "gp-xi-jinping"
+    }
+  ],
+  "events": [],
+  "disputed": [],
+  "notes": "A diplomatic news item: nobody is persecuted.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

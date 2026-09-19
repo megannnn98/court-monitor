@@ -1,0 +1,107 @@
+{
+  "case_id": "rw-20260329-65",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo",
+  "canonical_url": "https://ovd.info/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo",
+  "published_at": "2026-03-29T08:18:00+03:00",
+  "content_hash": "9b6178e871a5ecf795e99a2bf079a40582ec0b285096c32d62f9f407f789c6bb",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "farmers_protest",
+    "rally_organizer",
+    "administrative",
+    "several_events"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1320,
+      "text": "Организатора митинга против массового изъятия и забоя скота в селах Новосибирской области Сергея Крупенько задержали силовики по дороге на мероприятие. Об этом сообщает Российская коммунистическая партия.\n\nПо информации телеграм-канала, Крупенько везут в Центральный отдел полиции куда раньше его вызывали к 10:00 по повестке. К этому времени в отдел приходил адвокат от ОВД-Инфо Василий Дубков, однако к нему никто не вышел.\n\n11:32 На Сергея Крупенько составили протокол по статье об организации митинга (ст. 20.2 ч.8 КоАП) и задержали на 48 часов до суда. Об этом сообщает Российская коммунистическая партия. Поводом для составления протокола стал митинг 1 марта против массового забоя скота, который якобы провел Крупенько в Новосибирске.\n\n30 марта Центральный районный суд Новосибирска оштрафовал Крупенько на 250 тысяч рублей. Об этом в своем телеграм-канале сообщил активист Роман Малоземов.\n\nВесь март сибирские фермеры протестуют против массового усыпления коров, овец, коз и свиней. Несмотря на сопротивление, животных продолжают убивать. С февраля было уничтожено более двух тысяч голов скота.\n\nПублично власти объясняют происходящее вспышками пастереллеза и бешенства. Однако документов, которые бы подтверждали, что у животных есть эти заболевания, фермерам не предоставляют. Подробнее об этом читайте здесь."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 90,
+      "end": 106,
+      "text": "Сергея Крупенько",
+      "golden_person_id": "gp-krupenko-sergey"
+    },
+    {
+      "start": 237,
+      "end": 246,
+      "text": "Крупенько",
+      "golden_person_id": "gp-krupenko-sergey"
+    },
+    {
+      "start": 380,
+      "end": 394,
+      "text": "Василий Дубков",
+      "golden_person_id": "gp-dubkov-vasily"
+    },
+    {
+      "start": 436,
+      "end": 452,
+      "text": "Сергея Крупенько",
+      "golden_person_id": "gp-krupenko-sergey"
+    },
+    {
+      "start": 716,
+      "end": 725,
+      "text": "Крупенько",
+      "golden_person_id": "gp-krupenko-sergey"
+    },
+    {
+      "start": 801,
+      "end": 810,
+      "text": "Крупенько",
+      "golden_person_id": "gp-krupenko-sergey"
+    },
+    {
+      "start": 881,
+      "end": 896,
+      "text": "Роман Малоземов",
+      "golden_person_id": "gp-malozemov-roman"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "detention",
+      "person_ids": [
+        "gp-krupenko-sergey"
+      ],
+      "evidence": {
+        "start": 90,
+        "end": 150,
+        "text": "Сергея Крупенько задержали силовики по дороге на мероприятие"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-krupenko-sergey"
+      ],
+      "evidence": {
+        "start": 790,
+        "end": 830,
+        "text": "оштрафовал Крупенько на 250 тысяч рублей"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [],
+  "notes": "Dubkov is a lawyer, Malozemov reports the fine; neither is persecuted here.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

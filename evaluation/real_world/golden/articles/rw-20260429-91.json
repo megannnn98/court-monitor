@@ -1,0 +1,89 @@
+{
+  "case_id": "rw-20260429-91",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/04/29/na-byvshego-sotrudnika-shtaba-navalnogo-v-ufe-zaveli-ugolovnoe-delo-po",
+  "canonical_url": "https://ovd.info/express-news/2026/04/29/na-byvshego-sotrudnika-shtaba-navalnogo-v-ufe-zaveli-ugolovnoe-delo-po",
+  "published_at": "2026-04-29T15:28:00+03:00",
+  "content_hash": "5aca5daec5ed93e134271755f00f65064164bf35013a12ab271b812e8b321180",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "inoagent",
+    "emigrated",
+    "historical_reference",
+    "public_figure_mention"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1188,
+      "text": "Следственный комитет возбудил уголовное дело об уклонении от исполнения обязанностей «иноагента» (ст. 330.1 УК) против юриста Федора Телина.\n\nДело возбудили еще в феврале, но юрист узнал о нем только в апреле, после того как его родственников вызвали на допрос в СК.\n\n«Уже много лет моя деятельность направлена на благо граждан России, а не в угоду иностранным государствам. Сам факт возбуждения дела по иноагентской статье для меня оскорбителен», — прокомментировал правозащитник свое преследование.\n\nПравозащитника внесли в реестр «иноагентов» в ноябре 2022 года. С тех пор уфимские суды шесть раз штрафовали его по административным делам о нарушении законодательства об «иноагентах» (ст. 19.34 КоАП) — трижды из-за отсутствия плашки в постах и еще трижды из-за непредоставления отчетов в Минюст.\n\nТелин покинул Россию в 2021 году, вскоре после вступления в силу решения о запрете ФБК и штабов Навального. Уже после отъезда к нему приходили с обыском силовики.\n\nДо признания проектов Навального экстремистскими юрист несколько лет проработал в уфимском штабе. Его трижды привлекали к ответственности по митинговой статье (ст. 20.2 КоАП) из-за участия в акциях протеста или постов о них."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 126,
+      "end": 139,
+      "text": "Федора Телина",
+      "golden_person_id": "gp-telin-fedor"
+    },
+    {
+      "start": 800,
+      "end": 805,
+      "text": "Телин",
+      "golden_person_id": "gp-telin-fedor"
+    },
+    {
+      "start": 896,
+      "end": 906,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    },
+    {
+      "start": 986,
+      "end": 996,
+      "text": "Навального",
+      "golden_person_id": "gp-navalny-alexey"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-telin-fedor"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 96,
+        "text": "Следственный комитет возбудил уголовное дело об уклонении от исполнения обязанностей «иноагента»"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "fine",
+      "person_ids": [
+        "gp-telin-fedor"
+      ],
+      "evidence": {
+        "start": 576,
+        "end": 614,
+        "text": "уфимские суды шесть раз штрафовали его"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Navalny is mentioned through his organizations.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

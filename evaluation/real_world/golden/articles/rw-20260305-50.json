@@ -1,0 +1,106 @@
+{
+  "case_id": "rw-20260305-50",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/05/bloger-zhenonenavistnik-arsen-markaryan-poluchil-realnyy-srok-po-delu-o",
+  "canonical_url": "https://ovd.info/express-news/2026/03/05/bloger-zhenonenavistnik-arsen-markaryan-poluchil-realnyy-srok-po-delu-o",
+  "published_at": "2026-03-05T15:07:00+03:00",
+  "content_hash": "d86c54a12369cf7087cb12a7c9f5893e9028304fb087ae5004fe11290ed8eb52",
+  "split": "test",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "ambiguous_persecution",
+    "historical_figures",
+    "sentence"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 1656,
+      "text": "Мосгорсуд приговорил Арсена Маркаряна к четырем с половиной годам колонии общего режима по обвинениям в оскорблении памяти защитников Отечества (ч. 4 ст. 354.1 УК) и оправдании преступлений, установленных Международным трибуналом (п. «в» ч. 2 ст. 354.1 УК). Об этом сообщает «Медиазона».\n\nПрокурор запрашивал для него шесть лет и десять месяцев колонии.\n\nМаркарян признал вину. По его просьбе дело рассматривали в особом порядке — то есть без исследования доказательств.\n\nАдвокат просил назначить ему условное наказание и не накладывать запрет на публикации в интернете, поскольку Маркарян зарабатывает деньги как блогер. Сам подсудимый говорил, что у него на иждивении находятся мать, жена и две дочери; младшая дочь родилась два дня назад, 3 марта\n\nИзначально блогера обвинили в оскорблении памяти защитников Отечества из-за видео, в котором он назвал «долбоебом» красноармейца Александра Матросова. По официальной версии, Матросов погиб в 1943 году, закрыв своим телом амбразуру немецкого дзота.\n\nЗатем в деле появился еще один эпизод. СК сообщил, что Маркарян опубликовал видео с «оправданием идеологии и практики нацизма, связанных с уничтожением групп по национальному признаку». Что именно говорилось в этом видео, неясно. В представленной в суде экспертизе сказано, что Маркарян «констатировал отсутствие вопросов к деятельности Адольфа Гитлера» и «выражал публичную поддержку» его действий.\n\nБлогер находится в СИЗО с августа 2025 года.\n\nМаркарян в качестве коуча по личностному росту для мужчин продавал различные курсы и доступ в закрытый телеграм-канал. Он приобрел известность после мизогинных высказываний в соцсетях и на различных подкастах."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 21,
+      "end": 37,
+      "text": "Арсена Маркаряна",
+      "golden_person_id": "gp-markaryan-arsen"
+    },
+    {
+      "start": 355,
+      "end": 363,
+      "text": "Маркарян",
+      "golden_person_id": "gp-markaryan-arsen"
+    },
+    {
+      "start": 581,
+      "end": 589,
+      "text": "Маркарян",
+      "golden_person_id": "gp-markaryan-arsen"
+    },
+    {
+      "start": 880,
+      "end": 900,
+      "text": "Александра Матросова",
+      "golden_person_id": "gp-matrosov-alexander"
+    },
+    {
+      "start": 925,
+      "end": 933,
+      "text": "Матросов",
+      "golden_person_id": "gp-matrosov-alexander"
+    },
+    {
+      "start": 1055,
+      "end": 1063,
+      "text": "Маркарян",
+      "golden_person_id": "gp-markaryan-arsen"
+    },
+    {
+      "start": 1278,
+      "end": 1286,
+      "text": "Маркарян",
+      "golden_person_id": "gp-markaryan-arsen"
+    },
+    {
+      "start": 1337,
+      "end": 1352,
+      "text": "Адольфа Гитлера",
+      "golden_person_id": "gp-hitler-adolf"
+    },
+    {
+      "start": 1447,
+      "end": 1455,
+      "text": "Маркарян",
+      "golden_person_id": "gp-markaryan-arsen"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-markaryan-arsen"
+      ],
+      "evidence": {
+        "start": 0,
+        "end": 87,
+        "text": "Мосгорсуд приговорил Арсена Маркаряна к четырем с половиной годам колонии общего режима"
+      },
+      "shared": false,
+      "historical": false
+    }
+  ],
+  "disputed": [
+    "Whether the prosecution of Markaryan is political is itself debatable."
+  ],
+  "notes": "Speech prosecution of a misogynist bloger; political motive disputed. Matrosov and Hitler are historical figures.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}

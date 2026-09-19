@@ -1,0 +1,192 @@
+{
+  "case_id": "rw-20260305-49",
+  "source": "ovd-info",
+  "external_id": "/express-news/2026/03/05/osuzhdennogo-iz-za-antivoennykh-postov-kirovchanina-otpravili-na-polgoda-v",
+  "canonical_url": "https://ovd.info/express-news/2026/03/05/osuzhdennogo-iz-za-antivoennykh-postov-kirovchanina-otpravili-na-polgoda-v",
+  "published_at": "2026-03-05T13:58:00+03:00",
+  "content_hash": "fc5303738a944da5bb42a6f569d44256bc134fd65882e9f777a2739dce382a17",
+  "split": "dev",
+  "annotation_status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "annotators": [
+    "claude-code-agent (AI draft, not human-verified)"
+  ],
+  "verified_by": null,
+  "verified_at": null,
+  "tags": [
+    "namesake_family",
+    "given_name_only",
+    "historical_reference",
+    "several_events",
+    "in_absentia"
+  ],
+  "excerpts": [
+    {
+      "start": 0,
+      "end": 2337,
+      "text": "Ричарда Роуза, который отбывает срок в пермской ИК-29 по делу о военных «фейках» и оправдании терроризма, на полгода поместили в помещение камерного типа. Об этом ОВД-Инфо рассказала его жена Мария Роуз.\n\n21 февраля Ричард в одном из писем сообщил, что его поместили в ШИЗО до 13 марта. В другом письме, датированном 3 марта, он рассказал, что его отправляют в ПКТ на полгода.\n\nЧто было поводом для помещения в ШИЗО и перевода в ПКТ, неизвестно.\n\nДо этого он находился в отряде строгих условий отбывания наказания (СУС). Мария рассказала, что его ограничивают в переписке и только недавно знакомым Ричарда стали снова приходить его письма.\n\n«От Ричарда не было писем почти год. Сейчас он только два письма прислал (к моменту публикации от него пришло третье письмо — прим. ОВД-Инфо). Ему не передают письма ни от кого. Ему пишут люди со всего мира», — говорит она. Мария получает сообщения от людей, которые рассказывают, что их письма Ричарду остаются без ответа.\n\nС ограничениями в переписке и звонках кировчанин сталкивается на протяжении всего времени заключения: как в колонии, так и в СИЗО.\n\nВ 2023 году Ричарда Роуза приговорили к восьми годам колонии по обвинениям в распространении «фейков» о российской армии (п. «д» ч. 2 ст. 207.3 УК) и оправдании терроризма (ч. 2 ст. 205.2 УК).\n\nЕго осудили из-за публикаций в инстаграме. «Фейком» суд посчитал видео об убийствах мирных жителей в Буче, а оправданием терроризма — комментарий к видео о войне «Остановить путлера можно только одним способом — убить его физически».\n\nРоуза арестовали в апреле 2022 года. Он рассказывал, что после задержания его избивали в здании ФСБ и заставили назвать пароль от телефона, угрожая изнасиловать и убить его жену. В СИЗО Роуз дал признательные показания после того, как силовики угрожали арестом его жены, отправкой его сына в детдом и созданием невыносимых условий для самого мужчины. По словам Роуза, один из сотрудников ФСБ пообещал «перекрыть [ему] все каналы связи».\n\nВ апреле 2022-го дело о военных «фейках» завели и на Марию Роуз — тоже из-за публикаций о Буче. Затем из-за постов о войне ее обвинили и в призывах к экстремизму (ч. 2 ст. 280 УК).\n\nЧерез несколько месяцев Мария Роуз, которую не помещали в СИЗО на время следствия, вместе с несовершеннолетним сыном уехала из России. Ее заочно приговорили к пяти с половиной годам колонии."
+    }
+  ],
+  "mentions": [
+    {
+      "start": 0,
+      "end": 13,
+      "text": "Ричарда Роуза",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 192,
+      "end": 202,
+      "text": "Мария Роуз",
+      "golden_person_id": "gp-rose-maria"
+    },
+    {
+      "start": 216,
+      "end": 222,
+      "text": "Ричард",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 521,
+      "end": 526,
+      "text": "Мария",
+      "golden_person_id": "gp-rose-maria"
+    },
+    {
+      "start": 598,
+      "end": 605,
+      "text": "Ричарда",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 645,
+      "end": 652,
+      "text": "Ричарда",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 865,
+      "end": 870,
+      "text": "Мария",
+      "golden_person_id": "gp-rose-maria"
+    },
+    {
+      "start": 936,
+      "end": 943,
+      "text": "Ричарду",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 1110,
+      "end": 1123,
+      "text": "Ричарда Роуза",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 1527,
+      "end": 1532,
+      "text": "Роуза",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 1713,
+      "end": 1717,
+      "text": "Роуз",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 1888,
+      "end": 1893,
+      "text": "Роуза",
+      "golden_person_id": "gp-rose-richard"
+    },
+    {
+      "start": 2018,
+      "end": 2028,
+      "text": "Марию Роуз",
+      "golden_person_id": "gp-rose-maria"
+    },
+    {
+      "start": 2171,
+      "end": 2181,
+      "text": "Мария Роуз",
+      "golden_person_id": "gp-rose-maria"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "e1",
+      "event_type": "other",
+      "person_ids": [
+        "gp-rose-richard"
+      ],
+      "evidence": {
+        "start": 106,
+        "end": 153,
+        "text": "на полгода поместили в помещение камерного типа"
+      },
+      "shared": false,
+      "historical": false
+    },
+    {
+      "event_id": "e2",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-rose-richard"
+      ],
+      "evidence": {
+        "start": 1098,
+        "end": 1158,
+        "text": "В 2023 году Ричарда Роуза приговорили к восьми годам колонии"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e3",
+      "event_type": "arrest",
+      "person_ids": [
+        "gp-rose-richard"
+      ],
+      "evidence": {
+        "start": 1527,
+        "end": 1562,
+        "text": "Роуза арестовали в апреле 2022 года"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e4",
+      "event_type": "case_opened",
+      "person_ids": [
+        "gp-rose-maria"
+      ],
+      "evidence": {
+        "start": 1982,
+        "end": 2028,
+        "text": "дело о военных «фейках» завели и на Марию Роуз"
+      },
+      "shared": false,
+      "historical": true
+    },
+    {
+      "event_id": "e5",
+      "event_type": "sentence",
+      "person_ids": [
+        "gp-rose-maria"
+      ],
+      "evidence": {
+        "start": 2282,
+        "end": 2336,
+        "text": "Ее заочно приговорили к пяти с половиной годам колонии"
+      },
+      "shared": false,
+      "historical": true
+    }
+  ],
+  "disputed": [],
+  "notes": "Richard Rose and his wife Maria Rose; bare 'Мария' is the wife, bare 'Ричард' is Richard.",
+  "known_limitation": null,
+  "known_limitation_kinds": []
+}
