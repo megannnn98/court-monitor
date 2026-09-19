@@ -86,9 +86,9 @@ class ModeStore(PgVectorStore):
         self._build = build
         self.ef_search = 400
 
-    def _create(self, session: Session, name: str, vector_size: int) -> None:  # type: ignore[override]
+    def _create(self, session: Session, name: str, vector_size: int) -> None:
         if name != self._person_collection:
-            PgVectorStore._create(session, name, vector_size)
+            super()._create(session, name, vector_size)
             return
         session.execute(
             text(

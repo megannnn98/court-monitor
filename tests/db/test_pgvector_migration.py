@@ -1,5 +1,6 @@
-"""Migration t4u5v6w7x8y9: pgvector is additive and reversible, keeps pg_trgm, and records
-that the `indexed_at` marks existing before it were set by Qdrant rebuilds."""
+"""Migrations t4u5v6w7x8y9 and u5v6w7x8y9z0: pgvector is additive and reversible, keeps
+pg_trgm, records that the `indexed_at` marks existing before it were set by Qdrant
+rebuilds, and stores vectors PLAIN."""
 
 from __future__ import annotations
 
@@ -66,3 +67,31 @@ def test_upgrade_adds_pgvector_and_attributes_existing_marks_to_qdrant(
     state = {str(row[0]): str(row[1]) for row in rows}
     # Only the indexed person: the event has no marks to protect.
     assert state == {"person": "qdrant"}
+
+
+def _embedding_storage(session_factory: sessionmaker[Session]) -> str:
+    with session_factory() as session:
+        return str(
+            session.execute(
+                text(
+                    "SELECT attstorage FROM pg_attribute WHERE attrelid = "
+                    "'semantic_vectors'::regclass AND attname = 'embedding'"
+                )
+            ).scalar_one()
+        )
+
+
+def test_plain_storage_migration_is_reversible(session_factory: sessionmaker[Session]) -> None:
+    """u5v6w7x8y9z0 sets PLAIN; its downgrade restores the `vector` type's EXTERNAL."""
+    engine = session_factory.kw["bind"]
+    database_url = engine.url.render_as_string(hide_password=False)
+
+    downgraded = _alembic(database_url, "downgrade", "t4u5v6w7x8y9")
+    try:
+        assert downgraded.returncode == 0, downgraded.stderr
+        assert _embedding_storage(session_factory) == "e"
+    finally:
+        upgraded = _alembic(database_url, "upgrade", "head")
+        assert upgraded.returncode == 0, upgraded.stderr
+
+    assert _embedding_storage(session_factory) == "p"

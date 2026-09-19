@@ -46,13 +46,16 @@ The rows carry what a Qdrant point carries and nothing more; facts stay in their
 tables, and `semantic_documents` keeps the texts.
 
 The embedding column has no dimension, so a model of another size needs no migration.
-An HNSW index needs one dimension, so each collection gets its own partial expression
-index, created by the store when the collection is (re)created:
+It is stored PLAIN (migration `u5v6w7x8y9z0`; see "PERSON exact, EVENT HNSW" below).
+
+An HNSW index needs one dimension, so each HNSW collection gets its own partial
+expression index, created by the store when the collection is (re)created (the event
+collection; the person collection has none, see below):
 
 ```sql
-CREATE INDEX ix_semvec_hnsw_persons_semantic_768 ON semantic_vectors
+CREATE INDEX ix_semvec_hnsw_events_semantic_768 ON semantic_vectors
 USING hnsw ((embedding::vector(768)) vector_cosine_ops)
-WHERE collection_name = 'persons_semantic' AND vector_dims(embedding) = 768;
+WHERE collection_name = 'events_semantic' AND vector_dims(embedding) = 768;
 ```
 
 The search repeats that cast and predicate literally, so the planner can use the index.
@@ -67,7 +70,8 @@ Score is `1 − cosine distance`: cosine similarity, higher is closer, as Qdrant
 the rows are found by the primary key and their distances computed in PostgreSQL, which
 also avoids an approximate scan that stops before it reaches the filtered rows.
 
-A search over a whole collection sets two things for its own transaction (`SET LOCAL`):
+A search over a whole HNSW collection sets two things for its own transaction
+(`SET LOCAL`):
 
 - `hnsw.ef_search = min(1000, max(40, 4 × limit))`. An HNSW scan returns at most
   `ef_search` rows, and finds more of the true neighbours as it grows. On the working
@@ -77,6 +81,39 @@ A search over a whole collection sets two things for its own transaction (`SET L
   describe the old table, and the planner twice chose to read every row and sort
   (88 ms and 151 ms instead of ~9 ms, in 2 of 5 benchmark runs). Only the HNSW index
   returns rows already ordered, so without sorts it is always the plan.
+
+### PERSON exact, EVENT HNSW (2026-09-19)
+
+The factory builds `PgVectorStore(exact_collections=[person_collection])`: the person
+collection gets no HNSW index and is always searched exactly; the event collection keeps
+its HNSW index and the settings above.
+
+Why (`reports/person_search_mode_selection.md`, 45 real person queries on copies of the
+working data, against Qdrant): what matters is not ANN recall but the candidates that
+pass the relevance threshold and reach the research workflow. Qdrant searches the person
+collection exactly (below its indexing threshold). With the current HNSW, pgvector gave
+the same accepted set in 16 of 45 queries and the same research result in 29; an HNSW
+m=24/ef_construction=200 index at `ef_search` 1000 (pgvector's maximum) matched the sets
+in 45 but two orders differed; exact search matched everything, full order included.
+The research workflow searches persons only, so exact PERSON reproduces what it gets
+today by construction, not by tuning.
+
+The exact query has no `vector_dims` condition: the collection's metadata fixes the
+size (upserts are checked against it, a recreate deletes the old rows), and the condition
+detoasted every vector a second time. Most of an exact scan's time is reading vectors:
+a 768-d vector is 3 KB, above the 2 KB TOAST threshold, so by default it lives out of
+line. On 15 k persons an exact top-100 took 57 ms with TOAST and 15 ms with PLAIN
+storage. `semantic_vectors.embedding` is therefore stored PLAIN.
+
+`SET STORAGE PLAIN` changes only rows written afterwards; it does not rewrite existing
+vectors. The full rebuild that switching to pgvector requires (below) writes every vector
+anew, so a switched deployment has its person vectors PLAIN. PLAIN keeps a row in one
+8 KB heap page, so a much larger embedding model may not fit; that limit is separate
+from HNSW's 2000-dimension limit and has to be checked for another model.
+
+Exact search grows linearly with the number of persons (about 1 ms per 1 000 with PLAIN
+storage). If it grows several times, the measured fallback is the m=24,
+ef_construction=200 HNSW index at `ef_search` 1000 (16 ms today).
 
 ### Switching backends needs a full rebuild
 
@@ -141,13 +178,15 @@ real sources indexes through pgvector; `enable_sort = off` is confirmed necessar
 partial statistics the planner alone reads 32 k events and sorts, 309 ms). Two findings:
 readiness did not know pgvector (fixed), and on the grown person collection pgvector's
 HNSW at `ef_search` 400 finds 95% of the exact top-100 while Qdrant searches those
-exactly — `ef_search` 1000 gives 99.0%, an m=24, ef_construction=200 index 99.7%; the
-setting is an open decision before Qdrant can go.
+exactly — `ef_search` 1000 gives 99.0%, an m=24, ef_construction=200 index 99.7%. That
+led to the PERSON exact decision above.
 
 ## Consequences
 
 - Nothing changes for a deployment that does not set `SEMANTIC_VECTOR_BACKEND`.
 - With pgvector, the vectors are in the database backup and in the same transactions'
   reach; Qdrant's service, volume and probe become unnecessary.
-- Switching the backend costs one full rebuild per entity type.
+- Switching the backend costs one full rebuild per entity type; it also writes the person
+  vectors PLAIN.
+- Person search costs grow linearly with the number of persons (exact).
 - Scores differ in the last float digits (Qdrant returns float32, pgvector float64).

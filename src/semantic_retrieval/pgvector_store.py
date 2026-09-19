@@ -4,8 +4,12 @@ One table holds the vectors of every logical collection (`persons_semantic`, ...
 collection records its vector size. The embedding column has no fixed dimension, so each
 collection gets its own partial HNSW index on `(embedding::vector(N))` for its rows of
 that size, and the nearest-neighbour query repeats that exact cast and predicate so the
-planner uses it.
-Another embedding model (another N) needs a full rebuild, not a migration.
+planner uses it. Another embedding model (another N) needs a full rebuild, not a
+migration.
+
+Collections named in `exact_collections` (the person collection, from the factory) get no
+HNSW index and are always searched exactly: the research workflow's candidates are then
+the true nearest neighbours, as Qdrant's exact search of the same collection returns.
 
 Like the Qdrant points, rows hold no facts: entity id/type, representation version,
 content hash and embedding model. Score is cosine similarity, higher is closer.
@@ -91,11 +95,30 @@ def _vector_literal(vector: Iterable[float]) -> str:
     return "[" + ",".join(repr(float(value)) for value in vector) + "]"
 
 
+def exact_search_sql(name: str) -> str:
+    """Exact nearest neighbours of `:query` in a whole collection: every row's distance,
+    then a top-N sort. No `vector_dims` filter: the collection's metadata fixes the size
+    (upserts are checked against it, a recreate deletes the old rows), and the condition
+    would detoast each vector a second time."""
+    return (
+        "SELECT entity_id, embedding_model_id, "
+        "1 - (embedding <=> CAST(:query AS vector)) AS score FROM semantic_vectors "
+        f"WHERE collection_name = '{name}' "
+        "ORDER BY embedding <=> CAST(:query AS vector), entity_id LIMIT :limit"
+    )
+
+
 class PgVectorStore:
     backend_name = "pgvector"
 
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self, session_factory: sessionmaker[Session], *, exact_collections: Iterable[str] = ()
+    ) -> None:
         self._session_factory = session_factory
+        self._exact = frozenset(_collection(name) for name in exact_collections)
+
+    def exact_search_sql(self, name: str) -> str:
+        return exact_search_sql(_collection(name))
 
     def _call[T](self, operation: str, action: Callable[[Session], T]) -> T:
         """One transaction per operation, like one Qdrant request."""
@@ -118,8 +141,7 @@ class PgVectorStore:
         ).scalar_one_or_none()
         return None if size is None else int(size)
 
-    @staticmethod
-    def _create(session: Session, name: str, vector_size: int) -> None:
+    def _create(self, session: Session, name: str, vector_size: int) -> None:
         session.execute(
             text(
                 "INSERT INTO semantic_vector_collections (name, vector_size) "
@@ -127,6 +149,8 @@ class PgVectorStore:
             ),
             {"name": name, "size": vector_size},
         )
+        if name in self._exact:
+            return  # searched exactly: an HNSW index would only cost writes
         if vector_size > MAX_HNSW_DIMENSIONS:
             logger.warning(
                 "event=pgvector_exact_search collection=%s vector_size=%d: no HNSW index "
@@ -281,6 +305,12 @@ class PgVectorStore:
                         "ORDER BY embedding <=> CAST(:query AS vector), entity_id LIMIT :limit"
                     ),
                     {"query": query, "collection": name, "ids": list(entity_ids), "limit": limit},
+                ).all()
+                return [(int(row[0]), str(row[1]), float(row[2])) for row in rows]
+            if name in self._exact:
+                # A sort is the plan here: none of the HNSW settings below apply.
+                rows = session.execute(
+                    text(exact_search_sql(name)), {"query": query, "limit": limit}
                 ).all()
                 return [(int(row[0]), str(row[1]), float(row[2])) for row in rows]
             prepare_dense_search(session, size, limit)

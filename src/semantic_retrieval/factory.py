@@ -130,7 +130,9 @@ def create_configured_vector_store(
     config: SemanticRetrievalConfig, session_factory: sessionmaker[Session]
 ) -> VectorStore:
     if config.vector_backend == "pgvector":
-        return PgVectorStore(session_factory)
+        # PERSON exact, EVENT HNSW (ADR 0018): the research workflow searches persons, and
+        # exact search gives it the candidates Qdrant's exact search of them gives.
+        return PgVectorStore(session_factory, exact_collections=[config.person_collection])
     if config.qdrant_url is None:
         raise ValueError("QDRANT_URL is not set")
     return create_vector_store(config.qdrant_url)

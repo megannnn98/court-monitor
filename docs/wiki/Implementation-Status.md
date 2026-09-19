@@ -111,6 +111,8 @@ the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
   `IndexBackendMismatchError` ([ADR 0018](../adr/0018-pgvector-vector-store.md)).
 - The migration `t4u5v6w7x8y9` creates the `vector` extension: the PostgreSQL image must
   be the pgvector one before `alembic upgrade head` runs.
+- With pgvector, person search is exact (no HNSW), event search HNSW; exact search time
+  grows linearly with the number of persons ([ADR 0018](../adr/0018-pgvector-vector-store.md)).
 
 ## Reproduce
 

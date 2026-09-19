@@ -160,10 +160,11 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 | Таблица | Поля | Смысл |
 |---|---|---|
 | `semantic_vector_collections` | `name` PK, `vector_size`, `created_at` | логическая коллекция (`persons_semantic`, `events_semantic`) и её размерность |
-| `semantic_vectors` | PK (`collection_name`, `entity_type`, `entity_id`), `embedding vector` (без размерности), `embedding_model_id`, `representation_version`, `content_hash`, `updated_at` | вектор сущности; удаляется вместе с коллекцией (`ON DELETE CASCADE`) |
+| `semantic_vectors` | PK (`collection_name`, `entity_type`, `entity_id`), `embedding vector` (без размерности, `STORAGE PLAIN`), `embedding_model_id`, `representation_version`, `content_hash`, `updated_at` | вектор сущности; удаляется вместе с коллекцией (`ON DELETE CASCADE`) |
 | `semantic_index_state` | `entity_type` PK, `vector_backend`, `rebuilt_at` | чей полный rebuild поставил отметки `semantic_documents.indexed_at` |
 
-- HNSW-индекс создаёт `PgVectorStore` на коллекцию: `USING hnsw ((embedding::vector(N)) vector_cosine_ops) WHERE collection_name = '<имя>' AND vector_dims(embedding) = N`, имя `ix_semvec_hnsw_<коллекция>_<N>`. Другая модель — другой N, полный rebuild, без миграции.
+- HNSW-индекс создаёт `PgVectorStore` для коллекции событий: `USING hnsw ((embedding::vector(N)) vector_cosine_ops) WHERE collection_name = '<имя>' AND vector_dims(embedding) = N`, имя `ix_semvec_hnsw_<коллекция>_<N>`. У коллекции персон индекса нет: она ищется точно. Другая модель — другой N, полный rebuild, без миграции.
+- Миграция `u5v6w7x8y9z0` ставит `embedding` хранение `PLAIN` (вектор 768-d — 3 КБ, выше порога TOAST); существующие строки она не переписывает — это делает обязательный полный rebuild.
 - Миграция записывает в `semantic_index_state` значение `qdrant` для типов сущностей, у которых уже есть отметки `indexed_at`.
 
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`

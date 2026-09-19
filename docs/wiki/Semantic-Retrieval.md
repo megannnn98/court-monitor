@@ -118,9 +118,9 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 
 ## Vector store: Qdrant или pgvector
 
-`SEMANTIC_VECTOR_BACKEND=qdrant` (по умолчанию) хранит векторы в Qdrant, `pgvector` — в PostgreSQL приложения (таблицы `semantic_vector_collections`, `semantic_vectors`, по частичному HNSW-индексу `(embedding::vector(N))` на коллекцию). Индексатор, retrievers и reranker одинаковы для обоих. Сравнение на одних и тех же векторах E5: [ADR 0018](../adr/0018-pgvector-vector-store.md), `reports/qdrant_e5_baseline.json`, `reports/pgvector_e5_baseline.json`, `reports/vector_store_benchmark.md`.
+`SEMANTIC_VECTOR_BACKEND=qdrant` (по умолчанию) хранит векторы в Qdrant, `pgvector` — в PostgreSQL приложения (таблицы `semantic_vector_collections`, `semantic_vectors`). В pgvector **PERSON ищется точно** (HNSW-индекса у коллекции персон нет), **EVENT — через HNSW** (частичный индекс `(embedding::vector(N))`). Причина: research workflow ищет только персон, и точный поиск даёт ровно тех кандидатов, что точный поиск Qdrant по той же коллекции; HNSW менял результат workflow в 16 из 45 реальных запросов (`reports/person_search_mode_selection.md`). Векторы хранятся `PLAIN` (без TOAST): точный top-100 по 15 тыс. персон — ~15 мс вместо ~57. Индексатор, retrievers и reranker одинаковы для обоих backend'ов. Сравнение на одних и тех же векторах E5: [ADR 0018](../adr/0018-pgvector-vector-store.md), `reports/qdrant_e5_baseline.json`, `reports/pgvector_e5_baseline.json`, `reports/vector_store_benchmark.md`.
 
-Смена backend'а требует **полного** rebuild каждой сущности: отметки `indexed_at` общие, и `semantic_index_state` помнит, чей полный rebuild их поставил. Инкрементальный rebuild чужого индекса — `IndexBackendMismatchError`, а не молча пустой индекс:
+Смена backend'а требует **полного** rebuild каждой сущности (он же перезаписывает векторы персон в `PLAIN`: миграция меняет хранение только для новых строк): отметки `indexed_at` общие, и `semantic_index_state` помнит, чей полный rebuild их поставил. Инкрементальный rebuild чужого индекса — `IndexBackendMismatchError`, а не молча пустой индекс:
 
 ```bash
 SEMANTIC_VECTOR_BACKEND=pgvector uv run python src/main.py rebuild-semantic-index --entity all

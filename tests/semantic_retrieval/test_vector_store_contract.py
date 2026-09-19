@@ -40,9 +40,16 @@ def _pgvector(request: pytest.FixtureRequest) -> VectorStore:
     return PgVectorStore(session_factory)
 
 
+def _pgvector_exact(request: pytest.FixtureRequest) -> VectorStore:
+    """The person collection's mode: exact search, no HNSW index."""
+    session_factory: sessionmaker[Session] = request.getfixturevalue("session_factory")
+    return PgVectorStore(session_factory, exact_collections={NAME})
+
+
 STORES: dict[str, Callable[[pytest.FixtureRequest], VectorStore]] = {
     "qdrant": _qdrant,
     "pgvector": _pgvector,
+    "pgvector-exact": _pgvector_exact,
 }
 
 
