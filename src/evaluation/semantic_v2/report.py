@@ -246,8 +246,18 @@ def comparison_markdown(comparison: Mapping[str, Any]) -> str:
         "|---" * (len(acc_cols) + 2) + "|",
     ]
     for split, configs in comparison["acceptance"].items():
+        # The dev-selected E5 threshold is the baseline itself, so several names describe
+        # the same configuration: one row per distinct result, names joined.
+        merged: dict[tuple[object, ...], list[str]] = {}
+        metrics_of: dict[tuple[object, ...], Mapping[str, Any]] = {}
         for name, metrics in configs.items():
-            lines.append(f"| {split} | {name} | {_row(metrics, acc_cols)} |")
+            signature = tuple(metrics[column] for column in acc_cols)
+            merged.setdefault(signature, []).append(name)
+            metrics_of[signature] = metrics
+        for signature, names in merged.items():
+            lines.append(
+                f"| {split} | {' = '.join(names)} | {_row(metrics_of[signature], acc_cols)} |"
+            )
     down_cols = [
         "recall_micro",
         "recall_macro",

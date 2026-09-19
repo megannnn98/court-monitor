@@ -89,6 +89,16 @@ Tags additionally mark `namesake_trap`, `initials`, `public_figure_trap`,
 | validation person (37) | 0.6809 | 0.7972 | 0.8149 | 0.8555 | 0.9705 | 0.6941 | 0.6952 |
 | validation event (9) | 0.7441 | 0.5741 | 0.6667 | 0.7407 | 0.9630 | 0.5908 | 0.6300 |
 
+Two conventions behind these numbers. `coverage@k`, reported next to every
+ranking metric in `comparison.md`, is the **graded share of the top k**, not a
+recall-style coverage of relevant items: it says how much of what a system
+returned was actually judged (0.55–0.63 at k = 100, ~0.99 at k = 10). And nDCG
+counts an unjudged entity as gain 0, so it is a lower bound; the reports also
+carry `ndcg@k_condensed`, computed over judged entities only, and the gap is
+negligible on this corpus — dev nDCG@10 0.7672 vs 0.7683 (E5) and 0.8112 vs
+0.8126 (BGE-M3). Recall@k and precision never treat an unjudged entity as an
+error.
+
 Hybrid (RRF with the lexical retriever) is much worse than dense for both models
 on this corpus — dev all MRR 0.6187 for E5 hybrid vs 0.7766 dense, and on
 semantic-only queries hybrid collapses (MRR 0.1187) because the lexical arm
@@ -167,8 +177,26 @@ lives on a different scale, so 0.80 is meaningless for it (recall 0 above 0.7).
 | validation | BGE-M3 @ 0.47 dense | 0.6667 | 0.7603 | 0.0870 | 36 | 0.9432 |
 
 Precision is judged-only: unjudged entities are never counted as errors, so
-these values are a lower bound and they depend heavily on how much of the pool
-was graded (73 % of E5's accepted set is judged, 95 % of BGE-M3's).
+these values are a lower bound and they depend on how much of the accepted set
+was graded.
+
+**Two configurations are only comparable at a similar judged share.** On dev the
+accepted sets are:
+
+| configuration | accepted per query | accepted total | judged | unjudged | judged share | precision (judged) | recall micro |
+|---|---|---|---|---|---|---|---|
+| E5 @ 0.80 | 56.8 | 6082 | 4464 | 1618 | 0.7316 | 0.0324 | 0.8503 |
+| BGE-M3 @ 0.47 | 14.2 | 1516 | 1438 | 78 | 0.9481 | 0.0870 | 0.7425 |
+| E5 @ 0.82 | 8.7 | 926 | 868 | 58 | 0.9368 | 0.1302 | 0.6707 |
+
+(Accepted counts are over the 107 dev queries that have a judgment; the metric
+tables above count the 104 with a reachable relevant entity.)
+
+So E5 @ 0.80 vs BGE-M3 @ 0.47 is **not** an apples-to-apples precision
+comparison — a quarter of E5's accepted set is ungraded and could be either.
+E5 @ 0.82 vs BGE-M3 @ 0.47 is a fair one (judged share 0.94 vs 0.95), and there
+E5 has the higher precision at a comparable recall. This is why the
+recommendation below rests on that pair and not on the raw 0.032 vs 0.087.
 
 ## 10. Negative rejection
 
@@ -199,16 +227,24 @@ builder, hybrid retrieval plus acceptance:
 | validation | E5 @ 0.80 | 0.8644 | 0.9250 | 0.0408 | 47 | 0 | 71 | 49.0 ms |
 | validation | BGE-M3 @ 0.47 | 0.6780 | 0.7786 | 0.0840 | 11 | 1 | 4 | 41.2 ms |
 
-Per-query comparison (queries whose relevant entities are reachable at all):
+Per-query comparison (queries whose relevant entities are reachable at all,
+140 in total):
 
-- strict rule (every relevant person returned **and** no judged non-relevant
-  person; a negative query must return nothing): E5 correct / BGE wrong **0**,
-  BGE correct / E5 wrong **10**, both wrong **120**, both correct **10**;
-- recall only (every relevant person returned): E5 correct / BGE wrong **15**,
-  BGE correct / E5 wrong **1**, both wrong **17**, both correct **107**.
+- **recall (every relevant person returned; a negative query returns nothing)** —
+  the primary reading: E5 correct / BGE wrong **15**, BGE correct / E5 wrong
+  **1**, both wrong **17**, both correct **107**. E5 answers 122 of 140 queries
+  completely, BGE-M3 108;
+- strict (recall **and** no judged non-relevant person returned): E5 correct /
+  BGE wrong **0**, BGE correct / E5 wrong **10**, both wrong **120**, both
+  correct **10**.
 
-The two rules disagree because E5 @ 0.80 returns a median of ~48 persons per
-query: it almost always contains the right person *and* a judged wrong one. The
+The strict rule is reported for completeness but must not be read as a ranking
+verdict: it is dominated by the width of the result set, not by ranking quality.
+E5 @ 0.80 returns a median of ~48 persons per query out of a corpus of 314, so
+one of the 12 101 explicitly graded-0 entities is almost always among them and
+the query is scored wrong even when every relevant person is at the top. A
+configuration can improve this number by returning less, which is exactly what
+BGE-M3 @ 0.47 does (median 8). The
 same research benchmark (`research_benchmark_semantic_cases`) gives identical
 person precision/recall for all three configurations (tp 4, fp 0, fn 2,
 F1 0.80); BGE-M3 produces slightly fewer supported claims (440 vs 484) because
@@ -272,9 +308,14 @@ Extrapolated from the measured throughput to the working corpus of ADR 0018
 | | E5 base | BGE-M3 |
 |---|---|---|
 | embedding | ~100 s | ~306 s |
-| pgvector writes (ADR 0018 measurement) | ~66 s | ~66 s |
-| total full rebuild | ~2.8 min | ~6.2 min |
+| pgvector writes | ~66 s | ~88 s |
+| total full rebuild | ~2.8 min | ~6.6 min |
 | vector storage | ~79 MB | ~105 MB |
+
+The write estimate for E5 is the ADR 0018 measurement on the working corpus;
+BGE-M3's is that number scaled by the measured write ratio on the stand
+(1.38 s vs 1.03 s for the same 805 documents, i.e. ×1.34), because its vectors
+are a third larger.
 
 Switching the model forces exactly one such full rebuild (an incremental run
 after a model change is refused by `IndexModelMismatchError`), plus a second
@@ -287,9 +328,11 @@ one if the switch is reverted.
    a precision/recall policy choice and needs a stated target, not a rule that
    copies the baseline.
 2. **Acceptance precision is dominated by unjudged candidates.** E5 @ 0.80
-   accepts 1608 unjudged entities on dev; `precision_judged` = 0.032 is
-   therefore a lower bound computed on 73 % of the accepted set. Comparing it to
-   BGE-M3's 0.087 (95 % judged) is not apples to apples.
+   accepts 6082 entities on dev (56.8 per query), 1618 of them ungraded;
+   `precision_judged` = 0.032 is therefore computed on 73 % of the accepted set,
+   and comparing it to BGE-M3's 0.087 (95 % graded) is not apples to apples.
+   Only configurations with a similar judged share may be compared directly —
+   E5 @ 0.82 (0.94) against BGE-M3 @ 0.47 (0.95).
 3. **Hard in-domain negatives are not solved by either model.** Rejection rate
    0.56 dev / 0.50 validation for both; a cosine threshold on a dense vector
    cannot separate "a detained journalist who does not exist in the corpus" from
@@ -304,7 +347,15 @@ one if the switch is reverted.
 6. **The dev advantage of BGE-M3 does not reproduce on validation**, which is
    what a 104-article DRAFT corpus is expected to do: the splits are small
    (46 usable validation queries) and the grades are unverified.
-7. **All grades are agent DRAFT.** The agent graded candidates pooled from its
+7. **Pooling bias, quantified.** Candidates come from the union of both models'
+   dense and hybrid runs plus lexical, so no single model defines the pool, but
+   an entity that no system ever retrieves is never judged. Across all queries
+   799 distinct entity keys are graded, against 805 documents in the stand, so
+   entity-level coverage is near complete; per query it is much thinner — the
+   graded share of a top-100 is 0.55–0.63 (`coverage@100`). Recall@100 is
+   therefore a lower bound, and a model that surfaces a more unusual set of
+   entities is mildly favoured.
+8. **All grades are agent DRAFT.** The agent graded candidates pooled from its
    own runs; every number above inherits that bias, which is exactly why the
    corpus is not "locked" yet.
 
@@ -316,7 +367,9 @@ at 0.80 for now. Do not switch to BGE-M3.**
 Reasons: the BGE-M3 ranking advantage appears only on dev and disappears on
 validation; the acceptance advantage is a threshold-scale artefact that the E5
 sweep reproduces at 0.82 with *better* precision (0.130 vs 0.087) at a
-comparable recall (0.671 vs 0.743); and BGE-M3 costs 3× the embedding time,
+comparable recall (0.671 vs 0.743) and at a comparable judged share (0.94 vs
+0.95, so the two numbers may be compared); downstream, E5 answers 122 of 140
+queries completely against BGE-M3's 108; and BGE-M3 costs 3× the embedding time,
 1.8× the VRAM and 1.8× the query latency, plus a forced full rebuild.
 
 The evidence does support a separate, cheaper line of work, in this order:
@@ -355,7 +408,7 @@ Nothing here should be done now. If a separate GO is ever given for BGE-M3:
 3. `SEMANTIC_DENSE_MIN_SCORE` in `compose.yaml` / deployment env, since the
    default is model-specific and the settings layer requires it for a non-default
    model;
-4. a full `rebuild-semantic-index --entity all` (~6 min for the working corpus):
+4. a full `rebuild-semantic-index --entity all` (~6.6 min for the working corpus):
    an incremental run is refused by `IndexModelMismatchError`. For pgvector the
    1024-dimension collections get their own partial HNSW index; `STORAGE PLAIN`
    keeps the rows inline, verified in preflight;
@@ -364,6 +417,34 @@ Nothing here should be done now. If a separate GO is ever given for BGE-M3:
    ADR recording the decision.
 
 ---
+
+## Review notes
+
+An independent static review of the branch was run after the first version of
+this report. What it changed here:
+
+- acceptance precision is now reported with the accepted-set sizes and judged
+  shares (§9), and the recommendation explicitly rests on the pair with a
+  comparable judged share (E5 @ 0.82 vs BGE-M3 @ 0.47), not on the raw
+  0.032 vs 0.087;
+- the downstream comparison now leads with the recall rule and states why the
+  strict rule is dominated by result-set width (§12);
+- the nDCG convention (unjudged counts as gain 0, condensed variant, gap
+  ≤ 0.0016) and the meaning of `coverage@k` are spelled out (§5);
+- the pooling bias is quantified: 799 distinct entity keys graded against 805
+  stand documents, but only 0.55–0.63 of a top-100 graded per query (§17);
+- the BGE-M3 rebuild cost was corrected — its pgvector writes are ×1.34 E5's,
+  so a full rebuild is ~6.6 min, not ~6.2 (§16);
+- `comparison.md` no longer prints the same acceptance result under two names.
+
+Two review claims did not survive checking: the accepted-set sizes quoted there
+(2194 for E5 @ 0.80, 903 for BGE-M3 @ 0.47 on dev) are wrong — the measured
+values are 6082 and 1516; and the concern that `query_problems` mishandles a
+person whose articles span several splits is moot, because this corpus has none
+(and the check is deliberately conservative, since a leak is worse than a false
+alarm). The suggestion to rename `coverage@k` was not taken: it would rewrite
+every committed artefact for a cosmetic gain, so the metric is defined in §5
+instead.
 
 ## Reproducing
 

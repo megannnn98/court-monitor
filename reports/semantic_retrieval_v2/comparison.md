@@ -156,15 +156,11 @@ Dev baseline E5@0.80 and the Pareto selection: {'bge_m3': 0.47, 'e5': 0.8}.
 
 | split | configuration | recall_micro | recall_macro | precision_judged | accepted_unjudged | judged_share_of_accepted | rejection_rate | hard_negative_fp | offtopic_fp |
 |---|---|---|---|---|---|---|---|---|---|
-| dev | e5@0.8 (baseline) | 0.8503 | 0.9254 | 0.0324 | 1608 | 0.7316 | 0.5556 | 280 | 0 |
-| dev | e5@0.8 (selected) | 0.8503 | 0.9254 | 0.0324 | 1608 | 0.7316 | 0.5556 | 280 | 0 |
+| dev | e5@0.8 (baseline) = e5@0.8 (selected) | 0.8503 | 0.9254 | 0.0324 | 1608 | 0.7316 | 0.5556 | 280 | 0 |
 | dev | bge_m3@0.47 (selected) | 0.7425 | 0.8351 | 0.087 | 78 | 0.9481 | 0.5556 | 38 | 0 |
-| validation | e5@0.8 dense | 0.8846 | 0.923 | 0.0382 | 625 | 0.7431 | 0.5 | 147 | 0 |
-| validation | e5@0.8 hybrid | 0.8462 | 0.9034 | 0.0408 | 465 | 0.7765 | 0.5 | 133 | 0 |
-| validation | bge_m3@0.47 (dev-selected) dense | 0.6667 | 0.7603 | 0.087 | 36 | 0.9432 | 0.5 | 8 | 0 |
-| validation | bge_m3@0.47 (dev-selected) hybrid | 0.6667 | 0.7603 | 0.087 | 36 | 0.9432 | 0.5 | 8 | 0 |
-| validation | e5@0.8 (dev-selected) dense | 0.8846 | 0.923 | 0.0382 | 625 | 0.7431 | 0.5 | 147 | 0 |
-| validation | e5@0.8 (dev-selected) hybrid | 0.8462 | 0.9034 | 0.0408 | 465 | 0.7765 | 0.5 | 133 | 0 |
+| validation | e5@0.8 dense = e5@0.8 (dev-selected) dense | 0.8846 | 0.923 | 0.0382 | 625 | 0.7431 | 0.5 | 147 | 0 |
+| validation | e5@0.8 hybrid = e5@0.8 (dev-selected) hybrid | 0.8462 | 0.9034 | 0.0408 | 465 | 0.7765 | 0.5 | 133 | 0 |
+| validation | bge_m3@0.47 (dev-selected) dense = bge_m3@0.47 (dev-selected) hybrid | 0.6667 | 0.7603 | 0.087 | 36 | 0.9432 | 0.5 | 8 | 0 |
 
 ## Research Workflow (deterministic parser, hybrid + acceptance)
 
