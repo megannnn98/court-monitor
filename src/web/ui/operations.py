@@ -1,5 +1,6 @@
 """Operator console: preview, confirm and follow routine operations."""
 
+import os
 from html import escape
 from urllib.parse import urlencode
 
@@ -7,15 +8,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from monitoring.models import MonitoringRunStatus, MonitoringSettings, MonitoringTrigger
+from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import (
     OPERATION_DEFINITIONS,
     OperationConflictError,
     OperationNotFoundError,
     OperationParameters,
     OperationRegistry,
+    OperationRun,
 )
 from sources.source_registry import SOURCES
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _fmt, _page
 
 router = APIRouter()
@@ -70,6 +74,56 @@ def _operation_query(params: OperationParameters) -> str:
 
 def _run_badge(status: str) -> str:
     return f'<span class="badge {escape(status)}">{escape(status)}</span>'
+
+
+def _catch_up_progress(run: OperationRun, db: Session) -> str:
+    """Progress of «Докачать»: its `monitor` process leaves one monitoring run per source,
+    then one derived run; they are read from monitoring_runs while it goes on."""
+    if run.operation.name != "monitor" or run.started_at is None:
+        return ""
+    runs = SqlAlchemyMonitoringRepository(session_factory_for(db)).list_runs_started_between(
+        run.started_at, run.finished_at, trigger=MonitoringTrigger.MANUAL
+    )
+    # The process sees the same environment as this API process.
+    source_total = (
+        1 if run.parameters.source else len(MonitoringSettings.from_env(os.environ).enabled_sources)
+    )
+    source_runs = [item for item in runs if item.source is not None]
+    finished_sources = [
+        item for item in source_runs if item.status is not MonitoringRunStatus.RUNNING
+    ]
+    current = next(
+        (item.source for item in source_runs if item.status is MonitoringRunStatus.RUNNING), None
+    )
+    failed = [
+        item.source or ""
+        for item in source_runs
+        if item.status in {MonitoringRunStatus.FAILED, MonitoringRunStatus.ABORTED}
+    ]
+    derived = next((item for item in runs if item.source is None), None)
+    if derived is None:
+        derived_state = "не выполнялась" if run.finished_at is not None else "ожидает"
+    elif derived.status is MonitoringRunStatus.RUNNING:
+        derived_state = "идёт"
+    elif derived.status in {MonitoringRunStatus.FAILED, MonitoringRunStatus.ABORTED}:
+        derived_state = "ошибка"
+    else:
+        derived_state = "готово"
+    done = len(finished_sources) + int(
+        derived is not None and derived.status is not MonitoringRunStatus.RUNNING
+    )
+    total = source_total + 1
+    now = f" · сейчас: {escape(current)}" if current else ""
+    failed_names = f" ({escape(', '.join(failed))})" if failed else ""
+    return f"""<section class="band catch-up-progress">
+  <h2>Прогресс</h2>
+  <p><progress value="{done}" max="{total}"></progress> {done} из {total} шагов</p>
+  <p>Источники: {len(finished_sources)} из {source_total} готово{now}</p>
+  <p>Общая обработка: {derived_state}</p>
+  <p>Загружено документов: {sum(item.documents_ingested for item in source_runs)}
+    · новых людей: {sum(item.persons_created for item in source_runs)}
+    · источников с ошибкой: {len(failed)}{failed_names}</p>
+</section>"""
 
 
 @router.get("/ui/operations")
@@ -188,6 +242,7 @@ def ui_operation_run(
         else ""
     )
     body = f"""{refresh}
+{_catch_up_progress(run, db)}
 <section class="band">
   <dl>
     <dt>Status</dt><dd>{_run_badge(run.status.value)}</dd>

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, literal, select, update
@@ -404,6 +404,24 @@ class SqlAlchemyMonitoringRepository:
             query = query.where(MonitoringRunRecord.source == source)
         if status is not None:
             query = query.where(MonitoringRunRecord.status == status.value)
+        with self._session_factory() as session:
+            return [_run_view(record) for record in session.scalars(query).all()]
+
+    def list_runs_started_between(
+        self, started: datetime, finished: datetime | None, *, trigger: MonitoringTrigger
+    ) -> list[MonitoringRunView]:
+        """Runs of one trigger started within [started, finished], oldest first: what one
+        `monitor` process did (a catch-up run from the operator console)."""
+        query = (
+            select(MonitoringRunRecord)
+            .where(
+                MonitoringRunRecord.trigger_type == trigger.value,
+                MonitoringRunRecord.started_at >= started,
+            )
+            .order_by(MonitoringRunRecord.id)
+        )
+        if finished is not None:
+            query = query.where(MonitoringRunRecord.started_at <= finished)
         with self._session_factory() as session:
             return [_run_view(record) for record in session.scalars(query).all()]
 

@@ -293,3 +293,8 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+.catch-up-progress progress {
+  width: 100%;
+  height: 14px;
+}
