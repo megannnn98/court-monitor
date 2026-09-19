@@ -1,0 +1,605 @@
+{
+ "indexes_on_semantic_vectors": [
+  "ix_semvec_hnsw_events_semantic_768",
+  "pk_semantic_vectors"
+ ],
+ "queries_using_hnsw": 0,
+ "queries": 45,
+ "first_plan": [
+  "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.241..128.275 rows=100.00 loops=1)",
+  "Buffers: shared hit=182077",
+  "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.240..128.267 rows=100.00 loops=1)",
+  "Sort Method: top-N heapsort  Memory: 46kB",
+  "Buffers: shared hit=182077",
+  "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.009..125.266 rows=14926.00 loops=1)",
+  "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+  "Rows Removed by Filter: 32546"
+ ],
+ "plans": [
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.241..128.275 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.240..128.267 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.009..125.266 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.820..126.839 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.819..126.832 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.948..123.775 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=140.388..140.406 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=140.386..140.398 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.065..137.084 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.136..128.155 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.135..128.147 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.106..125.175 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.700..126.719 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.699..126.712 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.000..123.724 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=129.308..129.326 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=129.307..129.319 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.063..126.362 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=124.174..124.191 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=124.173..124.183 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.867..121.325 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=125.711..125.731 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=125.710..125.723 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.830..122.870 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=144.675..144.695 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=144.673..144.686 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.031..141.359 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.203..127.222 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.202..127.214 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.970..124.282 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=136.867..136.889 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=136.866..136.879 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.980..133.722 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=153.580..153.601 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=153.579..153.592 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.013..150.040 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.232..126.253 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.231..126.244 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.125..123.334 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=137.334..137.354 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=137.333..137.345 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.980..134.151 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.059..126.077 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.059..126.069 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.105..123.163 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=140.877..140.895 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=140.876..140.887 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.116..137.607 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=146.501..146.520 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=146.500..146.512 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.009..143.077 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=154.245..154.264 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=154.244..154.254 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.027..150.617 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.410..128.429 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.409..128.421 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.949..125.535 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.146..126.166 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.145..126.158 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.990..123.231 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.822..126.841 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.821..126.833 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.038..123.872 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=123.506..123.525 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=123.505..123.517 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.864..120.707 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.177..127.197 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.176..127.189 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.918..124.214 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=165.979..166.003 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=165.978..165.992 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.162..161.983 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=158.762..158.781 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=158.761..158.773 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.928..154.488 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=138.815..138.834 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=138.814..138.826 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.184..135.604 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.123..126.142 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.122..126.134 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 45kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.062..123.256 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=125.696..125.714 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=125.694..125.705 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.142..122.876 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=124.610..124.629 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=124.609..124.620 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.878..121.663 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=136.004..136.023 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=136.003..136.015 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.913..132.885 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.009..127.028 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.008..127.020 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.977..124.099 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.356..127.375 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.355..127.367 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.045..124.488 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=125.788..125.805 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=125.787..125.797 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.976..122.884 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=129.663..129.683 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=129.662..129.674 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.976..126.720 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.138..127.157 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.138..127.149 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.982..124.304 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.140..127.163 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.139..127.153 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 48kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.034..124.226 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.406..126.426 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=126.404..126.418 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.139..123.532 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=129.295..129.313 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=129.294..129.304 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.046..126.246 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.659..128.679 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=128.658..128.670 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.051..125.699 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=131.381..131.401 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=131.380..131.392 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 46kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.989..128.422 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=141.408..141.427 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=141.407..141.418 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.292..138.108 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.025..127.044 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.024..127.036 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.022..124.114 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=131.111..131.131 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=131.110..131.121 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=1.052..128.128 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.856..127.873 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=127.855..127.865 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.899..124.914 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  },
+  {
+   "uses_hnsw": false,
+   "lines": [
+    "Limit  (cost=3451.05..3451.15 rows=43 width=50) (actual time=132.900..132.920 rows=100.00 loops=1)",
+    "Buffers: shared hit=182077",
+    "->  Sort  (cost=3451.05..3451.15 rows=43 width=50) (actual time=132.899..132.910 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 47kB",
+    "Buffers: shared hit=182077",
+    "->  Seq Scan on semantic_vectors  (cost=0.00..3449.88 rows=43 width=50) (actual time=0.833..129.856 rows=14926.00 loops=1)",
+    "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+    "Rows Removed by Filter: 32546"
+   ]
+  }
+ ]
+}

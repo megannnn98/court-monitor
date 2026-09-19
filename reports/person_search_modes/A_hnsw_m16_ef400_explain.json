@@ -1,0 +1,606 @@
+{
+ "indexes_on_semantic_vectors": [
+  "ix_semvec_hnsw_events_semantic_768",
+  "ix_semvec_hnsw_persons_semantic_768",
+  "pk_semantic_vectors"
+ ],
+ "queries_using_hnsw": 45,
+ "queries": 45,
+ "first_plan": [
+  "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.485..6.175 rows=100.00 loops=1)",
+  "Buffers: shared hit=5756",
+  "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.483..6.166 rows=100.00 loops=",
+  "Index Searches: 1",
+  "Buffers: shared hit=5756",
+  "Planning:",
+  "Buffers: shared hit=1",
+  "Planning Time: 0.118 ms"
+ ],
+ "plans": [
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.485..6.175 rows=100.00 loops=1)",
+    "Buffers: shared hit=5756",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.483..6.166 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5756",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.118 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.372..5.232 rows=100.00 loops=1)",
+    "Buffers: shared hit=4789",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.371..5.222 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=4789",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.107 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=6.376..7.131 rows=100.00 loops=1)",
+    "Buffers: shared hit=6443",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=6.375..7.122 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6443",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.097 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.829..6.872 rows=100.00 loops=1)",
+    "Buffers: shared hit=5602",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.827..6.861 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5602",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.130 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.623..5.327 rows=100.00 loops=1)",
+    "Buffers: shared hit=4909",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.622..5.318 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=4909",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.114 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.428..6.106 rows=100.00 loops=1)",
+    "Buffers: shared hit=5920",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.426..6.097 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5920",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.110 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.417..6.103 rows=100.00 loops=1)",
+    "Buffers: shared hit=5983",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.416..6.095 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5983",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.116 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.012..5.740 rows=100.00 loops=1)",
+    "Buffers: shared hit=5713",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.011..5.732 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5713",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.112 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=3.991..4.788 rows=100.00 loops=1)",
+    "Buffers: shared hit=4850",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=3.990..4.780 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=4850",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.114 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.589..5.297 rows=100.00 loops=1)",
+    "Buffers: shared hit=5238",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.588..5.289 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5238",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.118 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.015..5.708 rows=100.00 loops=1)",
+    "Buffers: shared hit=5898",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.014..5.700 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5898",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.111 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.526..6.239 rows=100.00 loops=1)",
+    "Buffers: shared hit=5834",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.524..6.231 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5834",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.139 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.682..5.396 rows=100.00 loops=1)",
+    "Buffers: shared hit=5369",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.681..5.388 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5369",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.140 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.680..5.387 rows=100.00 loops=1)",
+    "Buffers: shared hit=5540",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.679..5.379 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5540",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.110 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.585..6.286 rows=100.00 loops=1)",
+    "Buffers: shared hit=6331",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.584..6.278 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6331",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.111 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.314..5.157 rows=100.00 loops=1)",
+    "Buffers: shared hit=5022",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.313..5.146 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5022",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.114 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=6.142..6.867 rows=100.00 loops=1)",
+    "Buffers: shared hit=6296",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=6.141..6.859 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6296",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.122 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.753..6.467 rows=100.00 loops=1)",
+    "Buffers: shared hit=6609",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.751..6.458 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6609",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.137 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.896..6.638 rows=100.00 loops=1)",
+    "Buffers: shared hit=6746",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.895..6.630 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6746",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.113 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.984..5.676 rows=100.00 loops=1)",
+    "Buffers: shared hit=5258",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.983..5.668 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5258",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.113 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.861..5.531 rows=100.00 loops=1)",
+    "Buffers: shared hit=5808",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.859..5.523 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5808",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.123 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.922..5.615 rows=100.00 loops=1)",
+    "Buffers: shared hit=5821",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.921..5.607 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5821",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.114 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.141..4.821 rows=100.00 loops=1)",
+    "Buffers: shared hit=5208",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.140..4.814 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5208",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.110 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.328..6.037 rows=100.00 loops=1)",
+    "Buffers: shared hit=6278",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.327..6.028 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6278",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.113 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.078..4.769 rows=100.00 loops=1)",
+    "Buffers: shared hit=5151",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.077..4.761 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5151",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.112 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.018..5.725 rows=100.00 loops=1)",
+    "Buffers: shared hit=5798",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.016..5.717 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5798",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.112 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.017..5.759 rows=100.00 loops=1)",
+    "Buffers: shared hit=5672",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.016..5.751 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5672",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.110 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=6.530..7.228 rows=100.00 loops=1)",
+    "Buffers: shared hit=7145",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=6.529..7.220 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=7145",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.127 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.200..4.891 rows=100.00 loops=1)",
+    "Buffers: shared hit=5128",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.199..4.883 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5128",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.117 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.125..5.849 rows=100.00 loops=1)",
+    "Buffers: shared hit=5581",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.123..5.840 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5581",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.113 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.770..5.463 rows=100.00 loops=1)",
+    "Buffers: shared hit=5322",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.769..5.455 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5322",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.114 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=6.199..6.928 rows=100.00 loops=1)",
+    "Buffers: shared hit=7078",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=6.197..6.919 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=7078",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.112 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.419..5.120 rows=100.00 loops=1)",
+    "Buffers: shared hit=5420",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.418..5.112 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5420",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.115 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.654..5.450 rows=100.00 loops=1)",
+    "Buffers: shared hit=5748",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.653..5.442 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5748",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.111 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.230..4.931 rows=100.00 loops=1)",
+    "Buffers: shared hit=5303",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.230..4.923 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5303",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.112 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=6.106..6.957 rows=100.00 loops=1)",
+    "Buffers: shared hit=6935",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=6.105..6.946 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6935",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.115 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.763..5.475 rows=100.00 loops=1)",
+    "Buffers: shared hit=5577",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.762..5.467 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5577",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.132 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.294..5.995 rows=100.00 loops=1)",
+    "Buffers: shared hit=6324",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.293..5.986 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6324",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.116 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.024..5.723 rows=100.00 loops=1)",
+    "Buffers: shared hit=6161",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.023..5.715 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6161",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.113 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.574..5.270 rows=100.00 loops=1)",
+    "Buffers: shared hit=5752",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.573..5.262 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5752",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.120 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.804..5.484 rows=100.00 loops=1)",
+    "Buffers: shared hit=6024",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.803..5.476 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6024",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.111 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.332..5.039 rows=100.00 loops=1)",
+    "Buffers: shared hit=5297",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.331..5.031 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5297",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.111 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.450..5.171 rows=100.00 loops=1)",
+    "Buffers: shared hit=5652",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.449..5.163 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5652",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.110 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=5.136..5.834 rows=100.00 loops=1)",
+    "Buffers: shared hit=6362",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=5.135..5.826 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=6362",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.107 ms"
+   ]
+  },
+  {
+   "uses_hnsw": true,
+   "lines": [
+    "Limit  (cost=36.12..446.25 rows=75 width=50) (actual time=4.274..4.957 rows=100.00 loops=1)",
+    "Buffers: shared hit=5585",
+    "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.12..446.25 rows=75 width=50) (actual time=4.273..4.949 rows=100.00 loops=",
+    "Index Searches: 1",
+    "Buffers: shared hit=5585",
+    "Planning:",
+    "Buffers: shared hit=1",
+    "Planning Time: 0.113 ms"
+   ]
+  }
+ ]
+}

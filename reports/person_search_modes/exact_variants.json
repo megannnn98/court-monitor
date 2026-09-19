@@ -1,0 +1,77 @@
+{
+  "C1_with_vector_dims": {
+    "latency_ms": {
+      "n": 225,
+      "p50": 92.12,
+      "p95": 108.27,
+      "max": 111.43
+    },
+    "uses_hnsw": false,
+    "plan": [
+      "Limit  (cost=3450.83..3450.94 rows=43 width=12) (actual time=106.407..106.425 rows=100.00 loops=1)",
+      "Buffers: shared hit=122373",
+      "->  Sort  (cost=3450.83..3450.94 rows=43 width=12) (actual time=106.406..106.415 rows=100.00 loops=1)",
+      "Sort Method: top-N heapsort  Memory: 31kB",
+      "Buffers: shared hit=122373",
+      "->  Seq Scan on semantic_vectors  (cost=0.00..3449.66 rows=43 width=12) (actual time=1.050..103.934 rows=14926.00 loops=1)",
+      "Filter: (((collection_name)::text = 'persons_semantic'::text) AND (vector_dims(embedding) = 768))",
+      "Rows Removed by Filter: 32546",
+      "Buffers: shared hit=122373",
+      "Planning Time: 0.134 ms",
+      "Execution Time: 106.448 ms"
+    ],
+    "same_results_as_C1": true
+  },
+  "C2_collection_only": {
+    "latency_ms": {
+      "n": 225,
+      "p50": 56.94,
+      "p95": 66.01,
+      "max": 70.29
+    },
+    "uses_hnsw": false,
+    "plan": [
+      "Limit  (cost=3665.21..3665.46 rows=100 width=12) (actual time=55.987..56.001 rows=100.00 loops=1)",
+      "Buffers: shared hit=62669",
+      "->  Sort  (cost=3665.21..3686.95 rows=8696 width=12) (actual time=55.986..55.994 rows=100.00 loops=1)",
+      "Sort Method: top-N heapsort  Memory: 31kB",
+      "Buffers: shared hit=62669",
+      "->  Seq Scan on semantic_vectors  (cost=0.00..3332.85 rows=8696 width=12) (actual time=0.932..53.788 rows=14926.00 loops=1)",
+      "Filter: ((collection_name)::text = 'persons_semantic'::text)",
+      "Rows Removed by Filter: 32546",
+      "Buffers: shared hit=62669",
+      "Planning Time: 0.104 ms",
+      "Execution Time: 56.022 ms"
+    ],
+    "same_results_as_C1": true
+  },
+  "C3_plain_storage": {
+    "latency_ms": {
+      "n": 225,
+      "p50": 15.44,
+      "p95": 17.28,
+      "max": 18.68
+    },
+    "uses_hnsw": false,
+    "plan": [
+      "Limit  (cost=23190.59..23190.84 rows=100 width=12) (actual time=15.761..15.776 rows=100.00 loops=1)",
+      "Buffers: shared hit=7555",
+      "->  Sort  (cost=23190.59..23228.12 rows=15011 width=12) (actual time=15.760..15.769 rows=100.00 loops=1)",
+      "Sort Method: top-N heapsort  Memory: 31kB",
+      "Buffers: shared hit=7555",
+      "->  Bitmap Heap Scan on semantic_vectors  (cost=488.75..22616.88 rows=15011 width=12) (actual time=1.724..14.286 rows=14926.00 loops=1)",
+      "Recheck Cond: ((collection_name)::text = 'persons_semantic'::text)",
+      "Heap Blocks: exact=7463",
+      "Buffers: shared hit=7555",
+      "->  Bitmap Index Scan on pk_semantic_vectors  (cost=0.00..485.00 rows=15011 width=0) (actual time=0.908..0.909 rows=14926.00 loops=1)",
+      "Index Cond: ((collection_name)::text = 'persons_semantic'::text)",
+      "Index Searches: 1",
+      "Buffers: shared hit=92",
+      "Planning Time: 0.097 ms",
+      "Execution Time: 15.800 ms"
+    ],
+    "rewrite_seconds": 12.9,
+    "table_total_bytes": 316653568,
+    "same_results_as_C1": true
+  }
+}
