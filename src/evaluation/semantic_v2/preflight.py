@@ -6,7 +6,7 @@ per batch size, query latency. Then writes its vectors to pgvector the way produ
 would (PERSON exact, EVENT HNSW, PLAIN storage) in a disposable database and checks that
 both searches work and no vector is stored out of line.
 
-    PYTHONPATH=src uv run python evaluation/semantic_v2/preflight.py \\
+    PYTHONPATH=src uv run python -m evaluation.semantic_v2.preflight \\
         --documents-database-url <copy> --pgvector-database-url <..._test> --model BAAI/bge-m3
 """
 

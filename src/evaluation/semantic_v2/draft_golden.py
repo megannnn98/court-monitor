@@ -18,7 +18,7 @@ Spec (JSON list, one entry per article):
 
 A person already in persons.json is referenced by id with only "surfaces".
 
-    PYTHONPATH=src uv run python evaluation/semantic_v2/draft_golden.py --spec spec.json
+    PYTHONPATH=src uv run python -m evaluation.semantic_v2.draft_golden --spec spec.json
 """
 
 from __future__ import annotations
