@@ -67,7 +67,7 @@ python-telegram-bot тянет httpx (уже есть), но его handlers ж�
 ### Long polling, отдельный процесс
 
 Webhook, публичный HTTPS, открытый порт и reverse proxy не нужны: процесс сам
-ходит в Telegram. Бот запускается как `python -m telegram_bot` (профиль compose
+ходит в Telegram. Бот запускается как `PYTHONPATH=src python -m telegram_bot` (профиль compose
 `telegram`), а не внутри CLI court-monitor, чтобы бесконечный polling-цикл не
 смешивался с одноразовыми командами.
 

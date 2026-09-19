@@ -239,7 +239,8 @@ Fail-fast: отсутствующий токен, неизвестная тай�
 export DATABASE_URL=postgresql+psycopg://court_monitor:...@localhost:5433/court_monitor
 export TELEGRAM_BOT_TOKEN=...
 export TELEGRAM_ALLOWED_USER_IDS=123456789
-uv run python -m telegram_bot
+# Пакет лежит в src/ и не устанавливается: путь задаётся явно, как у остальных команд.
+PYTHONPATH=src uv run python -m telegram_bot
 ```
 
 ## Запуск через Docker
@@ -250,6 +251,10 @@ docker compose run --rm migrate
 TELEGRAM_BOT_TOKEN=... TELEGRAM_ALLOWED_USER_IDS=123456789 \
   docker compose --profile telegram up -d telegram-bot
 ```
+
+В образе `PYTHONPATH=/app/src` уже выставлен, поэтому команда там — `python -m telegram_bot`.
+Образ должен быть пересобран после добавления бота: в старом нет `aiogram`
+(`docker compose build api`, см. [Rebuild-Image](Rebuild-Image.md)).
 
 Сервис использует существующий образ `court-monitor:local`, ждёт healthy PostgreSQL,
 не публикует портов, получает токен только из окружения, перезапускается
