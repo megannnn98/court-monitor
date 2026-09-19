@@ -81,20 +81,21 @@ class ReadinessChecker:
         session_factory: sessionmaker[Session] | None,
         *,
         expected_revision: str,
-        qdrant_probe: Callable[[], None] | None,
+        semantic_probe: Callable[[], str | None] | None,
         together_configured: bool,
         stale_run_after: timedelta,
     ) -> None:
         self._session_factory = session_factory
         self._expected_revision = expected_revision
-        self._qdrant_probe = qdrant_probe
+        # Probes the configured vector store (Qdrant or pgvector); returns an OK detail.
+        self._semantic_probe = semantic_probe
         self._together_configured = together_configured
         self._stale_run_after = stale_run_after
 
     def check(self) -> ReadinessReport:
         components: dict[str, ComponentHealth] = {}
         components.update(self._database())
-        components["semantic_retrieval"] = self._qdrant()
+        components["semantic_retrieval"] = self._semantic()
         components["natural_language_research"] = ComponentHealth(
             status=ComponentStatus.OK
             if self._together_configured
@@ -157,20 +158,21 @@ class ReadinessChecker:
             return False
         return True
 
-    def _qdrant(self) -> ComponentHealth:
-        if self._qdrant_probe is None:
+    def _semantic(self) -> ComponentHealth:
+        if self._semantic_probe is None:
             return ComponentHealth(
-                status=ComponentStatus.NOT_CONFIGURED, detail="QDRANT_URL not set"
+                status=ComponentStatus.NOT_CONFIGURED,
+                detail="neither QDRANT_URL nor SEMANTIC_VECTOR_BACKEND=pgvector is set",
             )
         try:
-            self._qdrant_probe()
+            detail = self._semantic_probe()
         except Exception as exc:  # noqa: BLE001 - derived index: degraded, not down
-            logger.warning("event=readiness_qdrant_failed error_kind=%s", type(exc).__name__)
+            logger.warning("event=readiness_semantic_failed error_kind=%s", type(exc).__name__)
             return ComponentHealth(
                 status=ComponentStatus.UNAVAILABLE,
                 detail=f"{type(exc).__name__}: structured research still works",
             )
-        return ComponentHealth(status=ComponentStatus.OK)
+        return ComponentHealth(status=ComponentStatus.OK, detail=detail)
 
     def _monitoring(self) -> ComponentHealth:
         assert self._session_factory is not None

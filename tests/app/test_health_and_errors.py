@@ -35,7 +35,7 @@ def _checker(
     return ReadinessChecker(
         session_factory,
         expected_revision=revision or expected_schema_revision(),
-        qdrant_probe=probe if qdrant_configured else None,
+        semantic_probe=probe if qdrant_configured else None,
         together_configured=False,
         stale_run_after=timedelta(minutes=120),
     )
@@ -180,3 +180,54 @@ def test_openapi_lists_main_endpoints(client: TestClient) -> None:
         "/person-resolution/reviews",
     ):
         assert path in paths
+
+
+def test_pgvector_semantic_retrieval_is_ready_without_qdrant(
+    client: TestClient, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With SEMANTIC_VECTOR_BACKEND=pgvector the index lives in PostgreSQL: readiness
+    probes it there instead of reporting semantic retrieval as not configured."""
+    monkeypatch.setenv("SEMANTIC_VECTOR_BACKEND", "pgvector")
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+    monkeypatch.setattr("web.dependencies._get_session_factory", lambda: session_factory)
+
+    response = client.get("/health/ready")
+
+    assert response.status_code == 200
+    assert response.json()["components"]["semantic_retrieval"] == {
+        "status": "ok",
+        "detail": "pgvector",
+    }
+
+
+def test_pgvector_without_its_tables_is_unavailable(
+    client: TestClient, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A database whose migration did not add pgvector's tables cannot serve the index."""
+    monkeypatch.setenv("SEMANTIC_VECTOR_BACKEND", "pgvector")
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+    monkeypatch.setattr("web.dependencies._get_session_factory", lambda: session_factory)
+    monkeypatch.setattr(
+        "semantic_retrieval.pgvector_store.PgVectorStore.count",
+        lambda self, name: session_factory().execute(text("SELECT * FROM missing_table")),
+    )
+
+    response = client.get("/health/ready")
+
+    semantic = response.json()["components"]["semantic_retrieval"]
+    assert semantic["status"] == "unavailable"
+    assert "ProgrammingError" in semantic["detail"]
+
+
+def test_semantic_retrieval_not_configured_names_both_backends(
+    client: TestClient, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SEMANTIC_VECTOR_BACKEND", raising=False)
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+    monkeypatch.setattr("web.dependencies._get_session_factory", lambda: session_factory)
+
+    response = client.get("/health/ready")
+
+    semantic = response.json()["components"]["semantic_retrieval"]
+    assert semantic["status"] == "not_configured"
+    assert "SEMANTIC_VECTOR_BACKEND=pgvector" in semantic["detail"]

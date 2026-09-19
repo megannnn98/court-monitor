@@ -14,7 +14,6 @@ from db.database import DatabasePoolSettings, create_database_engine, create_ses
 from health import (
     ReadinessChecker,
     expected_schema_revision,
-    qdrant_probe,
 )
 from monitoring.models import (
     MonitoringSettings,
@@ -29,7 +28,7 @@ from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 from research.workflow.graph import ResearchGraph
 from research.workflow.llm import LlmConfigurationError
 from research.workflow_factory import create_research_graph
-from semantic_retrieval.factory import SemanticRetrievalConfig
+from semantic_retrieval.factory import SemanticRetrievalConfig, semantic_readiness_probe
 from semantic_retrieval.models import SemanticConfigurationError
 
 logger = logging.getLogger("api")
@@ -119,11 +118,7 @@ def get_readiness_checker() -> ReadinessChecker:
     return ReadinessChecker(
         session_factory,
         expected_revision=expected_schema_revision(),
-        qdrant_probe=(
-            None
-            if semantic.qdrant_service_url is None
-            else qdrant_probe(semantic.qdrant_service_url)
-        ),
+        semantic_probe=semantic_readiness_probe(semantic, session_factory),
         together_configured=bool(
             os.getenv("TOGETHER_API_KEY", "").strip() and os.getenv("TOGETHER_MODEL", "").strip()
         ),

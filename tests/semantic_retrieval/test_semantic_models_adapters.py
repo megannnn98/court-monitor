@@ -32,6 +32,7 @@ from semantic_retrieval.factory import (
     SemanticRetrievalConfig,
     create_configured_vector_store,
     create_semantic_components,
+    semantic_readiness_probe,
 )
 from semantic_retrieval.models import (
     EmbeddingError,
@@ -220,14 +221,9 @@ def test_the_vector_backend_is_qdrant_unless_pgvector_is_chosen() -> None:
     pgvector = SemanticRetrievalConfig.from_env({"SEMANTIC_VECTOR_BACKEND": " PGVector "})
 
     assert (default.vector_backend, default.enabled) == ("qdrant", True)
-    assert default.qdrant_service_url == "http://127.0.0.1:6333"
     assert SemanticRetrievalConfig.from_env({}).enabled is False
     # pgvector lives in the application's PostgreSQL: no QDRANT_URL, no Qdrant probe.
-    assert (pgvector.vector_backend, pgvector.enabled, pgvector.qdrant_service_url) == (
-        "pgvector",
-        True,
-        None,
-    )
+    assert (pgvector.vector_backend, pgvector.enabled) == ("pgvector", True)
     with pytest.raises(SemanticConfigurationError, match="SEMANTIC_VECTOR_BACKEND"):
         SemanticRetrievalConfig.from_env({"SEMANTIC_VECTOR_BACKEND": "faiss"})
 
@@ -246,6 +242,16 @@ def test_the_factory_builds_the_configured_vector_store() -> None:
             SemanticRetrievalConfig(vector_backend="pgvector"), session_factory
         ),
         PgVectorStore,
+    )
+
+
+def test_readiness_probes_the_configured_vector_store() -> None:
+    qdrant = semantic_readiness_probe(SemanticRetrievalConfig(qdrant_url="http://q:6333"), None)
+
+    assert qdrant is not None and qdrant.__qualname__.startswith("qdrant_probe")
+    assert semantic_readiness_probe(SemanticRetrievalConfig(), sessionmaker()) is None
+    assert (
+        semantic_readiness_probe(SemanticRetrievalConfig(vector_backend="pgvector"), None) is None
     )
 
 

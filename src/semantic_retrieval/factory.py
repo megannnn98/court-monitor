@@ -11,7 +11,7 @@ that looks at it.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Literal, cast
 
@@ -89,11 +89,6 @@ class SemanticRetrievalConfig:
         return self.vector_backend == "pgvector" or self.qdrant_url is not None
 
     @property
-    def qdrant_service_url(self) -> str | None:
-        """The Qdrant this configuration depends on (readiness probes it), if any."""
-        return self.qdrant_url if self.vector_backend == "qdrant" else None
-
-    @property
     def collections(self) -> dict[RetrievalEntityType, str]:
         return {
             RetrievalEntityType.PERSON: self.person_collection,
@@ -139,6 +134,28 @@ def create_configured_vector_store(
     if config.qdrant_url is None:
         raise ValueError("QDRANT_URL is not set")
     return create_vector_store(config.qdrant_url)
+
+
+def semantic_readiness_probe(
+    config: SemanticRetrievalConfig, session_factory: sessionmaker[Session] | None
+) -> Callable[[], str | None] | None:
+    """What readiness checks for semantic retrieval: the configured vector store."""
+    if config.vector_backend == "pgvector":
+        if session_factory is None:
+            return None  # the database component already reports it
+        store = PgVectorStore(session_factory)
+
+        def pgvector_probe() -> str:
+            # The migration's table, over the application's connection.
+            store.count(config.person_collection)
+            return "pgvector"
+
+        return pgvector_probe
+    if config.qdrant_url is None:
+        return None
+    from health import qdrant_probe  # health does not import semantic retrieval
+
+    return qdrant_probe(config.qdrant_url)
 
 
 @dataclass(frozen=True)
