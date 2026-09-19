@@ -103,7 +103,11 @@ size (upserts are checked against it, a recreate deletes the old rows), and the 
 detoasted every vector a second time. Most of an exact scan's time is reading vectors:
 a 768-d vector is 3 KB, above the 2 KB TOAST threshold, so by default it lives out of
 line. On 15 k persons an exact top-100 took 57 ms with TOAST and 15 ms with PLAIN
-storage. `semantic_vectors.embedding` is therefore stored PLAIN.
+storage (the bare query). `semantic_vectors.embedding` is therefore stored PLAIN. Through
+`PgVectorStore`, which also reads the collection's size and returns the model of every
+hit, a rebuilt copy of the working data gives p50 20.4 ms, p95 22.5 ms, max 25.8 ms, and
+the same top-100 as Qdrant in 45 of 45 queries
+(`reports/person_search_modes/production_exact_check.json`).
 
 `SET STORAGE PLAIN` changes only rows written afterwards; it does not rewrite existing
 vectors. The full rebuild that switching to pgvector requires (below) writes every vector
