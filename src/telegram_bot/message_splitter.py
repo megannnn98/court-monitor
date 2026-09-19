@@ -3,6 +3,10 @@
 A part never ends inside an HTML entity or inside a tag, because Telegram would reject
 the message: the text is cut at block boundaries (a person, then a line), and only a line
 longer than a whole part is cut by characters — outside any tag.
+
+A line is expected to be shorter than a part: `formatting` shortens a name and a title,
+so a `<a …>…</a>` is never spread over two messages. A line longer than a whole part
+would still be cut between its opening and closing tag; nothing the bot builds is.
 """
 
 from __future__ import annotations
@@ -79,18 +83,25 @@ def _cut_text(text: str, limit: int) -> list[str]:
 
 
 def _safe_cut(text: str, limit: int) -> int:
-    """The last position within `limit` that is outside any `<…>` tag and any `&…;` entity."""
-    cut = limit
-    window = text[:limit]
-    open_tag = window.rfind("<")
-    if open_tag != -1 and window.find(">", open_tag) == -1:
-        cut = open_tag
-    entity = text.rfind("&", 0, cut)
-    if entity != -1 and ";" not in text[entity:cut]:
-        cut = entity
-    # A space is a nicer break than the middle of a word, when one is close by.
+    """The last position within `limit` outside any `<…>` tag and any `&…;` entity."""
+    cut = _outside_markup(text, limit)
+    # A space is a nicer break than the middle of a word, when one is close by — but a
+    # tag has spaces of its own (`<a href="…">`), so the retreat is checked again.
     space = text.rfind(" ", max(0, cut - 120), cut)
-    return space if space > 0 else max(cut, 1)
+    if space > 0 and _outside_markup(text, space) == space:
+        return space
+    return max(cut, 1)
+
+
+def _outside_markup(text: str, position: int) -> int:
+    """`position`, moved back to the start of the tag or entity it falls inside."""
+    open_tag = text.rfind("<", 0, position)
+    if open_tag != -1 and text.find(">", open_tag, position) == -1:
+        position = open_tag
+    entity = text.rfind("&", 0, position)
+    if entity != -1 and ";" not in text[entity:position]:
+        position = entity
+    return position
 
 
 def _truncated(parts: list[str], limit: int) -> list[str]:

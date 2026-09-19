@@ -58,8 +58,8 @@ class FakeOperations:
         self.started.append((name, parameters))
         return run
 
-    def list_runs(self, limit: int = 100) -> list[OperationRun]:
-        return self.runs[:limit]
+    def runs_of(self, name: str, limit: int = 20) -> list[OperationRun]:
+        return [run for run in self.runs if run.operation.name == name][:limit]
 
     def finish(self, status: OperationRunStatus = OperationRunStatus.SUCCEEDED) -> None:
         self.runs[0].status = status
@@ -172,6 +172,34 @@ def test_update_is_allowed_again_once_the_previous_one_finished() -> None:
 
     assert isinstance(started, UpdateStarted)
     assert started.run.id == 43
+
+
+def test_runs_of_other_operations_do_not_hide_the_live_update() -> None:
+    operations = FakeOperations()
+    bot = service(operations)
+    bot.start_update()
+    # 30 runs of other operations, enough to push the monitor run out of any
+    # fixed-size window over the whole table.
+    for index in range(30):
+        operations.runs.insert(
+            0,
+            OperationRun(
+                id=1000 + index,
+                operation=OPERATION_DEFINITIONS["extract-entities"],
+                parameters=OperationParameters(limit=50),
+                status=OperationRunStatus.SUCCEEDED,
+                created_at=STARTED,
+                started_at=STARTED,
+                finished_at=STARTED,
+            ),
+        )
+
+    again = bot.start_update()
+    status = bot.last_update()
+
+    assert isinstance(again, UpdateAlreadyRunning)
+    assert again.run.id == 42
+    assert status is not None and status.run.id == 42
 
 
 def test_a_conflict_without_a_live_run_is_not_swallowed() -> None:

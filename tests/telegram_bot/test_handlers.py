@@ -289,3 +289,39 @@ def test_a_command_addressed_to_the_bot_is_understood() -> None:
 
 def test_plain_text_is_not_a_command() -> None:
     assert _parse("привет") == ("", [])
+
+
+def test_a_very_long_title_stays_inside_one_message_with_its_link() -> None:
+    result = PeopleFromNewsResult(
+        date_from=datetime(2026, 9, 1, tzinfo=UTC).date(),
+        date_to=datetime(2026, 9, 19, tzinfo=UTC).date(),
+        total=60,
+        limit=50,
+        people=[
+            PersonFromNews(
+                person_id=index,
+                canonical_name=f"Человек {index} " + "Длинноимённый" * 30,
+                article_count=3,
+                latest_published_at=datetime(2026, 9, 18, tzinfo=UTC),
+                sources=["ОВД-Инфо"],
+                articles=[
+                    NewsArticleReference(
+                        article_id=index,
+                        title="слово " * 900,
+                        url=f"https://news.example/{index}",
+                        source_name="ОВД-Инфо",
+                        published_at=datetime(2026, 9, 18, tzinfo=UTC),
+                    )
+                ],
+            )
+            for index in range(50)
+        ],
+    )
+
+    messages = reply("people", "2026-09-01", "2026-09-19", people=FakePeople(result))
+
+    for message in messages:
+        assert len(message) <= 4096
+        # Every link and every bold name opened in a part is closed in the same part.
+        assert message.count("<a href=") == message.count("</a>")
+        assert message.count("<b>") == message.count("</b>")

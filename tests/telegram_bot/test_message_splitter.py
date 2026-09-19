@@ -6,6 +6,7 @@ from telegram_bot.message_splitter import (
     DEFAULT_PART_LIMIT,
     TELEGRAM_MESSAGE_LIMIT,
     TRUNCATION_NOTICE,
+    _safe_cut,
     split_blocks,
 )
 
@@ -80,3 +81,12 @@ def test_unicode_is_counted_in_characters() -> None:
 
 def test_no_blocks_produce_no_messages() -> None:
     assert split_blocks([]) == []
+
+
+def test_a_retreat_to_a_space_never_lands_inside_a_tag() -> None:
+    # `<a href="…">` carries a space of its own: retreating to it would break the tag.
+    text = '<a href="https://news.example/averyveryverylongpath">' + "x" * 40
+
+    cut = _safe_cut(text, 60)
+
+    assert text.rfind("<", 0, cut) <= text.rfind(">", 0, cut)

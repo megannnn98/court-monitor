@@ -40,7 +40,7 @@ class OperationStarter(Protocol):
 
     def start(self, name: str, parameters: OperationParameters) -> OperationRun: ...
 
-    def list_runs(self, limit: int = ...) -> list[OperationRun]: ...
+    def runs_of(self, name: str, limit: int = ...) -> list[OperationRun]: ...
 
 
 class MonitoringRunsReader(Protocol):
@@ -129,11 +129,7 @@ class UpdateService:
         return UpdateStarted(run=run, sources=self._enabled_sources)
 
     def last_update(self) -> UpdateStatus | None:
-        runs = [
-            run
-            for run in self._operations.list_runs(limit=20)
-            if run.operation.name == MONITOR_OPERATION
-        ]
+        runs = self._operations.runs_of(MONITOR_OPERATION, limit=1)
         return None if not runs else self._status_of(runs[0])
 
     def _active_run(self) -> OperationRun | None:
@@ -141,8 +137,8 @@ class UpdateService:
         return next(
             (
                 run
-                for run in self._operations.list_runs(limit=20)
-                if run.operation.name == MONITOR_OPERATION and run.status in live
+                for run in self._operations.runs_of(MONITOR_OPERATION, limit=5)
+                if run.status in live
             ),
             None,
         )

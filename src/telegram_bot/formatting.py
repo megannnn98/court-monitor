@@ -38,6 +38,11 @@ PEOPLE_FORMAT = """Формат:
 Пример:
 <code>/people 2026-09-01 2026-09-19</code>"""
 
+# A name and a title are shortened so that one line always fits into one message:
+# a link spread over two messages would leave an unclosed tag, which Telegram rejects.
+MAX_NAME = 150
+MAX_TITLE = 300
+
 UNKNOWN_COMMAND = "Неизвестная команда. /help — список команд."
 NOT_AUTHORIZED = "Доступ закрыт. Обратитесь к администратору бота."
 UNEXPECTED_ERROR = "Внутренняя ошибка. Попробуйте позже; подробности записаны в журнал сервера."
@@ -120,7 +125,7 @@ def people_messages(result: PeopleFromNewsResult) -> list[str]:
 
 def _person_block(position: int, person: PersonFromNews) -> str:
     lines = [
-        f"{position}. <b>{escape(person.canonical_name)}</b>",
+        f"{position}. <b>{escape(_shorten(person.canonical_name, MAX_NAME))}</b>",
         f"   Публикаций: {person.article_count}",
         f"   Последняя: {person.latest_published_at.date().isoformat()}",
         f"   Источники: {escape(', '.join(person.sources))}",
@@ -128,10 +133,20 @@ def _person_block(position: int, person: PersonFromNews) -> str:
     if person.articles:
         lines.append("   Статьи:")
         lines += [
-            f'   • <a href="{escape(article.url, quote=True)}">{escape(article.title)}</a>'
+            f'   • <a href="{escape(article.url, quote=True)}">'
+            f"{escape(_shorten(article.title, MAX_TITLE))}</a>"
             for article in person.articles
         ]
     return "\n".join(lines)
+
+
+def _shorten(text: str, limit: int) -> str:
+    """Cut at a word when the text is longer than `limit`."""
+    if len(text) <= limit:
+        return text
+    head = text[: limit - 1]
+    space = head.rfind(" ")
+    return f"{head[:space] if space > limit // 2 else head}…"
 
 
 def _moment(value: datetime | None, timezone: ZoneInfo) -> str:

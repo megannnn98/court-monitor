@@ -229,6 +229,19 @@ class OperationRegistry:
             ).all()
             return [_to_run(record) for record in records]
 
+    def runs_of(self, name: str, limit: int = 20) -> list[OperationRun]:
+        """Runs of one operation, newest first: a caller after `monitor` must not be
+        pushed out of the window by runs of other operations."""
+        self.interrupt_stale_runs()
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(OperatorOperationRunRecord)
+                .where(OperatorOperationRunRecord.operation_name == name)
+                .order_by(OperatorOperationRunRecord.id.desc())
+                .limit(limit)
+            ).all()
+            return [_to_run(record) for record in records]
+
     def get(self, run_id: int) -> OperationRun:
         self.interrupt_stale_runs()
         with self._session_factory() as session:
