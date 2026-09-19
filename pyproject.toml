@@ -5,6 +5,7 @@ description = "Recovered first vertical slice of court-monitor"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiogram>=3.22",
     "alembic>=1.19.1",
     "dagster>=1.13.22",
     "dagster-postgres>=0.29.22",
