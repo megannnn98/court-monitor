@@ -30,6 +30,9 @@ from telegram_bot.models import NewsArticleReference, PeopleFromNewsResult, Pers
 
 # Enough to show what the person is in the news for; `article_count` keeps the total.
 ARTICLES_PER_PERSON = 3
+# A spreadsheet is a file, not a chat message, so it carries every article — up to a
+# ceiling that keeps one export inside Telegram's file limit and inside memory.
+EXPORT_MAX_ROWS = 50_000
 
 
 class PeopleFromNewsRepository:
@@ -59,7 +62,34 @@ class PeopleFromNewsRepository:
             people=_to_people(rows),
         )
 
-    def _query(self, start: datetime, end: datetime, limit: int) -> Select[Any]:
+    def all_people_in_period(
+        self, *, date_from: date, date_to: date, start: datetime, end: datetime
+    ) -> PeopleFromNewsResult:
+        """Every person of the period with every one of their articles, for the export.
+
+        The same query and the same order, without the page limit and without the three
+        articles per person; `EXPORT_MAX_ROWS` bounds one file.
+        """
+        with self._session_factory() as session:
+            rows = session.execute(
+                self._query(start, end, limit=None, articles_per_person=None).limit(EXPORT_MAX_ROWS)
+            ).all()
+        people = _to_people(rows)
+        return PeopleFromNewsResult(
+            date_from=date_from,
+            date_to=date_to,
+            total=int(rows[0].total) if rows else 0,
+            limit=len(people),
+            people=people,
+        )
+
+    def _query(
+        self,
+        start: datetime,
+        end: datetime,
+        limit: int | None,
+        articles_per_person: int | None = ARTICLES_PER_PERSON,
+    ) -> Select[Any]:
         pairs = self._person_article_pairs(start, end)
         stats = (
             select(
@@ -88,9 +118,12 @@ class PeopleFromNewsRepository:
             )
             .label("position"),
         ).cte("ranked_people")
-        page = select(ranked).where(ranked.c.position <= limit).cte("page")
+        paged = select(ranked)
+        if limit is not None:
+            paged = paged.where(ranked.c.position <= limit)
+        page = paged.cte("page")
         # LATERAL: the newest articles of the people on this page only.
-        articles = (
+        newest = (
             select(
                 pairs.c.article_id,
                 pairs.c.title,
@@ -100,9 +133,10 @@ class PeopleFromNewsRepository:
             )
             .where(pairs.c.person_id == page.c.person_id)
             .order_by(pairs.c.published_at.desc(), pairs.c.article_id.desc())
-            .limit(ARTICLES_PER_PERSON)
-            .lateral("top_articles")
         )
+        if articles_per_person is not None:
+            newest = newest.limit(articles_per_person)
+        articles = newest.lateral("top_articles")
         return (
             select(
                 page.c.person_id,

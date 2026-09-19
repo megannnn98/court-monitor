@@ -88,6 +88,20 @@ class PeopleService:
             max_limit=self._settings.people_max_limit,
         )
 
+    def parse_export(self, arguments: Sequence[str]) -> PeopleQuery:
+        """`/export` takes the period only: a file always holds everything found."""
+        if len(arguments) != 2:
+            raise PeopleQueryError("нужны две даты")
+        return self.parse(arguments)
+
+    def export(self, query: PeopleQuery) -> PeopleFromNewsResult:
+        return self._repository.all_people_in_period(
+            date_from=query.date_from,
+            date_to=query.date_to,
+            start=query.start,
+            end=query.end,
+        )
+
     def people(self, query: PeopleQuery) -> PeopleFromNewsResult:
         return self._repository.people_in_period(
             date_from=query.date_from,

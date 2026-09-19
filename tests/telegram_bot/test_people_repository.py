@@ -428,3 +428,71 @@ def test_the_period_is_reported_back(session_factory: sessionmaker[Session]) -> 
         date(2026, 9, 19),
         50,
     )
+
+
+def all_people(
+    session_factory: sessionmaker[Session],
+    *,
+    start: datetime = PERIOD_START,
+    end: datetime = PERIOD_END,
+) -> PeopleFromNewsResult:
+    return repository(session_factory).all_people_in_period(
+        date_from=start.date(),
+        date_to=(end - timedelta(days=1)).date(),
+        start=start,
+        end=end,
+    )
+
+
+def test_the_export_keeps_every_article_of_a_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        build = Builder(session)
+        person = build.person("Иванов Иван")
+        for day in range(1, 8):
+            build.mention(
+                build.article(f"Статья {day}", datetime(2026, 9, day, tzinfo=UTC)), person
+            )
+
+    result = all_people(session_factory)
+
+    assert result.total == 1
+    assert result.people[0].article_count == 7
+    # The chat answer shows three; the file shows them all, newest first.
+    assert [a.title for a in result.people[0].articles] == [
+        f"Статья {day}" for day in range(7, 0, -1)
+    ]
+
+
+def test_the_export_is_not_cut_by_the_page_limit(session_factory: sessionmaker[Session]) -> None:
+    with session_factory.begin() as session:
+        build = Builder(session)
+        for index in range(60):
+            person = build.person(f"Человек {index:02d}")
+            build.mention(
+                build.article(f"Статья {index}", datetime(2026, 9, 10, tzinfo=UTC)), person
+            )
+
+    result = all_people(session_factory)
+
+    assert result.total == 60
+    assert len(result.people) == 60
+
+
+def test_the_export_applies_the_same_filters(session_factory: sessionmaker[Session]) -> None:
+    with session_factory.begin() as session:
+        build = Builder(session)
+        person = build.person("Иванов Иван")
+        build.mention(
+            build.article(
+                "Карточка",
+                datetime(2026, 9, 10, tzinfo=UTC),
+                base_url=REGISTRY_URL,
+                source_name="Мемориал: реестр",
+            ),
+            person,
+        )
+        build.mention(build.article("Без даты", None), person)
+
+    assert all_people(session_factory).people == []

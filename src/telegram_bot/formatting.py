@@ -15,6 +15,7 @@ START = """<b>Court Monitor</b>
 /update — докачать и обработать новые публикации
 /status — показать состояние последней докачки
 /people YYYY-MM-DD YYYY-MM-DD — показать людей из новостей за период
+/export YYYY-MM-DD YYYY-MM-DD — выгрузить этих людей в Excel
 /help — справка"""
 
 HELP = """<b>Команды</b>
@@ -28,15 +29,27 @@ HELP = """<b>Команды</b>
 /people YYYY-MM-DD YYYY-MM-DD [limit] — люди из новостей, опубликованных за период. \
 Обе даты включаются. Время — {timezone}.
 
+/export YYYY-MM-DD YYYY-MM-DD — та же выборка файлом .xlsx: все найденные люди и \
+все их статьи, по строке на статью.
+
 Примеры:
 <code>/people 2026-09-01 2026-09-19</code>
-<code>/people 2026-09-01 2026-09-19 100</code>"""
+<code>/people 2026-09-01 2026-09-19 100</code>
+<code>/export 2026-09-01 2026-09-19</code>"""
 
 PEOPLE_FORMAT = """Формат:
 <code>/people YYYY-MM-DD YYYY-MM-DD [limit]</code>
 
 Пример:
 <code>/people 2026-09-01 2026-09-19</code>"""
+
+EXPORT_FORMAT = """Формат:
+<code>/export YYYY-MM-DD YYYY-MM-DD</code>
+
+Пример:
+<code>/export 2026-09-01 2026-09-19</code>
+
+В файл попадают все найденные люди и все их статьи, limit не задаётся."""
 
 # A name and a title are shortened so that one line always fits into one message:
 # a link spread over two messages would leave an unclosed tag, which Telegram rejects.
@@ -54,6 +67,32 @@ def help_message(timezone: ZoneInfo) -> str:
 
 def people_format_error(reason: str) -> str:
     return f"{escape(reason.capitalize())}.\n\n{PEOPLE_FORMAT}"
+
+
+def export_format_error(reason: str) -> str:
+    return f"{escape(reason.capitalize())}.\n\n{EXPORT_FORMAT}"
+
+
+def export_empty(result: PeopleFromNewsResult) -> str:
+    return (
+        f"За {result.date_from.isoformat()} — {result.date_to.isoformat()} "
+        "людей в новостях не найдено, выгружать нечего."
+    )
+
+
+def export_ready(result: PeopleFromNewsResult) -> str:
+    rows = sum(max(len(person.articles), 1) for person in result.people)
+    lines = [
+        f"<b>Выгрузка {result.date_from.isoformat()} — {result.date_to.isoformat()}</b>",
+        f"Людей: {result.total}",
+        f"Строк в файле: {rows}",
+    ]
+    if len(result.people) < result.total:
+        lines.append(
+            f"Файл вмещает не всё: показаны первые {len(result.people)} человек. "
+            "Разбейте период на части."
+        )
+    return "\n".join(lines)
 
 
 def update_started(started: UpdateStarted) -> str:

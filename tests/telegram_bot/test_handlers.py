@@ -20,9 +20,9 @@ from telegram_bot import formatting
 from telegram_bot.app import _parse
 from telegram_bot.authorization import Authorization
 from telegram_bot.config import TelegramBotSettings
-from telegram_bot.handlers import CommandHandlers
+from telegram_bot.handlers import Answer, CommandHandlers
 from telegram_bot.models import NewsArticleReference, PeopleFromNewsResult, PersonFromNews
-from telegram_bot.people_service import PeopleQuery, parse_people_query
+from telegram_bot.people_service import PeopleQuery, PeopleQueryError, parse_people_query
 from telegram_bot.update_service import (
     RunFailures,
     UpdateAlreadyRunning,
@@ -83,7 +83,16 @@ class FakePeople:
             max_limit=SETTINGS.people_max_limit,
         )
 
+    def parse_export(self, arguments: Sequence[str]) -> PeopleQuery:
+        if len(arguments) != 2:
+            raise PeopleQueryError("нужны две даты")
+        return self.parse(arguments)
+
     def people(self, query: PeopleQuery) -> PeopleFromNewsResult:
+        self.queries.append(query)
+        return self.result
+
+    def export(self, query: PeopleQuery) -> PeopleFromNewsResult:
         self.queries.append(query)
         return self.result
 
@@ -104,6 +113,17 @@ def handlers(
     )
 
 
+def answer(
+    command: str,
+    *arguments: str,
+    user_id: int | None = ALLOWED,
+    updates: FakeUpdates | None = None,
+    people: FakePeople | None = None,
+) -> Answer:
+    bot = handlers(updates=updates, people=people)
+    return asyncio.run(bot.handle(command, list(arguments), user_id))
+
+
 def reply(
     command: str,
     *arguments: str,
@@ -111,8 +131,7 @@ def reply(
     updates: FakeUpdates | None = None,
     people: FakePeople | None = None,
 ) -> list[str]:
-    bot = handlers(updates=updates, people=people)
-    return asyncio.run(bot.handle(command, list(arguments), user_id)).messages
+    return answer(command, *arguments, user_id=user_id, updates=updates, people=people).messages
 
 
 def test_start_lists_the_commands() -> None:
@@ -325,3 +344,73 @@ def test_a_very_long_title_stays_inside_one_message_with_its_link() -> None:
         # Every link and every bold name opened in a part is closed in the same part.
         assert message.count("<a href=") == message.count("</a>")
         assert message.count("<b>") == message.count("</b>")
+
+
+def people_with_articles(count: int) -> PeopleFromNewsResult:
+    return PeopleFromNewsResult(
+        date_from=datetime(2026, 9, 1, tzinfo=UTC).date(),
+        date_to=datetime(2026, 9, 19, tzinfo=UTC).date(),
+        total=count,
+        limit=count,
+        people=[
+            PersonFromNews(
+                person_id=index,
+                canonical_name=f"Человек {index}",
+                article_count=2,
+                latest_published_at=datetime(2026, 9, 18, tzinfo=UTC),
+                sources=["ОВД-Инфо"],
+                articles=[
+                    NewsArticleReference(
+                        article_id=index * 10 + offset,
+                        title=f"Статья {index}-{offset}",
+                        url=f"https://news.example/{index}{offset}",
+                        source_name="ОВД-Инфо",
+                        published_at=datetime(2026, 9, 18 - offset, tzinfo=UTC),
+                    )
+                    for offset in (0, 1)
+                ],
+            )
+            for index in range(count)
+        ],
+    )
+
+
+def test_export_answers_with_a_spreadsheet() -> None:
+    people = FakePeople(people_with_articles(3))
+
+    result = answer("export", "2026-09-01", "2026-09-19", people=people)
+
+    assert result.document is not None
+    assert result.document.filename == "people-2026-09-01-2026-09-19.xlsx"
+    # A real .xlsx is a zip archive.
+    assert result.document.content[:2] == b"PK"
+    assert "Людей: 3" in result.messages[0]
+    assert "Строк в файле: 6" in result.messages[0]
+
+
+def test_export_of_an_empty_period_sends_no_file() -> None:
+    result = answer("export", "2026-09-01", "2026-09-19")
+
+    assert result.document is None
+    assert "выгружать нечего" in result.messages[0]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [(), ("2026-09-01",), ("01.09.2026", "19.09.2026"), ("2026-09-01", "2026-09-19", "100")],
+)
+def test_export_explains_its_format(arguments: tuple[str, ...]) -> None:
+    result = answer("export", *arguments)
+
+    assert result.document is None
+    assert "/export YYYY-MM-DD YYYY-MM-DD" in result.messages[0]
+
+
+def test_export_is_closed_by_the_allowlist() -> None:
+    people = FakePeople(people_with_articles(3))
+
+    result = answer("export", "2026-09-01", "2026-09-19", user_id=DENIED, people=people)
+
+    assert result.document is None
+    assert result.messages == [formatting.NOT_AUTHORIZED]
+    assert people.queries == []

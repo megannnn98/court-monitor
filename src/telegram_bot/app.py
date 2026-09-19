@@ -14,7 +14,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import BufferedInputFile, Message
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import create_database_engine, create_session_factory
@@ -30,7 +30,7 @@ from telegram_bot.update_service import UpdateService
 
 logger = logging.getLogger(__name__)
 
-COMMANDS = ("start", "help", "update", "status", "people")
+COMMANDS = ("start", "help", "update", "status", "people", "export")
 
 
 def build_handlers(
@@ -61,6 +61,10 @@ def build_dispatcher(handlers: CommandHandlers) -> Dispatcher:
         )
         for part in answer.messages:
             await message.answer(part, disable_web_page_preview=True)
+        if answer.document is not None:
+            await message.answer_document(
+                BufferedInputFile(answer.document.content, filename=answer.document.filename)
+            )
 
     dispatcher.message.register(on_command, Command(commands=COMMANDS))
     # Anything else, including an unknown command, gets the same short reminder.

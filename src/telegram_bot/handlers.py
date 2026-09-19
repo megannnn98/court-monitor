@@ -16,6 +16,7 @@ from typing import Protocol
 from telegram_bot import formatting
 from telegram_bot.authorization import Authorization
 from telegram_bot.config import TelegramBotSettings
+from telegram_bot.excel import people_filename, people_xlsx
 from telegram_bot.people_service import PeopleQueryError, PeopleService
 from telegram_bot.update_service import UpdateAlreadyRunning, UpdateService
 
@@ -29,10 +30,17 @@ class BlockingRunner(Protocol):
 
 
 @dataclass(frozen=True)
+class Document:
+    filename: str
+    content: bytes
+
+
+@dataclass(frozen=True)
 class Answer:
-    """What the bot sends back: one or more messages, in order."""
+    """What the bot sends back: messages in order, optionally with a file."""
 
     messages: list[str]
+    document: Document | None = None
 
     @classmethod
     def of(cls, message: str) -> Answer:
@@ -81,6 +89,8 @@ class CommandHandlers:
             return await self._status()
         if command == "people":
             return await self._people_in_period(arguments)
+        if command == "export":
+            return await self._export(arguments)
         return Answer.of(formatting.UNKNOWN_COMMAND)
 
     async def _update(self) -> Answer:
@@ -92,6 +102,29 @@ class CommandHandlers:
     async def _status(self) -> Answer:
         status = await self._run_blocking(self._updates.last_update)
         return Answer.of(formatting.update_status(status, self._settings.timezone))
+
+    async def _export(self, arguments: Sequence[str]) -> Answer:
+        try:
+            query = self._people.parse_export(arguments)
+        except PeopleQueryError as error:
+            return Answer.of(formatting.export_format_error(str(error)))
+        result = await self._run_blocking(lambda: self._people.export(query))
+        logger.info(
+            "event=telegram_command command=export result=ok from=%s to=%s people=%d rows=%d",
+            query.date_from.isoformat(),
+            query.date_to.isoformat(),
+            len(result.people),
+            sum(max(len(person.articles), 1) for person in result.people),
+        )
+        if not result.people:
+            return Answer.of(formatting.export_empty(result))
+        return Answer(
+            messages=[formatting.export_ready(result)],
+            document=Document(
+                filename=people_filename(result),
+                content=people_xlsx(result, self._settings.timezone),
+            ),
+        )
 
     async def _people_in_period(self, arguments: Sequence[str]) -> Answer:
         try:
