@@ -236,8 +236,10 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # Never written into the image or this file: it comes from the environment.
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
-      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:?TELEGRAM_ALLOWED_USER_IDS is required}
+      # Left empty on purpose: a required-variable marker (`:?`) would break every
+      # other compose command, and the bot itself refuses to start without them.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-}
       TELEGRAM_BOT_TIMEZONE: ${TELEGRAM_BOT_TIMEZONE:-Europe/Moscow}
       TELEGRAM_PEOPLE_DEFAULT_LIMIT: ${TELEGRAM_PEOPLE_DEFAULT_LIMIT:-50}
       TELEGRAM_PEOPLE_MAX_LIMIT: ${TELEGRAM_PEOPLE_MAX_LIMIT:-200}

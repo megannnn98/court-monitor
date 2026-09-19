@@ -327,7 +327,7 @@ SIGTERM. Миграции автоматически не выполняются
 | Симптом | Причина и что делать |
 |---|---|
 | контейнер падает сразу со списком проблем | fail-fast конфигурации: читайте список в логе, он называет каждую переменную |
-| `required variable TELEGRAM_BOT_TOKEN is missing a value` при `compose up` | токен не экспортирован в окружении: он намеренно не хранится в compose и в репозитории |
+| контейнер падает с «TELEGRAM_BOT_TOKEN environment variable is not set» | токен не экспортирован в окружении: он намеренно не хранится ни в compose, ни в репозитории |
 | бот молчит на все команды | ваш `user_id` не в allowlist; в логе `event=telegram_authorization … result=denied` |
 | `/update` отвечает «уже выполняется» | живой run операции `monitor`; дождитесь его или посмотрите `/status` |
 | `/status` показывает `interrupted` | процесс операции умер без heartbeat (см. ADR 0016); запустите `/update` снова |
