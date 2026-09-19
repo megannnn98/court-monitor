@@ -58,7 +58,7 @@ def _vram_peak_mib() -> float | None:
         return None
     if not torch.cuda.is_available():
         return None
-    return round(torch.cuda.max_memory_allocated() / 2**20, 1)
+    return round(float(torch.cuda.max_memory_allocated()) / 2**20, 1)
 
 
 def main() -> None:
