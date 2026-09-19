@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 from qdrant_client import QdrantClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.semantic_fakes import HashingEmbedder, InMemoryBuilder
 
@@ -127,3 +128,25 @@ def test_a_first_incremental_run_claims_an_unrecorded_index(
     assert SqlAlchemySemanticDocumentRepository(session_factory).get_index_backend(PERSON) == (
         "pgvector"
     )
+
+
+def test_marks_without_a_recorded_backend_need_a_full_rebuild(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A restore without semantic_index_state leaves indexed_at marks nobody owns: an
+    incremental run would skip those documents in an index that never got them."""
+    builder = InMemoryBuilder(PERSON, {1: "суд", 2: "обыск"})
+    store = PgVectorStore(session_factory)
+    indexer, _ = _indexer(store, builder, session_factory)
+    indexer.rebuild(PERSON)
+    with session_factory.begin() as session:
+        session.execute(text("DELETE FROM semantic_index_state"))
+        session.execute(text("DELETE FROM semantic_vectors"))
+
+    with pytest.raises(IndexBackendMismatchError, match="no recorded backend"):
+        indexer.rebuild(PERSON, incremental=True)
+    with pytest.raises(IndexBackendMismatchError):
+        indexer.index_entities(PERSON, [1])
+
+    assert indexer.rebuild(PERSON).embedded == 2
+    assert indexer.rebuild(PERSON, incremental=True).unchanged == 2

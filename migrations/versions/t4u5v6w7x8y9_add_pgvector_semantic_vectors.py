@@ -89,4 +89,17 @@ def downgrade() -> None:
     op.drop_table("semantic_index_state")
     op.drop_table("semantic_vectors")
     op.drop_table("semantic_vector_collections")
-    op.execute("DROP EXTENSION IF EXISTS vector")
+    # Drop `vector` only if nothing else uses it: it may have been there before this
+    # migration, for another table.
+    other_users = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                "SELECT 1 FROM pg_attribute a JOIN pg_type t ON t.oid = a.atttypid "
+                "WHERE t.typname = 'vector' AND NOT a.attisdropped LIMIT 1"
+            )
+        )
+        .first()
+    )
+    if other_users is None:
+        op.execute("DROP EXTENSION IF EXISTS vector")

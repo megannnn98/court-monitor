@@ -95,3 +95,22 @@ def test_plain_storage_migration_is_reversible(session_factory: sessionmaker[Ses
         assert upgraded.returncode == 0, upgraded.stderr
 
     assert _embedding_storage(session_factory) == "p"
+
+
+def test_downgrade_keeps_the_vector_extension_another_table_uses(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The migration may drop `vector` only when nothing else in the database uses it."""
+    engine = session_factory.kw["bind"]
+    database_url = engine.url.render_as_string(hide_password=False)
+    with session_factory.begin() as session:
+        session.execute(text("CREATE TABLE other_vectors (embedding vector(3))"))
+    try:
+        downgraded = _alembic(database_url, "downgrade", PREVIOUS_REVISION)
+        assert downgraded.returncode == 0, downgraded.stderr
+        assert "vector" in _extensions(session_factory)
+    finally:
+        with session_factory.begin() as session:
+            session.execute(text("DROP TABLE IF EXISTS other_vectors"))
+        upgraded = _alembic(database_url, "upgrade", "head")
+        assert upgraded.returncode == 0, upgraded.stderr

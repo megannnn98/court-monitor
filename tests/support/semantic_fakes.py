@@ -125,6 +125,9 @@ class InMemoryDocumentRepository:
     def set_index_backend(self, entity_type: RetrievalEntityType, vector_backend: str) -> None:
         self.index_backends[entity_type] = vector_backend
 
+    def has_indexed(self, entity_type: RetrievalEntityType) -> bool:
+        return any(indexed for (kind, _), (_, indexed) in self.rows.items() if kind is entity_type)
+
     def delete(self, entity_type: RetrievalEntityType, entity_ids: Sequence[int]) -> None:
         for entity_id in entity_ids:
             self.rows.pop((entity_type, entity_id), None)

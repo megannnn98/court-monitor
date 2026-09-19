@@ -176,3 +176,49 @@ def test_switching_to_pgvector_needs_the_full_rebuild_that_writes_persons_plain(
     assert repository.get_index_backend(RetrievalEntityType.PERSON) == "pgvector"
     assert not [i for i in _hnsw_indexes(session_factory) if PERSONS in i]
     assert indexer.rebuild(RetrievalEntityType.PERSON, incremental=True).unchanged == 3
+
+
+def test_a_candidate_set_search_scores_like_the_brute_force(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The entity_ids path (a structured candidate set) is exact too, one distance a row."""
+    rng = random.Random(11)
+    vectors = {i: [rng.gauss(0, 1) for _ in range(DIMENSION)] for i in range(1, 201)}
+    store = _store(session_factory)
+    store.ensure_collection(EVENTS, DIMENSION)
+    store.upsert(EVENTS, [_point(i, v) for i, v in vectors.items()])
+    candidates = sorted(rng.sample(sorted(vectors), 60))
+    query = [rng.gauss(0, 1) for _ in range(DIMENSION)]
+
+    matches = store.search(EVENTS, query, embedding_model_id=MODEL, limit=20, entity_ids=candidates)
+
+    reference = sorted(candidates, key=lambda i: (-_cosine(vectors[i], query), i))[:20]
+    assert [m.entity_id for m in matches] == reference
+    for match in matches:
+        assert match.score == pytest.approx(_cosine(vectors[match.entity_id], query), abs=1e-5)
+    with session_factory() as session:
+        plan = list(
+            session.execute(
+                text("EXPLAIN (VERBOSE) " + store.candidate_search_sql(EVENTS)),
+                {
+                    "query": "[" + ",".join(["1"] * DIMENSION) + "]",
+                    "collection": EVENTS,
+                    "ids": candidates,
+                    "limit": 20,
+                },
+            ).scalars()
+        )
+    # The scan node computes the row's output: one distance, not a score and a distance.
+    scan_output = [line for line in plan if "Output:" in line][-1]
+    assert scan_output.count("<=>") == 1, plan
+
+
+def test_ensure_drops_an_hnsw_index_left_from_before_persons_were_exact(
+    session_factory: sessionmaker[Session],
+) -> None:
+    PgVectorStore(session_factory).recreate_collection(PERSONS, DIMENSION)  # HNSW, as before
+    assert f"ix_semvec_hnsw_{PERSONS}_{DIMENSION}" in _hnsw_indexes(session_factory)
+
+    _store(session_factory).ensure_collection(PERSONS, DIMENSION)
+
+    assert not [i for i in _hnsw_indexes(session_factory) if PERSONS in i]

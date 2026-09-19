@@ -92,6 +92,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       QDRANT_URL: ${API_QDRANT_URL:-}
+      # qdrant (default) or pgvector (ADR 0018); switching needs a full rebuild.
+      SEMANTIC_VECTOR_BACKEND: ${SEMANTIC_VECTOR_BACKEND:-}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       TOGETHER_MODEL: ${TOGETHER_MODEL:-}
       TOGETHER_TIMEOUT_SECONDS: ${TOGETHER_TIMEOUT_SECONDS:-30}
@@ -176,6 +178,7 @@ services:
       # Empty: semantic stage reports not_configured. With --profile semantic and an
       # image built with INSTALL_SEMANTIC=1, set MONITORING_QDRANT_URL=http://qdrant:6333.
       QDRANT_URL: ${MONITORING_QDRANT_URL:-}
+      SEMANTIC_VECTOR_BACKEND: ${SEMANTIC_VECTOR_BACKEND:-}
       MONITORING_ENABLED_SOURCES: ${MONITORING_ENABLED_SOURCES:-}
       MONITORING_CRON: ${MONITORING_CRON:-0 * * * *}
       MONITORING_DISCOVERY_LIMIT: ${MONITORING_DISCOVERY_LIMIT:-50}

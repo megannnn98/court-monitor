@@ -44,6 +44,8 @@ class SemanticDocumentRepository(Protocol):
 
     def get_index_backend(self, entity_type: RetrievalEntityType) -> str | None: ...
 
+    def has_indexed(self, entity_type: RetrievalEntityType) -> bool: ...
+
     def set_index_backend(self, entity_type: RetrievalEntityType, vector_backend: str) -> None: ...
 
     def delete(self, entity_type: RetrievalEntityType, entity_ids: Sequence[int]) -> None: ...
@@ -167,7 +169,14 @@ class SemanticIndexer:
         backend = self._store.backend_name
         owner = self._repository.get_index_backend(entity_type)
         if owner is None:
-            # No index recorded yet: nothing is marked, every document gets embedded.
+            if self._repository.has_indexed(entity_type):
+                # Marks nobody owns (a restore without semantic_index_state): an
+                # incremental run would skip documents this index may never have got.
+                raise IndexBackendMismatchError(
+                    f"The {entity_type.value} index marks have no recorded backend; "
+                    "run a full rebuild-semantic-index (without --incremental) first"
+                )
+            # No index recorded and nothing marked: every document gets embedded.
             self._repository.set_index_backend(entity_type, backend)
         elif owner != backend:
             raise IndexBackendMismatchError(

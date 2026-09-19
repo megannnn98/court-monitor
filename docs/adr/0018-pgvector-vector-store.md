@@ -67,8 +67,9 @@ exactly.
 
 Score is `1 − cosine distance`: cosine similarity, higher is closer, as Qdrant's
 `Distance.COSINE`. A search within `entity_ids` (a structured candidate set) is exact:
-the rows are found by the primary key and their distances computed in PostgreSQL, which
-also avoids an approximate scan that stops before it reaches the filtered rows.
+the rows are found by the primary key and their distances computed in PostgreSQL, once
+per row, which also avoids an approximate scan that stops before it reaches the filtered
+rows.
 
 A search over a whole HNSW collection sets two things for its own transaction
 (`SET LOCAL`):
@@ -86,7 +87,8 @@ A search over a whole HNSW collection sets two things for its own transaction
 
 The factory builds `PgVectorStore(exact_collections=[person_collection])`: the person
 collection gets no HNSW index and is always searched exactly; the event collection keeps
-its HNSW index and the settings above.
+its HNSW index and the settings above. An HNSW index a collection kept from before it
+became exact is dropped the next time the collection is ensured.
 
 Why (`reports/person_search_mode_selection.md`, 45 real person queries on copies of the
 working data, against Qdrant): what matters is not ANN recall but the candidates that
@@ -135,8 +137,27 @@ running monitoring keeps indexing incrementally.
 Qdrant ──▶ SEMANTIC_VECTOR_BACKEND=pgvector ──▶ full rebuild-semantic-index ──▶ incremental
 ```
 
+Marks that no backend owns — `indexed_at` set while `semantic_index_state` has no row for
+the type, as after a restore without that table — are refused the same way: only a full
+rebuild may start an index over them.
+
 If Qdrant is removed, the table records one backend and the problem is gone; a per-backend
 tracking of marks is not built for a temporary migration.
+
+### Switching a deployment (runbook)
+
+1. PostgreSQL image → `pgvector/pgvector:pg18-bookworm@…`, same volume; `alembic upgrade
+   head` (`t4u5v6w7x8y9`, `u5v6w7x8y9z0`). Nothing changes yet: the backend is still Qdrant.
+2. Pause monitoring (Dagster schedules, catch-up runs): a full rebuild recreates the
+   collections, and `CREATE INDEX` on the event collection holds a SHARE lock that blocks
+   every write to `semantic_vectors` until it commits.
+3. Set `SEMANTIC_VECTOR_BACKEND=pgvector` (compose passes it to the API and Dagster) and
+   restart. From here until step 4 finishes, semantic research fails with
+   `semantic_retrieval_unavailable` ("run rebuild-semantic-index") while readiness reports
+   pgvector reachable, and incremental indexing stops with `IndexBackendMismatchError`.
+4. `rebuild-semantic-index --entity all` (full). It writes every vector anew, PLAIN, and
+   records pgvector as the owner of the marks.
+5. Resume monitoring.
 
 ### Infrastructure
 
@@ -144,7 +165,7 @@ PostgreSQL runs `pgvector/pgvector:pg18-bookworm`, pinned by digest: PostgreSQL 
 (the same build as `postgres:18.6-bookworm`) with pgvector 0.8.6 and pg_trgm. The pinned
 pgvector tags (`0.8.x-pg18`) carry PostgreSQL 18.4, a downgrade. The migration runs
 `CREATE EXTENSION IF NOT EXISTS vector`, so the database image has to change before the
-migration runs. CI runs the same image and the Qdrant service; one contract test suite
+migration runs. Its downgrade drops the extension only when no other column uses `vector`. CI runs the same image and the Qdrant service; one contract test suite
 (`tests/semantic_retrieval/test_vector_store_contract.py`) runs against both stores.
 
 ## Results (2026-09-19)

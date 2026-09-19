@@ -108,6 +108,17 @@ def exact_search_sql(name: str) -> str:
     )
 
 
+def candidate_search_sql() -> str:
+    """Exact nearest neighbours among `:ids` (a structured candidate set), found by the
+    primary key. The uncast expression cannot use an HNSW index, whose approximate scan
+    could stop before it reaches the filtered rows; the distance is computed once."""
+    return (
+        "SELECT entity_id, embedding_model_id, embedding <=> CAST(:query AS vector) AS distance "
+        "FROM semantic_vectors WHERE collection_name = :collection AND entity_id = ANY(:ids) "
+        "ORDER BY distance, entity_id LIMIT :limit"
+    )
+
+
 class PgVectorStore:
     backend_name = "pgvector"
 
@@ -119,6 +130,10 @@ class PgVectorStore:
 
     def exact_search_sql(self, name: str) -> str:
         return exact_search_sql(_collection(name))
+
+    def candidate_search_sql(self, name: str) -> str:
+        _collection(name)
+        return candidate_search_sql()
 
     def _call[T](self, operation: str, action: Callable[[Session], T]) -> T:
         """One transaction per operation, like one Qdrant request."""
@@ -192,6 +207,10 @@ class PgVectorStore:
                     f"Collection {name} has vector size {existing}, embedder produces "
                     f"{vector_size}; rebuild the semantic index"
                 )
+            elif name in self._exact:
+                # A collection indexed before it became exact would keep a dead HNSW
+                # index that every write still maintains.
+                self._drop_indexes(session, name)
 
         self._call("ensure_collection", ensure)
 
@@ -293,20 +312,11 @@ class PgVectorStore:
                     f"Query vector size {len(vector)} differs from collection {name} size {size}"
                 )
             if entity_ids is not None:
-                # A candidate set: exact distances over its rows, found by the primary key.
-                # The uncast expression cannot use the HNSW index, whose approximate scan
-                # could stop before it reaches the filtered rows.
                 rows = session.execute(
-                    text(
-                        "SELECT entity_id, embedding_model_id, "
-                        "1 - (embedding <=> CAST(:query AS vector)) AS score "
-                        "FROM semantic_vectors "
-                        "WHERE collection_name = :collection AND entity_id = ANY(:ids) "
-                        "ORDER BY embedding <=> CAST(:query AS vector), entity_id LIMIT :limit"
-                    ),
+                    text(candidate_search_sql()),
                     {"query": query, "collection": name, "ids": list(entity_ids), "limit": limit},
                 ).all()
-                return [(int(row[0]), str(row[1]), float(row[2])) for row in rows]
+                return [(int(row[0]), str(row[1]), 1 - float(row[2])) for row in rows]
             if name in self._exact:
                 # A sort is the plan here: none of the HNSW settings below apply.
                 rows = session.execute(

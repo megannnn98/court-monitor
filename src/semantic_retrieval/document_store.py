@@ -135,6 +135,21 @@ class SqlAlchemySemanticDocumentRepository:
                 )
             )
 
+    def has_indexed(self, entity_type: RetrievalEntityType) -> bool:
+        with self._session_factory() as session:
+            return bool(
+                session.scalar(
+                    select(
+                        select(SemanticDocumentRecord.id)
+                        .where(
+                            SemanticDocumentRecord.entity_type == entity_type.value,
+                            SemanticDocumentRecord.indexed_at.is_not(None),
+                        )
+                        .exists()
+                    )
+                )
+            )
+
     def set_index_backend(self, entity_type: RetrievalEntityType, vector_backend: str) -> None:
         statement = insert(SemanticIndexStateRecord).values(
             entity_type=entity_type.value, vector_backend=vector_backend
