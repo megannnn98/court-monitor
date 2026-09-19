@@ -103,6 +103,8 @@ docker compose --profile monitoring up -d --build
 
 ### Production-like запуск
 
+Пошаговый выпуск на этой машине (GPU-образ, builder, миграции, проверка, уборка места) — [Rebuild-Image](Rebuild-Image.md).
+
 [ADR 0014](../adr/0014-production-deployment.md): один образ `court-monitor:local` для API, Dagster и миграций; профиль `production` = PostgreSQL + Qdrant + API + Dagster. Миграции — отдельный явный шаг, API и Dagster их не применяют:
 
 ```bash

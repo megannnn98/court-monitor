@@ -24,6 +24,7 @@
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
+- [Rebuild-Image](Rebuild-Image.md) — пересборка образа и выпуск: команды, миграции, проверка, уборка места, откат
 - [Testing](Testing.md) — тесты, линтеры, pre-commit
 
 Глоссарий доменных терминов — [`CONTEXT.md`](../../CONTEXT.md) в корне репозитория. Архитектурные решения — [`docs/adr/`](../adr/).
