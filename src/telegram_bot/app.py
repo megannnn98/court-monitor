@@ -14,7 +14,13 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
-from aiogram.types import BufferedInputFile, Message
+from aiogram.types import (
+    BufferedInputFile,
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import create_database_engine, create_session_factory
@@ -23,9 +29,10 @@ from operator_console import OperationRegistry
 from settings import ApplicationSettings
 from telegram_bot.authorization import Authorization
 from telegram_bot.config import TelegramBotSettings
-from telegram_bot.handlers import CommandHandlers
+from telegram_bot.handlers import Answer, CommandHandlers
 from telegram_bot.people_repository import PeopleFromNewsRepository
 from telegram_bot.people_service import PeopleService
+from telegram_bot.period_keyboard import NOOP, Keyboard
 from telegram_bot.update_service import UpdateService
 
 logger = logging.getLogger(__name__)
@@ -59,17 +66,57 @@ def build_dispatcher(handlers: CommandHandlers) -> Dispatcher:
         answer = await handlers.handle(
             command, arguments, message.from_user.id if message.from_user else None
         )
-        for part in answer.messages:
-            await message.answer(part, disable_web_page_preview=True)
-        if answer.document is not None:
-            await message.answer_document(
-                BufferedInputFile(answer.document.content, filename=answer.document.filename)
-            )
+        await _send(message, answer)
+
+    async def on_button(query: CallbackQuery) -> None:
+        answer = await handlers.handle_callback(
+            query.data or "", query.from_user.id if query.from_user else None
+        )
+        # Always answer the callback: otherwise the button keeps spinning in the client.
+        await query.answer()
+        if not answer.messages:
+            return
+        message = query.message
+        if answer.edit and isinstance(message, Message):
+            await message.edit_text(answer.messages[0], reply_markup=_markup(answer.keyboard))
+            return
+        if isinstance(message, Message):
+            await _send(message, answer)
 
     dispatcher.message.register(on_command, Command(commands=COMMANDS))
     # Anything else, including an unknown command, gets the same short reminder.
     dispatcher.message.register(on_command)
+    dispatcher.callback_query.register(on_button)
     return dispatcher
+
+
+async def _send(message: Message, answer: Answer) -> None:
+    for position, part in enumerate(answer.messages):
+        last = position == len(answer.messages) - 1
+        await message.answer(
+            part,
+            disable_web_page_preview=True,
+            reply_markup=_markup(answer.keyboard) if last else None,
+        )
+    if answer.document is not None:
+        await message.answer_document(
+            BufferedInputFile(answer.document.content, filename=answer.document.filename)
+        )
+
+
+def _markup(keyboard: Keyboard | None) -> InlineKeyboardMarkup | None:
+    if keyboard is None:
+        return None
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                # A label carries no data: Telegram needs some, so it gets an ignored one.
+                InlineKeyboardButton(text=button.text, callback_data=button.data or NOOP)
+                for button in row
+            ]
+            for row in keyboard
+        ]
+    )
 
 
 def _parse(text: str) -> tuple[str, list[str]]:

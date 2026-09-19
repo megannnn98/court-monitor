@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -23,6 +23,7 @@ from telegram_bot.config import TelegramBotSettings
 from telegram_bot.handlers import Answer, CommandHandlers
 from telegram_bot.models import NewsArticleReference, PeopleFromNewsResult, PersonFromNews
 from telegram_bot.people_service import PeopleQuery, PeopleQueryError, parse_people_query
+from telegram_bot.period_keyboard import Button
 from telegram_bot.update_service import (
     RunFailures,
     UpdateAlreadyRunning,
@@ -87,6 +88,14 @@ class FakePeople:
         if len(arguments) != 2:
             raise PeopleQueryError("нужны две даты")
         return self.parse(arguments)
+
+    def period_query(self, date_from: date, date_to: date) -> PeopleQuery:
+        return parse_people_query(
+            [date_from.isoformat(), date_to.isoformat()],
+            timezone=SETTINGS.timezone,
+            default_limit=SETTINGS.people_default_limit,
+            max_limit=SETTINGS.people_max_limit,
+        )
 
     def people(self, query: PeopleQuery) -> PeopleFromNewsResult:
         self.queries.append(query)
@@ -255,7 +264,6 @@ def test_people_passes_the_parsed_period_to_the_service() -> None:
 @pytest.mark.parametrize(
     "arguments",
     [
-        (),
         ("2026-09-01",),
         ("01.09.2026", "19.09.2026"),
         ("2026-99-99", "2026-09-19"),
@@ -397,7 +405,7 @@ def test_export_of_an_empty_period_sends_no_file() -> None:
 
 @pytest.mark.parametrize(
     "arguments",
-    [(), ("2026-09-01",), ("01.09.2026", "19.09.2026"), ("2026-09-01", "2026-09-19", "100")],
+    [("2026-09-01",), ("01.09.2026", "19.09.2026"), ("2026-09-01", "2026-09-19", "100")],
 )
 def test_export_explains_its_format(arguments: tuple[str, ...]) -> None:
     result = answer("export", *arguments)
@@ -412,5 +420,122 @@ def test_export_is_closed_by_the_allowlist() -> None:
     result = answer("export", "2026-09-01", "2026-09-19", user_id=DENIED, people=people)
 
     assert result.document is None
+    assert result.messages == [formatting.NOT_AUTHORIZED]
+    assert people.queries == []
+
+
+def press(data: str, *, user_id: int | None = ALLOWED, people: FakePeople | None = None) -> Answer:
+    bot = handlers(people=people)
+    return asyncio.run(bot.handle_callback(data, user_id))
+
+
+def pressable(keyboard: list[list[Button]]) -> list[Button]:
+    return [button for row in keyboard for button in row if button.data]
+
+
+def test_people_without_arguments_offers_the_period() -> None:
+    result = answer("people")
+
+    assert result.keyboard is not None
+    assert "Период поиска" in result.messages[0]
+    assert any(button.text == "7 дней" for button in pressable(result.keyboard))
+
+
+def test_export_without_arguments_offers_the_period() -> None:
+    result = answer("export")
+
+    assert result.keyboard is not None
+    assert "Период выгрузки" in result.messages[0]
+
+
+def test_a_preset_button_runs_the_search() -> None:
+    people = FakePeople()
+    keyboard = answer("people").keyboard
+    assert keyboard is not None
+    seven_days = next(button for button in pressable(keyboard) if button.text == "7 дней")
+
+    result = press(seven_days.data, people=people)
+
+    assert "Найдено всего" in result.messages[0]
+    assert people.queries and (people.queries[0].date_to - people.queries[0].date_from).days == 6
+
+
+def test_a_preset_button_of_export_sends_the_file() -> None:
+    people = FakePeople(people_with_articles(2))
+    keyboard = answer("export").keyboard
+    assert keyboard is not None
+    month = next(button for button in pressable(keyboard) if button.text.startswith("Этот месяц"))
+
+    result = press(month.data, people=people)
+
+    assert result.document is not None
+    assert result.document.filename.endswith(".xlsx")
+
+
+def test_the_calendar_button_opens_a_month_grid() -> None:
+    keyboard = answer("people").keyboard
+    assert keyboard is not None
+    calendar_button = next(
+        button for button in pressable(keyboard) if button.text == "📅 Другой период"
+    )
+
+    result = press(calendar_button.data)
+
+    assert result.edit
+    assert result.keyboard is not None
+    assert (
+        "выберите начало" in result.messages[0] or "выберите начало" in result.keyboard[0][0].text
+    )
+
+
+def test_two_day_presses_run_the_search() -> None:
+    people = FakePeople()
+    grid = press(
+        next(
+            button
+            for button in pressable(answer("people").keyboard or [])
+            if button.text == "📅 Другой период"
+        ).data
+    ).keyboard
+    assert grid is not None
+    first = next(button for button in pressable(grid) if ":day:" in button.data)
+
+    after_first = press(first.data, people=people)
+    assert after_first.keyboard is not None
+    assert people.queries == []
+
+    second = [button for button in pressable(after_first.keyboard) if ":day:" in button.data][-1]
+    result = press(second.data, people=people)
+
+    assert "Найдено всего" in result.messages[0]
+    assert people.queries
+
+
+def test_a_label_press_changes_nothing() -> None:
+    result = press("p:noop")
+
+    assert result.messages == []
+    assert result.keyboard is None
+
+
+def test_cancel_closes_the_chooser() -> None:
+    result = press("p:cancel:people:")
+
+    assert result.edit
+    assert "отменён" in result.messages[0]
+
+
+def test_an_unreadable_button_asks_to_repeat_the_command() -> None:
+    result = press("garbage")
+
+    assert result.edit
+    assert "устарела" in result.messages[0]
+
+
+def test_a_button_press_is_closed_by_the_allowlist() -> None:
+    people = FakePeople()
+
+    result = press("p:preset:people:7d", user_id=DENIED, people=people)
+
     assert result.messages == [formatting.NOT_AUTHORIZED]
     assert people.queries == []

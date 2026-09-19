@@ -94,6 +94,15 @@ class PeopleService:
             raise PeopleQueryError("нужны две даты")
         return self.parse(arguments)
 
+    def period_query(self, date_from: date, date_to: date) -> PeopleQuery:
+        """A period chosen by buttons: already valid, only the UTC bounds are computed."""
+        return parse_people_query(
+            [date_from.isoformat(), date_to.isoformat()],
+            timezone=self._settings.timezone,
+            default_limit=self._settings.people_default_limit,
+            max_limit=self._settings.people_max_limit,
+        )
+
     def export(self, query: PeopleQuery) -> PeopleFromNewsResult:
         return self._repository.all_people_in_period(
             date_from=query.date_from,

@@ -56,6 +56,9 @@ EXPORT_FORMAT = """Формат:
 MAX_NAME = 150
 MAX_TITLE = 300
 
+PERIOD_CANCELLED = "Выбор периода отменён."
+PERIOD_EXPIRED = "Кнопка устарела. Отправьте команду ещё раз: /people или /export."
+
 UNKNOWN_COMMAND = "Неизвестная команда. /help — список команд."
 NOT_AUTHORIZED = "Доступ закрыт. Обратитесь к администратору бота."
 UNEXPECTED_ERROR = "Внутренняя ошибка. Попробуйте позже; подробности записаны в журнал сервера."
@@ -67,6 +70,15 @@ def help_message(timezone: ZoneInfo) -> str:
 
 def people_format_error(reason: str) -> str:
     return f"{escape(reason.capitalize())}.\n\n{PEOPLE_FORMAT}"
+
+
+def choose_period(action: str) -> str:
+    what = "выгрузки" if action == "export" else "поиска"
+    return (
+        f"<b>Период {what}</b>\n"
+        "Выберите готовый период или откройте календарь. "
+        "Можно и текстом: <code>/people 2026-09-01 2026-09-19</code>."
+    )
 
 
 def export_format_error(reason: str) -> str:
