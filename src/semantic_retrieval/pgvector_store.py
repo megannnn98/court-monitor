@@ -97,14 +97,14 @@ def _vector_literal(vector: Iterable[float]) -> str:
 
 def exact_search_sql(name: str) -> str:
     """Exact nearest neighbours of `:query` in a whole collection: every row's distance,
-    then a top-N sort. No `vector_dims` filter: the collection's metadata fixes the size
-    (upserts are checked against it, a recreate deletes the old rows), and the condition
-    would detoast each vector a second time."""
+    then a top-N sort. The distance is computed once, sorted by its alias (a score
+    expression next to it would be a second distance per row). No `vector_dims` filter:
+    the collection's metadata fixes the size (upserts are checked against it, a recreate
+    deletes the old rows), and the condition would read each vector a second time."""
     return (
-        "SELECT entity_id, embedding_model_id, "
-        "1 - (embedding <=> CAST(:query AS vector)) AS score FROM semantic_vectors "
-        f"WHERE collection_name = '{name}' "
-        "ORDER BY embedding <=> CAST(:query AS vector), entity_id LIMIT :limit"
+        "SELECT entity_id, embedding_model_id, embedding <=> CAST(:query AS vector) AS distance "
+        f"FROM semantic_vectors WHERE collection_name = '{name}' "
+        "ORDER BY distance, entity_id LIMIT :limit"
     )
 
 
@@ -312,7 +312,7 @@ class PgVectorStore:
                 rows = session.execute(
                     text(exact_search_sql(name)), {"query": query, "limit": limit}
                 ).all()
-                return [(int(row[0]), str(row[1]), float(row[2])) for row in rows]
+                return [(int(row[0]), str(row[1]), 1 - float(row[2])) for row in rows]
             prepare_dense_search(session, size, limit)
             rows = session.execute(
                 text(dense_search_sql(name, size)), {"query": query, "limit": limit}

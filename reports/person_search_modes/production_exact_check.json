@@ -1,0 +1,30 @@
+{
+  "latency_ms": {
+    "n": 225,
+    "p50": 20.44,
+    "p95": 22.5,
+    "max": 25.75
+  },
+  "plan_uses_hnsw": false,
+  "plan": [
+    "Limit  (cost=23149.95..23150.20 rows=100 width=30) (actual time=17.639..17.658 rows=100.00 loops=1)",
+    "Buffers: shared hit=7555",
+    "->  Sort  (cost=23149.95..23187.31 rows=14946 width=30) (actual time=17.639..17.650 rows=100.00 loops=1)",
+    "Sort Method: top-N heapsort  Memory: 36kB",
+    "Buffers: shared hit=7555",
+    "->  Bitmap Heap Scan on semantic_vectors  (cost=484.25..22578.72 rows=14946 width=30) (actual time=2.254..15.718 rows=14926.00 loops=1)",
+    "Recheck Cond: ((collection_name)::text = 'persons_semantic'::text)",
+    "Heap Blocks: exact=7463",
+    "Buffers: shared hit=7555",
+    "->  Bitmap Index Scan on pk_semantic_vectors  (cost=0.00..480.51 rows=14946 width=0) (actual time=1.429..1.429 rows=14926.00 loops=1)",
+    "Index Cond: ((collection_name)::text = 'persons_semantic'::text)",
+    "Index Searches: 1",
+    "Buffers: shared hit=92",
+    "Planning Time: 0.102 ms",
+    "Execution Time: 17.676 ms"
+  ],
+  "top100_equal_to_experiment_exact": 45,
+  "top100_equal_to_qdrant": 45,
+  "top100_same_set_as_qdrant": 45,
+  "queries": 45
+}
