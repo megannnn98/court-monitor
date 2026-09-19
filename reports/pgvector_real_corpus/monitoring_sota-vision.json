@@ -1,0 +1,139 @@
+[
+  {
+    "id": 5,
+    "scope": "source:sota-vision",
+    "source": "sota-vision",
+    "trigger_type": "manual",
+    "status": "completed",
+    "parameters": {
+      "refetch_known": false,
+      "discovery_limit": 15
+    },
+    "started_at": "2026-09-19T05:36:36.841967Z",
+    "heartbeat_at": "2026-09-19T05:37:25.640738Z",
+    "finished_at": "2026-09-19T05:37:25.640738Z",
+    "duration_seconds": 48.798771,
+    "documents_discovered": 15,
+    "documents_ingested": 0,
+    "documents_skipped": 15,
+    "documents_failed": 0,
+    "articles_extracted": 151,
+    "events_created": 24,
+    "persons_created": 2,
+    "persons_linked": 113,
+    "person_reviews_created": 72,
+    "classifications_created": 0,
+    "rf_matches_created": 0,
+    "semantic_entities_indexed": 0,
+    "findings_created": 0,
+    "error_count": 0,
+    "rf_snapshot_id": null,
+    "stage_metrics": {
+      "discovery": {
+        "known": 15,
+        "discovered": 15,
+        "duration_ms": 1514,
+        "unchanged_skipped": 15
+      },
+      "ingestion": {
+        "attempted": 0,
+        "duration_ms": 6
+      },
+      "extraction": {
+        "failed": 0,
+        "pending": 151,
+        "extracted": 151,
+        "duration_ms": 2855,
+        "events_created": 24,
+        "skipped_existing": 0
+      },
+      "resolution": {
+        "failed": 0,
+        "reviews": 72,
+        "duration_ms": 44387,
+        "persons_linked": 113,
+        "extraction_runs": 79,
+        "persons_created": 2
+      }
+    },
+    "error_message": null
+  },
+  {
+    "id": 6,
+    "scope": "derived",
+    "source": null,
+    "trigger_type": "manual",
+    "status": "completed",
+    "parameters": {},
+    "started_at": "2026-09-19T05:37:25.651174Z",
+    "heartbeat_at": "2026-09-19T05:38:29.177737Z",
+    "finished_at": "2026-09-19T05:38:29.177737Z",
+    "duration_seconds": 63.526563,
+    "documents_discovered": 0,
+    "documents_ingested": 0,
+    "documents_skipped": 0,
+    "documents_failed": 0,
+    "articles_extracted": 0,
+    "events_created": 0,
+    "persons_created": 0,
+    "persons_linked": 0,
+    "person_reviews_created": 0,
+    "classifications_created": 699,
+    "rf_matches_created": 633,
+    "semantic_entities_indexed": 34,
+    "findings_created": 0,
+    "error_count": 0,
+    "rf_snapshot_id": 1,
+    "stage_metrics": {
+      "findings": {
+        "skipped": null,
+        "criteria": [
+          {
+            "created": 0,
+            "matched": 2564,
+            "deactivated": 0,
+            "reactivated": 0,
+            "finding_type": "political_persecution_not_in_rf",
+            "criteria_version": "enbv-v1"
+          }
+        ],
+        "duration_ms": 2479,
+        "snapshot_id": 1
+      },
+      "rf_matching": {
+        "failed": 0,
+        "pending": 633,
+        "statuses": {
+          "matched": 4,
+          "not_matched": 308,
+          "needs_review": 320,
+          "insufficient_data": 1
+        },
+        "duration_ms": 28981,
+        "snapshot_id": 1
+      },
+      "classification": {
+        "failed": 0,
+        "pending": 699,
+        "statuses": {
+          "political": 165,
+          "uncertain": 191,
+          "non_political": 343
+        },
+        "classifier": "rule-based-persecution-classifier@1.4.0",
+        "duration_ms": 15738
+      },
+      "semantic_indexing": {
+        "status": "indexed",
+        "deleted": 0,
+        "embedded": 34,
+        "unchanged": 1864,
+        "duration_ms": 16262,
+        "failure_kind": null,
+        "pending_events": 447,
+        "pending_persons": 1451
+      }
+    },
+    "error_message": null
+  }
+]

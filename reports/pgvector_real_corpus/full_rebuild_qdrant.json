@@ -1,0 +1,35 @@
+{
+  "backend": "qdrant",
+  "incremental": false,
+  "stats": [
+    {
+      "entity_type": "person",
+      "documents_built": 14931,
+      "embedded": 14931,
+      "unchanged": 0,
+      "deleted": 0
+    },
+    {
+      "entity_type": "event",
+      "documents_built": 32556,
+      "embedded": 32556,
+      "unchanged": 0,
+      "deleted": 0
+    }
+  ],
+  "counts": {
+    "person": 14931,
+    "event": 32556
+  },
+  "seconds": {
+    "total": 334.33,
+    "embedding": 243.51,
+    "vector_store": 39.91,
+    "vector_store_by_call": {
+      "recreate_collection": 0.577,
+      "upsert": 39.328
+    },
+    "postgresql_documents_and_rest": 50.92
+  },
+  "documents_embedded": 47487
+}

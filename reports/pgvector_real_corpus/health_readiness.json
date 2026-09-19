@@ -1,0 +1,62 @@
+{
+  "pgvector, no QDRANT_URL": {
+    "http": 200,
+    "status": "ready",
+    "database": {
+      "status": "ok",
+      "detail": null
+    },
+    "semantic_retrieval": {
+      "status": "ok",
+      "detail": "pgvector"
+    }
+  },
+  "pgvector, QDRANT_URL points to a dead port": {
+    "http": 200,
+    "status": "ready",
+    "database": {
+      "status": "ok",
+      "detail": null
+    },
+    "semantic_retrieval": {
+      "status": "ok",
+      "detail": "pgvector"
+    }
+  },
+  "pgvector, database unreachable": {
+    "http": 503,
+    "status": "unavailable",
+    "database": {
+      "status": "unavailable",
+      "detail": "OperationalError"
+    },
+    "semantic_retrieval": {
+      "status": "unavailable",
+      "detail": "RetrievalUnavailableError: structured research still works"
+    }
+  },
+  "qdrant (control), Qdrant up": {
+    "http": 200,
+    "status": "degraded",
+    "database": {
+      "status": "ok",
+      "detail": null
+    },
+    "semantic_retrieval": {
+      "status": "ok",
+      "detail": null
+    }
+  },
+  "qdrant (control), Qdrant down": {
+    "http": 200,
+    "status": "degraded",
+    "database": {
+      "status": "ok",
+      "detail": null
+    },
+    "semantic_retrieval": {
+      "status": "unavailable",
+      "detail": "ResponseHandlingException: structured research still works"
+    }
+  }
+}

@@ -1,0 +1,1810 @@
+{
+  "statistics": {
+    "reltuples": 47487.0,
+    "n_live_tup": 47487,
+    "last_autoanalyze": null,
+    "last_analyze": "2026-09-19T05:09:00.664074+00:00"
+  },
+  "queries": [
+    {
+      "id": "p01",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 27.849,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=26.064..27.811 rows=100.00 loops=1)",
+          "Buffers: shared hit=1922 read=3873",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=26.063..27.800 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.734,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.030..5.713 rows=100.00 loops=1)",
+          "Buffers: shared hit=5766",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.029..5.705 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 1.302,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=1.274..1.284 rows=100.00 loops=1)",
+          "Buffers: shared hit=526 read=96",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=1.273..1.277 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.023333848,0.077379495,0.0015319342,0.034312215,0.049673393,-0.050812766,-0.012335834,-0.016842641,0.016176246,0.01212768,-0.01794641,0.004855233,0.16680275,0.00489842,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "p02",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 10.039,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=8.811..10.007 rows=100.00 loops=1)",
+          "Buffers: shared hit=3858 read=923",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=8.810..9.996 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.911,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.190..4.887 rows=100.00 loops=1)",
+          "Buffers: shared hit=4781",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.189..4.879 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.831,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.800..0.811 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.800..0.805 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.044562336,0.06600803,0.00035687024,0.034603205,-0.0064300564,-0.032120094,-0.011918497,-0.009929921,0.028755767,0.027290337,0.0073132273,0.010836772,0.19924183,0.00541741 …"
+        ]
+      }
+    },
+    {
+      "id": "p03",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 13.273,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=12.008..13.246 rows=100.00 loops=1)",
+          "Buffers: shared hit=5266 read=1153",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=12.006..13.236 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.721,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.910..6.700 rows=100.00 loops=1)",
+          "Buffers: shared hit=6419",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.909..6.691 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.806,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.777..0.787 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.777..0.781 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.014169019,0.05366228,-0.009006059,0.026506215,0.045785226,-0.05760677,-0.01932205,-0.0018342801,0.04553467,0.0033624559,-0.04048185,0.04035466,0.19944608,0.042491283,-0.0 …"
+        ]
+      }
+    },
+    {
+      "id": "p04",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 10.338,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=9.008..10.309 rows=100.00 loops=1)",
+          "Buffers: shared hit=4973 read=649",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=9.007..10.296 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.699,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.981..5.673 rows=100.00 loops=1)",
+          "Buffers: shared hit=5622",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.979..5.665 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.817,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.786..0.798 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.786..0.790 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.014266716,0.06184101,-0.032847337,0.053563047,8.031436e-05,-0.017714813,-0.010126844,-0.013436955,0.022490108,0.013563914,0.032095905,0.023517512,0.17630021,0.015464576, …"
+        ]
+      }
+    },
+    {
+      "id": "p05",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.65,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.699..6.623 rows=100.00 loops=1)",
+          "Buffers: shared hit=4667 read=297",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.697..6.613 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.446,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.726..5.417 rows=100.00 loops=1)",
+          "Buffers: shared hit=4964",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.724..5.409 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.799,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.771..0.781 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.771..0.774 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.010432705,0.05978299,-0.0146860005,0.043961298,0.008496906,-0.023616057,-0.013293206,-0.027493207,0.025256632,-0.011852643,5.997291e-05,0.024652917,0.18451442,0.00090356 …"
+        ]
+      }
+    },
+    {
+      "id": "p06",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 8.572,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=7.474..8.544 rows=100.00 loops=1)",
+          "Buffers: shared hit=5455 read=481",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=7.472..8.534 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.693,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.003..5.672 rows=100.00 loops=1)",
+          "Buffers: shared hit=5936",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.002..5.664 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.788,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.760..0.770 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.759..0.764 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.002052997,0.008173839,0.0044515748,0.01910908,0.011234079,-0.016469494,-0.010485264,-0.017505435,0.018240806,0.01919064,-0.027147295,-0.00059710833,0.19821227,0.01822802, …"
+        ]
+      }
+    },
+    {
+      "id": "p07",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.719,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.543..7.694 rows=100.00 loops=1)",
+          "Buffers: shared hit=5648 read=331",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.541..7.683 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.851,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.165..5.831 rows=100.00 loops=1)",
+          "Buffers: shared hit=5979",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.164..5.823 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.788,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.760..0.770 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.760..0.764 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.015387917,0.025707675,-0.014986965,0.04140536,0.0013409167,-0.0047635264,-0.02073199,-0.020163562,0.025146684,0.004392089,-0.0029425886,-0.0003172897,0.170899,0.00403586 …"
+        ]
+      }
+    },
+    {
+      "id": "p08",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.684,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.525..6.654 rows=100.00 loops=1)",
+          "Buffers: shared hit=5535 read=148",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.523..6.644 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.547,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.834..5.523 rows=100.00 loops=1)",
+          "Buffers: shared hit=5683",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.832..5.515 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.785,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.757..0.767 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.757..0.761 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.004969343,0.046202462,0.010272648,-0.0029391656,0.008895058,-0.068609595,-0.010516798,-0.022367502,0.037341684,0.011206829,0.028696263,0.030831577,0.15239194,0.009724818 …"
+        ]
+      }
+    },
+    {
+      "id": "p09",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.379,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.328..5.354 rows=100.00 loops=1)",
+          "Buffers: shared hit=4855 read=51",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.326..5.343 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.616,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=3.922..4.596 rows=100.00 loops=1)",
+          "Buffers: shared hit=4906",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=3.920..4.588 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.781,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.753..0.763 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.752..0.756 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.02723624,0.07303644,-0.0012719147,0.026135003,0.050087523,-0.027387414,-0.010543718,-0.033582777,0.030900551,0.033036415,0.000904178,0.011374029,0.19401479,0.005919365,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "p10",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.436,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.170..6.409 rows=100.00 loops=1)",
+          "Buffers: shared hit=5226 read=67",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.169..6.397 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.001,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.139..5.977 rows=100.00 loops=1)",
+          "Buffers: shared hit=5293",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.138..5.967 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.871,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.842..0.852 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.841..0.845 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0074360976,0.06232653,-0.031648476,0.026769765,0.009225158,-0.048015997,-0.015601564,-0.020944927,0.05122785,0.020567179,0.0118520465,-0.009826002,0.17480545,0.0047564222 …"
+        ]
+      }
+    },
+    {
+      "id": "p11",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.15,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.042..7.124 rows=100.00 loops=1)",
+          "Buffers: shared hit=5756 read=133",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.040..7.114 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.673,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.938..6.652 rows=100.00 loops=1)",
+          "Buffers: shared hit=5889",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.936..6.643 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.786,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.758..0.768 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.758..0.761 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.02393222,0.049652357,0.0133246,0.015830893,0.016679734,-0.028159318,0.00053483335,-0.019252678,0.043080404,0.026780536,-0.02418565,0.0034256126,0.19027823,0.010602492,-0. …"
+        ]
+      }
+    },
+    {
+      "id": "p12",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.393,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.340..6.364 rows=100.00 loops=1)",
+          "Buffers: shared hit=5764 read=78",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.339..6.354 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.688,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.894..5.668 rows=100.00 loops=1)",
+          "Buffers: shared hit=5842",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.892..5.659 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.781,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.754..0.764 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.754..0.758 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.009873548,0.023292223,-0.016715681,0.016733577,0.025874807,-0.0642821,-0.008707305,-0.022282783,0.0394819,-0.014130824,0.013774736,0.013946885,0.19609939,0.030906217,-0. …"
+        ]
+      }
+    },
+    {
+      "id": "p13",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.953,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.844..5.927 rows=100.00 loops=1)",
+          "Buffers: shared hit=5237 read=74",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.843..5.917 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.341,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.420..5.317 rows=100.00 loops=1)",
+          "Buffers: shared hit=5311",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.419..5.305 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.8,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.772..0.782 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.772..0.776 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.0072430484,0.031336024,-0.009679378,0.010921261,0.032492395,-0.07049152,0.00087346236,-0.029481817,0.016005453,0.01605684,0.0033166858,0.029170485,0.19872965,0.014359186 …"
+        ]
+      }
+    },
+    {
+      "id": "p14",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.277,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.241..6.251 rows=100.00 loops=1)",
+          "Buffers: shared hit=5418 read=105",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.239..6.241 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.446,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.718..5.425 rows=100.00 loops=1)",
+          "Buffers: shared hit=5523",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.717..5.418 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.77,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.743..0.753 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.743..0.747 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.01352667,0.035149664,-0.014941133,-0.023498155,0.007072097,-0.038103722,-0.009076131,-0.037066862,0.0016783305,0.033262987,-0.0065484163,0.0033954876,0.18117552,0.0297672 …"
+        ]
+      }
+    },
+    {
+      "id": "p15",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.298,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.074..6.270 rows=100.00 loops=1)",
+          "Buffers: shared hit=5354 read=51",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.072..6.259 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.389,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.569..5.365 rows=100.00 loops=1)",
+          "Buffers: shared hit=5405",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.568..5.356 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.877,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.848..0.860 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.848..0.853 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[6.715844e-05,0.06355907,-0.015478188,0.013196254,0.03435587,-0.04058434,-0.024565835,-0.004979816,0.024360256,-0.0042917035,0.0068751406,-0.009739908,0.17961806,0.035777975 …"
+        ]
+      }
+    },
+    {
+      "id": "p16",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.856,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.840..5.831 rows=100.00 loops=1)",
+          "Buffers: shared hit=4954 read=77",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.839..5.821 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.751,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.052..4.730 rows=100.00 loops=1)",
+          "Buffers: shared hit=5031",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.052..4.722 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.94,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.910..0.922 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.909..0.914 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.010686975,0.06259188,-0.005222221,0.037116125,0.007552473,-0.053256046,0.0026558323,-0.04237855,0.012687607,0.02015383,-0.0011463201,-0.033145674,0.178505,-0.008278015,- …"
+        ]
+      }
+    },
+    {
+      "id": "p17",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.865,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.801..7.837 rows=100.00 loops=1)",
+          "Buffers: shared hit=6252 read=100",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.799..7.827 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.702,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.980..6.680 rows=100.00 loops=1)",
+          "Buffers: shared hit=6352",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.978..6.671 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.761,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.736..0.745 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.735..0.739 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.002588338,0.029444728,-0.0024985212,0.01523661,0.025181666,-0.028368961,-0.012558723,-0.012761178,0.010623816,0.023819264,0.011877797,0.015985634,0.17869805,0.00638797,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "p18",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.328,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.028..7.305 rows=100.00 loops=1)",
+          "Buffers: shared hit=6452 read=170",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.027..7.295 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.001,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.283..5.981 rows=100.00 loops=1)",
+          "Buffers: shared hit=6622",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.282..5.973 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.766,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.741..0.751 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.740..0.744 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.017973157,0.027661901,-0.019683018,0.026654443,0.014744585,0.001991733,0.00085264136,-0.015577826,0.035503723,0.008292219,0.0062751407,0.01048903,0.19300021,0.0013686056, …"
+        ]
+      }
+    },
+    {
+      "id": "p19",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.209,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.062..7.186 rows=100.00 loops=1)",
+          "Buffers: shared hit=6653 read=88",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.061..7.176 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.189,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.448..6.170 rows=100.00 loops=1)",
+          "Buffers: shared hit=6741",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.447..6.161 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.748,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.722..0.732 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.722..0.726 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.019695636,0.021288589,-0.021687916,0.0054381764,-0.010144658,-0.018847233,0.010674143,-0.033382982,0.017572535,0.03309419,0.027379716,-0.011392737,0.1724297,-0.002180858 …"
+        ]
+      }
+    },
+    {
+      "id": "p20",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.81,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.445..6.781 rows=100.00 loops=1)",
+          "Buffers: shared hit=5302 read=50",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.444..6.768 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.392,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.535..6.367 rows=100.00 loops=1)",
+          "Buffers: shared hit=5352",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.534..6.357 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.911,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.882..0.893 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.881..0.886 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.0046230284,0.062346064,-0.0073592556,0.04414357,0.028947819,-0.031329047,-0.017771903,-0.045763608,0.02092871,0.00973008,0.025126586,-0.00028848057,0.20613725,0.00526085 …"
+        ]
+      }
+    },
+    {
+      "id": "p21",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.25,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.247..6.229 rows=100.00 loops=1)",
+          "Buffers: shared hit=5836 read=47",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.246..6.220 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.398,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.676..6.374 rows=100.00 loops=1)",
+          "Buffers: shared hit=5883",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.675..6.366 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.782,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.756..0.766 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.756..0.760 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.00024388281,0.045985892,-0.013976722,0.02436963,0.014054981,-0.044966575,-0.016279468,-0.025469776,-0.0051950146,-0.0069203763,0.0072348,0.0052446704,0.19603513,-0.012137 …"
+        ]
+      }
+    },
+    {
+      "id": "p22",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.443,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.409..6.418 rows=100.00 loops=1)",
+          "Buffers: shared hit=5777 read=49",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.407..6.408 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.073,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.357..6.051 rows=100.00 loops=1)",
+          "Buffers: shared hit=5826",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.356..6.042 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 1.004,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.966..0.979 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.965..0.971 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.003931095,0.0462728,0.00072266033,0.030320395,0.015504207,-0.0520008,-0.020496316,-0.0390792,-0.0050777523,0.01972831,-0.012246881,0.013847532,0.18384556,0.0007189006,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "p23",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.255,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.177..7.227 rows=100.00 loops=1)",
+          "Buffers: shared hit=5183 read=33",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.175..7.215 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.268,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.550..5.246 rows=100.00 loops=1)",
+          "Buffers: shared hit=5216",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.549..5.238 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.797,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.770..0.780 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.769..0.773 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.014590392,0.029402273,-0.0071473382,-0.011276346,0.045579918,-0.038136277,-0.0075035044,-0.022291005,0.06528854,0.017079886,0.02719203,-0.009219068,0.17525105,0.00972811 …"
+        ]
+      }
+    },
+    {
+      "id": "p24",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 8.663,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=7.236..8.632 rows=100.00 loops=1)",
+          "Buffers: shared hit=6310 read=60",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=7.234..8.619 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 7.123,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.298..7.100 rows=100.00 loops=1)",
+          "Buffers: shared hit=6370",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.297..7.090 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.821,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.793..0.803 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.793..0.797 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0108398665,0.073882565,-0.02701378,0.018065508,0.03580149,-0.03279984,-0.010140297,-0.018401248,0.017844718,0.032498926,0.00071710406,0.033492904,0.18954787,0.019665811,- …"
+        ]
+      }
+    },
+    {
+      "id": "p25",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.71,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.746..5.684 rows=100.00 loops=1)",
+          "Buffers: shared hit=5131 read=38",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.745..5.675 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.443,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.663..5.419 rows=100.00 loops=1)",
+          "Buffers: shared hit=5169",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.662..5.411 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.788,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.761..0.771 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.761..0.765 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.015828364,0.054999124,-0.008155435,0.029348318,0.02237292,-0.054976746,-0.01223893,-0.01069402,0.009853323,0.02837862,-0.0090965945,0.02073922,0.18391024,0.014162069,-0.0 …"
+        ]
+      }
+    },
+    {
+      "id": "p26",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.32,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.411..6.297 rows=100.00 loops=1)",
+          "Buffers: shared hit=5736 read=29",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.410..6.288 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.043,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.277..6.020 rows=100.00 loops=1)",
+          "Buffers: shared hit=5765",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.276..6.012 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.866,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.832..0.845 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.832..0.837 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.010518942,0.049365282,-0.025044667,0.018931916,0.012877012,-0.045962363,0.0006123399,-0.039794974,0.035300236,0.0037841736,0.018512446,0.021223908,0.19699179,0.030333154 …"
+        ]
+      }
+    },
+    {
+      "id": "p27",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.073,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.112..6.046 rows=100.00 loops=1)",
+          "Buffers: shared hit=5562 read=44",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.111..6.037 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.761,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.014..5.739 rows=100.00 loops=1)",
+          "Buffers: shared hit=5606",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.013..5.730 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.782,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.755..0.765 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.755..0.759 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.017445743,0.07442803,-0.035827715,0.028485725,0.058888666,-0.030316673,-0.028533857,-0.04300712,0.018752567,0.03167014,-0.03637263,0.010300384,0.16092528,0.01756265,-0.0 …"
+        ]
+      }
+    },
+    {
+      "id": "p28",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.08,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.077..6.049 rows=100.00 loops=1)",
+          "Buffers: shared hit=5652 read=47",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.076..6.040 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.622,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.890..5.601 rows=100.00 loops=1)",
+          "Buffers: shared hit=5699",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.888..5.593 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.836,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.807..0.816 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.806..0.810 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.0041527986,0.02934922,0.009368088,0.033665627,0.022893963,-0.077148184,-0.024704708,-0.027289528,0.047317598,0.020559127,0.014578598,0.022609424,0.1902122,0.029031599,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "p29",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.701,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.715..5.677 rows=100.00 loops=1)",
+          "Buffers: shared hit=5038 read=40",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.714..5.667 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.184,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.452..6.158 rows=100.00 loops=1)",
+          "Buffers: shared hit=5078",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.451..6.150 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.785,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.758..0.768 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.757..0.761 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.014644782,0.053255994,0.0027208244,0.019178474,0.033623785,-0.05149309,-0.014828299,-0.011298463,0.03906373,0.03394775,0.00010200039,-0.011751624,0.20256008,0.033183504,- …"
+        ]
+      }
+    },
+    {
+      "id": "p30",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.755,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.775..5.732 rows=100.00 loops=1)",
+          "Buffers: shared hit=5539 read=44",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.774..5.723 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.01,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.267..5.990 rows=100.00 loops=1)",
+          "Buffers: shared hit=5583",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.265..5.981 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.814,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.787..0.797 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.787..0.791 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.023756005,0.041482184,9.8089746e-05,0.002200123,0.02693923,-0.03972717,-0.0039268066,-0.014936015,0.009281067,0.024757579,0.017489022,0.03166327,0.18862797,-0.018788349, …"
+        ]
+      }
+    },
+    {
+      "id": "p31",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.781,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.751..5.758 rows=100.00 loops=1)",
+          "Buffers: shared hit=5311 read=55",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.749..5.748 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.457,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.732..5.438 rows=100.00 loops=1)",
+          "Buffers: shared hit=5366",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.731..5.430 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.945,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.912..0.924 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.911..0.916 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.012270963,0.05022613,-0.017445339,0.015176156,0.014435239,-0.0010474056,0.008640353,-0.024354428,0.008103086,0.024216816,-0.0033968836,-0.0321841,0.19107378,0.007967143,- …"
+        ]
+      }
+    },
+    {
+      "id": "p32",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 8.986,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=8.001..8.955 rows=100.00 loops=1)",
+          "Buffers: shared hit=7110 read=36",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=7.999..8.945 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 7.757,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.900..7.728 rows=100.00 loops=1)",
+          "Buffers: shared hit=7146",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.898..7.718 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 1.0,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.968..0.978 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.967..0.971 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.034740444,0.051828492,0.0006882749,0.03223969,-0.010222656,-0.05577269,0.0012369897,-0.015227445,0.05496598,0.030122312,-0.006778066,0.017779063,0.17606702,0.015242347,- …"
+        ]
+      }
+    },
+    {
+      "id": "p33",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.895,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.857..5.868 rows=100.00 loops=1)",
+          "Buffers: shared hit=5404 read=39",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.855..5.858 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.704,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.927..5.681 rows=100.00 loops=1)",
+          "Buffers: shared hit=5443",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.926..5.672 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.807,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.780..0.790 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.779..0.783 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.019361444,0.016314268,-0.01203144,0.02021042,0.041131657,-0.03343976,-0.020493586,-0.023969814,0.00922526,0.0026798917,0.0052232165,-0.0073021743,0.18758403,0.007909511, …"
+        ]
+      }
+    },
+    {
+      "id": "p34",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.503,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.481..6.477 rows=100.00 loops=1)",
+          "Buffers: shared hit=5741 read=46",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.479..6.468 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.795,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.026..5.774 rows=100.00 loops=1)",
+          "Buffers: shared hit=5787",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.025..5.766 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.806,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.777..0.787 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.777..0.781 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0086431885,0.009628176,-0.02036111,0.0019649947,0.025562799,-0.050553855,-0.022169441,-0.026841993,0.054828774,-0.016748538,0.010652935,0.023607144,0.19320068,0.013271553 …"
+        ]
+      }
+    },
+    {
+      "id": "p35",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.666,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.736..5.643 rows=100.00 loops=1)",
+          "Buffers: shared hit=5325 read=28",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.734..5.634 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.122,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.401..5.102 rows=100.00 loops=1)",
+          "Buffers: shared hit=5353",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.400..5.094 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.791,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.763..0.773 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.763..0.767 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.028708505,0.06330864,-0.012535432,0.0012375269,0.031223198,-0.025685467,-0.052083872,0.0014188789,0.041872267,0.02043417,0.034859832,0.01963629,0.21613652,0.009054339,-0. …"
+        ]
+      }
+    },
+    {
+      "id": "p36",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.229,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.316..7.204 rows=100.00 loops=1)",
+          "Buffers: shared hit=6885 read=30",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.314..7.195 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 7.103,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.339..7.081 rows=100.00 loops=1)",
+          "Buffers: shared hit=6915",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.338..7.072 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.804,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.775..0.785 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.774..0.778 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.03556691,0.05687614,-0.04015018,0.039746806,0.0031764514,-0.036534347,0.004907289,-0.026323965,0.03882999,0.014267993,0.005745704,0.020455522,0.17704587,-0.0018184638,-0. …"
+        ]
+      }
+    },
+    {
+      "id": "p37",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.097,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.960..6.068 rows=100.00 loops=1)",
+          "Buffers: shared hit=5568 read=25",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.958..6.057 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.569,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.805..5.543 rows=100.00 loops=1)",
+          "Buffers: shared hit=5593",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.803..5.534 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.8,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.773..0.782 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.772..0.776 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.029236706,0.06040485,-0.00085909764,0.03556469,0.0038566405,-0.043694314,0.0027805206,-0.012197441,0.05020041,0.029903527,0.031110236,-0.0075461776,0.16747564,0.012096369 …"
+        ]
+      }
+    },
+    {
+      "id": "p38",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.417,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.339..7.390 rows=100.00 loops=1)",
+          "Buffers: shared hit=6310 read=56",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.338..7.380 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.358,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.623..6.336 rows=100.00 loops=1)",
+          "Buffers: shared hit=6366",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.622..6.322 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.779,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.753..0.763 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.753..0.757 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.0024966632,0.04570175,-0.001022877,0.033137087,0.04614098,-0.01192412,-0.009769127,-0.01986248,0.018210886,0.021676444,0.016719328,-0.015100128,0.20292331,-0.0034563167, …"
+        ]
+      }
+    },
+    {
+      "id": "p39",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.474,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.563..6.450 rows=100.00 loops=1)",
+          "Buffers: shared hit=6131 read=29",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.562..6.441 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.279,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.564..6.258 rows=100.00 loops=1)",
+          "Buffers: shared hit=6160",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.563..6.250 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.857,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.826..0.835 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.825..0.829 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.029783241,0.06294436,0.018015597,0.03426333,0.020058407,-0.031632785,-0.005544742,0.0069304737,0.023816375,0.0065455805,-0.04914156,0.047974918,0.1751117,0.030200489,-0. …"
+        ]
+      }
+    },
+    {
+      "id": "p40",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.291,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.272..6.188 rows=100.00 loops=1)",
+          "Buffers: shared hit=5903 read=31",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.271..6.179 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 7.1,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=6.286..7.072 rows=100.00 loops=1)",
+          "Buffers: shared hit=5934",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=6.284..7.063 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.805,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.777..0.787 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.777..0.781 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.009038076,0.027765594,-0.01006625,0.04559783,0.028309526,-0.07957712,0.018043594,-0.024040226,-0.00454446,0.012646752,0.009162234,0.01734673,0.1707284,0.050396837,-0.051 …"
+        ]
+      }
+    },
+    {
+      "id": "p41",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.294,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.393..6.269 rows=100.00 loops=1)",
+          "Buffers: shared hit=5995 read=31",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.391..6.259 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.779,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.097..5.759 rows=100.00 loops=1)",
+          "Buffers: shared hit=6026",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.096..5.751 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.803,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.776..0.786 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.776..0.780 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.008241412,0.028507415,-0.0143426275,0.014051561,0.017035402,-0.030284544,-0.017824309,-0.02024575,-0.00058345136,0.008939511,-0.0026331253,-0.0016445755,0.19991899,0.015 …"
+        ]
+      }
+    },
+    {
+      "id": "p42",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.825,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.872..5.800 rows=100.00 loops=1)",
+          "Buffers: shared hit=5291 read=38",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.870..5.791 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.459,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.722..5.439 rows=100.00 loops=1)",
+          "Buffers: shared hit=5329",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.721..5.431 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.792,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.765..0.775 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.764..0.768 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0032805544,0.042018265,-0.013816562,0.036520902,0.036322024,-0.053972367,-0.011205468,-0.0031935272,-0.016531305,0.0248167,0.014557154,0.012242589,0.18566005,0.027904127, …"
+        ]
+      }
+    },
+    {
+      "id": "p43",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.064,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=5.198..6.040 rows=100.00 loops=1)",
+          "Buffers: shared hit=5647 read=21",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=5.196..6.031 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.665,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.943..5.645 rows=100.00 loops=1)",
+          "Buffers: shared hit=5668",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.942..5.637 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.798,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.770..0.780 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.770..0.774 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0072510988,0.06226806,-0.0037413402,0.062298343,0.01920162,-0.010997039,-0.019681007,-0.01613106,0.014431394,-0.020301007,-0.014761166,0.011407482,0.1819867,-0.0075808745 …"
+        ]
+      }
+    },
+    {
+      "id": "p44",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.362,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.452..5.338 rows=100.00 loops=1)",
+          "Buffers: shared hit=5082 read=26",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.451..5.328 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.595,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=3.868..4.576 rows=100.00 loops=1)",
+          "Buffers: shared hit=5108",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=3.867..4.568 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.786,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.759..0.769 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.758..0.763 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.02506796,0.020931842,0.0012438012,0.02205018,0.030748961,-0.038974334,-0.04958896,-0.0068068583,0.018600153,0.013903341,0.002133077,0.037945747,0.19012691,-0.005288117,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "p45",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.777,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.811..5.756 rows=100.00 loops=1)",
+          "Buffers: shared hit=5515 read=45",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.809..5.747 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.044,
+        "top": [
+          "Limit  (cost=36.31..442.22 rows=74 width=50) (actual time=4.340..5.025 rows=100.00 loops=1)",
+          "Buffers: shared hit=5560",
+          "->  Index Scan using ix_semvec_hnsw_persons_semantic_768 on semantic_vectors  (cost=36.31..442.22 rows=74 width=50) (actual time=4.339..5.017 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.751,
+        "top": [
+          "Limit  (cost=903.86..904.10 rows=96 width=12) (actual time=0.726..0.736 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=903.86..904.10 rows=96 width=12) (actual time=0.726..0.730 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0031223898,0.064882256,-0.034649335,0.054951917,0.014688149,-0.027539814,-0.0064108246,-0.025440335,0.026456593,-0.0167449,0.013272209,-0.0017371373,0.17573215,0.05646023 …"
+        ]
+      }
+    },
+    {
+      "id": "e01",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 16.317,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=14.934..16.288 rows=100.00 loops=1)",
+          "Buffers: shared hit=1445 read=2521",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=14.933..16.277 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 3.919,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.201..3.900 rows=100.00 loops=1)",
+          "Buffers: shared hit=3966",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.201..3.893 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 1.253,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=1.226..1.236 rows=100.00 loops=1)",
+          "Buffers: shared hit=514 read=100",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=1.226..1.230 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.015122906,0.061409175,-0.027702736,0.009149142,0.0054656314,-0.03834875,-0.015054494,-0.009701525,0.008052751,0.012286843,-0.008367728,0.009018153,0.18159856,-0.001541970 …"
+        ]
+      }
+    },
+    {
+      "id": "e02",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 16.995,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=15.600..16.961 rows=100.00 loops=1)",
+          "Buffers: shared hit=1983 read=2486",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=15.599..16.951 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.342,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.641..4.324 rows=100.00 loops=1)",
+          "Buffers: shared hit=4469",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.640..4.316 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.804,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.779..0.789 rows=100.00 loops=1)",
+          "Buffers: shared hit=609 read=5",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.778..0.782 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.014829915,0.047774684,-0.008451971,0.035861325,0.038924064,-0.024434995,-0.014415505,-0.020491242,0.037193004,0.054905947,-0.00535205,0.0029911888,0.20356321,0.011952785, …"
+        ]
+      }
+    },
+    {
+      "id": "e03",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 9.604,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=8.558..9.582 rows=100.00 loops=1)",
+          "Buffers: shared hit=2489 read=1623 written=1",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=8.557..9.572 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 3.887,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.213..3.868 rows=100.00 loops=1)",
+          "Buffers: shared hit=4112",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.212..3.861 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.803,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.776..0.786 rows=100.00 loops=1)",
+          "Buffers: shared hit=613 read=1",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.776..0.780 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.003815306,0.061770357,-0.013280281,0.028980535,0.022982731,-0.052120693,0.009771886,-0.0157089,0.0030376476,0.0071810232,-0.013249336,0.011758954,0.19737215,0.011254435, …"
+        ]
+      }
+    },
+    {
+      "id": "e04",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 11.407,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=10.330..11.382 rows=100.00 loops=1)",
+          "Buffers: shared hit=2539 read=2082 written=1",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=10.329..11.372 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.451,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.749..4.432 rows=100.00 loops=1)",
+          "Buffers: shared hit=4612 read=9",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.749..4.425 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.787,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.761..0.771 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.761..0.765 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.002949943,0.09421454,-0.0015354308,0.041550737,0.05966979,-0.027777825,-0.008455376,-0.027733898,0.018744998,0.013520632,-0.023468515,0.009671838,0.1805346,0.0024538827, …"
+        ]
+      }
+    },
+    {
+      "id": "e05",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.817,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=5.793..6.791 rows=100.00 loops=1)",
+          "Buffers: shared hit=2955 read=828",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=5.792..6.781 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 3.962,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.245..3.942 rows=100.00 loops=1)",
+          "Buffers: shared hit=3783",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.244..3.934 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.799,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.770..0.780 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.769..0.773 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.033021864,0.05831379,0.0015883254,-0.0010928987,0.05206085,-0.017204607,-0.009090659,-0.043109603,0.06693853,0.010861106,0.025049524,0.0013233129,0.1825761,0.014241579,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "e06",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 8.215,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=7.096..8.188 rows=100.00 loops=1)",
+          "Buffers: shared hit=3932 read=868",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=7.095..8.177 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.587,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=4.807..5.562 rows=100.00 loops=1)",
+          "Buffers: shared hit=4800",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=4.806..5.554 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.962,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.926..0.939 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.926..0.931 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0051973513,0.038435195,-0.0064626876,0.02554375,0.0065481965,-0.043621447,0.023359904,-0.035106216,0.0031711378,0.0063694855,0.020120516,0.009421048,0.18269333,-0.0019329 …"
+        ]
+      }
+    },
+    {
+      "id": "e07",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 8.345,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=6.883..8.313 rows=100.00 loops=1)",
+          "Buffers: shared hit=3166 read=857",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=6.882..8.299 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.652,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.916..4.630 rows=100.00 loops=1)",
+          "Buffers: shared hit=4023",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.915..4.622 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.949,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.915..0.927 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.914..0.919 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.00022557905,0.070678696,-0.02431012,0.017466672,-0.011113793,-0.052029897,-0.016146353,-0.017454585,0.039324805,0.037299145,-0.0162332,-0.008507144,0.17351714,0.02272934 …"
+        ]
+      }
+    },
+    {
+      "id": "e08",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.771,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=4.485..5.742 rows=100.00 loops=1)",
+          "Buffers: shared hit=3058 read=341",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=4.484..5.729 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 3.608,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=2.865..3.588 rows=100.00 loops=1)",
+          "Buffers: shared hit=3399",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=2.864..3.580 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.79,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.762..0.772 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.762..0.766 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.008794466,0.056578714,0.0045594163,0.034914646,0.012791892,-0.038319014,0.004392248,-0.041604802,0.024399918,0.012762297,0.013072504,0.044087242,0.16651183,-0.004821363, …"
+        ]
+      }
+    },
+    {
+      "id": "e09",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.696,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=5.568..6.670 rows=100.00 loops=1)",
+          "Buffers: shared hit=3532 read=644",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=5.567..6.659 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.228,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.515..4.208 rows=100.00 loops=1)",
+          "Buffers: shared hit=4176",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.514..4.200 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.789,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.761..0.771 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.761..0.765 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0015730512,0.053232722,-0.022779256,0.024317652,0.016454758,-0.029902188,-0.0066874097,-0.04888026,-0.008524119,0.008073562,-0.009558762,0.0019934513,0.19283056,-0.000575 …"
+        ]
+      }
+    },
+    {
+      "id": "e10",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 10.537,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=9.367..10.509 rows=100.00 loops=1)",
+          "Buffers: shared hit=3357 read=1400",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=9.366..10.499 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.292,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=4.537..5.271 rows=100.00 loops=1)",
+          "Buffers: shared hit=4757",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=4.535..5.263 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.821,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.791..0.800 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.790..0.794 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.008080413,0.059807334,0.0015970073,0.018146357,0.05488403,-0.045979343,-0.025741389,-0.021702155,0.03073791,0.026381273,-0.017721994,0.020213112,0.16575067,0.026772276,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "e11",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 6.603,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=5.614..6.574 rows=100.00 loops=1)",
+          "Buffers: shared hit=4227 read=330",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=5.613..6.562 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.907,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=4.152..4.881 rows=100.00 loops=1)",
+          "Buffers: shared hit=4557",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=4.151..4.872 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.927,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.894..0.907 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.894..0.899 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.022298368,0.04156055,-0.008940456,0.0032056903,0.0011277484,-0.02031639,-0.029045248,0.0001674648,0.0033055702,0.022013253,-0.014053518,0.0024435031,0.21611069,0.01384954 …"
+        ]
+      }
+    },
+    {
+      "id": "e12",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.054,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.955..5.026 rows=100.00 loops=1)",
+          "Buffers: shared hit=3377 read=184",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.953..5.014 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 3.462,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=2.817..3.443 rows=100.00 loops=1)",
+          "Buffers: shared hit=3561",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=2.816..3.436 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.782,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.756..0.765 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.755..0.759 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.0060836785,0.037957907,-0.0033104809,0.02677995,0.0075004906,-0.02971591,-0.027749836,-0.013894643,0.008390195,0.022600377,-0.014452618,0.0025710722,0.16555335,0.0012798 …"
+        ]
+      }
+    },
+    {
+      "id": "e13",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 7.303,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=6.350..7.278 rows=100.00 loops=1)",
+          "Buffers: shared hit=4692 read=551",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=6.349..7.268 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 5.273,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=4.573..5.253 rows=100.00 loops=1)",
+          "Buffers: shared hit=5243",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=4.572..5.245 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.874,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.843..0.853 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.843..0.846 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.019063922,0.04228697,-0.018793674,0.0224866,0.045192212,-0.04118292,-0.006530595,-0.015508408,0.014270415,0.022028338,-0.011409775,0.019348748,0.19157092,0.027258174,-0.0 …"
+        ]
+      }
+    },
+    {
+      "id": "e14",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 5.921,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=4.741..5.896 rows=100.00 loops=1)",
+          "Buffers: shared hit=3578 read=311",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=4.740..5.886 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 4.272,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=3.550..4.254 rows=100.00 loops=1)",
+          "Buffers: shared hit=3889",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=3.548..4.246 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.785,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.757..0.767 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.757..0.761 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[-0.017635891,0.055521585,-0.0159854,0.031690072,-0.019885961,-0.01890046,-0.018110085,-0.019222165,0.00443813,0.02386223,-0.006326712,0.0152904745,0.16934025,0.028649561,-0 …"
+        ]
+      }
+    },
+    {
+      "id": "e15",
+      "store_settings": {
+        "uses_hnsw": true,
+        "execution_ms": 11.559,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=10.499..11.535 rows=100.00 loops=1)",
+          "Buffers: shared hit=4907 read=1534",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=10.498..11.525 rows=100.00 loops=1)"
+        ]
+      },
+      "planner_alone": {
+        "uses_hnsw": true,
+        "execution_ms": 6.357,
+        "top": [
+          "Limit  (cost=34.82..571.06 rows=100 width=50) (actual time=5.618..6.337 rows=100.00 loops=1)",
+          "Buffers: shared hit=6441",
+          "->  Index Scan using ix_semvec_hnsw_events_semantic_768 on semantic_vectors  (cost=34.82..908.89 rows=163 width=50) (actual time=5.617..6.329 rows=100.00 loops=1)"
+        ]
+      },
+      "filtered": {
+        "execution_ms": 0.788,
+        "top": [
+          "Limit  (cost=1178.23..1178.48 rows=100 width=12) (actual time=0.761..0.770 rows=100.00 loops=1)",
+          "Buffers: shared hit=614",
+          "->  Sort  (cost=1178.23..1178.76 rows=211 width=12) (actual time=0.760..0.764 rows=100.00 loops=1)",
+          "Sort Key: ((embedding <=> '[0.0006628029,0.029679058,-0.004092677,0.04246452,0.04136345,-0.04399659,-0.021367192,-0.018204648,0.057113647,5.285796e-05,0.020553095,-0.018276466,0.19886112,0.006684967,- …"
+        ]
+      }
+    }
+  ]
+}

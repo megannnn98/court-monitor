@@ -1,0 +1,37 @@
+{
+  "backend": "pgvector",
+  "incremental": true,
+  "stats": [
+    {
+      "entity_type": "person",
+      "documents_built": 14926,
+      "embedded": 28,
+      "unchanged": 14898,
+      "deleted": 10
+    },
+    {
+      "entity_type": "event",
+      "documents_built": 32546,
+      "embedded": 170,
+      "unchanged": 32376,
+      "deleted": 10
+    }
+  ],
+  "counts": {
+    "person": 14926,
+    "event": 32546
+  },
+  "seconds": {
+    "total": 43.7,
+    "embedding": 1.57,
+    "vector_store": 0.97,
+    "vector_store_by_call": {
+      "ensure_collection": 0.003,
+      "check_embedding_model": 0.02,
+      "upsert": 0.937,
+      "delete": 0.007
+    },
+    "postgresql_documents_and_rest": 41.16
+  },
+  "documents_embedded": 198
+}

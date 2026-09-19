@@ -1,0 +1,2626 @@
+{
+  "summary": {
+    "dense": {
+      "queries": 60,
+      "top10_identical_order": 47,
+      "overlap@10_mean": 0.9767,
+      "overlap@10_min": 0.8,
+      "overlap@100_mean": 0.9552,
+      "overlap@100_min": 0.85,
+      "max_score_diff": 3.2136289562778586e-07,
+      "qdrant_vs_exact@100_mean": 0.9932,
+      "pgvector_vs_exact@100_mean": 0.9593,
+      "pgvector_vs_exact@100_min": 0.86
+    },
+    "hybrid": {
+      "queries": 60,
+      "top10_identical_order": 40,
+      "overlap@10_mean": 0.9683,
+      "overlap@10_min": 0.8,
+      "overlap@100_mean": 0.9793,
+      "overlap@100_min": 0.88,
+      "max_score_diff": 3.1621687568428314e-07,
+      "accepted_identical": 16
+    }
+  },
+  "queries": [
+    {
+      "id": "p01",
+      "text": "антивоенный пикет задержание",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.7857573503542454e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.7857573503542454e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          66,
+          66
+        ]
+      }
+    },
+    {
+      "id": "p02",
+      "text": "госизмена перевод денег ВСУ",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 2.239962401118234e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.97
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.239962401118234e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          65,
+          65
+        ],
+        "accepted_only_qdrant": [
+          5455,
+          5719
+        ],
+        "accepted_only_pgvector": [
+          2626,
+          7711
+        ]
+      }
+    },
+    {
+      "id": "p03",
+      "text": "поджог военкомата",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 1.733908296941422e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.733908296941422e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          61,
+          61
+        ],
+        "accepted_only_qdrant": [
+          1220,
+          4894,
+          5231
+        ],
+        "accepted_only_pgvector": [
+          1002,
+          3260,
+          3946
+        ]
+      }
+    },
+    {
+      "id": "p04",
+      "text": "дискредитация армии штраф",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.1760304114160078e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.99
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.1760304114160078e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          69,
+          69
+        ]
+      }
+    },
+    {
+      "id": "p05",
+      "text": "фейки об армии приговор",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 3.1621687568428314e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.99
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 3.1621687568428314e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          60,
+          60
+        ]
+      }
+    },
+    {
+      "id": "p06",
+      "text": "Свидетели Иеговы экстремизм",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 2.321348510081478e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 2.1733271393653553e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          74,
+          74
+        ],
+        "accepted_only_qdrant": [
+          814,
+          1732,
+          1982,
+          1984
+        ],
+        "accepted_only_pgvector": [
+          584,
+          5160,
+          5503,
+          8324
+        ]
+      }
+    },
+    {
+      "id": "p07",
+      "text": "крымские татары Хизб ут-Тахрир",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 3.2136289562778586e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.899263683575626e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          30,
+          30
+        ]
+      }
+    },
+    {
+      "id": "p08",
+      "text": "иностранный агент уклонение от обязанностей",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 2.7708615324417707e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.7708615324417707e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          72,
+          72
+        ],
+        "accepted_only_qdrant": [
+          520,
+          753,
+          973,
+          2429,
+          8627
+        ],
+        "accepted_only_pgvector": [
+          936,
+          2100,
+          5278,
+          6800,
+          7899
+        ]
+      }
+    },
+    {
+      "id": "p09",
+      "text": "журналист задержан за репост",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.233586176014768e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 1.9261631856171135e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          63,
+          63
+        ]
+      }
+    },
+    {
+      "id": "p10",
+      "text": "администратор телеграм-канала арестован",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.815268598244103e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.815268598244103e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          59,
+          59
+        ],
+        "accepted_only_qdrant": [
+          2134
+        ],
+        "accepted_only_pgvector": [
+          5311
+        ]
+      }
+    },
+    {
+      "id": "p11",
+      "text": "оправдание терроризма в комментарии",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.9582710975019069e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 1.9582710975019069e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          73,
+          73
+        ]
+      }
+    },
+    {
+      "id": "p12",
+      "text": "участие в нежелательной организации",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.87,
+        "max_score_diff": 1.681159799149512e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.87
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 1.681159799149512e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          64,
+          64
+        ],
+        "accepted_only_qdrant": [
+          1123,
+          7574,
+          14271
+        ],
+        "accepted_only_pgvector": [
+          4505,
+          5058,
+          6280
+        ]
+      }
+    },
+    {
+      "id": "p13",
+      "text": "сотрудничество с иностранным государством",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 2.6361103810934594e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.6361103810934594e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          7,
+          7
+        ]
+      }
+    },
+    {
+      "id": "p14",
+      "text": "пожертвование легиону Свобода России",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 1.6536545877077202e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.627966866868391e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          63,
+          63
+        ],
+        "accepted_only_qdrant": [
+          7333
+        ],
+        "accepted_only_pgvector": [
+          482
+        ]
+      }
+    },
+    {
+      "id": "p15",
+      "text": "сторонники Навального ФБК экстремистское сообщество",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 2.1680779260790928e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.97
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.0725315708070013e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          63,
+          62
+        ],
+        "accepted_only_qdrant": [
+          1254,
+          14767
+        ],
+        "accepted_only_pgvector": [
+          4817
+        ]
+      }
+    },
+    {
+      "id": "p16",
+      "text": "студентка оштрафована за песню",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 2.3831153073139433e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.97
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.3831153073139433e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          62,
+          62
+        ],
+        "accepted_only_qdrant": [],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "p17",
+      "text": "священник осуждён за проповедь против войны",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.88,
+        "max_score_diff": 2.2217102046973025e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.88,
+        "top10_differences": [
+          {
+            "entity_id": 1479,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.81559384,
+            "pgvector_dense": 0.8155937900785347
+          },
+          {
+            "entity_id": 1894,
+            "qdrant_rank": 9,
+            "pgvector_rank": null,
+            "exact_rank": 9,
+            "qdrant_dense": 0.8173079,
+            "pgvector_dense": null
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.94,
+        "max_score_diff": 1.5053817181698292e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 5812,
+            "qdrant_rank": 81,
+            "pgvector_rank": 9,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.7987244367219344
+          },
+          {
+            "entity_id": 6303,
+            "qdrant_rank": 10,
+            "pgvector_rank": 11,
+            "exact_rank": 2,
+            "qdrant_dense": 0.8262739,
+            "pgvector_dense": 0.8262738585472107
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          53,
+          52
+        ],
+        "accepted_only_qdrant": [
+          613,
+          1732,
+          1894,
+          6348,
+          6948,
+          13651
+        ],
+        "accepted_only_pgvector": [
+          1147,
+          1982,
+          5544,
+          7483,
+          8337
+        ]
+      }
+    },
+    {
+      "id": "p18",
+      "text": "муниципальный депутат уголовное дело",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.978905921935393e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.978905921935393e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          50,
+          50
+        ]
+      }
+    },
+    {
+      "id": "p19",
+      "text": "адвокат политзаключённого",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.9087041869259025e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.7222591919274777e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          55,
+          55
+        ],
+        "accepted_only_qdrant": [
+          8058
+        ],
+        "accepted_only_pgvector": [
+          7482
+        ]
+      }
+    },
+    {
+      "id": "p20",
+      "text": "голодовка в колонии",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 2.538324782586088e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.8,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.084532307877751e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 19,
+            "qdrant_rank": 9,
+            "pgvector_rank": 11,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 129,
+            "qdrant_rank": 43,
+            "pgvector_rank": 2,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8116330616692878
+          },
+          {
+            "entity_id": 7361,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 79,
+            "qdrant_dense": 0.8138101,
+            "pgvector_dense": 0.8138101211899461
+          },
+          {
+            "entity_id": 7661,
+            "qdrant_rank": 10,
+            "pgvector_rank": 12,
+            "exact_rank": 2,
+            "qdrant_dense": 0.85086834,
+            "pgvector_dense": 0.8508681832709094
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          55,
+          56
+        ],
+        "accepted_only_qdrant": [
+          1265,
+          7934
+        ],
+        "accepted_only_pgvector": [
+          129,
+          955,
+          8590
+        ]
+      }
+    },
+    {
+      "id": "p21",
+      "text": "пытки в СИЗО",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.93,
+        "max_score_diff": 2.461576287249301e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.93,
+        "top10_differences": [
+          {
+            "entity_id": 1244,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.8244791,
+            "pgvector_dense": 0.8244788855935472
+          },
+          {
+            "entity_id": 7183,
+            "qdrant_rank": 8,
+            "pgvector_rank": null,
+            "exact_rank": 8,
+            "qdrant_dense": 0.82497245,
+            "pgvector_dense": null
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.8,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.461576287249301e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 413,
+            "qdrant_rank": 12,
+            "pgvector_rank": 10,
+            "exact_rank": 3,
+            "qdrant_dense": 0.83751035,
+            "pgvector_dense": 0.8375102475273314
+          },
+          {
+            "entity_id": 5336,
+            "qdrant_rank": 11,
+            "pgvector_rank": 7,
+            "exact_rank": 72,
+            "qdrant_dense": 0.8123406,
+            "pgvector_dense": 0.812340568760601
+          },
+          {
+            "entity_id": 6113,
+            "qdrant_rank": 3,
+            "pgvector_rank": 41,
+            "exact_rank": 86,
+            "qdrant_dense": 0.8114554,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 7109,
+            "qdrant_rank": 4,
+            "pgvector_rank": null,
+            "exact_rank": 26,
+            "qdrant_dense": 0.8181417,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          54,
+          53
+        ],
+        "accepted_only_qdrant": [
+          6113,
+          7109,
+          7183
+        ],
+        "accepted_only_pgvector": [
+          6718,
+          7489
+        ]
+      }
+    },
+    {
+      "id": "p22",
+      "text": "принудительное лечение в психиатрической больнице",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 2.2063544136141644e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.97
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.8367797849361267e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          60,
+          59
+        ],
+        "accepted_only_qdrant": [
+          3818,
+          5288
+        ],
+        "accepted_only_pgvector": [
+          3987
+        ]
+      }
+    },
+    {
+      "id": "p23",
+      "text": "обыск у активиста",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 2.3646282132361307e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.96
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.3646282132361307e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 498,
+            "qdrant_rank": 6,
+            "pgvector_rank": 7,
+            "exact_rank": 15,
+            "qdrant_dense": 0.8350504,
+            "pgvector_dense": 0.8350503542989296
+          },
+          {
+            "entity_id": 673,
+            "qdrant_rank": 7,
+            "pgvector_rank": 6,
+            "exact_rank": 68,
+            "qdrant_dense": 0.8275451,
+            "pgvector_dense": 0.8275450468063354
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          63,
+          64
+        ],
+        "accepted_only_qdrant": [
+          2838,
+          8710
+        ],
+        "accepted_only_pgvector": [
+          169,
+          234,
+          292
+        ]
+      }
+    },
+    {
+      "id": "p24",
+      "text": "диверсия на железной дороге",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.95,
+        "max_score_diff": 1.9418068253340692e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.548885938396083e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          48,
+          47
+        ],
+        "accepted_only_qdrant": [
+          1404
+        ],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "p25",
+      "text": "призывы к экстремизму в интернете",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 1.887746716722205e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.96
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.6047769701987846e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          68,
+          69
+        ],
+        "accepted_only_qdrant": [
+          7816,
+          8516
+        ],
+        "accepted_only_pgvector": [
+          5803,
+          7852,
+          8434
+        ]
+      }
+    },
+    {
+      "id": "p26",
+      "text": "реабилитация нацизма",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.91,
+        "max_score_diff": 2.1697954677435405e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.91
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.1697954677435405e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          22,
+          22
+        ]
+      }
+    },
+    {
+      "id": "p27",
+      "text": "надпись на стене нет войне",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.9,
+        "max_score_diff": 2.4027224299061345e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.9
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.96,
+        "max_score_diff": 2.2300293178734165e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 19,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 2115,
+            "qdrant_rank": 8,
+            "pgvector_rank": null,
+            "exact_rank": 19,
+            "qdrant_dense": 0.8029005,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          35,
+          33
+        ],
+        "accepted_only_qdrant": [
+          2115,
+          5849
+        ],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "p28",
+      "text": "покушение на теракт подросток",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.97,
+        "max_score_diff": 1.4814935389573236e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.97,
+        "top10_differences": [
+          {
+            "entity_id": 589,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.8272333,
+            "pgvector_dense": 0.8272332898606902
+          },
+          {
+            "entity_id": 5036,
+            "qdrant_rank": 6,
+            "pgvector_rank": null,
+            "exact_rank": 6,
+            "qdrant_dense": 0.83079815,
+            "pgvector_dense": null
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.4814935389573236e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          59,
+          58
+        ],
+        "accepted_only_qdrant": [
+          745,
+          4348,
+          5036
+        ],
+        "accepted_only_pgvector": [
+          1727,
+          6116
+        ]
+      }
+    },
+    {
+      "id": "p29",
+      "text": "арест в Москве по делу о госизмене",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.0675359291288942e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 1.8523447087304135e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          62,
+          62
+        ]
+      }
+    },
+    {
+      "id": "p30",
+      "text": "мобилизация отказ служить",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.303087499599954e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95,
+        "top10_differences": [
+          {
+            "entity_id": 4131,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.80641663,
+            "pgvector_dense": 0.8064167499542236
+          },
+          {
+            "entity_id": 6816,
+            "qdrant_rank": 8,
+            "pgvector_rank": null,
+            "exact_rank": 8,
+            "qdrant_dense": 0.8111626,
+            "pgvector_dense": null
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.303087499599954e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          40,
+          38
+        ],
+        "accepted_only_qdrant": [
+          6349,
+          6816
+        ],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "p31",
+      "text": "художница ценники в супермаркете",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.6293499033602785e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95,
+        "top10_differences": [
+          {
+            "entity_id": 1709,
+            "qdrant_rank": 1,
+            "pgvector_rank": null,
+            "exact_rank": 1,
+            "qdrant_dense": 0.81340444,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 8450,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.79489243,
+            "pgvector_dense": 0.7948924425308455
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.6293499033602785e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 516,
+            "qdrant_rank": 12,
+            "pgvector_rank": 10,
+            "exact_rank": 2,
+            "qdrant_dense": 0.8057145,
+            "pgvector_dense": 0.8057144640173209
+          },
+          {
+            "entity_id": 1709,
+            "qdrant_rank": 10,
+            "pgvector_rank": null,
+            "exact_rank": 1,
+            "qdrant_dense": 0.81340444,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          3,
+          2
+        ],
+        "accepted_only_qdrant": [
+          1709
+        ],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "p32",
+      "text": "учитель уволен за антивоенную позицию",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.94,
+        "max_score_diff": 1.9022163877391307e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94,
+        "top10_differences": [
+          {
+            "entity_id": 328,
+            "qdrant_rank": 6,
+            "pgvector_rank": null,
+            "exact_rank": 6,
+            "qdrant_dense": 0.8337776,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 8095,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.8278908,
+            "pgvector_dense": 0.8278908729553223
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.96,
+        "max_score_diff": 1.6855059625786595e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 180,
+            "qdrant_rank": 40,
+            "pgvector_rank": 10,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8136250508092422
+          },
+          {
+            "entity_id": 328,
+            "qdrant_rank": 9,
+            "pgvector_rank": null,
+            "exact_rank": 6,
+            "qdrant_dense": 0.8337776,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          58,
+          59
+        ],
+        "accepted_only_qdrant": [
+          328,
+          973,
+          1730,
+          5441
+        ],
+        "accepted_only_pgvector": [
+          180,
+          4915,
+          5544,
+          7198,
+          12221
+        ]
+      }
+    },
+    {
+      "id": "p33",
+      "text": "Башкортостан Баймак протест",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 2.1506702763129937e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.96
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.1506702763129937e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "p34",
+      "text": "Калининград шпионаж",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.86,
+        "max_score_diff": 2.027036684060235e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.86,
+        "top10_differences": [
+          {
+            "entity_id": 1873,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.806425,
+            "pgvector_dense": 0.8064248081192503
+          },
+          {
+            "entity_id": 5862,
+            "qdrant_rank": 8,
+            "pgvector_rank": null,
+            "exact_rank": 8,
+            "qdrant_dense": 0.807864,
+            "pgvector_dense": null
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.8,
+        "overlap@100": 0.91,
+        "max_score_diff": 2.027036684060235e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 443,
+            "qdrant_rank": 11,
+            "pgvector_rank": 9,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 3256,
+            "qdrant_rank": 6,
+            "pgvector_rank": 26,
+            "exact_rank": 84,
+            "qdrant_dense": 0.79899174,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 7561,
+            "qdrant_rank": 4,
+            "pgvector_rank": 38,
+            "exact_rank": 17,
+            "qdrant_dense": 0.805491,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 8621,
+            "qdrant_rank": 12,
+            "pgvector_rank": 10,
+            "exact_rank": 3,
+            "qdrant_dense": 0.81177366,
+            "pgvector_dense": 0.8117736094132909
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          67,
+          57
+        ],
+        "accepted_only_qdrant": [
+          49,
+          1200,
+          2338,
+          2759,
+          3144,
+          5862,
+          6790,
+          7561,
+          8331,
+          11178
+        ],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "p35",
+      "text": "Украина гражданин задержан в Крыму",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.1449338871715184e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.6790166734725886e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 190,
+            "qdrant_rank": 5,
+            "pgvector_rank": 6,
+            "exact_rank": 20,
+            "qdrant_dense": 0.8243703,
+            "pgvector_dense": 0.8243703000435176
+          },
+          {
+            "entity_id": 3174,
+            "qdrant_rank": 6,
+            "pgvector_rank": 5,
+            "exact_rank": 88,
+            "qdrant_dense": 0.81437075,
+            "pgvector_dense": 0.8143707756510612
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          58,
+          58
+        ],
+        "accepted_only_qdrant": [
+          10870
+        ],
+        "accepted_only_pgvector": [
+          8111
+        ]
+      }
+    },
+    {
+      "id": "p36",
+      "text": "политзаключённый переведён в ШИЗО",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.93,
+        "max_score_diff": 2.7457853390977505e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.93
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.7457853390977505e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          59,
+          58
+        ],
+        "accepted_only_qdrant": [
+          2347,
+          2396,
+          7109
+        ],
+        "accepted_only_pgvector": [
+          193,
+          1246
+        ]
+      }
+    },
+    {
+      "id": "p37",
+      "text": "блогер экстрадирован",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 1.731190617526579e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.94
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.731190617526579e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 5567,
+            "qdrant_rank": 8,
+            "pgvector_rank": 9,
+            "exact_rank": 15,
+            "qdrant_dense": 0.8246646,
+            "pgvector_dense": 0.8246646173198411
+          },
+          {
+            "entity_id": 2286,
+            "qdrant_rank": 9,
+            "pgvector_rank": 10,
+            "exact_rank": 25,
+            "qdrant_dense": 0.8211987,
+            "pgvector_dense": 0.8211987508057803
+          },
+          {
+            "entity_id": 159,
+            "qdrant_rank": 10,
+            "pgvector_rank": 8,
+            "exact_rank": 40,
+            "qdrant_dense": 0.8164521,
+            "pgvector_dense": 0.8164521699086482
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          61,
+          62
+        ],
+        "accepted_only_qdrant": [
+          2802
+        ],
+        "accepted_only_pgvector": [
+          7320,
+          8629
+        ]
+      }
+    },
+    {
+      "id": "p38",
+      "text": "видео в TikTok уголовное дело",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.8,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.0533401035027765e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95,
+        "top10_differences": [
+          {
+            "entity_id": 4526,
+            "qdrant_rank": 11,
+            "pgvector_rank": 9,
+            "exact_rank": 11,
+            "qdrant_dense": 0.8252628,
+            "pgvector_dense": 0.8252629287619275
+          },
+          {
+            "entity_id": 6622,
+            "qdrant_rank": 2,
+            "pgvector_rank": null,
+            "exact_rank": 2,
+            "qdrant_dense": 0.8319763,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 7792,
+            "qdrant_rank": 12,
+            "pgvector_rank": 10,
+            "exact_rank": 12,
+            "qdrant_dense": 0.8244939,
+            "pgvector_dense": 0.8244940042495728
+          },
+          {
+            "entity_id": 7991,
+            "qdrant_rank": 8,
+            "pgvector_rank": null,
+            "exact_rank": 8,
+            "qdrant_dense": 0.8258887,
+            "pgvector_dense": null
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.8632441101118502e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 6622,
+            "qdrant_rank": 7,
+            "pgvector_rank": null,
+            "exact_rank": 2,
+            "qdrant_dense": 0.8319763,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 7490,
+            "qdrant_rank": 12,
+            "pgvector_rank": 10,
+            "exact_rank": 4,
+            "qdrant_dense": 0.83050245,
+            "pgvector_dense": 0.8305025348217054
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          52,
+          52
+        ],
+        "accepted_only_qdrant": [
+          6622,
+          7991
+        ],
+        "accepted_only_pgvector": [
+          9357,
+          13817
+        ]
+      }
+    },
+    {
+      "id": "p39",
+      "text": "осквернение символов воинской славы",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.92,
+        "max_score_diff": 2.701416889072661e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.92
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 2.701416889072661e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          22,
+          22
+        ]
+      }
+    },
+    {
+      "id": "p40",
+      "text": "вовлечение несовершеннолетних в протест",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.454209112601191e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.1966356766878192e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 3934,
+            "qdrant_rank": 8,
+            "pgvector_rank": 36,
+            "exact_rank": 84,
+            "qdrant_dense": 0.7991977,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 5002,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 95,
+            "qdrant_dense": 0.79860175,
+            "pgvector_dense": 0.7986017109630509
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          54,
+          53
+        ],
+        "accepted_only_qdrant": [
+          1982,
+          1984
+        ],
+        "accepted_only_pgvector": [
+          8532
+        ]
+      }
+    },
+    {
+      "id": "p41",
+      "text": "Мемориал реестр фигурантов",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 3.1964985858223827e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.96
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.6251145768263484e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 4686,
+            "qdrant_rank": 10,
+            "pgvector_rank": 11,
+            "exact_rank": 4,
+            "qdrant_dense": 0.8175398,
+            "pgvector_dense": 0.8175396162177048
+          },
+          {
+            "entity_id": 7043,
+            "qdrant_rank": 84,
+            "pgvector_rank": 8,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.807556771331224
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          52,
+          53
+        ],
+        "accepted_only_qdrant": [
+          96
+        ],
+        "accepted_only_pgvector": [
+          7043,
+          11654
+        ]
+      }
+    },
+    {
+      "id": "p42",
+      "text": "двадцать лет строгого режима",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.546877080344956e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.546877080344956e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          61,
+          61
+        ]
+      }
+    },
+    {
+      "id": "p43",
+      "text": "условный срок за пост во ВКонтакте",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.987637819362732e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.987637819362732e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          56,
+          56
+        ]
+      }
+    },
+    {
+      "id": "p44",
+      "text": "бывший военный рассказал о преступлениях",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.95,
+        "max_score_diff": 3.139655676553943e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 3.139655676553943e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          51,
+          51
+        ],
+        "accepted_only_qdrant": [
+          2212,
+          6646
+        ],
+        "accepted_only_pgvector": [
+          496,
+          5009
+        ]
+      }
+    },
+    {
+      "id": "p45",
+      "text": "выращивание бананов на Марсе",
+      "entity_type": "person",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.87,
+        "max_score_diff": 2.3484008748742013e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.87,
+        "top10_differences": [
+          {
+            "entity_id": 4678,
+            "qdrant_rank": 6,
+            "pgvector_rank": null,
+            "exact_rank": 6,
+            "qdrant_dense": 0.7771254,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 5708,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 11,
+            "qdrant_dense": 0.7687589,
+            "pgvector_dense": 0.7687589297068469
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.88,
+        "max_score_diff": 2.3484008748742013e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 2147,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 8,
+            "qdrant_dense": 0.77207625,
+            "pgvector_dense": 0.7720762031032932
+          },
+          {
+            "entity_id": 4678,
+            "qdrant_rank": 9,
+            "pgvector_rank": null,
+            "exact_rank": 6,
+            "qdrant_dense": 0.7771254,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": true,
+        "accepted_counts": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "e01",
+      "text": "суд назначил штраф за антивоенный пост",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 3.091743446814732e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.99
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.68671758618666e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          55,
+          55
+        ],
+        "accepted_only_qdrant": [
+          14273
+        ],
+        "accepted_only_pgvector": [
+          30288
+        ]
+      }
+    },
+    {
+      "id": "e02",
+      "text": "возбуждено уголовное дело о госизмене",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.432539183416793e-07,
+        "qdrant_vs_exact@100": 0.99,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.432539183416793e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          58,
+          58
+        ],
+        "accepted_only_qdrant": [],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "e03",
+      "text": "приговор к колонии строгого режима",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.1856672405284883e-07,
+        "qdrant_vs_exact@100": 0.99,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 1.7854309086740017e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": true,
+        "accepted_counts": [
+          55,
+          55
+        ]
+      }
+    },
+    {
+      "id": "e04",
+      "text": "задержание на одиночном пикете",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 2.2684870226719056e-07,
+        "qdrant_vs_exact@100": 0.98,
+        "pgvector_vs_exact@100": 0.96
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.2684870226719056e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          79,
+          79
+        ],
+        "accepted_only_qdrant": [
+          30197,
+          31553
+        ],
+        "accepted_only_pgvector": [
+          801,
+          12689
+        ]
+      }
+    },
+    {
+      "id": "e05",
+      "text": "обыск у журналиста",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.070363693817967e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.99,
+        "top10_differences": [
+          {
+            "entity_id": 16538,
+            "qdrant_rank": 1,
+            "pgvector_rank": 2,
+            "exact_rank": 2,
+            "qdrant_dense": 0.8712237,
+            "pgvector_dense": 0.8712236544854541
+          },
+          {
+            "entity_id": 32373,
+            "qdrant_rank": 2,
+            "pgvector_rank": 1,
+            "exact_rank": 1,
+            "qdrant_dense": 0.8712237,
+            "pgvector_dense": 0.8712236621611253
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.070363693817967e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 326,
+            "qdrant_rank": 6,
+            "pgvector_rank": 7,
+            "exact_rank": 38,
+            "qdrant_dense": 0.8536957,
+            "pgvector_dense": 0.8536956651897565
+          },
+          {
+            "entity_id": 32373,
+            "qdrant_rank": 7,
+            "pgvector_rank": 6,
+            "exact_rank": 1,
+            "qdrant_dense": 0.8712237,
+            "pgvector_dense": 0.8712236621611253
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          69,
+          69
+        ],
+        "accepted_only_qdrant": [],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "e06",
+      "text": "арест на два месяца",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.94,
+        "max_score_diff": 1.9515229587874217e-07,
+        "qdrant_vs_exact@100": 0.95,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 1.9515229587874217e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          60,
+          61
+        ],
+        "accepted_only_qdrant": [
+          1012,
+          6791,
+          11252
+        ],
+        "accepted_only_pgvector": [
+          4424,
+          9515,
+          11056,
+          11511
+        ]
+      }
+    },
+    {
+      "id": "e07",
+      "text": "апелляция оставила приговор без изменений",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 2.1804483651965967e-07,
+        "qdrant_vs_exact@100": 0.99,
+        "pgvector_vs_exact@100": 0.99
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 1.0,
+        "max_score_diff": 2.1804483651965967e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          68,
+          68
+        ],
+        "accepted_only_qdrant": [],
+        "accepted_only_pgvector": []
+      }
+    },
+    {
+      "id": "e08",
+      "text": "освобождение после отбытия срока",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.98,
+        "max_score_diff": 2.0312167148262006e-07,
+        "qdrant_vs_exact@100": 0.99,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 1.0,
+        "max_score_diff": 1.8465213125207214e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 928,
+            "qdrant_rank": 16,
+            "pgvector_rank": 6,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8511152952244717
+          },
+          {
+            "entity_id": 12945,
+            "qdrant_rank": 10,
+            "pgvector_rank": 11,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          53,
+          54
+        ],
+        "accepted_only_qdrant": [],
+        "accepted_only_pgvector": [
+          928
+        ]
+      }
+    },
+    {
+      "id": "e09",
+      "text": "мера пресечения домашний арест",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 1.9630889891431025e-07,
+        "qdrant_vs_exact@100": 0.97,
+        "pgvector_vs_exact@100": 1.0
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.853759996617299e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          73,
+          73
+        ],
+        "accepted_only_qdrant": [
+          21156
+        ],
+        "accepted_only_pgvector": [
+          26089
+        ]
+      }
+    },
+    {
+      "id": "e10",
+      "text": "обвинение в терроризме за поджог",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.8,
+        "overlap@100": 0.97,
+        "max_score_diff": 1.8183395389392842e-07,
+        "qdrant_vs_exact@100": 0.98,
+        "pgvector_vs_exact@100": 0.98,
+        "top10_differences": [
+          {
+            "entity_id": 8914,
+            "qdrant_rank": 2,
+            "pgvector_rank": null,
+            "exact_rank": 2,
+            "qdrant_dense": 0.87461936,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 10812,
+            "qdrant_rank": 10,
+            "pgvector_rank": null,
+            "exact_rank": 10,
+            "qdrant_dense": 0.86023164,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 13831,
+            "qdrant_rank": 12,
+            "pgvector_rank": 10,
+            "exact_rank": 12,
+            "qdrant_dense": 0.8587272,
+            "pgvector_dense": 0.8587272423126475
+          },
+          {
+            "entity_id": 29899,
+            "qdrant_rank": 11,
+            "pgvector_rank": 9,
+            "exact_rank": 11,
+            "qdrant_dense": 0.8587905,
+            "pgvector_dense": 0.8587904144775435
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.98,
+        "max_score_diff": 1.7903759452764234e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 8914,
+            "qdrant_rank": 2,
+            "pgvector_rank": 38,
+            "exact_rank": 2,
+            "qdrant_dense": 0.87461936,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 15470,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 49,
+            "qdrant_dense": 0.851019,
+            "pgvector_dense": 0.8510188549149734
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          58,
+          58
+        ],
+        "accepted_only_qdrant": [
+          8914,
+          10812
+        ],
+        "accepted_only_pgvector": [
+          1233,
+          30299
+        ]
+      }
+    },
+    {
+      "id": "e11",
+      "text": "Верховный суд Крыма",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.9246562610319984e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.99
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.99,
+        "max_score_diff": 1.8731429130003363e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          54,
+          54
+        ],
+        "accepted_only_qdrant": [
+          30348
+        ],
+        "accepted_only_pgvector": [
+          6728
+        ]
+      }
+    },
+    {
+      "id": "e12",
+      "text": "Южный окружной военный суд Ростов",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.96,
+        "max_score_diff": 1.928133239736951e-07,
+        "qdrant_vs_exact@100": 0.95,
+        "pgvector_vs_exact@100": 0.98
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.96,
+        "max_score_diff": 1.928133239736951e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 6244,
+            "qdrant_rank": 2,
+            "pgvector_rank": 16,
+            "exact_rank": 72,
+            "qdrant_dense": 0.8199703,
+            "pgvector_dense": null
+          },
+          {
+            "entity_id": 6289,
+            "qdrant_rank": 11,
+            "pgvector_rank": 10,
+            "exact_rank": 19,
+            "qdrant_dense": 0.8245937,
+            "pgvector_dense": 0.824593722820282
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          51,
+          50
+        ],
+        "accepted_only_qdrant": [
+          6244,
+          8619,
+          8906,
+          8911,
+          9027
+        ],
+        "accepted_only_pgvector": [
+          4166,
+          4715,
+          10484,
+          16361
+        ]
+      }
+    },
+    {
+      "id": "e13",
+      "text": "внесён в перечень террористов и экстремистов",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.95,
+        "max_score_diff": 1.8738340890056548e-07,
+        "qdrant_vs_exact@100": 1.0,
+        "pgvector_vs_exact@100": 0.95
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 1.0,
+        "max_score_diff": 1.8738340890056548e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 722,
+            "qdrant_rank": 33,
+            "pgvector_rank": 10,
+            "exact_rank": null,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8276523454396534
+          },
+          {
+            "entity_id": 5595,
+            "qdrant_rank": 5,
+            "pgvector_rank": 31,
+            "exact_rank": 29,
+            "qdrant_dense": 0.8351993,
+            "pgvector_dense": null
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          59,
+          59
+        ],
+        "accepted_only_qdrant": [
+          5595
+        ],
+        "accepted_only_pgvector": [
+          722
+        ]
+      }
+    },
+    {
+      "id": "e14",
+      "text": "штраф по статье о неповиновении полиции",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.95,
+        "max_score_diff": 2.293541762066198e-07,
+        "qdrant_vs_exact@100": 0.95,
+        "pgvector_vs_exact@100": 0.99,
+        "top10_differences": [
+          {
+            "entity_id": 14476,
+            "qdrant_rank": null,
+            "pgvector_rank": 9,
+            "exact_rank": 9,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8837776849402392
+          },
+          {
+            "entity_id": 15326,
+            "qdrant_rank": 10,
+            "pgvector_rank": 11,
+            "exact_rank": 11,
+            "qdrant_dense": 0.8762188,
+            "pgvector_dense": 0.8762187435496618
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": true,
+        "overlap@10": 1.0,
+        "overlap@100": 0.97,
+        "max_score_diff": 1.972485290657744e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "accepted_equal": false,
+        "accepted_counts": [
+          60,
+          58
+        ],
+        "accepted_only_qdrant": [
+          944,
+          11291,
+          14551,
+          30751,
+          31205
+        ],
+        "accepted_only_pgvector": [
+          14476,
+          16044,
+          16221
+        ]
+      }
+    },
+    {
+      "id": "e15",
+      "text": "состав преступления 280.3 УК",
+      "entity_type": "event",
+      "dense": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.85,
+        "max_score_diff": 2.5830895300504864e-07,
+        "qdrant_vs_exact@100": 0.85,
+        "pgvector_vs_exact@100": 0.96,
+        "top10_differences": [
+          {
+            "entity_id": 6874,
+            "qdrant_rank": null,
+            "pgvector_rank": 1,
+            "exact_rank": 1,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8540858291234099
+          },
+          {
+            "entity_id": 31614,
+            "qdrant_rank": 10,
+            "pgvector_rank": 11,
+            "exact_rank": 12,
+            "qdrant_dense": 0.8437301,
+            "pgvector_dense": 0.8437298722589168
+          }
+        ]
+      },
+      "hybrid": {
+        "top10_equal_order": false,
+        "overlap@10": 0.9,
+        "overlap@100": 0.89,
+        "max_score_diff": 2.5830895300504864e-07,
+        "qdrant_vs_exact@100": null,
+        "pgvector_vs_exact@100": null,
+        "top10_differences": [
+          {
+            "entity_id": 6874,
+            "qdrant_rank": null,
+            "pgvector_rank": 6,
+            "exact_rank": 1,
+            "qdrant_dense": null,
+            "pgvector_dense": 0.8540858291234099
+          },
+          {
+            "entity_id": 11902,
+            "qdrant_rank": 10,
+            "pgvector_rank": 12,
+            "exact_rank": 5,
+            "qdrant_dense": 0.84572303,
+            "pgvector_dense": 0.8457229825423386
+          }
+        ],
+        "accepted_equal": false,
+        "accepted_counts": [
+          52,
+          52
+        ],
+        "accepted_only_qdrant": [
+          413,
+          2644,
+          8847,
+          9429,
+          12057,
+          12142,
+          16482,
+          17849,
+          19213,
+          23783,
+          29544
+        ],
+        "accepted_only_pgvector": [
+          4912,
+          5063,
+          5659,
+          6874,
+          7379,
+          7580,
+          12968,
+          13321,
+          13904,
+          16405,
+          16429
+        ]
+      }
+    }
+  ]
+}

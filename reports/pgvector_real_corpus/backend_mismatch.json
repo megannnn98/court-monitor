@@ -1,0 +1,7 @@
+{
+  "command": "SEMANTIC_VECTOR_BACKEND=pgvector python src/main.py rebuild-semantic-index --entity all --incremental",
+  "database": "court_monitor_pgvector_eval right after `alembic upgrade head` (semantic_index_state: person=qdrant, event=qdrant)",
+  "exit_code": 2,
+  "stderr": "Semantic retrieval unavailable [IndexBackendMismatchError]: The person index was built in qdrant, not pgvector; run a full rebuild-semantic-index (without --incremental) first",
+  "after": {"semantic_vectors": 0, "semantic_vector_collections": 0, "semantic_index_state": {"person": "qdrant", "event": "qdrant"}, "indexed_documents": 25521}
+}

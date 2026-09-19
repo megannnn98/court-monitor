@@ -132,6 +132,18 @@ Qdrant built no HNSW graph (`indexed_vectors_count` 0): its segments stay below 
 default `indexing_threshold`, so it searches exactly. Its working collections take 64 MB
 (persons) and 90 MB (events) on disk; pgvector rows and HNSW index take 64 MB and 122 MB.
 
+### Real-corpus validation (2026-09-19)
+
+`reports/pgvector_real_corpus_validation.md`: two copies of the working database, one per
+backend, 47 487 documents. Full and incremental rebuilds, updates and deletes behave
+identically; the backend switch stops with `IndexBackendMismatchError`; monitoring on
+real sources indexes through pgvector; `enable_sort = off` is confirmed necessary (with
+partial statistics the planner alone reads 32 k events and sorts, 309 ms). Two findings:
+readiness did not know pgvector (fixed), and on the grown person collection pgvector's
+HNSW at `ef_search` 400 finds 95% of the exact top-100 while Qdrant searches those
+exactly — `ef_search` 1000 gives 99.0%, an m=24, ef_construction=200 index 99.7%; the
+setting is an open decision before Qdrant can go.
+
 ## Consequences
 
 - Nothing changes for a deployment that does not set `SEMANTIC_VECTOR_BACKEND`.
