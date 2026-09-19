@@ -33,6 +33,8 @@ from semantic_retrieval.evaluation import (
     seed_corpus,
 )
 from semantic_retrieval.factory import (
+    DEFAULT_VECTOR_BACKEND,
+    VECTOR_BACKENDS,
     SemanticComponents,
     SemanticRetrievalConfig,
     create_semantic_components,
@@ -100,6 +102,12 @@ def add_semantic_arguments(subparsers: Any) -> None:
     )
     evaluate.add_argument(
         "--qdrant-url", default=":memory:", help="Qdrant URL or :memory: (default)"
+    )
+    evaluate.add_argument(
+        "--vector-backend",
+        choices=VECTOR_BACKENDS,
+        default=DEFAULT_VECTOR_BACKEND,
+        help="Vector store: qdrant (default) or pgvector (in the evaluation database)",
     )
     evaluate.add_argument(
         "--thresholds",
@@ -225,6 +233,7 @@ def run_evaluate_retrieval(args: argparse.Namespace) -> None:
         qdrant_url=args.qdrant_url,
         person_collection=EVALUATION_COLLECTIONS[0],
         event_collection=EVALUATION_COLLECTIONS[1],
+        vector_backend=args.vector_backend,
     )
     components = create_semantic_components(
         create_session_factory(engine),
@@ -250,8 +259,11 @@ def _components_from_env(
     session_factory: sessionmaker[Session], *, reranker: bool
 ) -> SemanticComponents:
     config = SemanticRetrievalConfig.from_env()
-    if config.qdrant_url is None:
-        raise SystemExit("QDRANT_URL is not set (docker compose --profile semantic up -d)")
+    if not config.enabled:
+        raise SystemExit(
+            "QDRANT_URL is not set (docker compose --profile semantic up -d), "
+            "or set SEMANTIC_VECTOR_BACKEND=pgvector"
+        )
     return create_semantic_components(session_factory, config, with_reranker=reranker)
 
 

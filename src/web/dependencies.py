@@ -119,7 +119,11 @@ def get_readiness_checker() -> ReadinessChecker:
     return ReadinessChecker(
         session_factory,
         expected_revision=expected_schema_revision(),
-        qdrant_probe=None if semantic.qdrant_url is None else qdrant_probe(semantic.qdrant_url),
+        qdrant_probe=(
+            None
+            if semantic.qdrant_service_url is None
+            else qdrant_probe(semantic.qdrant_service_url)
+        ),
         together_configured=bool(
             os.getenv("TOGETHER_API_KEY", "").strip() and os.getenv("TOGETHER_MODEL", "").strip()
         ),

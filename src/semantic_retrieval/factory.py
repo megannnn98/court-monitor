@@ -2,6 +2,10 @@
 
 Nothing here loads a model or connects to Qdrant: the embedder and reranker
 load lazily on first use, and QdrantClient connects on the first request.
+
+SEMANTIC_VECTOR_BACKEND picks the vector store (ADR 0018): `qdrant` (default, needs
+QDRANT_URL) or `pgvector` (the application's PostgreSQL). This module is the only place
+that looks at it.
 """
 
 from __future__ import annotations
@@ -9,6 +13,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal, cast
 
 from qdrant_client import QdrantClient
 from sqlalchemy.orm import Session, sessionmaker
@@ -28,6 +33,7 @@ from semantic_retrieval.models import (
     RetrievalEntityType,
     SemanticConfigurationError,
 )
+from semantic_retrieval.pgvector_store import PgVectorStore
 from semantic_retrieval.relevance import (
     DEFAULT_DENSE_MIN_SCORE,
     DenseSimilarityRelevancePolicy,
@@ -47,6 +53,10 @@ DEFAULT_EVENT_COLLECTION = "events_semantic"
 DEFAULT_CANDIDATE_POOL_SIZE = 100
 MAX_CANDIDATE_POOL_SIZE = 200
 
+type VectorBackend = Literal["qdrant", "pgvector"]
+VECTOR_BACKENDS: tuple[VectorBackend, ...] = ("qdrant", "pgvector")
+DEFAULT_VECTOR_BACKEND: VectorBackend = "qdrant"
+
 
 def _flag(value: str | None) -> bool:
     return (value or "").strip().lower() in ("1", "true", "yes", "on")
@@ -61,12 +71,27 @@ class SemanticRetrievalConfig:
     candidate_pool_size: int = DEFAULT_CANDIDATE_POOL_SIZE
     rerank: bool = False
     rerank_candidates: int = 50
+    vector_backend: VectorBackend = DEFAULT_VECTOR_BACKEND
 
     def __post_init__(self) -> None:
+        if self.vector_backend not in VECTOR_BACKENDS:
+            raise SemanticConfigurationError(
+                f"SEMANTIC_VECTOR_BACKEND must be one of {', '.join(VECTOR_BACKENDS)}"
+            )
         if not 1 <= self.candidate_pool_size <= MAX_CANDIDATE_POOL_SIZE:
             raise SemanticConfigurationError(
                 f"SEMANTIC_CANDIDATE_POOL_SIZE must be between 1 and {MAX_CANDIDATE_POOL_SIZE}"
             )
+
+    @property
+    def enabled(self) -> bool:
+        """Semantic retrieval is configured: Qdrant has a URL, pgvector uses PostgreSQL."""
+        return self.vector_backend == "pgvector" or self.qdrant_url is not None
+
+    @property
+    def qdrant_service_url(self) -> str | None:
+        """The Qdrant this configuration depends on (readiness probes it), if any."""
+        return self.qdrant_url if self.vector_backend == "qdrant" else None
 
     @property
     def collections(self) -> dict[RetrievalEntityType, str]:
@@ -90,6 +115,10 @@ class SemanticRetrievalConfig:
             event_collection=env.get("EVENT_QDRANT_COLLECTION") or DEFAULT_EVENT_COLLECTION,
             candidate_pool_size=pool_size,
             rerank=_flag(env.get("SEMANTIC_RERANK")),
+            vector_backend=cast(
+                VectorBackend,
+                (env.get("SEMANTIC_VECTOR_BACKEND") or DEFAULT_VECTOR_BACKEND).strip().lower(),
+            ),
         )
 
 
@@ -100,6 +129,16 @@ def create_vector_store(qdrant_url: str) -> QdrantVectorStore:
     # check_compatibility=False: no version request at construction, so wiring
     # the graph never touches the network; the first real call does.
     return QdrantVectorStore(QdrantClient(url=qdrant_url, timeout=10, check_compatibility=False))
+
+
+def create_configured_vector_store(
+    config: SemanticRetrievalConfig, session_factory: sessionmaker[Session]
+) -> VectorStore:
+    if config.vector_backend == "pgvector":
+        return PgVectorStore(session_factory)
+    if config.qdrant_url is None:
+        raise ValueError("QDRANT_URL is not set")
+    return create_vector_store(config.qdrant_url)
 
 
 @dataclass(frozen=True)
@@ -160,13 +199,12 @@ def create_semantic_components(
     *,
     with_reranker: bool | None = None,
 ) -> SemanticComponents:
-    if config.qdrant_url is None:
-        raise ValueError("QDRANT_URL is not set")
+    store = create_configured_vector_store(config, session_factory)
     use_reranker = config.rerank if with_reranker is None else with_reranker
     embedding_config = EmbeddingConfig.from_env(env)
     return SemanticComponents(
         session_factory=session_factory,
-        store=create_vector_store(config.qdrant_url),
+        store=store,
         embedder=SentenceTransformerEmbedder(embedding_config),
         collections=config.collections,
         reranker=CrossEncoderReranker(RerankerConfig.from_env(env)) if use_reranker else None,

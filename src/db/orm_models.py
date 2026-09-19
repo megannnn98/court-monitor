@@ -37,6 +37,9 @@ from db.models.rosfinmonitoring import (
 )
 from db.models.semantic import (
     SemanticDocumentRecord,
+    SemanticIndexStateRecord,
+    SemanticVectorCollectionRecord,
+    SemanticVectorRecord,
 )
 from db.models.sources import (
     ParsedArticleRecord,
@@ -66,6 +69,9 @@ __all__ = [
     "RosfinmonitoringEntryRecord",
     "RosfinmonitoringSnapshotRecord",
     "SemanticDocumentRecord",
+    "SemanticIndexStateRecord",
+    "SemanticVectorCollectionRecord",
+    "SemanticVectorRecord",
     "Source",
     "SourceDocument",
     "SourceMonitoringStateRecord",

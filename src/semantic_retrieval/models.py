@@ -109,6 +109,10 @@ class IndexModelMismatchError(RetrievalUnavailableError):
     """The vector index was built with a different embedding model."""
 
 
+class IndexBackendMismatchError(RetrievalUnavailableError):
+    """The `indexed_at` marks belong to an index another vector backend built."""
+
+
 class RetrievalNotConfiguredError(RetrievalError):
     """Semantic retrieval is needed but not configured (e.g. no QDRANT_URL)."""
 

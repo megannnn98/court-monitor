@@ -64,12 +64,12 @@ jobs:
         run: uv run pytest
 
   integration:
-    name: integration (PostgreSQL)
+    name: integration (PostgreSQL + pgvector, Qdrant)
     runs-on: ubuntu-latest
     services:
       postgres:
-        # Same major version as compose.yaml (postgres:18.6-bookworm).
-        image: postgres:18
+        # The same image as compose.yaml: PostgreSQL 18.6 with pgvector (ADR 0018).
+        image: pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
         env:
           # tests/conftest.py only allows a database named court_monitor_test.
           POSTGRES_DB: court_monitor_test
@@ -115,10 +115,11 @@ jobs:
           done
           exit 1
 
-      # Full suite with PostgreSQL and Qdrant. DATABASE_URL is intentionally
+      # Full suite with PostgreSQL (pgvector) and Qdrant: the VectorStore contract tests
+      # run against both stores. DATABASE_URL is intentionally
       # not set; no Together AI credentials; SEMANTIC_MODEL_TESTS is not set and
       # the `semantic` uv group is not installed, so no models are downloaded.
-      - name: Pytest with PostgreSQL and Qdrant
+      - name: Pytest with PostgreSQL (pgvector) and Qdrant
         env:
           TEST_DATABASE_URL: ${{ env.CI_DATABASE_URL }}
           QDRANT_TEST_URL: http://127.0.0.1:6333

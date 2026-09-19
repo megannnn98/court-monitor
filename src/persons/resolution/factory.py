@@ -46,7 +46,7 @@ def semantic_retriever_from_env(
     from semantic_retrieval.models import RetrievalBackend
 
     semantic = SemanticRetrievalConfig.from_env(env)
-    if semantic.qdrant_url is None:
+    if not semantic.enabled:
         return None
     components = create_semantic_components(session_factory, semantic, env, with_reranker=False)
     return components.retriever(RetrievalBackend.DENSE)

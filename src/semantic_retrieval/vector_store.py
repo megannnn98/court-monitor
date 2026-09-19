@@ -33,7 +33,7 @@ POINT_ID_NAMESPACE = uuid.UUID("7d1b6a2e-3c1f-5b8e-9a4d-2f6c8e0b1a53")
 _CLIENT_ERRORS = (ResponseHandlingException, UnexpectedResponse, httpx.HTTPError, OSError)
 
 
-def _require_model(name: str, stored: object, expected: str) -> None:
+def require_model(name: str, stored: object, expected: str) -> None:
     if stored != expected:
         # Points without the field predate model tracking: also incompatible.
         raise IndexModelMismatchError(
@@ -62,6 +62,11 @@ class VectorMatch:
 
 
 class VectorStore(Protocol):
+    # Which store the index lives in ("qdrant", "pgvector"): incremental indexing only
+    # continues an index its own backend built (see SemanticIndexer).
+    @property
+    def backend_name(self) -> str: ...
+
     def ensure_collection(self, name: str, vector_size: int) -> None: ...
 
     def recreate_collection(self, name: str, vector_size: int) -> None: ...
@@ -92,6 +97,8 @@ class VectorStore(Protocol):
 
 
 class QdrantVectorStore:
+    backend_name = "qdrant"
+
     def __init__(self, client: QdrantClient) -> None:
         self._client = client
 
@@ -227,7 +234,7 @@ class QdrantVectorStore:
         matches: list[VectorMatch] = []
         for point in response.points:
             payload = point.payload or {}
-            _require_model(name, payload.get("embedding_model_id"), embedding_model_id)
+            require_model(name, payload.get("embedding_model_id"), embedding_model_id)
             entity_id = payload.get("entity_id")
             if isinstance(entity_id, int):
                 matches.append(VectorMatch(entity_id=entity_id, score=float(point.score)))
@@ -254,7 +261,7 @@ class QdrantVectorStore:
             ),
         )
         for record in records:
-            _require_model(
+            require_model(
                 name, (record.payload or {}).get("embedding_model_id"), embedding_model_id
             )
 

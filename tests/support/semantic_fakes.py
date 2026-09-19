@@ -86,6 +86,7 @@ class InMemoryDocumentRepository:
     rows: dict[tuple[RetrievalEntityType, int], tuple[SemanticDocument, bool]] = field(
         default_factory=dict
     )
+    index_backends: dict[RetrievalEntityType, str] = field(default_factory=dict)
 
     def get_states(
         self, entity_type: RetrievalEntityType, entity_ids: Sequence[int]
@@ -117,6 +118,12 @@ class InMemoryDocumentRepository:
         for key, (doc, _) in list(self.rows.items()):
             if key[0] is entity_type:
                 self.rows[key] = (doc, False)
+
+    def get_index_backend(self, entity_type: RetrievalEntityType) -> str | None:
+        return self.index_backends.get(entity_type)
+
+    def set_index_backend(self, entity_type: RetrievalEntityType, vector_backend: str) -> None:
+        self.index_backends[entity_type] = vector_backend
 
     def delete(self, entity_type: RetrievalEntityType, entity_ids: Sequence[int]) -> None:
         for entity_id in entity_ids:
@@ -194,6 +201,8 @@ class KeywordReranker:
 
 class UnavailableStore:
     """A vector store whose every call fails like an unreachable Qdrant."""
+
+    backend_name = "qdrant"
 
     def _fail(self, operation: str) -> NoReturn:
         raise RetrievalUnavailableError(f"Qdrant unavailable during {operation}")

@@ -59,9 +59,10 @@ def default_fetcher() -> DocumentFetcher:
 def semantic_indexer_factory(
     session_factory: sessionmaker[Session], env: Mapping[str, str] | None = None
 ) -> Callable[[], SemanticIndexer] | None:
-    """None without QDRANT_URL; otherwise a lazy factory (no model load, no connection yet)."""
+    """None when semantic retrieval is not configured; otherwise a lazy factory (no model
+    load, no connection yet)."""
     config = SemanticRetrievalConfig.from_env(env)
-    if config.qdrant_url is None:
+    if not config.enabled:
         return None
 
     def create() -> SemanticIndexer:

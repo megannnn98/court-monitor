@@ -33,9 +33,7 @@ def create_research_graph(
     # work and semantic ones fail with semantic_retrieval_not_configured.
     semantic = SemanticRetrievalConfig.from_env(env)
     components = (
-        create_semantic_components(session_factory, semantic, env)
-        if semantic.qdrant_url is not None
-        else None
+        create_semantic_components(session_factory, semantic, env) if semantic.enabled else None
     )
     return build_research_graph(
         request_parser=LlmResearchRequestParser(llm_client),

@@ -89,7 +89,7 @@ class ApplicationSettings:
 
         embedding: EmbeddingConfig | None = None
         dense_min_score: float | None = None
-        if semantic is not None and semantic.qdrant_url is not None:
+        if semantic is not None and semantic.enabled:
             embedding = load(lambda: EmbeddingConfig.from_env(env))
             if embedding is not None:
                 model_id = embedding.model_id
@@ -132,7 +132,8 @@ class ApplicationSettings:
                 ),
             },
             "semantic": {
-                "configured": self.semantic.qdrant_url is not None,
+                "configured": self.semantic.enabled,
+                "vector_backend": self.semantic.vector_backend,
                 "qdrant_url": self.semantic.qdrant_url,
                 "embedding_model_id": None if self.embedding is None else self.embedding.model_id,
                 "dense_min_score": self.dense_min_score,

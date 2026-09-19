@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+from sqlalchemy.orm import sessionmaker
 from support.semantic_fakes import StaticRetriever
 
 from semantic_retrieval.cli import (
@@ -27,7 +28,11 @@ from semantic_retrieval.embeddings import (
     parse_device,
     uses_e5_prefixes,
 )
-from semantic_retrieval.factory import SemanticRetrievalConfig, create_semantic_components
+from semantic_retrieval.factory import (
+    SemanticRetrievalConfig,
+    create_configured_vector_store,
+    create_semantic_components,
+)
 from semantic_retrieval.models import (
     EmbeddingError,
     RerankerError,
@@ -37,7 +42,9 @@ from semantic_retrieval.models import (
     SemanticConfigurationError,
     VectorSizeMismatchError,
 )
+from semantic_retrieval.pgvector_store import PgVectorStore
 from semantic_retrieval.reranking import CrossEncoderReranker, RerankerConfig, RetrievalCandidate
+from semantic_retrieval.vector_store import QdrantVectorStore
 
 
 class _FakeSentenceTransformer:
@@ -206,6 +213,40 @@ def test_semantic_config_from_env_and_pool_bounds() -> None:
         SemanticRetrievalConfig.from_env({"SEMANTIC_CANDIDATE_POOL_SIZE": "abc"})
     with pytest.raises(SemanticConfigurationError, match="EMBEDDING_BATCH_SIZE"):
         EmbeddingConfig.from_env({"EMBEDDING_BATCH_SIZE": "0"})
+
+
+def test_the_vector_backend_is_qdrant_unless_pgvector_is_chosen() -> None:
+    default = SemanticRetrievalConfig.from_env({"QDRANT_URL": "http://127.0.0.1:6333"})
+    pgvector = SemanticRetrievalConfig.from_env({"SEMANTIC_VECTOR_BACKEND": " PGVector "})
+
+    assert (default.vector_backend, default.enabled) == ("qdrant", True)
+    assert default.qdrant_service_url == "http://127.0.0.1:6333"
+    assert SemanticRetrievalConfig.from_env({}).enabled is False
+    # pgvector lives in the application's PostgreSQL: no QDRANT_URL, no Qdrant probe.
+    assert (pgvector.vector_backend, pgvector.enabled, pgvector.qdrant_service_url) == (
+        "pgvector",
+        True,
+        None,
+    )
+    with pytest.raises(SemanticConfigurationError, match="SEMANTIC_VECTOR_BACKEND"):
+        SemanticRetrievalConfig.from_env({"SEMANTIC_VECTOR_BACKEND": "faiss"})
+
+
+def test_the_factory_builds_the_configured_vector_store() -> None:
+    session_factory = sessionmaker()
+
+    assert isinstance(
+        create_configured_vector_store(
+            SemanticRetrievalConfig(qdrant_url=":memory:"), session_factory
+        ),
+        QdrantVectorStore,
+    )
+    assert isinstance(
+        create_configured_vector_store(
+            SemanticRetrievalConfig(vector_backend="pgvector"), session_factory
+        ),
+        PgVectorStore,
+    )
 
 
 def test_search_output_says_scores_are_not_confidences() -> None:

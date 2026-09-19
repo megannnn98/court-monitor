@@ -17,7 +17,7 @@ from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import SemanticDocumentRecord
+from db.orm_models import SemanticDocumentRecord, SemanticIndexStateRecord
 from semantic_retrieval.models import (
     RetrievalBackend,
     RetrievalEntityType,
@@ -126,6 +126,25 @@ class SqlAlchemySemanticDocumentRepository:
                 .values(indexed_at=None)
             )
             session.commit()
+
+    def get_index_backend(self, entity_type: RetrievalEntityType) -> str | None:
+        with self._session_factory() as session:
+            return session.scalar(
+                select(SemanticIndexStateRecord.vector_backend).where(
+                    SemanticIndexStateRecord.entity_type == entity_type.value
+                )
+            )
+
+    def set_index_backend(self, entity_type: RetrievalEntityType, vector_backend: str) -> None:
+        statement = insert(SemanticIndexStateRecord).values(
+            entity_type=entity_type.value, vector_backend=vector_backend
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[SemanticIndexStateRecord.entity_type],
+            set_={"vector_backend": vector_backend, "rebuilt_at": func.now()},
+        )
+        with self._session_factory.begin() as session:
+            session.execute(statement)
 
     def delete(self, entity_type: RetrievalEntityType, entity_ids: Sequence[int]) -> None:
         if not entity_ids:

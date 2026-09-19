@@ -17,6 +17,7 @@ from semantic_retrieval.document_store import StoredDocumentState
 from semantic_retrieval.documents import SemanticDocumentBuilder
 from semantic_retrieval.embeddings import TextEmbedder
 from semantic_retrieval.models import (
+    IndexBackendMismatchError,
     RetrievalEntityType,
     RetrievalNotConfiguredError,
     SemanticDocument,
@@ -40,6 +41,10 @@ class SemanticDocumentRepository(Protocol):
     ) -> None: ...
 
     def clear_indexed(self, entity_type: RetrievalEntityType) -> None: ...
+
+    def get_index_backend(self, entity_type: RetrievalEntityType) -> str | None: ...
+
+    def set_index_backend(self, entity_type: RetrievalEntityType, vector_backend: str) -> None: ...
 
     def delete(self, entity_type: RetrievalEntityType, entity_ids: Sequence[int]) -> None: ...
 
@@ -99,12 +104,14 @@ class SemanticIndexer:
         builder = self._builder(entity_type)
         collection = self._collections[entity_type]
         if incremental:
+            self._continue_index(entity_type)
             self._store.ensure_collection(collection, self._embedder.dimension)
             # Mixing vectors of two models in one collection would corrupt it silently.
             self._store.check_embedding_model(collection, self._embedder.model_id)
         else:
             self._store.recreate_collection(collection, self._embedder.dimension)
             self._repository.clear_indexed(entity_type)
+            self._repository.set_index_backend(entity_type, self._store.backend_name)
 
         stats = IndexingStats(entity_type=entity_type)
         entity_ids = builder.list_entity_ids(limit=limit)
@@ -135,6 +142,7 @@ class SemanticIndexer:
     ) -> IndexingStats:
         """Incrementally (re)index the given entities; vanished ones are deleted."""
         builder = self._builder(entity_type)
+        self._continue_index(entity_type)
         self._store.ensure_collection(self._collections[entity_type], self._embedder.dimension)
         self._store.check_embedding_model(self._collections[entity_type], self._embedder.model_id)
         stats = IndexingStats(entity_type=entity_type)
@@ -151,6 +159,21 @@ class SemanticIndexer:
         stats = IndexingStats(entity_type=entity_type)
         self._delete(entity_type, list(entity_ids), stats)
         return stats
+
+    def _continue_index(self, entity_type: RetrievalEntityType) -> None:
+        """Incremental indexing trusts the `indexed_at` marks; they are one set for every
+        backend. Marks another backend left would skip documents this index never got,
+        silently: only a full rebuild moves the marks to another backend."""
+        backend = self._store.backend_name
+        owner = self._repository.get_index_backend(entity_type)
+        if owner is None:
+            # No index recorded yet: nothing is marked, every document gets embedded.
+            self._repository.set_index_backend(entity_type, backend)
+        elif owner != backend:
+            raise IndexBackendMismatchError(
+                f"The {entity_type.value} index was built in {owner}, not {backend}; "
+                "run a full rebuild-semantic-index (without --incremental) first"
+            )
 
     def _index_documents(self, documents: Sequence[SemanticDocument], stats: IndexingStats) -> None:
         if not documents:

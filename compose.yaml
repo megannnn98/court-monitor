@@ -13,7 +13,9 @@
 #   docker compose --profile production up -d
 services:
   postgres:
-    image: postgres:18.6-bookworm
+    # PostgreSQL 18.6 (the same build as postgres:18.6-bookworm) with pgvector 0.8.6,
+    # pinned by digest: the pinned pgvector tags carry an older PostgreSQL 18 (ADR 0018).
+    image: pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
     restart: unless-stopped
 
     environment:
