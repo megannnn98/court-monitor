@@ -35,8 +35,12 @@ _COLLECTION_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 # pgvector indexes `vector` of at most 2000 dimensions; larger collections are searched
 # exactly (a sequential scan), which is still correct.
 MAX_HNSW_DIMENSIONS = 2000
-# pgvector's default; an HNSW scan returns at most ef_search rows, so it grows with limit.
-DEFAULT_EF_SEARCH = 40
+# An HNSW scan returns at most ef_search rows and finds more of the true neighbours as it
+# grows. On the working corpus (reports/vector_store_benchmark.md) ef_search = 4 × limit
+# finds 99% of the exact top-100 in ~7 ms; pgvector's default 40 would cap the result.
+EF_SEARCH_PER_RESULT = 4
+MIN_EF_SEARCH = 40
+MAX_EF_SEARCH = 1000  # pgvector's upper bound
 _UNAVAILABLE = (OperationalError, InterfaceError)
 
 
@@ -54,6 +58,33 @@ def _index_predicate(name: str, vector_size: int) -> str:
     # The dimension check keeps rows of another size out of the cast: rows deleted by a
     # recreate in the same transaction are still seen by the index build.
     return f"collection_name = '{name}' AND vector_dims(embedding) = {vector_size}"
+
+
+def ef_search(limit: int) -> int:
+    return min(MAX_EF_SEARCH, max(MIN_EF_SEARCH, EF_SEARCH_PER_RESULT * limit))
+
+
+def dense_search_sql(name: str, vector_size: int) -> str:
+    """Nearest neighbours of `:query` in a whole collection, through its HNSW index: the
+    cast and the literal predicate repeat the partial index definition."""
+    distance = f"embedding::vector({vector_size}) <=> CAST(:query AS vector({vector_size}))"
+    return (
+        f"SELECT entity_id, embedding_model_id, 1 - ({distance}) AS score "
+        f"FROM semantic_vectors WHERE {_index_predicate(name, vector_size)} "
+        f"ORDER BY {distance} LIMIT :limit"
+    )
+
+
+def prepare_dense_search(session: Session, vector_size: int, limit: int) -> None:
+    """Settings of the dense search's transaction (SET LOCAL: they end with it)."""
+    if vector_size > MAX_HNSW_DIMENSIONS:
+        return  # no index: an exact scan is the only plan
+    session.execute(text(f"SET LOCAL hnsw.ef_search = {ef_search(limit)}"))
+    # Right after a bulk load, before autoanalyze, the table statistics still describe
+    # the old contents, and the planner can prefer reading every row and sorting: exact,
+    # but 20x slower (reports/vector_store_benchmark.md). Only the HNSW index returns the
+    # rows already ordered, so without sorts it is the plan.
+    session.execute(text("SET LOCAL enable_sort = off"))
 
 
 def _vector_literal(vector: Iterable[float]) -> str:
@@ -252,18 +283,9 @@ class PgVectorStore:
                     {"query": query, "collection": name, "ids": list(entity_ids), "limit": limit},
                 ).all()
                 return [(int(row[0]), str(row[1]), float(row[2])) for row in rows]
-            session.execute(
-                text(f"SET LOCAL hnsw.ef_search = {max(DEFAULT_EF_SEARCH, min(limit, 1000))}")
-            )
-            # The cast and the literal predicate repeat the partial index definition.
-            distance = f"embedding::vector({size}) <=> CAST(:query AS vector({size}))"
+            prepare_dense_search(session, size, limit)
             rows = session.execute(
-                text(
-                    f"SELECT entity_id, embedding_model_id, 1 - ({distance}) AS score "
-                    f"FROM semantic_vectors WHERE {_index_predicate(name, size)} "
-                    f"ORDER BY {distance} LIMIT :limit"
-                ),
-                {"query": query, "limit": limit},
+                text(dense_search_sql(name, size)), {"query": query, "limit": limit}
             ).all()
             return [(int(row[0]), str(row[1]), float(row[2])) for row in rows]
 
