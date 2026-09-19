@@ -153,6 +153,19 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 - Процесс шлёт heartbeat каждые 15 с. Живой run без heartbeat дольше 5 мин получает `interrupted` при следующем чтении или запуске — операция снова свободна. Запись результата требует, чтобы run ещё был `running` у того же `worker_id`: поздний результат не перезаписывает `interrupted`.
 - Выполнение — поток процесса API, принявшего запуск; confirm только создаёт run и сразу возвращает redirect.
 
+## Векторы pgvector: `semantic_vector_collections`, `semantic_vectors`, `semantic_index_state`
+
+Миграция `t4u5v6w7x8y9` ([ADR 0018](../adr/0018-pgvector-vector-store.md)) включает расширение `vector`. Таблицы — производные данные, как `semantic_documents`; фактов в них нет. Заполняются только при `SEMANTIC_VECTOR_BACKEND=pgvector`.
+
+| Таблица | Поля | Смысл |
+|---|---|---|
+| `semantic_vector_collections` | `name` PK, `vector_size`, `created_at` | логическая коллекция (`persons_semantic`, `events_semantic`) и её размерность |
+| `semantic_vectors` | PK (`collection_name`, `entity_type`, `entity_id`), `embedding vector` (без размерности), `embedding_model_id`, `representation_version`, `content_hash`, `updated_at` | вектор сущности; удаляется вместе с коллекцией (`ON DELETE CASCADE`) |
+| `semantic_index_state` | `entity_type` PK, `vector_backend`, `rebuilt_at` | чей полный rebuild поставил отметки `semantic_documents.indexed_at` |
+
+- HNSW-индекс создаёт `PgVectorStore` на коллекцию: `USING hnsw ((embedding::vector(N)) vector_cosine_ops) WHERE collection_name = '<имя>' AND vector_dims(embedding) = N`, имя `ix_semvec_hnsw_<коллекция>_<N>`. Другая модель — другой N, полный rebuild, без миграции.
+- Миграция записывает в `semantic_index_state` значение `qdrant` для типов сущностей, у которых уже есть отметки `indexed_at`.
+
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`
 
 `src/sources/sqlalchemy_persistence.py`. Одна транзакция (`session_factory.begin()`), upsert по естественным ключам на каждом уровне:

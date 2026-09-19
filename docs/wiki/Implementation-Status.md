@@ -49,7 +49,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
 | Candidates | `src/candidates/` | political persecution and `NOT_MATCHED` — [Pipeline](Pipeline.md) |
 | Research | `src/research/` | deterministic research in one read-only REPEATABLE READ snapshot, LangGraph workflow, reports — [Research](Research.md), [Research-Workflow](Research-Workflow.md), [Research-Reports](Research-Reports.md) |
-| Semantic retrieval | `src/semantic_retrieval/` | Qdrant candidate ids, facts from PostgreSQL — [Semantic-Retrieval](Semantic-Retrieval.md) |
+| Semantic retrieval | `src/semantic_retrieval/` | candidate ids from Qdrant (default) or pgvector (`SEMANTIC_VECTOR_BACKEND`, [ADR 0018](../adr/0018-pgvector-vector-store.md)), facts from PostgreSQL — [Semantic-Retrieval](Semantic-Retrieval.md) |
 | Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings — [Monitoring](Monitoring.md) |
 | HTTP API and console | `src/api.py` (entry point), `src/web/` | REST routers, operator console, exports, wiki — [Local-Web-UI](Local-Web-UI.md) |
 | Operator operations | `src/operator_console.py` | runs in PostgreSQL (`operator_operation_runs`) — [Data-Model](Data-Model.md) |
@@ -77,7 +77,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 
 | Profile | Services |
 |---|---|
-| (none) | PostgreSQL |
+| (none) | PostgreSQL 18.6 with pgvector (`pgvector/pgvector:pg18-bookworm`, pinned by digest) |
 | `semantic` | + Qdrant |
 | `migrate` | one-shot `alembic upgrade head` |
 | `api` | + API |
@@ -106,6 +106,11 @@ the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
 - A registry card changed after ingestion is not re-read; the channel queue's name
   suggestions for unnamed news are suggestions only (about three in four right).
 - Dagster schedules are created stopped; they are started by hand.
+- Switching `SEMANTIC_VECTOR_BACKEND` needs a full `rebuild-semantic-index`: the
+  `indexed_at` marks are shared, and an incremental run on the other backend stops with
+  `IndexBackendMismatchError` ([ADR 0018](../adr/0018-pgvector-vector-store.md)).
+- The migration `t4u5v6w7x8y9` creates the `vector` extension: the PostgreSQL image must
+  be the pgvector one before `alembic upgrade head` runs.
 
 ## Reproduce
 
@@ -126,5 +131,5 @@ docker compose --profile production config
 docker compose --profile production build
 ```
 
-Architecture decisions: [docs/adr](../adr/) (ADR 0001–0017). Testing details:
+Architecture decisions: [docs/adr](../adr/) (ADR 0001–0018). Testing details:
 [Testing](Testing.md). Setup: [Setup](Setup.md), [Getting-Started](Getting-Started.md).

@@ -1,0 +1,774 @@
+{
+  "vector_backend": "qdrant",
+  "embedding_model_id": "intfloat/multilingual-e5-base",
+  "corpus": "tests/fixtures/entity_retrieval_corpus.json (synthetic, fixed); cases: evaluate-retrieval defaults",
+  "command": "python src/main.py evaluate-retrieval --backend all --k {5,10} --vector-backend qdrant --qdrant-url http://127.0.0.1:6333 --database-url .../court_monitor_test",
+  "ranking": {
+    "lexical": {
+      "overall": {
+        "cases": 11,
+        "MRR": 0.5454545454545454,
+        "Recall@5": 0.3707070707070707,
+        "Recall@10": 0.3707070707070707,
+        "NDCG@5": 0.4077538817893082,
+        "NDCG@10": 0.3991457626745454,
+        "P@5": 0.21818181818181823,
+        "P@10": 0.10909090909090911
+      },
+      "semantic_only": {
+        "cases": 5,
+        "MRR": 0.0,
+        "Recall@5": 0.0,
+        "Recall@10": 0.0,
+        "NDCG@5": 0.0,
+        "NDCG@10": 0.0,
+        "P@5": 0.0,
+        "P@10": 0.0
+      },
+      "top10_by_query": {
+        "anti-war-position": [
+          "smirnov"
+        ],
+        "invasion-criticism": [
+          "volkov"
+        ],
+        "faith": [],
+        "online-speech": [],
+        "street-protest": [],
+        "ukraine-sympathy": [],
+        "corruption-journalism": [
+          "sokolova",
+          "mikhailova"
+        ],
+        "ordinary-offences": [],
+        "military-office": [
+          "novikov",
+          "egorova",
+          "bogdanov",
+          "vorobyova"
+        ],
+        "event-peaceful-detention": [
+          "smirnov-detention",
+          "morozova-detention",
+          "lebedeva-detention",
+          "golubev-detention",
+          "vinogradova-sentence",
+          "fedorov-detention"
+        ],
+        "event-war-video": [
+          "volkov-sentence",
+          "kozlov-sentence",
+          "vinogradova-sentence"
+        ]
+      }
+    },
+    "dense": {
+      "overall": {
+        "cases": 11,
+        "MRR": 0.9204545454545454,
+        "Recall@5": 0.7616161616161616,
+        "Recall@10": 0.9292929292929292,
+        "NDCG@5": 0.8231866158348264,
+        "NDCG@10": 0.8724906022792503,
+        "P@5": 0.509090909090909,
+        "P@10": 0.35454545454545455
+      },
+      "semantic_only": {
+        "cases": 5,
+        "MRR": 0.825,
+        "Recall@5": 0.7,
+        "Recall@10": 0.8666666666666666,
+        "NDCG@5": 0.75535295170729,
+        "NDCG@10": 0.8034494264246483,
+        "P@5": 0.4,
+        "P@10": 0.27999999999999997
+      },
+      "top10_by_query": {
+        "anti-war-position": [
+          "smirnov",
+          "bogdanov",
+          "novikov",
+          "lebedeva",
+          "morozova",
+          "golubev",
+          "kuznetsova",
+          "vorobyova",
+          "mikhailova",
+          "volkov"
+        ],
+        "invasion-criticism": [
+          "volkov",
+          "kuznetsova",
+          "morozova",
+          "smirnov",
+          "vinogradova",
+          "golubev",
+          "egorova",
+          "bogdanov",
+          "kozlov",
+          "novikov"
+        ],
+        "faith": [
+          "kozlov",
+          "kuznetsova",
+          "egorova",
+          "vinogradova",
+          "volkov",
+          "popov",
+          "mikhailova",
+          "novikov",
+          "semenova",
+          "lebedeva"
+        ],
+        "online-speech": [
+          "kuznetsova",
+          "volkov",
+          "vinogradova",
+          "egorova",
+          "popov",
+          "kozlov",
+          "pavlov",
+          "bogdanov",
+          "morozova",
+          "lebedeva"
+        ],
+        "street-protest": [
+          "popov",
+          "smirnov",
+          "mikhailova",
+          "vorobyova",
+          "egorova",
+          "lebedeva",
+          "morozova",
+          "golubev",
+          "vinogradova",
+          "novikov"
+        ],
+        "ukraine-sympathy": [
+          "golubev",
+          "volkov",
+          "morozova",
+          "vinogradova",
+          "mikhailova",
+          "egorova",
+          "vorobyova",
+          "bogdanov",
+          "kuznetsova",
+          "lebedeva"
+        ],
+        "corruption-journalism": [
+          "sokolova",
+          "mikhailova",
+          "egorova",
+          "popov",
+          "kuznetsova",
+          "lebedeva",
+          "novikov",
+          "vorobyova",
+          "golubev",
+          "semenova"
+        ],
+        "ordinary-offences": [
+          "popov",
+          "vinogradova",
+          "egorova",
+          "mikhailova",
+          "kuznetsova",
+          "lebedeva",
+          "novikov",
+          "pavlov",
+          "morozova",
+          "golubev"
+        ],
+        "military-office": [
+          "bogdanov",
+          "smirnov",
+          "novikov",
+          "golubev",
+          "morozova",
+          "popov",
+          "mikhailova",
+          "volkov",
+          "kuznetsova",
+          "vorobyova"
+        ],
+        "event-peaceful-detention": [
+          "smirnov-detention",
+          "bogdanov-arrest",
+          "morozova-detention",
+          "lebedeva-detention",
+          "vorobyova-release",
+          "golubev-detention",
+          "novikov-arrest",
+          "popov-fine",
+          "vinogradova-sentence",
+          "fedorov-detention"
+        ],
+        "event-war-video": [
+          "volkov-sentence",
+          "kuznetsova-fine",
+          "vinogradova-sentence",
+          "kozlov-sentence",
+          "novikov-arrest",
+          "bogdanov-arrest",
+          "vorobyova-release",
+          "popov-fine",
+          "pavlov-fine",
+          "egorova-case"
+        ]
+      }
+    },
+    "hybrid": {
+      "overall": {
+        "cases": 11,
+        "MRR": 0.9204545454545454,
+        "Recall@5": 0.7797979797979798,
+        "Recall@10": 0.9292929292929292,
+        "NDCG@5": 0.8510478034853783,
+        "NDCG@10": 0.8865455457931646,
+        "P@5": 0.5272727272727272,
+        "P@10": 0.35454545454545455
+      },
+      "semantic_only": {
+        "cases": 5,
+        "MRR": 0.825,
+        "Recall@5": 0.7,
+        "Recall@10": 0.8666666666666666,
+        "NDCG@5": 0.75535295170729,
+        "NDCG@10": 0.8034494264246483,
+        "P@5": 0.4,
+        "P@10": 0.27999999999999997
+      },
+      "top10_by_query": {
+        "anti-war-position": [
+          "smirnov",
+          "bogdanov",
+          "novikov",
+          "lebedeva",
+          "morozova",
+          "golubev",
+          "kuznetsova",
+          "vorobyova",
+          "mikhailova",
+          "volkov"
+        ],
+        "invasion-criticism": [
+          "volkov",
+          "kuznetsova",
+          "morozova",
+          "smirnov",
+          "vinogradova",
+          "golubev",
+          "egorova",
+          "bogdanov",
+          "kozlov",
+          "novikov"
+        ],
+        "faith": [
+          "kozlov",
+          "kuznetsova",
+          "egorova",
+          "vinogradova",
+          "volkov",
+          "popov",
+          "mikhailova",
+          "novikov",
+          "semenova",
+          "lebedeva"
+        ],
+        "online-speech": [
+          "kuznetsova",
+          "volkov",
+          "vinogradova",
+          "egorova",
+          "popov",
+          "kozlov",
+          "pavlov",
+          "bogdanov",
+          "morozova",
+          "lebedeva"
+        ],
+        "street-protest": [
+          "popov",
+          "smirnov",
+          "mikhailova",
+          "vorobyova",
+          "egorova",
+          "lebedeva",
+          "morozova",
+          "golubev",
+          "vinogradova",
+          "novikov"
+        ],
+        "ukraine-sympathy": [
+          "golubev",
+          "volkov",
+          "morozova",
+          "vinogradova",
+          "mikhailova",
+          "egorova",
+          "vorobyova",
+          "bogdanov",
+          "kuznetsova",
+          "lebedeva"
+        ],
+        "corruption-journalism": [
+          "sokolova",
+          "mikhailova",
+          "egorova",
+          "popov",
+          "kuznetsova",
+          "lebedeva",
+          "novikov",
+          "vorobyova",
+          "golubev",
+          "semenova"
+        ],
+        "ordinary-offences": [
+          "popov",
+          "vinogradova",
+          "egorova",
+          "mikhailova",
+          "kuznetsova",
+          "lebedeva",
+          "novikov",
+          "pavlov",
+          "morozova",
+          "golubev"
+        ],
+        "military-office": [
+          "novikov",
+          "bogdanov",
+          "egorova",
+          "vorobyova",
+          "smirnov",
+          "golubev",
+          "morozova",
+          "popov",
+          "mikhailova",
+          "volkov"
+        ],
+        "event-peaceful-detention": [
+          "smirnov-detention",
+          "morozova-detention",
+          "lebedeva-detention",
+          "golubev-detention",
+          "vinogradova-sentence",
+          "fedorov-detention",
+          "bogdanov-arrest",
+          "vorobyova-release",
+          "novikov-arrest",
+          "popov-fine"
+        ],
+        "event-war-video": [
+          "volkov-sentence",
+          "kozlov-sentence",
+          "vinogradova-sentence",
+          "kuznetsova-fine",
+          "novikov-arrest",
+          "bogdanov-arrest",
+          "vorobyova-release",
+          "popov-fine",
+          "pavlov-fine",
+          "egorova-case"
+        ]
+      }
+    },
+    "hybrid_reranked": {
+      "overall": {
+        "cases": 11,
+        "MRR": 0.875,
+        "Recall@5": 0.6323232323232323,
+        "Recall@10": 0.8202020202020202,
+        "NDCG@5": 0.6503218221438383,
+        "NDCG@10": 0.7301624250202675,
+        "P@5": 0.41818181818181815,
+        "P@10": 0.29090909090909095
+      },
+      "semantic_only": {
+        "cases": 5,
+        "MRR": 0.825,
+        "Recall@5": 0.5,
+        "Recall@10": 0.7666666666666666,
+        "NDCG@5": 0.4825645005526461,
+        "NDCG@10": 0.5998197210456937,
+        "P@5": 0.27999999999999997,
+        "P@10": 0.24
+      },
+      "top10_by_query": {
+        "anti-war-position": [
+          "smirnov",
+          "vinogradova",
+          "morozova",
+          "volkov",
+          "vorobyova",
+          "mikhailova",
+          "semenova",
+          "pavlov",
+          "popov",
+          "fedorov"
+        ],
+        "invasion-criticism": [
+          "volkov",
+          "morozova",
+          "popov",
+          "smirnov",
+          "vorobyova",
+          "kuznetsova",
+          "vinogradova",
+          "semenova",
+          "fedorov",
+          "kozlov"
+        ],
+        "faith": [
+          "kozlov",
+          "vinogradova",
+          "morozova",
+          "golubev",
+          "bogdanov",
+          "popov",
+          "lebedeva",
+          "semenova",
+          "vorobyova",
+          "mikhailova"
+        ],
+        "online-speech": [
+          "kuznetsova",
+          "volkov",
+          "vinogradova",
+          "kozlov",
+          "popov",
+          "bogdanov",
+          "pavlov",
+          "vorobyova",
+          "morozova",
+          "fedorov"
+        ],
+        "street-protest": [
+          "morozova",
+          "golubev",
+          "mikhailova",
+          "vorobyova",
+          "kozlov",
+          "vinogradova",
+          "egorova",
+          "popov",
+          "bogdanov",
+          "smirnov"
+        ],
+        "ukraine-sympathy": [
+          "morozova",
+          "vorobyova",
+          "popov",
+          "kozlov",
+          "egorova",
+          "lebedeva",
+          "semenova",
+          "vinogradova",
+          "mikhailova",
+          "volkov"
+        ],
+        "corruption-journalism": [
+          "sokolova",
+          "mikhailova",
+          "semenova",
+          "fedorov",
+          "morozova",
+          "popov",
+          "vinogradova",
+          "bogdanov",
+          "pavlov",
+          "vorobyova"
+        ],
+        "ordinary-offences": [
+          "morozova",
+          "popov",
+          "vinogradova",
+          "bogdanov",
+          "mikhailova",
+          "golubev",
+          "lebedeva",
+          "pavlov",
+          "fedorov",
+          "egorova"
+        ],
+        "military-office": [
+          "novikov",
+          "smirnov",
+          "bogdanov",
+          "vorobyova",
+          "popov",
+          "kozlov",
+          "fedorov",
+          "pavlov",
+          "mikhailova",
+          "morozova"
+        ],
+        "event-peaceful-detention": [
+          "bogdanov-arrest",
+          "smirnov-detention",
+          "fedorov-detention",
+          "vorobyova-release",
+          "morozova-detention",
+          "golubev-detention",
+          "lebedeva-detention",
+          "kozlov-sentence",
+          "volkov-sentence",
+          "mikhailova-case"
+        ],
+        "event-war-video": [
+          "volkov-sentence",
+          "smirnov-detention",
+          "kuznetsova-fine",
+          "kozlov-sentence",
+          "vinogradova-sentence",
+          "semenova-charge",
+          "pavlov-fine",
+          "popov-fine",
+          "morozova-detention",
+          "bogdanov-arrest"
+        ]
+      }
+    }
+  },
+  "acceptance": {
+    "observed_min": 0.69053996,
+    "observed_max": 0.8594398,
+    "rows": [
+      {
+        "threshold": 0.69,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.21212121212121213,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.0,
+        "negative_false_positives": 270,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.7,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.21212121212121213,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.0,
+        "negative_false_positives": 267,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.71,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.21212121212121213,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.0,
+        "negative_false_positives": 260,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.72,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.21212121212121213,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.0,
+        "negative_false_positives": 242,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.73,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.2131979695431472,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.0,
+        "negative_false_positives": 206,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.74,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.21428571428571427,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.0,
+        "negative_false_positives": 154,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.75,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.22459893048128343,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.26666666666666666,
+        "negative_false_positives": 103,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.76,
+        "is_default": false,
+        "relevant_recall": 1.0,
+        "grade2_recall": 1.0,
+        "semantic_only_recall": 1.0,
+        "precision": 0.25,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.4666666666666667,
+        "negative_false_positives": 65,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.77,
+        "is_default": false,
+        "relevant_recall": 0.9285714285714286,
+        "grade2_recall": 0.9310344827586207,
+        "semantic_only_recall": 1.0,
+        "precision": 0.2635135135135135,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.6666666666666666,
+        "negative_false_positives": 36,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.78,
+        "is_default": false,
+        "relevant_recall": 0.6428571428571429,
+        "grade2_recall": 0.7241379310344828,
+        "semantic_only_recall": 0.6875,
+        "precision": 0.23684210526315788,
+        "positive_cases_with_accepted_relevant": 11,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.7333333333333333,
+        "negative_false_positives": 17,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.79,
+        "is_default": false,
+        "relevant_recall": 0.47619047619047616,
+        "grade2_recall": 0.5172413793103449,
+        "semantic_only_recall": 0.3125,
+        "precision": 0.2777777777777778,
+        "positive_cases_with_accepted_relevant": 9,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.9333333333333333,
+        "negative_false_positives": 4,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.8,
+        "is_default": true,
+        "relevant_recall": 0.40476190476190477,
+        "grade2_recall": 0.4482758620689655,
+        "semantic_only_recall": 0.25,
+        "precision": 0.38636363636363635,
+        "positive_cases_with_accepted_relevant": 8,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.9333333333333333,
+        "negative_false_positives": 3,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.81,
+        "is_default": false,
+        "relevant_recall": 0.3333333333333333,
+        "grade2_recall": 0.3448275862068966,
+        "semantic_only_recall": 0.1875,
+        "precision": 0.6086956521739131,
+        "positive_cases_with_accepted_relevant": 6,
+        "positive_cases": 11,
+        "negative_rejection_rate": 0.9333333333333333,
+        "negative_false_positives": 1,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.82,
+        "is_default": false,
+        "relevant_recall": 0.23809523809523808,
+        "grade2_recall": 0.2413793103448276,
+        "semantic_only_recall": 0.125,
+        "precision": 0.6666666666666666,
+        "positive_cases_with_accepted_relevant": 5,
+        "positive_cases": 11,
+        "negative_rejection_rate": 1.0,
+        "negative_false_positives": 0,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.83,
+        "is_default": false,
+        "relevant_recall": 0.21428571428571427,
+        "grade2_recall": 0.2413793103448276,
+        "semantic_only_recall": 0.125,
+        "precision": 0.75,
+        "positive_cases_with_accepted_relevant": 5,
+        "positive_cases": 11,
+        "negative_rejection_rate": 1.0,
+        "negative_false_positives": 0,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.84,
+        "is_default": false,
+        "relevant_recall": 0.09523809523809523,
+        "grade2_recall": 0.13793103448275862,
+        "semantic_only_recall": 0.125,
+        "precision": 0.8,
+        "positive_cases_with_accepted_relevant": 3,
+        "positive_cases": 11,
+        "negative_rejection_rate": 1.0,
+        "negative_false_positives": 0,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.85,
+        "is_default": false,
+        "relevant_recall": 0.047619047619047616,
+        "grade2_recall": 0.06896551724137931,
+        "semantic_only_recall": 0.0,
+        "precision": 1.0,
+        "positive_cases_with_accepted_relevant": 2,
+        "positive_cases": 11,
+        "negative_rejection_rate": 1.0,
+        "negative_false_positives": 0,
+        "negative_cases": 15
+      },
+      {
+        "threshold": 0.86,
+        "is_default": false,
+        "relevant_recall": 0.0,
+        "grade2_recall": 0.0,
+        "semantic_only_recall": 0.0,
+        "precision": 0.0,
+        "positive_cases_with_accepted_relevant": 0,
+        "positive_cases": 11,
+        "negative_rejection_rate": 1.0,
+        "negative_false_positives": 0,
+        "negative_cases": 15
+      }
+    ]
+  }
+}

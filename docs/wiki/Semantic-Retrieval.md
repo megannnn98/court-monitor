@@ -90,13 +90,14 @@ Event:
 | `documents.py` | `PersonSemanticDocumentBuilder`, `EventSemanticDocumentBuilder`, `compute_content_hash` |
 | `document_store.py` | `SqlAlchemySemanticDocumentRepository`, `PostgresLexicalEntityRetriever` |
 | `vector_store.py` | `VectorStore`, `QdrantVectorStore`, `point_id` |
+| `pgvector_store.py` | `PgVectorStore` — тот же контракт на PostgreSQL + pgvector ([ADR 0018](../adr/0018-pgvector-vector-store.md)) |
 | `embeddings.py` | `TextEmbedder`, `SentenceTransformerEmbedder` (E5, device) |
 | `reranking.py` | `Reranker`, `CrossEncoderReranker` |
 | `retrievers.py` | `EntityRetriever`, `QdrantEntityRetriever`, `HybridEntityRetriever`, `RerankingEntityRetriever` |
 | `rrf.py` | `reciprocal_rank_fusion` |
 | `indexer.py` | `SemanticIndexer` (rebuild / incremental / delete) |
 | `metrics.py`, `evaluation.py` | MRR, Recall@k, Precision@k, nDCG@k; корпус и сравнение backend'ов |
-| `factory.py` | конфигурация из env, сборка компонентов |
+| `factory.py` | конфигурация из env, выбор vector store (`SEMANTIC_VECTOR_BACKEND`), сборка компонентов |
 
 ## Команды
 
@@ -113,7 +114,18 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
   --database-url postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
 ```
 
-`evaluate-retrieval` очищает таблицы указанной БД и отказывается работать с базой, чьё имя не оканчивается на `_test`/`_eval`.
+`evaluate-retrieval` очищает таблицы указанной БД и отказывается работать с базой, чьё имя не оканчивается на `_test`/`_eval`. `--vector-backend pgvector` строит индекс в этой же БД вместо Qdrant.
+
+## Vector store: Qdrant или pgvector
+
+`SEMANTIC_VECTOR_BACKEND=qdrant` (по умолчанию) хранит векторы в Qdrant, `pgvector` — в PostgreSQL приложения (таблицы `semantic_vector_collections`, `semantic_vectors`, по частичному HNSW-индексу `(embedding::vector(N))` на коллекцию). Индексатор, retrievers и reranker одинаковы для обоих. Сравнение на одних и тех же векторах E5: [ADR 0018](../adr/0018-pgvector-vector-store.md), `reports/qdrant_e5_baseline.json`, `reports/pgvector_e5_baseline.json`, `reports/vector_store_benchmark.md`.
+
+Смена backend'а требует **полного** rebuild каждой сущности: отметки `indexed_at` общие, и `semantic_index_state` помнит, чей полный rebuild их поставил. Инкрементальный rebuild чужого индекса — `IndexBackendMismatchError`, а не молча пустой индекс:
+
+```bash
+SEMANTIC_VECTOR_BACKEND=pgvector uv run python src/main.py rebuild-semantic-index --entity all
+SEMANTIC_VECTOR_BACKEND=pgvector uv run python src/main.py rebuild-semantic-index --entity all --incremental
+```
 
 ## Результаты evaluation (k = 5, реальные модели, 2026-09-14)
 
@@ -151,6 +163,7 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 | Qdrant недоступен, коллекции нет, модель не загружается, CUDA OOM, размер вектора не совпадает | `failed` / `semantic_retrieval_unavailable` (HTTP 503) |
 | кандидаты найдены, но ни один не прошёл порог (или 0 кандидатов) | `completed`, 0 результатов, «В текущем индексе не найдено сущностей с достаточной семантической релевантностью запросу…» |
 | индекс построен другой моделью | `failed` / `semantic_retrieval_unavailable` (`IndexModelMismatchError`) |
+| инкрементальная индексация после смены `SEMANTIC_VECTOR_BACKEND` без полного rebuild | `IndexBackendMismatchError` (CLI — код 2 и сообщение) |
 | запрос без `semantic_query` при недоступном Qdrant | работает как раньше |
 | некорректные semantic-переменные (`SEMANTIC_CANDIDATE_POOL_SIZE=abc`, `EMBEDDING_DEVICE=gpu`, `SEMANTIC_DENSE_MIN_SCORE=abc`, другая `EMBEDDING_MODEL_ID` без порога) | `SemanticConfigurationError` при сборке workflow: API 503 на **все** `/research/query`, включая structured-запросы без `semantic_query` (fail-fast); CLI — сообщение и выход |
 
@@ -158,8 +171,9 @@ uv run python src/main.py evaluate-retrieval --backend all --k 5 \
 
 | Переменная | По умолчанию |
 |---|---|
-| `QDRANT_URL` | не задана (semantic retrieval выключен) |
-| `PERSON_QDRANT_COLLECTION` / `EVENT_QDRANT_COLLECTION` | `persons_semantic` / `events_semantic` |
+| `SEMANTIC_VECTOR_BACKEND` | `qdrant`; `pgvector` — векторы в PostgreSQL, `QDRANT_URL` не нужна |
+| `QDRANT_URL` | не задана (при `qdrant` semantic retrieval выключен) |
+| `PERSON_QDRANT_COLLECTION` / `EVENT_QDRANT_COLLECTION` | `persons_semantic` / `events_semantic` (имена логических коллекций для обоих backend'ов) |
 | `EMBEDDING_MODEL_ID` / `EMBEDDING_DEVICE` / `EMBEDDING_BATCH_SIZE` | `intfloat/multilingual-e5-base` / `auto` / `32` |
 | `RERANKER_MODEL_ID` / `RERANKER_DEVICE` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` / `auto` |
 | `SEMANTIC_RERANK` | выключен |

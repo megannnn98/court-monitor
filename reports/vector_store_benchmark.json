@@ -1,0 +1,298 @@
+{
+  "embedding": {
+    "model_id": "intfloat/multilingual-e5-base",
+    "dimension": 768,
+    "device": "auto",
+    "documents": 25521,
+    "documents_seconds": 89.51,
+    "documents_per_second": 285.1,
+    "query_ms": {
+      "n": 200,
+      "p50": 6.998,
+      "p95": 8.757,
+      "mean": 7.162
+    }
+  },
+  "settings": {
+    "batch_size": 64,
+    "limit": 100,
+    "queries_per_type": 100,
+    "filter_size": 200,
+    "changed_share": 0.01,
+    "seed": 20260919,
+    "pgvector_hnsw": "m=16, ef_construction=64 (defaults), ef_search=min(1000, max(40, 4 x limit))",
+    "qdrant_hnsw": "m=16, ef_construct=100, indexing_threshold=10000 KB (defaults): segments below the threshold are searched exactly; see indexed_vectors_count"
+  },
+  "stores": [
+    {
+      "backend": "qdrant",
+      "collections": {
+        "person": {
+          "documents": 8724,
+          "full_rebuild": {
+            "recreate_seconds": 0.292,
+            "upsert_seconds": 5.73,
+            "index_ready_wait_seconds": 0.0,
+            "points_per_second": 1521.1,
+            "upsert_batch_ms": {
+              "n": 137,
+              "p50": 40.143,
+              "p95": 52.747,
+              "mean": 41.847
+            }
+          },
+          "incremental": {
+            "ensure_collection_ms": 1.99,
+            "check_embedding_model_ms": 7.78,
+            "changed_documents": 87,
+            "changed_upsert_seconds": 0.057,
+            "changed_batch_ms": {
+              "n": 2,
+              "p50": 28.307,
+              "p95": 40.003,
+              "mean": 28.307
+            }
+          },
+          "dense_search_ms": {
+            "n": 100,
+            "p50": 11.502,
+            "p95": 17.071,
+            "mean": 12.153
+          },
+          "filtered_search_ms": {
+            "n": 100,
+            "p50": 8.819,
+            "p95": 13.355,
+            "mean": 9.709
+          },
+          "overlap_at_100_vs_exact": {
+            "dense_mean": 1.0,
+            "dense_min": 1.0,
+            "filtered_mean": 1.0,
+            "filtered_min": 1.0
+          },
+          "size_bytes": 567072237,
+          "state_before_search": {
+            "status": "green",
+            "points_count": 8724,
+            "indexed_vectors_count": 0,
+            "segments_count": 6
+          },
+          "state_after_search": {
+            "status": "green",
+            "points_count": 8724,
+            "indexed_vectors_count": 0,
+            "segments_count": 6
+          }
+        },
+        "event": {
+          "documents": 16797,
+          "full_rebuild": {
+            "recreate_seconds": 0.29,
+            "upsert_seconds": 10.9,
+            "index_ready_wait_seconds": 0.0,
+            "points_per_second": 1540.3,
+            "upsert_batch_ms": {
+              "n": 263,
+              "p50": 40.259,
+              "p95": 47.383,
+              "mean": 41.46
+            }
+          },
+          "incremental": {
+            "ensure_collection_ms": 1.69,
+            "check_embedding_model_ms": 8.59,
+            "changed_documents": 167,
+            "changed_upsert_seconds": 0.104,
+            "changed_batch_ms": {
+              "n": 3,
+              "p50": 38.459,
+              "p95": 39.341,
+              "mean": 34.629
+            }
+          },
+          "dense_search_ms": {
+            "n": 100,
+            "p50": 15.187,
+            "p95": 19.854,
+            "mean": 15.507
+          },
+          "filtered_search_ms": {
+            "n": 100,
+            "p50": 9.6,
+            "p95": 14.28,
+            "mean": 10.289
+          },
+          "overlap_at_100_vs_exact": {
+            "dense_mean": 0.9997,
+            "dense_min": 0.99,
+            "filtered_mean": 1.0,
+            "filtered_min": 1.0
+          },
+          "size_bytes": 567306354,
+          "state_before_search": {
+            "status": "green",
+            "points_count": 16797,
+            "indexed_vectors_count": 0,
+            "segments_count": 6
+          },
+          "state_after_search": {
+            "status": "green",
+            "points_count": 16797,
+            "indexed_vectors_count": 0,
+            "segments_count": 6
+          }
+        }
+      }
+    },
+    {
+      "backend": "pgvector",
+      "collections": {
+        "person": {
+          "documents": 8724,
+          "full_rebuild": {
+            "recreate_seconds": 0.01,
+            "upsert_seconds": 25.69,
+            "index_ready_wait_seconds": 0.0,
+            "points_per_second": 339.6,
+            "upsert_batch_ms": {
+              "n": 137,
+              "p50": 190.629,
+              "p95": 244.774,
+              "mean": 187.497
+            }
+          },
+          "incremental": {
+            "ensure_collection_ms": 1.14,
+            "check_embedding_model_ms": 2.85,
+            "changed_documents": 87,
+            "changed_upsert_seconds": 0.2,
+            "changed_batch_ms": {
+              "n": 2,
+              "p50": 99.956,
+              "p95": 142.058,
+              "mean": 99.956
+            }
+          },
+          "dense_search_ms": {
+            "n": 100,
+            "p50": 9.363,
+            "p95": 10.76,
+            "mean": 9.549
+          },
+          "filtered_search_ms": {
+            "n": 100,
+            "p50": 5.757,
+            "p95": 7.184,
+            "mean": 6.075
+          },
+          "overlap_at_100_vs_exact": {
+            "dense_mean": 0.9935,
+            "dense_min": 0.96,
+            "filtered_mean": 1.0,
+            "filtered_min": 1.0
+          },
+          "size_bytes": 64171616,
+          "state_before_search": {
+            "store_plan_uses_hnsw": true,
+            "planner_alone_uses_hnsw": true,
+            "planner_alone_plan_top": [
+              "Limit  (cost=37.39..249.26 rows=42 width=50)",
+              "  ->  Index Scan using ix_semvec_hnsw_bench_persons_semantic_768 on semantic_vectors  (cost=37.39..249.26 rows=42 width=50)"
+            ],
+            "reltuples": 1664.0,
+            "n_live_tup": 8768,
+            "n_dead_tup": 0,
+            "last_autoanalyze": "2026-09-19T04:24:11.819017+00:00",
+            "last_analyze": "2026-09-19T04:20:32.767991+00:00"
+          },
+          "state_after_search": {
+            "store_plan_uses_hnsw": true,
+            "planner_alone_uses_hnsw": true,
+            "planner_alone_plan_top": [
+              "Limit  (cost=37.39..249.26 rows=42 width=50)",
+              "  ->  Index Scan using ix_semvec_hnsw_bench_persons_semantic_768 on semantic_vectors  (cost=37.39..249.26 rows=42 width=50)"
+            ],
+            "reltuples": 1664.0,
+            "n_live_tup": 8852,
+            "n_dead_tup": 174,
+            "last_autoanalyze": "2026-09-19T04:24:11.819017+00:00",
+            "last_analyze": "2026-09-19T04:20:32.767991+00:00"
+          }
+        },
+        "event": {
+          "documents": 16797,
+          "full_rebuild": {
+            "recreate_seconds": 0.022,
+            "upsert_seconds": 40.67,
+            "index_ready_wait_seconds": 0.0,
+            "points_per_second": 413.0,
+            "upsert_batch_ms": {
+              "n": 263,
+              "p50": 154.14,
+              "p95": 190.504,
+              "mean": 154.635
+            }
+          },
+          "incremental": {
+            "ensure_collection_ms": 0.78,
+            "check_embedding_model_ms": 4.53,
+            "changed_documents": 167,
+            "changed_upsert_seconds": 0.268,
+            "changed_batch_ms": {
+              "n": 3,
+              "p50": 99.548,
+              "p95": 104.174,
+              "mean": 89.333
+            }
+          },
+          "dense_search_ms": {
+            "n": 100,
+            "p50": 8.856,
+            "p95": 12.424,
+            "mean": 9.433
+          },
+          "filtered_search_ms": {
+            "n": 100,
+            "p50": 6.065,
+            "p95": 7.928,
+            "mean": 6.382
+          },
+          "overlap_at_100_vs_exact": {
+            "dense_mean": 0.9973,
+            "dense_min": 0.97,
+            "filtered_mean": 1.0,
+            "filtered_min": 1.0
+          },
+          "size_bytes": 122230768,
+          "state_before_search": {
+            "store_plan_uses_hnsw": true,
+            "planner_alone_uses_hnsw": true,
+            "planner_alone_plan_top": [
+              "Limit  (cost=37.47..474.40 rows=80 width=50)",
+              "  ->  Index Scan using ix_semvec_hnsw_bench_events_semantic_768 on semantic_vectors  (cost=37.47..474.40 rows=80 width=50)"
+            ],
+            "reltuples": 23124.0,
+            "n_live_tup": 25009,
+            "n_dead_tup": 64,
+            "last_autoanalyze": "2026-09-19T04:25:15.084208+00:00",
+            "last_analyze": "2026-09-19T04:20:32.767991+00:00"
+          },
+          "state_after_search": {
+            "store_plan_uses_hnsw": true,
+            "planner_alone_uses_hnsw": true,
+            "planner_alone_plan_top": [
+              "Limit  (cost=37.47..474.40 rows=80 width=50)",
+              "  ->  Index Scan using ix_semvec_hnsw_bench_events_semantic_768 on semantic_vectors  (cost=37.47..474.40 rows=80 width=50)"
+            ],
+            "reltuples": 23124.0,
+            "n_live_tup": 25009,
+            "n_dead_tup": 334,
+            "last_autoanalyze": "2026-09-19T04:25:15.084208+00:00",
+            "last_analyze": "2026-09-19T04:20:32.767991+00:00"
+          }
+        }
+      }
+    }
+  ]
+}
