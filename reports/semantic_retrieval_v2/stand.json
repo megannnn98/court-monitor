@@ -1,0 +1,27 @@
+{
+  "dataset_version": "real-world-v1-draft.3",
+  "golden_dataset_hash": "bad37080a49fed38a46768f5338f92a3b7874680ac9b5aedff15b485dead146f",
+  "corpus_manifest_hash": "05e49c18d2856c71dd975358295a6e07eb0d5890ad418e7d46313e2565e34fc6",
+  "manifest_articles": 156,
+  "snapshot_id": 1,
+  "person_representation_version": 2,
+  "event_representation_version": 1,
+  "replay_seconds": 41.2,
+  "table_counts": {
+    "source_documents": 156,
+    "extraction_runs": 156,
+    "mentions": 1530,
+    "persons": 314,
+    "aliases": 336,
+    "events": 491,
+    "person_event_links": 233,
+    "resolution_decisions": 950,
+    "classifications": 314,
+    "rf_results": 314,
+    "findings": 58,
+    "semantic_documents": 805,
+    "pending_person_reviews": 151,
+    "semantic_indexed": 805,
+    "active_findings": 58
+  }
+}

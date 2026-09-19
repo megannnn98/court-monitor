@@ -1,0 +1,2216 @@
+{
+ "rules": {
+  "top_k_union": 20,
+  "systems": [
+   "bge_m3_dense",
+   "bge_m3_hybrid",
+   "e5_dense",
+   "e5_hybrid",
+   "lexical"
+  ],
+  "threshold_boundaries": {
+   "e5": [
+    0.8
+   ],
+   "bge_m3": [
+    0.47
+   ]
+  },
+  "sensitivity_margins": {
+   "bge_m3": 0.0158,
+   "e5": 0.0051
+  },
+  "disagreement_depth": 30
+ },
+ "pending": {
+  "rq-01": {
+   "gp-kharitonenko-pavel": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "extra-person:Лейсан Саттаров": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ]
+  },
+  "rq-02": {
+   "extra-person:Ахмат Кадыров": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "extra-person:Ева Меркачева": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ]
+  },
+  "rq-05": {
+   "gp-gudyushkin-alexander": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-sokht-asker": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-kryslov-alexey": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "gp-yarotsky-vladimir": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-abdulgaziev-tofik": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "extra-person:Надежда Егорова": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "extra-person:Денис Шедов": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ],
+   "extra-person:Борис Надеждин": [
+    "threshold_sensitive:bge_m3@73~0.47"
+   ],
+   "extra-person:Анна Исаева": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "gp-kharitonenko-pavel": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "extra-person:Александр Пугач": [
+    "threshold_sensitive:bge_m3@76~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@77~0.47"
+   ],
+   "gp-dymov-andrey": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "gp-sokolov-alexey": [
+    "threshold_sensitive:bge_m3@79~0.47"
+   ],
+   "gp-borovoy-konstantin": [
+    "threshold_sensitive:bge_m3@81~0.47"
+   ],
+   "gp-mazin-sergey": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ],
+   "gp-guriev-sergey": [
+    "threshold_sensitive:bge_m3@83~0.47"
+   ],
+   "gp-bitov-mikhail": [
+    "threshold_sensitive:bge_m3@84~0.47"
+   ],
+   "extra-person:Юлий Шакиро": [
+    "threshold_sensitive:bge_m3@85~0.47"
+   ],
+   "extra-person:Николай Дайнеко": [
+    "threshold_sensitive:bge_m3@86~0.47"
+   ],
+   "gp-markin-nikolay": [
+    "threshold_sensitive:bge_m3@87~0.47"
+   ],
+   "extra-person:Наталья Касилова": [
+    "threshold_sensitive:bge_m3@88~0.47"
+   ],
+   "gp-rose-richard": [
+    "threshold_sensitive:bge_m3@89~0.47"
+   ],
+   "extra-person:Татьяна Москалькова": [
+    "threshold_sensitive:bge_m3@90~0.47"
+   ],
+   "gp-mamporia-oleg": [
+    "threshold_sensitive:bge_m3@92~0.47"
+   ],
+   "gp-terekhov-ruslan": [
+    "threshold_sensitive:bge_m3@93~0.47"
+   ],
+   "gp-khodorkovsky-mikhail": [
+    "threshold_sensitive:bge_m3@94~0.47"
+   ],
+   "extra-person:Файзуллоджон Дадабоев": [
+    "threshold_sensitive:bge_m3@95~0.47"
+   ],
+   "gp-naptugov-aslan": [
+    "threshold_sensitive:bge_m3@96~0.47"
+   ],
+   "gp-aleksashenko-sergey": [
+    "threshold_sensitive:bge_m3@97~0.47"
+   ],
+   "gp-yanukovych-viktor": [
+    "threshold_sensitive:bge_m3@98~0.47"
+   ],
+   "extra-person:Георгий Парамошин": [
+    "threshold_sensitive:bge_m3@99~0.47"
+   ]
+  },
+  "rq-07": {
+   "gp-frolov-ivan": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-egorov-denis": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "extra-person:Олег Тырышкин": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-markin-nikolay": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-maryin-sergey": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-movlaev-mansur": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "extra-person:Файзуллоджон Дадабоев": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-bondarenko-nikolay": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "extra-person:Наталья Шамин": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-novoselov-oleg": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-dadin-ildar": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-badmaev-alexey": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "extra-person:Виктор Балабанов": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-balabekov-nabi": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "extra-person:Юлий Шакиро": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-shabanov-andrey": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "gp-mamaev-sergey": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "gp-otrakovsky-ivan": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "extra-person:Борис Надеждин": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "extra-person:Ахмат Кадыров": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ]
+  },
+  "rq-12": {
+   "gp-tereshin-anatoly": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-badmaev-alexey": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "extra-person:Сергей Салазкин": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-usmonov-oybek": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "extra-person:Файзуллоджон Дадабоев": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "gp-sinelnikov-pavel": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "extra-person:Николай Рыбаков": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-miftakhov-azat": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ]
+  },
+  "rq-14": {
+   "gp-dmitriev-yury": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "gp-shustanova-galina": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "extra-person:Галина Арышева": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-kirman-nelli": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ]
+  },
+  "rq-16": {
+   "extra-person:Андрей Воробьев": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "extra-person:Дмитрий Водолеев": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "gp-kuzhev-oleko": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-vegan-khristolyub": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-khoroshenin-valentin": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "extra-person:Слава Украине": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "gp-zateev-evgeny": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "extra-person:Игорь Кочетков": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-darova-svetlana": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-sinelnikov-pavel": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "gp-martynov-alexander": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-ovchinnikov-maxim": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "gp-talantsev-albert": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "extra-person:Файзуллоджон Дадабоев": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "gp-bitov-mikhail": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "gp-miftakhov-azat": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ]
+  },
+  "rq-17": {
+   "gp-kapyev-evgeny": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-karachurin-vilyur": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "extra-person:Михаил Лощинин": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-frolov-ivan": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-dyba-dmitry": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "extra-person:Маша Москалева": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "gp-tarasov-kirill": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "gp-sinelnikov-pavel": [
+    "threshold_sensitive:bge_m3@57~0.47"
+   ]
+  },
+  "rq-18": {
+   "extra-person:Михаил Лощинин": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-usmonov-oybek": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-egorov-konstantin": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ]
+  },
+  "rq-19": {
+   "gp-bondarenko-oleg": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ]
+  },
+  "rq-20": {
+   "gp-darova-svetlana": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-yakusheva-larisa": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-borisenko-svetlana": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "extra-person:Галина Арышева": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-rose-maria": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-andriyanou-tatiana": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "extra-person:Ольга Садовская": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-arno-natalia": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-baryshnikov-igor": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-malozemov-roman": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-primak-olga": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-bialiatski-ales": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "gp-telin-fedor": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-ivanov-pavel": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "gp-krepec-assol-anastasia": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "gp-gilmanov-marat": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "gp-filchenko-galina": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "gp-evtushenko-polina": [
+    "threshold_sensitive:bge_m3@57~0.47"
+   ],
+   "gp-molchanova-yulia": [
+    "threshold_sensitive:bge_m3@58~0.47"
+   ],
+   "gp-yanukovych-viktor": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "gp-chistova-polina": [
+    "threshold_sensitive:bge_m3@61~0.47"
+   ],
+   "gp-kozyreva-darya": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "extra-person:Наталья Шамин": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-dmitriev-yury": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "extra-person:Маша Москалева": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "gp-panina-svetlana": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "gp-guriev-sergey": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "gp-nikandrov-marat": [
+    "threshold_sensitive:bge_m3@73~0.47"
+   ],
+   "gp-terekhov-ruslan": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "gp-aleksashenko-sergey": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-bunkova-darya": [
+    "threshold_sensitive:bge_m3@76~0.47"
+   ],
+   "gp-zimin-boris": [
+    "threshold_sensitive:bge_m3@77~0.47"
+   ],
+   "gp-kurtnezirov-remzi": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "gp-khodorkovsky-mikhail": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ]
+  },
+  "rq-21": {
+   "gp-sokht-asker": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-lyubshin-ivan": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-pinchuk-evgeny": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-dyba-dmitry": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-movlaev-mansur": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-rose-richard": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-razumova-lyudmila": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-tereshin-anatoly": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-karachurin-vilyur": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-sharygin-mikhail": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "gp-otrakovsky-ivan": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "extra-person:Андрей Воробьев": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "gp-neustroev-vasily": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "gp-novoselov-oleg": [
+    "threshold_sensitive:bge_m3@57~0.47"
+   ]
+  },
+  "rq-22": {
+   "gp-usmonov-oybek": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "gp-vitaly-l": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-yavlinsky-grigory": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-sharygin-mikhail": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-tereshin-anatoly": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "extra-person:Файзуллоджон Дадабоев": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-razumova-lyudmila": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "extra-person:Лейсан Саттаров": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "extra-person:Артема Камардина": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "extra-person:Сергей Салазкин": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-chernov-viktor": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-shishlov-alexander": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-anisimov-dmitry": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-egorov-konstantin": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "extra-person:Виктор Балабанов": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-osipov-vladimir": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "extra-person:Николай Серебренников": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-karachurin-vilyur": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "gp-otrakovsky-ivan": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "gp-kirman-viktor": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "gp-balabekov-nabi": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "extra-person:Денис Шедов": [
+    "threshold_sensitive:bge_m3@58~0.47"
+   ],
+   "gp-akuzin-andrey": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "gp-mikheev-dmitry": [
+    "threshold_sensitive:bge_m3@60~0.47"
+   ],
+   "gp-paklin-roman": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "gp-mazin-sergey": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-zorina-tatiana": [
+    "threshold_sensitive:bge_m3@66~0.47"
+   ],
+   "extra-person:Георгий Парамошин": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "gp-yarotsky-vladimir": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-neustroev-vasily": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "extra-person:Александр Пугач": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "gp-voronin-anton": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ],
+   "gp-dymov-andrey": [
+    "threshold_sensitive:bge_m3@73~0.47"
+   ],
+   "gp-kuzyk-alexandra": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-martynov-alexander": [
+    "threshold_sensitive:bge_m3@76~0.47"
+   ],
+   "gp-lyubshin-ivan": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "extra-person:Егор Штовбу": [
+    "threshold_sensitive:bge_m3@80~0.47"
+   ],
+   "gp-chepik-sofia": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ],
+   "gp-ponomarenko-maria": [
+    "threshold_sensitive:bge_m3@83~0.47"
+   ],
+   "gp-sokolov-alexey": [
+    "threshold_sensitive:bge_m3@84~0.47"
+   ]
+  },
+  "rq-23": {
+   "rw-20260409-74/e1": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "rw-20260311-07/e1": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "rw-20260709-41/e2": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "rw-20260414-19/e1": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "rw-20260323-13/e1": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "rw-20260529-37/e6": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "rw-20260414-20/e3": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/10/v-chelyabinske-storonnicu-maoizma-zaderzhali-iz-za-bannera-protiv@1199-1284": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "rw-20260507-94/e1": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "rw-20260417-81/e2": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "rw-20260410-75/e2": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek@1480-1596": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/04/publicista-i-sociologa-igorya-eydmana-zaochno-arestovali@0-286": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "rw-20260420-22/e2": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "rw-20260301-00/e3": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/07/17/byvshego-provlastnogo-blogera-ilyu-remeslo-zaderzhali-po-delu-o-voennykh@47-98": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "rw-20260504-26/e5": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "rw-20260414-20/e2": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "rw-20260410-75/e4": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "rw-20260521-35/e4": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "rw-20260529-101/e1": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "rw-20260317-10/e2": [
+    "threshold_sensitive:bge_m3@60~0.47"
+   ],
+   "rw-20260317-10/e5": [
+    "threshold_sensitive:bge_m3@61~0.47"
+   ],
+   "rw-20260422-86/e2": [
+    "threshold_sensitive:bge_m3@62~0.47"
+   ],
+   "rw-20260317-10/e6": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "rw-20260317-10/e3": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "rw-20260424-87/e3": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "rw-20260603-102/e3": [
+    "threshold_sensitive:bge_m3@66~0.47"
+   ],
+   "rw-20260402-15/e4": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "rw-20260312-55/e3": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv@159-246": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "rw-20260330-67/e2": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "rw-20260821-43/e1": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ]
+  },
+  "rq-25": {
+   "rw-20260402-15/e4": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ]
+  },
+  "rq-29": {
+   "gp-ovchinnikov-maxim": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ]
+  },
+  "rq-30": {
+   "gp-khamroev-bakhrom": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ]
+  },
+  "rq-32": {
+   "gp-protopopov-dmitry": [
+    "threshold_sensitive:bge_m3@61~0.47"
+   ],
+   "gp-feygin-mark": [
+    "threshold_sensitive:bge_m3@62~0.47"
+   ],
+   "gp-sidorov-ilya": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "gp-balabekov-nabi": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-kabak-elizaveta": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-sokolov-alexey": [
+    "threshold_sensitive:bge_m3@66~0.47"
+   ],
+   "gp-yakusheva-larisa": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "gp-neustroev-vasily": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-frolova-tatiana": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "gp-andrinov-mikhail": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "extra-person:Александр Пугач": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "gp-martynov-alexander": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ],
+   "gp-khromenkov-svyatoslav": [
+    "threshold_sensitive:bge_m3@73~0.47"
+   ],
+   "gp-novodvorskaya-valeria": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "extra-person:Анастасия Жвик": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-evtushenko-polina": [
+    "threshold_sensitive:bge_m3@76~0.47"
+   ],
+   "gp-rose-maria": [
+    "threshold_sensitive:bge_m3@77~0.47"
+   ],
+   "gp-baryshnikov-igor": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "gp-ponomarev-ilya": [
+    "threshold_sensitive:bge_m3@79~0.47"
+   ],
+   "extra-person:Наталья Шамин": [
+    "threshold_sensitive:bge_m3@80~0.47"
+   ],
+   "gp-chistova-polina": [
+    "threshold_sensitive:bge_m3@81~0.47"
+   ],
+   "extra-person:Ольга Садовская": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ],
+   "gp-gudkov-gennady": [
+    "threshold_sensitive:bge_m3@83~0.47"
+   ],
+   "extra-person:Елена Малисова": [
+    "threshold_sensitive:bge_m3@84~0.47"
+   ],
+   "extra-person:Катерина Сильванова": [
+    "threshold_sensitive:bge_m3@85~0.47"
+   ],
+   "extra-person:Лейсан Саттаров": [
+    "threshold_sensitive:bge_m3@86~0.47"
+   ],
+   "gp-gilmanov-marat": [
+    "threshold_sensitive:bge_m3@87~0.47"
+   ],
+   "gp-slabunova-emilia": [
+    "threshold_sensitive:bge_m3@88~0.47"
+   ],
+   "gp-andreeva-marina": [
+    "threshold_sensitive:bge_m3@89~0.47"
+   ],
+   "gp-bitov-mikhail": [
+    "threshold_sensitive:bge_m3@90~0.47"
+   ],
+   "gp-bonya-viktoria": [
+    "threshold_sensitive:bge_m3@91~0.47"
+   ],
+   "extra-person:Анна Исаева": [
+    "threshold_sensitive:bge_m3@92~0.47"
+   ],
+   "gp-chumakova-anastasia": [
+    "threshold_sensitive:bge_m3@93~0.47"
+   ],
+   "gp-zateev-evgeny": [
+    "threshold_sensitive:bge_m3@94~0.47"
+   ],
+   "extra-person:Татьяна Таюрская": [
+    "threshold_sensitive:bge_m3@95~0.47"
+   ],
+   "gp-bialiatski-ales": [
+    "threshold_sensitive:bge_m3@96~0.47"
+   ],
+   "gp-tereshin-anatoly": [
+    "threshold_sensitive:bge_m3@97~0.47"
+   ],
+   "gp-yanukovych-viktor": [
+    "threshold_sensitive:bge_m3@98~0.47"
+   ],
+   "gp-petlin-maxim": [
+    "threshold_sensitive:bge_m3@99~0.47"
+   ]
+  },
+  "rq-33": {
+   "extra-person:Андрей Воробьев": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-ivanov-pavel": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-sinelnikov-pavel": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "extra-person:Александр Пугач": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "extra-person:Борис Надеждин": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "gp-mazin-sergey": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-martynov-alexander": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-kurmoyarov-ioann": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "extra-person:Аруна Арна": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "extra-person:Сергей Салазкин": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-baryshnikov-igor": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-pozdnyakov-vladislav": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "extra-person:Игорь Эйдман": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "gp-sokolov-alexey": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-miftakhov-azat": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-lyubshin-ivan": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "gp-egorov-konstantin": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "gp-turbin-arseny": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "gp-maryin-sergey": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "gp-yavlinsky-grigory": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "gp-ponomarenko-maria": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "gp-shebzukhov-mukharab": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "gp-mamporia-oleg": [
+    "threshold_sensitive:bge_m3@57~0.47"
+   ],
+   "gp-pinchuk-evgeny": [
+    "threshold_sensitive:bge_m3@58~0.47"
+   ],
+   "extra-person:Андрей Ярин": [
+    "threshold_sensitive:bge_m3@60~0.47"
+   ],
+   "extra-person:Михаил Кузнецов": [
+    "threshold_sensitive:bge_m3@61~0.47"
+   ],
+   "gp-kryslov-alexey": [
+    "threshold_sensitive:bge_m3@62~0.47"
+   ],
+   "gp-yarovoy-gleb": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "extra-person:Олег Тырышкин": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-markin-nikolay": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-abdulgaziev-tofik": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "extra-person:Ахмат Кадыров": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-ivanov-petr": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "gp-voronin-anton": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "gp-kuzhev-oleko": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ],
+   "extra-person:Егор Штовбу": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "gp-protopopov-dmitry": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-voronov-alexander": [
+    "threshold_sensitive:bge_m3@77~0.47"
+   ],
+   "gp-feygin-mark": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "extra-person:Алексей Москалев": [
+    "threshold_sensitive:bge_m3@79~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@80~0.47"
+   ],
+   "gp-tereshin-anatoly": [
+    "threshold_sensitive:bge_m3@81~0.47"
+   ],
+   "gp-terekhov-ruslan": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@83~0.47"
+   ],
+   "extra-person:Лейсан Саттаров": [
+    "threshold_sensitive:bge_m3@84~0.47"
+   ],
+   "gp-zhlobitsky-mikhail": [
+    "threshold_sensitive:bge_m3@85~0.47"
+   ]
+  },
+  "rq-41": {
+   "extra-person:Георгий Парамошин": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-kirman-viktor": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-gaziev-servet": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "gp-valiakhmetov-fazyl": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-kryslov-alexey": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-nozdrinov-alexander": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-bondarenko-nikolay": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-chernov-viktor": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "extra-person:Харп Ямало-Ненецкий": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-otrakovsky-ivan": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-vitaly-l": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "gp-dyba-dmitry": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "gp-bitov-mikhail": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "gp-egorov-konstantin": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "gp-kochkin-semen": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ]
+  },
+  "rq-43": {
+   "extra-person:Надежда Егорова": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ],
+   "gp-kuzyk-alexandra": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "extra-person:Ева Меркачева": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "extra-person:Анна Исаева": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "gp-primak-olga": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-chepik-sofia": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ]
+  },
+  "rq-45": {
+   "gp-belousova-ksenia": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-dyba-dmitry": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-chernov-viktor": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-spivak-nikita": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "extra-person:Лейсан Саттаров": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-katsarova-mariana": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "gp-baryakina-elvira": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "gp-chumakova-anastasia": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "gp-avdashev-vyacheslav": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "gp-shabanov-andrey": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "gp-vasiliev-ilya": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "extra-person:Ольга Бузова": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "gp-sinelnikov-pavel": [
+    "threshold_sensitive:bge_m3@58~0.47"
+   ],
+   "gp-kurochkina-inna": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "gp-khamroev-bakhrom": [
+    "threshold_sensitive:bge_m3@62~0.47"
+   ],
+   "gp-furmanova-irina": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "gp-krepec-assol-anastasia": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-frolova-tatiana": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-meremshaov-adnan": [
+    "threshold_sensitive:bge_m3@66~0.47"
+   ],
+   "extra-person:Аруна Арна": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "gp-snegova-maria": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-bondarenko-oleg": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "extra-person:Наталья Касилова": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "gp-shutov-ilya": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "extra-person:Николай Колдаев": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ],
+   "gp-ponomarenko-maria": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-mazin-sergey": [
+    "threshold_sensitive:bge_m3@76~0.47"
+   ],
+   "gp-pinchuk-evgeny": [
+    "threshold_sensitive:bge_m3@77~0.47"
+   ],
+   "gp-paklin-roman": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "gp-kozyreva-darya": [
+    "threshold_sensitive:bge_m3@81~0.47"
+   ],
+   "gp-voronov-alexander": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@83~0.47"
+   ],
+   "gp-molchanova-yulia": [
+    "threshold_sensitive:bge_m3@84~0.47"
+   ],
+   "gp-navalny-alexey": [
+    "threshold_sensitive:bge_m3@85~0.47"
+   ],
+   "extra-person:Денис Шедов": [
+    "threshold_sensitive:bge_m3@86~0.47"
+   ],
+   "extra-person:Анастасия Жвик": [
+    "threshold_sensitive:bge_m3@87~0.47"
+   ],
+   "gp-komarov-nikolay": [
+    "threshold_sensitive:bge_m3@89~0.47"
+   ],
+   "extra-person:Ольга Садовская": [
+    "threshold_sensitive:bge_m3@90~0.47"
+   ],
+   "extra-person:Михаил Лощинин": [
+    "threshold_sensitive:bge_m3@91~0.47"
+   ],
+   "extra-person:Николай Серебренников": [
+    "threshold_sensitive:bge_m3@92~0.47"
+   ],
+   "gp-kuryanov-petr": [
+    "threshold_sensitive:bge_m3@93~0.47"
+   ],
+   "gp-tazheeva-anna": [
+    "threshold_sensitive:bge_m3@94~0.47"
+   ],
+   "extra-person:Егор Штовбу": [
+    "threshold_sensitive:bge_m3@95~0.47"
+   ],
+   "extra-person:Катерина Сильванова": [
+    "threshold_sensitive:bge_m3@96~0.47"
+   ],
+   "gp-filchenko-galina": [
+    "threshold_sensitive:bge_m3@97~0.47"
+   ],
+   "gp-ivanov-petr": [
+    "threshold_sensitive:bge_m3@98~0.47"
+   ]
+  },
+  "rq-46": {
+   "gp-martynov-alexander": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "extra-person:Артема Камардина": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "extra-person:Файзуллоджон Дадабоев": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-sharygin-mikhail": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "gp-bunkova-darya": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-kuzyk-alexandra": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ]
+  },
+  "rq-49": {
+   "gp-musaeva-zarema": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ]
+  },
+  "rq-54": {
+   "gp-shustanova-galina": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-petlin-maxim": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-chepik-sofia": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "gp-navalny-alexey": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-tkachenko-egor": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ]
+  },
+  "rq-57": {
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-kartashov-konstantin": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-mamedov-rafael": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ]
+  },
+  "rq-60": {
+   "gp-markaryan-arsen": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-nikandrov-marat": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-otrakovsky-ivan": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-tukova-anita": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-primak-olga": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "gp-tarasov-kirill": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "gp-anisimov-dmitry": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "extra-person:Аруна Арна": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "extra-person:Сергей Салазкин": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-arseniev-alexander": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-pinchuk-evgeny": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "gp-garifyanov-ruslan": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "extra-person:Егор Штовбу": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-mamedov-rafael": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-mamaev-sergey": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ]
+  },
+  "rq-63": {
+   "extra-person:Аруна Арна": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-yakusheva-larisa": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-egorov-konstantin": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "extra-person:Игорь Эйдман": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "extra-person:Артема Камардина": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "extra-person:Егор Штовбу": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "gp-shustanova-galina": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ]
+  },
+  "rq-65": {
+   "gp-chistova-polina": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-kozyreva-darya": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "extra-person:Ольга Бузова": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-derevsky-kirill": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-khoroshenin-valentin": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-lada-rus-svetlana": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "extra-person:Александр Пугач": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-khamroev-bakhrom": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-yakusheva-larisa": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "extra-person:Лейсан Саттаров": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "extra-person:Татьяна Москалькова": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-moskalenko-karinna": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-kirman-nelli": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "extra-person:Маша Москалева": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "extra-person:Галина Арышева": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "gp-arno-natalia": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "gp-putin-vladimir": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "gp-petlin-maxim": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "gp-dadin-ildar": [
+    "threshold_sensitive:bge_m3@58~0.47"
+   ],
+   "gp-andreeva-marina": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "extra-person:Московская Хельсинкская": [
+    "threshold_sensitive:bge_m3@60~0.47"
+   ],
+   "gp-neustroev-vasily": [
+    "threshold_sensitive:bge_m3@61~0.47"
+   ],
+   "gp-oshchepkov-sergey": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-rose-maria": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-alekhina-maria": [
+    "threshold_sensitive:bge_m3@66~0.47"
+   ],
+   "gp-kuzyk-alexandra": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-serenko-darya": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "gp-kharitonenko-pavel": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "gp-markin-nikolay": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "extra-person:Ольга Садовская": [
+    "threshold_sensitive:bge_m3@72~0.47"
+   ],
+   "gp-kuzin-ivan": [
+    "threshold_sensitive:bge_m3@73~0.47"
+   ],
+   "extra-person:Татьяна Козлова": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "gp-ponomarenko-maria": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-karachurin-vilyur": [
+    "threshold_sensitive:bge_m3@76~0.47"
+   ]
+  },
+  "rq-67": {
+   "gp-amirov-ilkin": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ]
+  },
+  "rq-72": {
+   "gp-yarovaya-anna": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ],
+   "gp-kurochkina-inna": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-baryakina-elvira": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "gp-dzhikaeva-alina": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ]
+  },
+  "rq-74": {
+   "gp-borisenko-svetlana": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-tikhonova-natalia": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-alekhina-maria": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "gp-protopopov-dmitry": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-darova-svetlana": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "gp-vakhlyaev-artem": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-davydov-roman": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-morozova-yulia": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-razumova-lyudmila": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-bunkova-darya": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "gp-baryakina-elvira": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ]
+  },
+  "rq-79": {
+   "gp-novoselov-oleg": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-bitov-mikhail": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-kurbedinov-emil": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-amirov-ilkin": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "extra-person:Андрей Едигарев": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-dadin-ildar": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-tazheeva-anna": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "extra-person:Ахмат Кадыров": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-ovchinnikov-maxim": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ]
+  },
+  "rq-83": {
+   "gp-movlaev-mansur": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "gp-ivanov-pavel": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "extra-person:Надежда Егорова": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "gp-lada-rus-svetlana": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "gp-movlaev-zelimkhan": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "gp-shebzukhov-mukharab": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "extra-person:Денис Шедов": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "gp-balabekov-nabi": [
+    "threshold_sensitive:bge_m3@55~0.47"
+   ],
+   "gp-avdashev-vyacheslav": [
+    "threshold_sensitive:bge_m3@56~0.47"
+   ],
+   "gp-asaulenko-oksana": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "gp-nikandrov-marat": [
+    "threshold_sensitive:bge_m3@61~0.47"
+   ],
+   "gp-sharygin-mikhail": [
+    "threshold_sensitive:bge_m3@62~0.47"
+   ],
+   "gp-navalny-alexey": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "extra-person:Михаил Кульков": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "gp-bontsler-maria": [
+    "threshold_sensitive:bge_m3@65~0.47"
+   ],
+   "gp-gilin-viktor": [
+    "threshold_sensitive:bge_m3@66~0.47"
+   ],
+   "gp-ponomarenko-maria": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "gp-bialiatski-ales": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "gp-bunkova-darya": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ],
+   "gp-karachurin-vilyur": [
+    "threshold_sensitive:bge_m3@70~0.47"
+   ],
+   "extra-person:Татьяна Москалькова": [
+    "threshold_sensitive:bge_m3@71~0.47"
+   ],
+   "gp-kartashov-konstantin": [
+    "threshold_sensitive:bge_m3@73~0.47"
+   ],
+   "extra-person:Олег Тырышкин": [
+    "threshold_sensitive:bge_m3@74~0.47"
+   ],
+   "gp-rose-maria": [
+    "threshold_sensitive:bge_m3@75~0.47"
+   ],
+   "gp-razumova-lyudmila": [
+    "threshold_sensitive:bge_m3@77~0.47"
+   ],
+   "extra-person:Андрей Едигарев": [
+    "threshold_sensitive:bge_m3@78~0.47"
+   ],
+   "extra-person:Николай Дайнеко": [
+    "threshold_sensitive:bge_m3@80~0.47"
+   ],
+   "extra-person:Андрей Воробьев": [
+    "threshold_sensitive:bge_m3@81~0.47"
+   ],
+   "gp-derevsky-kirill": [
+    "threshold_sensitive:bge_m3@82~0.47"
+   ],
+   "gp-tkachenko-egor": [
+    "threshold_sensitive:bge_m3@83~0.47"
+   ],
+   "gp-voronov-alexander": [
+    "threshold_sensitive:bge_m3@85~0.47"
+   ],
+   "gp-garmazhapova-alexandra": [
+    "threshold_sensitive:bge_m3@86~0.47"
+   ],
+   "gp-vitaly-l": [
+    "threshold_sensitive:bge_m3@89~0.47"
+   ],
+   "gp-maryin-sergey": [
+    "threshold_sensitive:bge_m3@90~0.47"
+   ],
+   "gp-khamroev-bakhrom": [
+    "threshold_sensitive:bge_m3@91~0.47"
+   ],
+   "extra-person:Наталья Касилова": [
+    "threshold_sensitive:bge_m3@92~0.47"
+   ],
+   "gp-petlin-maxim": [
+    "threshold_sensitive:bge_m3@93~0.47"
+   ],
+   "gp-protopopov-dmitry": [
+    "threshold_sensitive:bge_m3@94~0.47"
+   ],
+   "gp-gribenko-grigory": [
+    "threshold_sensitive:bge_m3@95~0.47"
+   ],
+   "gp-sokht-asker": [
+    "threshold_sensitive:bge_m3@96~0.47"
+   ],
+   "gp-markin-nikolay": [
+    "threshold_sensitive:bge_m3@97~0.47"
+   ],
+   "gp-zhlobitsky-mikhail": [
+    "threshold_sensitive:bge_m3@98~0.47"
+   ],
+   "gp-nikulin-andrey": [
+    "threshold_sensitive:bge_m3@99~0.47"
+   ],
+   "gp-dmitriev-yury": [
+    "threshold_sensitive:bge_m3@100~0.47"
+   ]
+  },
+  "rq-91": {
+   "gp-krepec-assol-anastasia": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ],
+   "gp-belousova-ksenia": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "extra-person:Татьяна Таюрская": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-ponomarenko-maria": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "gp-baryakina-elvira": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-molchanova-yulia": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ]
+  },
+  "rq-96": {
+   "extra-event:ovd-info:/express-news/2026/05/27/na-eks-koordinatora-shtaba-navalnogo-v-cheboksarakh-zaveli-novoe-delo-po@1375-1489": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "rw-20260316-57/e1": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/08/13/analitika-ovd-info-denisa-shedova-obyavili-v-rozysk@248-397": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe@1423-1515": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "rw-20260603-102/e5": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "rw-20260402-15/e3": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "rw-20260320-61/e3": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "rw-20260312-08/e5": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "rw-20260504-26/e5": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/01/administratora-telegram-kanala-s-memami-svobodnaya-laplandiya-prigovorili-k@3350-3447": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/08/17/yabloko-vse-zhe-snyali-s-vyborov-8-glavnykh-faktov-o-processe@1459-1570": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "rw-20260819-103/e1": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/22/podmoskovnyy-sud-prekratil-delo-o-voennykh-feykakh-kotoroe-zaveli-na-chlena@639-743": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/09/verkhovnyy-sud-obyavil-dvizhenie-memorial-ekstremistskoy-organizaciey@647-856": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "rw-20260706-39/e2": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ]
+  },
+  "rq-97": {
+   "rw-20260305-04/e1": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ]
+  },
+  "rq-100": {
+   "rw-20260402-15/e4": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/08/03/boris-nadezhdin-uekhal-iz-rossii@216-282": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv@579-621": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh@863-1025": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "rw-20260417-81/e3": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "rw-20260402-15/e3": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "rw-20260529-37/e6": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "rw-20260409-73/e3": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/06/protiv-politika-iz-udmurtii-kotoryy-bolshe-mesyaca-derzhal-golodovku@463-513": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/07/17/u-menya-dva-puti-lenina-ili-navalnogo-chto-nuzhno-znat-o-borise-nadezhdine@1026-1055": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/02/kostromicha-soobshchivshego-o-pytkakh-pri-zaderzhanii-osudili-na-6-let@1681-1854": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "rw-20260819-103/e2": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/02/srok-iz-za-perevoda-byvshey-osvobozhdenie-iz-sizo-otmena-vydvoreniya-za@325-589": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "rw-20260410-75/e1": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "rw-20260529-101/e1": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/01/prigovor-altayskoy-aktivistke-i-presledovanie-detey-prygavshikh-na-kubikakh@1074-1261": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "rw-20260527-99/e2": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "rw-20260327-64/e2": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv@159-246": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "rw-20260323-13/e1": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/05/28/obyski-u-svideteley-iegovy-vydvorenie-za-namaz-i-dosrochnoe-osvobozhdenie@143-261": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "rw-20260320-11/e13": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ]
+  },
+  "rq-101": {
+   "rw-20260310-06/e1": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu@1127-1227": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu@479-532": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "rw-20260526-36/e8": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/12/v-moskve-prishli-s-obyskom-k-zhurnalistkam-i-aktivistam-po-delu@1229-1298": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/04/v-moskve-arestovali-byvshuyu-deputatku-uchastvovavshuyu-v-sezde-narodnykh@1107-1190": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ]
+  },
+  "rq-106": {
+   "rw-20260504-26/e5": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/06/protiv-politika-iz-udmurtii-kotoryy-bolshe-mesyaca-derzhal-golodovku@463-513": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/07/21/richarda-rouza-obvinili-v-opravdanii-igil-i-vlasovcev@974-1008": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "rw-20260402-68/e2": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/15/vtorogo-storonnika-maoizma-arestovali-na-10-sutok-posle-akcii-protiv@604-689": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/09/v-redakcii-novoy-gazety-v-moskve-prokhodit-obysk@730-857": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "rw-20260311-07/e1": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/01/administratora-telegram-kanala-s-memami-svobodnaya-laplandiya-prigovorili-k@3350-3447": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "rw-20260527-99/e2": [
+    "threshold_sensitive:bge_m3@57~0.47"
+   ],
+   "rw-20260417-81/e3": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "rw-20260819-103/e2": [
+    "threshold_sensitive:bge_m3@60~0.47"
+   ],
+   "rw-20260603-102/e3": [
+    "threshold_sensitive:bge_m3@63~0.47"
+   ],
+   "rw-20260526-36/e2": [
+    "threshold_sensitive:bge_m3@64~0.47"
+   ],
+   "rw-20260313-56/e2": [
+    "threshold_sensitive:bge_m3@67~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno@813-986": [
+    "threshold_sensitive:bge_m3@68~0.47"
+   ],
+   "rw-20260507-30/e2": [
+    "threshold_sensitive:bge_m3@69~0.47"
+   ]
+  },
+  "rq-109": {
+   "extra-event:ovd-info:/express-news/2026/03/01/v-novosibirske-na-akcii-v-zashchitu-telegram-zaderzhali-16-chelovek@1480-1596": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/01/administratora-telegram-kanala-s-memami-svobodnaya-laplandiya-prigovorili-k@3350-3447": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/04/osuzhdennogo-shkolnika-arseniya-turbina-na-kotorogo-zaveli-novoe-ugolovnoe@1423-1515": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "rw-20260821-43/e1": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "rw-20260303-02/e2": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "rw-20260417-81/e2": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "rw-20260301-00/e5": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ]
+  },
+  "rq-117": {
+   "gp-frolova-tatiana": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-telin-fedor": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-abrosimov-alexey": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "gp-kuzyk-alexandra": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "extra-person:Татьяна Москалькова": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-andreeva-marina": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-chumakova-anastasia": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-voronin-anton": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "extra-person:Надежда Егорова": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-baryakina-elvira": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ]
+  },
+  "rq-118": {
+   "extra-person:Михаил Лощинин": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-sinelnikov-pavel": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-meremshaov-adnan": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "extra-person:Олег Тырышкин": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ]
+  },
+  "rq-120": {
+   "gp-neustroev-vasily": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-markaryan-arsen": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "gp-mamedov-rafael": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "extra-person:Михаил Лощинин": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "extra-person:Евгения Верещагина": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "gp-kuzhev-oleko": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-kuzyk-alexandra": [
+    "threshold_sensitive:bge_m3@35~0.47"
+   ],
+   "gp-martynov-alexander": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-khamroev-bakhrom": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "gp-chernov-viktor": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "extra-person:Артема Камардина": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-frolova-tatiana": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-bontsler-maria": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-chepik-sofia": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "gp-abdulgaziev-tofik": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-bondarenko-oleg": [
+    "threshold_sensitive:bge_m3@49~0.47"
+   ],
+   "gp-khoroshenin-valentin": [
+    "threshold_sensitive:bge_m3@51~0.47"
+   ],
+   "extra-person:Наталья Шамин": [
+    "threshold_sensitive:bge_m3@52~0.47"
+   ]
+  },
+  "rq-122": {
+   "gp-morozova-yulia": [
+    "threshold_sensitive:bge_m3@29~0.47"
+   ],
+   "gp-miftakhov-azat": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ]
+  },
+  "rq-123": {
+   "gp-frolova-tatiana": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ],
+   "extra-person:Наталья Касилова": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-bunkova-darya": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-otrakovsky-ivan": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "gp-vasilenko-nikolay": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-sidorov-ilya": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "gp-kharitonenko-pavel": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-novoselov-oleg": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "gp-movlaev-zelimkhan": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ],
+   "gp-zubarev-alexander": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-protopopov-dmitry": [
+    "threshold_sensitive:bge_m3@37~0.47"
+   ],
+   "gp-spivak-nikita": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "gp-shutov-ilya": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "gp-sokolov-alexey": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ],
+   "gp-avdashev-vyacheslav": [
+    "threshold_sensitive:bge_m3@43~0.47"
+   ],
+   "gp-voronin-anton": [
+    "threshold_sensitive:bge_m3@44~0.47"
+   ],
+   "gp-turbin-arseny": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "gp-kapyev-evgeny": [
+    "threshold_sensitive:bge_m3@46~0.47"
+   ],
+   "gp-vakhlyaev-artem": [
+    "threshold_sensitive:bge_m3@47~0.47"
+   ],
+   "gp-movlaev-mansur": [
+    "threshold_sensitive:bge_m3@48~0.47"
+   ]
+  },
+  "rq-124": {
+   "gp-chumakova-anastasia": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-abrosimov-alexey": [
+    "threshold_sensitive:bge_m3@23~0.47"
+   ],
+   "gp-maryin-sergey": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "gp-rose-maria": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "extra-person:Денис Шедов": [
+    "threshold_sensitive:bge_m3@34~0.47"
+   ],
+   "gp-ksenzhepolsky-yan": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "gp-nikulin-andrey": [
+    "threshold_sensitive:bge_m3@38~0.47"
+   ],
+   "gp-novak-nika": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "gp-yarovoy-gleb": [
+    "threshold_sensitive:bge_m3@41~0.47"
+   ],
+   "gp-amirov-ilkin": [
+    "threshold_sensitive:bge_m3@42~0.47"
+   ]
+  },
+  "rq-127": {
+   "gp-bontsler-maria": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ]
+  },
+  "rq-130": {
+   "extra-person:Татьяна Таюрская": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "gp-ovchinnikov-maxim": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "extra-person:Олег Тырышкин": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ]
+  },
+  "rq-131": {
+   "gp-kambieva-yulia": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ],
+   "gp-darova-svetlana": [
+    "threshold_sensitive:bge_m3@33~0.47"
+   ]
+  },
+  "rq-132": {
+   "gp-tukova-anita": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ],
+   "gp-talantsev-albert": [
+    "threshold_sensitive:bge_m3@22~0.47"
+   ],
+   "extra-person:Олег Тырышкин": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ],
+   "gp-shabanov-andrey": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ]
+  },
+  "rq-138": {
+   "extra-event:ovd-info:/express-news/2026/04/09/v-redakcii-novoy-gazety-v-moskve-prokhodit-obysk@398-578": [
+    "threshold_sensitive:bge_m3@25~0.47"
+   ],
+   "rw-20260320-61/e3": [
+    "threshold_sensitive:bge_m3@26~0.47"
+   ]
+  },
+  "rq-139": {
+   "extra-event:ovd-info:/express-news/2026/05/04/kaluzhanina-otbyvshego-srok-iz-za-kommentariya-pro-vzryv-v-fsb-zaderzhali-v@2393-2577": [
+    "threshold_sensitive:bge_m3@30~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/02/sud-v-vologde-otkazalsya-po-prosbe-fsin-uzhestochit-nakazanie-figurantu@1294-1378": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ],
+   "rw-20260401-14/e1": [
+    "threshold_sensitive:bge_m3@32~0.47"
+   ],
+   "rw-20260428-24/e2": [
+    "threshold_sensitive:bge_m3@36~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/06/02/srok-iz-za-perevoda-byvshey-osvobozhdenie-iz-sizo-otmena-vydvoreniya-za@0-102": [
+    "threshold_sensitive:bge_m3@39~0.47"
+   ],
+   "rw-20260305-04/e3": [
+    "threshold_sensitive:bge_m3@40~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/04/27/v-zaklyuchenii-umer-pensioner-oleg-tyryshkin-osuzhdennyy-iz-za-kommentariya@943-1068": [
+    "threshold_sensitive:bge_m3@45~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/05/27/osuzhdennogo-po-delu-seti-mikhaila-kulkova-otpravili-v-pkt-na-pyat-mesyacev@1141-1217": [
+    "threshold_sensitive:bge_m3@50~0.47"
+   ],
+   "rw-20260320-11/e10": [
+    "threshold_sensitive:bge_m3@53~0.47"
+   ],
+   "extra-event:ovd-info:/express-news/2026/03/05/osuzhdennogo-iz-za-antivoennykh-postov-kirovchanina-otpravili-na-polgoda-v@1706-1877": [
+    "threshold_sensitive:bge_m3@54~0.47"
+   ],
+   "rw-20260508-32/e3": [
+    "threshold_sensitive:bge_m3@59~0.47"
+   ],
+   "rw-20260317-10/e1": [
+    "threshold_sensitive:bge_m3@60~0.47"
+   ]
+  },
+  "rq-142": {
+   "extra-event:ovd-info:/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno@714-748": [
+    "threshold_sensitive:bge_m3@27~0.47"
+   ],
+   "rw-20260409-73/e1": [
+    "threshold_sensitive:bge_m3@28~0.47"
+   ],
+   "rw-20260403-70/e2": [
+    "threshold_sensitive:bge_m3@31~0.47"
+   ]
+  },
+  "rq-145": {
+   "extra-event:ovd-info:/express-news/2026/05/27/prigovor-za-kalyan-na-kuliche-zdorove-shamana-gabysheva-i-shtraf-takim@921-1074": [
+    "threshold_sensitive:bge_m3@24~0.47"
+   ]
+  },
+  "rq-160": {
+   "gp-valiakhmetov-fazyl": [
+    "threshold_sensitive:bge_m3@21~0.47"
+   ]
+  }
+ },
+ "pending_pairs": 692
+}

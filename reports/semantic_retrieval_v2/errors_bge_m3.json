@@ -1,0 +1,3189 @@
+{
+ "dev": [
+  {
+   "query_id": "rq-01",
+   "text": "журналист, задержанный на митинге в защиту Telegram в Новосибирске",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-abrosimov-alexey",
+     "grade": 1,
+     "rank": 13,
+     "similarity": 0.472528
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-frolov-ivan",
+    "gp-krupenko-sergey"
+   ]
+  },
+  {
+   "query_id": "rq-02",
+   "text": "мать чеченских активистов, осужденная к колонии-поселению",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-shustanova-galina",
+    "extra-person:Аруна Арна"
+   ]
+  },
+  {
+   "query_id": "rq-03",
+   "text": "антифашист, у которого в заключении пропало зрение",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1",
+    "paraphrase"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-angold-olga",
+    "gp-martsinkevich-maxim"
+   ]
+  },
+  {
+   "query_id": "rq-04",
+   "text": "журналист, освещавший протесты фермеров против уничтожения скота",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-frolov-ivan",
+     "grade": 2,
+     "rank": 5,
+     "similarity": 0.451288
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-krupenko-sergey",
+    "gp-bonya-viktoria",
+    "gp-panina-svetlana"
+   ]
+  },
+  {
+   "query_id": "rq-05",
+   "text": "черкесский активист, осужденный за участие в террористической организации",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-naptugov-aslan",
+     "grade": 1,
+     "rank": 96,
+     "similarity": 0.464583
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-musaeva-zarema",
+    "gp-tereshin-anatoly"
+   ]
+  },
+  {
+   "query_id": "rq-06",
+   "text": "фигуранты дела «граждан СССР» в Карачаево-Черкесии",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-bondarenko-oleg",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-kambieva-yulia",
+     "grade": 1,
+     "rank": 24,
+     "similarity": 0.44879
+    },
+    {
+     "key": "gp-kuzhev-oleko",
+     "grade": 2,
+     "rank": 27,
+     "similarity": 0.446386
+    },
+    {
+     "key": "gp-meremshaov-adnan",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-yakusheva-larisa",
+     "grade": 2,
+     "rank": 9,
+     "similarity": 0.464279
+    },
+    {
+     "key": "gp-darova-svetlana",
+     "grade": 2,
+     "rank": 19,
+     "similarity": 0.450478
+    },
+    {
+     "key": "gp-ilichev-vladimir",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-shoev-abdulmalik",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-tukova-anita",
+     "grade": 1,
+     "rank": 70,
+     "similarity": 0.409195
+    },
+    {
+     "key": "gp-primak-olga",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-naptugov-aslan",
+     "grade": 1,
+     "rank": 18,
+     "similarity": 0.451157
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-guriev-sergey",
+    "gp-alekhina-maria",
+    "gp-kara-murza-vladimir"
+   ]
+  },
+  {
+   "query_id": "rq-07",
+   "text": "активист, избитый силовиками при обыске после заявки на митинг против блокировок",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-gribenko-grigory",
+     "grade": 1,
+     "rank": 13,
+     "similarity": 0.504554
+    },
+    {
+     "key": "gp-makovoz-evgeny",
+     "grade": 2,
+     "rank": 15,
+     "similarity": 0.500255
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-derevsky-kirill",
+    "gp-gilin-viktor",
+    "gp-bitov-mikhail"
+   ]
+  },
+  {
+   "query_id": "rq-08",
+   "text": "нацбол из Ярославля, обвиненный по «дадинской» статье",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-bitov-mikhail",
+     "grade": 2,
+     "rank": 86,
+     "similarity": 0.410821
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-markin-nikolay",
+    "gp-navalny-alexey",
+    "gp-voronin-anton"
+   ]
+  },
+  {
+   "query_id": "rq-09",
+   "text": "блогер, который шутки ради сам попросил статус иноагента",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1",
+    "paraphrase"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Игорь Эйдман",
+    "extra-person:Анастасия Жвик"
+   ]
+  },
+  {
+   "query_id": "rq-10",
+   "text": "главный редактор независимого кавказского издания",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-kadyrov-ramzan",
+    "extra-person:Татьяна Москалькова"
+   ]
+  },
+  {
+   "query_id": "rq-11",
+   "text": "буддист-программист, осужденный за посты о войне",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-karachurin-vilyur",
+    "gp-badmaev-alexey"
+   ]
+  },
+  {
+   "query_id": "rq-12",
+   "text": "пенсионер из Выборга, наказанный за лозунг «Слава Украине»",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Слава Украине",
+    "gp-vitaly-l"
+   ]
+  },
+  {
+   "query_id": "rq-13",
+   "text": "сын судьи, получивший срок за комментарии о войне",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-gilmanov-marat",
+     "grade": 2,
+     "rank": 6,
+     "similarity": 0.447146
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-rose-richard",
+    "gp-markaryan-arsen",
+    "extra-person:Александр Пугач"
+   ]
+  },
+  {
+   "query_id": "rq-14",
+   "text": "участница сообщества против блокировок интернета, уехавшая из страны",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Лейсан Саттаров",
+    "gp-darova-svetlana"
+   ]
+  },
+  {
+   "query_id": "rq-15",
+   "text": "заключенный, погибший в колонии после приговора за картинку с президентом",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-yarotsky-vladimir",
+     "grade": 2,
+     "rank": 5,
+     "similarity": 0.467736
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Олег Тырышкин",
+    "gp-osipov-vladimir",
+    "gp-akuzin-andrey"
+   ]
+  },
+  {
+   "query_id": "rq-16",
+   "text": "сотрудник правозащитного проекта, оштрафованный за нежелательную организацию",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Николай Серебренников",
+    "gp-dyba-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-17",
+   "text": "художник, которого раз за разом арестовывают по административным делам",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v1",
+    "paraphrase"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-akuzin-andrey",
+    "gp-arseniev-alexander"
+   ]
+  },
+  {
+   "query_id": "rq-18",
+   "text": "уличный художник, осужденный за антивоенные рисунки на стенах",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1",
+    "paraphrase"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-martynov-alexander",
+     "grade": 1,
+     "rank": 16,
+     "similarity": 0.486699
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-kirman-nelli"
+   ]
+  },
+  {
+   "query_id": "rq-19",
+   "text": "люди, осужденные за пожертвования Фонду борьбы с коррупцией",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-person:Евгения Верещагина",
+     "grade": 2,
+     "rank": 20,
+     "similarity": 0.461447
+    },
+    {
+     "key": "gp-stovbun-gleb",
+     "grade": 2,
+     "rank": 99,
+     "similarity": 0.396405
+    },
+    {
+     "key": "gp-dyba-dmitry",
+     "grade": 2,
+     "rank": 24,
+     "similarity": 0.446927
+    },
+    {
+     "key": "gp-garifyanov-ruslan",
+     "grade": 2,
+     "rank": 55,
+     "similarity": 0.415778
+    }
+   ],
+   "judged_not_relevant_in_top3": []
+  },
+  {
+   "query_id": "rq-21",
+   "text": "политзаключенный музыкант с инвалидностью",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-paklin-roman",
+    "gp-khamroev-bakhrom"
+   ]
+  },
+  {
+   "query_id": "rq-22",
+   "text": "пожилой активист, наказанный за пикет в защиту родного языка",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1",
+    "paraphrase"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-gilin-viktor",
+    "gp-petrutsky-andrey"
+   ]
+  },
+  {
+   "query_id": "rq-23",
+   "text": "задержание журналиста на протесте фермеров",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "rw-20260320-61/e3",
+    "rw-20260329-65/e1"
+   ]
+  },
+  {
+   "query_id": "rq-24",
+   "text": "апелляция снизила сроки фигурантам дела граждан СССР",
+   "tags": [
+    "event_positive",
+    "group",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/03/20/v-karachaevo-cherkesii-sokratili-sroki-vosmi-figurantam-dela-grazhdan-sssr@931-992",
+     "grade": 1,
+     "rank": 83,
+     "similarity": 0.365255
+    },
+    {
+     "key": "rw-20260320-11/e9",
+     "grade": 1,
+     "rank": 5,
+     "similarity": 0.447653
+    },
+    {
+     "key": "rw-20260320-11/e2",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260320-11/e3",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260320-11/e4",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260320-11/e5",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260320-11/e6",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/03/05/zareme-musaevoy-na-mesyac-sokratili-srok-v-kolonii-poselenii@2093-2212",
+    "rw-20260508-32/e4",
+    "rw-20260423-23/e4"
+   ]
+  },
+  {
+   "query_id": "rq-25",
+   "text": "обыск у нацбола с изъятием партийной атрибутики",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/04/09/v-ofisakh-nezavisimykh-profsoyuzov-proshli-obyski@1133-1262",
+    "rw-20260526-36/e8"
+   ]
+  },
+  {
+   "query_id": "rq-41",
+   "text": "заключенный из Кирова, которого за антивоенные посты перевели в помещение камерного типа",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "family",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-rose-maria",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Михаил Кульков",
+    "gp-pinchuk-evgeny",
+    "gp-turbin-arseny"
+   ]
+  },
+  {
+   "query_id": "rq-43",
+   "text": "молодая женщина получила 14 лет колонии из-за разговоров о «Легионе Свобода России»",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-zorina-tatiana",
+    "gp-valiakhmetov-fazyl"
+   ]
+  },
+  {
+   "query_id": "rq-44",
+   "text": "житель Карачаево-Черкесии арестован на 15 суток за комментарии о Путине",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "public_figure_trap",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-rose-richard",
+    "gp-avdashev-vyacheslav"
+   ]
+  },
+  {
+   "query_id": "rq-45",
+   "text": "адвокат, которой ужесточили обвинение и теперь грозит больший срок",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-baryshnikov-igor",
+    "gp-tikhonova-natalia"
+   ]
+  },
+  {
+   "query_id": "rq-46",
+   "text": "краснодарец, которому после пересмотра дела о донатах ФБК назначили штраф",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-egorov-konstantin",
+    "extra-person:Николай Серебренников"
+   ]
+  },
+  {
+   "query_id": "rq-47",
+   "text": "осужденный за антивоенные посты житель Подмосковья умер в заключении в Коми",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "death_in_custody",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Олег Тырышкин",
+    "gp-yarotsky-vladimir"
+   ]
+  },
+  {
+   "query_id": "rq-48",
+   "text": "пенсионерка из Подмосковья получила семь лет колонии по делу «граждан СССР»",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-razumova-lyudmila",
+    "gp-ponomarenko-maria"
+   ]
+  },
+  {
+   "query_id": "rq-49",
+   "text": "ветеран войны в Чечне, оштрафованный во время протестов фермеров",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-tereshin-anatoly",
+    "gp-egorov-denis"
+   ]
+  },
+  {
+   "query_id": "rq-50",
+   "text": "владелица гей-клуба в Чите, приговоренная к колонии",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "lgbt",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-belousova-ksenia",
+    "gp-musaeva-zarema"
+   ]
+  },
+  {
+   "query_id": "rq-51",
+   "text": "исчез по пути между местами заключения; прежде его избил отпрыск главы Чечни",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-movlaev-zelimkhan",
+    "gp-otrakovsky-ivan"
+   ]
+  },
+  {
+   "query_id": "rq-52",
+   "text": "один из организаторов митинга в Новосибирске, задержанный по дороге и оштрафованный на 250 тысяч",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-egorov-denis",
+    "gp-navalny-alexey"
+   ]
+  },
+  {
+   "query_id": "rq-53",
+   "text": "чиновник, наказанный за отказ согласовать публичную акцию",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "namesake_trap",
+    "hard",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-mazin-sergey",
+    "gp-anisimov-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-54",
+   "text": "активистка, задержанная вместе с ярославским нацболом",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-bitov-mikhail",
+     "grade": 1,
+     "rank": 35,
+     "similarity": 0.469782
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-molchanova-yulia",
+    "gp-yarovaya-anna",
+    "extra-person:Варвара Луч"
+   ]
+  },
+  {
+   "query_id": "rq-55",
+   "text": "бывшие супруги-художники, осужденные за антивоенные надписи и рисунки",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "family",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-arseniev-alexander"
+   ]
+  },
+  {
+   "query_id": "rq-56",
+   "text": "художницу в заключении обвинили после конфликта с сокамерницей",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-novak-nika",
+    "gp-kirman-nelli"
+   ]
+  },
+  {
+   "query_id": "rq-57",
+   "text": "верующий видеоблогер, осуждавший войну, скончался, отбывая наказание",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "death_in_custody",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-vegan-khristolyub",
+     "grade": 2,
+     "rank": 17,
+     "similarity": 0.467963
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-matrosov-alexander",
+    "gp-osipov-vladimir",
+    "gp-vasiliev-ilya"
+   ]
+  },
+  {
+   "query_id": "rq-59",
+   "text": "лидер иркутского «Яблока», которого арестовали повторно",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "opposition_party",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-kharitonenko-pavel",
+    "gp-tkachenko-egor"
+   ]
+  },
+  {
+   "query_id": "rq-60",
+   "text": "краевед из Татарстана, осужденный за пост на татарском языке",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-valiakhmetov-fazyl",
+     "grade": 2,
+     "rank": 52,
+     "similarity": 0.450616
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-badmaev-alexey",
+    "gp-vasiliev-ilya",
+    "extra-person:Евгения Верещагина"
+   ]
+  },
+  {
+   "query_id": "rq-61",
+   "text": "старик получил полдюжины лет за ролик добровольцев, воюющих на стороне Киева",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-pinchuk-evgeny",
+    "gp-markaryan-arsen"
+   ]
+  },
+  {
+   "query_id": "rq-62",
+   "text": "историк, изучавший сталинские репрессии, взят под стражу",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-otrakovsky-ivan",
+    "gp-roldugin-oleg"
+   ]
+  },
+  {
+   "query_id": "rq-63",
+   "text": "фотограф из Екатеринбурга, осужденная из-за книжек с фанфиками",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-razumova-lyudmila",
+    "extra-person:Варвара Луч"
+   ]
+  },
+  {
+   "query_id": "rq-64",
+   "text": "основательница издания Astra, против которой возбудили дело",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "inoagent",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-khoroshenin-valentin",
+    "gp-terekhov-ruslan"
+   ]
+  },
+  {
+   "query_id": "rq-65",
+   "text": "женщина, задержанная после пикета на Красной площади",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-panina-svetlana",
+    "gp-molchanova-yulia"
+   ]
+  },
+  {
+   "query_id": "rq-66",
+   "text": "преследуемые Свидетели Иеговы",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "religious",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-feygin-mark",
+    "gp-gudkov-gennady"
+   ]
+  },
+  {
+   "query_id": "rq-67",
+   "text": "осужденный по делу «второй симферопольской» группы «Хизб ут-Тахрир»",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "religious",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-kurtnezirov-remzi",
+     "grade": 1,
+     "rank": 20,
+     "similarity": 0.458789
+    },
+    {
+     "key": "gp-gaziev-servet",
+     "grade": 2,
+     "rank": 67,
+     "similarity": 0.420935
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-nagoev-ibragim",
+    "gp-valiakhmetov-fazyl"
+   ]
+  },
+  {
+   "query_id": "rq-68",
+   "text": "фигурант «баймакского дела», освобожденный условно-досрочно",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-tukova-anita",
+    "gp-primak-olga"
+   ]
+  },
+  {
+   "query_id": "rq-69",
+   "text": "женщина, пытавшаяся согласовать митинг против высоких тарифов ЖКХ",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-khalandach-marina",
+    "gp-panina-svetlana"
+   ]
+  },
+  {
+   "query_id": "rq-70",
+   "text": "приверженца ислама выгонят из России за молитву возле качелей",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "religious",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-mikheev-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-71",
+   "text": "ростовского художника после серии административных арестов отправили в СИЗО по делу о госизмене",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "namesake_trap",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-rose-richard",
+    "gp-razumova-lyudmila"
+   ]
+  },
+  {
+   "query_id": "rq-72",
+   "text": "журналистка, получившая третий приговор",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "journalist",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-belousova-ksenia",
+    "gp-kuzyk-alexandra"
+   ]
+  },
+  {
+   "query_id": "rq-73",
+   "text": "мужчина, переводивший деньги «Артподготовке», обвинен в финансировании терроризма",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-person:Николай Лекомцев",
+     "grade": 1,
+     "rank": 36,
+     "similarity": 0.43845
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Николай Серебренников",
+    "gp-tereshin-anatoly"
+   ]
+  },
+  {
+   "query_id": "rq-74",
+   "text": "президент фонда «Свободная Россия», объявленная в розыск",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Татьяна Москалькова",
+    "extra-person:Надежда Егорова"
+   ]
+  },
+  {
+   "query_id": "rq-75",
+   "text": "в Чечне похитили брата человека, задержанного в Казахстане",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "family",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-otrakovsky-ivan"
+   ]
+  },
+  {
+   "query_id": "rq-76",
+   "text": "саксофонист, на которого напали в колонии",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-kryslov-alexey",
+    "gp-miftakhov-azat"
+   ]
+  },
+  {
+   "query_id": "rq-77",
+   "text": "музыкант-инвалид жалуется на перлюстрацию корреспонденции в неволе",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "judged_negatives",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-paklin-roman",
+    "gp-khamroev-bakhrom"
+   ]
+  },
+  {
+   "query_id": "rq-78",
+   "text": "подростки, которых жестоко задерживали на Китай-городе",
+   "tags": [
+    "person_positive",
+    "group",
+    "judged_negatives",
+    "descriptive",
+    "given_name_only",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-dmitry-kitay-gorod",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-georgy-kitay-gorod",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-vitaly-streamer",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-yakusheva-larisa",
+    "gp-darova-svetlana",
+    "gp-turbin-arseny"
+   ]
+  },
+  {
+   "query_id": "rq-79",
+   "text": "правозащитник в СИЗО Екатеринбурга сообщил о нападении",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-miftakhov-azat",
+    "gp-derevsky-kirill"
+   ]
+  },
+  {
+   "query_id": "rq-80",
+   "text": "бывший имам, которому запросили 21 год",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "religious",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-nagoev-ibragim",
+    "gp-abdulgaziev-tofik"
+   ]
+  },
+  {
+   "query_id": "rq-81",
+   "text": "61-летний охранник арестован на 15 суток",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "initials",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-turbin-arseny",
+    "extra-person:Виктор Балабанов"
+   ]
+  },
+  {
+   "query_id": "rq-82",
+   "text": "женщина в Дагестане оштрафована за видео с логотипом Instagram",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "initials",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Лейсан Саттаров",
+    "gp-slabunova-emilia"
+   ]
+  },
+  {
+   "query_id": "rq-83",
+   "text": "журналист-расследователь «Новой газеты», заключенный под стражу",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "journalist",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-novoselov-oleg",
+    "gp-novak-nika"
+   ]
+  },
+  {
+   "query_id": "rq-84",
+   "text": "репортер, писавший о тайной собственности премьера и главы Чечни, оказался за решеткой",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "judged_negatives",
+    "descriptive",
+    "paraphrase",
+    "public_figure_trap",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-kadyrov-ramzan",
+    "gp-yanukovych-viktor",
+    "gp-shebzukhov-mukharab"
+   ]
+  },
+  {
+   "query_id": "rq-85",
+   "text": "сотрудница московского бара, обвиненная в оскорблении чувств верующих",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "religious_feelings",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-zorina-tatiana",
+    "extra-person:Лейсан Саттаров"
+   ]
+  },
+  {
+   "query_id": "rq-87",
+   "text": "женщине, чьи сыновья правозащитники, сократили наказание на тридцать дней",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-tukova-anita",
+    "gp-kozyreva-darya"
+   ]
+  },
+  {
+   "query_id": "rq-88",
+   "text": "человек, потерявший глаз в заключении по делу о терроризме в Тюмени",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-kartashov-konstantin",
+    "extra-person:Олег Тырышкин"
+   ]
+  },
+  {
+   "query_id": "rq-89",
+   "text": "пожилого жителя Ленинградской области осудили за лозунг в поддержку Киева",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-vitaly-l",
+    "extra-person:Михаил Лощинин"
+   ]
+  },
+  {
+   "query_id": "rq-90",
+   "text": "программист-буддист, настоятель дзен-центра, осужденный за посты",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-karachurin-vilyur",
+    "gp-usmonov-oybek"
+   ]
+  },
+  {
+   "query_id": "rq-91",
+   "text": "участница анархо-сообщества, покинувшая страну после ареста по хулиганству",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-sokht-asker",
+    "gp-krysko-vyacheslav"
+   ]
+  },
+  {
+   "query_id": "rq-92",
+   "text": "Виктор Кирман",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "name",
+    "namesake_trap",
+    "hard",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-kirman-nelli",
+    "extra-person:Виктор Балабанов"
+   ]
+  },
+  {
+   "query_id": "rq-93",
+   "text": "Константин Егоров",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "name",
+    "namesake_trap",
+    "hard",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-egorov-denis",
+    "extra-person:Надежда Егорова"
+   ]
+  },
+  {
+   "query_id": "rq-94",
+   "text": "Мовлаев",
+   "tags": [
+    "person_positive",
+    "group",
+    "name",
+    "surname_only",
+    "family",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-movlaev-zelimkhan",
+     "grade": 2,
+     "rank": 1,
+     "similarity": 0.450089
+    },
+    {
+     "key": "gp-movlaev-mansur",
+     "grade": 2,
+     "rank": 2,
+     "similarity": 0.441402
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-mamaev-sergey"
+   ]
+  },
+  {
+   "query_id": "rq-95",
+   "text": "Христолюб Веган",
+   "tags": [
+    "person_positive",
+    "name",
+    "unusual_name",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-chernov-viktor",
+    "gp-karachurin-vilyur"
+   ]
+  },
+  {
+   "query_id": "rq-96",
+   "text": "силовики избили заявителя митинга во время обыска в Ростове",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/03/23/siloviki-vo-vremya-obyska-izbili-rostovskogo-zayavitelya-mitinga-za-svobodu@479-532",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/03/18/v-sizo-umer-osuzhdennyy-iz-za-antivoennykh-postov-zhitel-podmoskovya@2377-2445",
+    "extra-event:ovd-info:/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo@427-557"
+   ]
+  },
+  {
+   "query_id": "rq-97",
+   "text": "задержание главного редактора издания «Сапа» в Москве",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "rw-20260414-20/e3"
+   ]
+  },
+  {
+   "query_id": "rq-98",
+   "text": "суд оштрафовал вице-мэра Владимира",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "rw-20260311-54/e2"
+   ]
+  },
+  {
+   "query_id": "rq-99",
+   "text": "приговор фотографке из-за книг с фанфиками",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "rw-20260529-37/e2"
+   ]
+  },
+  {
+   "query_id": "rq-100",
+   "text": "повторный административный арест лидера иркутского «Яблока»",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv@159-246",
+     "grade": 2,
+     "rank": 51,
+     "similarity": 0.456734
+    },
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv@401-494",
+     "grade": 1,
+     "rank": 92,
+     "similarity": 0.435023
+    },
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/05/07/lidera-irkutskogo-yabloka-pytavshegosya-organizovat-akciyu-protiv@579-621",
+     "grade": 1,
+     "rank": 29,
+     "similarity": 0.470678
+    }
+   ],
+   "judged_not_relevant_in_top3": []
+  },
+  {
+   "query_id": "rq-101",
+   "text": "обыски у руководства издательства «Эксмо»",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "lgbt",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260421-84/e2",
+     "grade": 1,
+     "rank": 11,
+     "similarity": 0.517669
+    }
+   ],
+   "judged_not_relevant_in_top3": []
+  },
+  {
+   "query_id": "rq-102",
+   "text": "приговор 71-летнему краеведу из Татарстана",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/04/29/kraeveda-iz-tatarstana-osudili-iz-za-antivoennogo-posta-i-obrashcheniya@288-395",
+     "grade": 1,
+     "rank": 28,
+     "similarity": 0.441866
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "rw-20260318-60/e2",
+    "rw-20260525-98/e4"
+   ]
+  },
+  {
+   "query_id": "rq-103",
+   "text": "верующий, осуждавший войну, скончался, отбывая наказание",
+   "tags": [
+    "event_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "death_in_custody",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/04/17/v-kolonii-umer-khristianskiy-propovednik-khristolyub-vegan-osuzhdennyy-iz@1192-1288",
+     "grade": 1,
+     "rank": 80,
+     "similarity": 0.360945
+    },
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/04/21/posle-smerti-v-kolonii-khristolyuba-vegana-vozbudili-delo-o-khalatnosti@158-234",
+     "grade": 2,
+     "rank": 76,
+     "similarity": 0.36362
+    },
+    {
+     "key": "rw-20260417-82/e2",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260421-83/e1",
+     "grade": 1,
+     "rank": 12,
+     "similarity": 0.435704
+    },
+    {
+     "key": "rw-20260417-82/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno@466-712"
+   ]
+  },
+  {
+   "query_id": "rq-104",
+   "text": "суд запретил ЛГБТ-движение как экстремистское",
+   "tags": [
+    "event_positive",
+    "group",
+    "descriptive",
+    "lgbt",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260427-88/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260303-02/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "rw-20260525-98/e3",
+    "extra-event:ovd-info:/express-news/2026/06/01/v-podmoskove-predprinimatelya-prigovorili-k-trem-godam-uslovno-iz-za@0-202",
+    "extra-event:ovd-info:/express-news/2026/06/01/prigovor-altayskoy-aktivistke-i-presledovanie-detey-prygavshikh-na-kubikakh@674-809"
+   ]
+  },
+  {
+   "query_id": "rq-105",
+   "text": "заключенного из Кирова отправили в помещение камерного типа",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260305-49/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/04/27/v-zaklyuchenii-umer-pensioner-oleg-tyryshkin-osuzhdennyy-iz-za-kommentariya@266-381",
+    "rw-20260507-31/e4",
+    "extra-event:ovd-info:/express-news/2026/05/27/osuzhdennogo-po-delu-seti-mikhaila-kulkova-otpravili-v-pkt-na-pyat-mesyacev@726-854"
+   ]
+  },
+  {
+   "query_id": "rq-106",
+   "text": "административные аресты ростовского художника",
+   "tags": [
+    "event_positive",
+    "group",
+    "descriptive",
+    "repeated_arrests",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260518-34/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260518-34/e4",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260518-34/e5",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260518-34/e6",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260518-34/e7",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "rw-20260403-70/e2",
+    "rw-20260529-37/e6"
+   ]
+  },
+  {
+   "query_id": "rq-107",
+   "text": "врач, осужденный за отказ лечить мобилизованных",
+   "kind": "negative_accepted",
+   "accepted": 3,
+   "top_accepted": [
+    [
+     "gp-mazin-sergey",
+     0.477395
+    ],
+    [
+     "gp-valiakhmetov-fazyl",
+     0.473305
+    ],
+    [
+     "extra-person:Артем Самсонов",
+     0.470803
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-109",
+   "text": "задержания на акции в Хабаровске в поддержку Фургала",
+   "kind": "negative_accepted",
+   "accepted": 18,
+   "top_accepted": [
+    [
+     "rw-20260305-04/e1",
+     0.531244
+    ],
+    [
+     "rw-20260528-100/e5",
+     0.521045
+    ],
+    [
+     "extra-event:ovd-info:/express-news/2026/08/17/yabloko-vse-zhe-snyali-s-vyborov-8-glavnykh-faktov-o-processe@1368-1458",
+     0.516233
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-110",
+   "text": "житель Якутии осужден за поджог полицейской машины",
+   "kind": "negative_accepted",
+   "accepted": 1,
+   "top_accepted": [
+    [
+     "gp-mikheev-dmitry",
+     0.517208
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-116",
+   "text": "депутат Госдумы оштрафован за превышение скорости",
+   "kind": "negative_accepted",
+   "accepted": 16,
+   "top_accepted": [
+    [
+     "gp-egorov-konstantin",
+     0.531207
+    ],
+    [
+     "gp-shishlov-alexander",
+     0.527607
+    ],
+    [
+     "gp-garifyanov-ruslan",
+     0.524742
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-153",
+   "text": "обвиняемый в терроризме в следственной тюрьме почти ослеп",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-shabanov-andrey",
+    "gp-mikheev-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-154",
+   "text": "ради шутки ставший иностранным агентом видеоблогер избежал реального заключения",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-vasiliev-ilya",
+    "gp-gilmanov-marat"
+   ]
+  },
+  {
+   "query_id": "rq-155",
+   "text": "автор уличных рисунков против войны получил реальный срок",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-martynov-alexander",
+     "grade": 1,
+     "rank": 12,
+     "similarity": 0.468696
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-markaryan-arsen"
+   ]
+  },
+  {
+   "query_id": "rq-156",
+   "text": "пожилого башкирского общественника за одиночную акцию посадили в спецприемник на три дня",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-miftakhov-azat",
+    "gp-gilin-viktor"
+   ]
+  },
+  {
+   "query_id": "rq-157",
+   "text": "сердечник, судимый за записи в соцсети, скончался в северной тюрьме",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-osipov-vladimir",
+     "grade": 2,
+     "rank": 3,
+     "similarity": 0.462003
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Олег Тырышкин",
+    "gp-yarotsky-vladimir"
+   ]
+  },
+  {
+   "query_id": "rq-158",
+   "text": "молодую хозяйку ночного заведения для однополых пар отправили за решетку",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-belousova-ksenia",
+    "gp-vakhlyaev-artem"
+   ]
+  },
+  {
+   "query_id": "rq-159",
+   "text": "фотохудожнице назначили наказание за самодельные рассказы по мотивам чужих произведений",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-razumova-lyudmila",
+    "gp-arseniev-alexander"
+   ]
+  },
+  {
+   "query_id": "rq-160",
+   "text": "ученый, изучающий советский террор, помещен в СИЗО",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-turbin-arseny",
+    "gp-miftakhov-azat"
+   ]
+  },
+  {
+   "query_id": "rq-161",
+   "text": "сибирячка хотела провести сход из-за подорожания коммуналки",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-krupenko-sergey",
+    "gp-lada-rus-svetlana"
+   ]
+  },
+  {
+   "query_id": "rq-162",
+   "text": "житель Ямала арестован за перевод денег, признанный помощью террористам",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-gudyushkin-alexander",
+     "grade": 2,
+     "rank": 2,
+     "similarity": 0.465467
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-tarasov-kirill",
+    "gp-turbin-arseny"
+   ]
+  },
+  {
+   "query_id": "rq-163",
+   "text": "самарская девушка получила четырнадцать лет",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-tukova-anita",
+    "gp-primak-olga"
+   ]
+  },
+  {
+   "query_id": "rq-164",
+   "text": "сибирского телерепортера забирали в полицию, пока он снимал недовольство аграриев",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-oshchepkov-sergey",
+    "gp-krupenko-sergey"
+   ]
+  },
+  {
+   "query_id": "rq-165",
+   "text": "пожилой приверженец запрещенной конфессии получил наказание без реального заключения за совместное чтение Библии",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-nagoev-ibragim",
+    "extra-person:Евгения Верещагина"
+   ]
+  },
+  {
+   "query_id": "rq-166",
+   "text": "черкес получил две недели за критику президента в соцсети",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-musaeva-zarema",
+    "gp-kochkin-semen"
+   ]
+  },
+  {
+   "query_id": "rq-167",
+   "text": "участника волнений в башкирском райцентре выпустили раньше срока",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Файзуллоджон Дадабоев",
+    "extra-person:Николай Лекомцев"
+   ]
+  },
+  {
+   "query_id": "rq-168",
+   "text": "пожилого крымского татарина с гипертоническим кризом положили в тюремную лечебницу на Камчатке",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-abdulgaziev-tofik",
+    "gp-miftakhov-azat"
+   ]
+  },
+  {
+   "query_id": "rq-169",
+   "text": "женщина вышла с плакатом у Кремля за создателя антидронной системы",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-alekhina-maria",
+    "gp-razumova-lyudmila"
+   ]
+  }
+ ],
+ "validation": [
+  {
+   "query_id": "rq-26",
+   "text": "члены «Антивоенного комитета России»",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-shulman-ekaterina",
+     "grade": 2,
+     "rank": 87,
+     "similarity": 0.392279
+    }
+   ],
+   "judged_not_relevant_in_top3": []
+  },
+  {
+   "query_id": "rq-27",
+   "text": "художник покончил с собой в СИЗО после ареста за комментарий",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-yarotsky-vladimir",
+    "gp-shabanov-andrey"
+   ]
+  },
+  {
+   "query_id": "rq-28",
+   "text": "крымский татарин с опухолью мозга, добивающийся освобождения",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-gaziev-servet",
+    "gp-kurtnezirov-remzi",
+    "extra-person:Олег Тырышкин"
+   ]
+  },
+  {
+   "query_id": "rq-29",
+   "text": "анархист, переведенный в колонию за полярным кругом",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-khamroev-bakhrom",
+    "extra-person:Харп Ямало-Ненецкий"
+   ]
+  },
+  {
+   "query_id": "rq-30",
+   "text": "человек, задержанный в аэропорту Минска при попытке эмигрировать",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Виктор Балабанов",
+    "gp-krysko-vyacheslav"
+   ]
+  },
+  {
+   "query_id": "rq-31",
+   "text": "студент из Бурятии объявил голодовку в тюрьме",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-garmazhapova-alexandra",
+    "gp-turbin-arseny"
+   ]
+  },
+  {
+   "query_id": "rq-32",
+   "text": "политолог, внесенная в реестр Росфинмониторинга и объявленная в розыск",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-serenko-darya",
+    "gp-arno-natalia",
+    "gp-filchenko-galina"
+   ]
+  },
+  {
+   "query_id": "rq-33",
+   "text": "администратор телеграм-канала о северном регионе, осужденный за госизмену",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v1",
+    "paraphrase"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-mamedov-rafael",
+     "grade": 2,
+     "rank": 13,
+     "similarity": 0.503434
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-navalny-alexey",
+    "gp-kochkin-semen",
+    "gp-mamaev-sergey"
+   ]
+  },
+  {
+   "query_id": "rq-34",
+   "text": "преподавателя университета взяли под стражу после приговора",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v1"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/05/13/osuzhdennyy-po-delu-o-voennykh-feykakh-orenburgskiy-yurist-bolshe-dvukh@1314-1403",
+    "rw-20260417-82/e2"
+   ]
+  },
+  {
+   "query_id": "rq-117",
+   "text": "журналистка, задержанная ФСБ после приезда в Россию",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "journalist",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-dzhikaeva-alina",
+    "gp-morozova-yulia"
+   ]
+  },
+  {
+   "query_id": "rq-118",
+   "text": "осужденный пермский школьник, которого поместили в карцер",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-mikheev-dmitry",
+    "extra-person:Сергей Салазкин"
+   ]
+  },
+  {
+   "query_id": "rq-119",
+   "text": "подростка, отбывающего срок, изолировали в штрафном помещении",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Сергей Салазкин",
+    "extra-person:Михаил Кульков"
+   ]
+  },
+  {
+   "query_id": "rq-120",
+   "text": "политолог, заочно получившая год колонии",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "inoagent",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-tukova-anita",
+    "gp-primak-olga"
+   ]
+  },
+  {
+   "query_id": "rq-121",
+   "text": "80-летний активист из Перми, задержанный на пикете",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-agishev-irek",
+    "gp-krupenko-sergey"
+   ]
+  },
+  {
+   "query_id": "rq-122",
+   "text": "бывший сотрудник Центробанка, уехавший из России и арестованный заочно",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-voronov-alexander",
+    "gp-avdashev-vyacheslav"
+   ]
+  },
+  {
+   "query_id": "rq-123",
+   "text": "знакомые задержанного журналиста, у которых прошли обыски",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-andreev-alexander",
+     "grade": 1,
+     "rank": 83,
+     "similarity": 0.435539
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-yanukovych-viktor",
+    "gp-kadyrov-ramzan",
+    "gp-chistova-polina"
+   ]
+  },
+  {
+   "query_id": "rq-124",
+   "text": "бывший внештатный корреспондент Радио Свобода, обвиненный в госизмене",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "journalist",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-andreev-alexander",
+     "grade": 2,
+     "rank": 82,
+     "similarity": 0.43552
+    },
+    {
+     "key": "gp-plyukhin-dmitry",
+     "grade": 1,
+     "rank": 65,
+     "similarity": 0.444341
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-yanukovych-viktor",
+    "gp-bontsler-maria",
+    "gp-kadyrov-ramzan"
+   ]
+  },
+  {
+   "query_id": "rq-125",
+   "text": "жители села, оштрафованные за протест против уничтожения скота",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-panina-svetlana",
+     "grade": 1,
+     "rank": 4,
+     "similarity": 0.447824
+    },
+    {
+     "key": "gp-skosyrsky-ivan",
+     "grade": 2,
+     "rank": 72,
+     "similarity": 0.345993
+    },
+    {
+     "key": "gp-borisenko-svetlana",
+     "grade": 2,
+     "rank": 57,
+     "similarity": 0.353575
+    },
+    {
+     "key": "gp-andriyanou-tatiana",
+     "grade": 2,
+     "rank": 65,
+     "similarity": 0.348299
+    },
+    {
+     "key": "gp-andrinov-mikhail",
+     "grade": 2,
+     "rank": 95,
+     "similarity": 0.335605
+    },
+    {
+     "key": "gp-andrinov-sergey",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "gp-vyguzov-mikhail",
+     "grade": 2,
+     "rank": 80,
+     "similarity": 0.341827
+    },
+    {
+     "key": "gp-kuzin-ivan",
+     "grade": 2,
+     "rank": 85,
+     "similarity": 0.338193
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Татьяна Таюрская",
+    "extra-person:Юлий Шакиро"
+   ]
+  },
+  {
+   "query_id": "rq-126",
+   "text": "доцент-математик, взятый под стражу в зале суда после приговора",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-mamedov-rafael",
+    "extra-person:Сергей Салазкин"
+   ]
+  },
+  {
+   "query_id": "rq-127",
+   "text": "журналистку перевели из помещения камерного типа в ШИЗО",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "journalist",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Галина Арышева",
+    "gp-ponomarenko-maria"
+   ]
+  },
+  {
+   "query_id": "rq-128",
+   "text": "судья, досрочно лишенный полномочий",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-terekhova-elena",
+    "gp-abdulgaziev-tofik"
+   ]
+  },
+  {
+   "query_id": "rq-129",
+   "text": "72-летний рязанский общественник, у которого изъяли технику",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-makovoz-evgeny",
+    "gp-krupenko-sergey"
+   ]
+  },
+  {
+   "query_id": "rq-130",
+   "text": "активист, которого пытали шокером после задержания на урбанистической встрече",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "torture",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-gilin-viktor",
+    "gp-agishev-irek"
+   ]
+  },
+  {
+   "query_id": "rq-131",
+   "text": "писательница, против которой завели дело о несоблюдении обязанностей «иностранного агента»",
+   "tags": [
+    "person_positive",
+    "descriptive",
+    "inoagent",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-serenko-darya",
+     "grade": 2,
+     "rank": 70,
+     "similarity": 0.427358
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-kurochkina-inna"
+   ]
+  },
+  {
+   "query_id": "rq-132",
+   "text": "осужденные, которых отправили в ШИЗО",
+   "tags": [
+    "person_positive",
+    "group",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-person:Георгий Парамошин",
+     "grade": 1,
+     "rank": 43,
+     "similarity": 0.437244
+    },
+    {
+     "key": "gp-badmaev-alexey",
+     "grade": 2,
+     "rank": 72,
+     "similarity": 0.426135
+    },
+    {
+     "key": "gp-turbin-arseny",
+     "grade": 1,
+     "rank": 42,
+     "similarity": 0.437608
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-miftakhov-azat",
+    "extra-person:Сергей Салазкин"
+   ]
+  },
+  {
+   "query_id": "rq-133",
+   "text": "математика-анархиста избивали в заполярном лагере",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "judged_negatives",
+    "descriptive",
+    "paraphrase",
+    "torture",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-miftakhov-azat",
+     "grade": 2,
+     "rank": 2,
+     "similarity": 0.458842
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Харп Ямало-Ненецкий",
+    "gp-kryslov-alexey"
+   ]
+  },
+  {
+   "query_id": "rq-134",
+   "text": "Михаил Жлобицкий",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "name",
+    "namesake_trap",
+    "hard",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-nozdrinov-alexander",
+    "extra-person:Артема Камардина"
+   ]
+  },
+  {
+   "query_id": "rq-135",
+   "text": "Рафаэль Мамедов",
+   "tags": [
+    "person_positive",
+    "name",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Сергей Мефед",
+    "gp-nefedov-oleg"
+   ]
+  },
+  {
+   "query_id": "rq-136",
+   "text": "человек, покончивший с собой в следственном изоляторе на Амуре после ареста за комментарий",
+   "tags": [
+    "person_positive",
+    "judged_negatives",
+    "descriptive",
+    "death_in_custody",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-yarotsky-vladimir",
+    "gp-osipov-vladimir"
+   ]
+  },
+  {
+   "query_id": "rq-138",
+   "text": "журналистку задержали сотрудники ФСБ в Петрозаводске",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260304-48/e2",
+     "grade": 1,
+     "rank": 32,
+     "similarity": 0.455823
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "rw-20260414-20/e2"
+   ]
+  },
+  {
+   "query_id": "rq-139",
+   "text": "осужденного школьника поместили в карцер",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260304-47/e2",
+     "grade": 1,
+     "rank": 33,
+     "similarity": 0.478175
+    },
+    {
+     "key": "rw-20260304-47/e4",
+     "grade": 1,
+     "rank": 19,
+     "similarity": 0.49078
+    },
+    {
+     "key": "rw-20260304-47/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/05/13/osuzhdennyy-po-delu-o-voennykh-feykakh-orenburgskiy-yurist-bolshe-dvukh@0-138",
+    "rw-20260318-60/e2",
+    "rw-20260508-32/e4"
+   ]
+  },
+  {
+   "query_id": "rq-140",
+   "text": "штрафы жителям села Козиха за протест фермеров",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/03/17/fermerov-v-novosibirskoy-oblasti-nachali-massovo-shtrafovat-iz-za-protestov@516-693",
+     "grade": 2,
+     "rank": 23,
+     "similarity": 0.430935
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/06/01/prigovor-altayskoy-aktivistke-i-presledovanie-detey-prygavshikh-na-kubikakh@864-1073"
+   ]
+  },
+  {
+   "query_id": "rq-141",
+   "text": "задержание 80-летнего пикетчика в Перми",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/03/20/zaderzhanie-80-letnego-piketchika-i-shtraf-za-igru-s-tushey-kozla-novosti@727-894",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/03/29/v-novosibirske-zaderzhali-odnogo-iz-organizatorov-mitinga-protiv-massovogo@427-557",
+    "rw-20260329-65/e1"
+   ]
+  },
+  {
+   "query_id": "rq-142",
+   "text": "заочный арест бывшего сотрудника Центробанка",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/03/30/byvshiy-sotrudnik-centrobanka-uekhal-iz-rossii-posle-zaprosa-realnogo-sroka@685-800",
+     "grade": 1,
+     "rank": null,
+     "similarity": null
+    },
+    {
+     "key": "rw-20260330-67/e1",
+     "grade": 2,
+     "rank": 29,
+     "similarity": 0.459278
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "rw-20260303-02/e2",
+    "rw-20260506-28/e3",
+    "rw-20260507-94/e1"
+   ]
+  },
+  {
+   "query_id": "rq-143",
+   "text": "бывшего автора американского радио задержали по обвинению в предательстве родины",
+   "tags": [
+    "event_positive",
+    "group",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260409-73/e3",
+     "grade": 1,
+     "rank": 91,
+     "similarity": 0.373623
+    },
+    {
+     "key": "rw-20260409-73/e2",
+     "grade": 2,
+     "rank": 23,
+     "similarity": 0.414043
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/04/09/v-redakcii-novoy-gazety-v-moskve-prokhodit-obysk@730-857",
+    "rw-20260303-02/e2"
+   ]
+  },
+  {
+   "query_id": "rq-144",
+   "text": "Верховный суд признал «Антивоенный комитет России» террористической организацией",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "rw-20260302-01/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/03/11/uralskogo-svyashchennika-nazvavshego-osnovatelya-rdk-krasavchikom-osudili@435-584",
+    "rw-20260506-28/e1"
+   ]
+  },
+  {
+   "query_id": "rq-145",
+   "text": "заочный приговор политологине по делу об иноагентах",
+   "tags": [
+    "event_positive",
+    "descriptive",
+    "inoagent",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "extra-event:ovd-info:/express-news/2026/03/02/ekaterinu-shulman-zaochno-prigovorili-k-godu-kolonii-po-inoagentskoy-state@432-551",
+     "grade": 1,
+     "rank": 15,
+     "similarity": 0.474301
+    },
+    {
+     "key": "rw-20260302-46/e1",
+     "grade": 2,
+     "rank": null,
+     "similarity": null
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-event:ovd-info:/express-news/2026/07/14/v-kolonii-na-politzaklyuchennogo-richarda-rouza-zaveli-eshche-odno@1307-1362",
+    "extra-event:ovd-info:/express-news/2026/07/21/richarda-rouza-obvinili-v-opravdanii-igil-i-vlasovcev@1567-1622",
+    "rw-20260305-49/e5"
+   ]
+  },
+  {
+   "query_id": "rq-146",
+   "text": "пикетчик в Калининграде задержан за плакат о Кёнигсберге",
+   "kind": "negative_accepted",
+   "accepted": 3,
+   "top_accepted": [
+    [
+     "gp-egorov-denis",
+     0.493057
+    ],
+    [
+     "gp-krupenko-sergey",
+     0.488721
+    ],
+    [
+     "gp-gilin-viktor",
+     0.480545
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-147",
+   "text": "суд над американским журналистом по делу о шпионаже в Екатеринбурге",
+   "kind": "negative_accepted",
+   "accepted": 4,
+   "top_accepted": [
+    [
+     "rw-20260410-75/e4",
+     0.502789
+    ],
+    [
+     "extra-event:ovd-info:/express-news/2026/06/02/srok-iz-za-perevoda-byvshey-osvobozhdenie-iz-sizo-otmena-vydvoreniya-za@325-589",
+     0.497293
+    ],
+    [
+     "rw-20260410-75/e1",
+     0.491444
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-149",
+   "text": "Анна Шульман",
+   "kind": "negative_accepted",
+   "accepted": 1,
+   "top_accepted": [
+    [
+     "gp-shulman-ekaterina",
+     0.48414
+    ]
+   ]
+  },
+  {
+   "query_id": "rq-170",
+   "text": "молодому автору юмористического паблика о Заполярье дали срок за измену родине",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-mamedov-rafael",
+     "grade": 2,
+     "rank": 29,
+     "similarity": 0.448347
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "gp-mamporia-oleg",
+    "extra-person:Артема Камардина",
+    "extra-person:Андрей Воробьев"
+   ]
+  },
+  {
+   "query_id": "rq-171",
+   "text": "корреспондентку с финским и российским гражданством схватили в Карелии при визите к семье",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-dzhikaeva-alina",
+    "gp-molchanova-yulia"
+   ]
+  },
+  {
+   "query_id": "rq-172",
+   "text": "восьмидесятилетний пермяк в одиночку стоял с плакатом за свободный интернет и попал в полицию",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-petrutsky-andrey",
+    "gp-anisimov-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-173",
+   "text": "экс-служащий регулятора скрылся за границей после пожертвования структуре Навального",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-telin-fedor",
+    "gp-navalny-alexey"
+   ]
+  },
+  {
+   "query_id": "rq-174",
+   "text": "преподавателя ВШЭ посадили за донаты ФБК",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Евгения Верещагина",
+    "gp-mikheev-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-175",
+   "text": "служителю Фемиды на Урале запретили работать за благотворительные переводы",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-bushuev-vyacheslav",
+     "grade": 2,
+     "rank": 1,
+     "similarity": 0.453801
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Евгения Верещагина",
+    "gp-mikheev-dmitry"
+   ]
+  },
+  {
+   "query_id": "rq-176",
+   "text": "живописец свел счеты с жизнью под стражей на Дальнем Востоке",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [
+    {
+     "key": "gp-akuzin-andrey",
+     "grade": 2,
+     "rank": 3,
+     "similarity": 0.446421
+    }
+   ],
+   "judged_not_relevant_in_top3": [
+    "extra-person:Николай Дайнеко",
+    "gp-kirman-viktor"
+   ]
+  },
+  {
+   "query_id": "rq-177",
+   "text": "калужанина выдали белорусы, когда он пытался улететь",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-ovchinnikov-maxim",
+    "gp-zhuravel-nikita"
+   ]
+  },
+  {
+   "query_id": "rq-178",
+   "text": "бурятский студент отказывается принимать пищу в централе на Южном Урале",
+   "tags": [
+    "person_positive",
+    "semantic_only",
+    "descriptive",
+    "paraphrase",
+    "v2"
+   ],
+   "kind": "positive",
+   "missed_or_rejected": [],
+   "judged_not_relevant_in_top3": [
+    "gp-garmazhapova-alexandra",
+    "gp-turbin-arseny"
+   ]
+  }
+ ]
+}

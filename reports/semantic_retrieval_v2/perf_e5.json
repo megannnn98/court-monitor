@@ -1,0 +1,43 @@
+{
+ "embedding_model_id": "intfloat/multilingual-e5-base",
+ "dimension": 768,
+ "documents": 805,
+ "model_load_seconds": 13.25,
+ "full_corpus_embedding_seconds": 3.15,
+ "documents_per_second": 255.4,
+ "full_rebuild_seconds": 4.18,
+ "incremental_batch": {
+  "documents": 16,
+  "seconds": 0.098
+ },
+ "query_embedding_ms": {
+  "p50": 7.55,
+  "p95": 9.1,
+  "n": 170
+ },
+ "dense_retrieval_ms": {
+  "person": {
+   "p50": 11.06,
+   "p95": 12.79,
+   "n": 143
+  },
+  "event": {
+   "p50": 11.95,
+   "p95": 13.18,
+   "n": 27
+  }
+ },
+ "vram_peak_mib": 1605.1,
+ "ram_peak_mib": 2518.1,
+ "vector_storage": {
+  "person": {
+   "vectors": 314,
+   "vector_bytes": 967120
+  },
+  "event": {
+   "vectors": 491,
+   "vector_bytes": 1512280
+  }
+ },
+ "event_hnsw_index_bytes": 2072576
+}

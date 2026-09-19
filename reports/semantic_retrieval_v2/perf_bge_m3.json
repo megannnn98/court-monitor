@@ -1,0 +1,43 @@
+{
+ "embedding_model_id": "BAAI/bge-m3",
+ "dimension": 1024,
+ "documents": 805,
+ "model_load_seconds": 13.99,
+ "full_corpus_embedding_seconds": 9.66,
+ "documents_per_second": 83.4,
+ "full_rebuild_seconds": 11.04,
+ "incremental_batch": {
+  "documents": 16,
+  "seconds": 0.241
+ },
+ "query_embedding_ms": {
+  "p50": 13.72,
+  "p95": 16.28,
+  "n": 170
+ },
+ "dense_retrieval_ms": {
+  "person": {
+   "p50": 17.2,
+   "p95": 20.62,
+   "n": 143
+  },
+  "event": {
+   "p50": 18.36,
+   "p95": 21.05,
+   "n": 27
+  }
+ },
+ "vram_peak_mib": 2886.3,
+ "ram_peak_mib": 3624.7,
+ "vector_storage": {
+  "person": {
+   "vectors": 314,
+   "vector_bytes": 1288656
+  },
+  "event": {
+   "vectors": 491,
+   "vector_bytes": 2015064
+  }
+ },
+ "event_hnsw_index_bytes": 4104192
+}

@@ -141,6 +141,52 @@ Manifest уже содержит детерминированный stratified s
 - RF: если персона в snapshot, но статья не даёт отчества/даты рождения — `needs_review`/`ambiguous` с `acceptable_review: true`; `not_matched` только если записи с таким ФИО нет.
 - Известное ограничение системы — `known_limitation` + конкретные `known_limitation_kinds`; оно исключает из hard gates только эти виды ошибок.
 
+## Retrieval queries и relevance judgments
+
+`evaluation/real_world/retrieval_queries.json` — список `RealRetrievalQuery`
+(схема в `src/evaluation/real_world/retrieval_eval.py`, валидация при загрузке):
+
+| поле | смысл |
+|---|---|
+| `query_id`, `text`, `entity_type`, `split` | идентификатор, текст запроса, PERSON/EVENT, split запроса |
+| `judgments` | ключ сущности → grade `2` (явно релевантна), `1` (частично), `0` (явно нерелевантна). Ключ: golden person id, `case_id/event_id` для события или `extra-person:`/`extra-event:` для сущности из статьи корпуса без golden-разметки |
+| `expected_no_match` | запрос, для которого в корпусе не должно быть принятой сущности; у него не может быть grade > 0 и он не может быть `semantic_only` |
+| `semantic_only` | у запроса нет общих словарных основ с релевантными документами (проверяется отдельно) |
+| `tags` | класс запроса: `semantic_only`, `group`, `negative_hard`, `negative_offtopic`, `namesake_trap`, `initials`, `paraphrase`, … — по ним режутся метрики |
+| `notes` | пояснение разметчика |
+
+Ключ, которого **нет** в `judgments`, считается UNJUDGED: он никогда не
+учитывается как нерелевантный, поэтому precision считается только по
+размеченной части выдачи, а recall@k — нижняя оценка. Пустой `judgments`
+допустим только при `expected_no_match`.
+
+`query_problems()` дополнительно проверяет уникальность `query_id`, наличие
+тегов, существование ключей в golden и то, что релевантная сущность принадлежит
+тому же split, что и запрос (иначе запрос протекал бы в чужой split).
+
+DRAFT-оценки pooled-кандидатов лежат отдельно, в
+`evaluation/semantic_v2/pool_judgments.json`:
+
+```json
+{
+  "status": "DRAFT",
+  "annotation_origin": "agent_draft",
+  "judgments":   {"rq-12": {"gp-ivanov-ivan": 2, "gp-petrov-petr": 0}},
+  "cross_split": {"rq-12": {"gp-sidorov-sidor": 1}},
+  "retired":     {"rq-108": "pool review found a partial match: …"}
+}
+```
+
+- `judgments` — оценки, которые используют метрики;
+- `cross_split` — релевантные сущности из статей другого split: оценены, но в
+  метриках остаются UNJUDGED, чтобы не протащить чужой split;
+- `retired` — запросы, выбывшие из метрик по итогу review (например «negative»,
+  для которого нашлось частичное совпадение).
+
+Кандидаты для разметки набираются пулингом (union top-100 нескольких систем),
+а листы для человека — blind: `var/real_world/review/semantic_v2/`
+(`sheet_priority.csv`, `sheet_full.csv`, `keys.json`), без модели, ранга и score.
+
 ## Evaluation Run
 
 `evaluate-real-world` runs product code through one disposable PostgreSQL database:

@@ -1,0 +1,286 @@
+{
+ "split": "dev",
+ "status": "PRELIMINARY (DRAFT judgments)",
+ "model": "bge_m3",
+ "ranking": {
+  "bge_m3_dense": {
+   "all": {
+    "queries": 104,
+    "mrr": 0.8183,
+    "recall@5": 0.8481,
+    "coverage@5": 0.9942,
+    "recall@10": 0.8768,
+    "coverage@10": 0.9962,
+    "recall@20": 0.9192,
+    "coverage@20": 0.9981,
+    "recall@100": 0.982,
+    "coverage@100": 0.5539,
+    "ndcg@5": 0.8,
+    "ndcg@5_condensed": 0.8016,
+    "ndcg@10": 0.8112,
+    "ndcg@10_condensed": 0.8126
+   },
+   "event": {
+    "queries": 12,
+    "mrr": 0.8917,
+    "recall@5": 0.7361,
+    "coverage@5": 1.0,
+    "recall@10": 0.7361,
+    "coverage@10": 1.0,
+    "recall@20": 0.7708,
+    "coverage@20": 1.0,
+    "recall@100": 0.9236,
+    "coverage@100": 0.6133,
+    "ndcg@5": 0.7262,
+    "ndcg@5_condensed": 0.7262,
+    "ndcg@10": 0.7219,
+    "ndcg@10_condensed": 0.7219
+   },
+   "group": {
+    "queries": 10,
+    "mrr": 0.7811,
+    "recall@5": 0.7286,
+    "coverage@5": 0.98,
+    "recall@10": 0.7769,
+    "coverage@10": 0.98,
+    "recall@20": 0.8094,
+    "coverage@20": 0.99,
+    "recall@100": 0.9295,
+    "coverage@100": 0.5902,
+    "ndcg@5": 0.6399,
+    "ndcg@5_condensed": 0.6568,
+    "ndcg@10": 0.6686,
+    "ndcg@10_condensed": 0.6832
+   },
+   "hard": {
+    "queries": 6,
+    "mrr": 0.7738,
+    "recall@5": 0.8333,
+    "coverage@5": 1.0,
+    "recall@10": 1.0,
+    "coverage@10": 1.0,
+    "recall@20": 1.0,
+    "coverage@20": 1.0,
+    "recall@100": 1.0,
+    "coverage@100": 0.4252,
+    "ndcg@5": 0.7718,
+    "ndcg@5_condensed": 0.7718,
+    "ndcg@10": 0.8274,
+    "ndcg@10_condensed": 0.8274
+   },
+   "person": {
+    "queries": 92,
+    "mrr": 0.8087,
+    "recall@5": 0.8627,
+    "coverage@5": 0.9935,
+    "recall@10": 0.8951,
+    "coverage@10": 0.9957,
+    "recall@20": 0.9385,
+    "coverage@20": 0.9978,
+    "recall@100": 0.9896,
+    "coverage@100": 0.5462,
+    "ndcg@5": 0.8096,
+    "ndcg@5_condensed": 0.8114,
+    "ndcg@10": 0.8229,
+    "ndcg@10_condensed": 0.8245
+   },
+   "semantic_only": {
+    "queries": 26,
+    "mrr": 0.8283,
+    "recall@5": 0.8846,
+    "coverage@5": 1.0,
+    "recall@10": 0.9231,
+    "coverage@10": 1.0,
+    "recall@20": 0.9808,
+    "coverage@20": 1.0,
+    "recall@100": 0.9936,
+    "coverage@100": 0.4912,
+    "ndcg@5": 0.8269,
+    "ndcg@5_condensed": 0.8269,
+    "ndcg@10": 0.8392,
+    "ndcg@10_condensed": 0.8392
+   }
+  },
+  "bge_m3_hybrid": {
+   "all": {
+    "queries": 104,
+    "mrr": 0.6344,
+    "recall@5": 0.6656,
+    "coverage@5": 0.9923,
+    "recall@10": 0.7281,
+    "coverage@10": 0.9962,
+    "recall@20": 0.8587,
+    "coverage@20": 0.9981,
+    "recall@100": 0.9742,
+    "coverage@100": 0.5871,
+    "ndcg@5": 0.5977,
+    "ndcg@5_condensed": 0.5993,
+    "ndcg@10": 0.6181,
+    "ndcg@10_condensed": 0.6194
+   },
+   "event": {
+    "queries": 12,
+    "mrr": 0.9211,
+    "recall@5": 0.6806,
+    "coverage@5": 1.0,
+    "recall@10": 0.6806,
+    "coverage@10": 1.0,
+    "recall@20": 0.75,
+    "coverage@20": 1.0,
+    "recall@100": 0.9583,
+    "coverage@100": 0.6567,
+    "ndcg@5": 0.7157,
+    "ndcg@5_condensed": 0.7157,
+    "ndcg@10": 0.7112,
+    "ndcg@10_condensed": 0.7112
+   },
+   "group": {
+    "queries": 10,
+    "mrr": 0.7803,
+    "recall@5": 0.6468,
+    "coverage@5": 0.96,
+    "recall@10": 0.6468,
+    "coverage@10": 0.98,
+    "recall@20": 0.7718,
+    "coverage@20": 0.99,
+    "recall@100": 0.8812,
+    "coverage@100": 0.625,
+    "ndcg@5": 0.6295,
+    "ndcg@5_condensed": 0.6443,
+    "ndcg@10": 0.621,
+    "ndcg@10_condensed": 0.633
+   },
+   "hard": {
+    "queries": 6,
+    "mrr": 0.7156,
+    "recall@5": 0.8333,
+    "coverage@5": 1.0,
+    "recall@10": 0.8333,
+    "coverage@10": 1.0,
+    "recall@20": 0.8333,
+    "coverage@20": 1.0,
+    "recall@100": 1.0,
+    "coverage@100": 0.4456,
+    "ndcg@5": 0.7384,
+    "ndcg@5_condensed": 0.7384,
+    "ndcg@10": 0.7384,
+    "ndcg@10_condensed": 0.7384
+   },
+   "person": {
+    "queries": 92,
+    "mrr": 0.597,
+    "recall@5": 0.6636,
+    "coverage@5": 0.9913,
+    "recall@10": 0.7342,
+    "coverage@10": 0.9957,
+    "recall@20": 0.8728,
+    "coverage@20": 0.9978,
+    "recall@100": 0.9762,
+    "coverage@100": 0.578,
+    "ndcg@5": 0.5823,
+    "ndcg@5_condensed": 0.5841,
+    "ndcg@10": 0.6059,
+    "ndcg@10_condensed": 0.6074
+   },
+   "semantic_only": {
+    "queries": 26,
+    "mrr": 0.1586,
+    "recall@5": 0.2179,
+    "coverage@5": 1.0,
+    "recall@10": 0.3333,
+    "coverage@10": 1.0,
+    "recall@20": 0.7244,
+    "coverage@20": 1.0,
+    "recall@100": 1.0,
+    "coverage@100": 0.5307,
+    "ndcg@5": 0.1092,
+    "ndcg@5_condensed": 0.1092,
+    "ndcg@10": 0.1447,
+    "ndcg@10_condensed": 0.1447
+   }
+  }
+ },
+ "similarity": {
+  "by_rank": {
+   "rank1": {
+    "n": 116,
+    "p05": 0.4517,
+    "p25": 0.5144,
+    "p50": 0.5492,
+    "p75": 0.6137,
+    "p95": 0.6919,
+    "max": 0.7406
+   },
+   "rank5": {
+    "n": 116,
+    "p05": 0.3512,
+    "p25": 0.4557,
+    "p50": 0.4839,
+    "p75": 0.5119,
+    "p95": 0.5551,
+    "max": 0.5841
+   },
+   "rank20": {
+    "n": 116,
+    "p05": 0.3231,
+    "p25": 0.4182,
+    "p50": 0.4459,
+    "p75": 0.4671,
+    "p95": 0.4989,
+    "max": 0.5119
+   },
+   "rank100": {
+    "n": 50,
+    "p05": 0.289,
+    "p25": 0.3618,
+    "p50": 0.3845,
+    "p75": 0.405,
+    "p95": 0.4401,
+    "max": 0.4657
+   }
+  },
+  "judged_relevant": {
+   "n": 158,
+   "p05": 0.4209,
+   "p25": 0.4817,
+   "p50": 0.5398,
+   "p75": 0.6046,
+   "p95": 0.6785,
+   "max": 0.7406
+  },
+  "judged_not_relevant": {
+   "n": 5704,
+   "p05": 0.3589,
+   "p25": 0.4067,
+   "p50": 0.4403,
+   "p75": 0.468,
+   "p95": 0.5105,
+   "max": 0.6453
+  },
+  "negative_query_top1": {
+   "hard": {
+    "n": 6,
+    "p05": 0.4517,
+    "p25": 0.4654,
+    "p50": 0.5172,
+    "p75": 0.5312,
+    "p95": 0.5312,
+    "max": 0.5312
+   },
+   "offtopic": {
+    "n": 3,
+    "p05": 0.2923,
+    "p25": 0.2923,
+    "p50": 0.4026,
+    "p75": 0.4036,
+    "p95": 0.4036,
+    "max": 0.4036
+   }
+  }
+ },
+ "no_reachable_relevant": [
+  "rq-104",
+  "rq-105",
+  "rq-78"
+ ]
+}

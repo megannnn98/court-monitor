@@ -1,0 +1,19 @@
+{
+  "embedding_model_id": "BAAI/bge-m3",
+  "person": {
+    "collection": "sv2_bge_m3_persons",
+    "documents": 314,
+    "indexed": 314,
+    "embed_seconds": 6.16,
+    "upsert_seconds": 0.28,
+    "dimension": 1024
+  },
+  "event": {
+    "collection": "sv2_bge_m3_events",
+    "documents": 491,
+    "indexed": 491,
+    "embed_seconds": 3.84,
+    "upsert_seconds": 1.05,
+    "dimension": 1024
+  }
+}

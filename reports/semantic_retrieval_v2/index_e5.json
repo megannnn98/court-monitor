@@ -1,0 +1,19 @@
+{
+  "embedding_model_id": "intfloat/multilingual-e5-base",
+  "person": {
+    "collection": "sv2_e5_persons",
+    "documents": 314,
+    "indexed": 314,
+    "embed_seconds": 2.14,
+    "upsert_seconds": 0.21,
+    "dimension": 768
+  },
+  "event": {
+    "collection": "sv2_e5_events",
+    "documents": 491,
+    "indexed": 491,
+    "embed_seconds": 1.25,
+    "upsert_seconds": 0.76,
+    "dimension": 768
+  }
+}

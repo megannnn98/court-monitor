@@ -13,3 +13,6 @@ article.html
 /.codegraph
 /var/person_ner
 /var/person_ner_cpu
+
+# Semantic Retrieval v2 raw ranked runs (5.4 MB, rebuilt by `retrieval rank` on the stand)
+/reports/semantic_retrieval_v2/runs/

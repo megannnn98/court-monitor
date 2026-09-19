@@ -155,6 +155,32 @@ SEMANTIC_VECTOR_BACKEND=pgvector uv run python src/main.py rebuild-semantic-inde
 
 Выбран `0.80`: 0 FP на 14 калибровочных negative (максимум 0.789), recall 0.40. Добавленный после калибровки «задержание кометы телескопом» пробивает порог (0.815, слово «задержание») — известное ограничение cosine-порога. Margin относительно фоновых off-topic документов проверен и не лучше.
 
+## Эксперимент Semantic Retrieval v2 (2026-09-19, PRELIMINARY)
+
+Ветка `feat/semantic-retrieval-v2`, код `src/evaluation/semantic_v2/`, отчёт
+[`reports/semantic_retrieval_v2/final_report.md`](../../reports/semantic_retrieval_v2/final_report.md),
+таблицы метрик — `reports/semantic_retrieval_v2/comparison.md`.
+
+Зачем: порог `0.80` был откалиброван на маленьком синтетическом корпусе (см.
+таблицу выше). Эксперимент сравнил `intfloat/multilingual-e5-base` и
+`BAAI/bge-m3` (только dense) на реальном корпусе: 104 golden-статьи, 176
+retrieval-запросов, graded judgments с явными negative, candidate pooling по
+обеим моделям, отдельная калибровка порога на dev и проверка на validation,
+downstream Research Workflow и замер стоимости. Representation не менялась
+(PERSON v2 / EVENT v1), reranker выключен, test split не запускался.
+
+Итог: BGE-M3 выигрывает на dev (MRR 0.818 против 0.777, semantic-only 0.828
+против 0.699), но на validation разница исчезает (CI пересекают ноль), а
+стоимость выше втрое (83 док/с против 255, VRAM 2.9 ГБ против 1.6 ГБ, запрос
+13.7 мс против 7.6 мс). Рекомендация — **оставить E5 и порог 0.80**; настоящая
+развилка не в модели, а в политике приёма: на dev E5 @ 0.80 даёт recall 0.85
+при 280 принятых сущностях на hard-negative запросах, E5 @ 0.82 — recall 0.67
+при 26. Hard in-domain негативы не решает ни одна модель (rejection 0.5–0.56).
+
+Статус PRELIMINARY: вся разметка — агентская DRAFT, human verification не
+выполнена (blind-листы: `var/real_world/review/semantic_v2/`). Production не
+менялся: модель, порог, индекс и Qdrant те же.
+
 ## Ошибки
 
 | Ситуация | Результат workflow |
