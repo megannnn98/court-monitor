@@ -30,6 +30,9 @@ from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringW
 from monitoring.service import MonitoringDependencies, MonitoringService
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.ai_factory import build_entity_review_service
+from persons.resolution.ai_policy import EntityReviewSettings
+from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
@@ -83,6 +86,9 @@ def build_monitoring_service(
     create_fetcher: Callable[[], DocumentFetcher] = default_fetcher,
     create_semantic_indexer: Callable[[], SemanticIndexer] | None = None,
     use_env_semantic_indexer: bool = True,
+    # None: built from the environment; ENTITY_REVIEW_PROVIDER=none leaves it unset and
+    # every pending ER decision goes to a human (ADR 0020).
+    entity_review: AutomatedEntityReviewService | None = None,
     query_provider: MonitoringQueryProvider | None = None,
     extraction_pipeline: ExtractionPipeline | None = None,
     evidence_settle_interval: timedelta = EVIDENCE_SETTLE_INTERVAL,
@@ -91,6 +97,10 @@ def build_monitoring_service(
     person_persistence = SqlAlchemyPersonPersistence(session_factory)
     if create_semantic_indexer is None and use_env_semantic_indexer:
         create_semantic_indexer = semantic_indexer_factory(session_factory, env)
+    if entity_review is None:
+        entity_review = build_entity_review_service(
+            session_factory, EntityReviewSettings.from_env(env)
+        )
 
     def ingestion_persistence(source: SourceDefinition) -> SqlAlchemyIngestionPersistence:
         return SqlAlchemyIngestionPersistence(
@@ -130,6 +140,7 @@ def build_monitoring_service(
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
         findings=MonitoringFindingService(session_factory, query_provider=query_provider),
         create_semantic_indexer=create_semantic_indexer,
+        entity_review=entity_review,
     )
     return MonitoringService(dependencies, settings)
 

@@ -157,11 +157,25 @@ def person_resolution(
     return dg.Output(handle, metadata=_stage_metadata(handle, result))
 
 
-@dg.asset(group_name=GROUP, description="Classify persons whose evidence changed.")
-def persecution_classification(
+@dg.asset(
+    group_name=GROUP,
+    description="AI review of the ER decisions that ask for a human (ADR 0020).",
+)
+def ai_entity_review(
     person_resolution: RunHandle | None, monitoring: dg.ResourceParam[MonitoringService]
 ) -> dg.Output[RunHandle | None]:
     handle = person_resolution
+    if handle is None:
+        return _skipped_output(None)
+    result = _guard(monitoring, handle, lambda: monitoring.review_entities(handle))
+    return dg.Output(handle, metadata=_stage_metadata(handle, result))
+
+
+@dg.asset(group_name=GROUP, description="Classify persons whose evidence changed.")
+def persecution_classification(
+    ai_entity_review: RunHandle | None, monitoring: dg.ResourceParam[MonitoringService]
+) -> dg.Output[RunHandle | None]:
+    handle = ai_entity_review
     if handle is None:
         return _skipped_output(None)
     result = _guard(monitoring, handle, lambda: monitoring.classify(handle))
@@ -247,6 +261,7 @@ MONITORING_ASSETS = [
     source_ingestion,
     entity_extraction,
     person_resolution,
+    ai_entity_review,
     persecution_classification,
     rosfinmonitoring_matching,
     semantic_indexing,

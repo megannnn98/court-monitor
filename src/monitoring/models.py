@@ -52,6 +52,8 @@ class MonitoringStage(StrEnum):
     INGESTION = "ingestion"
     EXTRACTION = "extraction"
     RESOLUTION = "resolution"
+    # AI review of the ER decisions that ask for a human (ADR 0020).
+    AI_ENTITY_REVIEW = "ai_entity_review"
     CLASSIFICATION = "classification"
     RF_MATCHING = "rf_matching"
     SEMANTIC_INDEXING = "semantic_indexing"

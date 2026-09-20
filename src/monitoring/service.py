@@ -43,6 +43,7 @@ from monitoring.models import (
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from monitoring.selection import SqlAlchemyMonitoringWorkQueries
 from persecution.classification_service import PersecutionClassificationService
+from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -57,6 +58,7 @@ from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 logger = logging.getLogger("monitoring")
 
 SEMANTIC_NOT_CONFIGURED = "not_configured"
+ENTITY_REVIEW_NOT_CONFIGURED = "not_configured"
 # A run waiting for a derived-stage lock refreshes its heartbeat at least this often.
 MAX_LOCK_WAIT_HEARTBEAT_SECONDS = 60.0
 
@@ -139,6 +141,9 @@ class MonitoringDependencies:
     findings: MonitoringFindingService
     # None: semantic retrieval not configured (no QDRANT_URL); the stage is skipped.
     create_semantic_indexer: Callable[[], SemanticIndexer] | None = None
+    # None: no AI reviewer configured (ENTITY_REVIEW_PROVIDER=none); the stage is skipped
+    # and pending ER decisions go straight to a human, as before (ADR 0020).
+    entity_review: AutomatedEntityReviewService | None = None
     semantic_batch_size: int = DEFAULT_BATCH_SIZE
 
 
@@ -344,6 +349,7 @@ class MonitoringService:
         return self.finish(handle)
 
     def _run_derived_stages(self, handle: RunHandle) -> None:
+        self.review_entities(handle)
         self.classify(handle)
         snapshot_id = self.match_rosfinmonitoring(handle)
         self.index_semantic(handle)
@@ -545,6 +551,36 @@ class MonitoringService:
 
     # -- derived stages (global; serialized across concurrent runs) --------------------------
 
+    def review_entities(self, handle: RunHandle) -> StageResult:
+        """AI review of the pending ER decisions, then the action its policy allows.
+
+        The reviewer is optional: without one the stage records `not_configured` and every
+        pending decision stays with a human. A provider failure is an outcome of the
+        review (counted, audited), never a failure of the stage."""
+        with (
+            self._derived_lock(handle, "ai_entity_review"),
+            self._stage(handle, MonitoringStage.AI_ENTITY_REVIEW) as metrics,
+        ):
+            service = self._deps.entity_review
+            if service is None:
+                metrics.update(status=ENTITY_REVIEW_NOT_CONFIGURED)
+                return StageResult(metrics={"status": ENTITY_REVIEW_NOT_CONFIGURED})
+            batch = service.review_pending(limit=self._settings.discovery_limit)
+            metrics.update(
+                reviewed=batch.reviewed,
+                auto_accepted=batch.auto_accepted,
+                auto_rejected=batch.auto_rejected,
+                human_required=batch.human_required,
+                failed=batch.failed,
+                skipped=batch.skipped,
+            )
+        return StageResult(
+            processed=batch.reviewed,
+            created=batch.auto_accepted + batch.auto_rejected,
+            failed=batch.failed,
+            reviews=batch.human_required,
+        )
+
     def classify(self, handle: RunHandle) -> StageResult:
         classifier = self._deps.classification.classifier
         statuses: Counter[str] = Counter()
@@ -738,6 +774,7 @@ _LOG_STAGE_NAMES = {
     MonitoringStage.INGESTION: "ingestion",
     MonitoringStage.EXTRACTION: "extraction",
     MonitoringStage.RESOLUTION: "er",
+    MonitoringStage.AI_ENTITY_REVIEW: "ai_entity_review",
     MonitoringStage.CLASSIFICATION: "classification",
     MonitoringStage.RF_MATCHING: "rf",
     MonitoringStage.SEMANTIC_INDEXING: "semantic",
