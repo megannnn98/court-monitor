@@ -28,6 +28,7 @@ from persons.resolution.review import ResolutionReviewAction
 DEFAULT_AUTO_THRESHOLD = 0.90
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_RETRIES = 3
+DEFAULT_CLI_COMMAND = "claude -p --model sonnet"
 
 # Reasons no model confidence may resolve: telling namesakes apart or deciding that two
 # canonical persons are one is a human decision (ADR 0012, ADR 0020).
@@ -49,6 +50,8 @@ class EntityReviewOutcome(StrEnum):
 
 class EntityReviewProvider(StrEnum):
     TOGETHER = "together"
+    # An already authenticated agent CLI (`claude -p`, `qwen -p`) as the reviewer.
+    CLI = "cli"
     # No reviewer configured: pending decisions keep going to a human as before.
     NONE = "none"
 
@@ -66,6 +69,8 @@ class EntityReviewSettings:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     max_retries: int = DEFAULT_MAX_RETRIES
     prompt_version: str = ENTITY_REVIEW_PROMPT_VERSION
+    # provider=cli: the command that reads a prompt on stdin and prints the JSON answer.
+    cli_command: str = DEFAULT_CLI_COMMAND
 
     def __post_init__(self) -> None:
         if not 0.5 <= self.auto_threshold <= 1.0:
@@ -78,6 +83,8 @@ class EntityReviewSettings:
             raise EntityReviewConfigurationError("ENTITY_REVIEW_MAX_RETRIES must not be negative")
         if not self.prompt_version.strip():
             raise EntityReviewConfigurationError("ENTITY_REVIEW_PROMPT_VERSION must not be empty")
+        if self.provider is EntityReviewProvider.CLI and not self.cli_command.strip():
+            raise EntityReviewConfigurationError("ENTITY_REVIEW_CLI_COMMAND must not be empty")
 
     @property
     def enabled(self) -> bool:
@@ -101,6 +108,8 @@ class EntityReviewSettings:
             max_retries=_int(env, "ENTITY_REVIEW_MAX_RETRIES", defaults.max_retries),
             prompt_version=(env.get("ENTITY_REVIEW_PROMPT_VERSION") or "").strip()
             or defaults.prompt_version,
+            cli_command=(env.get("ENTITY_REVIEW_CLI_COMMAND") or "").strip()
+            or defaults.cli_command,
         )
 
 

@@ -183,12 +183,15 @@ skipped: 0
 
 | Переменная | По умолчанию |
 |---|---|
-| `ENTITY_REVIEW_PROVIDER` | `none` (значения: `none`, `together`) |
+| `ENTITY_REVIEW_PROVIDER` | `none` (значения: `none`, `together`, `cli`) |
 | `ENTITY_REVIEW_MODEL` | не задана — берётся `TOGETHER_MODEL` |
 | `ENTITY_REVIEW_AUTO_THRESHOLD` | `0.90` (допустимо 0.5..1.0) |
 | `ENTITY_REVIEW_TIMEOUT_SECONDS` | `30` |
 | `ENTITY_REVIEW_MAX_RETRIES` | `3` (только временные ошибки API, backoff 0.5 с × 2^n) |
 | `ENTITY_REVIEW_PROMPT_VERSION` | `v1` |
+| `ENTITY_REVIEW_CLI_COMMAND` | `claude -p --model sonnet` (только при `provider=cli`) |
+
+Два backend'а одного контракта: `together` — OpenAI-совместимый HTTP-endpoint со строгим `json_schema` (сам Together, локальный Ollama через `TOGETHER_BASE_URL`, любой совместимый сервер); `cli` — уже авторизованный агентский CLI (`claude -p`, `qwen -p`), который читает промпт на stdin и печатает JSON. У CLI нет schema-режима, поэтому контракт задан в промпте и проверяется той же Pydantic-моделью; ненулевой код возврата и таймаут считаются временными ошибками (retry), мусор вместо JSON — окончательной. Цена: один вызов агента на пару, порядка 15 секунд, поэтому CLI годится для выборочных прогонов, а не для полного разбора очереди.
 
 Порог меняется переменной окружения; чтобы перепроверить кандидатов новой версией prompt, поднимите `ENTITY_REVIEW_PROMPT_VERSION` и запустите команду снова. Ручное review никуда не исчезает: `list`/`show`/`apply` работают как раньше, а `merge_persons` остаётся только человеку.
 
