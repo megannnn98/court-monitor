@@ -3,11 +3,28 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from candidates.models import PoliticalPersecutionCandidate
 from candidates.service import CandidateQueryService
 from web.dependencies import get_db
 from web.response_models import CandidateResponse
 
 router = APIRouter()
+
+
+def candidate_response(candidate: PoliticalPersecutionCandidate) -> CandidateResponse:
+    """One candidate as the API and the CSV/PDF exports write it."""
+    return CandidateResponse(
+        person_id=candidate.person_id,
+        canonical_name=candidate.canonical_name,
+        normalized_name=candidate.normalized_name,
+        persecution_status=candidate.persecution_status,
+        persecution_confidence=candidate.persecution_confidence,
+        persecution_reasons=candidate.persecution_reasons,
+        rosfinmonitoring_status=candidate.rosfinmonitoring_status,
+        rosfinmonitoring_match_confidence=candidate.rosfinmonitoring_match_confidence,
+        event_count=candidate.event_count,
+        alias_count=candidate.alias_count,
+    )
 
 
 # Candidate endpoints
@@ -30,18 +47,4 @@ def list_candidates(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    return [
-        CandidateResponse(
-            person_id=c.person_id,
-            canonical_name=c.canonical_name,
-            normalized_name=c.normalized_name,
-            persecution_status=c.persecution_status,
-            persecution_confidence=c.persecution_confidence,
-            persecution_reasons=c.persecution_reasons,
-            rosfinmonitoring_status=c.rosfinmonitoring_status,
-            rosfinmonitoring_match_confidence=c.rosfinmonitoring_match_confidence,
-            event_count=c.event_count,
-            alias_count=c.alias_count,
-        )
-        for c in result.candidates
-    ]
+    return [candidate_response(candidate) for candidate in result.candidates]

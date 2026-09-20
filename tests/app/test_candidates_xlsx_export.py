@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from csv import reader
 from datetime import UTC, datetime, timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -437,3 +438,117 @@ def test_only_a_web_link_is_clickable(session_factory: sessionmaker[Session]) ->
     assert sheet is not None
     assert sheet.cell(row=2, column=LINK_COLUMN).value == "javascript:alert(1)"
     assert sheet.cell(row=2, column=LINK_COLUMN).hyperlink is None
+
+
+def _csv_names(content: str) -> list[str]:
+    """The `canonical_name` column of the CSV export, in the export's order."""
+    rows = list(reader(StringIO(content.lstrip("﻿"))))
+    header = rows[0]
+    return [row[header.index("canonical_name")] for row in rows[1:] if row]
+
+
+def test_csv_and_pdf_exports_apply_the_page_filters(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A download holds what the page shows: CSV and PDF read the same filters it does."""
+    today = datetime.now(ZoneInfo("Europe/Moscow"))
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        snapshot_id = seed.snapshot()
+        _seed_candidate(seed, snapshot_id, "Иван Свежий", published_at=today - timedelta(days=10))
+        _seed_candidate(seed, snapshot_id, "Петр Старый", published_at=today - timedelta(days=90))
+        _seed_candidate(
+            seed,
+            snapshot_id,
+            "Лена Административная",
+            published_at=today - timedelta(days=10),
+            reasons=["Политическая статья: КоАП РФ ст. 20.2 ч. 8"],
+        )
+        session.commit()
+
+    with _client(session_factory) as client:
+        default = client.get("/ui/candidates/export", params={"snapshot_id": snapshot_id})
+        administrative = client.get(
+            "/ui/candidates/export",
+            params={"snapshot_id": snapshot_id, "include_administrative": "1"},
+        )
+        whole_history = client.get(
+            "/ui/candidates/export", params={"snapshot_id": snapshot_id, "date_from": ""}
+        )
+        pdf = client.get(
+            "/ui/candidates/export.pdf",
+            params={"snapshot_id": snapshot_id, "date_from": "", "include_administrative": "1"},
+        )
+
+    assert _csv_names(default.text) == ["Иван Свежий"]
+    assert _csv_names(administrative.text) == ["Иван Свежий", "Лена Административная"]
+    assert _csv_names(whole_history.text) == ["Иван Свежий", "Петр Старый"]
+    assert pdf.status_code == 200
+    assert pdf.content.startswith(b"%PDF-")
+
+
+def test_csv_export_keeps_the_page_limit(session_factory: sessionmaker[Session]) -> None:
+    """Unlike the Excel export, CSV and PDF download the page, `limit` included."""
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        snapshot_id = seed.snapshot()
+        for name in ("Первый Кандидат", "Второй Кандидат", "Третий Кандидат"):
+            _seed_candidate(seed, snapshot_id, name)
+        session.commit()
+
+    params: dict[str, str | int] = {"snapshot_id": snapshot_id, "limit": 2, "date_from": ""}
+    with _client(session_factory) as client:
+        response = client.get("/ui/candidates/export", params=params)
+        everything = client.get("/ui/candidates/export.xlsx", params=params)
+
+    assert len(_csv_names(response.text)) == 2
+    assert len(_rows(everything.content)) == 1 + 3
+
+
+def test_candidates_page_links_csv_and_pdf_with_active_filters(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        snapshot_id = ResearchSeeder(session).snapshot()
+        session.commit()
+
+    with _client(session_factory) as client:
+        page = client.get(
+            "/ui/candidates",
+            params={
+                "snapshot_id": snapshot_id,
+                "min_confidence": 0.8,
+                "limit": 50,
+                "date_from": "2026-08-01",
+                "include_administrative": "1",
+            },
+        )
+
+    expected = (
+        f"snapshot_id={snapshot_id}&min_confidence=0.8"
+        "&date_from=2026-08-01&include_administrative=1&limit=50"
+    )
+    assert f'href="/ui/candidates/export?{expected}"' in page.text
+    assert f'href="/ui/candidates/export.pdf?{expected}"' in page.text
+
+
+def test_an_unparsable_period_is_rejected_by_every_export(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        snapshot_id = ResearchSeeder(session).snapshot()
+        session.commit()
+
+    params: dict[str, str | int] = {"snapshot_id": snapshot_id, "date_from": "01.08.2026"}
+    with _client(session_factory) as client:
+        responses = [
+            client.get(path, params=params)
+            for path in (
+                "/ui/candidates",
+                "/ui/candidates/export",
+                "/ui/candidates/export.xlsx",
+                "/ui/candidates/export.pdf",
+            )
+        ]
+
+    assert [response.status_code for response in responses] == [422, 422, 422, 422]
