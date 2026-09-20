@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from collections.abc import Callable
+import os
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -15,8 +16,29 @@ logger = logging.getLogger("sources")
 
 # Discovery never goes further back than this: the first run of a channel loads a month.
 TELEGRAM_HISTORY_DAYS = 30
+HISTORY_DAYS_ENV = "TELEGRAM_HISTORY_DAYS"
 # Politeness towards t.me between listing pages of one channel.
 LISTING_PAGE_INTERVAL_SECONDS = 1.0
+
+
+def telegram_history_days(env: Mapping[str, str] | None = None) -> int:
+    """`TELEGRAM_HISTORY_DAYS`: how far back channel discovery goes.
+
+    A one-time backfill of a channel older than the default window needs this widened
+    for that run; the value is read once, when the source registry is built.
+    """
+    raw = (os.environ if env is None else env).get(HISTORY_DAYS_ENV)
+    if raw is None or not raw.strip():
+        return TELEGRAM_HISTORY_DAYS
+    try:
+        days = int(raw)
+    except ValueError:
+        raise ValueError(
+            f"{HISTORY_DAYS_ENV} must be a positive number of days, got {raw!r}"
+        ) from None
+    if days < 1:
+        raise ValueError(f"{HISTORY_DAYS_ENV} must be a positive number of days, got {raw!r}")
+    return days
 
 
 class TelegramSourceAdapter:

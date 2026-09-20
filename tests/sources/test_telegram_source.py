@@ -7,11 +7,15 @@ import pytest
 
 from sources.ingestion_errors import ParseError
 from sources.models import RawDocument, SourceReference
-from sources.source_registry import SOURCES, get_source_definition
+from sources.source_registry import SOURCES, get_source_definition, telegram_source
 from sources.telegram.article_parser import TelegramPostParser
 from sources.telegram.channels import load_telegram_channels
 from sources.telegram.listing_parser import TelegramListingParser
-from sources.telegram.source_adapter import TelegramSourceAdapter
+from sources.telegram.source_adapter import (
+    TELEGRAM_HISTORY_DAYS,
+    TelegramSourceAdapter,
+    telegram_history_days,
+)
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 CHANNEL_HTML = (FIXTURES / "telegram_channel.html").read_bytes()
@@ -84,7 +88,9 @@ def test_post_parser_rejects_a_post_without_text() -> None:
         TelegramPostParser().parse(raw)
 
 
-def _discover(pages: dict[str, str], *, limit: int) -> tuple[list[str], list[str]]:
+def _discover(
+    pages: dict[str, str], *, limit: int, history_days: int = TELEGRAM_HISTORY_DAYS
+) -> tuple[list[str], list[str]]:
     requested: list[str] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -98,6 +104,7 @@ def _discover(pages: dict[str, str], *, limit: int) -> tuple[list[str], list[str
                 username="chan",
                 document_fetcher=FakeDocumentFetcher(),
                 page_interval_seconds=0,
+                history_days=history_days,
                 now=lambda: datetime(2026, 9, 15, tzinfo=UTC),
             )
             return await adapter.discover(limit=limit)
@@ -172,3 +179,30 @@ def test_a_chat_without_web_preview_yields_no_posts_instead_of_failing() -> None
 
     assert asyncio.run(run()) == []
     assert requested == ["https://t.me/s/chan"]
+
+
+def test_a_wider_history_window_reaches_older_posts() -> None:
+    """A one-time backfill needs posts the default 30-day window leaves out."""
+    # The end of the channel: the last page repeats its oldest post.
+    pages = {**PAGES, "https://t.me/s/chan?before=5": _message(5, "2026-08-10T00:00:00+00:00")}
+    external_ids, _ = _discover(pages, limit=100, history_days=60)
+
+    assert external_ids == ["11", "9", "8", "7", "6", "5"]
+
+
+def test_history_window_comes_from_the_environment() -> None:
+    assert telegram_history_days({}) == TELEGRAM_HISTORY_DAYS
+    assert telegram_history_days({"TELEGRAM_HISTORY_DAYS": ""}) == TELEGRAM_HISTORY_DAYS
+    assert telegram_history_days({"TELEGRAM_HISTORY_DAYS": "120"}) == 120
+    for bad in ("0", "-5", "month"):
+        with pytest.raises(ValueError, match="TELEGRAM_HISTORY_DAYS"):
+            telegram_history_days({"TELEGRAM_HISTORY_DAYS": bad})
+
+
+def test_a_telegram_source_takes_the_configured_history_window() -> None:
+    channel = load_telegram_channels()[0]
+    definition = telegram_source(channel, history_days=90)
+    adapter = definition.create_adapter(httpx.AsyncClient(), FakeDocumentFetcher())
+
+    assert isinstance(adapter, TelegramSourceAdapter)
+    assert adapter._history_days == 90

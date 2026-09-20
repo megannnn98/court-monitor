@@ -28,6 +28,7 @@ def test_every_problem_is_reported_at_once() -> None:
         "ER_AUTO_LINK_MIN_SCORE": "2",
         "SEMANTIC_CANDIDATE_POOL_SIZE": "100000",
         "TOGETHER_API_KEY": "key-only",
+        "TELEGRAM_HISTORY_DAYS": "not-a-number",
     }
 
     with pytest.raises(ApplicationConfigurationError) as raised:
@@ -41,9 +42,17 @@ def test_every_problem_is_reported_at_once() -> None:
         "ER_AUTO_LINK_MIN_SCORE",
         "SEMANTIC_CANDIDATE_POOL_SIZE",
         "TOGETHER_MODEL",
+        "TELEGRAM_HISTORY_DAYS",
     ):
         assert fragment in problems
     assert "key-only" not in str(raised.value)
+
+
+def test_a_negative_telegram_history_window_is_a_startup_error() -> None:
+    assert ApplicationSettings.from_env(BASE).telegram_history_days == 30
+
+    with pytest.raises(ApplicationConfigurationError, match="TELEGRAM_HISTORY_DAYS"):
+        ApplicationSettings.from_env({**BASE, "TELEGRAM_HISTORY_DAYS": "-5"})
 
 
 def test_missing_database_url_is_an_error_only_when_required() -> None:
@@ -70,3 +79,4 @@ def test_redacted_configuration_has_no_secrets() -> None:
     assert "s3cret-pass" not in output
     assert "tgp_super_secret" not in output
     assert '"configured": true' in output
+    assert '"telegram_history_days": 30' in output

@@ -26,6 +26,7 @@ from semantic_retrieval.embeddings import EmbeddingConfig
 from semantic_retrieval.factory import SemanticRetrievalConfig
 from semantic_retrieval.models import SemanticConfigurationError
 from semantic_retrieval.relevance import resolve_dense_min_score
+from sources.telegram.source_adapter import telegram_history_days
 
 T = TypeVar("T")
 
@@ -53,6 +54,9 @@ class ApplicationSettings:
     database_url: str
     database_pool: DatabasePoolSettings
     monitoring: MonitoringSettings
+    # How far back Telegram channel discovery goes (TELEGRAM_HISTORY_DAYS): validated and
+    # logged here, used by source_registry.TELEGRAM_SOURCES, which reads it on import.
+    telegram_history_days: int
     semantic: SemanticRetrievalConfig
     # Only when semantic retrieval is configured.
     embedding: EmbeddingConfig | None
@@ -83,6 +87,7 @@ class ApplicationSettings:
             load(lambda: validate_database_url(database_url))
         pool = load(lambda: DatabasePoolSettings.from_env(env))
         monitoring = load(lambda: MonitoringSettings.from_env(env))
+        history_days = load(lambda: telegram_history_days(env))
         semantic = load(lambda: SemanticRetrievalConfig.from_env(env))
         er_candidates = load(lambda: CandidateConfig.from_env(env))
         er_thresholds = load(lambda: ResolutionThresholds.from_env(env))
@@ -100,11 +105,13 @@ class ApplicationSettings:
         if problems:
             raise ApplicationConfigurationError(problems)
         assert pool is not None and monitoring is not None and semantic is not None
+        assert history_days is not None
         assert er_candidates is not None and er_thresholds is not None and together is not None
         return cls(
             database_url=database_url,
             database_pool=pool,
             monitoring=monitoring,
+            telegram_history_days=history_days,
             semantic=semantic,
             embedding=embedding,
             dense_min_score=dense_min_score,
@@ -130,6 +137,7 @@ class ApplicationSettings:
                 "stale_run_after_minutes": int(
                     self.monitoring.stale_run_after.total_seconds() // 60
                 ),
+                "telegram_history_days": self.telegram_history_days,
             },
             "semantic": {
                 "configured": self.semantic.enabled,

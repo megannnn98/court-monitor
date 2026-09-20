@@ -26,7 +26,11 @@ from sources.sudrf.listing_parser import SudrfListingParser
 from sources.sudrf.source_adapter import SudrfSourceAdapter
 from sources.telegram.article_parser import TelegramPostParser
 from sources.telegram.channels import TelegramChannel, load_telegram_channels
-from sources.telegram.source_adapter import TelegramSourceAdapter
+from sources.telegram.source_adapter import (
+    TELEGRAM_HISTORY_DAYS,
+    TelegramSourceAdapter,
+    telegram_history_days,
+)
 
 
 class SourceKind(StrEnum):
@@ -139,7 +143,9 @@ KOMMERSANT = SourceDefinition(
 )
 
 
-def telegram_source(channel: TelegramChannel) -> SourceDefinition:
+def telegram_source(
+    channel: TelegramChannel, *, history_days: int = TELEGRAM_HISTORY_DAYS
+) -> SourceDefinition:
     return SourceDefinition(
         name=channel.source_name,
         source_name=channel.title,
@@ -150,12 +156,16 @@ def telegram_source(channel: TelegramChannel) -> SourceDefinition:
             document_fetcher=fetcher,
             max_attempts=3,
             base_delay_seconds=0.5,
+            history_days=history_days,
         ),
         create_parser=TelegramPostParser,
     )
 
 
-TELEGRAM_SOURCES = [telegram_source(channel) for channel in load_telegram_channels()]
+TELEGRAM_SOURCES = [
+    telegram_source(channel, history_days=telegram_history_days())
+    for channel in load_telegram_channels()
+]
 
 SOURCES: dict[str, SourceDefinition] = {
     OVD_INFO.name: OVD_INFO,
