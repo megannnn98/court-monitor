@@ -27,6 +27,7 @@ from db.models.persons import (
     PersonEventLinkRecord,
     PersonMergeRecord,
     PersonRecord,
+    PersonResolutionAiReviewRecord,
     PersonResolutionDecisionRecord,
     ReviewRecordModel,
 )
@@ -63,6 +64,7 @@ __all__ = [
     "PersonEventLinkRecord",
     "PersonMergeRecord",
     "PersonRecord",
+    "PersonResolutionAiReviewRecord",
     "PersonResolutionDecisionRecord",
     "ReviewRecordModel",
     "RosfinMatchRecord",

@@ -19,6 +19,7 @@ from sqlalchemy.engine import make_url
 
 from db.database import DatabasePoolSettings, validate_database_url
 from monitoring.models import MonitoringSettings
+from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.candidates import CandidateConfig
 from persons.resolution.decision import ResolutionThresholds
 from research.workflow.llm import LlmConfigurationError
@@ -63,6 +64,8 @@ class ApplicationSettings:
     dense_min_score: float | None
     er_candidates: CandidateConfig
     er_thresholds: ResolutionThresholds
+    # AI review of pending ER decisions (ADR 0020); disabled by default.
+    entity_review: EntityReviewSettings
     together: TogetherSettings
 
     @classmethod
@@ -91,6 +94,7 @@ class ApplicationSettings:
         semantic = load(lambda: SemanticRetrievalConfig.from_env(env))
         er_candidates = load(lambda: CandidateConfig.from_env(env))
         er_thresholds = load(lambda: ResolutionThresholds.from_env(env))
+        entity_review = load(lambda: EntityReviewSettings.from_env(env))
 
         embedding: EmbeddingConfig | None = None
         dense_min_score: float | None = None
@@ -107,6 +111,7 @@ class ApplicationSettings:
         assert pool is not None and monitoring is not None and semantic is not None
         assert history_days is not None
         assert er_candidates is not None and er_thresholds is not None and together is not None
+        assert entity_review is not None
         return cls(
             database_url=database_url,
             database_pool=pool,
@@ -117,6 +122,7 @@ class ApplicationSettings:
             dense_min_score=dense_min_score,
             er_candidates=er_candidates,
             er_thresholds=er_thresholds,
+            entity_review=entity_review,
             together=together,
         )
 
@@ -152,6 +158,14 @@ class ApplicationSettings:
                 "auto_link_min_score": self.er_thresholds.auto_link_min_score,
                 "review_min_score": self.er_thresholds.review_min_score,
                 "min_margin": self.er_thresholds.min_margin,
+            },
+            "entity_review": {
+                "provider": self.entity_review.provider.value,
+                "model": self.entity_review.model,
+                "auto_threshold": self.entity_review.auto_threshold,
+                "timeout_seconds": self.entity_review.timeout_seconds,
+                "max_retries": self.entity_review.max_retries,
+                "prompt_version": self.entity_review.prompt_version,
             },
             "together": {
                 "configured": self.together.configured,

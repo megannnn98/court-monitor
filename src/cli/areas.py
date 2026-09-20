@@ -61,7 +61,9 @@ def _semantic(args: argparse.Namespace, context: CliContext) -> None:
 
 
 def _person_resolution(args: argparse.Namespace, context: CliContext) -> None:
-    run_person_resolution_command(args, context.session_factory)
+    run_person_resolution_command(
+        args, context.session_factory, entity_review=context.settings.entity_review
+    )
 
 
 def _monitoring(args: argparse.Namespace, context: CliContext) -> None:

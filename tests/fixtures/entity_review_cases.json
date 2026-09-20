@@ -1,0 +1,284 @@
+{
+  "description": "Labelled (mention, candidate person) pairs for the AI entity review policy. Each case fixes what the model answered and what the deterministic policy must do with it; no external model is called.",
+  "cases": [
+    {
+      "case_id": "rare_full_name_same_case_number",
+      "note": "Одинаковое редкое ФИО и совпадающий номер дела.",
+      "mention": {"name": "Гурбангулы Мяликгулыев", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Гурбангулы Мяликгулыев",
+        "resolution_score": 0.82,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "case_context_match": true,
+        "evidence": ["Дело № 1-115/2026 в отношении Гурбангулы Мяликгулыева"]
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "same_person", "confidence": 0.96},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "same_name_different_regions",
+      "note": "Одинаковое ФИО, разные регионы.",
+      "mention": {"name": "Сергей Петров", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Сергей Петров",
+        "resolution_score": 0.7,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "evidence": ["Суд в Хабаровске оштрафовал Сергея Петрова"]
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "different_person", "confidence": 0.93},
+      "expected_outcome": "auto_rejected",
+      "expected_action": "create_new_person"
+    },
+    {
+      "case_id": "surname_and_initials",
+      "note": "Одинаковая фамилия и инициалы.",
+      "mention": {"name": "И. И. Смирнов", "name_is_complete": false},
+      "candidate": {
+        "canonical_name": "Иван Смирнов",
+        "resolution_score": 0.66,
+        "surname_match": "exact",
+        "given_name_match": "initial_compatible",
+        "patronymic_match": "missing"
+      },
+      "review_reasons": ["initials_only", "medium_confidence_match"],
+      "ai": {"decision": "uncertain", "confidence": 0.55},
+      "expected_outcome": "human_required"
+    },
+    {
+      "case_id": "spelling_variants_of_one_name",
+      "note": "Разные варианты написания одного имени (Наталья / Наталия).",
+      "mention": {"name": "Наталия Филиппова", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Наталья Филиппова",
+        "resolution_score": 0.78,
+        "surname_match": "exact",
+        "given_name_match": "typo",
+        "patronymic_match": "missing",
+        "same_article_mention": true
+      },
+      "review_reasons": ["medium_confidence_match"],
+      "ai": {"decision": "same_person", "confidence": 0.95},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "surname_typo",
+      "note": "Опечатка в фамилии.",
+      "mention": {"name": "Алексей Мифтахов", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Алексей Мифтохов",
+        "resolution_score": 0.74,
+        "surname_match": "typo",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "same_article_mention": true
+      },
+      "review_reasons": ["medium_confidence_match"],
+      "ai": {"decision": "same_person", "confidence": 0.91},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "different_patronymic",
+      "note": "Различающиеся отчества: жёсткий конфликт ER запрещает авто-связывание.",
+      "mention": {"name": "Иван Петрович Козлов", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Иван Сергеевич Козлов",
+        "resolution_score": 0.55,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "mismatch",
+        "conflicts": ["patronymic_mismatch"]
+      },
+      "review_reasons": ["conflicting_identity_data", "medium_confidence_match"],
+      "ai": {"decision": "same_person", "confidence": 0.95},
+      "expected_outcome": "human_required"
+    },
+    {
+      "case_id": "same_name_different_birth_dates",
+      "note": "Совпадающие ФИО, но разные даты рождения (возраст в тексте).",
+      "mention": {"name": "Олег Мампория", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Олег Мампория",
+        "resolution_score": 0.8,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "evidence": ["61-летнего Олега Мампорию приговорили к году колонии-поселения"]
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "different_person", "confidence": 0.92},
+      "expected_outcome": "auto_rejected",
+      "expected_action": "create_new_person"
+    },
+    {
+      "case_id": "one_mention_without_birth_date",
+      "note": "У одного упоминания нет ни возраста, ни региона.",
+      "mention": {"name": "Марина Халандач", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Марина Халандач",
+        "resolution_score": 0.79,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing"
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "uncertain", "confidence": 0.5},
+      "expected_outcome": "human_required"
+    },
+    {
+      "case_id": "surname_change_alias",
+      "note": "Смена фамилии: Белоусова (Широкова).",
+      "mention": {"name": "Ксения Широкова", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Ксения Белоусова",
+        "resolution_score": 0.62,
+        "surname_match": "mismatch",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "aliases": ["Ксения Широкова"],
+        "evidence": ["27-летняя сотрудница бара Ксения Белоусова (Широкова)"]
+      },
+      "review_reasons": ["medium_confidence_match"],
+      "ai": {"decision": "same_person", "confidence": 0.93},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "transliteration",
+      "note": "Транслитерация: Richard Rose / Ричард Роуз. Confidence ровно на пороге.",
+      "mention": {"name": "Ричард Роуз", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Richard Rose",
+        "resolution_score": 0.5,
+        "surname_match": "mismatch",
+        "given_name_match": "mismatch",
+        "patronymic_match": "missing",
+        "evidence": ["Ричарда Роуза (Richard Rose) отправили в ПКТ"]
+      },
+      "review_reasons": ["medium_confidence_match"],
+      "ai": {"decision": "same_person", "confidence": 0.9},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "namesakes_with_a_common_name",
+      "note": "Разные люди с распространённым ФИО: несколько точных совпадений имени.",
+      "mention": {"name": "Александр Иванов", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Александр Иванов",
+        "resolution_score": 0.88,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing"
+      },
+      "review_reasons": ["multiple_exact_name_matches", "multiple_plausible_candidates"],
+      "ai": {"decision": "same_person", "confidence": 0.97},
+      "expected_outcome": "human_required"
+    },
+    {
+      "case_id": "several_publications_about_one_case",
+      "note": "Несколько публикаций об одном судебном деле.",
+      "mention": {"name": "Людмила Разумова", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Людмила Разумова",
+        "resolution_score": 0.83,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "case_context_match": true,
+        "evidence": ["Разумову осудили по статье о военных «фейках» в Тверской области"]
+      },
+      "review_reasons": ["medium_confidence_match", "case_context_match"],
+      "ai": {"decision": "same_person", "confidence": 0.94},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "different_cases_of_one_person",
+      "note": "Разные уголовные дела одного человека.",
+      "mention": {"name": "Ричард Роуз", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Ричард Роуз",
+        "resolution_score": 0.84,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "evidence": ["новое дело об оправдании терроризма в колонии", "прежний приговор о военных «фейках»"]
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "same_person", "confidence": 0.92},
+      "expected_outcome": "auto_accepted",
+      "expected_action": "link_to_person"
+    },
+    {
+      "case_id": "conflicting_organizations",
+      "note": "Конфликтующие организации: «Яблоко» против провластного движения.",
+      "mention": {"name": "Максим Петлин", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Максим Петлин",
+        "resolution_score": 0.72,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing",
+        "evidence": ["председатель регионального отделения «Яблока»"]
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "different_person", "confidence": 0.9},
+      "expected_outcome": "auto_rejected",
+      "expected_action": "create_new_person"
+    },
+    {
+      "case_id": "not_enough_context",
+      "note": "Недостаточно контекста: имя и одна строка без деталей.",
+      "mention": {"name": "Диана М.", "name_is_complete": false},
+      "candidate": {
+        "canonical_name": "Диана Мухаметова",
+        "resolution_score": 0.45,
+        "surname_match": "missing",
+        "given_name_match": "exact",
+        "patronymic_match": "missing"
+      },
+      "review_reasons": ["medium_confidence_match", "incomplete_name"],
+      "ai": {"decision": "uncertain", "confidence": 0.35},
+      "expected_outcome": "human_required"
+    },
+    {
+      "case_id": "surname_only_reference_reviewed_as_different",
+      "note": "Фамилия без имени: даже уверенный different_person не создаёт человека.",
+      "mention": {"name": "Смирнов", "name_is_complete": false},
+      "candidate": {
+        "canonical_name": "Андрей Смирнов",
+        "resolution_score": 0.6,
+        "surname_match": "exact",
+        "given_name_match": "missing",
+        "patronymic_match": "missing"
+      },
+      "review_reasons": ["incomplete_name", "multiple_plausible_candidates"],
+      "ai": {"decision": "different_person", "confidence": 0.95},
+      "expected_outcome": "human_required"
+    },
+    {
+      "case_id": "confidence_just_below_the_threshold",
+      "note": "Confidence чуть ниже порога: решение остаётся человеку.",
+      "mention": {"name": "Егор Ткаченко", "name_is_complete": true},
+      "candidate": {
+        "canonical_name": "Егор Ткаченко",
+        "resolution_score": 0.81,
+        "surname_match": "exact",
+        "given_name_match": "exact",
+        "patronymic_match": "missing"
+      },
+      "review_reasons": ["medium_confidence_match", "name_only_evidence"],
+      "ai": {"decision": "same_person", "confidence": 0.89},
+      "expected_outcome": "human_required"
+    }
+  ]
+}

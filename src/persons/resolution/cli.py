@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.database import create_database_engine, create_session_factory
 from db.maintenance import require_disposable_database, truncate_disposable_tables
 from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.ai_factory import build_entity_review_service
+from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.candidates import CandidateConfig
 from persons.resolution.decision import ResolutionThresholds
 from persons.resolution.evaluation import (
@@ -66,6 +68,13 @@ def add_person_resolution_arguments(subparsers: Any) -> None:
         help="merge_persons: person merged away; keep_separate: the different person",
     )
     apply.add_argument("--note", default=None)
+    ai = actions.add_parser(
+        "ai",
+        help="Review pending decisions with the configured AI reviewer and apply what the "
+        "policy allows (writes to the database)",
+    )
+    ai.add_argument("--limit", type=int, default=100, help="Pending decisions to review")
+
     redecide = actions.add_parser(
         "redecide-name-only",
         help="Re-decide pending name-only reviews under the current rules (dry run by default)",
@@ -244,8 +253,38 @@ def run_evaluate_er(args: argparse.Namespace) -> None:
         args.output_path.write_text(run.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
+def _run_ai_review(
+    session_factory: sessionmaker[Session],
+    settings: EntityReviewSettings | None,
+    *,
+    limit: int,
+) -> str:
+    settings = settings or EntityReviewSettings.from_env(os.environ)
+    service = build_entity_review_service(session_factory, settings)
+    if service is None:
+        raise SystemExit(
+            "AI review is not configured: set ENTITY_REVIEW_PROVIDER=together "
+            "(and the Together AI variables)"
+        )
+    result = service.review_pending(limit=limit)
+    return "\n".join(
+        f"{name}: {value}"
+        for name, value in (
+            ("reviewed", result.reviewed),
+            ("auto_accepted", result.auto_accepted),
+            ("auto_rejected", result.auto_rejected),
+            ("human_required", result.human_required),
+            ("failed", result.failed),
+            ("skipped", result.skipped),
+        )
+    )
+
+
 def run_person_resolution_command(
-    args: argparse.Namespace, session_factory: sessionmaker[Session]
+    args: argparse.Namespace,
+    session_factory: sessionmaker[Session],
+    *,
+    entity_review: EntityReviewSettings | None = None,
 ) -> bool:
     """Handle an ER v2 command; False when `args.command` is not one."""
     if args.command == "resolve-person":
@@ -282,6 +321,8 @@ def run_person_resolution_command(
             elif args.review_command == "show":
                 with session_factory() as session:
                     print(format_review(reviews.get(session, args.decision_id)))
+            elif args.review_command == "ai":
+                print(_run_ai_review(session_factory, entity_review, limit=args.limit))
             elif args.review_command == "redecide-name-only":
                 summary = redecide_name_only_reviews(
                     session_factory, apply=args.apply, limit=args.limit, reviews=reviews

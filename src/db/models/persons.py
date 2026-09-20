@@ -214,3 +214,66 @@ class PersonEventLinkRecord(Base):
     role: Mapped[str] = mapped_column(String(64), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PersonResolutionAiReviewRecord(Base):
+    """Audit of one AI review of a pending ER v2 decision (ADR 0020).
+
+    One row per (decision, input, model, prompt version): the same input is never
+    reviewed twice, and a new prompt version keeps the earlier rows as history. The
+    model never writes here — the application service does, next to the action it
+    applied.
+    """
+
+    __tablename__ = "person_resolution_ai_reviews"
+    __table_args__ = (
+        # Only an answered review is unique: a failed one produced nothing, so the next
+        # run may try the same input again (the index is created in the migration).
+        Index(
+            "uq_person_resolution_ai_reviews_input",
+            "decision_id",
+            "input_hash",
+            "model",
+            "prompt_version",
+            unique=True,
+            postgresql_where=text("outcome <> 'failed'"),
+        ),
+        Index("ix_person_resolution_ai_reviews_decision", "decision_id"),
+        Index("ix_person_resolution_ai_reviews_outcome", "outcome"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    decision_id: Mapped[int] = mapped_column(
+        ForeignKey("person_resolution_decisions.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model: Mapped[str] = mapped_column(String(200), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # The review of the candidate the policy acted on, or of the only candidate.
+    decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    supporting_evidence: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    conflicting_evidence: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # Every reviewed candidate with its own answer, as sent and received.
+    candidate_reviews: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    applied_action: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    applied_person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("persons.id", ondelete="SET NULL"), nullable=True
+    )
+    # Why a human is needed, or why the automatic action was allowed.
+    resolution_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    # Provider calls this review cost in total (a retry and a second candidate both add one).
+    provider_calls: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
