@@ -123,7 +123,7 @@ def test_an_answer_outside_the_contract_is_a_final_failure(printed: str) -> None
     assert raised.value.transient is False
 
 
-def test_a_non_zero_exit_is_transient() -> None:
+def test_a_non_zero_exit_is_transient_and_carries_the_reason() -> None:
     body = "import sys; sys.stdin.read(); sys.stderr.write('rate limited'); sys.exit(1)"
 
     with pytest.raises(EntityReviewError) as raised:
@@ -131,6 +131,45 @@ def test_a_non_zero_exit_is_transient() -> None:
 
     assert raised.value.transient is True
     assert "exited with 1" in str(raised.value)
+    # Without the reason a failed run is a wall of "exited with 1" and nothing to act on.
+    assert "rate limited" in str(raised.value)
+
+
+def test_a_command_that_fails_silently_says_so_instead_of_pretending() -> None:
+    body = "import sys; sys.stdin.read(); sys.exit(1)"
+
+    with pytest.raises(EntityReviewError) as raised:
+        reviewer(body).review(request())
+
+    assert str(raised.value) == "the reviewer command exited with 1"
+
+
+def test_a_command_that_exits_zero_printing_nothing_is_a_final_failure() -> None:
+    body = "import sys; sys.stdin.read(); sys.stderr.write('approaching the usage limit')"
+
+    with pytest.raises(EntityReviewError) as raised:
+        reviewer(body).review(request())
+
+    assert raised.value.transient is False
+    assert "printed nothing" in str(raised.value)
+
+
+def test_the_answer_that_broke_the_contract_is_quoted_back() -> None:
+    with pytest.raises(EntityReviewError) as raised:
+        parse_cli_answer("Invalid API key · Please run /login")
+
+    assert "Invalid API key · Please run /login" in str(raised.value)
+
+
+def test_a_long_complaint_is_bounded_and_flattened() -> None:
+    body = "import sys; sys.stdin.read(); sys.stderr.write('x\\n' * 4000); sys.exit(1)"
+
+    with pytest.raises(EntityReviewError) as raised:
+        reviewer(body).review(request())
+
+    message = str(raised.value)
+    assert len(message) < 700
+    assert "\n" not in message
 
 
 def test_a_timeout_is_transient() -> None:

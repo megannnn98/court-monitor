@@ -38,6 +38,22 @@ ANSWER_INSTRUCTION = (
     '"supporting_evidence": [], "conflicting_evidence": [], "explanation": ""}'
 )
 
+# A failing CLI prints its reason on stderr and nothing on stdout. Dropping that text
+# leaves a failure undiagnosable ("exited with 1" and no more), so its tail travels into
+# the log and into the error, which the audit stores as the failure reason.
+OUTPUT_TAIL_MAX_CHARS = 500
+
+
+def output_tail(output: str | bytes | None) -> str:
+    """The end of a command's output, whitespace collapsed onto one line and bounded."""
+    if not output:
+        return ""
+    text = output.decode(errors="replace") if isinstance(output, bytes) else output
+    text = " ".join(text.split())
+    if len(text) <= OUTPUT_TAIL_MAX_CHARS:
+        return text
+    return "…" + text[-OUTPUT_TAIL_MAX_CHARS:]
+
 
 def parse_cli_answer(output: str) -> EntityReviewResult:
     """The JSON object a CLI printed, with a markdown fence or trailing text tolerated."""
@@ -49,7 +65,15 @@ def parse_cli_answer(output: str) -> EntityReviewResult:
         text = text.removeprefix("json").strip()
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
-        raise EntityReviewError("the reviewer printed no JSON object", transient=False)
+        # What it printed instead is the whole diagnosis: a refusal, a usage notice, a
+        # login prompt all look the same without it.
+        printed = output_tail(output)
+        raise EntityReviewError(
+            f"the reviewer printed no JSON object: {printed}"
+            if printed
+            else "the reviewer printed nothing",
+            transient=False,
+        )
     try:
         data = json.loads(text[start : end + 1])
     except json.JSONDecodeError as exc:
@@ -99,23 +123,31 @@ class CliEntityMatchReviewer:
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
+            tail = output_tail(exc.stderr)
             raise EntityReviewError(
-                f"the reviewer command timed out after {self._timeout_seconds}s", transient=True
+                f"the reviewer command timed out after {self._timeout_seconds}s"
+                + (f": {tail}" if tail else ""),
+                transient=True,
             ) from exc
         except OSError as exc:
             # The command is missing or not executable: configuration, not a hiccup.
             raise EntityReviewError(f"OSError: {exc}", transient=False) from exc
         if completed.returncode != 0:
             # A rate limit or a lost session shows up as a non-zero exit: worth a retry.
+            # Which of them it was is only in stderr, so it is logged and kept.
+            tail = output_tail(completed.stderr) or output_tail(completed.stdout)
             logger.warning(
                 "event=entity_review_cli_failed decision_id=%s candidate_person_id=%s "
-                "model=%s returncode=%s",
+                "model=%s returncode=%s stderr=%s",
                 request.decision_id,
                 request.candidate.person_id,
                 self._model,
                 completed.returncode,
+                tail or "<empty>",
             )
             raise EntityReviewError(
-                f"the reviewer command exited with {completed.returncode}", transient=True
+                f"the reviewer command exited with {completed.returncode}"
+                + (f": {tail}" if tail else ""),
+                transient=True,
             )
         return parse_cli_answer(completed.stdout)
