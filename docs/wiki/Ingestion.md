@@ -1,11 +1,25 @@
 # Ingestion
 
+## Зачем это нужно
+
 Загрузка публикаций и подготовка их к сохранению и поиску. Есть два уровня:
 
 - **discovery** (этап 9) — `SourceAdapter.discover(limit)` находит ссылки на статьи на сайте источника (листинг + pagination) и возвращает `list[SourceReference]`;
 - **ingestion одной статьи** — `IngestionPipeline.run(reference)` (см. ниже) — fetch → parse → persist, источник-агностичен.
 
 `SourceIngestion.run(limit)` связывает оба уровня: discovery, затем `IngestionPipeline.run()` по очереди для каждой ссылки. Ошибка одной статьи (`IngestionError`) не прерывает обработку остальных — попадает в `SourceIngestionResult.failures`; программная ошибка (например, `TypeError`) не перехватывается и пробрасывается наверх.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
+uv run python src/main.py discover-and-ingest --source tg-example --limit 50
+uv run python src/main.py ingest "https://ovd.info/news/example"
+```
+
+Ожидание: новые публикации появляются в `source_documents` и
+`parsed_articles`; повтор той же публикации не создаёт дубль, а обновляет
+существующую запись по `(source_id, external_id)`.
 
 ## Источники
 
@@ -45,7 +59,7 @@
 Карточка реестра — один преследуемый человек: ФИО, статьи, регион, стадия, мера, категория, список. Поля есть в самом листинге, поэтому адаптер не скачивает страницы: `fetch` отдаёт карточку, найденную при discovery (кеш процесса переживает экземпляр адаптера — мониторинг ищет и загружает разными экземплярами); карточка вне листинга скачивается отдельно с паузой `Crawl-delay`. Полная первичная загрузка — 72 запроса, около 12 минут:
 
 ```bash
-court-monitor discover-and-ingest --source memopzk-figurants --limit 8000
+uv run python src/main.py discover-and-ingest --source memopzk-figurants --limit 8000
 ```
 
 `FigurantParser` пишет из карточки короткий текст («Ярош Сергей Васильевич обвиняется по статьям: ч. 2 ст. 205.2 УК РФ…»). Заголовок карточки — ФИО в именительном падеже: для этого источника извлечение берёт человека из заголовка и не склоняет его. Карточка без полного имени (одни инициалы) не загружается. Изменённая после загрузки карточка не перечитывается.
@@ -111,3 +125,31 @@ Result --> Terminal
 ## Идемпотентность
 
 `IngestionPipeline` не проверяет, была ли публикация уже загружена — идемпотентность (upsert по `external_id`) реализована на уровне persistence, не здесь.
+
+## Кодовые точки входа
+
+| Сценарий | Код |
+|---|---|
+| source registry | `src/sources/source_registry.py` |
+| source protocol | `src/sources/source_adapter.py` |
+| discovery helpers | `src/sources/discovery_pagination.py` |
+| one article pipeline | `src/sources/ingestion_pipeline.py` |
+| batch source ingestion | `src/sources/source_ingestion.py` |
+| persistence | `src/sources/sqlalchemy_persistence.py` |
+| CLI | `src/sources/cli.py` |
+
+## Проверка
+
+```bash
+uv run pytest tests/sources
+uv run python src/main.py discover-and-ingest --source ovd-info --limit 1
+```
+
+## Ограничения и типичные ошибки
+
+- Изменившийся на сайте документ обычный incremental run может не перечитать,
+  если `(source, external_id)` уже есть.
+- Telegram discovery зависит от публичного web preview; приватные каналы не
+  читаются.
+- `TELEGRAM_HISTORY_DAYS` читается при старте процесса.
+- Ошибка одной статьи не валит всю пачку, но должна попасть в failures/run items.

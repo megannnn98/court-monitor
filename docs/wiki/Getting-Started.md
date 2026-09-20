@@ -1,5 +1,14 @@
 # Getting Started с court-monitor
 
+## Зачем это нужно
+
+Это пошаговый первый прогон системы на локальной машине. Он показывает полный
+путь от источника до Person/classification/candidate без предположения, что в
+базе уже есть данные.
+
+Оператору: какие команды выполнить и где смотреть результат. Программисту:
+какие таблицы и стадии должны появиться после каждого шага.
+
 ## Что это запускает
 
 Основной сценарий:
@@ -12,6 +21,25 @@
 Минимальный полезный прогон без файла Росфинмониторинга уже показывает найденных
 людей и их классификацию. Rosfinmonitoring нужен только для финального списка
 `list-candidates`.
+
+## Быстрый сценарий
+
+```bash
+cd /home/b/Documents/ebnv
+uv sync --frozen
+cp -n .env.example .env
+set -a; source .env; set +a
+docker compose up -d postgres
+uv run alembic upgrade head
+uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
+uv run python src/main.py extract-entities --limit 20000
+uv run python src/main.py resolve-people --limit 20000
+uv run python src/main.py classify-persecution --limit 20000
+```
+
+После этого уже можно смотреть `persons`, `entity_mentions`,
+`persecution_classifications` и ER-review queue. Финальные candidates требуют
+snapshot Росфинмониторинга.
 
 ## 1. Поднять окружение
 

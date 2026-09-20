@@ -1,5 +1,27 @@
 # Data Model / Persistence
 
+## Зачем это нужно
+
+Эта страница объясняет, где хранятся факты и производные данные. Оператору она
+помогает понять, почему состояние переживает перезапуск API. Программисту —
+какие таблицы являются source of truth и какие можно пересобрать.
+
+## Быстрый сценарий
+
+```bash
+uv run alembic current
+uv run alembic heads
+```
+
+Для inspection конкретной БД:
+
+```bash
+psql "$DATABASE_URL" -c '\dt'
+```
+
+Ожидание: Alembic current совпадает с heads; доменные таблицы описаны ORM в
+`src/db/models/` и импортируются через `src/db/orm_models.py`.
+
 ## Схема (актуальная, по миграциям + `db/orm_models.py`)
 
 Модели лежат по доменам в `db/models/` (`sources`, `extraction`, `persons`, `persecution`, `rosfinmonitoring`, `semantic`, `monitoring`, `operations`) на общем `Base` из `db/models/base.py`; `db/orm_models.py` импортирует их все, чтобы весь код и Alembic видели одну `Base.metadata`.

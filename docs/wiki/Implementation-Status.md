@@ -1,8 +1,20 @@
 # Implementation Status
 
-The single source of the project's current status. Earlier root-level reports
-(`IMPLEMENTATION_STATUS.md`, `PROGRESS_REPORT.md`, `IMPLEMENTATION_REPORT.md`) described
-older branches and were removed; they remain in Git history.
+Эта страница — единственный источник текущего статуса проекта в wiki. Остальные
+страницы объясняют сценарии и архитектуру, но не должны дублировать полный
+журнал проверок.
+
+Ранние root-level отчёты (`IMPLEMENTATION_STATUS.md`, `PROGRESS_REPORT.md`,
+`IMPLEMENTATION_REPORT.md`) описывали старые ветки и были удалены; они остались
+только в истории Git.
+
+## Как читать эту страницу
+
+- Оператору: смотрите `Components`, `CLI commands`, `Deployment profiles` и
+  `Known limitations`.
+- Программисту: смотрите `Last verified`, `Skipped tests and why`, `Reproduce`.
+- Если дата `Last verified` старше текущей ветки, считайте цифры историческим
+  снимком и перепроверьте нужные команды перед релизным решением.
 
 ## Last verified
 
@@ -56,6 +68,24 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Channel queue | `src/channel_feed/` | queue for @enbv2022 — [ADR 0017](../adr/0017-channel-feed-sources.md) |
 | CLI | `src/main.py` (entry point), `src/cli/` | one composition root (`cli/context.py`) |
 | ORM | `src/db/models/`, `src/db/orm_models.py` | models by domain on one `Base`; migrations in `migrations/` |
+
+## Быстрый операторский сценарий
+
+Проверить, что приложение живо и monitoring не застрял:
+
+```bash
+curl -s http://127.0.0.1:8001/health/live
+curl -s http://127.0.0.1:8001/health/ready
+uv run python src/main.py monitoring-status
+```
+
+Ожидание:
+
+```text
+live: процесс отвечает
+ready: БД доступна, схема на ожидаемой миграции
+monitoring-status: нет зависших или бесконечно падающих runs
+```
 
 ## CLI commands
 

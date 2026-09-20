@@ -1,5 +1,7 @@
 # Telegram Bot
 
+## Зачем это нужно
+
 Бот — внешний адаптер над существующими сервисами court-monitor ([ADR 0019](../adr/0019-telegram-bot-adapter.md)):
 
 ```text
@@ -8,6 +10,22 @@ Telegram command → handler → application service → PostgreSQL / monitoring
 
 Код: `src/telegram_bot/`. Тесты: `tests/telegram_bot/`. Отдельный процесс, long polling,
 без webhook и без открытого порта.
+
+Оператору бот дает быстрые команды из Telegram: запустить докачку, посмотреть
+статус, получить людей за период или XLSX. Программисту важно, что бот не имеет
+своего pipeline: он вызывает existing services и operation runs.
+
+## Быстрый сценарий
+
+```text
+/update
+/status
+/people 2026-09-01 2026-09-19
+/export 2026-09-01 2026-09-19
+```
+
+Если `/update` уже выполняется, бот не запускает вторую докачку, а показывает
+текущий active run.
 
 ## Команды
 
@@ -218,6 +236,18 @@ Run #42
 
 Один человек выводится один раз, одна статья учитывается для него один раз — даже
 если в ней несколько упоминаний, несколько событий или несколько алиасов.
+
+## Кодовые точки входа
+
+| Сценарий | Код |
+|---|---|
+| запуск процесса | `src/telegram_bot/__main__.py` |
+| handlers | `src/telegram_bot/handlers.py` |
+| `/update` и operation runs | `src/operator_console.py` |
+| `/people` query | `src/telegram_bot/people.py` |
+| `/export` XLSX | `src/telegram_bot/export.py` |
+| настройки | `src/telegram_bot/config.py`, `src/settings.py` |
+| тесты | `tests/telegram_bot/` |
 
 ## Новостные источники
 

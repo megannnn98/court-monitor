@@ -1,6 +1,30 @@
 # Research
 
+## Зачем это нужно
+
 Детерминированный research layer: структурированный запрос `ResearchRequest` → `ResearchService` → `ResearchResponse` с результатами по канонической `Person`. Статьи — только evidence/provenance. Решение и мотивация — [ADR 0008](../adr/0008-research-domain-and-research-service.md). Отчёт с цитатами, review policy и source routing поверх `ResearchResponse` — [Research-Reports](Research-Reports.md) (ADR 0010); `ResearchService` и `POST /research` от них не зависят. Семантический отбор кандидатов (`semantic_query`) — [Semantic-Retrieval](Semantic-Retrieval.md) (ADR 0011).
+
+Оператору research нужен как проверяемый ответ по Person с evidence. Программисту
+важно, что `ResearchService` не вызывает LLM и читает один snapshot базы в
+read-only транзакции.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py research \
+  --object person \
+  --persecution-status political \
+  --rosfin-status not_matched \
+  --snapshot-id 1
+```
+
+API:
+
+```bash
+curl -X POST http://localhost:8001/research \
+  -H 'Content-Type: application/json' \
+  -d '{"object_type":"person","criteria":{"persecution_status":"political","rosfinmonitoring_status":"not_matched","snapshot_id":1},"limit":20}'
+```
 
 ```plantuml
 @startuml
@@ -109,7 +133,7 @@ uv run python src/main.py research --event-type arrest --event-type sentence \
 ## API
 
 ```bash
-curl -X POST http://localhost:8000/research \
+curl -X POST http://localhost:8001/research \
   -H 'Content-Type: application/json' \
   -d '{"object_type": "person",
        "criteria": {"persecution_status": "political",

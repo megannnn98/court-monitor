@@ -1,63 +1,118 @@
 # Testing & Quality
 
-## Тесты (`tests/`)
+## Зачем это нужно
 
-Тесты разложены по тем же пакетам, что и `src/` (`tests/sources/`, `tests/extraction/`, `tests/persons/`, `tests/persecution/`, `tests/rosfinmonitoring/`, `tests/candidates/`, `tests/search/`, `tests/llm/`, `tests/research/`, `tests/semantic_retrieval/`, `tests/db/`); сквозные тесты CLI/API/end-to-end — в `tests/app/`; общие фейки и фикстуры БД — в `tests/support/` (`tests` добавлен в `pythonpath`). По одному файлу на модуль, `test_<module>.py`; например, для source layer: `article_parser`, `evaluation_corpus` (+`_persistence`), `evaluation_metrics`, `evaluation_models`, `postgres_lexical_search`, `search_evaluator`, `search_models`, `sqlalchemy_persistence`, а также source layer (этап 9): `source_adapter`, `source_ingestion`, `source_registry`, `discover_and_ingest` (CLI), `ovd_info_reference`, `ovd_info_listing_parser`, `ovd_info_source_adapter`, `retrying_fetcher`, `website_adapter`, `sota_vision_reference`, `sota_vision_listing_parser`, `sota_vision_article_parser`, `sota_vision_source_adapter`. `test_source_layer_integration.py` прогоняет полную цепочку discover → fetch → parse → persist для обоих источников без реальной сети (`httpx.MockTransport` + fake fetcher).
+Эта страница объясняет, какие проверки запускать перед изменениями и что они
+реально доказывают. Оператору важны smoke-команды. Программисту — разница между
+unit, PostgreSQL/Qdrant integration, model tests и real-world validation.
 
-`chunker`, `dense_config`, `qdrant_chunk_indexer`, `qdrant_dense_search`, `text_embedder`, `hybrid_search`, `reranking_search`, `rrf`, `cross_encoder_reranker`, `reranker`, `search_factory` и их тесты удалены вместе с `ArticleChunk` и dense/hybrid поиском — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
+## Быстрый сценарий
 
-Chunk-уровневые dense/hybrid модули не вернулись; entity-level semantic retrieval (ADR 0011) покрыт тестами `test_semantic_*.py`, `test_retrieval_metrics.py`, `test_entity_retrieval_evaluation.py`, `test_research_graph_semantic.py`:
-
-- unit — `QdrantClient(":memory:")`, `HashingEmbedder`, `KeywordReranker` (`tests/support/semantic_fakes.py`), подменённый модуль `sentence_transformers`; без Docker, GPU и моделей;
-- `-m qdrant` — реальный Qdrant (`QDRANT_TEST_URL`), уникальные коллекции удаляются после теста;
-- `-m semantic_models` — реальные E5 и cross-encoder (`SEMANTIC_MODEL_TESTS=1`, группа `semantic`).
-
-`tests/conftest.py` — фикстура `test_engine` на `TEST_DATABASE_URL` (только база `court_monitor_test`), `TRUNCATE ... RESTART IDENTITY CASCADE` по всем таблицам pipeline (`db.maintenance.DISPOSABLE_TABLES`) между тестами (реальная Postgres, не мок).
-
-`tests/fixtures/` — `evaluation_corpus.json`, `evaluation_cases.json` (см. [Evaluation](Evaluation.md)), `entity_retrieval_corpus.json`, `entity_retrieval_cases.json` (см. [Semantic-Retrieval](Semantic-Retrieval.md)), `ovd_info_listing.html`/`ovd_info_article.html`, `sota_vision_listing.html`/`sota_vision_article.html` (реальные HTML-страницы, скачанные напрямую с сайтов, для тестов listing/article-парсеров).
+Без внешних сервисов:
 
 ```bash
-pytest
+uv sync --frozen
+uv run ruff check src tests migrations
+uv run ruff format --check src tests migrations
+uv run mypy --strict src tests
+uv run pytest
 ```
+
+С PostgreSQL и Qdrant:
+
+```bash
+docker compose up -d postgres
+docker compose --profile semantic up -d qdrant
+export TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
+export QDRANT_TEST_URL=http://127.0.0.1:6333
+DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
+env -u DATABASE_URL uv run pytest
+```
+
+База для integration tests должна называться `court_monitor_test`.
+
+## Что покрыто
+
+Тесты разложены по тем же пакетам, что и `src/`:
+
+- `tests/sources/` — source adapters, parsers, ingestion, retry;
+- `tests/extraction/` — mentions, normalization, events, persistence;
+- `tests/persons/` — ER v2, review queue, AI review policy;
+- `tests/persecution/`, `tests/rosfinmonitoring/`, `tests/candidates/` —
+  product decision layers;
+- `tests/research/`, `tests/semantic_retrieval/`, `tests/llm/` — research,
+  semantic retrieval, LLM adapters;
+- `tests/app/` — CLI/API/end-to-end contracts;
+- `tests/support/` — fakes and database fixtures.
+
+`tests/conftest.py` даёт `test_engine` на `TEST_DATABASE_URL` и очищает pipeline
+таблицы через `TRUNCATE ... RESTART IDENTITY CASCADE`.
+
+## Пример результата
+
+```text
+1863 passed, 33 skipped
+```
+
+Смысл: обычные и integration tests прошли в этой среде; skipped обычно означают
+отключенные реальные модели или live LLM, а не ошибку.
 
 ## Линтеры и типы
 
-- **ruff** (`pyproject.toml`: `target-version = "py313"`, `line-length = 100`) — линт + форматирование.
-- **mypy** — статическая типизация (конфиг не задан явно в `pyproject.toml`, дефолтный `mypy .`).
-
 ```bash
-ruff check .
-ruff format .
-mypy .
+uv run ruff check src tests migrations
+uv run ruff format --check src tests migrations
+uv run mypy --strict src tests
 ```
 
-## pre-commit (`.pre-commit-config.yaml`)
+`ruff` отвечает за lint + format. `mypy --strict` нужен для `src` и `tests`.
 
-- `pre-commit-hooks`: `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-toml`, `check-added-large-files`, `check-merge-conflict`
-- `ruff-check --fix`, `ruff-format`
+## Опциональные проверки
+
+Live Together AI:
 
 ```bash
-pre-commit run --all-files
+TOGETHER_LIVE_TESTS=1 TOGETHER_API_KEY=... TOGETHER_MODEL=... uv run pytest -m live_together
 ```
 
-## Baseline-отчёты как регрессионный сигнал
+Semantic models:
 
-`reports/postgres_lexical_baseline.json` — не часть тестового набора (не проверяется автоматически), а зафиксированный результат `evaluate-search` на момент коммита. Расхождение с ним при следующем прогоне — сигнал деградации поиска или намеренного изменения корпуса, требует явной проверки, не CI-гейт. Прежний baseline был на chunk-based corpus и удалён вместе с `ArticleChunk` — см. [Evaluation](Evaluation.md#baseline).
+```bash
+uv sync --group semantic
+SEMANTIC_MODEL_TESTS=1 uv run pytest -m semantic_models
+```
 
-## Real-World Validation
+Real Qdrant:
 
-Real-world validation не входит в обычный `pytest`: он требует disposable PostgreSQL, matching raw cache и golden dataset. См. [Real-World Validation](RealWorldValidation.md).
+```bash
+QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest -m qdrant
+```
 
-Быстрые проверки схемы/CLI:
+Real-world validation:
 
 ```bash
 uv run python src/main.py real-world-corpus-status
 uv run python src/main.py real-world-golden validate
+EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval \
+  uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
 ```
 
-Полный run:
+## Данные и артефакты
 
-```bash
-export EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval
-uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
-```
+- Fixtures: `tests/fixtures/`.
+- Baseline reports: `reports/`.
+- Real-world corpus and golden data: `evaluation/real_world/`, local cache
+  `var/real_world/`.
+- CI: `.github/workflows/ci.yml`.
+
+## Ограничения и типичные ошибки
+
+- Unit tests без PostgreSQL не проверяют миграции, транзакции, индексы,
+  collation, upserts и concurrency.
+- DB-тесты намеренно требуют базу `court_monitor_test`, чтобы не писать в
+  рабочую БД.
+- Qdrant/model/live LLM tests запускаются только явным opt-in.
+- Real-world validation не является частью обычного `pytest`: ему нужны
+  disposable DB, cache и golden dataset.
+- Chunk-level dense/hybrid tests удалены вместе со старым `ArticleChunk`; текущий
+  semantic retrieval — entity-level.

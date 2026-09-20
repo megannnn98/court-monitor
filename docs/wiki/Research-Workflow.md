@@ -1,8 +1,26 @@
 # Research Workflow (natural language)
 
+## Зачем это нужно
+
 Natural-language запрос → LangGraph → `ResearchRequest` → research plan → детерминированный `ResearchService` ([Research](Research.md)) → оценка результата → отчёт ([Research-Reports](Research-Reports.md)) → human review gate → `ResearchQueryResult`. LLM (Together AI) используется только для разбора запроса. Решения — [ADR 0009](../adr/0009-langgraph-research-orchestration.md), [ADR 0010](../adr/0010-research-report-review-routing.md).
 
 > LLM interprets intent; domain services determine facts.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py ask \
+  "Найди политически преследуемых людей, которых нет в Росфинмониторинге" \
+  --show-request
+```
+
+API:
+
+```bash
+curl -X POST http://localhost:8001/research/query \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"Найди политически преследуемых людей, которых нет в Росфинмониторинге"}'
+```
 
 ```plantuml
 @startuml
@@ -127,7 +145,7 @@ uv run python src/main.py ask "Найди Иванова" --show-plan --raw
 ## API
 
 ```bash
-curl -X POST http://localhost:8000/research/query \
+curl -X POST http://localhost:8001/research/query \
   -H 'Content-Type: application/json' \
   -d '{"query": "Найди политически преследуемых людей, которых нет в Росфинмониторинге"}'
 ```

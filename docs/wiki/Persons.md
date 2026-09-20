@@ -1,194 +1,108 @@
-# Person Resolution
+# Persons
 
-**Status:** persons are resolved by Entity Resolution v2 only: candidate
-generation (exact `matching_key`, aliases, pg_trgm, optional semantic),
-feature-based scoring and a decision policy with human review
-(`AUTO_LINK` / `REVIEW` / `CREATE_NEW`). **`matching_key` is a candidate lookup
-key, not an identity key**: active namesakes may share it, and an equal key is
-never an automatic link on its own. See [Entity-Resolution](Entity-Resolution.md)
-and `docs/adr/0012-entity-resolution-v2.md`. ER v2 never merges existing persons
-automatically.
+## Зачем это нужно
 
-## Overview
+Person — каноническая карточка человека. Extraction находит mentions в статьях,
+а person resolution решает, к какой Person относится mention или нужна новая
+Person. Все дальнейшие решения — events, persecution classification,
+Rosfinmonitoring matching, candidates — работают уже вокруг Person.
 
-The person resolution system extracts person mentions from articles, normalizes them, and resolves them to canonical person entities. This enables tracking individuals across multiple articles and sources.
-
-## Architecture
-
-### Domain Models
-
-- **Person**: Canonical person entity with unique ID
-  - `canonical_name`: Standardized full name
-  - `normalized_name`: Normalized for matching (lowercase, no punctuation)
-  - `matching_key`: Candidate lookup key (not unique: namesakes share it)
-  - `merged_into_id`: Reference to another person if merged
-
-- **PersonAlias**: Alternative names for a person
-  - `surface_text`: Original text as it appeared
-  - `normalized_text`: Normalized version
-  - `matching_key`: For fast lookups
-  - `origin`: How this alias was created (extraction, manual, merge)
-  - `confidence`: Confidence score (0.0-1.0)
-
-- **PersonMergeRecord**: Audit trail for person merges
-  - `source_person_id`: Person being merged
-  - `target_person_id`: Person being merged into
-  - `status`: pending/applied/reverted
-  - `reason`: Why the merge was performed
-
-### Entity Resolution
-
-ER v2 (`src/persons/resolution/`) under an identity-block advisory lock:
-candidates → features → `resolution_score` → decision. A single active person
-with the incoming key auto-links; several (namesakes or duplicates) go to
-review (`multiple_exact_name_matches`). AUTO_LINK links; CREATE_NEW creates a
-person; REVIEW leaves the mention unlinked with a pending `person_resolution`
-review, where a reviewer may link, create a same-name person, merge (audited)
-or keep two persons separate. Aliases are added only for clean full forms
-(`AliasPromotionPolicy`).
-
-Details, thresholds, evaluation: [Entity-Resolution](Entity-Resolution.md).
-
-### Database Schema
-
-```sql
--- Canonical persons
-CREATE TABLE persons (
-    id SERIAL PRIMARY KEY,
-    canonical_name TEXT NOT NULL,
-    normalized_name TEXT NOT NULL,
-    matching_key VARCHAR(255) NOT NULL,
-    status VARCHAR(32) DEFAULT 'active',
-    merged_into_id INTEGER REFERENCES persons(id),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP
-);
-
-CREATE INDEX ix_persons_matching_key ON persons(matching_key);
--- Not unique (namesakes): partial index for candidate lookup.
-CREATE INDEX ix_persons_matching_key_active ON persons(matching_key) WHERE status = 'active';
-CREATE INDEX ix_persons_status ON persons(status);
-
--- Person aliases
-CREATE TABLE person_aliases (
-    id SERIAL PRIMARY KEY,
-    person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-    surface_text TEXT NOT NULL,
-    normalized_text TEXT NOT NULL,
-    matching_key VARCHAR(255) NOT NULL,
-    origin VARCHAR(32) NOT NULL,
-    confidence FLOAT NOT NULL,
-    source_mention_id INTEGER REFERENCES entity_mentions(id),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(person_id, surface_text)
-);
-
-CREATE INDEX ix_person_aliases_person_id ON person_aliases(person_id);
-CREATE INDEX ix_person_aliases_matching_key ON person_aliases(matching_key);
-
--- Person-event links
-CREATE TABLE person_event_links (
-    id SERIAL PRIMARY KEY,
-    person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-    event_id INTEGER NOT NULL REFERENCES extracted_events(id) ON DELETE CASCADE,
-    role VARCHAR(64) NOT NULL,
-    confidence FLOAT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(person_id, event_id, role)
-);
-```
-
-## CLI Commands
-
-### resolve-people
-
-Resolve extracted person mentions to canonical persons:
+## Быстрый сценарий
 
 ```bash
-# Resolve all articles
-court-monitor resolve-people
-
-# Resolve specific article
-court-monitor resolve-people --article-id 123
-
-# Limit to N articles
-court-monitor resolve-people --limit 100
+uv run python src/main.py extract-entities --limit 20000
+uv run python src/main.py resolve-people --limit 20000
+uv run python src/main.py person-resolution-reviews list
 ```
 
-Output:
+Если список review пуст, все обработанные mentions либо связаны, либо получили
+auto/create decisions. Если review есть, открыть `/ui/person-resolution/reviews`
+или использовать CLI apply.
+
+## Что происходит внутри
+
+ER v2 строит кандидатов по exact `matching_key`, alias, pg_trgm и optional
+semantic search; затем считает features/score и принимает одно из решений:
+
+- `AUTO_LINK` — связать mention с existing Person;
+- `CREATE_NEW` — создать новую Person;
+- `REVIEW` — оставить mention без `person_id` и создать pending review.
+
+`matching_key` — только ключ поиска кандидатов, не identity proof. Активные
+тёзки могут иметь одинаковый key. ER v2 никогда не merge existing persons
+автоматически.
+
+Подробности: [Entity Resolution](Entity-Resolution.md), ADR 0012.
+
+## Пример
+
+```text
+mention: "Иванова И. И."
+candidates:
+  #42 Иван Иванов, score=0.61
+  #87 Илья Иванов, score=0.58
+decision: REVIEW, reason=multiple_plausible_candidates
 ```
-Resolved 42 mentions, created 15 persons, linked 28 events, 3 mentions pending person resolution review
-```
 
-ER v2 commands (`resolve-person` dry-run, `person-resolution-reviews`,
-`evaluate-er`): [Entity-Resolution](Entity-Resolution.md).
+Оператор выбирает link/create/merge/keep separate. После apply mention получает
+`person_id`, events связываются с Person, review decision становится `reviewed`.
 
-## API Endpoints
+## Кодовые точки входа
 
-### GET /persons
+| Сценарий | Код |
+|---|---|
+| persistence Persons/Aliases | `src/persons/persistence.py` |
+| ER orchestration | `src/persons/resolution/service.py` |
+| candidates | `src/persons/resolution/candidates.py` |
+| scoring/decision | `src/persons/resolution/features.py`, `src/persons/resolution/decision.py` |
+| manual review | `src/persons/resolution/review.py`, `src/web/ui/reviews.py` |
+| CLI | `src/persons/resolution/cli.py` |
+| API/UI cards | `src/web/routers/persons.py`, `src/web/ui/persons.py` |
 
-List all persons:
+## Данные и артефакты
+
+- `persons` — canonical person, status, `matching_key`.
+- `person_aliases` — surface/normalized aliases and origin.
+- `person_event_links` — event/person role links.
+- `person_merge_records` — audited merges.
+- `person_resolution_decisions` — ER decisions and review status.
+
+## Команды и API
 
 ```bash
-curl http://localhost:8000/persons?limit=100&status=active
+uv run python src/main.py resolve-people --limit 100
+uv run python src/main.py resolve-person "Иван Иванов"
+uv run python src/main.py person-resolution-reviews list
+uv run python src/main.py person-resolution-reviews show 42
+uv run python src/main.py evaluate-er
 ```
 
-Response:
-```json
-[
-  {
-    "id": 1,
-    "canonical_name": "Иванов Иван Иванович",
-    "normalized_name": "иванов иван иванович",
-    "matching_key": "ивановиваниванович",
-    "status": "active",
-    "merged_into_id": null
-  }
-]
+UI:
+
+```text
+/ui/persons/{person_id}
+/ui/person-resolution/reviews
+/ui/person-resolution/reviews/{decision_id}
 ```
 
-### GET /persons/{id}
-
-Get a specific person:
+JSON API:
 
 ```bash
-curl http://localhost:8000/persons/1
+curl http://localhost:8001/persons/42/detail
+curl http://localhost:8001/persons/42/events
 ```
 
-### GET /persons/{id}/aliases
-
-Get all aliases for a person:
+## Проверка
 
 ```bash
-curl http://localhost:8000/persons/1/aliases
+uv run pytest tests/persons
+uv run python src/main.py evaluate-er
 ```
 
-Response:
-```json
-[
-  {
-    "id": 1,
-    "person_id": 1,
-    "surface_text": "Иванова И.И.",
-    "normalized_text": "иванова и и",
-    "matching_key": "ивановаии",
-    "origin": "extraction",
-    "confidence": 0.9
-  }
-]
-```
+## Ограничения и типичные ошибки
 
-## Evaluation
-
-`evaluate-er` measures candidate recall@k per generator and decision actions
-(auto-link precision/recall, false links, false create-new, review rate) on
-`tests/fixtures/er_v2_corpus.json` — see [Entity-Resolution](Entity-Resolution.md#evaluation).
-The older pairwise-F1 helpers (`persons/er_evaluation.py`, `er_golden_dataset.json`)
-remain as a library, without a CLI command.
-
-## Not implemented
-
-- Transliteration, diminutives without an alias, phonetic matching.
-- Birth dates and context features (not extracted).
-- ML classifier (no labelled dataset large enough).
-- Automatic merge of existing persons (by design: reviewer action only).
+- Transliteration, birth dates and rich biographical context are not extracted.
+- Diminutives work only when alias evidence exists.
+- Same `matching_key` is not enough for auto-link when there are namesakes.
+- Pending ER review is expected behavior, not pipeline failure.
+- Manual `keep_separate` teaches ER that two active Persons are distinct.

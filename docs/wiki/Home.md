@@ -1,10 +1,30 @@
 # court-monitor — вики
 
-`court-monitor` — восстановленный первый вертикальный срез проекта (случайная потеря файлов, см. `README.md`). Универсальный source layer (этап 9): `SourceAdapter.discover()` находит статьи на сайте источника → `fetch()` загружает → `ArticleParser.parse()` разбирает целиком (без chunking) → сохранение в PostgreSQL → lexical-поиск → оценка качества поиска. Этап 10 добавляет extraction поверх полного текста: упоминания сущностей, правовые ссылки и базовые события. Два источника на одной архитектуре: ОВД-Инфо и SOTA (sota.vision).
+`court-monitor` собирает публикации из источников, извлекает людей и события,
+сводит упоминания в карточки Person, классифицирует признаки политического
+преследования, сверяет Росфинмониторинг и помогает оператору выпускать список
+кандидатов.
 
-Эта вики покрывает **только код, реально присутствующий в репозитории на момент написания**. Более ранний функционал (сопоставление ФИО с реестром, сопоставление пресс-релизов судов, LLM-судья), упомянутый в старых заметках сессий, в текущем дереве отсутствует и не восстановлен — здесь не описан. Chunking и dense/hybrid/reranked-hybrid поиск (Qdrant) в проекте были, но удалены — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
+Вики рассчитана на две роли:
 
-## Страницы
+- оператору она дает рабочие сценарии: что запустить, где посмотреть результат,
+  как понять ошибку;
+- программисту она дает карту кода: модули, таблицы, тесты, ограничения.
+
+Правила оформления страниц: [Wiki Style Guide](Wiki-Style-Guide.md). Текущий
+статус проекта и последние проверенные команды: [Implementation
+Status](Implementation-Status.md).
+
+## Быстрый путь
+
+1. Запустить проект локально: [Getting Started](Getting-Started.md).
+2. Понять общий поток данных: [Overview](Overview.md).
+3. Разобрать автоматическую докачку и статусы: [Monitoring](Monitoring.md).
+4. Смотреть и применять ручные решения: [Local Web UI](Local-Web-UI.md).
+5. Проверять качество: [Evaluation](Evaluation.md) и [Real-World
+   Validation](RealWorldValidation.md).
+
+## Карта страниц
 
 - [Implementation Status](Implementation-Status.md) — единственный источник текущего статуса: проверки последнего прогона, компоненты, CLI, профили, ограничения
 - [Getting Started](Getting-Started.md) — быстрый локальный запуск, ручной pipeline, API, проверки, monitoring, production-like profile
@@ -28,4 +48,16 @@
 - [Rebuild-Image](Rebuild-Image.md) — пересборка образа и выпуск: команды, миграции, проверка, уборка места, откат
 - [Testing](Testing.md) — тесты, линтеры, pre-commit
 
-Глоссарий доменных терминов — [`CONTEXT.md`](../../CONTEXT.md) в корне репозитория. Архитектурные решения — [`docs/adr/`](../adr/).
+## Где искать ответы
+
+- “Как запустить?” — [Getting Started](Getting-Started.md), потом
+  [Setup](Setup.md).
+- “Почему run упал?” — [Monitoring](Monitoring.md), [Testing](Testing.md).
+- “Почему человек попал в кандидаты?” — [Pipeline](Pipeline.md),
+  [Persecution Classification](Persecution-Classification.md),
+  [Rosfinmonitoring](Rosfinmonitoring.md).
+- “Почему это один человек или разные?” — [Entity Resolution](Entity-Resolution.md).
+- “Где код?” — [Overview](Overview.md) и тематическая страница нужного слоя.
+
+Глоссарий доменных терминов — [`CONTEXT.md`](../../CONTEXT.md). Архитектурные
+решения — [`docs/adr/`](../adr/).

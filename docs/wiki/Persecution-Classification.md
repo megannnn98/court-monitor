@@ -1,288 +1,112 @@
 # Persecution Classification
 
-## Overview
+## Зачем это нужно
 
-The persecution classification system analyzes extracted entities and events to determine whether a person is politically persecuted. This is the core business logic of the court-monitor project.
+Classification отвечает на продуктовый вопрос: есть ли у Person признаки
+политического преследования. Это не юридический приговор, а rule-based
+операционный сигнал для списка candidates и monitoring findings.
 
-## Architecture
-
-### Classification Service
-
-The `PersecutionClassificationService` uses a rule-based approach to classify persons:
-
-1. **Collect Evidence**: Gather this person's own events/mentions and a
-   window of text around each (`EVIDENCE_WINDOW_CHARS`, currently 400
-   chars each side) — not the whole article, so a different person's
-   context in the same article (e.g. one person charged for theft, another
-   detained at an anti-war protest, in the same news item) doesn't leak
-   onto this person
-2. **Analyze Patterns**: Check for indicators of political persecution
-3. **Compute Confidence**: Assign confidence score based on evidence strength
-4. **Generate Reasons**: Provide human-readable explanations
-
-### Evidence Types
-
-The classifier looks for several types of evidence:
-
-#### Political Charges
-
-Legal articles commonly used for political persecution:
-- **280**: Public calls for extremism
-- **282**: Incitement of hatred
-- **207.3**: "Fakes" about the army
-- **205.2**: Justification of terrorism
-- **212**: Mass disorder organization
-- **274.1**: Misuse of state funds
-- **284.2**: Cooperation with "undesirable" organization
-
-#### Political Keywords
-
-Text analysis for political terminology:
-- "политический" (political)
-- "политзаключенный" (political prisoner)
-- "политическое преследование" (political persecution)
-- "правозащитник" (human rights defender)
-- "Мемориал" (Memorial - human rights org)
-- "ОВД-Инфо" (OVD-Info - human rights org)
-- "антивоенный" (anti-war)
-- "демократия" (democracy)
-- "оппозиция" (opposition)
-- "протест" (protest)
-- "свобода слова" (freedom of speech)
-- "иностранный агент" (foreign agent)
-- "нежелательная организация" (undesirable organization)
-- "ЛГБТ" (LGBT)
-- "Свидетели Иеговы" (Jehovah's Witnesses)
-
-#### Event Patterns
-
-Types of events that indicate persecution:
-- `arrest`: Detention by authorities
-- `detention`: Temporary holding
-- `charge`: Formal criminal charges
-- `sentence`: Court conviction
-- `case_opened`: Criminal case initiation
-
-### Classification Algorithm
-
-```python
-def classify_person(person_id: int) -> PersecutionClassification:
-    # Get all events for this person
-    events = get_person_events(person_id)
-
-    # Get windowed text around this person's own mentions/events only —
-    # NOT the full article (see persecution/classification_service.py)
-    articles = get_person_articles(person_id)
-
-    # Collect evidence
-    evidence = []
-
-    # Check for political charges
-    for event in events:
-        if event.event_type in ['charge', 'sentence']:
-            article = event.attributes.get('article', '')
-            if article in POLITICAL_ARTICLES:
-                evidence.append(EvidenceType.POLITICAL_CHARGE)
-
-    # Check for political keywords in articles
-    for article in articles:
-        text = article.text.lower()
-        for keyword in POLITICAL_KEYWORDS:
-            if keyword in text:
-                evidence.append(EvidenceType.POLITICAL_KEYWORD)
-                break
-
-    # Compute confidence
-    if not evidence:
-        return PersecutionClassification(
-            status='non_political',
-            confidence=0.9,
-            reasons=['No evidence of political persecution']
-        )
-
-    # Strong evidence
-    if EvidenceType.POLITICAL_CHARGE in evidence:
-        return PersecutionClassification(
-            status='political',
-            confidence=0.95,
-            reasons=['Charged under political article'],
-            evidence_types=evidence
-        )
-
-    # Moderate evidence
-    if len(evidence) >= 2:
-        return PersecutionClassification(
-            status='political',
-            confidence=0.8,
-            reasons=['Multiple indicators of political persecution'],
-            evidence_types=evidence
-        )
-
-    # Weak evidence
-    return PersecutionClassification(
-        status='uncertain',
-        confidence=0.6,
-        reasons=['Some indicators but not conclusive'],
-        evidence_types=evidence
-    )
-```
-
-### Database Schema
-
-```sql
-CREATE TABLE persecution_classifications (
-    id SERIAL PRIMARY KEY,
-    person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-    status VARCHAR(32) NOT NULL,  -- 'political', 'non_political', 'uncertain'
-    confidence FLOAT NOT NULL,
-    reasons JSONB NOT NULL DEFAULT '[]',
-    evidence_types JSONB NOT NULL DEFAULT '[]',
-    classifier_name VARCHAR(255) NOT NULL,
-    classifier_version VARCHAR(64) NOT NULL,
-    classified_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(person_id, classifier_name, classifier_version)
-);
-
-CREATE INDEX ix_persecution_classifications_person_id ON persecution_classifications(person_id);
-CREATE INDEX ix_persecution_classifications_status ON persecution_classifications(status);
-```
-
-## CLI Commands
-
-### classify-persecution
-
-Classify persons for political persecution:
+## Быстрый сценарий
 
 ```bash
-# Classify all persons
-court-monitor classify-persecution
-
-# Classify specific person
-court-monitor classify-persecution --person-id 123
-
-# Limit to N persons
-court-monitor classify-persecution --limit 100
+uv run python src/main.py classify-persecution --limit 1000
+uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
-Output:
+`snapshot-id 1` заменить на реальный snapshot Росфинмониторинга. Без RF match
+`list-candidates` не покажет финальный список.
+
+## Что происходит внутри
+
+`PersecutionClassificationService` собирает evidence только вокруг mentions/events
+конкретной Person. Он не читает весь текст статьи как общий контекст для всех:
+иначе один человек в статье мог бы унаследовать чужое обвинение.
+
+Сигналы:
+
+- политические статьи УК/КоАП;
+- политические ключевые слова;
+- события типа `case_opened`, `charge`, `arrest`, `sentence`, `detention`;
+- source-specific evidence, например карточки реестра «Мемориала».
+
+Результат:
+
+```text
+status = political | non_political | uncertain
+confidence = 0.0..1.0
+reasons = human-readable list
 ```
-Classified 150 persons: 45 political persecution
-```
 
-### list-candidates
+## Пример
 
-List politically persecuted persons absent from Rosfinmonitoring:
-
-```bash
-# List candidates from latest snapshot
-court-monitor list-candidates --snapshot-id 5
-
-# Filter by confidence
-court-monitor list-candidates --snapshot-id 5 --min-confidence 0.8
-
-# Output to file
-court-monitor list-candidates --snapshot-id 5 --output-path candidates.json
-```
-
-Output:
 ```json
 {
-  "snapshot_id": 5,
-  "candidates": [
-    {
-      "person_id": 42,
-      "canonical_name": "Иванов Иван Иванович",
-      "normalized_name": "иванов иван иванович",
-      "persecution_status": "political",
-      "persecution_confidence": 0.95,
-      "persecution_reasons": ["Charged under political article 280"],
-      "rosfinmonitoring_status": "not_matched",
-      "rosfinmonitoring_match_confidence": null,
-      "event_count": 3,
-      "alias_count": 5,
-      "last_event_date": "2026-09-01T12:00:00Z"
-    }
-  ],
-  "total_count": 1,
-  "query_timestamp": "2026-09-13T15:30:00Z"
-}
-```
-
-## API Endpoints
-
-### GET /persons/{id}/persecution
-
-Get persecution classification for a person:
-
-```bash
-curl http://localhost:8000/persons/42/persecution
-```
-
-Response:
-```json
-{
-  "id": 1,
   "person_id": 42,
   "status": "political",
   "confidence": 0.95,
-  "reasons": ["Charged under political article 280"],
-  "evidence_types": ["political_charge", "political_keyword"],
-  "classifier_name": "rule-based-persecution-classifier",
-  "classifier_version": "1.0.0"
+  "reasons": [
+    "Политическая статья: ч. 2 ст. 205.2 УК РФ",
+    "Событие: charge"
+  ]
 }
 ```
 
-### GET /candidates
+Смысл: Person получает latest political classification. Если RF status по
+snapshot = `not_matched`, она может попасть в `/ui/candidates`.
 
-List politically persecuted persons absent from Rosfinmonitoring:
+## Кодовые точки входа
+
+| Сценарий | Код |
+|---|---|
+| classification service | `src/persecution/classification_service.py` |
+| rule-based classifier | `src/persecution/classifier.py` |
+| queries/latest ids | `src/persecution/queries.py` |
+| CLI | `src/persecution/cli.py` |
+| candidates | `src/candidates/service.py` |
+| UI candidates | `src/web/ui/candidates.py`, `src/web/candidate_rows.py` |
+
+## Данные и артефакты
+
+- `persecution_classifications` — все версии classification по Person.
+- Latest result выбирается по `person_id`, classifier version и времени/id.
+- Candidate query берет latest classification with `status = political` and
+  `confidence >= min_confidence`.
+
+## Команды и API
 
 ```bash
-curl "http://localhost:8000/candidates?snapshot_id=5&min_confidence=0.8&limit=100"
+uv run python src/main.py classify-persecution --person-id 42
+uv run python src/main.py classify-persecution --limit 1000
+uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
-## Evaluation
+UI:
 
-Classification quality is measured using standard metrics:
+```text
+/ui/persons/{person_id}
+/ui/candidates
+```
+
+API:
 
 ```bash
-court-monitor evaluate-persecution --dataset tests/fixtures/persecution_golden_dataset.json
+curl http://localhost:8001/persons/42/persecution
+curl "http://localhost:8001/candidates?snapshot_id=1&min_confidence=0.7&limit=100"
 ```
 
-Metrics:
-- **Accuracy**: Overall correctness of classifications
-- **Political Precision**: Of all predicted as political, how many are correct?
-- **Political Recall**: Of all actual political cases, how many did we predict?
-- **Political F1**: Harmonic mean of precision and recall
+## Проверка
 
-Example output:
-```json
-{
-  "total_cases": 100,
-  "correct_classifications": 92,
-  "accuracy": 0.92,
-  "political_precision": 0.94,
-  "political_recall": 0.89,
-  "political_f1": 0.91
-}
+```bash
+uv run pytest tests/persecution tests/candidates
 ```
 
-## Future Improvements
+Для продуктовой проверки нужен полный путь: extraction -> ER -> classification
+-> RF matching -> candidates.
 
-### Machine Learning
+## Ограничения и типичные ошибки
 
-- Train classifier on labeled data
-- Use NLP for better text understanding
-- Learn from manual review decisions
-
-### Context Analysis
-
-- Analyze article source credibility
-- Check for corroborating sources
-- Consider temporal patterns
-
-### International Standards
-
-- Align with UN human rights definitions
-- Cross-reference with international databases
-- Support multiple jurisdictions
+- Classification зависит от Person-event links. Pending ER может задержать
+  появление Person в candidates.
+- Political keywords alone can be weak evidence; смотреть `reasons`.
+- Candidate page дополнительно фильтрует период новости и административные дела.
+- Classification не проверяет Росфинмониторинг; это отдельная стадия.

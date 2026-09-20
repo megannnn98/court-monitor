@@ -1,6 +1,25 @@
 # Monitoring
 
+## Зачем это нужно
+
 Автоматический, повторяемый и наблюдаемый прогон всего pipeline по расписанию. Решение и мотивация — [ADR 0013](../adr/0013-automated-monitoring.md). Принцип: **orchestrator coordinates, domain services decide** — monitoring только вызывает существующие сервисы и ведёт учёт run'ов.
+
+Оператору monitoring отвечает на вопросы: что запустилось, что упало, какие
+findings появились. Программисту — где selection/idempotency/retry/fencing.
+
+## Быстрый сценарий
+
+```bash
+set -a; source .env; set +a
+uv run alembic upgrade head
+uv run python src/main.py monitor --catch-up
+uv run python src/main.py monitoring-status
+uv run python src/main.py monitoring-findings --all
+```
+
+Если run упал, сначала смотреть `monitoring-status --run-id <id>`, потом
+`monitoring_run_items`/логи stage. Повторный запуск безопасен: work selection
+берет недоделанное из PostgreSQL.
 
 ## Архитектура
 
@@ -176,6 +195,18 @@ end
 - Provenance: `persecution_classification_id`, `rosfin_match_id`, `snapshot_id`; evidence и источники — через Person (`POST /research`).
 - Без RF snapshot оценка пропускается (`no_rf_snapshot`), ложных findings нет.
 - Новые критерии — через `MonitoringQueryProvider`.
+
+## Кодовые точки входа
+
+| Сценарий | Код |
+|---|---|
+| CLI `monitor` / `monitor-derived` | `src/monitoring/cli.py` |
+| orchestration | `src/monitoring/service.py` |
+| выбор недоделанной работы | `src/monitoring/selection.py` |
+| runs/checkpoints/items | `src/monitoring/repository.py` |
+| findings | `src/monitoring/findings.py` |
+| Dagster definitions | `src/monitoring/dagster/` |
+| API/UI status | `src/web/routers/monitoring.py`, `src/web/ui/monitoring.py` |
 
 ## Запуск
 

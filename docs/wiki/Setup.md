@@ -1,5 +1,28 @@
 # Setup & Run
 
+## Зачем это нужно
+
+Эта страница — справочник по окружению: переменные, compose-профили, миграции,
+тесты и запуск сервисов. Если нужен первый пошаговый прогон, начните с
+[Getting Started](Getting-Started.md). Если нужен production-like выпуск, см.
+[Rebuild-Image](Rebuild-Image.md).
+
+## Быстрый сценарий
+
+```bash
+cp -n .env.example .env
+set -a
+source .env
+set +a
+
+docker compose up -d postgres
+uv run alembic upgrade head
+uv run python src/main.py validate-config
+```
+
+Ожидание: `validate-config` печатает настройки без секретов, Alembic показывает
+актуальную схему, PostgreSQL доступен на `localhost:5433`.
+
 ## Переменные окружения
 
 Основные переменные:

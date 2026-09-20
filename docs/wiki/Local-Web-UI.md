@@ -1,12 +1,14 @@
 # Local Web UI / Operator console
 
+## Зачем это нужно
+
 Локальная веб-морда живёт в том же FastAPI-приложении, что и JSON API. Это
 Operator console: рабочий интерфейс для очередей ревью, evidence-проверки,
 поиска и routine pipeline operations. Это не полный web-аналог CLI.
 Аутентификации нет: это соответствует ADR 0014, где API публикуется только на
 `127.0.0.1`.
 
-## Запуск
+## Быстрый сценарий
 
 ```bash
 set -a; source .env; set +a
@@ -16,6 +18,13 @@ docker compose --profile api up -d
 ```
 
 Открыть: <http://127.0.0.1:8001/ui>.
+
+Типовой путь оператора:
+
+1. Открыть `/ui/monitoring`, убедиться, что свежий run не упал.
+2. Открыть `/ui/person-resolution/reviews`, разобрать pending ER.
+3. Открыть `/ui/candidates`, проверить кандидатов и evidence.
+4. Открыть `/ui/channel`, если нужен черновик публикации для @enbv2022.
 
 ## Что есть
 
@@ -61,6 +70,22 @@ docker compose --profile api up -d
 выгрузках пишутся фамилией вперёд («Иванов Иван», «Ярош Сергей Васильевич»),
 как в таблице заказчицы (`_surname_first` в `web/candidate_rows.py`).
 
+## Пример
+
+ER-review:
+
+```text
+incoming: "А. П. Иванов"
+candidate #42: Алексей Петров Иванов
+candidate #87: Андрей Павлов Иванов
+action: link_to_person #42
+```
+
+После применения решения запись исчезает из `/ui/person-resolution/reviews`,
+потому что `person_resolution_decisions.status` становится `reviewed`. Это не
+значит, что Person исчезает из `/ui/candidates`: candidates зависят от
+classification, РФМ, статуса Person и фильтров страницы.
+
 Для диаграмм в образ ставятся `plantuml` и `graphviz`: без `dot` рисуются только
 диаграммы последовательностей. Локально (`uv run`) нужны те же пакеты:
 `sudo pacman -S plantuml graphviz`.
@@ -86,6 +111,27 @@ evidence span, сравнивает город, дату рождения, ал�
 ER-ревью не доказывает факт преследования и не меняет текст статьи. Оно меняет
 идентификационную связь упоминания с Person, от которой зависят события,
 классификация и последующий RF-matching.
+
+## Кодовые точки входа
+
+| Сценарий | Код |
+|---|---|
+| сборка FastAPI app | `src/web/app.py`, `src/api.py` |
+| общий layout UI | `src/web/ui/layout.py` |
+| ER review UI | `src/web/ui/reviews.py`, `src/web/routers/reviews.py` |
+| Person card | `src/web/ui/persons.py`, `src/web/routers/persons.py` |
+| candidates page/export | `src/web/ui/candidates.py`, `src/web/candidate_rows.py`, `src/web/exports.py` |
+| channel queue | `src/web/ui/channel.py`, `src/channel_feed/` |
+| operation runs | `src/web/ui/operations.py`, `src/operator_console.py` |
+| wiki renderer | `src/web/wiki.py`, `docs/wiki/` |
+
+## Данные и артефакты
+
+- UI читает и пишет PostgreSQL через те же сервисы, что CLI.
+- Routine operations хранятся в `operator_operation_runs`.
+- ER decisions хранятся в `person_resolution_decisions`.
+- Candidate exports строятся из строк страницы; CSV/PDF применяют `limit`, XLSX
+  намеренно выгружает все найденные строки.
 
 ## Границы
 

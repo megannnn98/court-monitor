@@ -1,6 +1,22 @@
 # Semantic Retrieval
 
+## Зачем это нужно
+
 Семантический поиск кандидатов по каноническим сущностям (Person, Event). PostgreSQL — источник фактов, Qdrant — только индекс кандидатов. Решение — [ADR 0011](../adr/0011-semantic-hybrid-entity-retrieval.md).
+
+Оператору semantic retrieval обычно виден через natural-language research: запрос
+“найди людей, связанных с антивоенными протестами” сначала ищет похожих Person,
+а факты потом читает из PostgreSQL. Программисту важно: similarity не является
+доказательством, это только candidate selection.
+
+## Быстрый сценарий
+
+```bash
+docker compose --profile semantic up -d qdrant
+uv sync --group semantic
+uv run python src/main.py rebuild-semantic-index --entity all
+uv run python src/main.py semantic-search "антивоенные протесты" --entity person --backend hybrid
+```
 
 ```plantuml
 @startuml

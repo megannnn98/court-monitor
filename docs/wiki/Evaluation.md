@@ -1,8 +1,24 @@
 # Evaluation
 
+## Зачем это нужно
+
 Оценка качества поиска выполняется на фиксированном корпусе и наборе запросов.
 
 Основная метрика — **Mean Reciprocal Rank (MRR)**.
+
+Эта страница про быстрый article-level lexical search. Системная оценка всего
+pipeline — [Real-World Validation](RealWorldValidation.md). Semantic retrieval
+benchmarks — [Semantic Retrieval](Semantic-Retrieval.md).
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py evaluate-search \
+  --output-path reports/postgres_lexical_baseline.json
+```
+
+Если нужен disposable DB, выставить `DATABASE_URL` на тестовую/оценочную базу до
+запуска. Команда пишет evaluation corpus в выбранную БД.
 
 ## Evaluation Corpus
 

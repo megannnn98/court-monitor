@@ -1,37 +1,77 @@
 # Search
 
-Общий контракт поиска — `SearchBackend` (`src/search/backend.py`):
+## Зачем это нужно
+
+Search здесь — поиск по сохраненным статьям. Он нужен для оператора и
+разработчика как быстрый способ найти публикации и evidence, но не заменяет
+Research и semantic entity retrieval.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py search "реабилитация нацизма" --limit 5
+```
+
+Через UI:
+
+```text
+/ui/search
+```
+
+## Что происходит внутри
+
+Общий контракт:
 
 ```python
 search(SearchQuery) -> list[SearchHit]
 ```
 
-Единственная текущая реализация поиска **по статьям** — `PostgresLexicalSearch`. Dense (`QdrantDenseSearch`), hybrid (`HybridSearch`, RRF) и reranked-hybrid (`RerankingSearch`, `CrossEncoderReranker`) были построены целиком вокруг chunk-уровня и удалены вместе с `ArticleChunk` — см. [ADR 0001](../adr/0001-dual-search-backend.md) (исходное решение, superseded) и [ADR 0002](../adr/0002-drop-dense-hybrid-search.md) (удаление).
-
-Семантический поиск вернулся на уровне **сущностей** (Person, Event), а не статей: lexical + dense + RRF (+ опциональный cross-encoder) по детерминированным semantic documents, Qdrant — только индекс кандидатов, факты из PostgreSQL. См. [Semantic-Retrieval](Semantic-Retrieval.md) и [ADR 0011](../adr/0011-semantic-hybrid-entity-retrieval.md). Article-level dense search не восстанавливался.
-
-`SearchBackend` — протокол, а не заглушка под один backend: `SearchEvaluator` и CLI работают через него, новые реализации можно добавлять не меняя эти слои.
-
-## Lexical: `PostgresLexicalSearch`
-
-`src/search/postgres_lexical.py`.
-
-Использует generated-колонку `parsed_articles.search_vector`:
+Текущая article-level реализация одна: `PostgresLexicalSearch`.
 
 ```text
-to_tsvector('russian', text)
+parsed_articles.search_vector @@ websearch_to_tsquery('russian', query)
 ```
 
-Поиск строится через:
+Результат — статья целиком, не chunk. Chunk-level dense/hybrid/reranked search
+удален вместе с `ArticleChunk` (ADR 0002).
+
+## Пример
 
 ```text
-websearch_to_tsquery('russian', query.text)
+query: "антивоенный пикет"
+hit: article_id=123 title="Суд назначил штраф..." rank=0.42
 ```
 
-Матч выполняется через `search_vector @@ search_query`, ранжирование — через `ts_rank_cd(...)`. Результат — вся статья целиком (`SearchHit.text` = `ParsedArticleRecord.text`), не фрагмент.
+Оператор открывает статью и проверяет контекст. Если нужен поиск людей по смыслу,
+использовать [Semantic Retrieval](Semantic-Retrieval.md) через research workflow,
+а не article search.
 
-Веса по полям (например, повышенный вес для `title`) не реализованы — поиск строится только по `text`, расширение на title-boost не входило в объём последнего рефакторинга.
+## Кодовые точки входа
 
-Преимущество lexical backend — отсутствие отдельного поискового индекса вне PostgreSQL.
+| Сценарий | Код |
+|---|---|
+| backend protocol | `src/search/backend.py` |
+| PostgreSQL lexical search | `src/search/postgres_lexical.py` |
+| CLI | `src/search/cli.py` |
+| API/UI | `src/web/routers/search.py`, `src/web/ui/search.py` |
+| evaluation | `src/search/evaluator.py`, `src/search/evaluation_*.py` |
 
-Ограничение — поиск зависит от лексического совпадения и может пропускать семантически близкие формулировки. Для research-вопросов по смыслу используется entity-level semantic retrieval ([Semantic-Retrieval](Semantic-Retrieval.md)).
+## Данные и артефакты
+
+- `parsed_articles.text` — полный текст.
+- `parsed_articles.search_vector` — generated tsvector.
+- `reports/postgres_lexical_baseline.json` — baseline evaluation artifact.
+
+## Проверка
+
+```bash
+uv run python src/main.py evaluate-search --output-path reports/postgres_lexical_baseline.json
+uv run pytest tests/search
+```
+
+## Ограничения и типичные ошибки
+
+- Поиск лексический: синонимы и смысловые формулировки может пропустить.
+- Веса по `title` не реализованы; поиск идет по `text`.
+- Dense article search не восстановлен; semantic retrieval работает на уровне
+  Person/Event, а не статей.

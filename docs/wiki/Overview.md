@@ -1,91 +1,125 @@
 # Overview
 
-## Поток данных (source layer, этап 9)
+## Зачем это нужно
+
+`court-monitor` превращает публикации из источников в список людей, которых надо
+проверить оператору: есть ли политическое преследование и нет ли человека в
+выбранном snapshot Росфинмониторинга.
+
+Оператору эта страница дает общий маршрут. Программисту — карту модулей и
+данных.
+
+## Быстрый сценарий
+
+Минимальный ручной pipeline:
+
+```bash
+uv run python src/main.py discover-and-ingest --source ovd-info --limit 10
+uv run python src/main.py extract-entities --limit 100
+uv run python src/main.py resolve-people --limit 100
+uv run python src/main.py classify-persecution --limit 100
+uv run python src/main.py match-rosfinmonitoring --snapshot-id 1
+uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
+```
+
+Для регулярной работы чаще нужен monitoring:
+
+```bash
+uv run python src/main.py monitor --catch-up
+uv run python src/main.py monitoring-status
+```
+
+`snapshot-id 1` в примере не универсален: брать реальный id из
+`rosfinmonitoring_snapshots`.
+
+## Что происходит внутри
 
 ```plantuml
 @startuml
-title Source layer: discover -> fetch -> parse -> persist
+title court-monitor: publication -> candidate
 
-rectangle "CLI\n--source X --limit N" as CLI
-component "SourceAdapter.discover()" as Discover
-rectangle "list[SourceReference]" as References
-component "SourceIngestion.run()" as Ingestion
-component "IngestionPipeline.run()" as Pipeline
-component "DocumentFetcher.fetch()\n(retry)" as Fetcher
-rectangle "RawDocument" as Raw
-component "ArticleParser.parse()" as Parser
-rectangle "ParsedArticle" as Article
-component "IngestionPersistence.save()" as Persistence
-rectangle "PostgreSQL" as DB
+actor Operator
+rectangle "CLI / Web UI / Telegram bot" as Entry
+component "Discovery" as Discovery
+component "Fetch + parse" as Parse
+component "Extraction" as Extraction
+component "Entity Resolution" as ER
+component "Persecution classification" as Persecution
+component "Rosfinmonitoring matching" as RF
+component "Candidate query / channel queue" as Candidates
+database "PostgreSQL" as DB
+database "Qdrant / pgvector" as Vectors
 
-CLI --> Discover : source_registry lookup
-Discover --> References
-References --> Ingestion : discover(limit)
-Ingestion --> Pipeline : run(reference) для каждой ссылки
-Pipeline --> Fetcher : await fetch(reference)
-Fetcher --> Raw
-Pipeline --> Parser : parse(raw)
-Parser --> Article
-Pipeline --> Persistence : save(raw, article)
-Persistence --> DB
-
-note right of Ingestion
-  ошибка одной статьи (IngestionError)
-  не прерывает остальные —
-  собирается в SourceIngestionResult.failures
-end note
-
+Operator --> Entry
+Entry --> Discovery
+Discovery --> Parse
+Parse --> DB : source_documents + parsed_articles
+DB --> Extraction
+Extraction --> DB : mentions + events
+DB --> ER
+ER --> DB : persons + review decisions
+DB --> Persecution
+Persecution --> DB : persecution_classifications
+DB --> RF
+RF --> DB : rosfin_matches
+DB --> Candidates
+Vectors --> ER : semantic candidates
+Vectors --> Candidates : semantic retrieval support
 @enduml
 ```
 
-Один источник = один `SourceAdapter` (discover + fetch) + один `ArticleParser`. `IngestionPipeline` и `SourceIngestion` источник-агностичны — работают через `Protocol` из `sources/source_adapter.py`/`sources/persistence.py`, не знают о конкретном сайте.
+## Пример результата
 
-## Модули (`src/`)
+```text
+person_id=42 name="Иван Иванов" persecution_status=political rf_status=not_matched confidence=0.92
+```
+
+Смысл: Person активен, последняя classification политическая, по выбранному
+snapshot РФМ подтверждено отсутствие, запись попадает в candidates.
+
+## Кодовые точки входа
 
 | Модуль | Роль |
 |---|---|
-| `api.py`, `web/` | HTTP: `api.py` — точка входа `uvicorn api:app`; `web/app.py` собирает приложение, `web/dependencies.py` — сессия БД и общие сервисы, `web/routers/` — REST, `web/ui/` — операторская консоль, `web/exports.py` и `web/wiki.py` — выгрузки и рендер вики без HTTP |
-| `main.py`, `cli/` | CLI: `main.py` — точка входа `python src/main.py <команда>`; `cli/app.py` собирает парсер из `register` каждой области (`ingestion`, `search`, `extraction`, `persons`, `rosfinmonitoring`, `persecution`, `candidates`, `research`, `areas` — semantic/ER-ревью/monitoring/оценки, `config`) и вызывает обработчик команды; `cli/context.py` — единственный корень композиции: настройки, engine и фабрика сессий строятся при первом обращении, так что `--help`, `validate-config` и оценки на одноразовой базе не читают `DATABASE_URL` |
-| `sources/models.py` | Pydantic-модели домена (`SourceReference` … `SearchHit`) — см. [CONTEXT.md](../../CONTEXT.md) |
-| `sources/source_adapter.py` | `Protocol DocumentFetcher`/`SourceAdapter` — контракт `discover()`/`fetch()` |
-| `sources/source_registry.py` | `SourceDefinition` + реестр источников (`ovd-info`, `sota-vision`, `sudrf-2zovs`, `memopzk-figurants`, `kommersant`, 70 × `tg-<username>`) для CLI |
-| `sources/source_ingestion.py` | `SourceIngestion` — discover → пройти по ссылкам через pipeline, изолируя ошибки одной статьи |
-| `sources/discovery_pagination.py` | Общий helper: постраничный discovery с dedup/limit + retry/backoff для listing-запросов |
-| `sources/ovd_info/reference.py`, `sources/ovd_info/listing_parser.py`, `sources/ovd_info/source_adapter.py` | Источник ОВД-Инфо: канонический `SourceReference`, парсинг листинга, discovery с pagination |
-| `sources/sota_vision/reference.py`, `sources/sota_vision/listing_parser.py`, `sources/sota_vision/source_adapter.py` | Источник SOTA (sota.vision): то же самое для второго сайта |
-| `sources/telegram/` | Telegram-каналы: список в `channels.csv`, discovery по веб-превью `t.me/s/<username>` с окном в 30 дней |
-| `sources/sudrf/` | Пресс-службы судов на движке `sudrf.ru`: адаптер параметризован хостом, discovery по годовым архивам |
-| `sources/memopzk/` | Реестр фигурантов «Поддержка политзаключённых. Мемориал»: REST-листинг по 100 карточек, карточка → короткий текст из таксономии (ADR 0017) |
-| `sources/rss/`, `sources/kommersant/` | RSS-адаптер с фильтром до скачивания страниц; сайт «Коммерсанта» (ADR 0017) |
-| `channel_feed/` | Очередь для канала @enbv2022: кто уже опубликован (лента канала), черновик поста, подсказки имён для безымянных новостей (ADR 0017) |
-| `sources/website_adapter.py` | HTTP-загрузка одной публикации (`httpx`) — источник-агностичный `DocumentFetcher` |
-| `sources/retrying_fetcher.py` | Retry/backoff поверх `DocumentFetcher` (только `TransientFetchError`) |
-| `sources/ingestion_errors.py` | Иерархия ошибок: `FetchError`/`ParseError`/`PersistenceError`, `DiscoveryError` (transient/permanent) |
-| `sources/article_parser.py` | `Protocol ArticleParser` + `OvdInfoArticleParser` (`selectolax`), отдаёт `ParsedArticle.text` целиком |
-| `sources/sota_vision/article_parser.py` | `SotaVisionArticleParser` — то же для sota.vision |
-| `sources/ingestion_pipeline.py` | Оркестратор одной статьи: fetch → parse → persistence |
-| `sources/persistence.py` | `Protocol IngestionPersistence` |
-| `sources/sqlalchemy_persistence.py` | Реализация persistence поверх SQLAlchemy/Postgres, dedup по (`source_id`, `external_id`) |
-| `db/orm_models.py` | ORM-модели (таблицы) |
-| `db/database.py` | Engine/session factory |
-| `search/backend.py` | `Protocol SearchBackend` |
-| `search/postgres_lexical.py` | Lexical-поиск (tsvector) по `parsed_articles.text` |
-| `search/evaluator.py`, `search/evaluation_*.py` | Оценка качества поиска (MRR) |
-| `evaluation/real_world/` | Real-World Validation v1: corpus manifest/cache, golden annotations, component metrics, monitoring scenarios, safety gates, reports |
-| `extraction/models.py` | Pydantic-модели extraction: document, raw/normalized mentions, events, save result |
-| `extraction/extractors.py` | Deterministic rule-based entity extraction без LLM и внешних API |
-| `extraction/normalizers.py` | Нормализация людей, организаций/судов, мест, правовых ссылок |
-| `extraction/events.py` | Rule-based события и роли связей с mentions |
-| `extraction/pipeline.py` | Оркестратор extraction: validate spans → normalize → deduplicate → events → persistence |
-| `extraction/persistence.py` | SQLAlchemy persistence для runs, mentions, events, links |
-| `extraction/metrics.py` | Golden corpus loader и метрики extraction |
-| `research/workflow/`, `llm/together_client.py`, `rosfinmonitoring/snapshot_lookup.py`, `research/workflow_factory.py` | Natural-language research: LangGraph workflow, Together AI request intake, детерминированная сборка результата, см. [Research-Workflow](Research-Workflow.md) |
-| `research/models.py`, `research/service.py`, `research/repository.py`, `research/mapping.py`, `research/cli.py` | Research layer: `ResearchRequest` → `ResearchService` → `ResearchResponse` (Person + events + evidence + review warnings), см. [Research](Research.md) |
+| `src/main.py`, `src/cli/` | CLI и lazy composition context |
+| `src/api.py`, `src/web/` | FastAPI, JSON API, operator console, wiki renderer |
+| `src/sources/` | source registry, adapters, fetch, parse, ingestion persistence |
+| `src/extraction/` | rule-based mentions, normalization, events |
+| `src/persons/` | Person persistence, ER v2, review queue, AI review |
+| `src/persecution/` | political persecution classification |
+| `src/rosfinmonitoring/` | snapshots and matching |
+| `src/candidates/` | final candidate query |
+| `src/research/` | deterministic research responses and reports |
+| `src/semantic_retrieval/` | semantic documents, Qdrant/pgvector vector store |
+| `src/monitoring/` | automated pipeline runs, checkpoints, findings |
+| `src/db/`, `migrations/` | ORM and Alembic schema |
 
-Детали — на страницах [Ingestion](Ingestion.md), [Data-Model](Data-Model.md), [Extraction](Extraction.md), [Search](Search.md), [Evaluation](Evaluation.md), [Real-World Validation](RealWorldValidation.md), [Research](Research.md).
+## Данные и артефакты
 
-Dense/hybrid/reranked-hybrid поиск (Qdrant, `sentence-transformers`) и chunking были удалены — см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md).
+- `source_documents`, `parsed_articles` — загруженный и разобранный текст.
+- `article_extraction_runs`, `entity_mentions`, `extracted_events` — extraction.
+- `persons`, `person_aliases`, `person_resolution_decisions` — identity layer.
+- `persecution_classifications` — последняя политическая классификация.
+- `rosfinmonitoring_snapshots`, `rosfin_matches` — сверка РФМ.
+- `operator_operation_runs`, `monitoring_runs` — эксплуатационная история.
+- `reports/` и `evaluation/` — оценка качества.
 
-## Стек
+## Проверка
 
-Python 3.13, PostgreSQL 18 (tsvector/GIN), SQLAlchemy 2.x + Alembic, `selectolax`, `httpx`, Pydantic 2.
+```bash
+uv run python src/main.py validate-config
+uv run ruff check src tests migrations
+uv run mypy --strict src tests
+uv run pytest
+```
+
+Подробности: [Testing](Testing.md).
+
+## Ограничения и типичные ошибки
+
+- `list-candidates` требует загруженный snapshot РФМ и match по нему.
+- ER-review убирает запись из очереди ER, но не скрывает Person из candidates:
+  candidates зависят от classification, РФМ, статуса Person и UI-фильтров.
+- Semantic index производный; при смене backend/model нужен rebuild.
+- Текущий проверенный статус проекта не здесь, а в [Implementation
+  Status](Implementation-Status.md).

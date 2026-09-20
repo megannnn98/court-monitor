@@ -1,5 +1,22 @@
 # Entity Resolution v2
 
+## Зачем это нужно
+
+ER связывает mention человека из extraction с canonical Person. Без этого
+classification, events, RF matching и candidates не знают, о каком именно
+человеке речь.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py resolve-people --limit 20000
+uv run python src/main.py person-resolution-reviews list
+uv run python src/main.py resolve-person "Иван Иванов"
+```
+
+`resolve-person` — dry-run: показывает кандидатов, score и решение, но ничего не
+пишет. Pending review разбирать через CLI или `/ui/person-resolution/reviews`.
+
 Решение: [ADR 0012](../adr/0012-entity-resolution-v2.md). Модель Person и exact baseline: [Persons](Persons.md), [ADR 0005](../adr/0005-entity-resolution-strategy.md).
 
 Главное правило: **похожий человек ≠ тот же человек**, и **одинаковое ФИО ≠ тот же человек**: `matching_key` — ключ поиска кандидатов, а не ключ identity (amendment ADR 0012, 2026-09-16). ER v2 может автоматически привязать новое упоминание к существующей Person или создать Person, но **никогда не объединяет две существующие canonical Person** — merge только явным действием ревьюера.

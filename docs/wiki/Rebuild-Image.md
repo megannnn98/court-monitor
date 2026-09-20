@@ -1,9 +1,14 @@
 # Пересборка образа и выпуск
 
+## Зачем это нужно
+
 Как собрать образ `court-monitor:local` из текущего кода и перезапустить на нём сайт (API)
 и мониторинг (Dagster). Всё выполняется в корне репозитория.
 
-## Коротко
+Это operator runbook: команды рассчитаны на локальный production-like compose,
+где API и Dagster используют один образ, а миграции запускаются отдельным шагом.
+
+## Быстрый сценарий
 
 ```bash
 git switch main && git pull                       # что выпускаем
@@ -115,3 +120,20 @@ docker builder du --builder default | tail -1                    # скольк�
 pgvector — отдельная процедура с паузой мониторинга и полной перестройкой индекса, см.
 раздел «Switching a deployment (runbook)» в
 [ADR 0018](../adr/0018-pgvector-vector-store.md).
+
+## Кодовые точки входа
+
+- `Dockerfile` — образ API/Dagster/migrate.
+- `compose.yaml` — базовые сервисы и production profile.
+- `compose.gpu.yaml` — semantic/NER зависимости и GPU.
+- `migrations/` — Alembic шаг `migrate`.
+- `src/health.py`, `src/web/routers/health.py` — readiness/liveness.
+
+## Ограничения и типичные ошибки
+
+- Не пропускать `migrate`: API сам миграции не применяет.
+- Не собирать GPU-выпуск без `compose.gpu.yaml`, если нужен semantic/NER.
+- Проверять свободное место до сборки: зависимости CUDA и старые слои занимают
+  много места.
+- Откат к старому коду не всегда значит downgrade БД; downgrade только если
+  новая схема мешает старому коду.

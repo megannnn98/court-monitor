@@ -1,6 +1,22 @@
 # Extraction
 
+## Зачем это нужно
+
 Этап 10 превращает полный `ParsedArticle.text` в проверяемые mentions и события. Постоянные chunks не возвращались: extractor работает только с текстом статьи, а любые внутренние окна не сохраняются и не имеют идентификаторов.
+
+Extraction не создает Person. Она только говорит: “в этой статье в этих offsets
+есть mention человека/суда/организации/правовой ссылки и такое-то событие”.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py extract-entities --article-id 123
+uv run python src/main.py extract-entities --source ovd-info --limit 100
+uv run python src/main.py evaluate-extraction
+```
+
+После этого проверять `article_extraction_runs`, `entity_mentions`,
+`extracted_events`, `event_entity_mentions`.
 
 ## Поток
 
@@ -200,6 +216,18 @@ Golden corpus: `tests/fixtures/extraction_golden_corpus.json`.
 - event-type accuracy
 
 Отчёт также содержит missed/false-positive/wrong-type/wrong-normalization/event errors.
+
+## Кодовые точки входа
+
+| Сценарий | Код |
+|---|---|
+| extraction models | `src/extraction/models.py` |
+| rule-based mentions | `src/extraction/extractors.py` |
+| normalization | `src/extraction/normalizers.py`, `src/extraction/name_morphology.py` |
+| events | `src/extraction/events.py` |
+| pipeline | `src/extraction/pipeline.py` |
+| persistence | `src/extraction/persistence.py` |
+| CLI/evaluation | `src/extraction/cli.py`, `src/extraction/metrics.py` |
 
 ## Ограничения
 

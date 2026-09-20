@@ -1,8 +1,22 @@
 # Real-World Validation v1
 
+## Зачем это нужно
+
 Real-World Validation v1 — отдельный evaluation контур для проверки pipeline на реальных публикациях из source adapters. Он не заменяет unit/integration tests и final synthetic evaluation: цель — измерить качество на зафиксированном корпусе, golden annotations и safety gates.
 
 Код: `src/evaluation/real_world/`. Данные: `evaluation/real_world/`. Локальный raw cache не коммитится: `var/real_world/`. Отчёты пишутся в `reports/real_world_validation_v1.{json,md}`.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py real-world-corpus-status
+uv run python src/main.py real-world-golden validate
+EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval \
+  uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+```
+
+Результат может быть `PRELIMINARY`: это значит, что pipeline измерен, но
+разметка/объём VERIFIED данных пока не дают production claim.
 
 ## Поток
 

@@ -1,8 +1,20 @@
 # Research Reports
 
+## Зачем это нужно
+
 Детерминированный отчёт поверх `ResearchResponse`: факты с цитатами, централизованная политика human review и database-first source routing. Решение — [ADR 0010](../adr/0010-research-report-review-routing.md). Факты устанавливает [Research](Research.md), natural-language обвязка — [Research-Workflow](Research-Workflow.md).
 
 > Report Builder не меняет факты. После intake LLM не используется.
+
+## Быстрый сценарий
+
+```bash
+uv run python src/main.py ask \
+  "Найди политически преследуемых людей, которых нет в Росфинмониторинге"
+```
+
+По умолчанию `ask` печатает именно report. Persistent review task создаётся не
+автоматически, а отдельным `POST /research/reviews`.
 
 ```plantuml
 @startuml
@@ -103,7 +115,7 @@ Claim с `basis=source_documents` без цитат → `supported=false`, warni
 `human_review_gate` только помечает результат; при чтении ничего не записывается. Persistent task создаётся явно:
 
 ```bash
-curl -X POST http://localhost:8000/research/reviews \
+curl -X POST http://localhost:8001/research/reviews \
   -H 'Content-Type: application/json' \
   -d '{"person_id": 2, "reason": "rosfin_ambiguous", "snapshot_id": 1}'
 ```
