@@ -133,6 +133,65 @@ API: `GET /person-resolution/reviews`, `GET /person-resolution/reviews/{decision
 
 Ревьюер видит структурированное сравнение (детерминированная диагностика, не LLM-рассуждение): компоненты ФИО, порядок, alias, trigram/semantic similarity, конфликты, правила score, источник статьи.
 
+## AI review (ADR 0020)
+
+Перед человеком pending-решение проходит автоматическое AI-review. LLM отвечает на один вопрос по каждому кандидату — «это тот же человек?» — и возвращает структурированный результат; решение принимает детерминированная `EntityReviewPolicy`, а применяет обычный `PersonResolutionReviewService`. Модель ничего не пишет в БД и никогда не сливает персон.
+
+```text
+ER v2 → REVIEW (pending_review)
+      → AI review каждого кандидата: same_person / different_person / uncertain
+      → EntityReviewPolicy
+           ├── auto_accepted  → link_to_person
+           ├── auto_rejected  → create_new_person
+           ├── human_required → остаётся в очереди человеку
+           └── failed         → остаётся в очереди человеку
+```
+
+Правила policy (`src/persons/resolution/ai_policy.py`):
+
+| Ответ AI | Условия | Итог |
+|---|---|---|
+| `same_person`, confidence ≥ порога | нет конфликтов признаков у кандидата, нет `multiple_exact_name_matches` / `possible_duplicate_persons` / `known_distinct_persons`, ровно один такой кандидат | `auto_accepted` → `link_to_person` |
+| `different_person`, confidence ≥ порога для **всех** кандидатов | имя полное (не одна фамилия, не только инициалы) | `auto_rejected` → `create_new_person` |
+| `uncertain`, confidence ниже порога, несколько `same_person`, конфликт признаков, blocking reason, неполное имя | — | `human_required` |
+| невалидный ответ, timeout, исчерпанные retry, ошибка API | — | `failed` (никакого auto-merge) |
+
+Модель видит только две сравниваемые сущности: имя, alias, matched/conflicting признаки ER, типы событий и короткие цитаты вокруг упоминаний (`ai_context.py`, 600 символов на цитату, до 4 цитат на сторону, до 3 кандидатов). Ни корпуса, ни полных статей, ни поисковой выдачи. В системной инструкции текст публикаций объявлен недоверенными данными; ответ валидируется по Pydantic-схеме, свободный текст — ошибка review, а не решение.
+
+Аудит — `person_resolution_ai_reviews`: решение AI, confidence, explanation, supporting/conflicting evidence, все ответы по кандидатам (`candidate_reviews`), provider, модель, версия prompt, хеш входа, `provider_calls` (сколько вызовов провайдера стоило review: retry и второй кандидат добавляют по одному), длительность, итоговый статус, причина передачи человеку, применённое действие и person.
+
+Идемпотентность — partial unique index по `(decision_id, input_hash, model, prompt_version)` с условием `outcome <> 'failed'`: повторный прогон с тем же входом, моделью и версией prompt ничего не делает (`skipped`), а вот `failed` (timeout, 429, невалидный ответ) ответа не дал и на следующем прогоне будет перепрошен. Смена `ENTITY_REVIEW_PROMPT_VERSION` даёт новую строку и сохраняет прежнюю как историю.
+
+Транзакции: решение читается в короткой транзакции, модель вызывается **без** открытой транзакции и без блокировок, затем во второй транзакции строка решения берётся `FOR UPDATE`, перепроверяется `status = pending_review` и отсутствие уже записанного review, и только после этого пишется аудит и применяется действие. Поэтому человек, разобравший то же решение пока модель отвечала, не перезаписывается (прогон отдаёт `skipped`), а соединение пула не занято на время сетевых вызовов.
+
+Запуск:
+
+```bash
+uv run python src/main.py person-resolution-reviews ai --limit 100
+```
+
+```text
+reviewed: 42
+auto_accepted: 18
+auto_rejected: 17
+human_required: 5
+failed: 2
+skipped: 0
+```
+
+В monitoring-конвейере это отдельная стадия `ai_entity_review` (Dagster asset между `person_resolution` и `persecution_classification`). Без настроенного провайдера стадия пишет `status=not_configured`, и все pending-решения идут человеку, как раньше.
+
+| Переменная | По умолчанию |
+|---|---|
+| `ENTITY_REVIEW_PROVIDER` | `none` (значения: `none`, `together`) |
+| `ENTITY_REVIEW_MODEL` | не задана — берётся `TOGETHER_MODEL` |
+| `ENTITY_REVIEW_AUTO_THRESHOLD` | `0.90` (допустимо 0.5..1.0) |
+| `ENTITY_REVIEW_TIMEOUT_SECONDS` | `30` |
+| `ENTITY_REVIEW_MAX_RETRIES` | `3` (только временные ошибки API, backoff 0.5 с × 2^n) |
+| `ENTITY_REVIEW_PROMPT_VERSION` | `v1` |
+
+Порог меняется переменной окружения; чтобы перепроверить кандидатов новой версией prompt, поднимите `ENTITY_REVIEW_PROMPT_VERSION` и запустите команду снова. Ручное review никуда не исчезает: `list`/`show`/`apply` работают как раньше, а `merge_persons` остаётся только человеку.
+
 ## Concurrency
 
 Unique-индекса по `matching_key` больше нет (тёзки), поэтому от параллельных дублей защищает только `pg_advisory_xact_lock` по identity-блокам (полные токены имени, одинаковы для переставленных форм). `ExtractionResolutionService` берёт блоки всех упоминаний run в начале (sorted), `resolve_mention` — свои перед чтением кандидатов (повторный захват — no-op). Кандидаты и решение считаются под lock: «Иван Иванов» и «Иванов Иван» (или одно имя дважды) в двух воркерах выполняются последовательно, второй видит закоммиченную Person первого и связывается с ней; CREATE_NEW пишет только после этого перечтения. `create_new_person` ревьюера берёт те же lock.
