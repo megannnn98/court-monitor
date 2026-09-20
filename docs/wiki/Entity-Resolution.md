@@ -147,6 +147,106 @@ ER v2 → REVIEW (pending_review)
            └── failed         → остаётся в очереди человеку
 ```
 
+### Как проходит один разбор
+
+Разбор — это батч: `review_pending(limit)` берёт pending-решения **от старых к новым**
+(`created_at`, затем `id`) и обрабатывает по одному. Каждое решение независимо: своя
+транзакция, свой аудит, а любое исключение на нём логируется
+(`event=entity_review_decision_failed`), считается как `failed` и не останавливает батч.
+
+```plantuml
+@startuml
+autonumber
+participant "review_pending\n(AutomatedEntityReviewService)" as Service
+database "PostgreSQL" as DB
+participant "EntityMatchReviewer\n(together | cli)" as Reviewer
+participant "EntityReviewPolicy" as Policy
+participant "PersonResolutionReviewService" as Apply
+
+Service -> DB: pending-решения, старые первыми (limit)
+loop по каждому решению
+  Service -> DB: решение + контекст (короткая транзакция, без блокировок)
+  alt уже есть review с тем же (input_hash, model, prompt_version)
+    Service -> Service: skipped, следующее решение
+  else нужно спрашивать модель
+    loop по каждому кандидату (≤ 3 активных, по убыванию score)
+      loop attempt = 1 .. ENTITY_REVIEW_MAX_RETRIES + 1
+        Service -> Reviewer: review(mention, candidate)
+        alt валидный ответ по контракту
+          Reviewer --> Service: decision + confidence + evidence
+        else временная ошибка (timeout, 429, недоступен, ненулевой код CLI)
+          Reviewer --> Service: EntityReviewError(transient=True)
+          Service -> Service: sleep 0.5 с × 2^(attempt-1), следующая попытка
+        else окончательная ошибка (не JSON, контракт, auth, нет команды)
+          Reviewer --> Service: EntityReviewError(transient=False)
+          Service -> Service: попытки прекращены
+        end
+      end
+    end
+    alt все кандидаты ответили
+      Service -> Policy: resolve(контекст решения, ответы)
+      Policy --> Service: outcome + действие
+      Service -> DB: FOR UPDATE решения, перепроверка pending и отсутствия review
+      alt решение всё ещё pending и не разобрано
+        Service -> DB: строка аудита person_resolution_ai_reviews
+        opt outcome = auto_accepted | auto_rejected
+          Service -> Apply: apply(link_to_person | create_new_person, note)
+        end
+        Service -> DB: commit
+      else человек или другой воркер успел раньше
+        Service -> Service: skipped, ничего не пишется
+      end
+    else ни одного ответа
+      Service -> DB: аудит с outcome=failed, решение остаётся человеку
+    end
+  end
+end
+@enduml
+```
+
+Пошагово, с точками принятия решений:
+
+1. **Отбор.** Только `status = pending_review`; уже применённые и разобранные человеком
+   решения в выборку не попадают. В monitoring-конвейере лимит батча —
+   `MONITORING_DISCOVERY_LIMIT`, в CLI — `--limit`.
+2. **Сборка входа** (`ai_context.py`). Из снимка решения берутся кандидаты, сортируются
+   по `resolution_score` (при равенстве — по `person_id`), обрезаются до трёх и
+   фильтруются по `status = active`: деактивированная или слитая персона на review не
+   выносится. К каждой стороне добавляются короткие цитаты вокруг её упоминаний (до 4 по
+   600 символов), типы событий и детерминированное сравнение ER v2 (`matched_features`,
+   `conflicting_features`, причины review). Отдельно считается `name_is_complete` — имя
+   считается полным, если в нём есть хотя бы два токена длиннее одной буквы, то есть не
+   одна фамилия и не только инициалы.
+3. **Идемпотентность.** Вход хешируется (`input_hash` — SHA-256 по контексту без
+   `decision_id`); если такая тройка `(input_hash, model, prompt_version)` уже разобрана
+   не-`failed` результатом, решение пропускается (`skipped`) и модель не вызывается.
+4. **Опрос модели.** По одному вызову на пару (mention, кандидат) — отдельный вызов
+   означает, что «два кандидата прочитаны как один и тот же человек» видно policy, и что
+   в аудите остаётся ответ по каждому кандидату. Вызовы идут **вне транзакции**: пул
+   соединений не занят на время сети, строка решения не заблокирована.
+5. **Ошибки и retry.** Временная ошибка повторяется до `ENTITY_REVIEW_MAX_RETRIES` раз
+   (всего попыток на кандидата — `max_retries + 1`) с backoff 0.5 с × 2^n; окончательная
+   не повторяется никогда. Временные: timeout, 429, недоступность провайдера, ненулевой
+   код возврата CLI. Окончательные: ответ не по контракту (не JSON, лишнее поле,
+   `confidence` вне 0..1, неизвестное `decision`), ошибка аутентификации, отклонённый
+   запрос, отсутствующая команда CLI. Сколько вызовов реально стоило review, видно в
+   `provider_calls`: второй кандидат и каждая повторная попытка добавляют по одному.
+   Если хотя бы один кандидат не дал ответа, всё решение уходит в `failed` — половинчатых
+   разборов не бывает.
+6. **Решение policy.** Детерминированная функция от ответов и от причин review (таблица
+   ниже). Confidence модели — лишь один вход: ни одно её значение не перебивает конфликт
+   признаков ER, тёзок и возможные дубли персон.
+7. **Применение.** Строка решения берётся `FOR UPDATE`, перепроверяются `pending_review`
+   и отсутствие записанного review; затем в одной транзакции пишется аудит и
+   применяется действие — тем же `PersonResolutionReviewService`, что и ручное review, с
+   пометкой `ai review (<модель>, <версия prompt>): <причина>` в `reviewer_note`. Если
+   действие больше не подходит к данным (персона деактивирована или слита),
+   транзакция откатывается, отдельной транзакцией пишется `failed`, и решение остаётся
+   человеку.
+
+`merge_persons` недоступен автоматике ни при каком ответе: слияние двух канонических
+персон делает только человек.
+
 Правила policy (`src/persons/resolution/ai_policy.py`):
 
 | Ответ AI | Условия | Итог |
