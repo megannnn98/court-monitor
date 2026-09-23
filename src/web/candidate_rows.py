@@ -158,20 +158,49 @@ def _period_start(date_from: str | None) -> date | None:
         raise HTTPException(status_code=422, detail=f"Invalid date_from: {date_from!r}") from exc
 
 
-def _is_administrative_only(reasons: list[str]) -> bool:
-    """Every political article of the person is from КоАП: an administrative case."""
+def _is_administrative_only(
+    reasons: list[str],
+    event_type: str | None = None,
+) -> bool:
+    """The candidate's persecution is purely administrative.
+
+    True when either:
+    - Every political charge references КоАП (not УК), OR
+    - The most recent event is a ``fine`` and there is no УК charge anywhere.
+
+    The second condition catches cases where the classifier marked the person
+    political based on article text keywords but all their actual events are
+    administrative fines.
+    """
     charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
-    return bool(charges) and not any("УК" in charge for charge in charges)
+    has_criminal_charge = any("УК" in charge for charge in charges)
+    # Explicit КоАП-only charges.
+    if charges and not has_criminal_charge:
+        return True
+    # No explicit charge references, but the most recent event is a fine.
+    return event_type == "fine" and not has_criminal_charge
 
 
-def _is_criminal_only(reasons: list[str]) -> bool:
-    """At least one political charge references УК (criminal code), none reference КоАП."""
-    charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
-    if not charges:
-        return False
-    has_criminal = any("УК" in charge for charge in charges)
-    has_administrative = any("КоАП" in charge for charge in charges)
-    return has_criminal and not has_administrative
+def _has_criminal_events(
+    event_type: str | None,
+    reasons: list[str],
+) -> bool:
+    """Whether the candidate has criminal (non-administrative) persecution events.
+
+    A candidate is considered criminal if:
+    - Their most recent event is NOT a ``fine`` (fines are administrative), OR
+    - They have at least one persecution reason referencing УК (criminal code).
+
+    This handles the case where the classifier marks someone political based on
+    article text keywords but all their actual events are administrative fines
+    (e.g. a long-term political prisoner getting a new fine for a minor offence).
+    """
+    # If the most recent event is a fine, check for any criminal charges
+    if event_type == "fine":
+        charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
+        return any("УК" in charge for charge in charges)
+    # Non-fine events (arrest, charge, sentence, detention, etc.) are criminal
+    return True
 
 
 def _candidate_rows(
@@ -193,8 +222,9 @@ def _candidate_rows(
 
     When *event_date_filter* is True (default), candidates whose latest event is before
     *period_start* are excluded — old cases mentioned in fresh articles are filtered out.
-    When *criminal_only* is True, only candidates with at least one criminal (УК) charge
-    and no administrative (КоАП) charges are included.
+    When *criminal_only* is True, only candidates whose most recent event is not a
+    ``fine`` (or who have a criminal-code charge) are included — administrative
+    fines for already-known political prisoners are filtered out.
     """
     try:
         result = CandidateQueryService(db).get_candidates(
@@ -209,11 +239,14 @@ def _candidate_rows(
     news = _candidate_news(db, [candidate.person_id for candidate in result.candidates])
     rows: list[_CandidateRow] = []
     for candidate in result.candidates:
-        if not include_administrative and _is_administrative_only(candidate.persecution_reasons):
-            continue
-        if criminal_only and not _is_criminal_only(candidate.persecution_reasons):
-            continue
         item = news.get(candidate.person_id)
+        event_type = item.event_type if item is not None else None
+        if not include_administrative and _is_administrative_only(
+            candidate.persecution_reasons, event_type
+        ):
+            continue
+        if criminal_only and not _has_criminal_events(event_type, candidate.persecution_reasons):
+            continue
         published_at = item.published_at if item is not None else None
         event_date = item.event_date if item is not None else None
 
