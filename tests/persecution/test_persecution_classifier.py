@@ -89,6 +89,25 @@ def test_classifier_detects_political_keywords_in_article() -> None:
     assert PersecutionEvidenceType.ANTI_WAR_ACTIVITY in classification.evidence_types
 
 
+def test_classifier_does_not_treat_memorial_as_political_evidence() -> None:
+    """A source name cannot turn an unrelated criminal case into a political one."""
+    classification = RuleBasedPersecutionClassifier().classify(
+        person_id=1,
+        events=[{"id": 1, "event_type": "sentence", "attributes": {"charge": "УК РФ ст. 158"}}],
+        articles=[
+            {
+                "id": 1,
+                "title": "Приговор по уголовному делу",
+                "text": "Карточку опубликовал Мемориал.",
+            }
+        ],
+    )
+
+    assert classification.status == PersecutionClassificationStatus.NON_POLITICAL
+    assert classification.evidence_types == []
+    assert classification.reasons == []
+
+
 def test_classifier_detects_religious_persecution() -> None:
     """Test that classifier detects religious persecution."""
     classifier = RuleBasedPersecutionClassifier()

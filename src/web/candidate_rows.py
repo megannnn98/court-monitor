@@ -25,6 +25,7 @@ class _CandidateNews(NamedTuple):
     url: str
     published_at: datetime | None
     event_type: str | None
+    event_date: datetime | None = None
 
 
 class _CandidateRow(NamedTuple):
@@ -87,6 +88,7 @@ def _candidate_news(db: Session, person_ids: list[int]) -> dict[int, _CandidateN
             SourceDocument.canonical_url,
             ParsedArticleRecord.published_at,
             ExtractedEventRecord.event_type,
+            ExtractedEventRecord.event_date,
         )
         .join(ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id)
         .join(
@@ -104,8 +106,8 @@ def _candidate_news(db: Session, person_ids: list[int]) -> dict[int, _CandidateN
         )
     ).tuples()
     news = {
-        person_id: _CandidateNews(url, published_at, event_type)
-        for person_id, url, published_at, event_type in from_events.all()
+        person_id: _CandidateNews(url, published_at, event_type, event_date)
+        for person_id, url, published_at, event_type, event_date in from_events.all()
     }
     without_events = [person_id for person_id in person_ids if person_id not in news]
     if without_events:
@@ -162,6 +164,16 @@ def _is_administrative_only(reasons: list[str]) -> bool:
     return bool(charges) and not any("УК" in charge for charge in charges)
 
 
+def _is_criminal_only(reasons: list[str]) -> bool:
+    """At least one political charge references УК (criminal code), none reference КоАП."""
+    charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
+    if not charges:
+        return False
+    has_criminal = any("УК" in charge for charge in charges)
+    has_administrative = any("КоАП" in charge for charge in charges)
+    return has_criminal and not has_administrative
+
+
 def _candidate_rows(
     db: Session,
     *,
@@ -169,6 +181,8 @@ def _candidate_rows(
     min_confidence: float,
     period_start: date | None,
     include_administrative: bool,
+    criminal_only: bool = False,
+    event_date_filter: bool = True,
     include_rf_statuses: frozenset[RosfinmonitoringStatus] = DEFAULT_INCLUDED_RF_STATUSES,
 ) -> list[_CandidateRow]:
     """The candidates of the page and its Excel export, filtered and in the table order.
@@ -176,6 +190,11 @@ def _candidate_rows(
     The candidate definition stays the service's; the period, the administrative cases
     and the order are the customer's view of it. The channel queue widens the
     Rosfinmonitoring statuses: the channel publishes people on the list too.
+
+    When *event_date_filter* is True (default), candidates whose latest event is before
+    *period_start* are excluded — old cases mentioned in fresh articles are filtered out.
+    When *criminal_only* is True, only candidates with at least one criminal (УК) charge
+    and no administrative (КоАП) charges are included.
     """
     try:
         result = CandidateQueryService(db).get_candidates(
@@ -192,12 +211,27 @@ def _candidate_rows(
     for candidate in result.candidates:
         if not include_administrative and _is_administrative_only(candidate.persecution_reasons):
             continue
+        if criminal_only and not _is_criminal_only(candidate.persecution_reasons):
+            continue
         item = news.get(candidate.person_id)
         published_at = item.published_at if item is not None else None
+        event_date = item.event_date if item is not None else None
+
+        # Filter by article date (publication date).
         if period_start is not None and (
             published_at is None or _news_day(published_at) < period_start
         ):
             continue
+
+        # Filter by event date: exclude old events mentioned in fresh articles.
+        if (
+            event_date_filter
+            and period_start is not None
+            and event_date is not None
+            and _news_day(event_date) < period_start
+        ):
+            continue
+
         rows.append(_CandidateRow(candidate, item))
 
     def order(row: _CandidateRow) -> tuple[int, int, float, int]:
@@ -233,6 +267,8 @@ def _candidate_filters(
     min_confidence: float,
     period_start: date | None,
     include_administrative: bool,
+    criminal_only: bool = False,
+    event_date_filter: bool = True,
 ) -> str:
     params: dict[str, str | int | float] = {
         "snapshot_id": snapshot_id,
@@ -241,6 +277,10 @@ def _candidate_filters(
     }
     if include_administrative:
         params["include_administrative"] = "1"
+    if criminal_only:
+        params["criminal_only"] = "1"
+    if not event_date_filter:
+        params["event_date_filter"] = "0"
     return urlencode(params)
 
 

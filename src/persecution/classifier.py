@@ -56,7 +56,6 @@ POLITICAL_KEYWORDS = {
     "правозащитник",
     "правозащитница",
     "правозащитный",
-    "Мемориал",
     "антивоенный",
     "антивоенная",
     "против войны",
@@ -114,8 +113,8 @@ def _keyword_pattern(keywords: Sequence[str]) -> re.Pattern[str]:
 
 
 _POLITICAL_KEYWORDS_PATTERN = _keyword_pattern(sorted(POLITICAL_KEYWORDS))
-# News outlets («сообщили ОВД-Инфо», «пишет SOTA») are attribution, not evidence.
-_HUMAN_RIGHTS_PATTERN = _keyword_pattern(["правозащит", "мемориал"])
+# Source names («Мемориал сообщил», «пишет SOTA») are attribution, not evidence.
+_HUMAN_RIGHTS_PATTERN = _keyword_pattern(["правозащит"])
 _JOURNALISM_PATTERN = _keyword_pattern(
     ["журналист", "медиа", "сми", "пресса", "редактор", "корреспондент"]
 )
@@ -137,8 +136,8 @@ class RuleBasedPersecutionClassifier:
     # (УК or КоАП), with the articles OVD-Info practice uses (212.1, 282.3, 330.1,
     # КоАП 20.3.3, 20.33, 19.34, …).
     # 1.4.0: a charge may list several articles, and each counts in its own code;
-    # treason and a GUR/SBU task are signs of political persecution.
-    classifier_version = "1.4.0"
+    # 1.5.0: source names are attribution, not two independent political signals.
+    classifier_version = "1.5.0"
 
     def classify(
         self,

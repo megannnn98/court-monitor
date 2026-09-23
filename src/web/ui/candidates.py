@@ -32,6 +32,8 @@ def ui_candidates(
     limit: int = Query(default=100, ge=1, le=1000),
     date_from: str | None = Query(default=None),
     include_administrative: bool = Query(default=False),
+    criminal_only: bool = Query(default=False),
+    event_date_filter: bool = Query(default=True),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
@@ -55,6 +57,8 @@ def ui_candidates(
             min_confidence=min_confidence,
             period_start=period_start,
             include_administrative=include_administrative,
+            criminal_only=criminal_only,
+            event_date_filter=event_date_filter,
         )
     except HTTPException as exc:
         if exc.status_code != 404:
@@ -81,12 +85,19 @@ def ui_candidates(
         for position, (candidate, news) in enumerate(candidate_rows[:limit], start=1)
     )
     filters = _candidate_filters(
-        selected_snapshot_id, min_confidence, period_start, include_administrative
+        selected_snapshot_id,
+        min_confidence,
+        period_start,
+        include_administrative,
+        criminal_only,
+        event_date_filter,
     )
     # CSV and PDF show the page; the Excel export holds every candidate found.
     page_filters = f"{filters}&{urlencode({'limit': limit})}"
     period_value = period_start.isoformat() if period_start is not None else ""
     administrative_checked = "checked" if include_administrative else ""
+    criminal_only_checked = "checked" if criminal_only else ""
+    event_date_filter_checked = "checked" if event_date_filter else ""
     return _page(
         "Кандидаты",
         f"""<form method="get" class="toolbar">
@@ -95,6 +106,8 @@ def ui_candidates(
   <label>Limit <input type="number" name="limit" min="1" max="1000" value="{limit}"></label>
   <label>Новости с <input type="date" name="date_from" value="{period_value}"></label>
   <label><input type="checkbox" name="include_administrative" value="1" {administrative_checked}> Включая административные</label>
+  <label><input type="checkbox" name="criminal_only" value="1" {criminal_only_checked}> Только уголовные (УК)</label>
+  <label><input type="checkbox" name="event_date_filter" value="1" {event_date_filter_checked}> Фильтр по дате события</label>
   <button>Обновить</button>
   <a class="secondary" href="/ui/candidates/export?{page_filters}">Скачать CSV</a>
   <a class="secondary" href="/ui/candidates/export.pdf?{page_filters}">Скачать PDF</a>
@@ -117,6 +130,8 @@ def _exported_candidates(
     limit: int,
     date_from: str | None,
     include_administrative: bool,
+    criminal_only: bool = False,
+    event_date_filter: bool = True,
 ) -> list[CandidateResponse]:
     """The page's rows for the CSV and PDF exports, which carry no news column.
 
@@ -130,6 +145,8 @@ def _exported_candidates(
         min_confidence=min_confidence,
         period_start=_period_start(date_from),
         include_administrative=include_administrative,
+        criminal_only=criminal_only,
+        event_date_filter=event_date_filter,
     )
     return [candidate_response(candidate) for candidate, _ in rows[:limit]]
 
@@ -141,6 +158,8 @@ def ui_candidates_export(
     limit: int = Query(default=100, ge=1, le=1000),
     date_from: str | None = Query(default=None),
     include_administrative: bool = Query(default=False),
+    criminal_only: bool = Query(default=False),
+    event_date_filter: bool = Query(default=True),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """The rows of the page: the same filters, the same order, the same `limit`."""
@@ -151,6 +170,8 @@ def ui_candidates_export(
         limit=limit,
         date_from=date_from,
         include_administrative=include_administrative,
+        criminal_only=criminal_only,
+        event_date_filter=event_date_filter,
     )
     return Response(
         content=candidates_csv(candidates),
@@ -167,6 +188,8 @@ def ui_candidates_export_xlsx(
     min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
     date_from: str | None = Query(default=None),
     include_administrative: bool = Query(default=False),
+    criminal_only: bool = Query(default=False),
+    event_date_filter: bool = Query(default=True),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """The page's candidates in the page's order; the page `limit` is deliberately not applied."""
@@ -176,6 +199,8 @@ def ui_candidates_export_xlsx(
         min_confidence=min_confidence,
         period_start=_period_start(date_from),
         include_administrative=include_administrative,
+        criminal_only=criminal_only,
+        event_date_filter=event_date_filter,
     )
     return Response(
         content=candidates_xlsx(rows),
@@ -193,6 +218,8 @@ def ui_candidates_export_pdf(
     limit: int = Query(default=100, ge=1, le=1000),
     date_from: str | None = Query(default=None),
     include_administrative: bool = Query(default=False),
+    criminal_only: bool = Query(default=False),
+    event_date_filter: bool = Query(default=True),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """The rows of the page: the same filters, the same order, the same `limit`."""
@@ -203,6 +230,8 @@ def ui_candidates_export_pdf(
         limit=limit,
         date_from=date_from,
         include_administrative=include_administrative,
+        criminal_only=criminal_only,
+        event_date_filter=event_date_filter,
     )
     try:
         content = candidates_pdf(candidates, snapshot_id=snapshot_id, min_confidence=min_confidence)
