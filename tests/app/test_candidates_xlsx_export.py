@@ -174,7 +174,9 @@ def test_new_cases_and_sentences_come_first_then_the_newest(
         session.commit()
 
     with _client(session_factory) as client:
-        response = _export(client, snapshot_id)
+        # A fine without a criminal charge is an administrative case, hidden by default
+        # (48c4851); the order is checked with administrative cases included.
+        response = _export(client, snapshot_id, include_administrative="1")
 
     assert [(row[1], row[3]) for row in _rows(response.content)[1:]] == [
         ("Делов Олег", "Возбуждено дело"),

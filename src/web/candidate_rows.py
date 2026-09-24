@@ -185,22 +185,20 @@ def _has_criminal_events(
     event_type: str | None,
     reasons: list[str],
 ) -> bool:
-    """Whether the candidate has criminal (non-administrative) persecution events.
+    """Whether the candidate's persecution is shown to be criminal, not administrative.
 
-    A candidate is considered criminal if:
-    - Their most recent event is NOT a ``fine`` (fines are administrative), OR
-    - They have at least one persecution reason referencing УК (criminal code).
-
-    This handles the case where the classifier marks someone political based on
-    article text keywords but all their actual events are administrative fines
-    (e.g. a long-term political prisoner getting a new fine for a minor offence).
+    - A criminal-code (УК) charge is criminal whatever the latest news is about.
+    - КоАП charges only: administrative, whatever the event type — «арестован на 15
+      суток» is an administrative arrest, not a criminal case.
+    - No charge reference: the latest event is the only evidence; a ``fine`` is
+      administrative, and a person with no linked event proves nothing criminal.
     """
-    # If the most recent event is a fine, check for any criminal charges
-    if event_type == "fine":
-        charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
-        return any("УК" in charge for charge in charges)
-    # Non-fine events (arrest, charge, sentence, detention, etc.) are criminal
-    return True
+    charges = [reason for reason in reasons if reason.startswith(_POLITICAL_CHARGE_REASON)]
+    if any("УК" in charge for charge in charges):
+        return True
+    if charges:
+        return False
+    return event_type is not None and event_type != "fine"
 
 
 def _candidate_rows(

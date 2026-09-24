@@ -123,9 +123,12 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         article = client.get(f"/articles/{article_id}")
         search = client.get("/search/articles", params={"query": "пикет"})
         # The seeded news is dated 2024: no period filter.
-        candidates_page = client.get(f"/ui/candidates?snapshot_id={snapshot_id}&date_from=")
-        exported = client.get(f"/ui/candidates/export?snapshot_id={snapshot_id}&date_from=")
-        exported_pdf = client.get(f"/ui/candidates/export.pdf?snapshot_id={snapshot_id}&date_from=")
+        # The seeded news is a fine without a criminal-code charge: an administrative case,
+        # hidden by default (48c4851), so the page is asked for administrative cases too.
+        filters = f"snapshot_id={snapshot_id}&date_from=&include_administrative=1"
+        candidates_page = client.get(f"/ui/candidates?{filters}")
+        exported = client.get(f"/ui/candidates/export?{filters}")
+        exported_pdf = client.get(f"/ui/candidates/export.pdf?{filters}")
 
     assert detail.status_code == 200
     body = detail.json()
