@@ -64,8 +64,6 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         # hidden by default (48c4851), so the page is asked for administrative cases too.
         filters = f"snapshot_id={snapshot_id}&date_from=&include_administrative=1"
         candidates_page = client.get(f"/ui/candidates?{filters}")
-        exported = client.get(f"/ui/candidates/export?{filters}")
-        exported_pdf = client.get(f"/ui/candidates/export.pdf?{filters}")
 
     assert detail.status_code == 200
     body = detail.json()
@@ -82,13 +80,6 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     assert candidates_page.status_code == 200
     assert "<th>№</th>" in candidates_page.text
     assert "<td>1</td>" in candidates_page.text
-    assert exported.status_code == 200
-    assert exported.headers["content-type"].startswith("text/csv")
-    assert "Иван Иванов" in exported.text
-    assert "not_matched" in exported.text
-    assert exported_pdf.status_code == 200
-    assert exported_pdf.headers["content-type"] == "application/pdf"
-    assert exported_pdf.content.startswith(b"%PDF-")
 
 
 def test_ui_pages_have_operator_shell_and_contextual_instruction(

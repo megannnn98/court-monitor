@@ -553,3 +553,23 @@ def test_the_real_process_runner_streams_output_and_interrupts_on_stop(
         "started\n",
         "interrupted\n",
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "parameters"),
+    [
+        ("resolve-people", OperationParameters(limit=5, mode="load")),
+        ("monitor", OperationParameters(source="ovd-info", mode="resolve")),
+        ("monitor", OperationParameters(sources=[], mode="resolve")),
+        ("monitor", OperationParameters(sources=["memopzk-figurants"], mode="resolve")),
+    ],
+)
+def test_monitor_modes_are_validated(
+    session_factory: sessionmaker[Session], name: str, parameters: OperationParameters
+) -> None:
+    registry = _registry(session_factory)
+
+    with pytest.raises(ValueError):
+        registry.start(name, parameters)
+
+    assert registry.list_runs() == []

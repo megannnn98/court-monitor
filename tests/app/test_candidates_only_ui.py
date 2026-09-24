@@ -23,6 +23,8 @@ REMOVED_PAGES = [
     ("GET", "/ui/search"),
     ("GET", "/ui/cases"),
     ("GET", "/ui/cases/export.xlsx"),
+    ("GET", "/ui/candidates/export"),
+    ("GET", "/ui/candidates/export.pdf"),
     ("GET", "/ui/channel"),
     ("GET", "/ui/monitoring"),
     ("GET", "/ui/operations"),
@@ -90,9 +92,7 @@ def test_the_candidates_the_wiki_and_their_exports_are_served(
             path: client.get(path)
             for path in (
                 "/ui/candidates",
-                f"/ui/candidates/export?snapshot_id={snapshot_id}",
                 f"/ui/candidates/export.xlsx?snapshot_id={snapshot_id}",
-                f"/ui/candidates/export.pdf?snapshot_id={snapshot_id}",
                 "/ui/wiki",
                 "/ui/wiki/Local-Web-UI",
                 "/ui/wiki/export.pdf",

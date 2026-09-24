@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
+from monitoring.service import MonitoringService
 from observability import configure_logging
 from sources.source_registry import SOURCES, SourceKind
 
@@ -23,7 +24,7 @@ MONITOR_EXIT_FAILED = 1
 MONITOR_EXIT_ALREADY_RUNNING = 3
 
 MONITORING_COMMANDS = frozenset(
-    {"monitor", "monitor-derived", "monitoring-status", "monitoring-findings"}
+    {"monitor", "monitor-derived", "monitor-resolve", "monitoring-status", "monitoring-findings"}
 )
 
 ServicesBuilder = Callable[[sessionmaker[Session]], ApplicationServices]
@@ -74,6 +75,28 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         "--catch-up",
         action="store_true",
         help="New publications of every source first, then the derived stages once",
+    )
+    monitor.add_argument(
+        "--load-only",
+        action="store_true",
+        help=(
+            "With --catch-up: load and extract only; person resolution and the derived "
+            "stages are left to monitor-resolve"
+        ),
+    )
+
+    resolve = subparsers.add_parser(
+        "monitor-resolve",
+        help=(
+            "Resolve every pending person mention of the news sources, then run the "
+            "derived stages once (no web access)"
+        ),
+    )
+    resolve.add_argument(
+        "--selected-source",
+        action="append",
+        default=None,
+        help="News source to resolve (default: every news source); may be repeated",
     )
 
     subparsers.add_parser(
@@ -141,6 +164,11 @@ def run_monitoring_command(
             raise SystemExit(MONITOR_EXIT_FAILED)
         return True
 
+    if args.command == "monitor-resolve":
+        return _resolve(args, monitoring)
+
+    if args.load_only and not args.catch_up:
+        raise SystemExit("--load-only requires --catch-up")
     if args.catch_up and (args.dry_run or args.backfill):
         raise SystemExit("--catch-up cannot be combined with --dry-run or --backfill")
     if args.selected_source is not None:
@@ -148,12 +176,7 @@ def run_monitoring_command(
             raise SystemExit("--selected-source requires --catch-up")
         if args.source is not None:
             raise SystemExit("--selected-source cannot be combined with --source")
-        for source in args.selected_source:
-            definition = SOURCES.get(source)
-            if definition is None:
-                raise SystemExit(f"Unknown source: {source}")
-            if definition.kind is not SourceKind.NEWS:
-                raise SystemExit(f"Source is not a news source: {source}")
+        _require_news_sources(args.selected_source)
     if args.refetch_known and not args.backfill:
         raise SystemExit("--refetch-known requires --backfill")
     if args.backfill and (args.source is None or args.limit is None):
@@ -186,6 +209,7 @@ def run_monitoring_command(
                 discovery_limit=args.limit,
                 refetch_known=args.refetch_known,
                 with_derived=not args.catch_up,
+                with_resolution=not args.load_only,
             )
         except MonitoringAlreadyRunningError as exc:
             results.append(
@@ -202,7 +226,7 @@ def run_monitoring_command(
         results.append(run.model_dump(mode="json"))
         if run.status is MonitoringRunStatus.FAILED:
             exit_code = MONITOR_EXIT_FAILED
-    if args.catch_up:
+    if args.catch_up and not args.load_only:
         try:
             derived = monitoring.run_derived(trigger=MonitoringTrigger.MANUAL)
         except MonitoringAlreadyRunningError as exc:
@@ -212,6 +236,60 @@ def run_monitoring_command(
             results.append(derived.model_dump(mode="json"))
             if derived.status is MonitoringRunStatus.FAILED:
                 exit_code = MONITOR_EXIT_FAILED
+    _print(results)
+    if exit_code:
+        raise SystemExit(exit_code)
+    return True
+
+
+def _require_news_sources(sources: list[str]) -> None:
+    for source in sources:
+        definition = SOURCES.get(source)
+        if definition is None:
+            raise SystemExit(f"Unknown source: {source}")
+        if definition.kind is not SourceKind.NEWS:
+            raise SystemExit(f"Source is not a news source: {source}")
+
+
+def _resolve(args: argparse.Namespace, monitoring: MonitoringService) -> bool:
+    """Resolution of every selected source, one after another, then the derived stages.
+
+    One source at a time: resolution decides against the persons created so far, and
+    parallel workers could create the same person twice."""
+    if args.selected_source is not None:
+        _require_news_sources(args.selected_source)
+        sources = list(dict.fromkeys(args.selected_source))
+    else:
+        sources = [name for name, item in SOURCES.items() if item.kind is SourceKind.NEWS]
+    results: list[dict[str, Any]] = []
+    exit_code = 0
+    for source in sources:
+        try:
+            run = monitoring.resolve_source(source, trigger=MonitoringTrigger.MANUAL)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from None
+        except MonitoringAlreadyRunningError as exc:
+            results.append(
+                {
+                    "source": source,
+                    "skipped": "already_running",
+                    "running_run_id": exc.running_run_id,
+                }
+            )
+            exit_code = exit_code or MONITOR_EXIT_ALREADY_RUNNING
+            continue
+        results.append(run.model_dump(mode="json"))
+        if run.status is MonitoringRunStatus.FAILED:
+            exit_code = MONITOR_EXIT_FAILED
+    try:
+        derived = monitoring.run_derived(trigger=MonitoringTrigger.MANUAL)
+    except MonitoringAlreadyRunningError as exc:
+        results.append({"skipped": "already_running", "running_run_id": exc.running_run_id})
+        exit_code = exit_code or MONITOR_EXIT_ALREADY_RUNNING
+    else:
+        results.append(derived.model_dump(mode="json"))
+        if derived.status is MonitoringRunStatus.FAILED:
+            exit_code = MONITOR_EXIT_FAILED
     _print(results)
     if exit_code:
         raise SystemExit(exit_code)

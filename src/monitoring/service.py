@@ -15,7 +15,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import httpx
@@ -61,6 +61,8 @@ SEMANTIC_NOT_CONFIGURED = "not_configured"
 ENTITY_REVIEW_NOT_CONFIGURED = "not_configured"
 # A run waiting for a derived-stage lock refreshes its heartbeat at least this often.
 MAX_LOCK_WAIT_HEARTBEAT_SECONDS = 60.0
+# The resolution stage records how far it got every this many extraction runs.
+RESOLUTION_PROGRESS_EVERY = 10
 
 
 class ExtractionFailedError(Exception):
@@ -76,10 +78,15 @@ class RunHandle:
     trigger: MonitoringTrigger
     discovery_limit: int = 0
     refetch_known: bool = False
+    # Resolution only: nothing was discovered, so the checkpoint must not move.
+    resolve_only: bool = False
 
     @property
     def is_regular(self) -> bool:
-        return self.trigger in (MonitoringTrigger.SCHEDULE, MonitoringTrigger.MANUAL)
+        return not self.resolve_only and self.trigger in (
+            MonitoringTrigger.SCHEDULE,
+            MonitoringTrigger.MANUAL,
+        )
 
 
 @dataclass(frozen=True)
@@ -296,11 +303,15 @@ class MonitoringService:
         discovery_limit: int | None = None,
         refetch_known: bool = False,
         with_derived: bool = True,
+        with_resolution: bool = True,
     ) -> MonitoringRunView:
         """One full source run: source stages, then the derived stages.
 
         `with_derived=False` stops after resolution, for a catch-up over many sources that
-        runs the derived stages once at the end."""
+        runs the derived stages once at the end; `with_resolution=False` also skips
+        resolution, left to `resolve_source` (it works through the source's whole backlog)."""
+        if with_derived and not with_resolution:
+            raise ValueError("the derived stages need resolution")
         handle = self.start_source_run(
             source, trigger=trigger, discovery_limit=discovery_limit, refetch_known=refetch_known
         )
@@ -308,7 +319,8 @@ class MonitoringService:
             discovery = self.discover(handle)
             ingestion = self.ingest(handle, discovery)
             self.extract(handle, ingestion)
-            self.resolve(handle)
+            if with_resolution:
+                self.resolve(handle)
             if with_derived:
                 self._run_derived_stages(handle)
         except MonitoringRunAbortedError:
@@ -319,6 +331,35 @@ class MonitoringService:
         except Exception as exc:
             logger.exception(
                 "event=monitoring_run_failed run_id=%s source=%s", handle.run_id, source
+            )
+            return self.finish(handle, error=exc)
+        except BaseException as exc:
+            # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.
+            self.finish(handle, error=exc)
+            raise
+        return self.finish(handle)
+
+    def resolve_source(
+        self, source: str, *, trigger: MonitoringTrigger = MonitoringTrigger.MANUAL
+    ) -> MonitoringRunView:
+        """Only the resolution stage of one source, over everything it has pending.
+
+        Holds the source's scope, so it never runs beside a load of the same source."""
+        handle = replace(
+            self.start_source_run(source, trigger=trigger, discovery_limit=1), resolve_only=True
+        )
+        try:
+            self.resolve(handle)
+        except MonitoringRunAbortedError:
+            logger.warning(
+                "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id
+            )
+            return self.finish(handle)
+        except Exception as exc:
+            logger.exception(
+                "event=monitoring_run_failed run_id=%s source=%s scope=resolution",
+                handle.run_id,
+                source,
             )
             return self.finish(handle, error=exc)
         except BaseException as exc:
@@ -510,8 +551,16 @@ class MonitoringService:
         )
         created = linked = reviews = failed = 0
         with self._stage(handle, MonitoringStage.RESOLUTION) as metrics:
-            for extraction_run_id in run_ids:
-                self._repository.heartbeat(handle.run_id)
+            for done, extraction_run_id in enumerate(run_ids):
+                if done % RESOLUTION_PROGRESS_EVERY == 0:
+                    # Progress for the operator console; the stage's own metrics replace it.
+                    self._repository.set_stage_metrics(
+                        handle.run_id,
+                        MonitoringStage.RESOLUTION,
+                        {"extraction_runs": len(run_ids), "done": done},
+                    )
+                else:
+                    self._repository.heartbeat(handle.run_id)
                 try:
                     stats = self._deps.resolution.resolve_extraction_run(extraction_run_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run

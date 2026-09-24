@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import IO, Any, Protocol
+from typing import IO, Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
@@ -61,6 +61,9 @@ LIVE_STATUSES = (OperationRunStatus.PENDING.value, OperationRunStatus.RUNNING.va
 class OperationParameters(BaseModel):
     source: str | None = None
     sources: list[str] | None = None
+    # monitor only: "load" loads and extracts, "resolve" resolves persons and classifies;
+    # unset, one run does both.
+    mode: Literal["load", "resolve"] | None = None
     limit: int | None = Field(default=None, ge=1, le=100_000)
     workers: int | None = Field(default=None, ge=1, le=32)
 
@@ -309,8 +312,8 @@ class OperationRegistry:
         """Record a pending run and hand it to the executor; returns without waiting."""
         definition = self.definition(name)
         parameters = self._with_defaults(definition, parameters)
-        if parameters.sources is not None and name != "monitor":
-            raise ValueError("sources are only supported for monitor")
+        if (parameters.sources is not None or parameters.mode is not None) and name != "monitor":
+            raise ValueError("sources and mode are only supported for monitor")
         command = _command_for(definition.name, parameters)
         self.interrupt_stale_runs()
         try:
@@ -529,7 +532,15 @@ def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
 
 
 def _command_for(name: str, parameters: OperationParameters) -> list[str]:
-    command = [sys.executable, str(_repo_root() / "src" / "main.py"), name]
+    main = [sys.executable, str(_repo_root() / "src" / "main.py")]
+    if name == "monitor" and parameters.mode == "resolve":
+        if parameters.source is not None:
+            raise ValueError("resolution takes sources, not source")
+        command = [*main, "monitor-resolve"]
+        for source in _require_news_sources(parameters.sources or []):
+            command += ["--selected-source", source]
+        return command
+    command = [*main, name]
     if name == "monitor":
         command.append("--catch-up")
         if parameters.sources is not None:
@@ -539,6 +550,8 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
                 command += ["--selected-source", source]
         elif parameters.source:
             command += ["--source", _require_source(parameters.source)]
+        if parameters.mode == "load":
+            command.append("--load-only")
         command += ["--limit", str(_require_limit(parameters.limit))]
     elif name == "discover-and-ingest":
         source = _require_source(parameters.source)

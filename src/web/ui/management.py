@@ -7,6 +7,7 @@ import re
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from html import escape
+from typing import Literal
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -153,12 +154,34 @@ def _filter_chips(definitions: Sequence[SourceDefinition]) -> str:
     return "".join(chips)
 
 
+_MODE_TITLES = {
+    "load": "Загрузка статей",
+    "resolve": "Разрешение персон",
+    None: "Загрузка и разрешение",
+}
+
+
+def _has_derived_step(run: OperationRun) -> bool:
+    """A load leaves classification to the resolution run; the other runs end with it."""
+    return run.parameters.mode != "load"
+
+
+def _resolution_progress(item: MonitoringRunView) -> tuple[int, int] | None:
+    """(done, total) extraction runs of a source's resolution stage, while it is recorded."""
+    metrics = item.stage_metrics.get("resolution")
+    if not isinstance(metrics, dict) or "extraction_runs" not in metrics:
+        return None
+    total = int(metrics["extraction_runs"])
+    return int(metrics.get("done", total)), total
+
+
 def _history(runs: Sequence[OperationRun], current: OperationRun | None) -> str:
     if not runs:
         return ""
     rows = "".join(
         f'<tr class="{"current" if current is not None and run.id == current.id else ""}">'
         f'<td><a href="/ui/management?run_id={run.id}">#{run.id}</a></td>'
+        f"<td>{_MODE_TITLES[run.parameters.mode]}</td>"
         f"<td>{escape(_local_time(run.created_at))}</td>"
         f"<td>{_badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])}</td>"
         f'<td class="num">{len(run.parameters.sources or [])}</td>'
@@ -167,7 +190,7 @@ def _history(runs: Sequence[OperationRun], current: OperationRun | None) -> str:
     )
     return f"""<section class="band">
   <h2>Последние ручные запуски</h2>
-  <table><thead><tr><th>Запуск</th><th>Начат</th><th>Статус</th><th>Источников</th></tr></thead>
+  <table><thead><tr><th>Запуск</th><th>Что</th><th>Начат</th><th>Статус</th><th>Источников</th></tr></thead>
   <tbody>{rows}</tbody></table>
 </section>"""
 
@@ -212,7 +235,7 @@ def _progress(db: Session, run: OperationRun) -> str:
     per_source = {item.source: item for item in monitoring_runs if item.source in selected}
     derived = next((item for item in monitoring_runs if item.source is None), None)
     running = MonitoringRunStatus.RUNNING
-    steps = len(selected) + 1
+    steps = len(selected) + _has_derived_step(run)
     done = sum(item.status is not running for item in per_source.values())
     names = {item.name: item.source_name for item in news_sources()}
     current = next((item for item in per_source.values() if item.status is running), None)
@@ -228,7 +251,18 @@ def _progress(db: Session, run: OperationRun) -> str:
             f"{escape(names.get(current.source, current.source))}"
         )
         handled = current.documents_skipped + current.documents_ingested + current.documents_failed
-        if current.documents_discovered == 0:
+        resolution = _resolution_progress(current)
+        if resolution is not None:
+            resolved, total = resolution
+            detail = (
+                f'<progress class="step" value="{resolved}" max="{max(total, 1)}"></progress>'
+                f'<p class="muted">Разрешение персон: статей {resolved} из {total}; '
+                f"новых персон {current.persons_created}, привязано {current.persons_linked}, "
+                f"на ревью {current.person_reviews_created}</p>"
+            )
+        elif run.parameters.mode == "resolve":
+            detail = '<p class="muted">Ищу статьи с неразобранными упоминаниями…</p>'
+        elif current.documents_discovered == 0:
             detail = '<p class="muted">Ищу новые публикации…</p>'
         elif handled < current.documents_discovered:
             detail = (
@@ -262,6 +296,7 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
 
     names = {item.name: item.source_name for item in news_sources()}
     in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+    resolving = run.parameters.mode == "resolve"
     rows: list[str] = []
     for source in selected:
         title = (
@@ -271,9 +306,17 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
         )
         item = per_source.get(source)
         if item is not None:
-            numbers = "".join(
-                f'<td class="num">{value}</td>'
-                for value in (
+            resolution = _resolution_progress(item)
+            values = (
+                (
+                    resolution[0] if resolution else 0,
+                    item.persons_created,
+                    item.persons_linked,
+                    item.person_reviews_created,
+                    item.error_count,
+                )
+                if resolving
+                else (
                     item.documents_discovered,
                     item.documents_ingested,
                     item.articles_extracted,
@@ -281,6 +324,7 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
                     item.error_count,
                 )
             )
+            numbers = "".join(f'<td class="num">{value}</td>' for value in values)
             message = escape(item.error_message[:240]) if item.error_message else ""
             rows.append(
                 f"<tr><td>{title}</td>"
@@ -296,20 +340,27 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
             status = _badge("Не запускался")
         rows.append(f'<tr><td>{title}</td><td>{status}</td><td colspan="6"></td></tr>')
 
-    if derived is not None:
-        derived_status = _badge(
-            _MONITORING_STATUS_LABELS[derived.status], _MONITORING_STATUS_BADGES[derived.status]
+    if _has_derived_step(run):
+        if derived is not None:
+            derived_status = _badge(
+                _MONITORING_STATUS_LABELS[derived.status],
+                _MONITORING_STATUS_BADGES[derived.status],
+            )
+            derived_metrics = (
+                f"Классифицировано: {derived.classifications_created}; совпадений РФМ: "
+                f"{derived.rf_matches_created}; ошибок: {derived.error_count}"
+            )
+        else:
+            derived_status = _badge("Ожидает", "pending") if in_progress else _badge("Не запущен")
+            derived_metrics = ""
+        rows.append(
+            f'<tr class="derived"><td>Общая классификация и сверка с РФМ</td>'
+            f'<td>{derived_status}</td><td colspan="6">{derived_metrics}</td></tr>'
         )
-        derived_metrics = (
-            f"Классифицировано: {derived.classifications_created}; совпадений РФМ: "
-            f"{derived.rf_matches_created}; ошибок: {derived.error_count}"
-        )
-    else:
-        derived_status = _badge("Ожидает", "pending") if in_progress else _badge("Не запущен")
-        derived_metrics = ""
-    rows.append(
-        f'<tr class="derived"><td>Общая классификация и сверка с РФМ</td>'
-        f'<td>{derived_status}</td><td colspan="6">{derived_metrics}</td></tr>'
+    columns = (
+        "<th>Статей разобрано</th><th>Новых персон</th><th>Привязано</th><th>На ревью</th>"
+        if resolving
+        else "<th>Найдено</th><th>Загружено</th><th>Статей</th><th>Событий</th>"
     )
     overall = _RUN_STATUS_LABELS[run.status]
     overall_badge = _RUN_STATUS_BADGES[run.status]
@@ -327,12 +378,12 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
     )
     stop = _stop_form(run, "management") if in_progress else ""
     return f"""<section class="band">
-  <h2>Запуск #{run.id} {_badge(overall, overall_badge)}</h2>
+  <h2>Запуск #{run.id}: {_MODE_TITLES[run.parameters.mode]} {_badge(overall, overall_badge)}</h2>
   {_progress(db, run)}
   {stop}
   <p>Начат: {escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M:%S"))}; выбранных источников: {len(selected)}.</p>
-  <table><thead><tr><th>Источник / этап</th><th>Статус</th><th>Найдено</th><th>Загружено</th>
-  <th>Статей</th><th>Событий</th><th>Ошибок</th><th>Сообщение</th></tr></thead>
+  <table><thead><tr><th>Источник / этап</th><th>Статус</th>{columns}
+  <th>Ошибок</th><th>Сообщение</th></tr></thead>
   <tbody>{"".join(rows)}</tbody></table>
   {refresh}
 </section>"""
@@ -367,8 +418,11 @@ def _management_page(
     <tbody>{_source_rows(db, definitions, selected)}</tbody>
   </table>
   <div class="run-bar">
-    <button id="run-button" type="submit" {"" if checked_count else "disabled"}>Подгрузить статьи (<span id="selected-count">{checked_count}</span>)</button>
+    <button id="run-button" class="run-button" type="submit" {"" if checked_count else "disabled"}>Подгрузить статьи (<span class="selected-count">{checked_count}</span>)</button>
+    <button id="resolve-button" class="run-button secondary" type="submit" formaction="/ui/management/resolve" {"" if checked_count else "disabled"}>Разрешить персоны (<span class="selected-count">{checked_count}</span>)</button>
     <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки действуют только на этот запуск и не меняют расписание.
+    «Подгрузить статьи» скачивает публикации и извлекает людей и события; «Разрешить персоны» привязывает упоминания к людям,
+    затем классифицирует и сверяет с РФМ — только после неё новые люди попадают в «Кандидаты».
     Жёлтая дата — не загружался больше {STALE_AFTER.days} дней.</span>
   </div>
 </form>
@@ -383,9 +437,9 @@ let kind = 'all';
 function refresh() {{
   const shown = rows.filter(row => !row.hidden).map(row => row.querySelector('input[name="sources"]'));
   const checked = boxes.filter(box => box.checked).length;
-  document.getElementById('selected-count').textContent = checked;
+  document.querySelectorAll('.selected-count').forEach(count => {{ count.textContent = checked; }});
   document.getElementById('selected-total').textContent = checked;
-  document.getElementById('run-button').disabled = checked === 0;
+  document.querySelectorAll('.run-button').forEach(button => {{ button.disabled = checked === 0; }});
   toggleAll.checked = shown.length > 0 && shown.every(box => box.checked);
   toggleAll.indeterminate = shown.some(box => box.checked) && !toggleAll.checked;
 }}
@@ -414,8 +468,8 @@ refresh();
         body,
         active="management",
         instruction=(
-            "Выберите источники для одного ручного запуска: загрузка, extraction, "
-            "разрешение персон, классификация и сверка с РФМ."
+            "Выберите источники и запустите по очереди: «Подгрузить статьи» (загрузка и "
+            "извлечение), затем «Разрешить персоны» (привязка людей, классификация, РФМ)."
         ),
         next_action="После запуска здесь появятся общий статус и результат по каждому источнику.",
         db=db,
@@ -462,6 +516,23 @@ async def start_management_run(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
+    """Load and extract the selected sources; resolution is its own button."""
+    return await _start(request, db, registry, "load")
+
+
+@router.post("/ui/management/resolve", response_model=None)
+async def start_management_resolution(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse | RedirectResponse:
+    """Resolve the persons of the selected sources, then classify and match once."""
+    return await _start(request, db, registry, "resolve")
+
+
+async def _start(
+    request: Request, db: Session, registry: OperationRegistry, mode: Literal["load", "resolve"]
+) -> HTMLResponse | RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
     sources = form.get("sources", [])
     selected = list(dict.fromkeys(sources))
@@ -483,12 +554,15 @@ async def start_management_run(
             status_code=400,
         )
     try:
-        run = registry.start(_OPERATION, OperationParameters(sources=selected))
+        run = registry.start(_OPERATION, OperationParameters(sources=selected, mode=mode))
     except OperationConflictError:
         return _management_page(
             db,
             selected=set(selected),
-            warning="Другой запуск мониторинга уже выполняется. Дождитесь его завершения.",
+            warning=(
+                "Другой запуск (загрузка или разрешение персон) уже выполняется. "
+                "Дождитесь его завершения или остановите его."
+            ),
             history=_recent_runs(registry),
             status_code=409,
         )

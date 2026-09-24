@@ -8,12 +8,14 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import OperatorOperationRunRecord, SourceDocument
-from operator_console import OperationRegistry, OperationRunStatus
+from monitoring.models import MonitoringStage, MonitoringTrigger
+from monitoring.repository import SqlAlchemyMonitoringRepository
+from operator_console import OperationParameters, OperationRegistry, OperationRunStatus
 from sources.source_registry import news_sources
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -75,11 +77,13 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
     run = registry.get(run_id)
     assert run.status is OperationRunStatus.PENDING
     assert run.parameters.sources == ["sota-vision", "ovd-info"]
-    assert run.command[-6:] == [
+    assert run.parameters.mode == "load"
+    assert run.command[-7:] == [
         "--selected-source",
         "sota-vision",
         "--selected-source",
         "ovd-info",
+        "--load-only",
         "--limit",
         "50",
     ]
@@ -173,10 +177,16 @@ def test_the_run_button_counts_the_selection_and_is_off_without_one(
 
     total = len(news_sources())
     assert (
-        f'<button id="run-button" type="submit" >Подгрузить статьи '
-        f'(<span id="selected-count">{total}</span>)</button>'
+        f'<button id="run-button" class="run-button" type="submit" >Подгрузить статьи '
+        f'(<span class="selected-count">{total}</span>)</button>'
     ) in full
-    assert '<button id="run-button" type="submit" disabled>' in empty
+    assert (
+        '<button id="resolve-button" class="run-button secondary" type="submit" '
+        f'formaction="/ui/management/resolve" >Разрешить персоны '
+        f'(<span class="selected-count">{total}</span>)</button>'
+    ) in full
+    assert '<button id="run-button" class="run-button" type="submit" disabled>' in empty
+    assert 'formaction="/ui/management/resolve" disabled>' in empty
 
 
 def test_the_latest_manual_runs_are_listed_with_their_status(
@@ -201,3 +211,98 @@ def test_the_stylesheet_url_carries_its_version(session_factory: sessionmaker[Se
         page = client.get("/ui/management").text
 
     assert re.search(r'href="/static/local-ui\.css\?v=[0-9a-f]{12}"', page)
+
+
+def test_resolve_starts_person_resolution_of_the_selected_sources(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management")
+        response = client.post(
+            "/ui/management/resolve",
+            data={"sources": ["sota-vision", "ovd-info"]},
+            follow_redirects=False,
+        )
+        run_page = client.get(response.headers["location"])
+
+    assert 'formaction="/ui/management/resolve"' in page.text
+    assert response.status_code == 303
+    run = registry.runs_of("monitor")[0]
+    assert run.parameters.mode == "resolve"
+    assert run.command[2:] == [
+        "monitor-resolve",
+        "--selected-source",
+        "sota-vision",
+        "--selected-source",
+        "ovd-info",
+    ]
+    assert "Разрешение персон" in run_page.text
+    assert "<th>Новых персон</th>" in run_page.text
+    assert "Общая классификация и сверка с РФМ" in run_page.text
+
+
+def test_load_and_resolution_cannot_run_at_once(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        client.post("/ui/management/run", data={"sources": ["ovd-info"]}, follow_redirects=False)
+        second = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
+
+    assert second.status_code == 409
+    assert "уже выполняется" in second.text
+
+
+def _live(session_factory: sessionmaker[Session], registry: OperationRegistry, mode: str) -> int:
+    run = registry.start(
+        "monitor",
+        OperationParameters(sources=["ovd-info", "sota-vision"], mode=mode),  # type: ignore[arg-type]
+    )
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE operator_operation_runs SET status = 'running', "
+                "started_at = now() - interval '1 minute', heartbeat_at = now() WHERE id = :id"
+            ),
+            {"id": run.id},
+        )
+    return run.id
+
+
+def test_a_live_resolution_shows_how_many_articles_of_the_source_are_done(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    run_id = _live(session_factory, registry, "resolve")
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    current = monitoring.start_run(
+        scope="source:ovd-info",
+        source="ovd-info",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=1),
+    )
+    monitoring.set_stage_metrics(
+        current, MonitoringStage.RESOLUTION, {"extraction_runs": 10, "done": 3}
+    )
+
+    with _client(session_factory, registry) as client:
+        page = client.get(f"/ui/management?run_id={run_id}").text
+
+    assert '<progress class="overall" value="0" max="3">' in page
+    assert "Источник 1 из 2: ОВД-Инфо" in page
+    assert '<progress class="step" value="3" max="10">' in page
+    assert "Разрешение персон: статей 3 из 10" in page
+
+
+def test_a_load_has_no_classification_step(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    run_id = _live(session_factory, registry, "load")
+
+    with _client(session_factory, registry) as client:
+        page = client.get(f"/ui/management?run_id={run_id}").text
+
+    assert '<progress class="overall" value="0" max="2">' in page
+    assert "Загрузка статей" in page
+    assert "Общая классификация и сверка с РФМ" not in page

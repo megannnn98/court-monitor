@@ -1,9 +1,12 @@
-"""`monitor`, `monitor-derived`, `monitoring-status`, `monitoring-findings` CLI commands."""
+"""`monitor`, `monitor-derived`, `monitor-resolve`, `monitoring-status`,
+`monitoring-findings` CLI commands."""
 
 from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,6 +19,7 @@ from monitoring.cli import (
     run_monitoring_command,
 )
 from monitoring.findings import MonitoringFindingService
+from monitoring.models import MonitoringStage
 from monitoring.repository import SqlAlchemyMonitoringRepository
 
 
@@ -232,6 +236,8 @@ def test_selected_catch_up_continues_after_one_selected_source_fails(
             "not a news source",
         ),
         (("monitor", "--catch-up", "--dry-run"), "--catch-up cannot"),
+        (("monitor", "--load-only"), "--load-only requires --catch-up"),
+        (("monitor-resolve", "--selected-source", "memopzk-figurants"), "not a news source"),
         (
             ("monitor", "--catch-up", "--backfill", "--source", "ovd-info", "--limit", "5"),
             "--catch-up cannot",
@@ -267,3 +273,69 @@ def test_derived_run_and_run_details(
     assert details["run"]["id"] == derived["id"]
     assert details["items"] == []
     assert findings == []
+
+
+def test_a_load_only_catch_up_leaves_resolution_to_monitor_resolve(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    sota = FakeUpstream()
+    sota.publish("petrov", PETROV)
+    upstreams = {"ovd-info": ovd, "sota-vision": sota}
+    selection = ("--selected-source", "ovd-info", "--selected-source", "sota-vision")
+
+    loaded = _run(
+        session_factory, upstreams, capsys, "monitor", "--catch-up", "--load-only", *selection
+    )
+    resolved = _run(session_factory, upstreams, capsys, "monitor-resolve", *selection)
+
+    # The load: two source runs, no resolution, no derived run.
+    assert isinstance(loaded, list)
+    assert [(run["source"], run["status"], run["documents_ingested"]) for run in loaded] == [
+        ("ovd-info", "completed", 1),
+        ("sota-vision", "completed", 1),
+    ]
+    assert all(set(run["stage_metrics"]) == SOURCE_STAGES - {"resolution"} for run in loaded)
+    assert all(run["persons_created"] == 0 for run in loaded)
+    # The resolution: only that stage per source, fetching nothing, then the derived run.
+    assert isinstance(resolved, list)
+    *sources, derived = resolved
+    assert [(run["source"], run["status"]) for run in sources] == [
+        ("ovd-info", "completed"),
+        ("sota-vision", "completed"),
+    ]
+    assert all(set(run["stage_metrics"]) == {"resolution"} for run in sources)
+    assert sum(run["persons_created"] for run in sources) >= 2
+    assert (len(ovd.fetches), len(sota.fetches)) == (1, 1)
+    assert (derived["scope"], derived["status"]) == ("derived", "completed")
+    assert derived["classifications_created"] >= 1
+    # Only the load moved the checkpoints: a resolution discovered nothing.
+    states = SqlAlchemyMonitoringRepository(session_factory).list_source_states()
+    assert {state.source_name: state.last_successful_run_id for state in states} == {
+        run["source"]: run["id"] for run in loaded
+    }
+
+
+def test_resolution_records_how_far_it_got(session_factory: sessionmaker[Session]) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    ovd.publish("petrov", PETROV)
+    service = build_service(session_factory, {"ovd-info": ovd})
+    service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    recorded: list[dict[str, object]] = []
+    original = service.repository.set_stage_metrics
+
+    def spy(run_id: int, stage: MonitoringStage, metrics: Mapping[str, Any]) -> None:
+        if stage is MonitoringStage.RESOLUTION:
+            recorded.append(dict(metrics))
+        original(run_id, stage, metrics)
+
+    service.repository.set_stage_metrics = spy  # type: ignore[method-assign]
+
+    run = service.resolve_source("ovd-info")
+
+    assert recorded[0] == {"extraction_runs": 2, "done": 0}
+    assert recorded[-1]["extraction_runs"] == 2
+    assert "done" not in recorded[-1]
+    assert run.stage_metrics["resolution"]["extraction_runs"] == 2
