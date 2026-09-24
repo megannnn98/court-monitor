@@ -21,18 +21,20 @@ from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
 from operator_console import (
     OUTPUT_LIMIT,
+    Heartbeat,
     OperationConflictError,
     OperationNotFoundError,
     OperationParameters,
     OperationRegistry,
     OperationRunStatus,
     ProcessResult,
+    ProcessRunner,
 )
 
 INGEST = OperationParameters(source="ovd-info", limit=3)
 
 
-def _succeeding(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+def _succeeding(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
     heartbeat()
     return ProcessResult(return_code=0, stdout="done\n", stderr="")
 
@@ -49,7 +51,7 @@ def _deferred() -> tuple[Callable[[Callable[[], None]], None], list[Callable[[],
 
 def _registry(
     session_factory: sessionmaker[Session],
-    process: Callable[[list[str], Callable[[], None]], ProcessResult] = _succeeding,
+    process: ProcessRunner = _succeeding,
     **kwargs: object,
 ) -> OperationRegistry:
     return OperationRegistry(
@@ -133,7 +135,7 @@ def test_a_run_goes_pending_running_then_succeeded(session_factory: sessionmaker
     seen: list[OperationRunStatus] = []
     registry_holder: list[OperationRegistry] = []
 
-    def process(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         seen.append(registry_holder[0].list_runs()[0].status)
         return ProcessResult(0, "ok", "")
 
@@ -149,7 +151,7 @@ def test_a_run_goes_pending_running_then_succeeded(session_factory: sessionmaker
 
 
 def test_a_nonzero_exit_fails_the_run(session_factory: sessionmaker[Session]) -> None:
-    def failing(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def failing(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         return ProcessResult(2, "", "boom")
 
     registry = _registry(session_factory, failing)
@@ -163,7 +165,7 @@ def test_a_nonzero_exit_fails_the_run(session_factory: sessionmaker[Session]) ->
 def test_an_exception_fails_the_run_and_frees_the_operation(
     session_factory: sessionmaker[Session],
 ) -> None:
-    def raising(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def raising(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         raise OSError("no such interpreter")
 
     registry = _registry(session_factory, raising)
@@ -176,7 +178,7 @@ def test_an_exception_fails_the_run_and_frees_the_operation(
 
 
 def test_output_keeps_only_its_end(session_factory: sessionmaker[Session]) -> None:
-    def verbose(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def verbose(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         return ProcessResult(0, "a" * OUTPUT_LIMIT + "END", "e" * (OUTPUT_LIMIT * 2))
 
     registry = _registry(session_factory, verbose)
@@ -215,7 +217,7 @@ def test_a_late_result_does_not_overwrite_an_interrupted_run(
 ) -> None:
     holder: list[OperationRegistry] = []
 
-    def outlived(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def outlived(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         # The run is declared dead while its process still works.
         with session_factory.begin() as session:
             session.execute(
@@ -244,14 +246,44 @@ def test_parameters_are_validated_before_anything_is_stored(
         registry.start("drop-database", OperationParameters())
     with pytest.raises(ValueError):
         OperationParameters(limit=0)
+    with pytest.raises(ValueError, match="not a news source"):
+        registry.start("monitor", OperationParameters(sources=["memopzk-figurants"]))
+    with pytest.raises(ValueError, match="only supported for monitor"):
+        registry.start("classify-persecution", OperationParameters(sources=["ovd-info"]))
 
     assert registry.list_runs() == []
+
+
+def test_monitor_command_preserves_explicit_news_source_selection(
+    session_factory: sessionmaker[Session],
+) -> None:
+    commands: list[list[str]] = []
+
+    def recording(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        commands.append(command)
+        return ProcessResult(0, "", "")
+
+    registry = _registry(session_factory, recording)
+    run = registry.start(
+        "monitor", OperationParameters(sources=["sota-vision", "ovd-info"], limit=7)
+    )
+
+    assert run.parameters.sources == ["sota-vision", "ovd-info"]
+    assert commands[0][-7:] == [
+        "--catch-up",
+        "--selected-source",
+        "sota-vision",
+        "--selected-source",
+        "ovd-info",
+        "--limit",
+        "7",
+    ]
 
 
 def test_the_command_is_an_argv_from_the_allowlist(session_factory: sessionmaker[Session]) -> None:
     commands: list[list[str]] = []
 
-    def recording(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def recording(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         commands.append(command)
         return ProcessResult(0, "", "")
 
@@ -280,7 +312,7 @@ def test_the_catch_up_runs_monitor_over_every_source_or_one(
 ) -> None:
     commands: list[list[str]] = []
 
-    def recording(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def recording(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         commands.append(command)
         return ProcessResult(0, "", "")
 
@@ -337,7 +369,11 @@ def test_the_real_process_runner_captures_output_and_beats(
     beats: list[int] = []
     command = [sys.executable, "-c", "import time; time.sleep(0.5); print('out')"]
 
-    result = operator_console._run_process(command, lambda: beats.append(1))
+    def beat(stdout: str = "", stderr: str = "") -> bool:
+        beats.append(1)
+        return True
+
+    result = operator_console._run_process(command, beat)
 
     assert (result.return_code, result.stdout) == (0, "out\n")
     assert len(beats) >= 2
@@ -351,7 +387,7 @@ def test_a_failed_heartbeat_does_not_end_the_run(
     status_after_beat: list[OperationRunStatus] = []
     holder: list[OperationRegistry] = []
 
-    def beating(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
+    def beating(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
         heartbeat()
         status_after_beat.append(holder[0].list_runs()[0].status)
         return ProcessResult(0, "done\n", "")
@@ -388,7 +424,7 @@ def test_an_exception_while_waiting_kills_the_process(
         f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(60)",
     ]
 
-    def stop(*_: object) -> None:
+    def stop(stdout: str = "", stderr: str = "") -> bool:
         raise KeyboardInterrupt
 
     with pytest.raises(KeyboardInterrupt):
@@ -418,3 +454,102 @@ def test_only_the_live_run_index_means_already_running(
             connection.execute(
                 text("ALTER TABLE operator_operation_runs DROP CONSTRAINT ck_test_no_ingest")
             )
+
+
+def test_a_stopped_run_ends_its_process_and_keeps_the_output_so_far(
+    session_factory: sessionmaker[Session], test_engine: Engine
+) -> None:
+    """The stop comes from another API process; the one running it learns at its beat."""
+    other = OperationRegistry(create_session_factory(test_engine))
+    seen: dict[str, object] = {}
+
+    def stopped_midway(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        assert heartbeat("line 1\n", "INFO started\n") is True
+        seen["live"] = other.get(other.list_runs()[0].id)
+        other.stop(other.list_runs()[0].id)
+        seen["keep_going"] = heartbeat("line 1\nline 2\n", "INFO started\n")
+        return ProcessResult(-2, "line 1\nline 2\nlate\n", "INFO started\nKeyboardInterrupt\n")
+
+    run = _registry(session_factory, stopped_midway).start("discover-and-ingest", INGEST)
+
+    live = seen["live"]
+    assert isinstance(live, type(run))
+    assert (live.status, live.stdout, live.stderr) == (
+        OperationRunStatus.RUNNING,
+        "line 1\n",
+        "INFO started\n",
+    )
+    assert seen["keep_going"] is False
+    stored = other.get(run.id)
+    assert stored.status is OperationRunStatus.INTERRUPTED
+    assert stored.error == "stopped by the operator"
+    assert stored.stderr == "INFO started\n"
+
+
+def test_a_pending_run_stopped_before_it_starts_never_runs(
+    session_factory: sessionmaker[Session],
+) -> None:
+    executor, queued = _deferred()
+    commands: list[list[str]] = []
+
+    def recording(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        commands.append(command)
+        return ProcessResult(0, "", "")
+
+    registry = _registry(session_factory, recording, executor=executor)
+    run = registry.start("discover-and-ingest", INGEST)
+
+    assert registry.stop(run.id) is True
+    queued[0]()
+
+    assert commands == []
+    assert registry.get(run.id).status is OperationRunStatus.INTERRUPTED
+    # The operation is free again.
+    registry.start("discover-and-ingest", INGEST)
+
+
+def test_stopping_an_ended_or_unknown_run(session_factory: sessionmaker[Session]) -> None:
+    registry = _registry(session_factory)
+    run = registry.start("discover-and-ingest", INGEST)
+
+    assert registry.stop(run.id) is False
+    assert registry.get(run.id).status is OperationRunStatus.SUCCEEDED
+    with pytest.raises(OperationNotFoundError):
+        registry.stop(run.id + 1000)
+
+
+def test_the_real_process_runner_streams_output_and_interrupts_on_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+
+    import operator_console
+
+    monkeypatch.setattr(operator_console, "HEARTBEAT_INTERVAL", timedelta(seconds=0.2))
+    command = [
+        sys.executable,
+        "-c",
+        (
+            "import sys, time\n"
+            "print('started')\n"
+            "try:\n"
+            "    time.sleep(60)\n"
+            "except KeyboardInterrupt:\n"
+            "    print('interrupted', file=sys.stderr)\n"
+            "    sys.exit(130)\n"
+        ),
+    ]
+    beats: list[str] = []
+
+    def stop_once_started(stdout: str = "", stderr: str = "") -> bool:
+        beats.append(stdout)
+        return "started" not in stdout
+
+    result = operator_console._run_process(command, stop_once_started)
+
+    assert "started\n" in beats
+    assert (result.return_code, result.stdout, result.stderr) == (
+        130,
+        "started\n",
+        "interrupted\n",
+    )

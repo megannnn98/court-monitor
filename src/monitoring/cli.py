@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from application import ApplicationServices, build_application_services
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from observability import configure_logging
+from sources.source_registry import SOURCES, SourceKind
 
 MONITOR_EXIT_FAILED = 1
 MONITOR_EXIT_ALREADY_RUNNING = 3
@@ -41,6 +42,12 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         "--source",
         default=None,
         help="Monitor one source (default: MONITORING_ENABLED_SOURCES)",
+    )
+    monitor.add_argument(
+        "--selected-source",
+        action="append",
+        default=None,
+        help="Explicit news source selection for --catch-up; may be repeated",
     )
     monitor.add_argument(
         "--limit",
@@ -136,13 +143,30 @@ def run_monitoring_command(
 
     if args.catch_up and (args.dry_run or args.backfill):
         raise SystemExit("--catch-up cannot be combined with --dry-run or --backfill")
+    if args.selected_source is not None:
+        if not args.catch_up:
+            raise SystemExit("--selected-source requires --catch-up")
+        if args.source is not None:
+            raise SystemExit("--selected-source cannot be combined with --source")
+        for source in args.selected_source:
+            definition = SOURCES.get(source)
+            if definition is None:
+                raise SystemExit(f"Unknown source: {source}")
+            if definition.kind is not SourceKind.NEWS:
+                raise SystemExit(f"Source is not a news source: {source}")
     if args.refetch_known and not args.backfill:
         raise SystemExit("--refetch-known requires --backfill")
     if args.backfill and (args.source is None or args.limit is None):
         raise SystemExit("--backfill requires an explicit --source and --limit")
     if args.limit is not None and args.limit < 1:
         raise SystemExit("--limit must be greater than 0")
-    sources = [args.source] if args.source else list(monitoring.settings.enabled_sources)
+    sources = (
+        list(dict.fromkeys(args.selected_source))
+        if args.selected_source is not None
+        else [args.source]
+        if args.source
+        else list(monitoring.settings.enabled_sources)
+    )
 
     if args.dry_run:
         try:

@@ -163,12 +163,74 @@ def test_catch_up_goes_on_after_a_failed_source(
     ]
 
 
+def test_catch_up_runs_only_the_explicitly_selected_sources(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    sota = FakeUpstream()
+    sota.publish("petrov", PETROV)
+
+    runs = _run(
+        session_factory,
+        {"ovd-info": ovd, "sota-vision": sota},
+        capsys,
+        "monitor",
+        "--catch-up",
+        "--selected-source",
+        "sota-vision",
+    )
+
+    assert isinstance(runs, list)
+    assert [(run["source"], run["status"]) for run in runs] == [
+        ("sota-vision", "completed"),
+        (None, "completed"),
+    ]
+    assert ovd.fetches == []
+    assert len(sota.fetches) == 1
+
+
+def test_selected_catch_up_continues_after_one_selected_source_fails(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    broken = FakeUpstream()
+    broken.discovery_error = RuntimeError("listing is down")
+    sota = FakeUpstream()
+    sota.publish("petrov", PETROV)
+
+    with pytest.raises(SystemExit) as raised:
+        _run(
+            session_factory,
+            {"ovd-info": broken, "sota-vision": sota},
+            capsys,
+            "monitor",
+            "--catch-up",
+            "--selected-source",
+            "ovd-info",
+            "--selected-source",
+            "sota-vision",
+        )
+
+    assert raised.value.code == 1
+    runs = json.loads(capsys.readouterr().out)
+    assert [(run.get("source"), run["status"]) for run in runs] == [
+        ("ovd-info", "failed"),
+        ("sota-vision", "completed"),
+        (None, "completed"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("argv", "message"),
     [
         (("monitor", "--backfill", "--source", "ovd-info"), "--backfill requires"),
         (("monitor", "--refetch-known"), "--refetch-known requires --backfill"),
         (("monitor", "--source", "unknown"), "Unknown source: unknown"),
+        (("monitor", "--selected-source", "ovd-info"), "requires --catch-up"),
+        (
+            ("monitor", "--catch-up", "--selected-source", "memopzk-figurants"),
+            "not a news source",
+        ),
         (("monitor", "--catch-up", "--dry-run"), "--catch-up cannot"),
         (
             ("monitor", "--catch-up", "--backfill", "--source", "ovd-info", "--limit", "5"),

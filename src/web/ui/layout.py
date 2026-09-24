@@ -1,6 +1,8 @@
 """The operator console's page frame and small HTML helpers."""
 
+import hashlib
 from html import escape
+from pathlib import Path
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
@@ -15,6 +17,12 @@ from db.orm_models import (
 )
 
 router = APIRouter()
+
+# The stylesheet URL changes with its content: a browser never keeps a stale copy
+# after a deployment and never re-downloads an unchanged one.
+_CSS_VERSION = hashlib.sha256(
+    (Path(__file__).resolve().parents[2] / "static" / "local-ui.css").read_bytes()
+).hexdigest()[:12]
 
 
 def _status_counts(db: Session) -> dict[str, object]:
@@ -48,6 +56,8 @@ def _page(
     # The customer's console: the candidates and the wiki, nothing else.
     nav = [
         ("candidates", "Кандидаты", "/ui/candidates"),
+        ("management", "Управление", "/ui/management"),
+        ("logs", "Логи", "/ui/logs"),
         ("wiki", "Вики", "/ui/wiki"),
     ]
     links = "\n".join(
@@ -62,7 +72,7 @@ def _page(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{escape(title)}</title>
-  <link rel="stylesheet" href="/static/local-ui.css">
+  <link rel="stylesheet" href="/static/local-ui.css?v={_CSS_VERSION}">
 </head>
 <body>
   <aside>

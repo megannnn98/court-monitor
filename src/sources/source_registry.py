@@ -184,6 +184,14 @@ def get_source_definition(name: str) -> SourceDefinition:
         raise ValueError(f"Unknown source: {name}") from None
 
 
+def news_sources() -> list[SourceDefinition]:
+    """Registered news sources, in stable display order."""
+    return sorted(
+        (definition for definition in SOURCES.values() if definition.kind is SourceKind.NEWS),
+        key=lambda definition: (definition.source_name.casefold(), definition.name),
+    )
+
+
 def news_source_base_urls() -> list[str]:
     """Base URLs of the news sources, as stored in `sources.base_url`."""
     return sorted(

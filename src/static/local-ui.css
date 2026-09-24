@@ -172,6 +172,91 @@ dd {
   margin: 0 0 16px;
 }
 
+.source-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 0 10px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button.chip {
+  border-color: #d0d7de;
+  border-radius: 999px;
+  padding: 4px 12px;
+  color: #24292f;
+  background: #fff;
+}
+
+button.chip.active {
+  border-color: #0969da;
+  color: #fff;
+  background: #0969da;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.source-table .pick {
+  width: 36px;
+  text-align: center;
+}
+
+.source-table input[type="checkbox"] {
+  min-width: auto;
+  margin: 0;
+}
+
+.source-table tbody tr:hover td {
+  background: #f6f8fa;
+}
+
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+td.stale {
+  background: #fff8c5;
+}
+
+td.never {
+  color: #cf222e;
+  background: #ffebe9;
+}
+
+.run-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 10px 0;
+  background: #f6f8fa;
+}
+
+.error-text {
+  color: #cf222e;
+}
+
+tr.derived td {
+  background: #f0f3f6;
+}
+
+tr.current td {
+  background: #ddf4ff;
+}
+
 label {
   display: grid;
   gap: 4px;
@@ -264,7 +349,8 @@ pre {
 }
 
 .badge.running,
-.badge.pending {
+.badge.pending,
+.badge.partial {
   border-color: #bf8700;
   background: #fff8c5;
 }
@@ -297,4 +383,36 @@ pre {
 .catch-up-progress progress {
   width: 100%;
   height: 14px;
+}
+
+button.danger {
+  border-color: #cf222e;
+  background: #cf222e;
+}
+
+.stop-form {
+  margin: 8px 0;
+}
+
+pre.log {
+  max-height: 560px;
+  font-size: 12px;
+}
+
+.progress-box {
+  margin: 8px 0 12px;
+}
+
+.progress-box progress {
+  width: 100%;
+  height: 14px;
+  accent-color: #1f883d;
+}
+
+.progress-box progress.step {
+  height: 8px;
+}
+
+.progress-box p {
+  margin: 6px 0;
 }

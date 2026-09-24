@@ -144,6 +144,13 @@ class UpdateService:
         )
 
     def _status_of(self, run: OperationRun) -> UpdateStatus:
+        sources = (
+            tuple(run.parameters.sources)
+            if run.parameters.sources is not None
+            else (run.parameters.source,)
+            if run.parameters.source is not None
+            else self._enabled_sources
+        )
         monitoring = (
             []
             if run.started_at is None
@@ -157,7 +164,7 @@ class UpdateService:
         return UpdateStatus(
             run=run,
             sources_done=len(finished),
-            sources_total=len(self._enabled_sources),
+            sources_total=len(sources),
             current_source=next(
                 (
                     item.source

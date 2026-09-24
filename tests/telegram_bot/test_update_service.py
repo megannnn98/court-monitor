@@ -252,6 +252,27 @@ def test_status_sums_the_monitoring_runs_of_the_operation() -> None:
     assert status.reviews_created == 3
 
 
+def test_status_uses_the_temporary_source_selection_of_a_web_run() -> None:
+    operations = FakeOperations()
+    operations.runs.append(
+        OperationRun(
+            id=99,
+            operation=OPERATION_DEFINITIONS["monitor"],
+            parameters=OperationParameters(sources=["sota-vision"], limit=50),
+            status=OperationRunStatus.SUCCEEDED,
+            created_at=STARTED,
+            started_at=STARTED,
+            finished_at=STARTED + timedelta(minutes=6),
+        )
+    )
+    bot = service(operations, FakeMonitoringRuns([monitoring_run(1, source="sota-vision")]))
+
+    status = bot.last_update()
+
+    assert status is not None
+    assert (status.sources_done, status.sources_total) == (1, 1)
+
+
 def test_status_names_the_source_being_processed() -> None:
     operations = FakeOperations()
     bot = service(

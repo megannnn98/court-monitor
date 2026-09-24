@@ -6,12 +6,15 @@ allows one live run per operation across processes. The run itself is a subproce
 the CLI, built from an allowlist and started without a shell, in a background thread of
 the process that accepted it; it keeps a heartbeat, and a run whose heartbeat stopped
 (its process died) is marked `interrupted` the next time runs are read or started.
+Each beat also stores the tail of the output so far, and a run stopped by the operator
+(`interrupted` while its process lives) gets SIGINT at its next beat.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -21,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import IO, Any, Protocol
 
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
@@ -29,7 +32,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
-from sources.source_registry import SOURCES
+from sources.source_registry import SOURCES, SourceKind
 
 logger = logging.getLogger("operator_console")
 
@@ -38,6 +41,9 @@ OUTPUT_LIMIT = 20_000
 HEARTBEAT_INTERVAL = timedelta(seconds=15)
 # A live run whose heartbeat is older than this lost its process.
 STALE_AFTER = timedelta(minutes=5)
+# A stopped process has this long to close its runs after SIGINT, then it is killed.
+STOP_GRACE = timedelta(seconds=30)
+STOPPED_BY_OPERATOR = "stopped by the operator"
 ACTIVE_RUN_INDEX = "uq_operator_operation_runs_active_operation"
 
 
@@ -54,6 +60,7 @@ LIVE_STATUSES = (OperationRunStatus.PENDING.value, OperationRunStatus.RUNNING.va
 
 class OperationParameters(BaseModel):
     source: str | None = None
+    sources: list[str] | None = None
     limit: int | None = Field(default=None, ge=1, le=100_000)
     workers: int | None = Field(default=None, ge=1, le=32)
 
@@ -159,8 +166,14 @@ class ProcessResult:
     stderr: str
 
 
+class Heartbeat(Protocol):
+    """Called with the output so far; False means the run was stopped: end the process."""
+
+    def __call__(self, stdout: str = "", stderr: str = "") -> bool: ...
+
+
 # Runs the command; calls `heartbeat` at least every HEARTBEAT_INTERVAL while it lives.
-ProcessRunner = Callable[[list[str], Callable[[], None]], ProcessResult]
+ProcessRunner = Callable[[list[str], Heartbeat], ProcessResult]
 # Hands the run's work to something that executes it outside the HTTP request.
 Executor = Callable[[Callable[[], None]], None]
 
@@ -169,29 +182,66 @@ def _thread_executor(work: Callable[[], None]) -> None:
     threading.Thread(target=work, daemon=True).start()
 
 
-def _run_process(command: list[str], heartbeat: Callable[[], None]) -> ProcessResult:
-    """The command without a shell, its output captured while the heartbeat goes on."""
+class _OutputTail:
+    """The last OUTPUT_LIMIT characters of a pipe, read in a thread while the process runs."""
+
+    def __init__(self, pipe: IO[str]) -> None:
+        self._text = ""
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._read, args=(pipe,), daemon=True)
+        self._thread.start()
+
+    def _read(self, pipe: IO[str]) -> None:
+        for line in pipe:
+            with self._lock:
+                self._text = _tail(self._text + line)
+        pipe.close()
+
+    def text(self) -> str:
+        with self._lock:
+            return self._text
+
+    def finish(self) -> str:
+        self._thread.join()
+        return self.text()
+
+
+def _run_process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+    """The command without a shell; its output goes to the heartbeat as it comes."""
     process = subprocess.Popen(
         command,
         cwd=_repo_root(),
-        env=os.environ.copy(),
+        env=os.environ | {"PYTHONUNBUFFERED": "1"},
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+    assert process.stdout is not None and process.stderr is not None
+    stdout, stderr = _OutputTail(process.stdout), _OutputTail(process.stderr)
     try:
         while True:
             try:
-                stdout, stderr = process.communicate(timeout=HEARTBEAT_INTERVAL.total_seconds())
+                process.wait(timeout=HEARTBEAT_INTERVAL.total_seconds())
+                break
             except subprocess.TimeoutExpired:
-                heartbeat()
-                continue
-            return ProcessResult(process.returncode, stdout, stderr)
+                if not heartbeat(stdout.text(), stderr.text()):
+                    _stop(process)
+                    break
+        return ProcessResult(process.wait(), stdout.finish(), stderr.finish())
     except BaseException:
         # The run is about to be recorded as ended: its process must not live on unseen.
         process.kill()
         process.wait()
         raise
+
+
+def _stop(process: subprocess.Popen[str]) -> None:
+    """SIGINT first: the CLI closes its monitoring runs on KeyboardInterrupt."""
+    process.send_signal(signal.SIGINT)
+    try:
+        process.wait(timeout=STOP_GRACE.total_seconds())
+    except subprocess.TimeoutExpired:
+        process.kill()
 
 
 class OperationRegistry:
@@ -259,6 +309,8 @@ class OperationRegistry:
         """Record a pending run and hand it to the executor; returns without waiting."""
         definition = self.definition(name)
         parameters = self._with_defaults(definition, parameters)
+        if parameters.sources is not None and name != "monitor":
+            raise ValueError("sources are only supported for monitor")
         command = _command_for(definition.name, parameters)
         self.interrupt_stale_runs()
         try:
@@ -281,6 +333,29 @@ class OperationRegistry:
             raise OperationConflictError(f"operation {name} is already running") from exc
         self._executor(lambda: self._execute(run.id))
         return run
+
+    def stop(self, run_id: int) -> bool:
+        """End a live run now; its process, in whatever API worker, gets SIGINT at its
+        next beat. False if the run had already ended."""
+        with self._session_factory.begin() as session:
+            stopped = session.execute(
+                update(OperatorOperationRunRecord)
+                .where(
+                    OperatorOperationRunRecord.id == run_id,
+                    OperatorOperationRunRecord.status.in_(LIVE_STATUSES),
+                )
+                .values(
+                    status=OperationRunStatus.INTERRUPTED.value,
+                    finished_at=func.now(),
+                    error=STOPPED_BY_OPERATOR,
+                )
+                .returning(OperatorOperationRunRecord.id)
+            ).first()
+            if stopped is None and session.get(OperatorOperationRunRecord, run_id) is None:
+                raise OperationNotFoundError(str(run_id))
+        if stopped is not None:
+            logger.warning("event=operation_run_stopped run_id=%s", run_id)
+        return stopped is not None
 
     def interrupt_stale_runs(self) -> list[int]:
         """Live runs whose heartbeat stopped: their process died, they will never finish."""
@@ -322,7 +397,10 @@ class OperationRegistry:
         if not self._claim(run_id):
             return
         try:
-            result = self._process_runner(self._command(run_id), lambda: self._heartbeat(run_id))
+            result = self._process_runner(
+                self._command(run_id),
+                lambda stdout="", stderr="": self._heartbeat(run_id, stdout, stderr),
+            )
         except BaseException as exc:  # noqa: BLE001 - recorded for operator inspection
             self._finish_or_log(
                 run_id,
@@ -367,14 +445,24 @@ class OperationRegistry:
             ).first()
         return claimed is not None
 
-    def _heartbeat(self, run_id: int) -> None:
+    def _heartbeat(self, run_id: int, stdout: str = "", stderr: str = "") -> bool:
+        """Beat and store the output so far; False once the run is no longer ours to run
+        (stopped by the operator, or interrupted as stale)."""
         # A missed beat is not the end of the run: the process goes on, and a database
         # that stays away makes the run stale, then interrupted.
         try:
             with self._session_factory.begin() as session:
-                session.execute(self._running_here(run_id).values(heartbeat_at=func.now()))
+                beat = session.execute(
+                    self._running_here(run_id)
+                    .values(heartbeat_at=func.now(), stdout=_tail(stdout), stderr=_tail(stderr))
+                    .returning(OperatorOperationRunRecord.id)
+                ).first()
         except SQLAlchemyError:
             logger.exception("event=operation_run_heartbeat_failed run_id=%s", run_id)
+            return True
+        if beat is None:
+            logger.warning("event=operation_run_stopping run_id=%s", run_id)
+        return beat is not None
 
     def _finish_or_log(self, run_id: int, *, status: OperationRunStatus, **values: Any) -> None:
         # Unrecorded, the run turns interrupted as stale; the log keeps the real ending.
@@ -444,7 +532,12 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
     command = [sys.executable, str(_repo_root() / "src" / "main.py"), name]
     if name == "monitor":
         command.append("--catch-up")
-        if parameters.source:
+        if parameters.sources is not None:
+            if parameters.source is not None:
+                raise ValueError("source and sources cannot both be set")
+            for source in _require_news_sources(parameters.sources):
+                command += ["--selected-source", source]
+        elif parameters.source:
             command += ["--source", _require_source(parameters.source)]
         command += ["--limit", str(_require_limit(parameters.limit))]
     elif name == "discover-and-ingest":
@@ -468,6 +561,18 @@ def _require_source(source: str | None) -> str:
     if source not in SOURCES:
         raise ValueError(f"unknown source: {source}")
     return source
+
+
+def _require_news_sources(sources: list[str]) -> list[str]:
+    if not sources:
+        raise ValueError("at least one news source is required")
+    unique = list(dict.fromkeys(sources))
+    for source in unique:
+        if source not in SOURCES:
+            raise ValueError(f"unknown source: {source}")
+        if SOURCES[source].kind is not SourceKind.NEWS:
+            raise ValueError(f"source is not a news source: {source}")
+    return unique
 
 
 def _require_limit(limit: int | None) -> int:

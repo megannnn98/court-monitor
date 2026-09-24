@@ -1,4 +1,4 @@
-"""The customer's console is the candidates and the wiki; everything else stays API-only."""
+"""The customer's console keeps candidates, manual management and the wiki."""
 
 from __future__ import annotations
 
@@ -52,7 +52,12 @@ def test_the_menu_is_exactly_candidates_and_wiki(session_factory: sessionmaker[S
     nav = re.search(r"<nav>(.*?)</nav>", page.text, re.DOTALL)
     assert nav is not None
     links = re.findall(r'href="([^"]+)">([^<]+)</a>', nav.group(1))
-    assert links == [("/ui/candidates", "Кандидаты"), ("/ui/wiki", "Вики")]
+    assert links == [
+        ("/ui/candidates", "Кандидаты"),
+        ("/ui/management", "Управление"),
+        ("/ui/logs", "Логи"),
+        ("/ui/wiki", "Вики"),
+    ]
 
 
 @pytest.mark.parametrize(("method", "path"), REMOVED_PAGES)
