@@ -28,6 +28,7 @@ from web.routers import (
     search,
 )
 from web.ui import candidates as ui_candidates
+from web.ui import cases as ui_cases
 from web.ui import channel as ui_channel
 from web.ui import monitoring as ui_monitoring
 from web.ui import operations as ui_operations
@@ -81,6 +82,7 @@ for module in (
     ui_persons,
     ui_wiki,
     ui_candidates,
+    ui_cases,
     ui_channel,
     operations,
     ui_operations,

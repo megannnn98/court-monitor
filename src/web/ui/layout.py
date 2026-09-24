@@ -48,6 +48,7 @@ def _page(
     nav = [
         ("review", "ER-ревью", "/ui/person-resolution/reviews"),
         ("candidates", "Кандидаты", "/ui/candidates"),
+        ("cases", "Дела и события", "/ui/cases"),
         ("channel", "Для канала", "/ui/channel"),
         ("search", "Поиск", "/ui/search"),
         ("operations", "Операции", "/ui/operations"),

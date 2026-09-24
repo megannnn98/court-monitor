@@ -113,7 +113,8 @@ def ui_candidates(
   <a class="secondary" href="/ui/candidates/export.pdf?{page_filters}">Скачать PDF</a>
   <a class="secondary" href="/ui/candidates/export.xlsx?{filters}">Export to Excel</a>
 </form>
-<p class="muted">Найдено: {len(candidate_rows)}, показано: {min(len(candidate_rows), limit)}. Статус РФМ: <code>not_matched</code>. Сначала новые дела, аресты и приговоры, затем по дате новости.</p>
+<p><a href="/ui/cases">Новые дела, обновления старых и события без имени</a></p>
+<p class="muted">Найдено: {len(candidate_rows)}, показано: {min(len(candidate_rows), limit)}. Статус РФМ: <code>not_matched</code>. Сортировка по категории события и дате новости. Эта таблица людей не определяет давность дела.</p>
 <table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Дата новости</th><th>Категория</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
         active="candidates",
         instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",

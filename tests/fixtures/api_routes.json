@@ -29,6 +29,8 @@
  "GET /ui/candidates/export",
  "GET /ui/candidates/export.pdf",
  "GET /ui/candidates/export.xlsx",
+ "GET /ui/cases",
+ "GET /ui/cases/export.xlsx",
  "GET /ui/channel",
  "GET /ui/monitoring",
  "GET /ui/operations",
