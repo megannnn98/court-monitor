@@ -2,7 +2,7 @@ from datetime import datetime
 
 from selectolax.parser import HTMLParser
 
-from sources.ingestion_errors import ParseError
+from sources.ingestion_errors import NoTextError, ParseError
 from sources.models import ParsedArticle, RawDocument
 
 TITLE_MAX_CHARS = 120
@@ -16,11 +16,15 @@ class TelegramPostParser:
         tree = HTMLParser(raw.content.replace(b"<br/>", b"\n").replace(b"<br>", b"\n"))
         text_node = tree.css_first(".tgme_widget_message_text")
         if text_node is None:
+            # A rendered post (its bubble is there) without a text is a media post;
+            # no bubble at all means the embed changed, a real failure.
+            if tree.css_first(".tgme_widget_message_bubble") is not None:
+                raise NoTextError("Post has no text")
             raise ParseError("Post text not found")
         lines = [" ".join(line.split()) for line in text_node.text().splitlines()]
         text = "\n".join(line for line in lines if line)
         if not text:
-            raise ParseError("Post text is empty")
+            raise NoTextError("Post text is empty")
 
         published_at = None
         time_node = tree.css_first(".tgme_widget_message_date time[datetime]")

@@ -9,8 +9,9 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
-from support.monitoring_fixtures import PETROV, SIDOROV, FakeUpstream, build_service
+from support.monitoring_fixtures import MEDIA_ONLY, PETROV, SIDOROV, FakeUpstream, build_service
 
 from application import ApplicationServices
 from monitoring.cli import (
@@ -19,7 +20,7 @@ from monitoring.cli import (
     run_monitoring_command,
 )
 from monitoring.findings import MonitoringFindingService
-from monitoring.models import MonitoringStage
+from monitoring.models import MonitoringStage, MonitoringTrigger
 from monitoring.repository import SqlAlchemyMonitoringRepository
 
 
@@ -339,3 +340,49 @@ def test_resolution_records_how_far_it_got(session_factory: sessionmaker[Session
     assert recorded[-1]["extraction_runs"] == 2
     assert "done" not in recorded[-1]
     assert run.stage_metrics["resolution"]["extraction_runs"] == 2
+
+
+def test_a_post_of_only_media_is_skipped_not_failed(session_factory: sessionmaker[Session]) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    ovd.publish("photo", MEDIA_ONLY)
+    service = build_service(session_factory, {"ovd-info": ovd})
+
+    run = service.run_source("ovd-info", with_derived=False, with_resolution=False)
+
+    assert run.status.value == "completed"
+    assert (run.documents_ingested, run.documents_skipped, run.documents_failed) == (1, 1, 0)
+    assert run.error_count == 0
+    assert run.stage_metrics["ingestion"]["skipped_no_text"] == 1
+
+
+def test_a_regular_run_stops_discovery_where_stored_posts_begin_after_a_completed_load(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    service = build_service(session_factory, {"ovd-info": ovd})
+
+    first = service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    after_first = ovd.discoveries_until_known
+    service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    after_second = ovd.discoveries_until_known
+    # A load cut short stored the newest posts only: the next run must page past them.
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE monitoring_runs SET status = 'aborted' WHERE id = (SELECT max(id) FROM monitoring_runs)"
+            )
+        )
+    service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    after_aborted = ovd.discoveries_until_known
+    service.run_source(
+        "ovd-info", trigger=MonitoringTrigger.BACKFILL, discovery_limit=5, with_derived=False
+    )
+
+    assert first.status.value == "completed"
+    assert after_first == 0  # the first load of a source reads the whole window
+    assert after_second == 1
+    assert after_aborted == 1
+    assert ovd.discoveries_until_known == 1  # a backfill goes deep on purpose
+    assert ovd.discoveries == 4

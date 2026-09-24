@@ -49,9 +49,10 @@ from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from semantic_retrieval.indexer import DEFAULT_BATCH_SIZE, SemanticIndexer
 from semantic_retrieval.models import RetrievalEntityType
+from sources.ingestion_errors import NoTextError
 from sources.ingestion_pipeline import IngestionPipeline
 from sources.models import SourceReference
-from sources.source_adapter import DocumentFetcher
+from sources.source_adapter import DiscoversUntilKnown, DocumentFetcher
 from sources.source_registry import SourceDefinition
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
@@ -399,10 +400,18 @@ class MonitoringService:
     # -- source stages ---------------------------------------------------------------------
 
     async def _discover_references(
-        self, source: SourceDefinition, limit: int
+        self, source: SourceDefinition, limit: int, *, stop_at_known: bool = False
     ) -> list[SourceReference]:
+        """`stop_at_known`: a source that pages newest first stops where stored posts begin."""
         async with self._deps.create_http_client() as client:
             adapter = source.create_adapter(client, self._deps.create_fetcher())
+            if stop_at_known and isinstance(adapter, DiscoversUntilKnown):
+                return await adapter.discover_until_known(
+                    limit=limit,
+                    known=lambda external_ids: self._deps.work.known_external_ids(
+                        source_base_url=source.base_url, external_ids=list(external_ids)
+                    ),
+                )
             return await adapter.discover(limit=limit)
 
     def dry_run(self, source: str, *, discovery_limit: int | None = None) -> DryRunPlan:
@@ -428,7 +437,21 @@ class MonitoringService:
         """Discovery failures (after the source layer's own retries) fail the run."""
         definition = self._source(_require_source(handle))
         with self._stage(handle, MonitoringStage.DISCOVERY) as metrics:
-            references = asyncio.run(self._discover_references(definition, handle.discovery_limit))
+            # A backfill goes deep on purpose; a regular run only needs what is new.
+            references = asyncio.run(
+                self._discover_references(
+                    definition,
+                    handle.discovery_limit,
+                    stop_at_known=(
+                        handle.is_regular
+                        and not handle.refetch_known
+                        and handle.source is not None
+                        and self._repository.previous_load_completed(
+                            handle.source, before_run_id=handle.run_id
+                        )
+                    ),
+                )
+            )
             known = self._deps.work.known_external_ids(
                 source_base_url=definition.base_url,
                 external_ids=[reference.external_id for reference in references],
@@ -457,6 +480,16 @@ class MonitoringService:
                 self._repository.heartbeat(handle.run_id)
                 try:
                     result = await pipeline.run(reference)
+                except NoTextError:
+                    # Nothing to read, nothing broken: a skip, not a failure of the run.
+                    logger.info(
+                        "event=monitoring_document_skipped run_id=%s url=%s reason=no_text",
+                        handle.run_id,
+                        reference.url,
+                    )
+                    self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
+                    outcomes["skipped_no_text"] += 1
+                    continue
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
                     kind = self._repository.record_failure(
                         handle.run_id,

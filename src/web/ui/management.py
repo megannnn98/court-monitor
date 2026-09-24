@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Literal
@@ -12,10 +12,10 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from db.orm_models import ParsedArticleRecord, Source, SourceDocument
+from db.orm_models import MonitoringRunRecord, ParsedArticleRecord, Source, SourceDocument
 from monitoring.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import (
@@ -174,6 +174,79 @@ _OUTCOMES = {
 }
 
 
+# Number columns of a run's table: (header, what it counts, value of a source's run).
+_Column = tuple[str, str, Callable[[MonitoringRunView], int]]
+_LOAD_COLUMNS: tuple[_Column, ...] = (
+    (
+        "Просмотрено",
+        "Последние публикации источника, проверенные при поиске новых",
+        lambda item: item.documents_discovered,
+    ),
+    (
+        "Уже были",
+        "Из просмотренных: уже в базе или без текста — повторно не скачивались",
+        lambda item: item.documents_skipped,
+    ),
+    (
+        "Новых",
+        "Новые публикации, скачанные и сохранённые в базу",
+        lambda item: item.documents_ingested,
+    ),
+    (
+        "Разобрано",
+        (
+            "Статьи, из которых извлечены люди и события: новые и старые, ещё не "
+            "разобранные текущей версией"
+        ),
+        lambda item: item.articles_extracted,
+    ),
+    (
+        "Событий",
+        "Новые события в этих статьях: задержание, обыск, суд, приговор…",
+        lambda item: item.events_created,
+    ),
+)
+_RESOLVE_COLUMNS: tuple[_Column, ...] = (
+    (
+        "Статей",
+        "Статьи с упоминаниями людей, ещё не привязанными к человеку, — обработано",
+        lambda item: _resolved_articles(item),
+    ),
+    (
+        "Новых людей",
+        "Упоминания, по которым в базе заведён новый человек",
+        lambda item: item.persons_created,
+    ),
+    (
+        "Привязано",
+        "Упоминания, привязанные к уже известному человеку",
+        lambda item: item.persons_linked,
+    ),
+    (
+        "На проверку",
+        "Спорные упоминания: неясно, тот же это человек или другой, — ждут ручной проверки",
+        lambda item: item.person_reviews_created,
+    ),
+)
+_ERRORS_COLUMN: _Column = (
+    "Ошибок",
+    "Публикации или статьи, которые не удалось обработать; причина — в «Сообщении» и в логе",
+    lambda item: item.error_count,
+)
+
+
+def _resolved_articles(item: MonitoringRunView) -> int:
+    progress = _resolution_progress(item)
+    return progress[0] if progress is not None else 0
+
+
+def _column_legend(columns: Sequence[_Column]) -> str:
+    items = "".join(
+        f"<li><b>{escape(header)}</b> — {escape(meaning)}</li>" for header, meaning, _ in columns
+    )
+    return f'<ul class="column-legend muted">{items}</ul>'
+
+
 def _source_outcome(status: MonitoringRunStatus, *, in_progress: bool) -> str:
     """A monitoring run left `running` by a run that ended lost its process: interrupted."""
     if status is MonitoringRunStatus.RUNNING:
@@ -217,6 +290,28 @@ def _skipped_sources(run: OperationRun) -> dict[str, str]:
         str(item["source"]): str(item["skipped"])
         for item in results
         if isinstance(item, dict) and item.get("source") and item.get("skipped")
+    }
+
+
+def _busy_sources(db: Session, run: OperationRun, sources: Sequence[str]) -> set[str]:
+    """Sources another monitoring run held when this run began: the CLI skipped them.
+
+    Read from the runs themselves: the CLI's JSON report is cut to its last characters,
+    and over dozens of sources the skips at its start are gone."""
+    began = run.started_at or run.created_at
+    return {
+        source
+        for source in db.scalars(
+            select(MonitoringRunRecord.source).where(
+                MonitoringRunRecord.source.in_(list(sources)),
+                MonitoringRunRecord.started_at < began,
+                or_(
+                    MonitoringRunRecord.finished_at.is_(None),
+                    MonitoringRunRecord.finished_at > began,
+                ),
+            )
+        ).all()
+        if source is not None
     }
 
 
@@ -316,46 +411,35 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
     per_source = {item.source: item for item in monitoring_runs if item.source is not None}
     derived = next((item for item in monitoring_runs if item.source is None), None)
     skipped = _skipped_sources(run)
+    unreached = [source for source in selected if source not in per_source]
+    busy = _busy_sources(db, run, unreached) | {
+        source for source, reason in skipped.items() if reason == "already_running"
+    }
 
     names = {item.name: item.source_name for item in news_sources()}
     in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
     resolving = run.parameters.mode == "resolve"
+    columns = (*(_RESOLVE_COLUMNS if resolving else _LOAD_COLUMNS), _ERRORS_COLUMN)
+    # The number columns and «Сообщение», for a row without numbers.
+    blank = len(columns) + 1
     counts = dict.fromkeys(_OUTCOMES, 0)
     rows: list[str] = []
     for source in selected:
         item = per_source.get(source)
         if item is None:
-            if skipped.get(source) == "already_running":
+            if source in busy:
                 counts["busy"] += 1
                 rows.append(
                     f"<tr><td>{_source_title(source, names)}</td>"
-                    f"<td>{_badge('Уже выполняется другим запуском', 'partial')}</td>"
-                    '<td colspan="6"></td></tr>'
+                    f"<td>{_badge('Занят', 'partial')}</td>"
+                    f'<td colspan="{blank}"></td></tr>'
                 )
             else:
                 counts["waiting" if in_progress else "not_started"] += 1
             continue
         outcome = _source_outcome(item.status, in_progress=in_progress)
         counts[outcome] += 1
-        resolution = _resolution_progress(item)
-        values = (
-            (
-                resolution[0] if resolution else 0,
-                item.persons_created,
-                item.persons_linked,
-                item.person_reviews_created,
-                item.error_count,
-            )
-            if resolving
-            else (
-                item.documents_discovered,
-                item.documents_ingested,
-                item.articles_extracted,
-                item.events_created,
-                item.error_count,
-            )
-        )
-        numbers = "".join(f'<td class="num">{value}</td>' for value in values)
+        numbers = "".join(f'<td class="num">{value(item)}</td>' for _, _, value in columns)
         message = escape(item.error_message[:240]) if item.error_message else ""
         label, badge = _OUTCOMES[outcome]
         rows.append(
@@ -376,12 +460,11 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
             derived_metrics = ""
         rows.append(
             f'<tr class="derived"><td>Общая классификация и сверка с РФМ</td>'
-            f'<td>{derived_status}</td><td colspan="6">{derived_metrics}</td></tr>'
+            f'<td>{derived_status}</td><td colspan="{blank}">{derived_metrics}</td></tr>'
         )
-    columns = (
-        "<th>Статей разобрано</th><th>Новых персон</th><th>Привязано</th><th>На ревью</th>"
-        if resolving
-        else "<th>Найдено</th><th>Загружено</th><th>Статей</th><th>Событий</th>"
+    headers = "".join(
+        f'<th title="{escape(meaning, quote=True)}">{escape(header)}</th>'
+        for header, meaning, _ in columns
     )
     overall = _RUN_STATUS_LABELS[run.status]
     overall_badge = _RUN_STATUS_BADGES[run.status]
@@ -410,9 +493,10 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
   {stop}
   <details{" open" if in_progress else ""}>
     <summary>Подробно по источникам ({ran})</summary>
-    <table><thead><tr><th>Источник / этап</th><th>Статус</th>{columns}
-    <th>Ошибок</th><th>Сообщение</th></tr></thead>
+    <table><thead><tr><th>Источник / этап</th><th>Статус</th>{headers}
+    <th title="Текст ошибки, если источник упал целиком">Сообщение</th></tr></thead>
     <tbody>{"".join(rows)}</tbody></table>
+    {_column_legend(columns)}
   </details>
   {refresh}
 </section>"""
@@ -442,7 +526,9 @@ def _management_page(
   <table id="source-table" class="source-table">
     <thead><tr>
       <th class="pick"><input id="toggle-all-sources" type="checkbox" {"checked" if all_checked else ""} title="Выбрать все видимые"></th>
-      <th>Источник</th><th>ID</th><th>Тип</th><th>Последняя загрузка</th><th>Статей в БД</th>
+      <th>Источник</th><th>ID</th><th>Тип</th>
+      <th title="Когда последний раз скачана публикация этого источника">Последняя загрузка</th>
+      <th title="Сколько статей этого источника уже в базе">Статей в БД</th>
     </tr></thead>
     <tbody>{_source_rows(db, definitions, selected)}</tbody>
   </table>

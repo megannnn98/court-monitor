@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from sources.ingestion_errors import ParseError
+from sources.ingestion_errors import NoTextError, ParseError
 from sources.models import RawDocument, SourceReference
 from sources.source_registry import SOURCES, get_source_definition, telegram_source
 from sources.telegram.article_parser import TelegramPostParser
@@ -88,8 +88,49 @@ def test_post_parser_rejects_a_post_without_text() -> None:
         TelegramPostParser().parse(raw)
 
 
+def _raw_post(content: str) -> RawDocument:
+    return RawDocument(
+        external_id="1",
+        url="https://t.me/chan/1?embed=1",
+        fetched_at=datetime(2026, 9, 15, tzinfo=UTC),
+        content_type="text/html",
+        content=content.encode(),
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "",  # a photo, video or poll: the embed shows no text block at all
+        '<div class="tgme_widget_message_text">  <br/> </div>',
+    ],
+)
+def test_a_rendered_post_without_text_is_a_post_of_only_media(body: str) -> None:
+    raw = _raw_post(
+        '<div class="tgme_widget_message"><div class="tgme_widget_message_bubble">'
+        f"{body}"
+        '<a class="tgme_widget_message_date"><time datetime="2026-09-01T00:00:00+00:00"></time></a>'
+        "</div></div>"
+    )
+
+    with pytest.raises(NoTextError):
+        TelegramPostParser().parse(raw)
+
+
+def test_an_embed_without_a_post_bubble_is_still_a_parse_failure() -> None:
+    """A changed embed layout must fail loudly, not be skipped as media."""
+    with pytest.raises(ParseError) as raised:
+        TelegramPostParser().parse(_raw_post("<html><body>Post not found</body></html>"))
+
+    assert not isinstance(raised.value, NoTextError)
+
+
 def _discover(
-    pages: dict[str, str], *, limit: int, history_days: int = TELEGRAM_HISTORY_DAYS
+    pages: dict[str, str],
+    *,
+    limit: int,
+    history_days: int = TELEGRAM_HISTORY_DAYS,
+    known: set[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     requested: list[str] = []
 
@@ -107,7 +148,11 @@ def _discover(
                 history_days=history_days,
                 now=lambda: datetime(2026, 9, 15, tzinfo=UTC),
             )
-            return await adapter.discover(limit=limit)
+            if known is None:
+                return await adapter.discover(limit=limit)
+            return await adapter.discover_until_known(
+                limit=limit, known=lambda ids: known & set(ids)
+            )
 
     return [reference.external_id for reference in asyncio.run(run())], requested
 
@@ -121,6 +166,26 @@ PAGES = {
     "https://t.me/s/chan?before=7": _message(5, "2026-08-10T00:00:00+00:00")
     + _message(6, "2026-08-17T00:00:00+00:00"),
 }
+
+
+@pytest.mark.parametrize(
+    ("known", "external_ids", "pages_read"),
+    [
+        # The newest page is all stored: nothing new, one request.
+        ({"11", "9"}, ["11", "9"], 1),
+        # Post 11 is new, post 9 stored: page on; the next page is all stored.
+        ({"9", "8", "7"}, ["11", "9", "8", "7"], 2),
+        # Nothing stored yet: the whole window, as `discover` reads it.
+        (set(), ["11", "9", "8", "7", "6"], 3),
+    ],
+)
+def test_discovery_until_known_stops_after_a_page_of_stored_posts(
+    known: set[str], external_ids: list[str], pages_read: int
+) -> None:
+    ids, requested = _discover(PAGES, limit=100, known=known)
+
+    assert ids == external_ids
+    assert requested == list(PAGES)[:pages_read]
 
 
 def test_discovery_pages_back_newest_first_skipping_media_and_stops_at_the_history_window() -> None:

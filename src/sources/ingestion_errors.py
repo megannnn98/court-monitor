@@ -18,6 +18,10 @@ class ParseError(IngestionError):
     """Failed to parse a source document."""
 
 
+class NoTextError(ParseError):
+    """The document is there but holds no text to read (a post of only media)."""
+
+
 class PersistenceError(IngestionError):
     """Failed to persist an ingested document."""
 

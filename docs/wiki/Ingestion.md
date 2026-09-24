@@ -30,7 +30,7 @@ uv run python src/main.py ingest "https://ovd.info/news/example"
 | Telegram-каналы (`tg-<username>`, 70 шт.) | `TelegramSourceAdapter` | публичное веб-превью `https://t.me/s/<username>`, pagination `?before=<id>` | `TelegramPostParser` |
 | 2-й Западный окружной военный суд (`sudrf-2zovs`) | `SudrfSourceAdapter` | `https://2zovs.msk.sudrf.ru/modules.php?name=press_dep`, pagination по годам `&op=12&arc_list=YYYY` | `SudrfArticleParser` |
 | Реестр фигурантов «Мемориала» (`memopzk-figurants`) | `MemopzkFigurantAdapter` | REST `https://memopzk.org/wp-json/wp/v2/figurant`, по 100 карточек, сначала изменённые, пауза 10 с | `FigurantParser` |
-| Коммерсантъ, сайт (`kommersant`) | `RssSourceAdapter` | RSS `https://www.kommersant.ru/RSS/news.xml`, фильтр по рубрике и словам о суде | `KommersantArticleParser` |
+| Коммерсантъ, сайт (`kommersant`) | `RssSourceAdapter` | RSS `https://www.kommersant.ru/rss/news.xml`, фильтр по рубрике и словам о суде | `KommersantArticleParser` |
 
 Все реализуют один и тот же `Protocol SourceAdapter` (`sources/source_adapter.py`) и берут загрузку листинга из общего `sources/discovery_pagination.py`: `fetch_listing_page_with_retry` (retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry). Обход страниц общий — `discover_paginated_references` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок) — только у `ovd-info` и `sota-vision`: они нумеруют страницы подряд. Telegram листает по `?before=<id>` до границы по дате, а `sudrf` — по годовым архивам, ссылки на которые читает с уже загруженной страницы, поэтому у обоих свой цикл обхода.
 

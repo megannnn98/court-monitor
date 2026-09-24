@@ -239,7 +239,8 @@ def test_resolve_starts_person_resolution_of_the_selected_sources(
         "ovd-info",
     ]
     assert "Разрешение персон" in run_page.text
-    assert "<th>Новых персон</th>" in run_page.text
+    assert '">Новых людей</th>' in run_page.text
+    assert "<b>На проверку</b> — Спорные упоминания" in run_page.text
     assert "Общая классификация и сверка с РФМ" in run_page.text
 
 
@@ -356,3 +357,100 @@ def test_an_ended_run_is_a_card_that_counts_the_sources_it_never_reached(
     assert "tg-mash" not in details and "tg-astrapress" not in details
     # The source selection follows the card, not dozens of rows later.
     assert page.index("</details>") < page.index('id="source-table"')
+
+
+def test_a_source_held_by_another_run_is_busy_even_when_the_report_was_cut(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The CLI's JSON report is cut to its tail; the busy source is read from the runs."""
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    held = monitoring.start_run(
+        scope="source:tg-mash",
+        source="tg-mash",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=3),
+    )
+    run = registry.start("monitor", OperationParameters(sources=["tg-mash", "ovd-info"]))
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE monitoring_runs SET started_at = now() - interval '2 hours' WHERE id = :id"
+            ),
+            {"id": held},
+        )
+        session.execute(
+            text(
+                "UPDATE operator_operation_runs SET status = 'failed', stdout = '[{\"source\": \"tr', "
+                "started_at = now() - interval '1 minute', finished_at = now() WHERE id = :id"
+            ),
+            {"id": run.id},
+        )
+
+    with _client(session_factory, registry) as client:
+        page = client.get(f"/ui/management?run_id={run.id}").text
+
+    assert "Заняты другим запуском: 1" in page
+    assert "Не запускались: 1" in page
+    assert "tg-mash" in _details(page)
+
+
+def test_every_number_column_of_a_load_says_what_it_counts(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    run = registry.start("monitor", OperationParameters(sources=["ovd-info"], mode="load"))
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE operator_operation_runs SET status = 'running', "
+                "started_at = now() - interval '1 minute', heartbeat_at = now() WHERE id = :id"
+            ),
+            {"id": run.id},
+        )
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    loaded = monitoring.start_run(
+        scope="source:ovd-info",
+        source="ovd-info",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=1),
+    )
+    monitoring.add_counters(
+        loaded,
+        {
+            "documents_discovered": 50,
+            "documents_skipped": 47,
+            "documents_ingested": 3,
+            "articles_extracted": 5,
+            "events_created": 2,
+        },
+    )
+    monitoring.finish_run(loaded)
+
+    with _client(session_factory, registry) as client:
+        details = _details(client.get(f"/ui/management?run_id={run.id}").text)
+
+    headers = re.findall(r'<th title="([^"]+)">([^<]+)</th>', details)
+    assert [header for _, header in headers] == [
+        "Просмотрено",
+        "Уже были",
+        "Новых",
+        "Разобрано",
+        "Событий",
+        "Ошибок",
+        "Сообщение",
+    ]
+    assert all(meaning for meaning, _ in headers)
+    row = re.search(r"<tr><td>ОВД-Инфо.*?</tr>", details, re.DOTALL)
+    assert row is not None
+    assert re.findall(r'<td class="num">(\d+)</td>', row.group(0)) == [
+        "50",
+        "47",
+        "3",
+        "5",
+        "2",
+        "0",
+    ]
+    assert "<b>Уже были</b> — Из просмотренных: уже в базе" in details

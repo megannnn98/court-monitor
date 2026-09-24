@@ -441,3 +441,9 @@ pre.log {
 .run-card details table {
   margin-top: 8px;
 }
+
+.column-legend {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}

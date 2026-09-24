@@ -16,7 +16,7 @@ from sources.ingestion_errors import ParseError
 from sources.models import ParsedArticle, RawDocument
 from sources.rss.source_adapter import RssItem
 
-KOMMERSANT_FEED_URL = "https://www.kommersant.ru/RSS/news.xml"
+KOMMERSANT_FEED_URL = "https://www.kommersant.ru/rss/news.xml"
 # Sections that never hold a Russian persecution case.
 _SKIPPED_SECTIONS = frozenset({"Мир", "Спорт", "Бизнес", "Финансы", "Культура", "Стиль"})
 # A court, a detention or a criminal case in the title or the lead.

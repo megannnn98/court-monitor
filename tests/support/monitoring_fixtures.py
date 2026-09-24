@@ -31,7 +31,7 @@ from semantic_retrieval.documents import (
 from semantic_retrieval.indexer import SemanticIndexer
 from semantic_retrieval.models import RetrievalEntityType
 from semantic_retrieval.vector_store import QdrantVectorStore, VectorStore
-from sources.ingestion_errors import ParseError
+from sources.ingestion_errors import NoTextError, ParseError
 from sources.models import ParsedArticle, RawDocument, SourceReference
 from sources.source_adapter import DocumentFetcher, SourceAdapter
 from sources.source_registry import SourceDefinition
@@ -41,6 +41,8 @@ SIDOROV = (
     "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге. "
     "Активисты считают дело политически мотивированным."
 )
+# Published as a text, it stands for a post of only media: the parser finds nothing to read.
+MEDIA_ONLY = "<media only>"
 PETROV = "Полиция задержала Петра Петрова за мелкое хулиганство. Составлен протокол по КоАП."
 IVANOV = (
     "Иван Иванов, активист, задержан на антивоенном митинге. "
@@ -56,6 +58,8 @@ class FakeUpstream:
     articles: dict[str, tuple[str, str]] = field(default_factory=dict)
     fetches: list[str] = field(default_factory=list)
     discoveries: int = 0
+    # Discoveries allowed to stop where stored documents begin (they list everything anyway).
+    discoveries_until_known: int = 0
     discovery_error: Exception | None = None
 
     def publish(self, external_id: str, text: str, *, title: str | None = None) -> None:
@@ -76,6 +80,12 @@ class FakeSourceAdapter:
             for external_id in list(self._upstream.articles)[:limit]
         ]
 
+    async def discover_until_known(
+        self, *, limit: int, known: Callable[[Sequence[str]], set[str]]
+    ) -> list[SourceReference]:
+        self._upstream.discoveries_until_known += 1
+        return await self.discover(limit=limit)
+
     async def fetch(self, reference: SourceReference) -> RawDocument:
         self._upstream.fetches.append(reference.external_id)
         title, text = self._upstream.articles[reference.external_id]
@@ -91,6 +101,8 @@ class FakeSourceAdapter:
 class FakeArticleParser:
     def parse(self, raw_document: RawDocument) -> ParsedArticle:
         title, _, text = raw_document.content.decode().partition("\n")
+        if text == MEDIA_ONLY:
+            raise NoTextError(f"No text in {raw_document.external_id}")
         if not text:
             raise ParseError(f"No article text in {raw_document.external_id}")
         return ParsedArticle(

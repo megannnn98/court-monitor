@@ -9,7 +9,7 @@ import httpx
 from sources.discovery_pagination import fetch_listing_page_with_retry
 from sources.ingestion_errors import PermanentDiscoveryError
 from sources.models import RawDocument, SourceReference
-from sources.source_adapter import DocumentFetcher
+from sources.source_adapter import DocumentFetcher, KnownIds
 from sources.telegram.listing_parser import TelegramListingParser
 
 logger = logging.getLogger("sources")
@@ -76,6 +76,16 @@ class TelegramSourceAdapter:
         limit: int,
     ) -> list[SourceReference]:
         """Newest text posts first, up to `limit` and no older than the history window."""
+        return await self._discover(limit=limit, known=None)
+
+    async def discover_until_known(self, *, limit: int, known: KnownIds) -> list[SourceReference]:
+        """`discover`, but paging stops after a page whose text posts are all stored.
+
+        The listing is newest first: past such a page lie posts an earlier run already
+        loaded, so a run right after another reads one page instead of `limit` posts."""
+        return await self._discover(limit=limit, known=known)
+
+    async def _discover(self, *, limit: int, known: KnownIds | None) -> list[SourceReference]:
         if limit < 1:
             raise ValueError("limit must be greater than zero")
         cutoff = self._now() - timedelta(days=self._history_days)
@@ -107,14 +117,23 @@ class TelegramSourceAdapter:
             posts = [post for post in posts if before is None or post.post_id < before]
             if not posts:
                 return references
+            page_ids: list[str] = []
             for post in posts:
                 if post.published_at < cutoff:
                     return references
                 # Media-only posts have nothing to extract.
                 if post.has_text:
                     references.append(post.reference)
+                    page_ids.append(post.reference.external_id)
                     if len(references) == limit:
                         return references
+            if known is not None and page_ids and set(page_ids) <= known(page_ids):
+                logger.info(
+                    "event=telegram_discovery_reached_known username=%s references=%d",
+                    self._username,
+                    len(references),
+                )
+                return references
             before = posts[-1].post_id
             await asyncio.sleep(self._page_interval_seconds)
 

@@ -351,6 +351,28 @@ class SqlAlchemyMonitoringRepository:
         with self._session_factory.begin() as session:
             session.execute(statement)
 
+    def previous_load_completed(self, source: str, *, before_run_id: int) -> bool:
+        """Whether the source's last load before this run got through its ingestion.
+
+        A load is a run that discovered (resolution-only runs never do). One stopped
+        mid-ingestion stored the newest posts and not the older ones: the next run must
+        page past what is stored to reach them."""
+        with self._session_factory() as session:
+            status = session.scalar(
+                select(MonitoringRunRecord.status)
+                .where(
+                    MonitoringRunRecord.source == source,
+                    MonitoringRunRecord.id < before_run_id,
+                    MonitoringRunRecord.stage_metrics.has_key(MonitoringStage.DISCOVERY.value),
+                )
+                .order_by(MonitoringRunRecord.id.desc())
+                .limit(1)
+            )
+        return status in (
+            MonitoringRunStatus.COMPLETED.value,
+            MonitoringRunStatus.COMPLETED_WITH_ERRORS.value,
+        )
+
     def get_run(self, run_id: int) -> MonitoringRunView | None:
         with self._session_factory() as session:
             record = session.get(MonitoringRunRecord, run_id)
