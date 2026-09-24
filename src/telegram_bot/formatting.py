@@ -6,31 +6,36 @@ from datetime import datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
+from telegram_bot.candidates import CandidatesResult
 from telegram_bot.message_splitter import split_blocks
-from telegram_bot.models import PeopleFromNewsResult, PersonFromNews
 from telegram_bot.update_service import UpdateAlreadyRunning, UpdateStarted, UpdateStatus
+from web.candidate_rows import _CANDIDATE_CATEGORIES, CandidateRow, _news_day, _surname_first
 
-START = """<b>Court Monitor</b>
+START = """<b>Court Monitor — кандидаты</b>
 
-/update — докачать и обработать новые публикации
-/status — показать состояние последней докачки
-/people YYYY-MM-DD YYYY-MM-DD — показать людей из новостей за период
-/export YYYY-MM-DD YYYY-MM-DD — выгрузить этих людей в Excel
+/people — кандидаты за период
+/export — кандидаты за период файлом Excel
+/update — обновить данные кандидатов
+/status — состояние обновления
 /help — справка"""
 
 HELP = """<b>Команды</b>
 
-/update — запускает инкрементальную докачку: загрузка новых публикаций по всем источникам, \
-извлечение людей и событий, разрешение сущностей, классификация, сверка с перечнем РФМ \
-и обновление находок. Ответ приходит сразу, работа идёт в фоне.
+Кандидат — человек с политической классификацией и подтверждённым отсутствием в \
+последнем загруженном перечне Росфинмониторинга: та же выборка, что на странице \
+«Кандидаты» сайта, с её настройками по умолчанию.
 
-/status — состояние последней докачки: этап, счётчики и ошибки.
+/people YYYY-MM-DD YYYY-MM-DD [limit] — кандидаты, о которых есть новость за период. \
+Обе даты включаются, день новости — по московскому времени. Без дат бот предложит \
+выбрать период кнопками.
 
-/people YYYY-MM-DD YYYY-MM-DD [limit] — люди из новостей, опубликованных за период. \
-Обе даты включаются. Время — {timezone}.
+/export YYYY-MM-DD YYYY-MM-DD — те же кандидаты файлом .xlsx, как «Export to Excel» \
+на сайте: все найденные, limit не действует.
 
-/export YYYY-MM-DD YYYY-MM-DD — та же выборка файлом .xlsx: все найденные люди и \
-все их статьи, по строке на статью.
+/update — обновить данные кандидатов: докачать новые публикации и пересчитать \
+выборку. Ответ приходит сразу, работа идёт в фоне.
+
+/status — состояние последнего обновления: этап, счётчики и ошибки.
 
 Примеры:
 <code>/people 2026-09-01 2026-09-19</code>
@@ -49,12 +54,16 @@ EXPORT_FORMAT = """Формат:
 Пример:
 <code>/export 2026-09-01 2026-09-19</code>
 
-В файл попадают все найденные люди и все их статьи, limit не задаётся."""
+В файл попадают все найденные кандидаты, limit не задаётся."""
 
-# A name and a title are shortened so that one line always fits into one message:
-# a link spread over two messages would leave an unclosed tag, which Telegram rejects.
+NO_SNAPSHOT = (
+    "Перечень Росфинмониторинга ещё не загружен: без него нельзя подтвердить, что "
+    "человека в перечне нет, поэтому кандидатов нет."
+)
+
+# A name is shortened so that one block always fits into one message: a link spread
+# over two messages would leave an unclosed tag, which Telegram rejects.
 MAX_NAME = 150
-MAX_TITLE = 300
 
 PERIOD_CANCELLED = "Выбор периода отменён."
 PERIOD_EXPIRED = "Кнопка устарела. Отправьте команду ещё раз: /people или /export."
@@ -73,7 +82,7 @@ def people_format_error(reason: str) -> str:
 
 
 def choose_period(action: str) -> str:
-    what = "выгрузки" if action == "export" else "поиска"
+    what = "выгрузки кандидатов" if action == "export" else "кандидатов"
     return (
         f"<b>Период {what}</b>\n"
         "Выберите готовый период или откройте календарь. "
@@ -85,26 +94,26 @@ def export_format_error(reason: str) -> str:
     return f"{escape(reason.capitalize())}.\n\n{EXPORT_FORMAT}"
 
 
-def export_empty(result: PeopleFromNewsResult) -> str:
+def export_empty(result: CandidatesResult) -> str:
+    if result.snapshot_id is None:
+        return NO_SNAPSHOT
     return (
         f"За {result.date_from.isoformat()} — {result.date_to.isoformat()} "
-        "людей в новостях не найдено, выгружать нечего."
+        "кандидатов не найдено, выгружать нечего."
     )
 
 
-def export_ready(result: PeopleFromNewsResult) -> str:
-    rows = sum(max(len(person.articles), 1) for person in result.people)
-    lines = [
-        f"<b>Выгрузка {result.date_from.isoformat()} — {result.date_to.isoformat()}</b>",
-        f"Людей: {result.total}",
-        f"Строк в файле: {rows}",
-    ]
-    if len(result.people) < result.total:
-        lines.append(
-            f"Файл вмещает не всё: показаны первые {len(result.people)} человек. "
-            "Разбейте период на части."
-        )
-    return "\n".join(lines)
+def export_ready(result: CandidatesResult) -> str:
+    return "\n".join(
+        [
+            f"<b>Кандидаты {result.date_from.isoformat()} — {result.date_to.isoformat()}</b>",
+            f"Кандидатов в файле: {result.total}",
+        ]
+    )
+
+
+def export_filename(result: CandidatesResult) -> str:
+    return f"candidates-{result.date_from.isoformat()}-{result.date_to.isoformat()}.xlsx"
 
 
 def update_started(started: UpdateStarted) -> str:
@@ -158,36 +167,37 @@ def update_status(status: UpdateStatus | None, timezone: ZoneInfo) -> str:
     return "\n".join(lines)
 
 
-def people_messages(result: PeopleFromNewsResult) -> list[str]:
-    """The answer, split into messages Telegram accepts, newest people first."""
+def people_messages(result: CandidatesResult, limit: int) -> list[str]:
+    """The candidates of the period in the page's order, split into accepted messages."""
+    if result.snapshot_id is None:
+        return [NO_SNAPSHOT]
+    shown = result.rows[:limit]
     header = (
-        f"<b>Люди из новостей {result.date_from.isoformat()} — {result.date_to.isoformat()}</b>\n"
+        f"<b>Кандидаты {result.date_from.isoformat()} — {result.date_to.isoformat()}</b>\n"
         f"Найдено всего: {result.total}\n"
-        f"Показано: {len(result.people)}"
+        f"Показано: {len(shown)}"
     )
-    if not result.people:
-        return [f"{header}\n\nЗа этот период людей в новостях не найдено."]
+    if not shown:
+        return [f"{header}\n\nЗа этот период кандидатов не найдено."]
     blocks = [header]
-    blocks += [
-        _person_block(position, person) for position, person in enumerate(result.people, start=1)
-    ]
+    blocks += [_candidate_block(position, row) for position, row in enumerate(shown, start=1)]
     return split_blocks(blocks)
 
 
-def _person_block(position: int, person: PersonFromNews) -> str:
-    lines = [
-        f"{position}. <b>{escape(_shorten(person.canonical_name, MAX_NAME))}</b>",
-        f"   Публикаций: {person.article_count}",
-        f"   Последняя: {person.latest_published_at.date().isoformat()}",
-        f"   Источники: {escape(', '.join(person.sources))}",
-    ]
-    if person.articles:
-        lines.append("   Статьи:")
-        lines += [
-            f'   • <a href="{escape(article.url, quote=True)}">'
-            f"{escape(_shorten(article.title, MAX_TITLE))}</a>"
-            for article in person.articles
-        ]
+def _candidate_block(position: int, row: CandidateRow) -> str:
+    candidate, news = row
+    name = escape(_shorten(_surname_first(candidate.canonical_name), MAX_NAME))
+    lines = [f"{position}. <b>{name}</b>"]
+    if news is not None:
+        details = []
+        if news.published_at is not None:
+            details.append(_news_day(news.published_at).strftime("%d.%m.%Y"))
+        if news.event_type:
+            details.append(_CANDIDATE_CATEGORIES.get(news.event_type, news.event_type))
+        if details:
+            lines.append(f"   {escape(' · '.join(details))}")
+        if news.url.startswith(("http://", "https://")):
+            lines.append(f'   <a href="{escape(news.url, quote=True)}">Новость</a>')
     return "\n".join(lines)
 
 

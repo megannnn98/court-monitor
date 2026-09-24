@@ -17,7 +17,6 @@ from typing import Protocol
 from telegram_bot import formatting
 from telegram_bot.authorization import Authorization
 from telegram_bot.config import TelegramBotSettings
-from telegram_bot.excel import people_filename, people_xlsx
 from telegram_bot.people_service import PeopleQuery, PeopleQueryError, PeopleService
 from telegram_bot.period_keyboard import (
     EXPORT,
@@ -29,6 +28,7 @@ from telegram_bot.period_keyboard import (
     preset_keyboard,
 )
 from telegram_bot.update_service import UpdateAlreadyRunning, UpdateService
+from web.exports import candidates_xlsx
 
 logger = logging.getLogger(__name__)
 
@@ -176,19 +176,21 @@ class CommandHandlers:
     async def _export_query(self, query: PeopleQuery) -> Answer:
         result = await self._run_blocking(lambda: self._people.export(query))
         logger.info(
-            "event=telegram_command command=export result=ok from=%s to=%s people=%d rows=%d",
+            "event=telegram_command command=export result=ok from=%s to=%s snapshot_id=%s "
+            "candidates=%d",
             query.date_from.isoformat(),
             query.date_to.isoformat(),
-            len(result.people),
-            sum(max(len(person.articles), 1) for person in result.people),
+            result.snapshot_id,
+            result.total,
         )
-        if not result.people:
+        if not result.rows:
             return Answer.of(formatting.export_empty(result))
+        # The file of the page's «Export to Excel»: one cohort, one format.
         return Answer(
             messages=[formatting.export_ready(result)],
             document=Document(
-                filename=people_filename(result),
-                content=people_xlsx(result, self._settings.timezone),
+                filename=formatting.export_filename(result),
+                content=candidates_xlsx(result.rows),
             ),
         )
 
@@ -202,13 +204,15 @@ class CommandHandlers:
     async def _people_query(self, query: PeopleQuery) -> Answer:
         result = await self._run_blocking(lambda: self._people.people(query))
         logger.info(
-            "event=telegram_command command=people result=ok from=%s to=%s limit=%d found=%d",
+            "event=telegram_command command=people result=ok from=%s to=%s limit=%d "
+            "snapshot_id=%s found=%d",
             query.date_from.isoformat(),
             query.date_to.isoformat(),
             query.limit,
+            result.snapshot_id,
             result.total,
         )
-        return Answer(messages=formatting.people_messages(result))
+        return Answer(messages=formatting.people_messages(result, query.limit))
 
 
 async def _in_thread[T](work: Callable[[], T]) -> T:

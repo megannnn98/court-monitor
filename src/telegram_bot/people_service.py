@@ -1,7 +1,7 @@
-"""`/people YYYY-MM-DD YYYY-MM-DD [limit]`: parse the arguments, fix the period, query.
+"""`/people` and `/export YYYY-MM-DD YYYY-MM-DD`: parse the arguments, fix the period.
 
-Both dates are inclusive, read in the bot's timezone and converted to UTC as
-`[start_date 00:00, end_date + 1 day 00:00)`, because `published_at` is stored in UTC.
+Both dates are inclusive. The list and the file are one cohort — the candidates of
+`/ui/candidates` for that period; `limit` only shortens the chat message.
 """
 
 from __future__ import annotations
@@ -11,9 +11,8 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from telegram_bot.candidates import CandidatesRepository, CandidatesResult
 from telegram_bot.config import TelegramBotSettings
-from telegram_bot.models import PeopleFromNewsResult
-from telegram_bot.people_repository import PeopleFromNewsRepository
 
 DATE_FORMAT = "%Y-%m-%d"
 
@@ -76,7 +75,7 @@ def _parse_limit(text: str, max_limit: int) -> int:
 
 
 class PeopleService:
-    def __init__(self, repository: PeopleFromNewsRepository, settings: TelegramBotSettings) -> None:
+    def __init__(self, repository: CandidatesRepository, settings: TelegramBotSettings) -> None:
         self._repository = repository
         self._settings = settings
 
@@ -103,19 +102,9 @@ class PeopleService:
             max_limit=self._settings.people_max_limit,
         )
 
-    def export(self, query: PeopleQuery) -> PeopleFromNewsResult:
-        return self._repository.all_people_in_period(
-            date_from=query.date_from,
-            date_to=query.date_to,
-            start=query.start,
-            end=query.end,
-        )
+    def export(self, query: PeopleQuery) -> CandidatesResult:
+        return self._repository.candidates(date_from=query.date_from, date_to=query.date_to)
 
-    def people(self, query: PeopleQuery) -> PeopleFromNewsResult:
-        return self._repository.people_in_period(
-            date_from=query.date_from,
-            date_to=query.date_to,
-            start=query.start,
-            end=query.end,
-            limit=query.limit,
-        )
+    def people(self, query: PeopleQuery) -> CandidatesResult:
+        """The same cohort as `export`; the message shows at most `query.limit` of it."""
+        return self._repository.candidates(date_from=query.date_from, date_to=query.date_to)

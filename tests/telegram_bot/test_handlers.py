@@ -6,9 +6,12 @@ import asyncio
 import logging
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime
+from io import BytesIO
 
 import pytest
+from openpyxl import load_workbook
 
+from candidates.models import PoliticalPersecutionCandidate, RosfinmonitoringStatus
 from monitoring.models import FailureKind
 from operator_console import (
     OPERATION_DEFINITIONS,
@@ -19,9 +22,9 @@ from operator_console import (
 from telegram_bot import formatting
 from telegram_bot.app import _parse
 from telegram_bot.authorization import Authorization
+from telegram_bot.candidates import CandidatesResult
 from telegram_bot.config import TelegramBotSettings
 from telegram_bot.handlers import Answer, CommandHandlers
-from telegram_bot.models import NewsArticleReference, PeopleFromNewsResult, PersonFromNews
 from telegram_bot.people_service import PeopleQuery, PeopleQueryError, parse_people_query
 from telegram_bot.period_keyboard import Button
 from telegram_bot.update_service import (
@@ -30,6 +33,7 @@ from telegram_bot.update_service import (
     UpdateStarted,
     UpdateStatus,
 )
+from web.candidate_rows import CandidateRow, _CandidateNews
 
 ALLOWED = 42
 DENIED = 4242
@@ -44,13 +48,42 @@ RUN = OperationRun(
     created_at=datetime(2026, 9, 19, 14, 32, tzinfo=UTC),
     started_at=datetime(2026, 9, 19, 14, 32, tzinfo=UTC),
 )
-EMPTY_RESULT = PeopleFromNewsResult(
-    date_from=datetime(2026, 9, 1, tzinfo=UTC).date(),
-    date_to=datetime(2026, 9, 19, tzinfo=UTC).date(),
-    total=0,
-    limit=50,
-    people=[],
-)
+PERIOD = (date(2026, 9, 1), date(2026, 9, 19))
+EMPTY_RESULT = CandidatesResult(date_from=PERIOD[0], date_to=PERIOD[1], snapshot_id=1, rows=[])
+
+
+def candidate_row(
+    person_id: int,
+    name: str,
+    *,
+    url: str = "https://news.example/1",
+    event_type: str | None = "arrest",
+) -> CandidateRow:
+    return CandidateRow(
+        PoliticalPersecutionCandidate(
+            person_id=person_id,
+            canonical_name=name,
+            normalized_name=name.lower(),
+            persecution_status="political",
+            persecution_confidence=0.9,
+            persecution_reasons=["Политическая статья: УК РФ ст. 207.3"],
+            rosfinmonitoring_status=RosfinmonitoringStatus.NOT_MATCHED,
+            rosfinmonitoring_match_confidence=0.8,
+            event_count=1,
+            alias_count=0,
+            last_event_date=None,
+        ),
+        _CandidateNews(url, datetime(2026, 9, 18, 10, tzinfo=UTC), event_type),
+    )
+
+
+def candidates(count: int) -> CandidatesResult:
+    return CandidatesResult(
+        date_from=PERIOD[0],
+        date_to=PERIOD[1],
+        snapshot_id=1,
+        rows=[candidate_row(index, f"Иван Человек{index}") for index in range(count)],
+    )
 
 
 class FakeUpdates:
@@ -72,7 +105,7 @@ class FakeUpdates:
 
 
 class FakePeople:
-    def __init__(self, result: PeopleFromNewsResult = EMPTY_RESULT) -> None:
+    def __init__(self, result: CandidatesResult = EMPTY_RESULT) -> None:
         self.result = result
         self.queries: list[PeopleQuery] = []
 
@@ -97,11 +130,11 @@ class FakePeople:
             max_limit=SETTINGS.people_max_limit,
         )
 
-    def people(self, query: PeopleQuery) -> PeopleFromNewsResult:
+    def people(self, query: PeopleQuery) -> CandidatesResult:
         self.queries.append(query)
         return self.result
 
-    def export(self, query: PeopleQuery) -> PeopleFromNewsResult:
+    def export(self, query: PeopleQuery) -> CandidatesResult:
         self.queries.append(query)
         return self.result
 
@@ -143,18 +176,23 @@ def reply(
     return answer(command, *arguments, user_id=user_id, updates=updates, people=people).messages
 
 
-def test_start_lists_the_commands() -> None:
+def test_start_lists_only_the_candidate_commands() -> None:
     messages = reply("start")
 
     assert messages == [formatting.START]
-    assert "/people" in messages[0]
+    commands = {word for word in messages[0].split() if word.startswith("/")}
+    assert commands == {"/people", "/export", "/update", "/status", "/help"}
+    assert "кандидат" in messages[0].lower()
+    assert "новост" not in messages[0].lower()
 
 
-def test_help_names_the_timezone() -> None:
+def test_help_describes_the_candidate_cohort_and_the_update_commands() -> None:
     message = reply("help")[0]
 
-    assert "Europe/Moscow" in message
-    assert "YYYY-MM-DD" in message
+    assert "Росфинмониторинга" in message and "«Кандидаты»" in message
+    assert "по московскому времени" in message
+    assert "/update — обновить данные кандидатов" in message
+    assert "/status" in message and "YYYY-MM-DD" in message
 
 
 def test_update_answers_with_the_run_id() -> None:
@@ -217,39 +255,42 @@ def test_people_reports_an_empty_period() -> None:
     assert "не найдено" in message
 
 
-def test_people_formats_a_person_with_articles() -> None:
-    result = PeopleFromNewsResult(
-        date_from=datetime(2026, 9, 1, tzinfo=UTC).date(),
-        date_to=datetime(2026, 9, 19, tzinfo=UTC).date(),
-        total=387,
-        limit=50,
-        people=[
-            PersonFromNews(
-                person_id=1,
-                canonical_name="Иванов Иван <Иванович>",
-                article_count=3,
-                latest_published_at=datetime(2026, 9, 18, 10, tzinfo=UTC),
-                sources=["ОВД-Инфо", "SOTA"],
-                articles=[
-                    NewsArticleReference(
-                        article_id=7,
-                        title="Суд & приговор",
-                        url="https://news.example/7?a=1&b=2",
-                        source_name="ОВД-Инфо",
-                        published_at=datetime(2026, 9, 18, 10, tzinfo=UTC),
-                    )
-                ],
-            )
+def test_people_lists_candidates_in_the_page_order() -> None:
+    result = CandidatesResult(
+        date_from=PERIOD[0],
+        date_to=PERIOD[1],
+        snapshot_id=1,
+        rows=[
+            candidate_row(1, "Иван <Иванов>", url="https://news.example/7?a=1&b=2"),
+            candidate_row(2, "Петр Петров", event_type="sentence"),
         ],
     )
 
     message = reply("people", "2026-09-01", "2026-09-19", people=FakePeople(result))[0]
 
-    assert "Найдено всего: 387" in message and "Показано: 1" in message
-    # News text is escaped; the link stays a link.
-    assert "Иванов Иван &lt;Иванович&gt;" in message
-    assert "Суд &amp; приговор" in message
-    assert '<a href="https://news.example/7?a=1&amp;b=2">' in message
+    assert "Кандидаты 2026-09-01 — 2026-09-19" in message
+    assert "Найдено всего: 2" in message and "Показано: 2" in message
+    # Names are written surname first, as on the page; text is escaped, links stay links.
+    assert "1. <b>&lt;Иванов&gt; Иван</b>" in message
+    assert "18.09.2026 · Арест" in message
+    assert '<a href="https://news.example/7?a=1&amp;b=2">Новость</a>' in message
+    assert message.index("Иван") < message.index("Петров Петр")
+
+
+def test_people_shows_at_most_the_limit_but_counts_all() -> None:
+    message = reply("people", "2026-09-01", "2026-09-19", "2", people=FakePeople(candidates(5)))[0]
+
+    assert "Найдено всего: 5" in message and "Показано: 2" in message
+
+
+def test_without_a_snapshot_there_are_no_candidates() -> None:
+    result = CandidatesResult(date_from=PERIOD[0], date_to=PERIOD[1], snapshot_id=None, rows=[])
+
+    people = reply("people", "2026-09-01", "2026-09-19", people=FakePeople(result))
+    exported = answer("export", "2026-09-01", "2026-09-19", people=FakePeople(result))
+
+    assert people == [formatting.NO_SNAPSHOT]
+    assert exported.document is None and exported.messages == [formatting.NO_SNAPSHOT]
 
 
 def test_people_passes_the_parsed_period_to_the_service() -> None:
@@ -318,28 +359,16 @@ def test_plain_text_is_not_a_command() -> None:
     assert _parse("привет") == ("", [])
 
 
-def test_a_very_long_title_stays_inside_one_message_with_its_link() -> None:
-    result = PeopleFromNewsResult(
-        date_from=datetime(2026, 9, 1, tzinfo=UTC).date(),
-        date_to=datetime(2026, 9, 19, tzinfo=UTC).date(),
-        total=60,
-        limit=50,
-        people=[
-            PersonFromNews(
-                person_id=index,
-                canonical_name=f"Человек {index} " + "Длинноимённый" * 30,
-                article_count=3,
-                latest_published_at=datetime(2026, 9, 18, tzinfo=UTC),
-                sources=["ОВД-Инфо"],
-                articles=[
-                    NewsArticleReference(
-                        article_id=index,
-                        title="слово " * 900,
-                        url=f"https://news.example/{index}",
-                        source_name="ОВД-Инфо",
-                        published_at=datetime(2026, 9, 18, tzinfo=UTC),
-                    )
-                ],
+def test_a_very_long_name_stays_inside_one_message_with_its_link() -> None:
+    result = CandidatesResult(
+        date_from=PERIOD[0],
+        date_to=PERIOD[1],
+        snapshot_id=1,
+        rows=[
+            candidate_row(
+                index,
+                f"Человек{index} " + "Длинноимённый" * 30,
+                url=f"https://news.example/{index}",
             )
             for index in range(50)
         ],
@@ -354,46 +383,20 @@ def test_a_very_long_title_stays_inside_one_message_with_its_link() -> None:
         assert message.count("<b>") == message.count("</b>")
 
 
-def people_with_articles(count: int) -> PeopleFromNewsResult:
-    return PeopleFromNewsResult(
-        date_from=datetime(2026, 9, 1, tzinfo=UTC).date(),
-        date_to=datetime(2026, 9, 19, tzinfo=UTC).date(),
-        total=count,
-        limit=count,
-        people=[
-            PersonFromNews(
-                person_id=index,
-                canonical_name=f"Человек {index}",
-                article_count=2,
-                latest_published_at=datetime(2026, 9, 18, tzinfo=UTC),
-                sources=["ОВД-Инфо"],
-                articles=[
-                    NewsArticleReference(
-                        article_id=index * 10 + offset,
-                        title=f"Статья {index}-{offset}",
-                        url=f"https://news.example/{index}{offset}",
-                        source_name="ОВД-Инфо",
-                        published_at=datetime(2026, 9, 18 - offset, tzinfo=UTC),
-                    )
-                    for offset in (0, 1)
-                ],
-            )
-            for index in range(count)
-        ],
-    )
-
-
-def test_export_answers_with_a_spreadsheet() -> None:
-    people = FakePeople(people_with_articles(3))
+def test_export_answers_with_the_page_spreadsheet() -> None:
+    people = FakePeople(candidates(3))
 
     result = answer("export", "2026-09-01", "2026-09-19", people=people)
 
     assert result.document is not None
-    assert result.document.filename == "people-2026-09-01-2026-09-19.xlsx"
-    # A real .xlsx is a zip archive.
-    assert result.document.content[:2] == b"PK"
-    assert "Людей: 3" in result.messages[0]
-    assert "Строк в файле: 6" in result.messages[0]
+    assert result.document.filename == "candidates-2026-09-01-2026-09-19.xlsx"
+    # The file of the page's «Export to Excel»: its header, one row per candidate.
+    sheet = load_workbook(BytesIO(result.document.content)).active
+    assert sheet is not None
+    rows = list(sheet.iter_rows(values_only=True))
+    assert rows[0] == ("№", "Фамилия Имя", "Дата новости", "Категория", "Причины", "Ссылка")
+    assert [row[1] for row in rows[1:]] == ["Человек0 Иван", "Человек1 Иван", "Человек2 Иван"]
+    assert "Кандидатов в файле: 3" in result.messages[0]
 
 
 def test_export_of_an_empty_period_sends_no_file() -> None:
@@ -415,7 +418,7 @@ def test_export_explains_its_format(arguments: tuple[str, ...]) -> None:
 
 
 def test_export_is_closed_by_the_allowlist() -> None:
-    people = FakePeople(people_with_articles(3))
+    people = FakePeople(candidates(3))
 
     result = answer("export", "2026-09-01", "2026-09-19", user_id=DENIED, people=people)
 
@@ -437,7 +440,7 @@ def test_people_without_arguments_offers_the_period() -> None:
     result = answer("people")
 
     assert result.keyboard is not None
-    assert "Период поиска" in result.messages[0]
+    assert "Период кандидатов" in result.messages[0]
     assert any(button.text == "7 дней" for button in pressable(result.keyboard))
 
 
@@ -445,7 +448,7 @@ def test_export_without_arguments_offers_the_period() -> None:
     result = answer("export")
 
     assert result.keyboard is not None
-    assert "Период выгрузки" in result.messages[0]
+    assert "Период выгрузки кандидатов" in result.messages[0]
 
 
 def test_a_preset_button_runs_the_search() -> None:
@@ -461,7 +464,7 @@ def test_a_preset_button_runs_the_search() -> None:
 
 
 def test_a_preset_button_of_export_sends_the_file() -> None:
-    people = FakePeople(people_with_articles(2))
+    people = FakePeople(candidates(2))
     keyboard = answer("export").keyboard
     assert keyboard is not None
     month = next(button for button in pressable(keyboard) if button.text.startswith("Этот месяц"))

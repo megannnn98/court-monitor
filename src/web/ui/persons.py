@@ -1,4 +1,4 @@
-"""Operator console: person card, article view, search."""
+"""Operator console: the person card and the article view behind a candidate."""
 
 from html import escape
 
@@ -6,12 +6,10 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from sources.models import SearchHit
 from web.candidate_rows import _surname_first
 from web.dependencies import get_db
 from web.routers.articles import _article_response
 from web.routers.persons import get_person_detail
-from web.routers.search import search_articles
 from web.ui.layout import _fmt, _page
 
 router = APIRouter()
@@ -57,7 +55,7 @@ def ui_get_person(
   <thead><tr><th>ID</th><th>Тип</th><th>Дата</th><th>Роль</th><th>Статья</th><th>Span</th></tr></thead>
   <tbody>{events}</tbody>
 </table>""",
-        active="search",
+        active="candidates",
         instruction="Карточка Person показывает только проверяемые факты с переходом к source span.",
         next_action="Откройте статью в строке события и проверьте подсвеченный evidence span.",
         db=db,
@@ -83,40 +81,8 @@ def ui_get_article(
         article.title,
         f"""<p><a href="{escape(article.url)}">{escape(article.url)}</a></p>
 <article>{rendered}</article>""",
-        active="search",
+        active="candidates",
         instruction="Это полный ParsedArticle.text — source of truth для evidence.",
         next_action="Проверьте подсвеченный span или вернитесь к карточке Person.",
-        db=db,
-    )
-
-
-@router.get("/ui/search")
-def ui_search(
-    query: str | None = Query(default=None, max_length=500),
-    limit: int = Query(default=20, ge=1, le=100),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> HTMLResponse:
-    results: list[SearchHit] = []
-    if query and query.strip():
-        results = search_articles(query, limit, db)
-    rows = "\n".join(
-        f"""<tr>
-  <td><a href="/ui/articles/{hit.article_id}">{escape(hit.title)}</a></td>
-  <td>{_fmt(hit.published_at)}</td>
-  <td>{_fmt(hit.score)}</td>
-</tr>"""
-        for hit in results
-    )
-
-    return _page(
-        "Поиск",
-        f"""<form method="get" class="search">
-  <input name="query" value="{escape(query or "")}" autofocus>
-  <button>Искать</button>
-</form>
-<table><thead><tr><th>Статья</th><th>Дата</th><th>Score</th></tr></thead><tbody>{rows}</tbody></table>""",
-        active="search",
-        instruction="Lexical search ищет по ParsedArticle.text через PostgreSQL russian tsvector.",
-        next_action="Введите фразу, откройте статью и используйте её как provenance, не как финальный результат.",
         db=db,
     )

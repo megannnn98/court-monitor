@@ -4,7 +4,7 @@ from html import escape
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from web.candidate_rows import (
@@ -14,6 +14,7 @@ from web.candidate_rows import (
     _news_day,
     _period_start,
     _surname_first,
+    latest_snapshot_id,
 )
 from web.dependencies import get_db
 from web.exports import PdfFontMissingError, candidates_csv, candidates_pdf, candidates_xlsx
@@ -23,6 +24,12 @@ from web.routers.rosfinmonitoring import list_rosfinmonitoring_snapshots
 from web.ui.layout import _page
 
 router = APIRouter()
+
+
+@router.get("/ui")
+def ui_root() -> RedirectResponse:
+    """The console is the candidates page now: `/ui` opens it."""
+    return RedirectResponse("/ui/candidates", status_code=303)
 
 
 @router.get("/ui/candidates")
@@ -37,7 +44,8 @@ def ui_candidates(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
-    selected_snapshot_id = snapshot_id or (snapshots[0].id if snapshots else None)
+    # The newest snapshot, chosen as the Telegram bot chooses it.
+    selected_snapshot_id = snapshot_id or latest_snapshot_id(db)
     if selected_snapshot_id is None:
         return _page(
             "Кандидаты",
@@ -113,7 +121,6 @@ def ui_candidates(
   <a class="secondary" href="/ui/candidates/export.pdf?{page_filters}">Скачать PDF</a>
   <a class="secondary" href="/ui/candidates/export.xlsx?{filters}">Export to Excel</a>
 </form>
-<p><a href="/ui/cases">Новые дела, обновления старых и события без имени</a></p>
 <p class="muted">Найдено: {len(candidate_rows)}, показано: {min(len(candidate_rows), limit)}. Статус РФМ: <code>not_matched</code>. Сортировка по категории события и дате новости. Эта таблица людей не определяет давность дела.</p>
 <table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Дата новости</th><th>Категория</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
         active="candidates",

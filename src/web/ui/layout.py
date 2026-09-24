@@ -45,15 +45,10 @@ def _page(
     warning: str | None = None,
 ) -> HTMLResponse:
     counts = _status_counts(db)
+    # The customer's console: the candidates and the wiki, nothing else.
     nav = [
-        ("review", "ER-ревью", "/ui/person-resolution/reviews"),
         ("candidates", "Кандидаты", "/ui/candidates"),
-        ("cases", "Дела и события", "/ui/cases"),
-        ("channel", "Для канала", "/ui/channel"),
-        ("search", "Поиск", "/ui/search"),
-        ("operations", "Операции", "/ui/operations"),
-        ("monitoring", "Monitoring", "/ui/monitoring"),
-        ("wiki", "Wiki", "/ui/wiki"),
+        ("wiki", "Вики", "/ui/wiki"),
     ]
     links = "\n".join(
         f'<a class="{"active" if key == active else ""}" href="{href}">{label}</a>'

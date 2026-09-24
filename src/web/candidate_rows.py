@@ -9,7 +9,11 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from candidates.models import PoliticalPersecutionCandidate, RosfinmonitoringStatus
+from candidates.models import (
+    DEFAULT_MIN_PERSECUTION_CONFIDENCE,
+    PoliticalPersecutionCandidate,
+    RosfinmonitoringStatus,
+)
 from candidates.service import DEFAULT_INCLUDED_RF_STATUSES, CandidateQueryService
 from db.orm_models import (
     ArticleExtractionRunRecord,
@@ -17,6 +21,7 @@ from db.orm_models import (
     ExtractedEventRecord,
     ParsedArticleRecord,
     PersonEventLinkRecord,
+    RosfinmonitoringSnapshotRecord,
     SourceDocument,
 )
 
@@ -31,6 +36,10 @@ class _CandidateNews(NamedTuple):
 class _CandidateRow(NamedTuple):
     candidate: PoliticalPersecutionCandidate
     news: _CandidateNews | None
+
+
+# The public name of a row for the other consumers of the selection (the Telegram bot).
+CandidateRow = _CandidateRow
 
 
 # The categories of the customer's table, by the event the row links to.
@@ -201,6 +210,22 @@ def _has_criminal_events(
     return event_type is not None and event_type != "fine"
 
 
+def latest_snapshot_id(db: Session) -> int | None:
+    """The Rosfinmonitoring snapshot the candidates page opens on: the newest one.
+
+    The Telegram bot uses the same choice, so a person is a candidate in both or in
+    neither.
+    """
+    return db.scalar(
+        select(RosfinmonitoringSnapshotRecord.id)
+        .order_by(
+            RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
+            RosfinmonitoringSnapshotRecord.id.desc(),
+        )
+        .limit(1)
+    )
+
+
 def _candidate_rows(
     db: Session,
     *,
@@ -208,6 +233,34 @@ def _candidate_rows(
     min_confidence: float,
     period_start: date | None,
     include_administrative: bool,
+    criminal_only: bool = False,
+    event_date_filter: bool = True,
+    include_rf_statuses: frozenset[RosfinmonitoringStatus] = DEFAULT_INCLUDED_RF_STATUSES,
+) -> list[_CandidateRow]:
+    """`select_candidate_rows` for the web pages: an unknown snapshot is a 404."""
+    try:
+        return select_candidate_rows(
+            db,
+            snapshot_id=snapshot_id,
+            min_confidence=min_confidence,
+            period_start=period_start,
+            include_administrative=include_administrative,
+            criminal_only=criminal_only,
+            event_date_filter=event_date_filter,
+            include_rf_statuses=include_rf_statuses,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def select_candidate_rows(
+    db: Session,
+    *,
+    snapshot_id: int,
+    min_confidence: float = DEFAULT_MIN_PERSECUTION_CONFIDENCE,
+    period_start: date | None,
+    period_end: date | None = None,
+    include_administrative: bool = False,
     criminal_only: bool = False,
     event_date_filter: bool = True,
     include_rf_statuses: frozenset[RosfinmonitoringStatus] = DEFAULT_INCLUDED_RF_STATUSES,
@@ -220,20 +273,20 @@ def _candidate_rows(
 
     When *event_date_filter* is True (default), candidates whose latest event is before
     *period_start* are excluded — old cases mentioned in fresh articles are filtered out.
+    *period_end* (inclusive news day, the bot's «по») excludes later news; the web page
+    has no end and passes none.
+    Raises ``ValueError`` for an unknown snapshot.
     When *criminal_only* is True, only candidates whose most recent event is not a
     ``fine`` (or who have a criminal-code charge) are included — administrative
     fines for already-known political prisoners are filtered out.
     """
-    try:
-        result = CandidateQueryService(db).get_candidates(
-            snapshot_id=snapshot_id,
-            min_persecution_confidence=min_confidence,
-            limit=None,
-            include_rf_statuses=include_rf_statuses,
-            session=db,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    result = CandidateQueryService(db).get_candidates(
+        snapshot_id=snapshot_id,
+        min_persecution_confidence=min_confidence,
+        limit=None,
+        include_rf_statuses=include_rf_statuses,
+        session=db,
+    )
     news = _candidate_news(db, [candidate.person_id for candidate in result.candidates])
     rows: list[_CandidateRow] = []
     for candidate in result.candidates:
@@ -251,6 +304,10 @@ def _candidate_rows(
         # Filter by article date (publication date).
         if period_start is not None and (
             published_at is None or _news_day(published_at) < period_start
+        ):
+            continue
+        if period_end is not None and (
+            published_at is None or _news_day(published_at) > period_end
         ):
             continue
 

@@ -19,15 +19,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
-from monitoring.models import DERIVED_SCOPE, MonitoringTrigger, source_scope
-from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import (
     OUTPUT_LIMIT,
     OperationConflictError,
     OperationNotFoundError,
     OperationParameters,
     OperationRegistry,
-    OperationRun,
     OperationRunStatus,
     ProcessResult,
 )
@@ -293,22 +290,6 @@ def test_the_catch_up_runs_monitor_over_every_source_or_one(
     assert command[2:] == ["monitor", *arguments]
 
 
-def test_the_catch_up_form_offers_every_source(session_factory: sessionmaker[Session]) -> None:
-    def override_get_db() -> Iterator[Session]:
-        with session_factory() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-    try:
-        page = TestClient(app).get("/ui/operations/monitor")
-    finally:
-        app.dependency_overrides.pop(get_db, None)
-
-    assert page.status_code == 200
-    assert '<option value="" selected>Все источники</option>' in page.text
-    assert 'value="50"' in page.text
-
-
 @contextmanager
 def _client(
     session_factory: sessionmaker[Session], registry: OperationRegistry
@@ -326,39 +307,23 @@ def _client(
         app.dependency_overrides.pop(get_operation_registry, None)
 
 
-def test_confirm_returns_at_once_and_the_api_reads_the_stored_run(
+def test_another_api_worker_reads_the_stored_run(
     session_factory: sessionmaker[Session], test_engine: Engine
 ) -> None:
+    """The JSON API outlives the operations page: a run started elsewhere (the bot's
+    `/update`, the CLI) is served from the database by a worker that never saw it start."""
     executor, queued = _deferred()
     accepting = _registry(session_factory, executor=executor)
+    run = accepting.start("discover-and-ingest", OperationParameters(source="ovd-info", limit=3))
+    assert len(queued) == 1  # the work was handed off, not run in the call
 
-    with _client(session_factory, accepting) as client:
-        confirmed = client.post(
-            "/ui/operations/discover-and-ingest/confirm",
-            params={"source": "ovd-info", "limit": 3},
-            follow_redirects=False,
-        )
-        conflict = client.post(
-            "/ui/operations/discover-and-ingest/confirm",
-            params={"source": "ovd-info", "limit": 3},
-            follow_redirects=False,
-        )
-
-    assert confirmed.status_code == 303
-    assert conflict.status_code == 409
-    assert len(queued) == 1  # the work was handed off, not run in the request
-    run_id = int(confirmed.headers["location"].rsplit("/", 1)[1])
-
-    # Another API worker, which never saw the run start, serves it from the database.
     reading = OperationRegistry(create_session_factory(test_engine))
     with _client(session_factory, reading) as client:
         listed = client.get("/operations/runs").json()
-        detail = client.get(f"/operations/runs/{run_id}").json()
-        page = client.get(f"/ui/operations/runs/{run_id}")
+        detail = client.get(f"/operations/runs/{run.id}").json()
 
-    assert [run["id"] for run in listed] == [run_id]
+    assert [item["id"] for item in listed] == [run.id]
     assert detail["status"] == "pending"
-    assert page.status_code == 200 and f"Run #{run_id}" in page.text
 
 
 def test_the_real_process_runner_captures_output_and_beats(
@@ -453,107 +418,3 @@ def test_only_the_live_run_index_means_already_running(
             connection.execute(
                 text("ALTER TABLE operator_operation_runs DROP CONSTRAINT ck_test_no_ingest")
             )
-
-
-def _monitoring_run(
-    repository: SqlAlchemyMonitoringRepository,
-    source: str | None,
-    *,
-    finished: bool = True,
-    error: BaseException | None = None,
-    **counters: int,
-) -> int:
-    run_id = repository.start_run(
-        scope=source_scope(source) if source else DERIVED_SCOPE,
-        source=source,
-        trigger=MonitoringTrigger.MANUAL,
-        parameters={},
-        stale_after=timedelta(hours=2),
-    )
-    if counters:
-        repository.add_counters(run_id, counters)
-    if finished:
-        repository.finish_run(run_id, error=error)
-    return run_id
-
-
-def _running_catch_up(
-    session_factory: sessionmaker[Session], registry: OperationRegistry
-) -> OperationRun:
-    run = registry.start("monitor", OperationParameters())
-    with session_factory.begin() as session:
-        session.execute(
-            text(
-                "UPDATE operator_operation_runs SET status = 'running', "
-                "started_at = now() - interval '10 minutes', "
-                "heartbeat_at = now() WHERE id = :id"
-            ),
-            {"id": run.id},
-        )
-    return registry.get(run.id)
-
-
-def test_the_catch_up_page_shows_its_progress(
-    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("MONITORING_ENABLED_SOURCES", "ovd-info,sota-vision,kommersant")
-    executor, _queued = _deferred()
-    registry = _registry(session_factory, executor=executor)
-    monitoring = SqlAlchemyMonitoringRepository(session_factory)
-    earlier = _monitoring_run(monitoring, "kommersant", documents_ingested=99)
-    with session_factory.begin() as session:
-        session.execute(
-            text(
-                "UPDATE monitoring_runs SET started_at = now() - interval '1 hour' WHERE id = :id"
-            ),
-            {"id": earlier},
-        )
-    run = _running_catch_up(session_factory, registry)
-    _monitoring_run(monitoring, "ovd-info", documents_ingested=3, persons_created=2)
-    _monitoring_run(monitoring, "sota-vision", finished=False, documents_ingested=1)
-
-    with _client(session_factory, registry) as client:
-        page = client.get(f"/ui/operations/runs/{run.id}").text
-
-    assert '<progress value="1" max="4"></progress> 1 из 4 шагов' in page
-    assert "Источники: 1 из 3 готово · сейчас: sota-vision" in page
-    assert "Общая обработка: ожидает" in page
-    assert "Загружено документов: 4" in page and "новых людей: 2" in page
-
-
-def test_the_finished_catch_up_names_its_failed_sources(
-    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("MONITORING_ENABLED_SOURCES", "ovd-info,sota-vision")
-    executor, _queued = _deferred()
-    registry = _registry(session_factory, executor=executor)
-    monitoring = SqlAlchemyMonitoringRepository(session_factory)
-    run = _running_catch_up(session_factory, registry)
-    _monitoring_run(monitoring, "ovd-info", error=RuntimeError("listing is down"))
-    _monitoring_run(monitoring, "sota-vision", documents_ingested=5)
-    _monitoring_run(monitoring, None)
-    with session_factory.begin() as session:
-        session.execute(
-            text(
-                "UPDATE operator_operation_runs SET status = 'failed', finished_at = now() "
-                "WHERE id = :id"
-            ),
-            {"id": run.id},
-        )
-
-    with _client(session_factory, registry) as client:
-        page = client.get(f"/ui/operations/runs/{run.id}").text
-
-    assert '<progress value="3" max="3"></progress> 3 из 3 шагов' in page
-    assert "Общая обработка: готово" in page
-    assert "источников с ошибкой: 1 (ovd-info)" in page
-
-
-def test_other_operations_have_no_progress_bar(session_factory: sessionmaker[Session]) -> None:
-    registry = _registry(session_factory)
-    run = registry.start("classify-persecution", OperationParameters(limit=10))
-
-    with _client(session_factory, registry) as client:
-        page = client.get(f"/ui/operations/runs/{run.id}").text
-
-    assert "<progress" not in page

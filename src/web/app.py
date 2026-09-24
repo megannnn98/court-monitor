@@ -28,12 +28,7 @@ from web.routers import (
     search,
 )
 from web.ui import candidates as ui_candidates
-from web.ui import cases as ui_cases
-from web.ui import channel as ui_channel
-from web.ui import monitoring as ui_monitoring
-from web.ui import operations as ui_operations
 from web.ui import persons as ui_persons
-from web.ui import reviews as ui_reviews
 from web.ui import wiki as ui_wiki
 
 logger = logging.getLogger("api")
@@ -78,15 +73,10 @@ for module in (
     research,
     rosfinmonitoring,
     reviews,
-    ui_reviews,
     ui_persons,
     ui_wiki,
     ui_candidates,
-    ui_cases,
-    ui_channel,
     operations,
-    ui_operations,
-    ui_monitoring,
     monitoring,
     health,
 ):

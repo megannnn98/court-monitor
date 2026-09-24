@@ -28,9 +28,9 @@ from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import OperationRegistry
 from settings import ApplicationSettings
 from telegram_bot.authorization import Authorization
+from telegram_bot.candidates import CandidatesRepository
 from telegram_bot.config import TelegramBotSettings
 from telegram_bot.handlers import Answer, CommandHandlers
-from telegram_bot.people_repository import PeopleFromNewsRepository
 from telegram_bot.people_service import PeopleService
 from telegram_bot.period_keyboard import NOOP, Keyboard
 from telegram_bot.update_service import UpdateService
@@ -48,7 +48,7 @@ def build_handlers(
     return CommandHandlers(
         settings=settings,
         authorization=Authorization(settings),
-        people=PeopleService(PeopleFromNewsRepository(session_factory), settings),
+        people=PeopleService(CandidatesRepository(session_factory), settings),
         updates=UpdateService(
             OperationRegistry(session_factory),
             SqlAlchemyMonitoringRepository(session_factory),
