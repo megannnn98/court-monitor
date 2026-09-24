@@ -97,6 +97,11 @@ services:
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       TOGETHER_MODEL: ${TOGETHER_MODEL:-}
       TOGETHER_TIMEOUT_SECONDS: ${TOGETHER_TIMEOUT_SECONDS:-30}
+      # Entity names to the nominative (`collect-entities`): OpenRouter if its key is set,
+      # else Claude; without a key the rules alone.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ENTITY_NORMALIZE_MODEL: ${ENTITY_NORMALIZE_MODEL:-}
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
       DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
       DATABASE_POOL_TIMEOUT: ${DATABASE_POOL_TIMEOUT:-30}

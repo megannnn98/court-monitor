@@ -573,3 +573,20 @@ def test_monitor_modes_are_validated(
         registry.start(name, parameters)
 
     assert registry.list_runs() == []
+
+
+def test_the_purge_is_a_monitor_mode_without_sources(
+    session_factory: sessionmaker[Session],
+) -> None:
+    commands: list[list[str]] = []
+
+    def recording(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        commands.append(command)
+        return ProcessResult(0, "", "")
+
+    registry = _registry(session_factory, recording)
+    registry.start("monitor", OperationParameters(mode="purge"))
+
+    assert commands[0][2:] == ["purge-junk"]
+    with pytest.raises(ValueError):
+        registry.start("monitor", OperationParameters(mode="purge", sources=["ovd-info"]))

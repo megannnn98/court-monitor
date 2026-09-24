@@ -7,9 +7,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
+from support.pipeline_runs import finish_steps
 from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import OperatorOperationRunRecord, SourceDocument
@@ -166,27 +168,22 @@ def test_every_source_has_a_filterable_kind(session_factory: sessionmaker[Sessio
     assert 'id="source-search"' in page
 
 
-def test_the_run_button_counts_the_selection_and_is_off_without_one(
+def test_the_first_step_counts_the_selection_and_is_off_without_one(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
-        full = client.get("/ui/management").text
-        empty = client.post("/ui/management/run", data={}).text
+        full = _run_bar(client.get("/ui/management").text)
+        empty = _run_bar(client.post("/ui/management/run", data={}).text)
 
     total = len(news_sources())
     assert (
-        f'<button id="run-button" class="run-button" type="submit" >Подгрузить статьи '
-        f'(<span class="selected-count">{total}</span>)</button>'
+        'id="step-load" class="step current run-button" type="submit" '
+        'formaction="/ui/management/run"'
     ) in full
-    assert (
-        '<button id="resolve-button" class="run-button secondary" type="submit" '
-        f'formaction="/ui/management/resolve" >Разрешить персоны '
-        f'(<span class="selected-count">{total}</span>)</button>'
-    ) in full
-    assert '<button id="run-button" class="run-button" type="submit" disabled>' in empty
-    assert 'formaction="/ui/management/resolve" disabled>' in empty
+    assert f'1. Подгрузить статьи (<span class="selected-count">{total}</span>)' in full
+    assert re.search(r'id="step-load"[^>]* disabled>', empty)
 
 
 def test_the_latest_manual_runs_are_listed_with_their_status(
@@ -217,6 +214,7 @@ def test_resolve_starts_person_resolution_of_the_selected_sources(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities")
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management")
@@ -227,7 +225,7 @@ def test_resolve_starts_person_resolution_of_the_selected_sources(
         )
         run_page = client.get(response.headers["location"])
 
-    assert 'formaction="/ui/management/resolve"' in page.text
+    assert 'id="step-resolve" class="step current run-button"' in page.text
     assert response.status_code == 303
     run = registry.runs_of("monitor")[0]
     assert run.parameters.mode == "resolve"
@@ -244,15 +242,21 @@ def test_resolve_starts_person_resolution_of_the_selected_sources(
     assert "Общая классификация и сверка с РФМ" in run_page.text
 
 
-def test_load_and_resolution_cannot_run_at_once(session_factory: sessionmaker[Session]) -> None:
+def test_a_step_out_of_turn_is_refused_by_the_server(
+    session_factory: sessionmaker[Session],
+) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
+        early = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
+        early_purge = client.post("/ui/management/purge")
         client.post("/ui/management/run", data={"sources": ["ovd-info"]}, follow_redirects=False)
-        second = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
+        while_loading = client.post("/ui/management/purge")
 
-    assert second.status_code == 409
-    assert "уже выполняется" in second.text
+    assert early.status_code == 409 and "Сейчас шаг 1: «Подгрузить статьи»" in early.text
+    assert early_purge.status_code == 409
+    assert while_loading.status_code == 409 and "Идёт запуск #" in while_loading.text
+    assert [run.parameters.mode for run in registry.runs_of("monitor")] == ["load"]
 
 
 def _live(session_factory: sessionmaker[Session], registry: OperationRegistry, mode: str) -> int:
@@ -466,7 +470,6 @@ def test_while_a_load_runs_its_button_stops_it(session_factory: sessionmaker[Ses
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
-        idle = _run_bar(client.get("/ui/management").text)
         client.post("/ui/management/run", data={"sources": ["ovd-info"]}, follow_redirects=False)
         run_id = registry.runs_of("monitor")[0].id
         # An old run on screen: the bar still belongs to the run going on now.
@@ -478,21 +481,20 @@ def test_while_a_load_runs_its_button_stops_it(session_factory: sessionmaker[Ses
         )
         after = _run_bar(client.get(stopped.headers["location"]).text)
 
-    assert "stop-button" not in idle
-    assert 'id="run-button"' in idle and 'id="resolve-button"' in idle
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in busy
-    assert f"Остановить запуск #{run_id}" in busy
-    assert 'id="run-button"' not in busy
-    assert re.search(r"<button [^>]*disabled>Разрешить персоны", busy)
+    assert "■ Остановить: Подгрузить статьи" in busy
+    assert 'id="step-' not in busy  # nothing else can be pressed
     assert stopped.headers["location"] == f"/ui/management?run_id={run_id}"
     assert registry.get(run_id).status is OperationRunStatus.INTERRUPTED
-    assert "stop-button" not in after and 'id="run-button"' in after
+    # A stopped load is repeated.
+    assert 'id="step-load" class="step current' in after
 
 
 def test_while_a_resolution_runs_its_button_stops_it(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities")
 
     with _client(session_factory, registry) as client:
         client.post(
@@ -500,6 +502,88 @@ def test_while_a_resolution_runs_its_button_stops_it(
         )
         bar = _run_bar(client.get("/ui/management").text)
 
-    assert re.search(r"<button [^>]*disabled>Подгрузить статьи", bar)
-    assert 'id="resolve-button"' not in bar
-    assert bar.index("Подгрузить статьи") < bar.index("stop-button")
+    steps = re.findall(r"<button [^>]*>([^<]*)", bar)
+    assert [step.split(" (")[0] for step in steps] == [
+        "✓ 1. Подгрузить статьи",
+        "✓ 2. Очистить от мусора",
+        "✓ 3. Собрать сущности",
+        "■ Остановить: Разрешить персоны",
+    ]
+
+
+def test_the_purge_runs_in_the_background_and_its_button_stops_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load")
+
+    with _client(session_factory, registry) as client:
+        idle = _run_bar(client.get("/ui/management").text)
+        response = client.post("/ui/management/purge", follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'running', started_at = now(), "
+                    "heartbeat_at = now(), stderr = :log WHERE id = :id"
+                ),
+                {
+                    "id": run_id,
+                    "log": "event=junk_purge_progress articles=500 total=16046 persons=120 reviews=0\n"
+                    "event=junk_purge_progress articles=1000 total=16046 persons=260 reviews=0\n",
+                },
+            )
+        page = client.get(response.headers["location"]).text
+
+    assert (
+        'id="step-purge" class="step current" type="submit" formaction="/ui/management/purge"'
+        in idle
+    )
+    run = registry.get(run_id)
+    assert (run.parameters.mode, run.command[2:]) == ("purge", ["purge-junk"])
+    assert "Очистка от мусора" in page
+    assert '<progress class="overall" value="1000" max="16046">' in page
+    assert "Людей удалено: 260" in page
+    assert f'formaction="/ui/management/runs/{run_id}/stop"' in _run_bar(page)
+
+
+@pytest.mark.parametrize(
+    ("finished", "status", "current"),
+    [
+        ((), "succeeded", "load"),
+        (("load",), "succeeded", "purge"),
+        (("load",), "failed", "purge"),  # one broken source does not block the cycle
+        (("load", "purge"), "failed", "purge"),  # a crashed purge is repeated
+        (("load", "purge"), "interrupted", "purge"),
+        (("load", "purge", "entities"), "succeeded", "resolve"),
+        (("load", "purge", "entities", "resolve"), "succeeded", "load"),
+    ],
+)
+def test_the_current_step_follows_the_latest_run(
+    session_factory: sessionmaker[Session], finished: tuple[str, ...], status: str, current: str
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    if finished:
+        finish_steps(session_factory, registry, *finished[:-1])
+        finish_steps(session_factory, registry, finished[-1], status=status)
+
+    with _client(session_factory, registry) as client:
+        bar = _run_bar(client.get("/ui/management").text)
+
+    assert re.findall(r'id="step-(\w+)" class="step current', bar) == [current]
+    assert bar.count(" disabled") >= 3  # every other step is grey
+
+
+def test_the_entities_step_starts_from_management(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge")
+
+    with _client(session_factory, registry) as client:
+        response = client.post("/ui/management/entities", follow_redirects=False)
+        page = client.get(response.headers["location"]).text
+
+    run = registry.runs_of("monitor")[0]
+    assert (run.parameters.mode, run.command[2:]) == ("entities", ["collect-entities"])
+    assert "Сборка сущностей" in page and "Готовлюсь" in page

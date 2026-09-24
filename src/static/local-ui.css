@@ -447,3 +447,38 @@ pre.log {
   padding-left: 18px;
   font-size: 13px;
 }
+
+.pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pipeline .step {
+  padding: 8px 12px;
+}
+
+/* Only the current step looks pressable; the rest are grey. */
+.pipeline .step.done,
+.pipeline .step.later {
+  border-color: #d0d7de;
+  color: #57606a;
+  background: #eaeef2;
+  opacity: 1;
+}
+
+.pipeline .step.current {
+  box-shadow: 0 0 0 3px rgba(31, 136, 61, 0.3);
+  font-weight: 600;
+}
+
+.pipeline .step-arrow {
+  color: #8c959f;
+  font-size: 18px;
+}
+
+.pipeline-note {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+}

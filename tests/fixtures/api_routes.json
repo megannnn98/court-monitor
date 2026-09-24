@@ -27,6 +27,8 @@
  "GET /ui/articles/{article_id}",
  "GET /ui/candidates",
  "GET /ui/candidates/export.xlsx",
+ "GET /ui/entities",
+ "GET /ui/entities/{key}",
  "GET /ui/logs",
  "GET /ui/management",
  "GET /ui/persons/{person_id}",
@@ -37,6 +39,9 @@
  "POST /research",
  "POST /research/query",
  "POST /research/reviews",
+ "POST /ui/entities/collect",
+ "POST /ui/management/entities",
+ "POST /ui/management/purge",
  "POST /ui/management/resolve",
  "POST /ui/management/run",
  "POST /ui/management/runs/{run_id}/stop"

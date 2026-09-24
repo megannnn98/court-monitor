@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -15,16 +16,29 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
+from entities.collector import EntityCollector
+from entities.normalizer import name_normalizer_from_env
+from monitoring.junk_purge import JunkPurge, JunkPurgeResult
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
 from observability import configure_logging
 from sources.source_registry import SOURCES, SourceKind
 
+logger = logging.getLogger("monitoring")
+
 MONITOR_EXIT_FAILED = 1
 MONITOR_EXIT_ALREADY_RUNNING = 3
 
 MONITORING_COMMANDS = frozenset(
-    {"monitor", "monitor-derived", "monitor-resolve", "monitoring-status", "monitoring-findings"}
+    {
+        "monitor",
+        "monitor-derived",
+        "monitor-resolve",
+        "purge-junk",
+        "collect-entities",
+        "monitoring-status",
+        "monitoring-findings",
+    }
 )
 
 ServicesBuilder = Callable[[sessionmaker[Session]], ApplicationServices]
@@ -104,6 +118,19 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         help="Re-run classification, RF matching, semantic indexing and findings (no web access)",
     )
 
+    subparsers.add_parser(
+        "purge-junk",
+        help=(
+            "Delete the articles without a criminal-case event (keeping a tombstone of each "
+            "post) and the persons only they named; irreversible"
+        ),
+    )
+
+    subparsers.add_parser(
+        "collect-entities",
+        help="Rebuild the person entities from the articles with a criminal case",
+    )
+
     status = subparsers.add_parser("monitoring-status", help="Show monitoring runs and checkpoints")
     status.add_argument("--run-id", type=int, default=None, help="Show one run with failed items")
 
@@ -136,6 +163,30 @@ def run_monitoring_command(
     if args.command not in MONITORING_COMMANDS:
         return False
     configure_logging()
+    if args.command == "purge-junk":
+        return _purge_junk(session_factory)
+    if args.command == "collect-entities":
+        normalizer = name_normalizer_from_env()
+        if normalizer is None:
+            logger.warning(
+                "event=entity_names_no_model: neither OPENROUTER_API_KEY nor ANTHROPIC_API_KEY"
+            )
+        collected = EntityCollector(
+            session_factory,
+            on_stage=lambda stage: logger.info("event=entities_collect_stage stage=%s", stage),
+            normalizer=normalizer,
+        ).run()
+        _print(
+            {
+                "mentions": collected.mentions,
+                "entities": collected.entities,
+                "grouped": collected.grouped,
+                "normalized_now": collected.normalized_now,
+                "normalized_cached": collected.normalized_cached,
+                "normalize_failures": collected.normalize_failures,
+            }
+        )
+        return True
     services = build_services(session_factory)
     monitoring = services.monitoring
 
@@ -293,4 +344,24 @@ def _resolve(args: argparse.Namespace, monitoring: MonitoringService) -> bool:
     _print(results)
     if exit_code:
         raise SystemExit(exit_code)
+    return True
+
+
+def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
+    """Progress goes to stderr as `event=junk_purge_progress`, the totals to stdout."""
+
+    def progress(result: JunkPurgeResult) -> None:
+        logger.info(
+            "event=junk_purge_progress articles=%d total=%d persons=%d reviews=%d",
+            result.articles,
+            total,
+            result.persons,
+            result.reviews,
+        )
+
+    purge = JunkPurge(session_factory, on_progress=progress)
+    total = purge.count()
+    logger.info("event=junk_purge_started total=%d", total)
+    result = purge.run()
+    _print({"articles": result.articles, "persons": result.persons, "reviews": result.reviews})
     return True

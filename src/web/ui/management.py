@@ -29,10 +29,13 @@ from operator_console import (
 from sources.source_registry import SourceDefinition, news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _page
+from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
 
 router = APIRouter()
 
 _OPERATION = "monitor"
+# Runs over the whole database: no source selection, a card of their own.
+_WHOLE_DATABASE = ("purge", "entities")
 _RUN_STATUS_LABELS = {
     OperationRunStatus.PENDING: "В очереди",
     OperationRunStatus.RUNNING: "Выполняется",
@@ -143,13 +146,15 @@ def _filter_chips(definitions: Sequence[SourceDefinition]) -> str:
 _MODE_TITLES = {
     "load": "Загрузка статей",
     "resolve": "Разрешение персон",
+    "purge": "Очистка от мусора",
+    "entities": "Сборка сущностей",
     None: "Загрузка и разрешение",
 }
 
 
 def _has_derived_step(run: OperationRun) -> bool:
     """A load leaves classification to the resolution run; the other runs end with it."""
-    return run.parameters.mode != "load"
+    return run.parameters.mode not in ("load", "purge", "entities")
 
 
 def _resolution_progress(item: MonitoringRunView) -> tuple[int, int] | None:
@@ -402,7 +407,109 @@ def _source_title(source: str, names: dict[str, str]) -> str:
     )
 
 
+_PURGE_PROGRESS = re.compile(
+    r"event=junk_purge_progress articles=(\d+) total=(\d+) persons=(\d+) reviews=(\d+)"
+)
+
+
+def _purge_card(run: OperationRun) -> str:
+    """A purge has no sources: its card counts what it removed, from its own log."""
+    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+    found = _PURGE_PROGRESS.findall(run.stderr)
+    # The last progress line holds the running totals; none yet before the first batch.
+    articles, total, persons, reviews = (
+        int(value) for value in (found[-1] if found else ("0",) * 4)
+    )
+    progress = (
+        f'<div class="progress-box"><progress class="overall" value="{articles}" '
+        f'max="{max(total, 1)}"></progress>'
+        f"<p><strong>Удалено статей {articles} из {total}</strong></p></div>"
+        if in_progress and found
+        else '<div class="progress-box"><p><strong>Ищу статьи без уголовных дел…</strong></p></div>'
+        if in_progress
+        else ""
+    )
+    summary = " ".join(
+        (
+            _badge(f"Статей удалено: {articles}", "succeeded"),
+            _badge(f"Людей удалено: {persons}", "succeeded"),
+            _badge(f"Записей проверки удалено: {reviews}", ""),
+        )
+    )
+    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
+    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
+    refresh = (
+        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
+    )
+    return f"""<section class="band run-card">
+  <h2>Запуск #{run.id} · {_MODE_TITLES["purge"]} {overall}</h2>
+  <p class="muted">Начат {started} · вся база · <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
+  {progress}
+  <p class="run-summary">{summary}</p>
+  <p class="muted">Удаляются статьи, в последнем разборе которых нет уголовного события,
+  со всем извлечённым из них, и люди, которых после этого ничто не упоминает.
+  Исходная публикация остаётся пустой отметкой, чтобы её не скачивать снова.</p>
+  {refresh}
+</section>"""
+
+
+_ENTITIES_STAGE = re.compile(r"event=entities_collect_stage stage=([^\n]+)")
+_ENTITIES_STAGES = {"reading": "Читаю упоминания…", "grouping": "Склеиваю…", "writing": "Сохраняю…"}
+
+
+def _entities_card(run: OperationRun) -> str:
+    """An entity rebuild: its stage from the log while it runs, its counts at the end."""
+    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+    stages = _ENTITIES_STAGE.findall(run.stderr)
+    stage = stages[-1].strip() if stages else ""
+    if stage.startswith("normalizing "):
+        done, _, total = stage.removeprefix("normalizing ").partition("/")
+        progress = (
+            f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
+            f'max="{escape(total)}"></progress><p><strong>Модель приводит имена к '
+            f"именительному: {escape(done)} из {escape(total)}</strong></p></div>"
+        )
+    else:
+        progress = (
+            f'<div class="progress-box"><p><strong>'
+            f"{escape(_ENTITIES_STAGES.get(stage, 'Готовлюсь…'))}</strong></p></div>"
+        )
+    try:
+        totals = json.loads(run.stdout) if run.stdout else {}
+    except json.JSONDecodeError:
+        totals = {}
+    labels = (
+        ("entities", "Сущностей", "succeeded"),
+        ("grouped", "Упоминаний в них", ""),
+        ("normalized_now", "Имён от модели сейчас", ""),
+        ("normalized_cached", "Имён из кэша", ""),
+        ("normalize_failures", "Не удалось нормализовать", "failed"),
+    )
+    summary = " ".join(
+        _badge(f"{label}: {totals[key]}", badge)
+        for key, label, badge in labels
+        if isinstance(totals, dict) and totals.get(key)
+    )
+    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
+    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
+    refresh = (
+        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
+    )
+    return f"""<section class="band run-card">
+  <h2>Запуск #{run.id} · {_MODE_TITLES["entities"]} {overall}</h2>
+  <p class="muted">Начат {started} · <a href="/ui/entities">Сущности</a> ·
+  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
+  {progress if in_progress else ""}
+  <p class="run-summary">{summary}</p>
+  {refresh}
+</section>"""
+
+
 def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
+    if run.parameters.mode == "purge":
+        return _purge_card(run)
+    if run.parameters.mode == "entities":
+        return _entities_card(run)
     """A card per run: status, counts per outcome and, folded, the sources that ran.
 
     Sources the run never reached are only counted: listed one by one they buried the
@@ -500,44 +607,13 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
 </section>"""
 
 
-def _run_buttons(live: OperationRun | None, checked_count: int) -> str:
-    """The two run buttons; while a run goes on, its own button stops it.
-
-    Only one monitor run lives at a time, so the other button waits, switched off: it
-    has no `run-button` class, and the selection script leaves it alone."""
-    count = f'(<span class="selected-count">{checked_count}</span>)'
-    enabled = "" if checked_count else "disabled"
-    load = (
-        f'<button id="run-button" class="run-button" type="submit" {enabled}>'
-        f"Подгрузить статьи {count}</button>"
-    )
-    resolve = (
-        '<button id="resolve-button" class="run-button secondary" type="submit" '
-        f'formaction="/ui/management/resolve" {enabled}>Разрешить персоны {count}</button>'
-    )
-    if live is None:
-        return load + "\n    " + resolve
-    stop = (
-        f'<button id="stop-button" class="danger" type="submit" '
-        f'formaction="/ui/management/runs/{live.id}/stop" name="back" value="management" '
-        "onclick=\"return confirm('Остановить запуск? Уже загруженное останется в базе.')\">"
-        f"Остановить запуск #{live.id}</button>"
-    )
-    busy = f'title="Идёт запуск #{live.id}: дождитесь его или остановите" disabled'
-    if live.parameters.mode == "resolve":
-        waiting = f'<button type="submit" {busy}>Подгрузить статьи {count}</button>'
-        return waiting + "\n    " + stop
-    waiting = f'<button class="secondary" type="submit" {busy}>Разрешить персоны {count}</button>'
-    return stop + "\n    " + waiting
-
-
 def _management_page(
     db: Session,
     *,
     selected: set[str],
     run: OperationRun | None = None,
     history: Sequence[OperationRun] = (),
-    live: OperationRun | None = None,
+    state: PipelineState | None = None,
     warning: str | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
@@ -563,10 +639,8 @@ def _management_page(
     <tbody>{_source_rows(db, definitions, selected)}</tbody>
   </table>
   <div class="run-bar">
-    {_run_buttons(live, checked_count)}
-    <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки действуют только на этот запуск и не меняют расписание.
-    «Подгрузить статьи» скачивает публикации и извлекает людей и события; «Разрешить персоны» привязывает упоминания к людям,
-    затем классифицирует и сверяет с РФМ — только после неё новые люди попадают в «Кандидаты».
+    {stepper(state or PipelineState(current="load"), checked_count)}
+    <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки — для шагов 1 и 4, на расписание не влияют.
     Жёлтая дата — не загружался больше {STALE_AFTER.days} дней.</span>
   </div>
 </form>
@@ -612,22 +686,14 @@ refresh();
         body,
         active="management",
         instruction=(
-            "Выберите источники и запустите по очереди: «Подгрузить статьи» (загрузка и "
-            "извлечение), затем «Разрешить персоны» (привязка людей, классификация, РФМ)."
+            "Четыре шага по кругу: подгрузить статьи → очистить от мусора → собрать "
+            "сущности → разрешить персоны. Нажать можно только подсвеченный шаг."
         ),
-        next_action="После запуска здесь появятся общий статус и результат по каждому источнику.",
+        next_action="Галочки источников действуют на шаги 1 и 4; шаги 2 и 3 — на всю базу.",
         db=db,
     )
     page.status_code = status_code
     return page
-
-
-def _live_run(registry: OperationRegistry) -> OperationRun | None:
-    """The monitor run going on now, started here or by the bot: there is at most one."""
-    latest = registry.runs_of(_OPERATION, limit=1)
-    if latest and latest[0].status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING):
-        return latest[0]
-    return None
 
 
 def _recent_runs(registry: OperationRegistry) -> list[OperationRun]:
@@ -635,7 +701,7 @@ def _recent_runs(registry: OperationRegistry) -> list[OperationRun]:
     return [
         item
         for item in registry.runs_of(_OPERATION, limit=50)
-        if item.parameters.sources is not None
+        if item.parameters.sources is not None or item.parameters.mode in _WHOLE_DATABASE
     ][:HISTORY_SIZE]
 
 
@@ -653,14 +719,16 @@ def ui_management(
             run = registry.get(run_id)
         except OperationNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Запуск не найден") from exc
-        if run.operation.name != _OPERATION or run.parameters.sources is None:
+        if run.operation.name != _OPERATION or (
+            run.parameters.sources is None and run.parameters.mode not in _WHOLE_DATABASE
+        ):
             raise HTTPException(status_code=404, detail="Запуск не найден")
-        selected = set(run.parameters.sources)
+        selected = set(run.parameters.sources or selected)
     history = _recent_runs(registry)
     if run_id is None:
         run = history[0] if history else None
     return _management_page(
-        db, selected=selected, run=run, history=history, live=_live_run(registry)
+        db, selected=selected, run=run, history=history, state=current_state(registry)
     )
 
 
@@ -670,7 +738,7 @@ async def start_management_run(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Load and extract the selected sources; resolution is its own button."""
+    """Step 1: load and extract the selected sources."""
     return await _start(request, db, registry, "load")
 
 
@@ -680,49 +748,79 @@ async def start_management_resolution(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Resolve the persons of the selected sources, then classify and match once."""
+    """Step 4: resolve the persons of the selected sources, then classify and match once."""
     return await _start(request, db, registry, "resolve")
+
+
+@router.post("/ui/management/purge", response_model=None)
+def start_management_purge(
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse | RedirectResponse:
+    """Step 2: delete the articles without a criminal case; the whole database."""
+    return _start_whole_database(db, registry, "purge")
+
+
+@router.post("/ui/management/entities", response_model=None)
+def start_management_entities(
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse | RedirectResponse:
+    """Step 3: rebuild the person entities; the whole database."""
+    return _start_whole_database(db, registry, "entities")
+
+
+def _refused(
+    db: Session, registry: OperationRegistry, warning: str, status_code: int, selected: set[str]
+) -> HTMLResponse:
+    return _management_page(
+        db,
+        selected=selected,
+        warning=warning,
+        history=_recent_runs(registry),
+        state=current_state(registry),
+        status_code=status_code,
+    )
+
+
+def _start_whole_database(
+    db: Session, registry: OperationRegistry, mode: Literal["purge", "entities"]
+) -> HTMLResponse | RedirectResponse:
+    everything = {item.name for item in news_sources()}
+    refusal = out_of_turn(current_state(registry), mode)
+    if refusal is not None:
+        return _refused(db, registry, refusal, 409, everything)
+    try:
+        run = registry.start(_OPERATION, OperationParameters(mode=mode))
+    except OperationConflictError:
+        # Another worker started a run between the check and the start.
+        return _refused(db, registry, "Идёт другой запуск.", 409, everything)
+    return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
 
 
 async def _start(
     request: Request, db: Session, registry: OperationRegistry, mode: Literal["load", "resolve"]
 ) -> HTMLResponse | RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    sources = form.get("sources", [])
-    selected = list(dict.fromkeys(sources))
+    selected = list(dict.fromkeys(form.get("sources", [])))
     allowed = {item.name for item in news_sources()}
+    refusal = out_of_turn(current_state(registry), mode)
+    if refusal is not None:
+        return _refused(db, registry, refusal, 409, set(selected) & allowed)
     if not selected:
-        return _management_page(
-            db,
-            selected=set(),
-            warning="Выберите хотя бы один новостной источник.",
-            history=_recent_runs(registry),
-            live=_live_run(registry),
-            status_code=400,
-        )
+        return _refused(db, registry, "Выберите хотя бы один новостной источник.", 400, set())
     if not set(selected) <= allowed:
-        return _management_page(
+        return _refused(
             db,
-            selected=set(selected) & allowed,
-            warning="В запросе есть неизвестный или не новостной источник.",
-            history=_recent_runs(registry),
-            live=_live_run(registry),
-            status_code=400,
+            registry,
+            "В запросе есть неизвестный или не новостной источник.",
+            400,
+            set(selected) & allowed,
         )
     try:
         run = registry.start(_OPERATION, OperationParameters(sources=selected, mode=mode))
     except OperationConflictError:
-        return _management_page(
-            db,
-            selected=set(selected),
-            warning=(
-                "Другой запуск (загрузка или разрешение персон) уже выполняется. "
-                "Дождитесь его завершения или остановите его."
-            ),
-            history=_recent_runs(registry),
-            live=_live_run(registry),
-            status_code=409,
-        )
+        return _refused(db, registry, "Идёт другой запуск.", 409, set(selected))
     return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
 
 
@@ -733,7 +831,9 @@ async def stop_management_run(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    back = "/ui/logs" if form.get("back") == ["logs"] else "/ui/management"
+    back = {"logs": "/ui/logs", "entities": "/ui/entities"}.get(
+        (form.get("back") or [""])[0], "/ui/management"
+    )
     try:
         registry.stop(run_id)
     except OperationNotFoundError as exc:

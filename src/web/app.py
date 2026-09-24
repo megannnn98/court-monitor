@@ -28,6 +28,7 @@ from web.routers import (
     search,
 )
 from web.ui import candidates as ui_candidates
+from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import persons as ui_persons
@@ -80,6 +81,7 @@ for module in (
     ui_candidates,
     ui_management,
     ui_logs,
+    ui_entities,
     operations,
     monitoring,
     health,

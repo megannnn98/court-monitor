@@ -56,6 +56,7 @@ def test_the_menu_is_exactly_candidates_and_wiki(session_factory: sessionmaker[S
     links = re.findall(r'href="([^"]+)">([^<]+)</a>', nav.group(1))
     assert links == [
         ("/ui/candidates", "Кандидаты"),
+        ("/ui/entities", "Сущности"),
         ("/ui/management", "Управление"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),

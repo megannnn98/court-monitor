@@ -1,0 +1,174 @@
+"""The «Сущности» page: the list, a card, and the rebuild button."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from urllib.parse import quote
+
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.orm import Session, sessionmaker
+from support.pipeline_runs import finish_steps
+from support.research_db_fixtures import ResearchSeeder
+
+from db.orm_models import EntityMentionRecord
+from entities.collector import EntityCollector
+from operator_console import OperationRegistry, OperationRunStatus
+from web.app import app
+from web.dependencies import get_db, get_operation_registry
+
+MOOR = quote("александр моор")
+
+
+@contextmanager
+def _client(
+    session_factory: sessionmaker[Session], registry: OperationRegistry
+) -> Iterator[TestClient]:
+    def override_get_db() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_operation_registry] = lambda: registry
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_operation_registry, None)
+
+
+def _person(
+    session: Session, seed: ResearchSeeder, run: int, surface: str, first: str, last: str
+) -> int:
+    mention_id = seed.mention(run, surface, person_id=None)
+    session.get_one(EntityMentionRecord, mention_id).normalized_data = {
+        "first_name": first,
+        "last_name": last,
+        "patronymic": None,
+    }
+    return mention_id
+
+
+def _collected(session_factory: sessionmaker[Session]) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        _, run = seed.article(
+            source,
+            external_id="arrest",
+            title="Арест Моора",
+            text="Суд арестовал Александра Моора и Ивана Иванова.",
+            published_at=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+        arrested = _person(session, seed, run, "Александра Моора", "Александр", "Моора")
+        _person(session, seed, run, "Ивана Иванова", "Иван", "Иванов")
+        seed.event(
+            run,
+            "Суд арестовал",
+            event_type="arrest",
+            event_date=None,
+            links=[],
+            entity_links=[(arrested, "subject")],
+        )
+        _, run = seed.article(
+            source,
+            external_id="sentence",
+            title="Приговор Моору",
+            text="Александру Моору вынесли приговор.",
+            published_at=datetime(2026, 9, 10, tzinfo=UTC),
+        )
+        _person(session, seed, run, "Александру Моору", "Александр", "Моору")
+        seed.event(run, "вынесли приговор", event_type="sentence", event_date=None, links=[])
+        session.commit()
+    EntityCollector(session_factory).run()
+
+
+def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _collected(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities").text
+        by_declined_form = client.get("/ui/entities", params={"q": "Моору"}).text
+        nobody = client.get("/ui/entities", params={"q": "Петров"}).text
+
+    assert 'href="/ui/entities">Сущности</a>' in page
+    assert f'<a href="/ui/entities/{MOOR}">Александр Моор</a>' in page
+    assert "Найдено: 2." in page
+    assert "Найдено: 1." in by_declined_form and "Александр Моор" in by_declined_form
+    assert "Найдено: 0." in nobody
+
+
+def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _collected(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        card = client.get(f"/ui/entities/{MOOR}")
+        missing = client.get("/ui/entities/" + quote("никто никакой"))
+
+    assert card.status_code == 200
+    assert "<mark>Александра Моора</mark>" in card.text
+    assert "<mark>Александру Моору</mark>" in card.text
+    assert re.search(
+        r'href="/ui/entities/[^"]+">Иван Иванов</a>\s*<span class="muted">— общих статей: 1',
+        card.text,
+    )
+    assert "Арест: 1" in card.text
+    assert missing.status_code == 404
+
+
+def test_the_button_rebuilds_in_the_background_and_can_be_stopped(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        early = client.get("/ui/entities").text
+        refused = client.post("/ui/entities/collect", follow_redirects=False)
+        finish_steps(session_factory, registry, "load", "purge")
+        idle = client.get("/ui/entities").text
+        started = client.post("/ui/entities/collect", follow_redirects=False)
+        busy = client.get("/ui/entities").text
+        run = registry.runs_of("monitor")[0]
+        stopped = client.post(
+            f"/ui/management/runs/{run.id}/stop", data={"back": "entities"}, follow_redirects=False
+        )
+
+    # Out of turn the button is grey and says which step is due; the server agrees.
+    assert 'id="collect-button"' not in early and "Сейчас шаг 1" in early
+    assert refused.status_code == 303
+    assert 'id="collect-button"' in idle
+    assert started.status_code == 303
+    assert (run.parameters.mode, run.command[2:]) == ("entities", ["collect-entities"])
+    assert f"Остановить сборку #{run.id}" in busy
+    assert stopped.headers["location"] == f"/ui/entities?run_id={run.id}"
+    assert registry.get(run.id).status is OperationRunStatus.INTERRUPTED
+
+
+def test_a_name_a_model_gave_is_marked(session_factory: sessionmaker[Session]) -> None:
+    _collected(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE entity_groups SET name_source = 'model', gender = 'male' "
+                "WHERE key = 'александр моор'"
+            )
+        )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities").text
+        card = client.get(f"/ui/entities/{MOOR}").text
+        other = client.get("/ui/entities/" + quote("иван иванов")).text
+
+    assert re.search(r">Александр Моор</a> <span class=\"badge\"[^>]*>ИИ</span>", page)
+    assert "Имя: дала модель · мужчина" in card
+    assert "Имя: по правилам склейки" in other

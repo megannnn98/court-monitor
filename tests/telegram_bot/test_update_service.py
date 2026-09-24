@@ -329,3 +329,30 @@ def test_status_reports_failures_by_stage_and_kind_without_a_traceback() -> None
     assert (failure.stage, failure.count, failure.kind) == ("ingestion", 2, FailureKind.RETRYABLE)
     assert failure.message == "ReadTimeout"
     assert "secret" not in failure.message
+
+
+def test_status_skips_a_purge_of_junk_articles() -> None:
+    """A purge is a monitor run, but no update of the sources: /status shows the update."""
+    operations = FakeOperations()
+    update = OperationRun(
+        id=98,
+        operation=OPERATION_DEFINITIONS["monitor"],
+        parameters=OperationParameters(sources=["sota-vision"], limit=50),
+        status=OperationRunStatus.SUCCEEDED,
+        created_at=STARTED,
+        started_at=STARTED,
+        finished_at=STARTED + timedelta(minutes=6),
+    )
+    purge = OperationRun(
+        id=99,
+        operation=OPERATION_DEFINITIONS["monitor"],
+        parameters=OperationParameters(mode="purge"),
+        status=OperationRunStatus.SUCCEEDED,
+        created_at=STARTED + timedelta(hours=1),
+    )
+    operations.runs.extend([purge, update])
+
+    status = service(operations).last_update()
+
+    assert status is not None
+    assert status.run.id == 98

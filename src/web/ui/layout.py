@@ -56,6 +56,7 @@ def _page(
     # The customer's console: the candidates and the wiki, nothing else.
     nav = [
         ("candidates", "Кандидаты", "/ui/candidates"),
+        ("entities", "Сущности", "/ui/entities"),
         ("management", "Управление", "/ui/management"),
         ("logs", "Логи", "/ui/logs"),
         ("wiki", "Вики", "/ui/wiki"),

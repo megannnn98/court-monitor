@@ -386,3 +386,17 @@ def test_a_regular_run_stops_discovery_where_stored_posts_begin_after_a_complete
     assert after_aborted == 1
     assert ovd.discoveries_until_known == 1  # a backfill goes deep on purpose
     assert ovd.discoveries == 4
+
+
+def test_purge_junk_reports_what_it_removed(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    ovd.publish("exhibition", "Пётр Петров открыл выставку современного искусства.")
+    build_service(session_factory, {"ovd-info": ovd}).run_source("ovd-info", with_derived=False)
+
+    report = _run(session_factory, {"ovd-info": ovd}, capsys, "purge-junk")
+
+    assert isinstance(report, dict)
+    assert report["articles"] == 1
