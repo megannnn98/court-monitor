@@ -10,6 +10,46 @@ MORPHOLOGY = NameMorphology()
 @pytest.mark.parametrize(
     ("surface", "expected"),
     [
+        ("Артему Миняйло", "Артём Миняйло"),
+        ("Артема Миняйло", "Артём Миняйло"),
+        ("Миняйло Артема", "Миняйло Артём"),
+        ("Лидию Мониаву", "Лидия Мониава"),
+        ("Лидии Мониавы", "Лидия Мониава"),
+        ("Александра Иванова", "Александра Иванова"),
+        ("Александра Новака", "Александра Новака"),
+    ],
+)
+def test_common_name_preference_preserves_competing_common_readings(
+    surface: str, expected: str
+) -> None:
+    assert MORPHOLOGY.to_nominative(surface) == expected
+
+
+@pytest.mark.parametrize(
+    ("surface", "context", "expected"),
+    [
+        ("Артему Миняйло", "Артемой", "Артема Миняйло"),
+        ("Артема Миняйло", "Артемой", "Артема Миняйло"),
+        ("Лидию Мониава", "Лидием", "Лидий Мониава"),
+        ("Юлию Ким", "Юлием", "Юлий Ким"),
+    ],
+)
+def test_article_evidence_overrides_common_name_preference(
+    surface: str, context: str, expected: str
+) -> None:
+    assert MORPHOLOGY.to_nominative(surface, document_words=[context]) == expected
+
+
+def test_genitive_context_overrides_common_name_preference() -> None:
+    assert (
+        MORPHOLOGY.to_nominative("Артему Миняйло", genitive_document_words=["Артемы"])
+        == "Артема Миняйло"
+    )
+
+
+@pytest.mark.parametrize(
+    ("surface", "expected"),
+    [
         # Genitive / dative / accusative / instrumental of a full name.
         ("Михаила Лисина", "Михаил Лисин"),
         ("Антону Ермакову", "Антон Ермаков"),

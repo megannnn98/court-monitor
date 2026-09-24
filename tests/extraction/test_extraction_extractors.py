@@ -5,7 +5,7 @@ import pytest
 from extraction.documents import build_extraction_document_from_parsed_article
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import EntityType, EventEntityRole, EventType, ExtractionDocument
+from extraction.models import EntityType, EventEntityRole, EventType, ExtractionDocument, RawMention
 from extraction.normalizers import RuleBasedMentionNormalizer
 from sources.models import ParsedArticle
 
@@ -80,6 +80,34 @@ def test_normalizes_person_and_legal_reference() -> None:
     )
     assert legal.normalized_data.model_dump()["article"] == "207.3"
     assert legal.normalized_data.model_dump()["part"] == "2"
+
+
+@pytest.mark.parametrize(
+    ("surface", "text", "expected"),
+    [
+        ("Артема Миняйло", "Упомянули Артема Миняйло.", "Артем Миняйло"),
+        ("Лидию Мониаву", "Упомянули Лидию Мониаву.", "Лидия Мониава"),
+        ("Лидии Мониавы", "Обсудили дело Лидии Мониавы.", "Лидия Мониава"),
+        ("Александра Новака", "Александра Новака выступила.", "Александра Новака"),
+        ("Артему Миняйло", "Упомянули Артему Миняйло и беседу с Артемой.", "Артема Миняйло"),
+    ],
+)
+def test_common_name_normalization_includes_article_context(
+    surface: str, text: str, expected: str
+) -> None:
+    document = make_document(text)
+    start = document.text.index(surface)
+    mention = RawMention(
+        entity_type=EntityType.PERSON,
+        surface_text=surface,
+        start_offset=start,
+        end_offset=start + len(surface),
+        confidence=0.9,
+    )
+    result = RuleBasedMentionNormalizer().normalize(mention, document)
+    assert result.normalized_text == expected
+    assert result.normalized_data.model_dump()["full_name"] == expected
+    assert result.normalizer_version == "1.6.0"
 
 
 def test_extracts_events_with_links() -> None:

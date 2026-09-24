@@ -13,6 +13,8 @@ from functools import lru_cache
 from pymorphy3 import MorphAnalyzer
 from pymorphy3.analyzer import Parse
 
+from extraction.name_frequency import lookup_gender
+
 # Dictionary marks for the parts of a personal name.
 NAME_GRAMMEMES = frozenset({"Name", "Surn", "Patr"})
 _GENDERS = ("masc", "femn")
@@ -31,7 +33,7 @@ _FEMININE_A_ENDINGS = (
     ("у", frozenset({"accs"})),
     ("е", frozenset({"datv", "loct"})),
 )
-_GUESSED_WEIGHT = 0.5
+_GUESSED_WEIGHT = 0.1
 _CASES = frozenset({"nomn", "gent", "datv", "accs", "ablt", "loct"})
 _ADJECTIVAL_ENDINGS = ("ого", "ому")
 _MASCULINE_ADJECTIVAL_ENDINGS = ("ского", "цкого", "скому", "цкому", "ским", "цким")
@@ -73,6 +75,11 @@ class NameMorphology:
             )
             if from_document is not None:
                 gender, gender_is_certain = from_document, True
+        # A common-name preference is weaker than explicit article evidence. Use it
+        # only when all listed given-name readings agree, never the first match.
+        common_gender = None if gender_is_certain else self._common_gender(words, parses)
+        if common_gender is not None:
+            gender = common_gender
         # The case the other words of the name are in («Екатерину» is accusative): a
         # surname outside the dictionary is only declined from an ending of that case.
         cases = {
@@ -85,7 +92,10 @@ class NameMorphology:
         }
         # «Волкова О. Н.» must not become «Волков О. Н.»: without a gender in the name, a
         # word that can already be nominative stays as written.
-        kept = [not gender_is_certain and _can_be_nominative(word_parses) for word_parses in parses]
+        kept = [
+            not gender_is_certain and common_gender is None and _can_be_nominative(word_parses)
+            for word_parses in parses
+        ]
         declined = [
             word if keep else self._word_to_nominative(word, word_parses, gender, cases)
             for word, word_parses, keep in zip(words, parses, kept, strict=True)
@@ -135,10 +145,11 @@ class NameMorphology:
         for _word, word_parses in readings:
             # Only a word whose readings of this name agree on the gender says anything:
             # the ambiguous «Телина» (the mention itself) reads as both and settles nothing.
+            # Guessed surname readings («Мониаву») are not evidence of gender.
             genders = {
                 gender
                 for parse in word_parses
-                if parse.normal_form in wanted
+                if parse.is_known and parse.normal_form in wanted
                 for gender in _GENDERS
                 if gender in parse.tag.grammemes
             }
@@ -278,6 +289,20 @@ class NameMorphology:
         return tuple(sorted(parses, key=lambda parse: (-parse.score, str(parse.tag))))
 
     @staticmethod
+    def _common_gender(words: Sequence[str], parses: list[tuple[Parse, ...]]) -> str | None:
+        """A preference from known given names, not proof of the person's gender."""
+        genders = {
+            gender
+            for word, word_parses in zip(words, parses, strict=True)
+            if not word.endswith(".")
+            for parse in word_parses
+            if parse.is_known and "Name" in parse.tag
+            if (gender := lookup_gender(parse.normal_form)) is not None
+            and gender in parse.tag.grammemes
+        }
+        return genders.pop() if len(genders) == 1 else None
+
+    @staticmethod
     def _gender(parses: list[tuple[Parse, ...]]) -> tuple[str | None, bool]:
         """The gender of the name and whether a word of the name states it outright.
 
@@ -318,9 +343,7 @@ class NameMorphology:
         surname_genders = [gender for gender, by_surname in certain.items() if by_surname]
         if len(surname_genders) == 1:
             return surname_genders[0], True
-        # All dictionary readings of a word count: «Лидии» is three feminine cases and one
-        # masculine. A guessed word («Мониавы») repeats its guesses, so only its best one
-        # counts, and for half.
+        # Known readings count in full; only the best guessed reading contributes.
         totals = {
             gender: sum(_gender_weight(word_parses, gender) for word_parses in parses)
             for gender in _GENDERS

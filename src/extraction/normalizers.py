@@ -31,7 +31,9 @@ from extraction.name_morphology import NameMorphology
 # name in the article («для Евгения Поливко» → «Евгений Поливко»); a patronymic states the
 # gender before a one-gender dictionary surname («Ипатова Елена Анатольевна»); a registry
 # card's name is kept as written.
-NORMALIZER_VERSION = "1.5.0"
+# 1.6.0: common given-name readings resolve Артём/Лидия only when the lists agree;
+# competing readings stay ambiguous and explicit article context takes precedence.
+NORMALIZER_VERSION = "1.6.0"
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
