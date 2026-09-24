@@ -40,13 +40,6 @@ _RUN_STATUS_LABELS = {
     OperationRunStatus.FAILED: "Завершено с ошибками",
     OperationRunStatus.INTERRUPTED: "Прервано",
 }
-_MONITORING_STATUS_LABELS = {
-    MonitoringRunStatus.RUNNING: "Выполняется",
-    MonitoringRunStatus.COMPLETED: "Завершено",
-    MonitoringRunStatus.COMPLETED_WITH_ERRORS: "Завершено с ошибками",
-    MonitoringRunStatus.FAILED: "Ошибка",
-    MonitoringRunStatus.ABORTED: "Прервано",
-}
 # Badge colours of `local-ui.css`: yellow while in progress or partly done, green, red.
 _RUN_STATUS_BADGES = {
     OperationRunStatus.PENDING: "pending",
@@ -54,13 +47,6 @@ _RUN_STATUS_BADGES = {
     OperationRunStatus.SUCCEEDED: "succeeded",
     OperationRunStatus.FAILED: "failed",
     OperationRunStatus.INTERRUPTED: "failed",
-}
-_MONITORING_STATUS_BADGES = {
-    MonitoringRunStatus.RUNNING: "running",
-    MonitoringRunStatus.COMPLETED: "succeeded",
-    MonitoringRunStatus.COMPLETED_WITH_ERRORS: "partial",
-    MonitoringRunStatus.FAILED: "failed",
-    MonitoringRunStatus.ABORTED: "failed",
 }
 # A source that has not loaded successfully for this long is worth a look.
 STALE_AFTER = timedelta(days=7)
@@ -173,6 +159,31 @@ def _resolution_progress(item: MonitoringRunView) -> tuple[int, int] | None:
         return None
     total = int(metrics["extraction_runs"])
     return int(metrics.get("done", total)), total
+
+
+# Outcomes of the selected sources of one run: (label, badge colour), in display order.
+_OUTCOMES = {
+    "completed": ("Готово", "succeeded"),
+    "errors": ("С ошибками", "partial"),
+    "failed": ("Ошибка", "failed"),
+    "running": ("Выполняется", "running"),
+    "interrupted": ("Прервано", "failed"),
+    "busy": ("Заняты другим запуском", "partial"),
+    "waiting": ("Ждут очереди", "pending"),
+    "not_started": ("Не запускались", ""),
+}
+
+
+def _source_outcome(status: MonitoringRunStatus, *, in_progress: bool) -> str:
+    """A monitoring run left `running` by a run that ended lost its process: interrupted."""
+    if status is MonitoringRunStatus.RUNNING:
+        return "running" if in_progress else "interrupted"
+    return {
+        MonitoringRunStatus.COMPLETED: "completed",
+        MonitoringRunStatus.COMPLETED_WITH_ERRORS: "errors",
+        MonitoringRunStatus.FAILED: "failed",
+        MonitoringRunStatus.ABORTED: "interrupted",
+    }[status]
 
 
 def _history(runs: Sequence[OperationRun], current: OperationRun | None) -> str:
@@ -288,7 +299,19 @@ def _progress(db: Session, run: OperationRun) -> str:
 </div>"""
 
 
+def _source_title(source: str, names: dict[str, str]) -> str:
+    return (
+        f"{escape(names[source])}<br><code>{escape(source)}</code>"
+        if source in names
+        else f"<code>{escape(source)}</code>"
+    )
+
+
 def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
+    """A card per run: status, counts per outcome and, folded, the sources that ran.
+
+    Sources the run never reached are only counted: listed one by one they buried the
+    source selection under dozens of «Не запускался» rows."""
     monitoring_runs = _monitoring_runs(db, run)
     per_source = {item.source: item for item in monitoring_runs if item.source is not None}
     derived = next((item for item in monitoring_runs if item.source is None), None)
@@ -297,55 +320,53 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
     names = {item.name: item.source_name for item in news_sources()}
     in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
     resolving = run.parameters.mode == "resolve"
+    counts = dict.fromkeys(_OUTCOMES, 0)
     rows: list[str] = []
     for source in selected:
-        title = (
-            f"{escape(names.get(source, source))}<br><code>{escape(source)}</code>"
-            if source in names
-            else f"<code>{escape(source)}</code>"
-        )
         item = per_source.get(source)
-        if item is not None:
-            resolution = _resolution_progress(item)
-            values = (
-                (
-                    resolution[0] if resolution else 0,
-                    item.persons_created,
-                    item.persons_linked,
-                    item.person_reviews_created,
-                    item.error_count,
+        if item is None:
+            if skipped.get(source) == "already_running":
+                counts["busy"] += 1
+                rows.append(
+                    f"<tr><td>{_source_title(source, names)}</td>"
+                    f"<td>{_badge('Уже выполняется другим запуском', 'partial')}</td>"
+                    '<td colspan="6"></td></tr>'
                 )
-                if resolving
-                else (
-                    item.documents_discovered,
-                    item.documents_ingested,
-                    item.articles_extracted,
-                    item.events_created,
-                    item.error_count,
-                )
-            )
-            numbers = "".join(f'<td class="num">{value}</td>' for value in values)
-            message = escape(item.error_message[:240]) if item.error_message else ""
-            rows.append(
-                f"<tr><td>{title}</td>"
-                f"<td>{_badge(_MONITORING_STATUS_LABELS[item.status], _MONITORING_STATUS_BADGES[item.status])}</td>"
-                f'{numbers}<td class="error-text">{message}</td></tr>'
-            )
+            else:
+                counts["waiting" if in_progress else "not_started"] += 1
             continue
-        if skipped.get(source) == "already_running":
-            status = _badge("Уже выполняется другим запуском", "partial")
-        elif in_progress:
-            status = _badge("Ожидает запуска", "pending")
-        else:
-            status = _badge("Не запускался")
-        rows.append(f'<tr><td>{title}</td><td>{status}</td><td colspan="6"></td></tr>')
+        outcome = _source_outcome(item.status, in_progress=in_progress)
+        counts[outcome] += 1
+        resolution = _resolution_progress(item)
+        values = (
+            (
+                resolution[0] if resolution else 0,
+                item.persons_created,
+                item.persons_linked,
+                item.person_reviews_created,
+                item.error_count,
+            )
+            if resolving
+            else (
+                item.documents_discovered,
+                item.documents_ingested,
+                item.articles_extracted,
+                item.events_created,
+                item.error_count,
+            )
+        )
+        numbers = "".join(f'<td class="num">{value}</td>' for value in values)
+        message = escape(item.error_message[:240]) if item.error_message else ""
+        label, badge = _OUTCOMES[outcome]
+        rows.append(
+            f"<tr><td>{_source_title(source, names)}</td><td>{_badge(label, badge)}</td>"
+            f'{numbers}<td class="error-text">{message}</td></tr>'
+        )
 
     if _has_derived_step(run):
         if derived is not None:
-            derived_status = _badge(
-                _MONITORING_STATUS_LABELS[derived.status],
-                _MONITORING_STATUS_BADGES[derived.status],
-            )
+            label, badge = _OUTCOMES[_source_outcome(derived.status, in_progress=in_progress)]
+            derived_status = _badge(label, badge)
             derived_metrics = (
                 f"Классифицировано: {derived.classifications_created}; совпадений РФМ: "
                 f"{derived.rf_matches_created}; ошибок: {derived.error_count}"
@@ -369,22 +390,30 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
         for item in monitoring_runs
     ):
         overall, overall_badge = "Завершено частично: есть ошибки", "partial"
+    summary = " ".join(
+        _badge(f"{_OUTCOMES[outcome][0]}: {count}", _OUTCOMES[outcome][1])
+        for outcome, count in counts.items()
+        if count
+    )
     refresh = (
-        '<p class="muted">Страница обновляется автоматически. '
-        f'<a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>'
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>"
-        if in_progress
-        else f'<p class="muted"><a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>'
+        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
     )
     stop = _stop_form(run, "management") if in_progress else ""
-    return f"""<section class="band">
-  <h2>Запуск #{run.id}: {_MODE_TITLES[run.parameters.mode]} {_badge(overall, overall_badge)}</h2>
+    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
+    ran = len(selected) - counts["waiting"] - counts["not_started"]
+    return f"""<section class="band run-card">
+  <h2>Запуск #{run.id} · {_MODE_TITLES[run.parameters.mode]} {_badge(overall, overall_badge)}</h2>
+  <p class="muted">Начат {started} · источников выбрано: {len(selected)} ·
+  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {_progress(db, run)}
+  <p class="run-summary">{summary}</p>
   {stop}
-  <p>Начат: {escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M:%S"))}; выбранных источников: {len(selected)}.</p>
-  <table><thead><tr><th>Источник / этап</th><th>Статус</th>{columns}
-  <th>Ошибок</th><th>Сообщение</th></tr></thead>
-  <tbody>{"".join(rows)}</tbody></table>
+  <details{" open" if in_progress else ""}>
+    <summary>Подробно по источникам ({ran})</summary>
+    <table><thead><tr><th>Источник / этап</th><th>Статус</th>{columns}
+    <th>Ошибок</th><th>Сообщение</th></tr></thead>
+    <tbody>{"".join(rows)}</tbody></table>
+  </details>
   {refresh}
 </section>"""
 

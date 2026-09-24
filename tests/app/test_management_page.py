@@ -90,7 +90,7 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
     assert len(queued) == 1
     assert "Запуск #" in run_page.text
     assert "sota-vision" in run_page.text and "ovd-info" in run_page.text
-    assert "Ожидает запуска" in run_page.text
+    assert "Ждут очереди: 2" in run_page.text
     with session_factory() as session:
         assert session.get(OperatorOperationRunRecord, run_id) is not None
 
@@ -306,3 +306,53 @@ def test_a_load_has_no_classification_step(session_factory: sessionmaker[Session
     assert '<progress class="overall" value="0" max="2">' in page
     assert "Загрузка статей" in page
     assert "Общая классификация и сверка с РФМ" not in page
+
+
+def _details(page: str) -> str:
+    match = re.search(r"<details( open)?>.*?</details>", page, re.DOTALL)
+    assert match is not None
+    return match.group(0)
+
+
+def test_an_ended_run_is_a_card_that_counts_the_sources_it_never_reached(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    sources = ["ovd-info", "sota-vision", "tg-mash", "tg-astrapress"]
+    run = registry.start("monitor", OperationParameters(sources=sources, mode="load"))
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE operator_operation_runs SET status = 'running', "
+                "started_at = now() - interval '1 minute', heartbeat_at = now() WHERE id = :id"
+            ),
+            {"id": run.id},
+        )
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+
+    def started(source: str) -> int:
+        return monitoring.start_run(
+            scope=f"source:{source}",
+            source=source,
+            trigger=MonitoringTrigger.MANUAL,
+            parameters={},
+            stale_after=timedelta(hours=1),
+        )
+
+    monitoring.finish_run(started("ovd-info"))
+    started("sota-vision")  # its process died with the run: left `running`
+    registry.stop(run.id)
+
+    with _client(session_factory, registry) as client:
+        page = client.get(f"/ui/management?run_id={run.id}").text
+
+    assert "Готово: 1" in page
+    assert "Прервано: 1" in page
+    assert "Не запускались: 2" in page
+    details = _details(page)
+    assert details.startswith("<details>")  # folded once the run ended
+    assert "Подробно по источникам (2)" in details
+    assert "ovd-info" in details and "sota-vision" in details
+    assert "tg-mash" not in details and "tg-astrapress" not in details
+    # The source selection follows the card, not dozens of rows later.
+    assert page.index("</details>") < page.index('id="source-table"')

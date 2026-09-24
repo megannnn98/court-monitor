@@ -416,3 +416,28 @@ pre.log {
 .progress-box p {
   margin: 6px 0;
 }
+
+.run-card h2 {
+  margin-bottom: 4px;
+}
+
+.run-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.run-card details {
+  margin-top: 8px;
+}
+
+.run-card summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.run-card details table {
+  margin-top: 8px;
+}
