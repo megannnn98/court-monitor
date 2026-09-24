@@ -481,7 +481,6 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
     refresh = (
         "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
     )
-    stop = _stop_form(run, "management") if in_progress else ""
     started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
     ran = len(selected) - counts["waiting"] - counts["not_started"]
     return f"""<section class="band run-card">
@@ -490,7 +489,6 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {_progress(db, run)}
   <p class="run-summary">{summary}</p>
-  {stop}
   <details{" open" if in_progress else ""}>
     <summary>Подробно по источникам ({ran})</summary>
     <table><thead><tr><th>Источник / этап</th><th>Статус</th>{headers}
@@ -502,12 +500,44 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
 </section>"""
 
 
+def _run_buttons(live: OperationRun | None, checked_count: int) -> str:
+    """The two run buttons; while a run goes on, its own button stops it.
+
+    Only one monitor run lives at a time, so the other button waits, switched off: it
+    has no `run-button` class, and the selection script leaves it alone."""
+    count = f'(<span class="selected-count">{checked_count}</span>)'
+    enabled = "" if checked_count else "disabled"
+    load = (
+        f'<button id="run-button" class="run-button" type="submit" {enabled}>'
+        f"Подгрузить статьи {count}</button>"
+    )
+    resolve = (
+        '<button id="resolve-button" class="run-button secondary" type="submit" '
+        f'formaction="/ui/management/resolve" {enabled}>Разрешить персоны {count}</button>'
+    )
+    if live is None:
+        return load + "\n    " + resolve
+    stop = (
+        f'<button id="stop-button" class="danger" type="submit" '
+        f'formaction="/ui/management/runs/{live.id}/stop" name="back" value="management" '
+        "onclick=\"return confirm('Остановить запуск? Уже загруженное останется в базе.')\">"
+        f"Остановить запуск #{live.id}</button>"
+    )
+    busy = f'title="Идёт запуск #{live.id}: дождитесь его или остановите" disabled'
+    if live.parameters.mode == "resolve":
+        waiting = f'<button type="submit" {busy}>Подгрузить статьи {count}</button>'
+        return waiting + "\n    " + stop
+    waiting = f'<button class="secondary" type="submit" {busy}>Разрешить персоны {count}</button>'
+    return stop + "\n    " + waiting
+
+
 def _management_page(
     db: Session,
     *,
     selected: set[str],
     run: OperationRun | None = None,
     history: Sequence[OperationRun] = (),
+    live: OperationRun | None = None,
     warning: str | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
@@ -533,8 +563,7 @@ def _management_page(
     <tbody>{_source_rows(db, definitions, selected)}</tbody>
   </table>
   <div class="run-bar">
-    <button id="run-button" class="run-button" type="submit" {"" if checked_count else "disabled"}>Подгрузить статьи (<span class="selected-count">{checked_count}</span>)</button>
-    <button id="resolve-button" class="run-button secondary" type="submit" formaction="/ui/management/resolve" {"" if checked_count else "disabled"}>Разрешить персоны (<span class="selected-count">{checked_count}</span>)</button>
+    {_run_buttons(live, checked_count)}
     <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки действуют только на этот запуск и не меняют расписание.
     «Подгрузить статьи» скачивает публикации и извлекает людей и события; «Разрешить персоны» привязывает упоминания к людям,
     затем классифицирует и сверяет с РФМ — только после неё новые люди попадают в «Кандидаты».
@@ -593,6 +622,14 @@ refresh();
     return page
 
 
+def _live_run(registry: OperationRegistry) -> OperationRun | None:
+    """The monitor run going on now, started here or by the bot: there is at most one."""
+    latest = registry.runs_of(_OPERATION, limit=1)
+    if latest and latest[0].status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING):
+        return latest[0]
+    return None
+
+
 def _recent_runs(registry: OperationRegistry) -> list[OperationRun]:
     """The latest manual runs with a source selection, newest first."""
     return [
@@ -622,7 +659,9 @@ def ui_management(
     history = _recent_runs(registry)
     if run_id is None:
         run = history[0] if history else None
-    return _management_page(db, selected=selected, run=run, history=history)
+    return _management_page(
+        db, selected=selected, run=run, history=history, live=_live_run(registry)
+    )
 
 
 @router.post("/ui/management/run", response_model=None)
@@ -658,6 +697,7 @@ async def _start(
             selected=set(),
             warning="Выберите хотя бы один новостной источник.",
             history=_recent_runs(registry),
+            live=_live_run(registry),
             status_code=400,
         )
     if not set(selected) <= allowed:
@@ -666,6 +706,7 @@ async def _start(
             selected=set(selected) & allowed,
             warning="В запросе есть неизвестный или не новостной источник.",
             history=_recent_runs(registry),
+            live=_live_run(registry),
             status_code=400,
         )
     try:
@@ -679,6 +720,7 @@ async def _start(
                 "Дождитесь его завершения или остановите его."
             ),
             history=_recent_runs(registry),
+            live=_live_run(registry),
             status_code=409,
         )
     return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)

@@ -454,3 +454,52 @@ def test_every_number_column_of_a_load_says_what_it_counts(
         "0",
     ]
     assert "<b>Уже были</b> — Из просмотренных: уже в базе" in details
+
+
+def _run_bar(page: str) -> str:
+    match = re.search(r'<div class="run-bar">.*?</div>', page, re.DOTALL)
+    assert match is not None
+    return match.group(0)
+
+
+def test_while_a_load_runs_its_button_stops_it(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        idle = _run_bar(client.get("/ui/management").text)
+        client.post("/ui/management/run", data={"sources": ["ovd-info"]}, follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        # An old run on screen: the bar still belongs to the run going on now.
+        busy = _run_bar(client.get("/ui/management?run_id=" + str(run_id)).text)
+        stopped = client.post(
+            f"/ui/management/runs/{run_id}/stop",
+            data={"sources": ["ovd-info"], "back": "management"},
+            follow_redirects=False,
+        )
+        after = _run_bar(client.get(stopped.headers["location"]).text)
+
+    assert "stop-button" not in idle
+    assert 'id="run-button"' in idle and 'id="resolve-button"' in idle
+    assert f'formaction="/ui/management/runs/{run_id}/stop"' in busy
+    assert f"Остановить запуск #{run_id}" in busy
+    assert 'id="run-button"' not in busy
+    assert re.search(r"<button [^>]*disabled>Разрешить персоны", busy)
+    assert stopped.headers["location"] == f"/ui/management?run_id={run_id}"
+    assert registry.get(run_id).status is OperationRunStatus.INTERRUPTED
+    assert "stop-button" not in after and 'id="run-button"' in after
+
+
+def test_while_a_resolution_runs_its_button_stops_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        client.post(
+            "/ui/management/resolve", data={"sources": ["ovd-info"]}, follow_redirects=False
+        )
+        bar = _run_bar(client.get("/ui/management").text)
+
+    assert re.search(r"<button [^>]*disabled>Подгрузить статьи", bar)
+    assert 'id="resolve-button"' not in bar
+    assert bar.index("Подгрузить статьи") < bar.index("stop-button")

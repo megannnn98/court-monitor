@@ -84,7 +84,7 @@ def test_a_live_run_is_refreshed_and_can_be_stopped_from_the_logs(
 
     assert f'action="/ui/management/runs/{run.id}/stop"' in page.text
     assert "window.location.reload" in page.text
-    assert f'action="/ui/management/runs/{run.id}/stop"' in management.text
+    assert f'formaction="/ui/management/runs/{run.id}/stop"' in management.text
     assert stopped.status_code == 303
     assert stopped.headers["location"] == f"/ui/logs?run_id={run.id}"
     assert registry.get(run.id).status is OperationRunStatus.INTERRUPTED
