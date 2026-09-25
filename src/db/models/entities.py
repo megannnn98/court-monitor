@@ -100,6 +100,45 @@ class EntityGroupRfMatchRecord(Base):
     level: Mapped[str] = mapped_column(String(8), nullable=False)
 
 
+class EntityGroupRoleRecord(Base):
+    """Whether a criminal case is opened against the entity, or it is only mentioned.
+
+    Rewritten by every «Найти фигурантов»; the entities on the Rosfinmonitoring list
+    have none."""
+
+    __tablename__ = "entity_group_roles"
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    # figurant: a suspect, accused, defendant or convict of a criminal case; possible:
+    # detained or searched with no case named; mentioned: someone else; unclear.
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    # The model's finer role («lawyer», «judge», …); None for the rules.
+    kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # article: the rules (sole target of an event with a УК article); model.
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class EntityRoleAnswerRecord(Base):
+    """A model's answer about an entity's role, for these very quotes: reused until the
+    quotes or the prompt change."""
+
+    __tablename__ = "entity_role_answers"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class EntityNameNormalizationRecord(Base):
     """What a model answered for an entity key: reused by every later rebuild.
 

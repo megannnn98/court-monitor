@@ -488,3 +488,26 @@ pre.log {
 .charges li { margin: 0.4em 0; }
 .charges summary { cursor: pointer; }
 .charges table { margin-top: 0.4em; }
+
+/* A row of tick boxes under a toolbar: plain-size boxes, not the wide text inputs. */
+.filter-row {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+
+label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  cursor: pointer;
+}
+
+label.check input[type="checkbox"] {
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  padding: 0;
+}

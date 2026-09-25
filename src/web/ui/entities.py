@@ -23,9 +23,11 @@ from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
+    EntityGroupRoleRecord,
     RosfinmonitoringEntryRecord,
 )
 from entities.rf_check import FULL
+from entities.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE
 from extraction.name_frequency import lookup_gender
 from operator_console import (
     OperationConflictError,
@@ -215,9 +217,9 @@ def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[
     return articles
 
 
-def _article_links(articles: list[tuple[str, bool]], sort: str, rf: str) -> str:
+def _article_links(articles: list[tuple[str, bool]], keep: dict[str, str]) -> str:
     return ", ".join(
-        f'<a href="/ui/entities?{urlencode({"article": article, "sort": sort, "rf": rf})}"'
+        f'<a href="/ui/entities?{urlencode({"article": article, **keep})}"'
         f"{'' if sole else ' class="muted" title="общая"'}>{escape(article)}</a>"
         for article, sole in articles
     )
@@ -234,6 +236,60 @@ def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
         if levels.get(group_id) != FULL:
             levels[group_id] = level
     return levels
+
+
+def _box(name: str, value: str, ticked: bool, label: str, title: str) -> str:
+    """A tick box of the list form: a hidden «all» first, so an unticked box says so."""
+    return (
+        f'<input type="hidden" name="{name}" value="all">'
+        f'<label class="check" title="{escape(title, quote=True)}">'
+        f'<input id="box-{name}" type="checkbox" name="{name}" value="{value}"'
+        f'{" checked" if ticked else ""} onchange="this.form.submit()"> {escape(label)}</label>'
+    )
+
+
+def _roles(db: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str | None]]:
+    return {
+        group_id: (role, kind)
+        for group_id, role, kind in db.execute(
+            select(
+                EntityGroupRoleRecord.group_id,
+                EntityGroupRoleRecord.role,
+                EntityGroupRoleRecord.kind,
+            ).where(EntityGroupRoleRecord.group_id.in_(group_ids))
+        ).all()
+    }
+
+
+def _role_label(role: str, kind: str | None) -> str:
+    if role == FIGURANT:
+        return "фигурант дела"
+    if role == POSSIBLE:
+        return "задержан или обыскан"
+    if role == MENTIONED:
+        return f"упомянут: {KIND_LABELS.get(kind or '', 'другое')}"
+    return "не ясно"
+
+
+def _role_mark(found: tuple[str, str | None] | None) -> str:
+    if found is None:
+        return ""
+    role, kind = found
+    badge = {FIGURANT: "succeeded", POSSIBLE: "pending"}.get(role, "")
+    return f' <span class="badge {badge}">{escape(_role_label(role, kind))}</span>'
+
+
+def _role_section(db: Session, group_id: int) -> str:
+    record = db.get(EntityGroupRoleRecord, group_id)
+    if record is None:
+        return ""
+    method = "статья УК в событии" if record.method == "article" else "ответ модели по цитатам"
+    return f"""<section class="band">
+  <h2>Роль в деле</h2>
+  <p>{_role_mark((record.role, record.kind))} <span class="muted">— {method}</span></p>
+  <p>{escape(record.reason)}</p>
+  {f'<blockquote class="muted">{escape(record.quote)}</blockquote>' if record.quote else ""}
+</section>"""
 
 
 def _rf_mark(level: str | None) -> str:
@@ -319,6 +375,8 @@ def ui_entities(
     q: str = Query(default="", max_length=200),
     article: str = Query(default="", max_length=32),
     rf: str = Query(default="hide", pattern="^(hide|all)$"),
+    rf_possible: str = Query(default="all", pattern="^(hide|all)$"),
+    figurants: str = Query(default="only", pattern="^(only|all)$"),
     sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
@@ -345,9 +403,62 @@ def ui_entities(
         EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
         EntityGroupRfMatchRecord.level == FULL,
     )
+    # Given name and surname only: not on the list for certain, maybe a namesake.
+    maybe_listed = ~in_list & exists().where(
+        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
+        EntityGroupRfMatchRecord.level != FULL,
+    )
     hidden = db.scalar(select(func.count()).select_from(query.where(in_list).subquery())) or 0
+    hidden_possible = (
+        db.scalar(select(func.count()).select_from(query.where(maybe_listed).subquery())) or 0
+    )
     if rf == "hide":
         query = query.where(~in_list)
+    if rf_possible == "hide":
+        query = query.where(~maybe_listed)
+    # Before step 5 has run nobody has a role: the box then filters nothing.
+    roles_known = db.scalar(select(exists().select_from(EntityGroupRoleRecord))) or False
+    is_figurant = exists().where(
+        EntityGroupRoleRecord.group_id == EntityGroupRecord.id,
+        EntityGroupRoleRecord.role == FIGURANT,
+    )
+    figurant_count = db.scalar(
+        select(func.count()).select_from(query.where(is_figurant).subquery())
+    )
+    if figurants == "only" and roles_known:
+        query = query.where(is_figurant)
+    # The list's state, kept by every link of the page.
+    keep = {"rf": rf, "rf_possible": rf_possible, "figurants": figurants, "sort": sort}
+    boxes = [
+        _box(
+            "rf",
+            "hide",
+            rf == "hide",
+            f"Скрыть тех, кто в перечне РФМ ({hidden})",
+            "ФИО с отчеством совпало с перечнем Росфинмониторинга",
+        ),
+        _box(
+            "rf_possible",
+            "hide",
+            rf_possible == "hide",
+            f"Скрыть возможных — тёзки без отчества ({hidden_possible})",
+            "Совпали имя и фамилия, отчества нет с одной из сторон: может быть тёзка",
+        ),
+        _box(
+            "figurants",
+            "only",
+            figurants == "only",
+            f"Только фигуранты дел ({figurant_count or 0})",
+            "На человека заведено уголовное дело: по статье УК в событии или по ответу модели",
+        ),
+    ]
+    roles_note = (
+        ""
+        if roles_known
+        else '<p class="warning">Фигуранты ещё не определены — шаг 5 в '
+        '<a href="/ui/management">«Управлении»</a>; пока показаны все.</p>'
+    )
+    found_by = f" по статье УК {escape(article)}" if article else ""
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     if sort == "name":
         # By the name as shown: the surname is not a column, and ten thousand short rows
@@ -362,20 +473,22 @@ def ui_entities(
         )
     charges = _articles_by_group(db, [entity.id for entity in entities])
     listed = _rf_levels(db, [entity.id for entity in entities])
+    roles = _roles(db, [entity.id for entity in entities])
     rows = "".join(
         f"<tr><td>{position}</td>"
         f'<td><a href="/ui/entities/{quote(entity.key)}">{escape(display_name(entity.name))}</a>'
-        f"{_source_mark(entity.name_source)}{_rf_mark(listed.get(entity.id))}</td>"
+        f"{_source_mark(entity.name_source)}{_rf_mark(listed.get(entity.id))}"
+        f"{_role_mark(roles.get(entity.id))}</td>"
         f'<td class="muted">{escape(", ".join(form for form, _ in entity.variants[:3]))}</td>'
         f'<td class="num">{entity.mention_count}</td><td class="num">{entity.article_count}</td>'
-        f"<td>{_article_links(charges.get(entity.id, []), sort, rf)}</td>"
+        f"<td>{_article_links(charges.get(entity.id, []), keep)}</td>"
         f"<td>{_events(entity.event_types)}</td>"
         f"<td>{escape(_date(entity.last_published_at))}</td></tr>"
         for position, entity in enumerate(entities, start=(page - 1) * PAGE_SIZE + 1)
     )
     sort_links = " ".join(
         f'<a class="chip{" active" if key == sort else ""}" '
-        f'href="/ui/entities?{urlencode({"q": q, "article": article, "rf": rf, "sort": key})}">{label}</a>'
+        f'href="/ui/entities?{urlencode({"q": q, "article": article, **keep, "sort": key})}">{label}</a>'
         for key, label in (
             ("mentions", "По упоминаниям"),
             ("articles", "По публикациям"),
@@ -385,30 +498,36 @@ def ui_entities(
     )
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     pager = " ".join(
-        f'<a href="/ui/entities?{urlencode({"q": q, "article": article, "rf": rf, "sort": sort, "page": number})}">'
+        f'<a href="/ui/entities?{urlencode({"q": q, "article": article, **keep, "page": number})}">'
         f"{'<b>' + str(number) + '</b>' if number == page else number}</a>"
         for number in range(1, pages + 1)
     )
     body = f"""{_collect_bar(current_state(registry), _last_collect(registry))}
 <form method="get" class="toolbar">
-  <input type="search" name="q" value="{escape(q, quote=True)}" placeholder="Имя или вариант написания">
+  <input type="search" name="q" value="{
+        escape(q, quote=True)
+    }" placeholder="Имя или вариант написания">
   <input type="hidden" name="sort" value="{sort}">
-  <input type="search" name="article" value="{escape(article, quote=True)}" placeholder="Статья УК, напр. 207.3" size="18">
+  <input type="search" name="article" value="{
+        escape(article, quote=True)
+    }" placeholder="Статья УК, напр. 207.3" size="18">
   <button>Найти</button>
   <span class="chips">{sort_links}</span>
-  <!-- Unticked, only the hidden «all» is sent; ticked, the box's «hide» comes last and wins. -->
-  <input type="hidden" name="rf" value="all">
-  <label title="ФИО с отчеством совпало с перечнем Росфинмониторинга">
-    <input id="rf-hide" type="checkbox" name="rf" value="hide"{" checked" if rf == "hide" else ""}
-      onchange="this.form.submit()"> Скрыть тех, кто в перечне РФМ ({hidden})</label>
+  <div class="filter-row">
+    <!-- Unticked, only the hidden value is sent; ticked, the box's value comes last and wins. -->
+    {"".join(boxes)}
+  </div>
 </form>
-<p class="muted">Найдено: {total}{f" по статье УК {escape(article)}" if article else ""}. Только люди и только из
+{roles_note}
+<p class="muted">Найдено: {total}{found_by}. Только люди и только из
 публикаций с уголовным делом; одна сущность — одно имя с фамилией в любом падеже (однофамильцы
 с тем же именем сливаются). Серая статья УК — «общая»: в событии обвиняемыми названы и другие люди.
 «В перечне» — ФИО с отчеством совпало с перечнем Росфинмониторинга; «возможно в перечне» — совпали
 имя и фамилия, но отчества нет с одной из сторон (может быть тёзка).</p>
 <table><thead><tr><th>№</th><th>Имя</th><th>Как писали</th><th>Упоминаний</th><th>Публикаций</th>
-<th>Статьи УК</th><th>События дела</th><th>Последняя новость</th></tr></thead><tbody>{rows}</tbody></table>
+<th>Статьи УК</th><th>События дела</th><th>Последняя новость</th></tr></thead><tbody>{
+        rows
+    }</tbody></table>
 <p class="pager">{pager if pages > 1 else ""}</p>"""
     return _page(
         "Сущности",
@@ -517,6 +636,7 @@ def ui_entity(
   <p class="muted">Упомянуты в тех же публикациях; чем больше общих, тем теснее связь.</p>
   <ul>{related or '<li class="muted">Никого рядом.</li>'}</ul>
 </section>
+{_role_section(db, entity.id)}
 {_rf_section(db, entity.id)}
 {_charges_section(db, entity.id)}
 <section class="band">

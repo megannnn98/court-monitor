@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from urllib.parse import quote
@@ -18,6 +18,7 @@ from support.research_db_fixtures import ResearchSeeder
 from db.orm_models import EntityMentionRecord
 from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
+from entities.roles import FigurantFinder, RoleAnswer, RoleItem
 from operator_console import OperationRegistry, OperationRunStatus
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -327,9 +328,12 @@ def test_the_list_shows_the_articles_and_filters_by_one(
         page = client.get("/ui/entities").text
         by_article = client.get("/ui/entities", params={"article": "207.3"}).text
 
-    assert '<a href="/ui/entities?article=205.2&sort=mentions&rf=hide">205.2</a>' in page
     assert (
-        '<a href="/ui/entities?article=207.3&sort=mentions&rf=hide" class="muted" title="общая">'
+        '<a href="/ui/entities?article=205.2&rf=hide&rf_possible=all&figurants=only&sort=mentions">205.2</a>'
+        in page
+    )
+    assert (
+        '<a href="/ui/entities?article=207.3&rf=hide&rf_possible=all&figurants=only&sort=mentions" class="muted" title="общая">'
         "207.3</a>" in page
     )
     assert "Найдено: 3" in page
@@ -343,6 +347,7 @@ RF_PAGE = """<!doctype html><html>
 <div class="panel-body"><ol>
   <li>1. МООР АЛЕКСАНДР ПЕТРОВИЧ*, 01.02.1980 г.р. , Г. МОСКВА;</li>
   <li>2. ИВАНОВ ИВАН СЕРГЕЕВИЧ*, , ;</li>
+  <li>3. МООР АЛЕКСАНДР*, , ;</li>
 </ol></div></html>""".encode()
 
 
@@ -364,16 +369,60 @@ def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
         everyone = client.get("/ui/entities", params={"rf": "all"}).text
         # The form sends the hidden «all» first, then the ticked box's «hide».
         ticked = client.get("/ui/entities?rf=all&rf=hide").text
+        both = client.get("/ui/entities?rf=all&rf=hide&rf_possible=all&rf_possible=hide").text
         card = client.get(f"/ui/entities/{MOOR}").text
 
     assert "Моор Александр" not in page and "Найдено: 1." in page
-    assert '<input id="rf-hide" type="checkbox" name="rf" value="hide" checked' in page
+    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" checked' in page
     assert "Скрыть тех, кто в перечне РФМ (1)" in page
     # A name without a patronymic may be a namesake: shown, marked.
     assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
     assert "Найдено: 2." in everyone
     assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", everyone)
-    assert 'value="hide"\n      onchange' in everyone  # unticked: no «checked»
+    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in everyone
+    # The second box, off by default, hides the maybe-namesakes too; Моор is on the list
+    # for certain, so his patronymic-less namesake entry does not count him again.
+    assert "Скрыть возможных — тёзки без отчества (1)" in page
+    assert 'name="rf_possible" value="hide" onchange' in page
+    assert 'name="rf_possible" value="hide" checked' in both
+    assert "Найдено: 0." in both
     assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
     assert "<h2>Росфинмониторинг</h2>" in card
     assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card
+
+
+class _Roles:
+    model = "fake-model"
+
+    def classify(self, items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
+        kinds = {"Александр Моор": "accused", "Иван Иванов": "lawyer"}
+        return {
+            item.id: RoleAnswer(
+                id=item.id, source=item.name, kind=kinds[item.name], explanation="по цитате"
+            )  # type: ignore[arg-type]
+            for item in items
+        }
+
+
+def test_only_the_figurants_are_listed_by_default(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _collected(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    with _client(session_factory, registry) as client:
+        before = client.get("/ui/entities").text
+    FigurantFinder(session_factory, classifier=_Roles()).run()
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities").text
+        everyone = client.get("/ui/entities?figurants=all").text
+        card = client.get(f"/ui/entities/{MOOR}").text
+
+    # Before step 5 nobody has a role: all are shown, and the page says why.
+    assert "Фигуранты ещё не определены" in before and "Найдено: 2." in before
+    assert "Только фигуранты дел (1)" in page and "Найдено: 1." in page
+    assert re.search(r"Моор Александр</a>.*?фигурант дела</span>", page)
+    assert "Иванов Иван" not in page
+    assert '<input id="box-figurants" type="checkbox" name="figurants" value="only" checked' in page
+    assert "Найдено: 2." in everyone and "упомянут: адвокат" in everyone
+    assert "<h2>Роль в деле</h2>" in card and "ответ модели по цитатам" in card

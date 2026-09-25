@@ -9,7 +9,9 @@ from db.models.entities import (
     EntityGroupMentionRecord,
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
+    EntityGroupRoleRecord,
     EntityNameNormalizationRecord,
+    EntityRoleAnswerRecord,
 )
 from db.models.extraction import (
     ArticleExtractionRunRecord,
@@ -62,8 +64,10 @@ __all__ = [
     "EntityGroupMentionRecord",
     "EntityGroupRecord",
     "EntityGroupRfMatchRecord",
+    "EntityGroupRoleRecord",
     "EntityMentionRecord",
     "EntityNameNormalizationRecord",
+    "EntityRoleAnswerRecord",
     "EventEntityMentionRecord",
     "ExtractedEventRecord",
     "MonitoringFindingRecord",

@@ -519,6 +519,7 @@ def test_while_a_resolution_runs_its_button_stops_it(
         "2. Очистить от мусора",
         "3. Собрать сущности",
         "4. Сверить с Росфинмониторингом",
+        "5. Найти фигурантов",
     ]
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in bar
     assert "Идёт разрешение персон." in page
@@ -570,7 +571,8 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
         (("load", "purge"), "failed", "purge"),  # a crashed purge is repeated
         (("load", "purge"), "interrupted", "purge"),
         (("load", "purge", "entities"), "succeeded", "rosfin"),
-        (("load", "purge", "entities", "rosfin"), "succeeded", "load"),
+        (("load", "purge", "entities", "rosfin"), "succeeded", "figurants"),
+        (("load", "purge", "entities", "rosfin", "figurants"), "succeeded", "load"),
         (("load", "purge", "entities", "rosfin"), "failed", "rosfin"),  # a crash is repeated
         (("load", "purge", "entities", "resolve"), "succeeded", "load"),
         (("load", "resolve"), "failed", "load"),  # a resolution ends the cycle
@@ -638,3 +640,46 @@ def test_the_rosfinmonitoring_check_starts_from_management(
     assert "снимок #2 от 2026-09-25, записей 22950 — <b>новый</b>" in page
     assert "В перечне (ФИО с отчеством): 3605" in page
     assert "Возможно в перечне: 950" in page
+
+
+def test_step_five_finds_the_figurants_from_management(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "rosfin")
+
+    with _client(session_factory, registry) as client:
+        bar = _run_bar(client.get("/ui/management").text)
+        response = client.post("/ui/management/figurants", follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'running', started_at = now(), "
+                    "heartbeat_at = now(), stderr = :log WHERE id = :id"
+                ),
+                {"id": run_id, "log": "event=entity_figurants_stage stage=asking 50/3200\n"},
+            )
+        running = client.get(response.headers["location"]).text
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'succeeded', stdout = :out WHERE id = :id"
+                ),
+                {
+                    "id": run_id,
+                    "out": '{"entities": 6850, "figurant_rules": 3650, "figurant_model": 1200, '
+                    '"possible": 90, "mentioned": 1700, "unclear": 210, "asked_now": 3200, '
+                    '"cached": 0, "failures": 10}',
+                },
+            )
+        done = client.get(response.headers["location"]).text
+
+    assert 'id="step-figurants" class="step current" type="submit"' in bar
+    run = registry.get(run_id)
+    assert (run.parameters.mode, run.command[2:]) == ("figurants", ["find-figurants"])
+    assert '<progress class="overall" value="50" max="3200">' in running
+    assert "Фигуранты по статье УК: 3650" in done
+    assert "Фигуранты по ответу модели: 1200" in done
+    assert "Только упомянуты: 1700" in done
+    assert "Модель не ответила: 10" in done

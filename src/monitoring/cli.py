@@ -6,6 +6,7 @@ JSON goes to stdout, structured `monitoring_*` logs to stderr.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import sys
@@ -19,6 +20,7 @@ from application import ApplicationServices, build_application_services
 from entities.collector import EntityCollector
 from entities.normalizer import name_normalizer_from_env
 from entities.rf_check import EntityRfCheck
+from entities.roles import FigurantFinder, role_classifier_from_env
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
@@ -38,6 +40,7 @@ MONITORING_COMMANDS = frozenset(
         "purge-junk",
         "collect-entities",
         "check-entities-rosfin",
+        "find-figurants",
         "monitoring-status",
         "monitoring-findings",
     }
@@ -141,6 +144,14 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         ),
     )
 
+    subparsers.add_parser(
+        "find-figurants",
+        help=(
+            "Tell the entities off the Rosfinmonitoring list a criminal case is opened "
+            "against from those only mentioned (rules, then a model for the rest)"
+        ),
+    )
+
     status = subparsers.add_parser("monitoring-status", help="Show monitoring runs and checkpoints")
     status.add_argument("--run-id", type=int, default=None, help="Show one run with failed items")
 
@@ -219,6 +230,17 @@ def run_monitoring_command(
             }
         )
         return checked.snapshot_id is not None
+    if args.command == "find-figurants":
+        classifier = role_classifier_from_env()
+        if classifier is None:
+            logger.warning("event=entity_roles_no_model: OPENROUTER_API_KEY is not set")
+        found = FigurantFinder(
+            session_factory,
+            classifier=classifier,
+            on_stage=lambda stage: logger.info("event=entity_figurants_stage stage=%s", stage),
+        ).run()
+        _print(dataclasses.asdict(found))
+        return True
     services = build_services(session_factory)
     monitoring = services.monitoring
 

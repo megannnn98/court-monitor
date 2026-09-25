@@ -41,6 +41,7 @@
  "POST /research/reviews",
  "POST /ui/entities/collect",
  "POST /ui/management/entities",
+ "POST /ui/management/figurants",
  "POST /ui/management/purge",
  "POST /ui/management/rosfin",
  "POST /ui/management/run",
