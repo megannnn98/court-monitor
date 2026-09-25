@@ -55,7 +55,8 @@ _RESPONSE_SCHEMA: dict[str, object] = {
     "required": ["names"],
     "additionalProperties": False,
 }
-PROMPT_VERSION = "names-v2"
+# v3: the forms as the texts wrote them («Евгении Беркович»), not as normalized.
+PROMPT_VERSION = "names-v3"
 BATCH_SIZE = 50
 MAX_TOKENS = 8_000
 

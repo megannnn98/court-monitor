@@ -329,3 +329,17 @@ def test_a_person_s_mark_wins_either_way_and_survives_a_rebuild(
     assert after["Иван Иванов"] == ("mentioned", "official", "official")
     # Unmarked, the title no longer counts; the model says judge, the mark says no.
     assert after["Ольга Минакова"] == ("unclear", "judge", "model")
+
+
+def test_a_surname_alone_is_nobody_for_certain(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE entity_groups SET name = 'Беда' WHERE name = 'Александр Беда'")
+        )
+    classifier = FakeClassifier(KINDS)
+
+    FigurantFinder(session_factory, classifier=classifier).run()
+
+    assert "Беда" not in [item.name for item in classifier.asked]
+    assert _roles(session_factory)["Беда"] == ("unclear", None, "rules")

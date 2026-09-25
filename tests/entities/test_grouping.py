@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from itertools import count
 
 import pytest
@@ -396,3 +397,51 @@ def test_a_surname_that_is_an_adjective_declines_on_its_stem() -> None:
     )
 
     assert names(entities) == {"Олег Заболотний": 3, "Олег Заболотный": 2}
+
+
+def test_a_family_in_the_plural_is_its_members() -> None:
+    """«Александра и Лидии Невзоровых»: Лидия is the Лидия Невзорова of other news."""
+    entities = group_mentions(
+        [mention("Лидия", "Невзорова", article=1), mention("Лидия", "Невзоровых", article=2)]
+    )
+
+    assert names(entities) == {"Лидия Невзорова": 2}
+
+
+def test_a_plural_that_is_no_family_stays_a_surname() -> None:
+    """«Черных» and «Седых» do not decline: not «Черный», not «Седов»."""
+    entities = group_mentions(
+        [mention("Иван", "Черных", article=1), mention("Иван", "Черный", article=2)]
+    )
+
+    assert names(entities) == {"Иван Черных": 1, "Иван Черный": 1}
+
+
+def test_the_forms_are_as_the_text_wrote_them() -> None:
+    """The normalizer read «Евгении» as «Евгений»: the model must see the text."""
+    [entity] = group_mentions(
+        [
+            PersonMention(next(_ids), 1, "Евгений", "Беркович", surface="Евгении Беркович"),
+            PersonMention(next(_ids), 2, "Евгений", "Беркович", surface="Евгению  Беркович"),
+        ]
+    )
+
+    assert set(entity.variants) == {"Евгении Беркович", "Евгению Беркович"}
+
+
+def test_a_surname_alone_joins_the_full_name_of_its_article() -> None:
+    from entities.grouping import attach_bare
+
+    noize = Entity("иван алексеев", "Иван Алексеев", [1, 2], Counter({"Иван Алексеев": 2}))
+    # «Иноагент Алексеев»: the model kept the surname, the title was no given name.
+    bare = Entity("алексеев", "Алексеев", [3, 4], Counter({"Иноагент Алексеев": 2}))
+    other = Entity("пётр алексеев", "Пётр Алексеев", [5], Counter())
+    articles = {1: 10, 2: 11, 3: 10, 4: 12, 5: 12}
+
+    attached = {
+        entity.key: sorted(entity.mention_ids)
+        for entity in attach_bare([noize, bare, other], articles)
+    }
+
+    # Article 10 names Иван Алексеев; article 12 names Пётр: each takes its own.
+    assert attached == {"иван алексеев": [1, 2, 3], "пётр алексеев": [4, 5]}

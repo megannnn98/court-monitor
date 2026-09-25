@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from extraction.name_frequency import lookup_gender
 
@@ -35,6 +35,8 @@ CASE_ENDINGS = ("а", "я", "у", "ю", "е", "ом", "ем", "ым", "им", "�
 # «Заболотная» → «Заболотную» (the stem «заболотн»). Two surnames, never one.
 SOFT_ADJECTIVE_ENDINGS = ("ий", "его", "ему", "яя", "юю")
 HARD_ADJECTIVE_ENDINGS = ("ый", "ого", "ому", "ая", "ую")
+# The genitive plural of a family: «Невзоровых», «Ильиных».
+_PLURAL_OF = ("овых", "евых", "иных", "ыных")
 # The nominative among them, and the soft sign's. Not «-ой»: «Ивановой» is Иванова
 # declined far more often than a «Толстой».
 _NOMINATIVE_TAILS = ("ь", "ий", "ый", "ая", "яя")
@@ -54,6 +56,9 @@ class PersonMention:
     patronymic: str | None = None
     # The region a registry card gives for its person («Регион: Луганская область»).
     region: str | None = None
+    # The name as the text wrote it («Евгении Беркович»): what a model reads. The
+    # normalizer's fields may be wrong («Евгении» → «Евгений»).
+    surface: str | None = None
 
 
 @dataclass
@@ -105,6 +110,10 @@ def _bases(surname: str) -> set[str]:
         stem = surname[: -len(ending)]
         if surname.endswith(ending) and len(stem) >= MIN_STEM:
             bases.add(f"{stem}ь")
+    # A family in the plural: «Александра и Лидии Невзоровых» (-ов, -ев, -ин surnames only:
+    # «Черных» and «Седых» are no plural).
+    if surname.endswith(_PLURAL_OF) and len(surname) - 2 >= MIN_STEM:
+        bases.add(surname[:-2])
     return bases
 
 
@@ -152,9 +161,7 @@ def _cleaned(mention: PersonMention) -> PersonMention:
     error: the mention is a bare surname."""
     first, last = mention.first_name, mention.last_name
     if first and last and _bases(_fold(first)) & _bases(_fold(last)):
-        return PersonMention(
-            mention.mention_id, mention.article_id, None, last, None, mention.region
-        )
+        return replace(mention, first_name=None, patronymic=None)
     return mention
 
 
@@ -292,6 +299,9 @@ def _nominative_surname(first: str, key: str, forms: Counter[str]) -> str:
 
 
 def _display(mention: PersonMention) -> str:
+    """The form as written, else as the normalizer read it."""
+    if mention.surface and mention.surface.strip():
+        return " ".join(mention.surface.split())
     return " ".join(
         part.strip()
         for part in (mention.first_name, mention.patronymic, mention.last_name)
@@ -378,4 +388,44 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
         target.mention_ids += entity.mention_ids
         target.variants.update(entity.variants)
         target.regions.update(entity.regions)
+    return sorted(merged.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
+
+
+def attach_bare(entities: Sequence[Entity], article_of: Mapping[int, int]) -> list[Entity]:
+    """Entities named by a surname alone («Алексеев» of «Иноагент Алексеев», a title the
+    extractor took for a given name) handed to the full name of that surname their
+    article names, when it names one. What stays is a surname alone: nobody for certain.
+    """
+    full = [entity for entity in entities if len(entity.name.split()) >= 2]
+    by_article: dict[tuple[int, str], set[str]] = defaultdict(set)
+    for entity in full:
+        surname = _fold(entity.name.split()[-1])
+        for article in {article_of[m] for m in entity.mention_ids if m in article_of}:
+            for base in _bases(surname):
+                by_article[(article, base)].add(entity.key)
+    merged = {
+        entity.key: replace(entity, mention_ids=list(entity.mention_ids)) for entity in entities
+    }
+    for entity in entities:
+        words = entity.name.split()
+        if len(words) != 1:
+            continue
+        kept: list[int] = []
+        for mention_id in entity.mention_ids:
+            where = article_of.get(mention_id)
+            candidates = (
+                set().union(
+                    *(by_article.get((where, base), set()) for base in _bases(_fold(words[0])))
+                )
+                if where is not None
+                else set()
+            )
+            if len(candidates) == 1:
+                merged[next(iter(candidates))].mention_ids.append(mention_id)
+            else:
+                kept.append(mention_id)
+        if kept:
+            merged[entity.key].mention_ids = kept
+        else:
+            del merged[entity.key]
     return sorted(merged.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))

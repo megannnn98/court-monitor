@@ -514,3 +514,18 @@ def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session])
     assert 'value="Александр Викторович Моор"' in after and "Имя: исправлено вручную" in after
     assert "Моор Александр Викторович</a>" in listed and "исправлено</span>" in listed
     assert empty.status_code == 400 and missing.status_code == 404
+
+
+def test_a_corrected_name_that_is_another_entity_s_merges_them(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _collected(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        client.post(f"/ui/entities/{MOOR}/name", data={"name": "Иван Иванов"})
+        page = client.get("/ui/entities", params={"figurants": "all"}).text
+
+    assert "Найдено: 1." in page and "Иванов Иван" in page
+    with session_factory() as session:
+        assert session.scalar(text("SELECT mention_count FROM entity_groups")) == 3

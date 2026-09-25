@@ -26,11 +26,24 @@ def test_a_correction_names_the_entity_and_holds_after_the_region_entered_the_ke
         {"лида мониава": "Лидия Мониава", "иван петрович иванов": "Иван Петрович Иванов-Сидоров"},
     )
 
-    assert [(entity.name, entity.name_source) for entity in named] == [
+    assert {(entity.name, entity.name_source) for entity in named} == {
         ("Лидия Мониава", "manual"),
         ("Иван Петрович Иванов-Сидоров", "manual"),
         ("Пётр Петров", "rules"),
+    }
+
+
+def test_a_corrected_name_that_is_another_entity_s_is_one_person() -> None:
+    """«Женя Беркович» corrected to «Евгения Беркович»: the same person as that one."""
+    entities = [
+        Entity("евгения беркович", "Евгения Беркович", [1, 2], Counter({"Евгении Беркович": 2})),
+        Entity("женя беркович", "Женя Беркович", [3], Counter({"Женя Беркович": 1})),
     ]
+
+    [merged] = apply_overrides(entities, {"женя беркович": "Евгения Беркович"})
+
+    assert (merged.key, sorted(merged.mention_ids)) == ("евгения беркович", [1, 2, 3])
+    assert merged.variants == {"Евгении Беркович": 2, "Женя Беркович": 1}
 
 
 def test_a_name_written_surname_first_is_turned() -> None:

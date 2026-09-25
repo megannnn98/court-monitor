@@ -25,7 +25,14 @@ from db.orm_models import (
     EntityNameNormalizationRecord,
 )
 from entities.disputes import merge_decided, same_pairs
-from entities.grouping import Entity, GivenName, PersonMention, apply_names, group_mentions
+from entities.grouping import (
+    Entity,
+    GivenName,
+    PersonMention,
+    apply_names,
+    attach_bare,
+    group_mentions,
+)
 from entities.normalizer import (
     BATCH_SIZE,
     PROMPT_VERSION,
@@ -63,6 +70,7 @@ _MENTIONS = text(
            m.normalized_data->>'first_name',
            m.normalized_data->>'last_name',
            m.normalized_data->>'patronymic',
+           m.surface_text,
            substr(a.text, greatest(m.start_offset - :context, 0) + 1,
                   m.end_offset - greatest(m.start_offset - :context, 0) + :context),
            -- A registry card (memopzk) names its person's region on a line of its own.
@@ -162,13 +170,14 @@ class EntityCollector:
                 first,
                 last,
                 patronymic,
+                surface,
                 quote,
                 region,
             ) in rows:
                 published[mention_id] = published_at
                 quotes[mention_id] = " ".join((quote or "").split())
                 mentions.append(
-                    PersonMention(mention_id, article_id, first, last, patronymic, region)
+                    PersonMention(mention_id, article_id, first, last, patronymic, region, surface)
                 )
             events: dict[int, list[str]] = defaultdict(list)
             for mention_id, event_type in session.execute(
@@ -186,6 +195,8 @@ class EntityCollector:
             entities = merge_decided(entities, same_pairs(session))
             # And a person's corrections of names.
             entities = apply_overrides(entities, name_overrides(session))
+        # A surname alone joins the full name of that surname its article names.
+        entities = attach_bare(entities, articles)
 
         with self._session_factory.begin() as session:
             self._on_stage("writing")

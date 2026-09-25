@@ -374,10 +374,27 @@ class FigurantFinder:
                     "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
                 }
             )
+        # A surname alone names nobody for certain («Алексеев»): no figurant.
+        surname_only = {
+            row.id for row in entities if row.id not in officials and len(row.name.split()) < 2
+        }
+        for row in entities:
+            if row.id not in surname_only:
+                continue
+            rows.append(
+                {
+                    "group_id": row.id,
+                    "role": UNCLEAR,
+                    "kind": None,
+                    "method": "rules",
+                    "reason": "известна только фамилия: кто это, не ясно",
+                    "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
+                }
+            )
         # The rest go to the model, the rules' charge too: the extractor makes anyone the
         # sentence names a target («дело против мужчины, оскорбившего главу СК …»). The
         # charge's sentence is the first quote.
-        rest = [row for row in entities if row.id not in officials]
+        rest = [row for row in entities if row.id not in officials | surname_only]
         items = {
             row.id: RoleItem(
                 id=row.id,

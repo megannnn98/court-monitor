@@ -14,8 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupRecord, EntityNameOverrideRecord
-from entities.disputes import KeyIndex
-from entities.grouping import Entity, given_name_first
+from entities.disputes import KeyIndex, merge_groups
+from entities.grouping import REGION_SEP, Entity, given_name_first, name_key, split_key
 
 MANUAL = "manual"
 MAX_NAME = 200
@@ -40,16 +40,33 @@ def apply_overrides(entities: Sequence[Entity], overrides: Mapping[str, str]) ->
         today = index.today(key)
         if today is not None:
             names[today] = name
-    return [
+    renamed = [
         replace(entity, name=names[entity.key], name_source=MANUAL)
         if entity.key in names
         else entity
         for entity in entities
     ]
+    # A corrected name that is another entity's name («Женя Беркович» → «Евгения
+    # Беркович»): one person, under the other's key.
+    by_key = {entity.key: entity for entity in renamed}
+    for entity in list(renamed):
+        if entity.key not in names:
+            continue
+        region = split_key(entity.key)[1]
+        target = by_key.get(name_key(entity.name) + (f"{REGION_SEP}{region}" if region else ""))
+        if target is None or target is entity:
+            continue
+        target.mention_ids = [*target.mention_ids, *entity.mention_ids]
+        target.variants = target.variants + entity.variants
+        target.regions = target.regions + entity.regions
+        del by_key[entity.key]
+    return sorted(by_key.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
 
 
 def correct_name(session: Session, entity: EntityGroupRecord, name: str) -> str:
-    """Keep a correction and apply it now, in the caller's transaction; the name kept."""
+    """Keep a correction and apply it now, in the caller's transaction; the name kept.
+
+    A name that is another entity's merges the two at once, as the next rebuild will."""
     cleaned = clean_name(name)
     if not cleaned:
         raise ValueError("an empty name")
@@ -59,4 +76,15 @@ def correct_name(session: Session, entity: EntityGroupRecord, name: str) -> str:
     else:
         record.name = cleaned
     entity.name, entity.name_source = cleaned, MANUAL
+    region = split_key(entity.key)[1]
+    other = session.scalar(
+        select(EntityGroupRecord).where(
+            EntityGroupRecord.key
+            == name_key(cleaned) + (f"{REGION_SEP}{region}" if region else ""),
+            EntityGroupRecord.id != entity.id,
+        )
+    )
+    if other is not None:
+        session.flush()
+        merge_groups(session, entity, other)
     return cleaned
