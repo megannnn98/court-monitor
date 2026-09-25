@@ -34,6 +34,7 @@ from entities.normalizer import (
     NameNormalizerError,
     NormalizedName,
 )
+from entities.overrides import apply_overrides, name_overrides
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")
@@ -183,6 +184,8 @@ class EntityCollector:
         # A person's «one person» decisions, kept by key, merge again at every rebuild.
         with self._session_factory() as session:
             entities = merge_decided(entities, same_pairs(session))
+            # And a person's corrections of names.
+            entities = apply_overrides(entities, name_overrides(session))
 
         with self._session_factory.begin() as session:
             self._on_stage("writing")

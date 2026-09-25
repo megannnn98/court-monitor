@@ -45,6 +45,7 @@
  "POST /research/reviews",
  "POST /ui/disputes/decide",
  "POST /ui/entities/collect",
+ "POST /ui/entities/{key}/name",
  "POST /ui/entities/{key}/official",
  "POST /ui/management/entities",
  "POST /ui/management/figurants",

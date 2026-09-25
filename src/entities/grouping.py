@@ -30,6 +30,14 @@ from extraction.name_frequency import lookup_gender
 # Oblique endings of a surname the dictionary left declined: «Моор» → «Моора», «Моору»,
 # «Моором», «Мооре»; «Давидис» → «Давидиса»; «Курылев» → «Курылева».
 CASE_ENDINGS = ("а", "я", "у", "ю", "е", "ом", "ем", "ым", "им", "ой", "ей", "ы", "и")
+# A surname that is an adjective declines as one, soft or hard: «Заболотний» →
+# «Заболотнего», «Заболотнему» (the stem «заболотнь»); «Заболотный» → «Заболотного»,
+# «Заболотная» → «Заболотную» (the stem «заболотн»). Two surnames, never one.
+SOFT_ADJECTIVE_ENDINGS = ("ий", "его", "ему", "яя", "юю")
+HARD_ADJECTIVE_ENDINGS = ("ый", "ого", "ому", "ая", "ую")
+# The nominative among them, and the soft sign's. Not «-ой»: «Ивановой» is Иванова
+# declined far more often than a «Толстой».
+_NOMINATIVE_TAILS = ("ь", "ий", "ый", "ая", "яя")
 _VOWELS = frozenset("аеёиоуыэюя")
 # A shorter stem is no surname: «Ли» must not become the base of «Лиа» and «Лию».
 MIN_STEM = 3
@@ -84,12 +92,19 @@ def _is_initial(first_name: str | None) -> bool:
 
 
 def _bases(surname: str) -> set[str]:
-    """The surname and what it would be without each oblique ending it may carry."""
+    """The surname and what it would be without each oblique ending it may carry.
+
+    A soft sign goes as an ending does: «Дудь» declines «Дудя», «Дудю», «Дудем», all on
+    the stem «дуд»."""
     bases = {surname}
-    for ending in CASE_ENDINGS:
+    for ending in (*CASE_ENDINGS, *HARD_ADJECTIVE_ENDINGS, "ь"):
         stem = surname[: -len(ending)]
         if surname.endswith(ending) and len(stem) >= MIN_STEM:
             bases.add(stem)
+    for ending in SOFT_ADJECTIVE_ENDINGS:
+        stem = surname[: -len(ending)]
+        if surname.endswith(ending) and len(stem) >= MIN_STEM:
+            bases.add(f"{stem}ь")
     return bases
 
 
@@ -254,8 +269,17 @@ def _nominative_surname(first: str, key: str, forms: Counter[str]) -> str:
     endings («Моор»). A feminine or unknown given name keeps the written form («Мария
     Иванова» is already nominative), and so does a surname written one way only
     («Бабуа»)."""
-    surname = min(forms.items(), key=lambda item: (len(item[0]), -item[1], item[0]))[0]
     root = split_key(key)[0].rsplit(" ", 1)[1]
+    # A surname in a soft sign or an adjective's ending, once written so, is its
+    # nominative: «Дудь», not «Дудя»; «Заболотний», not «Заболотн».
+    nominative = [
+        form
+        for form in forms
+        if _fold(form).endswith(_NOMINATIVE_TAILS) and root in _bases(_fold(form))
+    ]
+    if nominative:
+        return max(nominative, key=lambda form: forms[form])
+    surname = min(forms.items(), key=lambda item: (len(item[0]), -item[1], item[0]))[0]
     declined = len({_fold(form) for form in forms}) > 1 and _fold(surname) != root
     if (
         declined

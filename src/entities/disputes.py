@@ -36,7 +36,7 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityPairDecisionRecord,
 )
-from entities.grouping import Entity, split_key
+from entities.grouping import Entity, _bases, split_key
 from extraction.name_frequency import lookup_gender
 
 SAME = "same"
@@ -94,34 +94,53 @@ def _gender(name: str) -> str | None:
     return lookup_gender(words[0]) if words else None
 
 
-def resolve_key(key: str, known: Iterable[str]) -> str | None:
-    """A kept key in today's keys: itself, or — made before a card's region entered the
-    key — the one entity of that name (with any region); None with none or several."""
-    known = set(known)
-    if key in known:
-        return key
-    found = [today for today in known if split_key(today)[0] == key]
-    return found[0] if len(found) == 1 else None
+def _stem_key(key: str) -> tuple[str, str | None]:
+    """A key with its surname cut to its shortest stem: the part the rules may change
+    («навальный» is «навальн» since adjective endings count), and the region."""
+    name, region = split_key(key)
+    words = name.split()
+    if words:
+        words[-1] = min(_bases(words[-1]), key=lambda base: (len(base), base))
+    return " ".join(words), region
+
+
+class KeyIndex:
+    """Today's keys, to find the one a kept key meant.
+
+    A kept key is today's key itself; or, made before a card's region entered the key or
+    before the rules cut its surname another way, the one today's key of the same stem
+    (and of its region, if it had one). None with none or several."""
+
+    def __init__(self, keys: Iterable[str]) -> None:
+        self._known = set(keys)
+        self._by_stem: dict[str, list[str]] = defaultdict(list)
+        for key in self._known:
+            self._by_stem[_stem_key(key)[0]].append(key)
+
+    def today(self, key: str) -> str | None:
+        if key in self._known:
+            return key
+        stem, region = _stem_key(key)
+        same_stem = self._by_stem.get(stem, [])
+        # Its own region first (none for a key that had none), then any region.
+        for found in (
+            [today for today in same_stem if split_key(today)[1] == region],
+            same_stem if region is None else [],
+        ):
+            if len(found) == 1:
+                return found[0]
+            if found:
+                return None
+        return None
 
 
 def resolve_keys(pairs: Iterable[tuple[str, str]], keys: Iterable[str]) -> list[tuple[str, str]]:
-    """Decided pairs in today's keys. A decision made before a card's region entered the
-    key names the entity by its name alone: it holds for the one entity of that name
-    (with any region); with several, it is left out."""
-    known = set(keys)
-    by_name: dict[str, list[str]] = defaultdict(list)
-    for key in known:
-        by_name[split_key(key)[0]].append(key)
-
-    def today(key: str) -> str | None:
-        if key in known:
-            return key
-        found = by_name.get(key, [])
-        return found[0] if len(found) == 1 else None
-
+    """Decided pairs in today's keys (see `KeyIndex`); a pair either side of which is
+    lost, or both are one, is left out."""
+    index = KeyIndex(keys)
     resolved: list[tuple[str, str]] = []
     for first, second in pairs:
-        left, right = today(first), today(second)
+        left, right = index.today(first), index.today(second)
         if left is not None and right is not None and left != right:
             resolved.append(pair_keys(left, right))
     return resolved

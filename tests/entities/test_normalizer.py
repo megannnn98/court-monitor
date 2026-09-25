@@ -227,3 +227,27 @@ def test_a_surname_first_form_still_matches_the_answer_that_reorders_it() -> Non
     answers = matched_answers(items, [_named(0, "Турбин Арсений", "Арсений Турбин")])
 
     assert answers[0].nominative == "Арсений Турбин"
+
+
+def test_a_soft_sign_surname_answer_names_its_declined_forms() -> None:
+    """«Юрий Дудь» for the forms «Юрий Дудя», «Дудя»: the same stem, kept."""
+    from entities.normalizer import NameItem, NormalizedName, matched_answers
+
+    items = [NameItem(id=0, forms=("Юрий Дудя", "Дудя"), quote="")]
+    answer = NormalizedName(
+        id=0, source="Юрий Дудя", nominative="Юрий Дудь", gender="male", is_person=True
+    )
+
+    assert matched_answers(items, [answer]) == {0: answer}
+
+
+def test_an_adjective_surname_answer_names_its_declined_forms() -> None:
+    """«Олег Заболотний» for the form «Олег Заболотнего»: the same stem, kept."""
+    from entities.normalizer import NameItem, NormalizedName, matched_answers
+
+    items = [NameItem(id=0, forms=("Олег Заболотнего",), quote="")]
+    answer = NormalizedName(
+        id=0, source="Олег Заболотнего", nominative="Олег Заболотний", gender="male", is_person=True
+    )
+
+    assert matched_answers(items, [answer]) == {0: answer}

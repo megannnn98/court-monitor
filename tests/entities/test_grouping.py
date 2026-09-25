@@ -367,3 +367,32 @@ def test_a_model_name_keeps_the_region_that_parts_namesakes() -> None:
         "денис владимирович попов · краснодарский край",
         "денис владимирович попов · курская область",
     ]
+
+
+def test_a_surname_in_a_soft_sign_declines_on_its_stem() -> None:
+    """«Юрий Дудь» of one piece, «Юрия Дудя» and «Дудю» of others: one person."""
+    entities = group_mentions(
+        [
+            mention("Юрий", "Дудя", article=1),
+            mention("Юрий", "Дудя", article=2),
+            mention(None, "Дудю", article=2),
+            mention("Юрий", "Дудь", article=3),
+        ]
+    )
+
+    assert names(entities) == {"Юрий Дудь": 4}
+
+
+def test_a_surname_that_is_an_adjective_declines_on_its_stem() -> None:
+    entities = group_mentions(
+        [
+            mention("Олег", "Заболотнего", article=1),
+            mention("Олег", "Заболотнему", article=2),
+            mention("Олег", "Заболотний", article=3),
+            # A hard adjective is another surname.
+            mention("Олег", "Заболотного", article=4),
+            mention("Олег", "Заболотный", article=5),
+        ]
+    )
+
+    assert names(entities) == {"Олег Заболотний": 3, "Олег Заболотный": 2}

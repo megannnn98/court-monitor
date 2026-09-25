@@ -30,7 +30,8 @@ class EntityGroupRecord(Base):
     )
     # male / female; None when unknown.
     gender: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    # rules: the grouping rules named it; model: a language model gave the nominative.
+    # rules: the grouping rules named it; model: a language model gave the nominative;
+    # manual: a person corrected it.
     name_source: Mapped[str] = mapped_column(String(8), nullable=False, server_default="rules")
     # [[region, publications], …] from registry cards, most named first; the news give none.
     regions: Mapped[list[Any]] = mapped_column(
@@ -206,6 +207,19 @@ class EntityOfficialMarkRecord(Base):
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     official: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EntityNameOverrideRecord(Base):
+    """A person's correction of an entity's name («Лидия Мониава», not «Лида»): it
+    wins over the rules and the model, and survives every rebuild."""
+
+    __tablename__ = "entity_name_overrides"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

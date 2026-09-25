@@ -489,3 +489,28 @@ def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
     assert unmarked.headers["location"] == "/ui/officials"
     assert "Найдено: 0." in after
     assert missing.status_code == 404
+
+
+def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session]) -> None:
+    _collected(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        card = client.get(f"/ui/entities/{MOOR}").text
+        corrected = client.post(
+            f"/ui/entities/{MOOR}/name",
+            data={"name": "Моор Александр Викторович"},
+            follow_redirects=False,
+        )
+        after = client.get(f"/ui/entities/{MOOR}").text
+        listed = client.get("/ui/entities", params={"figurants": "all"}).text
+        empty = client.post(f"/ui/entities/{MOOR}/name", data={"name": "   "})
+        missing = client.post("/ui/entities/никто/name", data={"name": "Кто-то"})
+
+    assert '<button type="submit" class="secondary">Исправить имя</button>' in card
+    assert corrected.status_code == 303 and corrected.headers["location"] == f"/ui/entities/{MOOR}"
+    # Written surname first, kept given name first, shown surname first.
+    assert "<title>Моор Александр Викторович</title>" in after
+    assert 'value="Александр Викторович Моор"' in after and "Имя: исправлено вручную" in after
+    assert "Моор Александр Викторович</a>" in listed and "исправлено</span>" in listed
+    assert empty.status_code == 400 and missing.status_code == 404

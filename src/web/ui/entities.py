@@ -27,6 +27,7 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
 from entities.officials import OFFICIAL_KINDS, mark_official
+from entities.overrides import MANUAL, correct_name
 from entities.rf_check import FULL
 from entities.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE
 from extraction.name_frequency import lookup_gender
@@ -102,12 +103,15 @@ def _events(event_types: dict[str, int]) -> str:
 
 
 def _source_mark(name_source: str) -> str:
-    """Which names a model gave: the rest are the grouping rules' best guess."""
-    return (
-        ' <span class="badge" title="Имя в именительном падеже дала модель">ИИ</span>'
-        if name_source == "model"
-        else ""
-    )
+    """Which names a model gave or a person corrected: the rest are the rules' best guess."""
+    if name_source == "model":
+        return ' <span class="badge" title="Имя в именительном падеже дала модель">ИИ</span>'
+    if name_source == MANUAL:
+        return ' <span class="badge" title="Имя исправлено вручную">исправлено</span>'
+    return ""
+
+
+_NAME_SOURCES = {"model": "дала модель", MANUAL: "исправлено вручную"}
 
 
 def _article_order(article: str) -> tuple[int, ...]:
@@ -316,6 +320,25 @@ def _role_section(db: Session, entity: EntityGroupRecord) -> str:
   {f'<blockquote class="muted">{escape(record.quote)}</blockquote>' if record.quote else ""}
   {button}
 </section>"""
+
+
+@router.post("/ui/entities/{key}/name", response_model=None)
+async def correct_entity_name(
+    key: str,
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """A person's correction of the name, applied at once and kept for every rebuild."""
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Сущность не найдена")
+    try:
+        correct_name(db, entity, (form.get("name") or [""])[0])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Пустое имя") from exc
+    db.commit()
+    return RedirectResponse(f"/ui/entities/{quote(key)}", status_code=303)
 
 
 @router.post("/ui/entities/{key}/official", response_model=None)
@@ -670,9 +693,14 @@ def ui_entity(
 <section class="band">
   <p><b>Как писали:</b> {variants}</p>
   {f"<p><b>Регион:</b> {_regions(entity.regions)}</p>" if entity.regions else ""}
-  <p class="muted">Имя: {"дала модель" if entity.name_source == "model" else "по правилам склейки"}{
+  <p class="muted">Имя: {_NAME_SOURCES.get(entity.name_source, "по правилам склейки")}{
         {"male": " · мужчина", "female": " · женщина"}.get(entity.gender or "", "")
     }</p>
+  <form method="post" action="/ui/entities/{quote(entity.key)}/name" class="toolbar">
+    <input type="text" name="name" value="{escape(entity.name, quote=True)}" maxlength="200"
+      title="Имя [Отчество] Фамилия" required>
+    <button type="submit" class="secondary">Исправить имя</button>
+  </form>
   <p>Упоминаний: {entity.mention_count} · публикаций: {entity.article_count} · {
         _events(entity.event_types)
     }</p>

@@ -29,7 +29,7 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityOfficialMarkRecord,
 )
-from entities.disputes import resolve_key
+from entities.disputes import KeyIndex
 
 # The model's roles that are officials.
 OFFICIAL_KINDS = frozenset({"judge", "prosecutor", "police", "official"})
@@ -120,13 +120,13 @@ def titled_entities(session: Session, group_ids: Sequence[int]) -> dict[int, tup
 
 
 def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]:
-    """A person's marks per entity id; a mark made before a card's region entered the
-    key holds for the one entity of that name."""
-    known = set(keys.values())
+    """A person's marks per entity id; a mark on an older key holds for the entity it
+    meant (`KeyIndex`)."""
+    index = KeyIndex(keys.values())
     by_key = {key: group_id for group_id, key in keys.items()}
     marks: dict[int, bool] = {}
     for record in session.scalars(select(EntityOfficialMarkRecord)):
-        today = resolve_key(record.key, known)
+        today = index.today(record.key)
         if today is not None:
             marks[by_key[today]] = record.official
     return marks

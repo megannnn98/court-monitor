@@ -223,3 +223,15 @@ def test_a_decision_made_before_the_region_entered_the_key_still_holds() -> None
     ]
     refs = [ref(1, key, key) for key in one_card]
     assert find_pairs(refs, decided) == []
+
+
+def test_a_decision_holds_when_the_rules_cut_the_surname_another_way() -> None:
+    """«навальный» became «навальн» once adjective endings counted."""
+    from entities.disputes import resolve_keys
+
+    decided = [("алексей анатольевич навальный · москва", "алексей навальный")]
+    today = ["алексей анатольевич навальн · москва", "алексей навальн", "алексей навальн · тверь"]
+
+    assert resolve_keys(decided, today) == [
+        ("алексей анатольевич навальн · москва", "алексей навальн")
+    ]
