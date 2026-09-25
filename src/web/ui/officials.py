@@ -1,5 +1,5 @@
 """«Должностные лица»: the judges, prosecutors, investigators and officials among the
-entities. Named in cases, never their figurants: they stay off «Список». A wrong one is
+entities. Named in cases, never their figurants: they stay off «Результат». A wrong one is
 unmarked here, a missing one marked on its card."""
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ def ui_officials(
         active="officials",
         instruction=(
             "Судьи, прокуроры, следователи и чиновники из публикаций: они упоминаются в делах, "
-            "но не фигуранты и в «Список» не попадают."
+            "но не фигуранты и в «Результат» не попадают."
         ),
         next_action=(
             "Снимите пометку с ошибочно попавшего; недостающего отметьте кнопкой в его "

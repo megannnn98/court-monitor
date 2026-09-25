@@ -18,15 +18,16 @@ from web.candidate_rows import (
 from web.dependencies import get_db
 from web.exports import candidates_xlsx
 from web.routers.rosfinmonitoring import list_rosfinmonitoring_snapshots
-from web.ui.layout import _page
+from web.ui.layout import HOME, _page
 
 router = APIRouter()
 
 
+@router.get("/")
 @router.get("/ui")
 def ui_root() -> RedirectResponse:
-    """`/ui` opens the entities: «Кандидаты» is hidden from the menu for now."""
-    return RedirectResponse("/ui/entities", status_code=303)
+    """The site opens on its home page, «Управление»."""
+    return RedirectResponse(HOME, status_code=303)
 
 
 @router.get("/ui/candidates")

@@ -100,7 +100,7 @@ def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
         by_declined_form = client.get("/ui/entities", params={"q": "Моору"}).text
         nobody = client.get("/ui/entities", params={"q": "Петров"}).text
 
-    assert 'href="/ui/entities">Сущности</a>' in page
+    assert "<span>Сущности</span></a>" in page
     # Surname first, as the candidates are.
     assert f'<a href="/ui/entities/{MOOR}">Моор Александр</a>' in page
     assert "Найдено: 2." in page
@@ -479,7 +479,7 @@ def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
 
     assert '<button type="submit" class="secondary">Это должностное лицо</button>' in card
     assert marked.status_code == 303 and marked.headers["location"] == f"/ui/entities/{MOOR}"
-    assert 'href="/ui/officials">Должностные лица</a>' in officials
+    assert "<span>Должностные лица</span></a>" in officials
     assert "Найдено: 1." in officials and "Моор Александр" in officials
     # An official leaves «Список» at once.
     assert "Моор Александр" in listed

@@ -1,4 +1,4 @@
-"""«Список»: the politically persecuted off the Rosfinmonitoring list, and its Excel."""
+"""«Результат»: the politically persecuted off the Rosfinmonitoring list, and its Excel."""
 
 from __future__ import annotations
 
@@ -97,7 +97,10 @@ def test_the_list_is_the_political_the_period_tells_new_from_old(
         fresh = client.get("/ui/political", params={"months": 3}).text
         certain = client.get("/ui/political", params={"hide_maybe_listed": "true"}).text
 
-    assert 'href="/ui/political">Список</a>' in page
+    assert "<title>Результат</title>" in page
+    assert '<span>Результат</span><span class="nav-count">2</span>' in page
+    # The funnel, in one line, down to the result.
+    assert "2 политические дела — результат" in page
     assert "Найдено: 2." in page and "Беда" not in page
     assert "Смирнова Анна" in page and "Москва" in page and "модель: так про Анна Смирнова" in page
     assert 'Иванов Иван</a> <span class="badge pending">возможно в перечне</span>' in page
@@ -149,6 +152,11 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
     )
     assert '<button type="submit" name="months" value="3" class="chip"' in page
     assert '<input type="date" name="date_from" value="">' in page
+    # The export sends the form as it is: dates picked without «Показать» count.
+    assert '<button type="submit" class="secondary" formaction="/ui/political/export.xlsx">' in page
+    assert page.index('<input type="hidden" name="months" value="0">') < page.index(
+        'name="months" value="3"'
+    )
     # Смирнова's latest news is 10 days old, Иванов's 400.
     assert "Найдено: 1." in in_recent and "Смирнова Анна" in in_recent
     assert "Найдено: 1." in in_old and "Иванов Иван" in in_old
@@ -157,3 +165,36 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
     assert "Найдено: 1." in ticked and 'value="true" checked' in ticked
     rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
     assert [row[1] for row in rows[1:]] == ["Иванов Иван"]
+
+
+def test_the_period_is_kept_for_a_reload_and_the_menu(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    today = datetime.now(UTC).date()
+    old = {
+        "date_from": (today - timedelta(days=500)).isoformat(),
+        "date_to": (today - timedelta(days=300)).isoformat(),
+    }
+
+    with _client(session_factory) as client:
+        client.get("/ui/political", params=old)
+        # The menu's link, or a reload of it: no filters in the address.
+        again = client.get("/ui/political").text
+        # «За всё время» chosen is chosen, not the remembered dates.
+        client.get("/ui/political", params={"months": 0, "date_from": "", "date_to": ""})
+        everything = client.get("/ui/political").text
+        # Dates the page's script kept, picked but not shown yet: encoded.
+        # In the browser it replaces the server's (same name and path); here, one of two.
+        client.cookies.clear()
+        client.cookies.set(
+            "political_filters",
+            f"months%3D0%26date_from%3D{old['date_from']}%26date_to%3D{old['date_to']}"
+            "%26hide_maybe_listed%3Dfalse",
+        )
+        picked = client.get("/ui/political").text
+
+    assert "Найдено: 1." in again and f'name="date_from" value="{old["date_from"]}"' in again
+    assert "Найдено: 2." in everything
+    assert "Найдено: 1." in picked and "Иванов Иван" in picked
+    assert 'id="political-filters"' in picked and "document.cookie" in picked

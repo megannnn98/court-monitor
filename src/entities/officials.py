@@ -134,7 +134,7 @@ def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]
 
 def mark_official(session: Session, entity: EntityGroupRecord, official: bool) -> None:
     """A person's mark, in the caller's transaction, applied at once: an official leaves
-    the figurants and «Список» now, not at the next step 5."""
+    the figurants and «Результат» now, not at the next step 5."""
     record = session.get(EntityOfficialMarkRecord, entity.key)
     if record is None:
         session.add(EntityOfficialMarkRecord(key=entity.key, official=official))

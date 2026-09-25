@@ -24,11 +24,13 @@ RUN apt-get update \
 ARG INSTALL_SEMANTIC=0
 ARG INSTALL_NER=0
 COPY pyproject.toml uv.lock ./
-# --no-cache: the download cache would otherwise stay in the layer, doubling its size.
-RUN groups=""; \
+# Keep downloaded wheels in BuildKit's cache, outside the image layer. This avoids
+# repeating large GPU package downloads when dependency installation runs again.
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    groups=""; \
     if [ "$INSTALL_SEMANTIC" = "1" ]; then groups="$groups --group semantic"; fi; \
     if [ "$INSTALL_NER" = "1" ]; then groups="$groups --group ner"; fi; \
-    uv sync --frozen --no-cache --no-default-groups --no-install-project $groups
+    uv sync --frozen --no-default-groups --no-install-project $groups
 
 # PlantUML draws every diagram but a sequence one with Graphviz, which the package only
 # recommends; WeasyPrint prints the wiki to PDF with Pango. Their own layer, so adding

@@ -59,7 +59,7 @@ def test_the_logs_page_shows_the_latest_run_output_escaped(
         page = client.get("/ui/logs")
 
     assert page.status_code == 200
-    assert 'href="/ui/logs">Логи</a>' in page.text
+    assert "<span>Логи</span></a>" in page.text
     assert f"Запуск #{run.id}" in page.text
     assert "ERROR &lt;b&gt;boom&lt;/b&gt;" in page.text
     assert "[{&quot;source&quot;: &quot;ovd-info&quot;}]" in page.text

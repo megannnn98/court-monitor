@@ -49,7 +49,7 @@ def test_management_page_lists_only_news_sources_and_selects_all(
         response = client.get("/ui/management")
 
     assert response.status_code == 200
-    assert 'href="/ui/management">Управление</a>' in response.text
+    assert '<a class="home active" href="/ui/management"><svg class="icon"' in response.text
     assert 'id="toggle-all-sources" type="checkbox" checked' in response.text
     checkboxes = re.findall(
         r'<input type="checkbox" name="sources" value="([^"]+)" (checked)?>', response.text
@@ -717,4 +717,16 @@ def test_step_six_finds_the_political_cases_from_management(
     assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
     assert "Политические по статье УК: 1378" in done
     assert "Политические по ответу модели: 1500" in done
-    assert "Уголовные: 1800" in done and 'href="/ui/political">Список</a>' in done
+    assert "Уголовные: 1800" in done and 'href="/ui/political">Результат</a>' in done
+
+
+def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    assert "<h2>Воронка отбора</h2>" in page
+    steps = re.findall(r'<span class="funnel-step">(\d)</span>', page)
+    assert steps == ["1", "2", "3", "4", "5", "6"]
+    assert 'class="funnel-stage result" href="/ui/political"' in page

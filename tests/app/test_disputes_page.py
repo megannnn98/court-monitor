@@ -75,7 +75,7 @@ def test_the_pairs_are_listed_side_by_side_and_filtered_by_kind(
         page = client.get("/ui/disputes").text
         similar = client.get("/ui/disputes", params={"kind": "similar"}).text
 
-    assert 'href="/ui/disputes">Спорные случаи</a>' in page
+    assert "<span>Спорные случаи</span></a>" in page
     assert "Нерешённых пар: 2." in page
     assert "С отчеством и без (1)" in page and "Похожее имя (1)" in page
     assert re.search(r"Ранав Игорь</a>.*?Ранав Игорь Александрович</a>", page, re.DOTALL)

@@ -53,13 +53,17 @@ def test_the_menu_hides_the_candidates_for_now(session_factory: sessionmaker[Ses
 
     nav = re.search(r"<nav>(.*?)</nav>", page.text, re.DOTALL)
     assert nav is not None
-    links = re.findall(r'href="([^"]+)">([^<]+)</a>', nav.group(1))
+    links = re.findall(r'href="([^"]+)"><svg[^>]*>.*?</svg><span>([^<]+)</span>', nav.group(1))
+    # The home page first, apart; «Результат» under it, with its count; then the tools.
+    assert 'class="home" href="/ui/management"><svg class="icon"' in nav.group(1)
+    assert '<span>Результат</span><span class="nav-count">0</span>' in nav.group(1)
+    assert '<div class="nav-group">Инструменты</div>' in nav.group(1)
     assert links == [
+        ("/ui/management", "Главная: Управление"),
+        ("/ui/political", "Результат"),
         ("/ui/entities", "Сущности"),
         ("/ui/disputes", "Спорные случаи"),
-        ("/ui/political", "Список"),
         ("/ui/officials", "Должностные лица"),
-        ("/ui/management", "Управление"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),
     ]
@@ -75,12 +79,15 @@ def test_a_removed_page_is_not_found(
     assert response.status_code == 404
 
 
-def test_the_console_root_opens_the_entities(session_factory: sessionmaker[Session]) -> None:
+def test_the_site_opens_on_its_home_page(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
-        response = client.get("/ui", follow_redirects=False)
+        console = client.get("/ui", follow_redirects=False)
+        site = client.get("/", follow_redirects=False)
+        page = client.get("/ui/entities").text
 
-    assert response.status_code == 303
-    assert response.headers["location"] == "/ui/entities"
+    assert (console.status_code, console.headers["location"]) == (303, "/ui/management")
+    assert (site.status_code, site.headers["location"]) == (303, "/ui/management")
+    assert '<a class="brand" href="/ui/management">court-monitor</a>' in page
 
 
 def test_the_candidates_the_wiki_and_their_exports_are_served(

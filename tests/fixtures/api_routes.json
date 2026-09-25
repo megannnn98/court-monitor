@@ -1,4 +1,5 @@
 [
+ "GET /",
  "GET /articles/{article_id}",
  "GET /candidates",
  "GET /health",

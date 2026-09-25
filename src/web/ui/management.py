@@ -28,6 +28,7 @@ from operator_console import (
 )
 from sources.source_registry import SourceDefinition, news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
+from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
 
@@ -694,7 +695,7 @@ def _political_card(run: OperationRun) -> str:
     )
     return f"""<section class="band run-card">
   <h2>Запуск #{run.id} · {_MODE_TITLES["political"]} {overall}</h2>
-  <p class="muted">Начат {started} · <a href="/ui/political">Список</a> ·
+  <p class="muted">Начат {started} · <a href="/ui/political">Результат</a> ·
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if in_progress else ""}
   <p class="run-summary">{summary}</p>
@@ -827,6 +828,7 @@ def _management_page(
     error_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     body = f"""{error_html}
 {run_html}
+{funnel_html(funnel(db))}
 <form method="post" action="/ui/management/run" class="source-form">
   <div class="source-tools">
     <input id="source-search" type="search" placeholder="Поиск по названию или id" autocomplete="off">

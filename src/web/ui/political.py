@@ -1,4 +1,5 @@
-"""«Список»: the politically persecuted who are not on the Rosfinmonitoring list.
+"""«Результат»: the politically persecuted who are not on the Rosfinmonitoring list — what
+the whole pipeline is for.
 
 A figurant of a criminal case (step 5), off the list (step 4), whose case is political
 persecution (step 6). A name the list may carry without a patronymic stays, marked. The
@@ -13,9 +14,9 @@ from datetime import UTC, date, datetime, time, timedelta
 from html import escape
 from io import BytesIO
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import parse_qs, quote, unquote, urlencode
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from openpyxl import Workbook
 from sqlalchemy import exists, func, select, text
@@ -26,6 +27,7 @@ from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from persecution.classifier import POLITICAL_ARTICLES
 from web.dependencies import get_db
 from web.ui.entities import _articles_by_group, _date, display_name
+from web.ui.funnel import funnel, funnel_line
 from web.ui.layout import _page
 
 router = APIRouter()
@@ -33,6 +35,9 @@ router = APIRouter()
 PAGE_SIZE = 100
 LINKS = 3
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
+# The last filters, so that a reload or the menu's link keeps the period.
+FILTERS_COOKIE = "political_filters"
+FILTER_NAMES = ("months", "date_from", "date_to", "hide_maybe_listed")
 
 _PUBLICATIONS = text(
     """
@@ -98,6 +103,24 @@ def filters(months: int, date_from: str, date_to: str, hide_maybe_listed: bool) 
         date_from=start,
         date_to=end,
         hide_maybe_listed=hide_maybe_listed,
+    )
+
+
+def remembered(cookie: str) -> Filters | None:
+    """The filters the cookie keeps; None when it keeps nothing usable."""
+    # The page's script writes it encoded; the server, plain.
+    values = {name: items[-1] for name, items in parse_qs(unquote(cookie)).items()}
+    if not values:
+        return None
+    try:
+        months = int(values.get("months") or 0)
+    except ValueError:
+        months = 0
+    return filters(
+        months,
+        values.get("date_from", "")[:10],
+        values.get("date_to", "")[:10],
+        values.get("hide_maybe_listed") == "true",
     )
 
 
@@ -206,6 +229,7 @@ def _html_row(position: int, row: ListRow) -> str:
 
 @router.get("/ui/political", response_class=HTMLResponse)
 def ui_political(
+    request: Request,
     months: int = Query(default=0),
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
@@ -214,6 +238,9 @@ def ui_political(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     chosen = filters(months, date_from, date_to, hide_maybe_listed)
+    # No filters in the address: the last ones chosen, not «all the time».
+    if not any(name in request.query_params for name in FILTER_NAMES):
+        chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
     found, total, maybe = _rows(db, chosen)
     on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
     rows = "".join(
@@ -242,7 +269,9 @@ def ui_political(
         f'value="{chosen.date_to.isoformat() if chosen.date_to else ""}"></label>'
         '<button type="submit">Показать</button>'
     )
-    body = f"""<form method="get" action="/ui/political" class="toolbar">
+    # The chosen months ride along hidden; a period button, sent later, wins over them.
+    body = f"""<form method="get" action="/ui/political" class="toolbar" id="political-filters">
+  <input type="hidden" name="months" value="{chosen.months}">
   <span class="chips">{periods}</span>
   <span class="chips">{dates}</span>
   <div class="filter-row">
@@ -252,18 +281,29 @@ def ui_political(
       <input id="box-hide-maybe" type="checkbox" name="hide_maybe_listed" value="true"{
         " checked" if chosen.hide_maybe_listed else ""
     } onchange="this.form.submit()"> Скрыть возможных в перечне ({maybe})</label>
-    <a class="secondary" href="/ui/political/export.xlsx?{urlencode(keep)}">Скачать Excel</a>
+    <!-- The form's own values, not the page's: dates picked but not shown yet count. -->
+    <button type="submit" class="secondary" formaction="/ui/political/export.xlsx">Скачать Excel</button>
   </div>
 </form>
+{funnel_line(funnel(db))}
 <p class="muted">Найдено: {total}. Фигуранты уголовных дел, которых нет в перечне
 Росфинмониторинга, и дело которых — политическое преследование. Жирная статья — из списка
 политических; «Последняя новость» показывает, свежий ли случай.</p>
 <table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Регион</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
-<p class="pager">{pager if pages > 1 else ""}</p>"""
-    return _page(
-        "Список",
+<p class="pager">{pager if pages > 1 else ""}</p>
+<script>
+// Dates picked but not shown yet are kept too: a reload shows them.
+document.getElementById("political-filters").addEventListener("change", (event) => {{
+  if (event.target.type !== "date") return;
+  const form = new URLSearchParams(new FormData(event.target.form));
+  document.cookie = "{FILTERS_COOKIE}=" + encodeURIComponent(form.toString()) +
+    "; path=/ui/political; max-age=31536000; samesite=lax";
+}});
+</script>"""
+    response = _page(
+        "Результат",
         body,
         active="political",
         instruction=(
@@ -271,18 +311,26 @@ def ui_political(
             "Росфинмониторинга."
         ),
         next_action=(
-            "Выберите период, чтобы увидеть свежие случаи; скачайте Excel. Список обновляют "
+            "Выберите период, чтобы увидеть свежие случаи; скачайте Excel. Результат обновляют "
             "шаги 4–6 в «Управлении»."
         ),
         db=db,
     )
+    response.set_cookie(
+        FILTERS_COOKIE,
+        urlencode(chosen.query()),
+        max_age=365 * 24 * 3600,
+        path="/ui/political",
+        samesite="lax",
+    )
+    return response
 
 
 def political_xlsx(rows: list[ListRow]) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
     assert sheet is not None
-    sheet.title = "Список"
+    sheet.title = "Результат"
     sheet.append(
         [
             "№",
@@ -343,5 +391,5 @@ def ui_political_export(
     return Response(
         political_xlsx(_details(db, found)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="political-list.xlsx"'},
+        headers={"Content-Disposition": 'attachment; filename="result.xlsx"'},
     )
