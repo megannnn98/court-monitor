@@ -7,6 +7,7 @@ from sqlalchemy import Engine, text
 # Every table research, extraction and semantic retrieval write to.
 DISPOSABLE_TABLES = (
     "entity_name_normalizations",
+    "entity_group_rf_matches",
     "entity_group_charges",
     "entity_group_mentions",
     "entity_groups",

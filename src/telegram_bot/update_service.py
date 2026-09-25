@@ -129,11 +129,12 @@ class UpdateService:
         return UpdateStarted(run=run, sources=self._enabled_sources)
 
     def last_update(self) -> UpdateStatus | None:
-        # A purge or an entity rebuild is a monitor run too, but no update of the sources.
+        # A purge, an entity rebuild or check is a monitor run too, but no update of the
+        # sources.
         runs = [
             run
             for run in self._operations.runs_of(MONITOR_OPERATION, limit=5)
-            if run.parameters.mode not in ("purge", "entities")
+            if run.parameters.mode not in ("purge", "entities", "rosfin")
         ]
         return None if not runs else self._status_of(runs[0])
 

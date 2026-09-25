@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from application import ApplicationServices, build_application_services
 from entities.collector import EntityCollector
 from entities.normalizer import name_normalizer_from_env
+from entities.rf_check import EntityRfCheck
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
@@ -36,6 +37,7 @@ MONITORING_COMMANDS = frozenset(
         "monitor-resolve",
         "purge-junk",
         "collect-entities",
+        "check-entities-rosfin",
         "monitoring-status",
         "monitoring-findings",
     }
@@ -131,6 +133,14 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         help="Rebuild the person entities from the articles with a criminal case",
     )
 
+    subparsers.add_parser(
+        "check-entities-rosfin",
+        help=(
+            "Download the Rosfinmonitoring list (a new snapshot when it changed) and match "
+            "the person entities against the latest one by name"
+        ),
+    )
+
     status = subparsers.add_parser("monitoring-status", help="Show monitoring runs and checkpoints")
     status.add_argument("--run-id", type=int, default=None, help="Show one run with failed items")
 
@@ -189,6 +199,26 @@ def run_monitoring_command(
             }
         )
         return True
+    if args.command == "check-entities-rosfin":
+        checked = EntityRfCheck(
+            session_factory,
+            on_stage=lambda stage: logger.info("event=entities_rf_check_stage stage=%s", stage),
+        ).run()
+        _print(
+            {
+                "snapshot_id": checked.snapshot_id,
+                "snapshot_date": checked.snapshot_date.isoformat()
+                if checked.snapshot_date
+                else None,
+                "entries": checked.entries,
+                "new_snapshot": checked.new_snapshot,
+                "download_error": checked.download_error,
+                "entities": checked.entities,
+                "rf_full": checked.full,
+                "rf_possible": checked.possible,
+            }
+        )
+        return checked.snapshot_id is not None
     services = build_services(session_factory)
     monitoring = services.monitoring
 

@@ -42,6 +42,7 @@
  "POST /ui/entities/collect",
  "POST /ui/management/entities",
  "POST /ui/management/purge",
+ "POST /ui/management/rosfin",
  "POST /ui/management/run",
  "POST /ui/management/runs/{run_id}/stop"
 ]

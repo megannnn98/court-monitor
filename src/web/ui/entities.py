@@ -19,7 +19,13 @@ from sqlalchemy import Text, cast, exists, func, or_, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from db.orm_models import EntityGroupChargeRecord, EntityGroupRecord
+from db.orm_models import (
+    EntityGroupChargeRecord,
+    EntityGroupRecord,
+    EntityGroupRfMatchRecord,
+    RosfinmonitoringEntryRecord,
+)
+from entities.rf_check import FULL
 from extraction.name_frequency import lookup_gender
 from operator_console import (
     OperationConflictError,
@@ -209,12 +215,64 @@ def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[
     return articles
 
 
-def _article_links(articles: list[tuple[str, bool]], sort: str) -> str:
+def _article_links(articles: list[tuple[str, bool]], sort: str, rf: str) -> str:
     return ", ".join(
-        f'<a href="/ui/entities?{urlencode({"article": article, "sort": sort})}"'
+        f'<a href="/ui/entities?{urlencode({"article": article, "sort": sort, "rf": rf})}"'
         f"{'' if sole else ' class="muted" title="общая"'}>{escape(article)}</a>"
         for article, sole in articles
     )
+
+
+def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
+    """Per entity of a page, its strongest Rosfinmonitoring match: full, else name."""
+    levels: dict[int, str] = {}
+    for group_id, level in db.execute(
+        select(EntityGroupRfMatchRecord.group_id, EntityGroupRfMatchRecord.level)
+        .where(EntityGroupRfMatchRecord.group_id.in_(group_ids))
+        .distinct()
+    ).all():
+        if levels.get(group_id) != FULL:
+            levels[group_id] = level
+    return levels
+
+
+def _rf_mark(level: str | None) -> str:
+    if level == FULL:
+        return ' <span class="badge failed">в перечне</span>'
+    if level is not None:
+        return ' <span class="badge pending">возможно в перечне</span>'
+    return ""
+
+
+def _rf_section(db: Session, group_id: int) -> str:
+    rows = db.execute(
+        select(
+            EntityGroupRfMatchRecord.level,
+            RosfinmonitoringEntryRecord.full_name,
+            RosfinmonitoringEntryRecord.birth_date,
+            RosfinmonitoringEntryRecord.birth_place,
+        )
+        .join(
+            RosfinmonitoringEntryRecord,
+            RosfinmonitoringEntryRecord.id == EntityGroupRfMatchRecord.entry_id,
+        )
+        .where(EntityGroupRfMatchRecord.group_id == group_id)
+        .order_by(EntityGroupRfMatchRecord.level, RosfinmonitoringEntryRecord.full_name)
+    ).all()
+    if not rows:
+        return ""
+    items = "".join(
+        f"<li>{_rf_mark(level)} {escape(full_name)}"
+        f"{f', {birth_date:%d.%m.%Y} г.р.' if birth_date else ''}"
+        f"{f', {escape(birth_place)}' if birth_place else ''}</li>"
+        for level, full_name, birth_date, birth_place in rows
+    )
+    return f"""<section class="band">
+  <h2>Росфинмониторинг</h2>
+  <p class="muted">Совпадение по имени: даты рождения в новостях нет, поэтому тёзку отличает
+  только отчество.</p>
+  <ul>{items}</ul>
+</section>"""
 
 
 def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
@@ -260,6 +318,7 @@ def _last_collect(registry: OperationRegistry) -> OperationRun | None:
 def ui_entities(
     q: str = Query(default="", max_length=200),
     article: str = Query(default="", max_length=32),
+    rf: str = Query(default="hide", pattern="^(hide|only|all)$"),
     sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
@@ -282,6 +341,15 @@ def ui_entities(
                 EntityGroupChargeRecord.article == article,
             )
         )
+    in_list = exists().where(
+        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
+        EntityGroupRfMatchRecord.level == FULL,
+    )
+    hidden = db.scalar(select(func.count()).select_from(query.where(in_list).subquery())) or 0
+    if rf == "hide":
+        query = query.where(~in_list)
+    elif rf == "only":
+        query = query.where(in_list)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     if sort == "name":
         # By the name as shown: the surname is not a column, and ten thousand short rows
@@ -295,20 +363,21 @@ def ui_entities(
             ).all()
         )
     charges = _articles_by_group(db, [entity.id for entity in entities])
+    listed = _rf_levels(db, [entity.id for entity in entities])
     rows = "".join(
         f"<tr><td>{position}</td>"
         f'<td><a href="/ui/entities/{quote(entity.key)}">{escape(display_name(entity.name))}</a>'
-        f"{_source_mark(entity.name_source)}</td>"
+        f"{_source_mark(entity.name_source)}{_rf_mark(listed.get(entity.id))}</td>"
         f'<td class="muted">{escape(", ".join(form for form, _ in entity.variants[:3]))}</td>'
         f'<td class="num">{entity.mention_count}</td><td class="num">{entity.article_count}</td>'
-        f"<td>{_article_links(charges.get(entity.id, []), sort)}</td>"
+        f"<td>{_article_links(charges.get(entity.id, []), sort, rf)}</td>"
         f"<td>{_events(entity.event_types)}</td>"
         f"<td>{escape(_date(entity.last_published_at))}</td></tr>"
         for position, entity in enumerate(entities, start=(page - 1) * PAGE_SIZE + 1)
     )
     sort_links = " ".join(
         f'<a class="chip{" active" if key == sort else ""}" '
-        f'href="/ui/entities?{urlencode({"q": q, "article": article, "sort": key})}">{label}</a>'
+        f'href="/ui/entities?{urlencode({"q": q, "article": article, "rf": rf, "sort": key})}">{label}</a>'
         for key, label in (
             ("mentions", "По упоминаниям"),
             ("articles", "По публикациям"),
@@ -316,9 +385,19 @@ def ui_entities(
             ("name", "По фамилии"),
         )
     )
+    rf_links = " ".join(
+        f'<a class="chip{" active" if key == rf else ""}" '
+        f'href="/ui/entities?{urlencode({"q": q, "article": article, "rf": key, "sort": sort})}">'
+        f"{label}</a>"
+        for key, label in (
+            ("hide", f"Без перечня РФМ (скрыто {hidden})"),
+            ("only", "Только в перечне"),
+            ("all", "Все"),
+        )
+    )
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     pager = " ".join(
-        f'<a href="/ui/entities?{urlencode({"q": q, "article": article, "sort": sort, "page": number})}">'
+        f'<a href="/ui/entities?{urlencode({"q": q, "article": article, "rf": rf, "sort": sort, "page": number})}">'
         f"{'<b>' + str(number) + '</b>' if number == page else number}</a>"
         for number in range(1, pages + 1)
     )
@@ -326,13 +405,17 @@ def ui_entities(
 <form method="get" class="toolbar">
   <input type="search" name="q" value="{escape(q, quote=True)}" placeholder="Имя или вариант написания">
   <input type="hidden" name="sort" value="{sort}">
+  <input type="hidden" name="rf" value="{rf}">
   <input type="search" name="article" value="{escape(article, quote=True)}" placeholder="Статья УК, напр. 207.3" size="18">
   <button>Найти</button>
   <span class="chips">{sort_links}</span>
+  <span class="chips">{rf_links}</span>
 </form>
 <p class="muted">Найдено: {total}{f" по статье УК {escape(article)}" if article else ""}. Только люди и только из
 публикаций с уголовным делом; одна сущность — одно имя с фамилией в любом падеже (однофамильцы
-с тем же именем сливаются). Серая статья УК — «общая»: в событии обвиняемыми названы и другие люди.</p>
+с тем же именем сливаются). Серая статья УК — «общая»: в событии обвиняемыми названы и другие люди.
+«В перечне» — ФИО с отчеством совпало с перечнем Росфинмониторинга; «возможно в перечне» — совпали
+имя и фамилия, но отчества нет с одной из сторон (может быть тёзка).</p>
 <table><thead><tr><th>№</th><th>Имя</th><th>Как писали</th><th>Упоминаний</th><th>Публикаций</th>
 <th>Статьи УК</th><th>События дела</th><th>Последняя новость</th></tr></thead><tbody>{rows}</tbody></table>
 <p class="pager">{pager if pages > 1 else ""}</p>"""
@@ -443,6 +526,7 @@ def ui_entity(
   <p class="muted">Упомянуты в тех же публикациях; чем больше общих, тем теснее связь.</p>
   <ul>{related or '<li class="muted">Никого рядом.</li>'}</ul>
 </section>
+{_rf_section(db, entity.id)}
 {_charges_section(db, entity.id)}
 <section class="band">
   <h2>Публикации</h2>

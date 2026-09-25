@@ -221,8 +221,8 @@ def test_person_resolution_has_no_button_and_no_route(
         response = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
 
     assert "Разрешить персоны" not in bar
-    # The cycle is three steps: after entities it is the load's turn again.
-    assert re.findall(r'id="step-(\w+)" class="step current', bar) == ["load"]
+    # After entities comes the Rosfinmonitoring check.
+    assert re.findall(r'id="step-(\w+)" class="step current', bar) == ["rosfin"]
     assert response.status_code == 404
     assert registry.runs_of("monitor")[0].parameters.mode == "entities"
 
@@ -518,6 +518,7 @@ def test_while_a_resolution_runs_its_button_stops_it(
         "■ Остановить: Разрешение персон",
         "2. Очистить от мусора",
         "3. Собрать сущности",
+        "4. Сверить с Росфинмониторингом",
     ]
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in bar
     assert "Идёт разрешение персон." in page
@@ -568,7 +569,9 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
         (("load",), "failed", "purge"),  # one broken source does not block the cycle
         (("load", "purge"), "failed", "purge"),  # a crashed purge is repeated
         (("load", "purge"), "interrupted", "purge"),
-        (("load", "purge", "entities"), "succeeded", "load"),
+        (("load", "purge", "entities"), "succeeded", "rosfin"),
+        (("load", "purge", "entities", "rosfin"), "succeeded", "load"),
+        (("load", "purge", "entities", "rosfin"), "failed", "rosfin"),  # a crash is repeated
         (("load", "purge", "entities", "resolve"), "succeeded", "load"),
         (("load", "resolve"), "failed", "load"),  # a resolution ends the cycle
     ],
@@ -601,3 +604,37 @@ def test_the_entities_step_starts_from_management(
     run = registry.runs_of("monitor")[0]
     assert (run.parameters.mode, run.command[2:]) == ("entities", ["collect-entities"])
     assert "Сборка сущностей" in page and "Готовлюсь" in page
+
+
+def test_the_rosfinmonitoring_check_starts_from_management(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities")
+
+    with _client(session_factory, registry) as client:
+        bar = _run_bar(client.get("/ui/management").text)
+        response = client.post("/ui/management/rosfin", follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'succeeded', stdout = :out "
+                    "WHERE id = :id"
+                ),
+                {
+                    "id": run_id,
+                    "out": '{"snapshot_id": 2, "snapshot_date": "2026-09-25T00:00:00+00:00", '
+                    '"entries": 22950, "new_snapshot": true, "download_error": null, '
+                    '"entities": 10421, "rf_full": 3605, "rf_possible": 950}',
+                },
+            )
+        page = client.get(response.headers["location"]).text
+
+    assert 'id="step-rosfin" class="step current" type="submit"' in bar
+    run = registry.get(run_id)
+    assert (run.parameters.mode, run.command[2:]) == ("rosfin", ["check-entities-rosfin"])
+    assert "Сверка с Росфинмониторингом" in page
+    assert "снимок #2 от 2026-09-25, записей 22950 — <b>новый</b>" in page
+    assert "В перечне (ФИО с отчеством): 3605" in page
+    assert "Возможно в перечне: 950" in page

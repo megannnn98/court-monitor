@@ -8,6 +8,7 @@ from db.models.entities import (
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
     EntityGroupRecord,
+    EntityGroupRfMatchRecord,
     EntityNameNormalizationRecord,
 )
 from db.models.extraction import (
@@ -60,6 +61,7 @@ __all__ = [
     "EntityGroupChargeRecord",
     "EntityGroupMentionRecord",
     "EntityGroupRecord",
+    "EntityGroupRfMatchRecord",
     "EntityMentionRecord",
     "EntityNameNormalizationRecord",
     "EventEntityMentionRecord",

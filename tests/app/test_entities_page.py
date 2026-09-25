@@ -17,6 +17,7 @@ from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import EntityMentionRecord
 from entities.collector import EntityCollector
+from entities.rf_check import EntityRfCheck
 from operator_console import OperationRegistry, OperationRunStatus
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -326,12 +327,49 @@ def test_the_list_shows_the_articles_and_filters_by_one(
         page = client.get("/ui/entities").text
         by_article = client.get("/ui/entities", params={"article": "207.3"}).text
 
-    assert '<a href="/ui/entities?article=205.2&sort=mentions">205.2</a>' in page
+    assert '<a href="/ui/entities?article=205.2&sort=mentions&rf=hide">205.2</a>' in page
     assert (
-        '<a href="/ui/entities?article=207.3&sort=mentions" class="muted" title="общая">'
+        '<a href="/ui/entities?article=207.3&sort=mentions&rf=hide" class="muted" title="общая">'
         "207.3</a>" in page
     )
     assert "Найдено: 3" in page
     assert "Найдено: 2 по статье УК 207.3" in by_article
     assert "Иванов Иван" in by_article and "Петров Петр" in by_article
     assert "Моор Александр" not in by_article
+
+
+RF_PAGE = """<!doctype html><html>
+<div class="panel-heading"><h4>Физические лица</h4></div>
+<div class="panel-body"><ol>
+  <li>1. МООР АЛЕКСАНДР ПЕТРОВИЧ*, 01.02.1980 г.р. , Г. МОСКВА;</li>
+  <li>2. ИВАНОВ ИВАН СЕРГЕЕВИЧ*, , ;</li>
+</ol></div></html>""".encode()
+
+
+def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _collected(session_factory)
+    with session_factory.begin() as session:
+        # The model's full name: the list's patronymic, so the entity is on the list.
+        session.execute(
+            text("UPDATE entity_groups SET name = 'Александр Петрович Моор' WHERE key = :key"),
+            {"key": "александр моор"},
+        )
+    EntityRfCheck(session_factory, download=lambda: RF_PAGE).run()
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities").text
+        listed = client.get("/ui/entities", params={"rf": "only"}).text
+        everyone = client.get("/ui/entities", params={"rf": "all"}).text
+        card = client.get(f"/ui/entities/{MOOR}").text
+
+    assert "Моор Александр" not in page and "Найдено: 1." in page
+    assert "Без перечня РФМ (скрыто 1)" in page
+    # A name without a patronymic may be a namesake: shown, marked.
+    assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
+    assert "Моор Александр Петрович" in listed and "Найдено: 1." in listed
+    assert "Найдено: 2." in everyone
+    assert "<h2>Росфинмониторинг</h2>" in card
+    assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card

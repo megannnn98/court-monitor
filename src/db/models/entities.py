@@ -81,6 +81,25 @@ class EntityGroupChargeRecord(Base):
     quote: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class EntityGroupRfMatchRecord(Base):
+    """A person of the Rosfinmonitoring list an entity may be: by name, without a birth
+    date (the news give none). Rewritten by every «Сверить с Росфинмониторингом»."""
+
+    __tablename__ = "entity_group_rf_matches"
+    __table_args__ = (Index("ix_entity_group_rf_matches_group_id", "group_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_groups.id", ondelete="CASCADE"), nullable=False
+    )
+    entry_id: Mapped[int] = mapped_column(
+        ForeignKey("rosfinmonitoring_entries.id", ondelete="CASCADE"), nullable=False
+    )
+    # full: given name, patronymic and surname are the list's; name: given name and
+    # surname, one side without a patronymic — maybe a namesake.
+    level: Mapped[str] = mapped_column(String(8), nullable=False)
+
+
 class EntityNameNormalizationRecord(Base):
     """What a model answered for an entity key: reused by every later rebuild.
 

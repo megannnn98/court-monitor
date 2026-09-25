@@ -63,9 +63,9 @@ class OperationParameters(BaseModel):
     sources: list[str] | None = None
     # monitor only: "load" loads and extracts, "resolve" resolves persons and classifies,
     # "purge" deletes the articles without a criminal case, "entities" rebuilds the person
-    # entities; unset, one run loads and resolves. All are one operation: they never run
-    # at once.
-    mode: Literal["load", "resolve", "purge", "entities"] | None = None
+    # entities, "rosfin" checks them against the Rosfinmonitoring list; unset, one run
+    # loads and resolves. All are one operation: they never run at once.
+    mode: Literal["load", "resolve", "purge", "entities", "rosfin"] | None = None
     limit: int | None = Field(default=None, ge=1, le=100_000)
     workers: int | None = Field(default=None, ge=1, le=32)
 
@@ -533,12 +533,20 @@ def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
     return text[-limit:]
 
 
+# Monitor modes over the whole database, and the command of each.
+_WHOLE_DATABASE_COMMANDS = {
+    "purge": "purge-junk",
+    "entities": "collect-entities",
+    "rosfin": "check-entities-rosfin",
+}
+
+
 def _command_for(name: str, parameters: OperationParameters) -> list[str]:
     main = [sys.executable, str(_repo_root() / "src" / "main.py")]
-    if name == "monitor" and parameters.mode in ("purge", "entities"):
+    if name == "monitor" and parameters.mode in _WHOLE_DATABASE_COMMANDS:
         if parameters.source is not None or parameters.sources is not None:
             raise ValueError(f"{parameters.mode} takes no sources: it covers the whole database")
-        return [*main, "purge-junk" if parameters.mode == "purge" else "collect-entities"]
+        return [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
     if name == "monitor" and parameters.mode == "resolve":
         if parameters.source is not None:
             raise ValueError("resolution takes sources, not source")

@@ -35,7 +35,7 @@ router = APIRouter()
 
 _OPERATION = "monitor"
 # Runs over the whole database: no source selection, a card of their own.
-_WHOLE_DATABASE = ("purge", "entities")
+_WHOLE_DATABASE = ("purge", "entities", "rosfin")
 _RUN_STATUS_LABELS = {
     OperationRunStatus.PENDING: "В очереди",
     OperationRunStatus.RUNNING: "Выполняется",
@@ -152,13 +152,14 @@ _MODE_TITLES = {
     "resolve": "Разрешение персон",
     "purge": "Очистка от мусора",
     "entities": "Сборка сущностей",
+    "rosfin": "Сверка с Росфинмониторингом",
     None: "Загрузка и разрешение",
 }
 
 
 def _has_derived_step(run: OperationRun) -> bool:
     """A load leaves classification to the resolution run; the other runs end with it."""
-    return run.parameters.mode not in ("load", "purge", "entities")
+    return run.parameters.mode not in ("load", *_WHOLE_DATABASE)
 
 
 def _resolution_progress(item: MonitoringRunView) -> tuple[int, int] | None:
@@ -516,11 +517,75 @@ def _entities_card(run: OperationRun) -> str:
 </section>"""
 
 
+_ROSFIN_STAGE = re.compile(r"event=entities_rf_check_stage stage=([^\n]+)")
+_ROSFIN_STAGES = {
+    "downloading": "Скачиваю перечень с fedsfm.ru…",
+    "importing": "Перечень изменился — сохраняю новый снимок…",
+    "matching": "Сверяю сущности с перечнем…",
+    "writing": "Сохраняю…",
+}
+
+
+def _rosfin_card(run: OperationRun) -> str:
+    """A check against the list: its stage while it runs; the snapshot and counts after."""
+    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+    stages = _ROSFIN_STAGE.findall(run.stderr)
+    stage = stages[-1].strip() if stages else ""
+    try:
+        totals = json.loads(run.stdout) if run.stdout else {}
+    except json.JSONDecodeError:
+        totals = {}
+    if not isinstance(totals, dict):
+        totals = {}
+    lines: list[str] = []
+    if totals.get("snapshot_id"):
+        snapshot_date = str(totals.get("snapshot_date") or "")[:10]
+        lines.append(
+            f"<p>Перечень: снимок #{totals['snapshot_id']} от {escape(snapshot_date)}, "
+            f"записей {totals.get('entries', 0)}"
+            f"{' — <b>новый</b>' if totals.get('new_snapshot') else ' — не изменился'}.</p>"
+        )
+        lines.append(
+            "<p>"
+            + _badge(f"В перечне (ФИО с отчеством): {totals.get('rf_full', 0)}", "failed")
+            + " "
+            + _badge(f"Возможно в перечне: {totals.get('rf_possible', 0)}", "pending")
+            + " "
+            + _badge(f"Сущностей сверено: {totals.get('entities', 0)}")
+            + ' <a href="/ui/entities">Сущности</a></p>'
+        )
+    if totals.get("download_error"):
+        lines.append(
+            '<p class="warning">Свежий перечень скачать не удалось, сверено по последнему '
+            f"снимку: {escape(str(totals['download_error']))}</p>"
+        )
+    progress = (
+        f'<div class="progress-box"><p><strong>'
+        f"{escape(_ROSFIN_STAGES.get(stage, 'Готовлюсь…'))}</strong></p></div>"
+        if in_progress
+        else ""
+    )
+    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
+    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
+    refresh = (
+        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
+    )
+    return f"""<section class="band run-card">
+  <h2>Запуск #{run.id} · {_MODE_TITLES["rosfin"]} {overall}</h2>
+  <p class="muted">Начат {started} · <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
+  {progress}
+  {"".join(lines)}
+  {refresh}
+</section>"""
+
+
 def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
     if run.parameters.mode == "purge":
         return _purge_card(run)
     if run.parameters.mode == "entities":
         return _entities_card(run)
+    if run.parameters.mode == "rosfin":
+        return _rosfin_card(run)
     """A card per run: status, counts per outcome and, folded, the sources that ran.
 
     Sources the run never reached are only counted: listed one by one they buried the
@@ -762,6 +827,15 @@ def start_management_purge(
     return _start_whole_database(db, registry, "purge")
 
 
+@router.post("/ui/management/rosfin", response_model=None)
+def start_management_rosfin(
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse | RedirectResponse:
+    """Step 4: check the entities against a fresh Rosfinmonitoring list."""
+    return _start_whole_database(db, registry, "rosfin")
+
+
 @router.post("/ui/management/entities", response_model=None)
 def start_management_entities(
     db: Session = Depends(get_db),  # noqa: B008
@@ -785,7 +859,7 @@ def _refused(
 
 
 def _start_whole_database(
-    db: Session, registry: OperationRegistry, mode: Literal["purge", "entities"]
+    db: Session, registry: OperationRegistry, mode: Literal["purge", "entities", "rosfin"]
 ) -> HTMLResponse | RedirectResponse:
     everything = {item.name for item in news_sources()}
     refusal = out_of_turn(current_state(registry), mode)
