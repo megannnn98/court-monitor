@@ -127,17 +127,13 @@ def test_the_regions_of_the_registry_cards_count_publications() -> None:
     def card(article: int, region: str | None) -> PersonMention:
         return PersonMention(next(_ids), article, "Анна", "Смирнова", "Олеговна", region)
 
+    # Twice in one card, once in another, once in the news (no region: it joins them).
     [entity] = group_mentions(
-        [
-            card(1, "Москва"),
-            card(1, "Москва"),
-            card(2, "Москва"),
-            card(3, "Тверская область"),
-            card(4, None),
-        ]
+        [card(1, "Москва"), card(1, "Москва"), card(2, "Москва"), card(3, None)]
     )
 
-    assert entity.regions == {"Москва": 2, "Тверская область": 1}
+    assert entity.regions == {"Москва": 2}
+    assert len(entity.mention_ids) == 4
 
 
 def test_a_bare_surname_joins_the_full_name_of_its_article_only() -> None:
@@ -312,3 +308,62 @@ def test_a_rule_name_written_surname_first_joins_the_same_person() -> None:
     named = apply_names(entities, {right_key: GivenName("Арсений Турбин", "male", True)})
 
     assert [(entity.name, len(entity.mention_ids)) for entity in named] == [("Арсений Турбин", 2)]
+
+
+def _card(
+    first: str, patronymic: str, last: str, article: int, region: str | None
+) -> PersonMention:
+    return PersonMention(next(_ids), article, first, last, patronymic, region)
+
+
+def test_cards_of_one_full_name_in_two_regions_are_two_people() -> None:
+    """Two «Денис Владимирович Попов» of the registry: Курская and Краснодарский край."""
+    entities = group_mentions(
+        [
+            _card("Денис", "Владимирович", "Попов", 1, "Курская область"),
+            _card("Денис", "Владимирович", "Попов", 2, "Краснодарский край"),
+            _card("Денис", "Владимирович", "Попов", 3, "Курская область"),
+            # The news name him without a region: either card, so neither.
+            _card("Денис", "Владимирович", "Попов", 4, None),
+        ]
+    )
+
+    assert {entity.key: len(entity.mention_ids) for entity in entities} == {
+        "денис владимирович попов · курская область": 2,
+        "денис владимирович попов · краснодарский край": 1,
+        "денис владимирович попов": 1,
+    }
+    assert {entity.key: entity.region_tag for entity in entities}[
+        "денис владимирович попов · курская область"
+    ] == "Курская область"
+
+
+def test_a_full_name_without_a_region_joins_the_cards_of_one_region() -> None:
+    [entity] = group_mentions(
+        [
+            _card("Игорь", "Александрович", "Ранав", 1, "Чукотский автономный округ"),
+            _card("Игорь", "Александрович", "Ранав", 2, None),
+        ]
+    )
+
+    assert entity.key == "игорь александрович ранав · чукотский автономный округ"
+    assert len(entity.mention_ids) == 2
+
+
+def test_a_model_name_keeps_the_region_that_parts_namesakes() -> None:
+    from entities.grouping import GivenName, apply_names
+
+    entities = group_mentions(
+        [
+            _card("Денис", "Владимировича", "Попова", 1, "Курская область"),
+            _card("Денис", "Владимировича", "Попова", 2, "Краснодарский край"),
+        ]
+    )
+    names = {entity.key: GivenName("Денис Владимирович Попов", "male", True) for entity in entities}
+
+    named = apply_names(entities, names)
+
+    assert sorted(entity.key for entity in named) == [
+        "денис владимирович попов · краснодарский край",
+        "денис владимирович попов · курская область",
+    ]

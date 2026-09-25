@@ -227,6 +227,8 @@ def run_monitoring_command(
                 "entities": checked.entities,
                 "rf_full": checked.full,
                 "rf_possible": checked.possible,
+                "rf_merged": checked.merged,
+                "region_merged": checked.merged_region,
             }
         )
         return checked.snapshot_id is not None

@@ -28,6 +28,7 @@ from db.orm_models import (
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
 )
+from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
@@ -68,6 +69,10 @@ class RfCheckResult:
     entities: int
     full: int
     possible: int
+    # Pairs of «Спорные случаи» taken for one person: one side is on the list, or a
+    # name without a patronymic had one full name to be.
+    merged: int = 0
+    merged_region: int = 0
 
 
 def _fold(text: str) -> list[str]:
@@ -151,6 +156,8 @@ class EntityRfCheck:
                 session.execute(
                     insert(EntityGroupRfMatchRecord), rows[start : start + INSERT_CHUNK]
                 )
+            self._on_stage("merging")
+            merged = merge_clear_pairs(session, listed_level=FULL)
         full = sum(level == FULL for level in levels.values())
         result = RfCheckResult(
             snapshot_id=latest.snapshot_id,
@@ -161,15 +168,19 @@ class EntityRfCheck:
             entities=len(groups),
             full=full,
             possible=len(levels) - full,
+            merged=merged[BY_RF],
+            merged_region=merged[BY_REGION],
         )
         logger.info(
             "event=entities_rf_checked snapshot_id=%s new_snapshot=%s entities=%d full=%d "
-            "possible=%d download_error=%s",
+            "possible=%d merged=%d merged_region=%d download_error=%s",
             result.snapshot_id,
             result.new_snapshot,
             result.entities,
             result.full,
             result.possible,
+            result.merged,
+            result.merged_region,
             result.download_error,
         )
         return result

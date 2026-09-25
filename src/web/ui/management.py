@@ -524,6 +524,7 @@ _ROSFIN_STAGES = {
     "importing": "Перечень изменился — сохраняю новый снимок…",
     "matching": "Сверяю сущности с перечнем…",
     "writing": "Сохраняю…",
+    "merging": "Сливаю спорные пары, где человек в перечне…",
 }
 
 
@@ -553,6 +554,10 @@ def _rosfin_card(run: OperationRun) -> str:
             + _badge(f"Возможно в перечне: {totals.get('rf_possible', 0)}", "pending")
             + " "
             + _badge(f"Сущностей сверено: {totals.get('entities', 0)}")
+            + " "
+            + _badge(f"Спорных пар слито по перечню: {totals.get('rf_merged', 0)}")
+            + " "
+            + _badge(f"Слито «одно ФИО — один человек»: {totals.get('region_merged', 0)}")
             + ' <a href="/ui/entities">Сущности</a></p>'
         )
     if totals.get("download_error"):

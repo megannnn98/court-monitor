@@ -86,6 +86,9 @@ def test_a_decided_merge_is_repeated_on_the_rebuilt_entities() -> None:
     assert len(merge_decided([other], [("иван иванов", "никто")])) == 1
 
 
+RANAV = "игорь александрович ранав · чукотский автономный округ"
+
+
 def _person(
     session: Session,
     seed: ResearchSeeder,
@@ -139,7 +142,7 @@ def test_one_person_merges_at_once_keeps_the_stronger_role_and_again_after_a_reb
         ids = {entity.key: entity.id for entity in session.scalars(select(EntityGroupRecord))}
         session.add(
             EntityGroupRoleRecord(
-                group_id=ids["игорь александрович ранав"],
+                group_id=ids[RANAV],
                 role="mentioned",
                 method="model",
                 reason="—",
@@ -159,12 +162,12 @@ def test_one_person_merges_at_once_keeps_the_stronger_role_and_again_after_a_reb
     assert set(_entities(session_factory)) == {"Игорь Ранав", "Игорь Александрович Ранав"}
 
     with session_factory.begin() as session:
-        kept = decide(session, "игорь ранав", "игорь александрович ранав", SAME)
+        kept = decide(session, "игорь ранав", RANAV, SAME)
 
     merged = _entities(session_factory)
     assert merged == {"Игорь Александрович Ранав": (3, 3, [["Чукотский автономный округ", 1]])}
     with session_factory() as session:
-        assert kept == ids["игорь александрович ранав"]
+        assert kept == ids[RANAV]
         assert session.scalar(select(EntityGroupRoleRecord.role)) == "figurant"
         assert set(session.scalars(select(EntityGroupMentionRecord.group_id))) == {kept}
 
@@ -177,7 +180,46 @@ def test_different_people_stay_apart(session_factory: sessionmaker[Session]) -> 
     _seed(session_factory)
 
     with session_factory.begin() as session:
-        kept = decide(session, "игорь ранав", "игорь александрович ранав", DIFFERENT)
+        kept = decide(session, "игорь ранав", RANAV, DIFFERENT)
 
     assert kept is None
     assert set(_entities(session_factory)) == {"Игорь Ранав", "Игорь Александрович Ранав"}
+
+
+def test_a_full_name_beside_its_cards_of_several_regions_is_a_pair_each() -> None:
+    entities = [
+        ref(1, "денис владимирович попов", "Денис Владимирович Попов", 6),
+        ref(2, "денис владимирович попов · курская область", "Денис Владимирович Попов", 2),
+        ref(3, "денис владимирович попов · краснодарский край", "Денис Владимирович Попов", 1),
+        # Two regions of one form of a name: two people, no «similar» pair.
+        ref(4, "данил петрович сидоров · тверская область", "Данил Петрович Сидоров"),
+        ref(5, "данила петрович сидоров · курская область", "Данила Петрович Сидоров"),
+    ]
+
+    pairs = find_pairs(entities)
+
+    assert sorted((pair.kind, pair.left.id, pair.right.id) for pair in pairs) == [
+        ("region", 1, 2),
+        ("region", 1, 3),
+    ]
+
+
+def test_a_decision_made_before_the_region_entered_the_key_still_holds() -> None:
+    from entities.disputes import resolve_keys
+
+    decided = [("мария бонцлер", "мария владимировна бонцлер")]
+    one_card = ["мария бонцлер", "мария владимировна бонцлер · москва"]
+    two_cards = [*one_card, "мария владимировна бонцлер · тверская область"]
+
+    assert resolve_keys(decided, one_card) == [
+        ("мария бонцлер", "мария владимировна бонцлер · москва")
+    ]
+    # Which card it meant is unknown: the decision is left out.
+    assert resolve_keys(decided, two_cards) == []
+    full = Entity("мария владимировна бонцлер · москва", "Мария Владимировна Бонцлер", [1])
+    bare = Entity("мария бонцлер", "Мария Бонцлер", [2, 3])
+    assert [entity.key for entity in merge_decided([full, bare], decided)] == [
+        "мария владимировна бонцлер · москва"
+    ]
+    refs = [ref(1, key, key) for key in one_card]
+    assert find_pairs(refs, decided) == []

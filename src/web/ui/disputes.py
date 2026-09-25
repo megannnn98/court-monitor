@@ -13,10 +13,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord
+from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
 from entities.disputes import (
     DIFFERENT,
     PATRONYMIC,
+    REGION,
     SAME,
     SIMILAR,
     EntityRef,
@@ -25,6 +26,8 @@ from entities.disputes import (
     decided_pairs,
     find_pairs,
 )
+from entities.grouping import split_key
+from entities.rf_check import FULL
 from web.dependencies import get_db
 from web.ui.entities import (
     _article_links,
@@ -45,10 +48,12 @@ _KINDS = {
     "all": "Все",
     PATRONYMIC: "С отчеством и без",
     SIMILAR: "Похожее имя",
+    REGION: "Регион у одной",
 }
 _KIND_HINTS = {
     PATRONYMIC: "одно имя и фамилия, у одной сущности есть отчество, у другой нет",
     SIMILAR: "одна фамилия, имена отличаются окончанием («Лида» и «Лидия»)",
+    REGION: "одно ФИО с отчеством; у одной сущности регион из карточки реестра, у другой нет",
 }
 
 
@@ -74,7 +79,7 @@ def _side(
 
 @router.get("/ui/disputes", response_class=HTMLResponse)
 def ui_disputes(
-    kind: str = Query(default="all", pattern="^(all|patronymic|similar)$"),
+    kind: str = Query(default="all", pattern="^(all|patronymic|similar|region)$"),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
@@ -90,7 +95,8 @@ def ui_disputes(
         ).all()
     ]
     pairs = find_pairs(refs, decided_pairs(db))
-    counts = {key: sum(pair.kind == key for pair in pairs) for key in (PATRONYMIC, SIMILAR)}
+    counts = {key: sum(pair.kind == key for pair in pairs) for key in (PATRONYMIC, SIMILAR, REGION)}
+    notes = _why_not_merged(db, pairs)
     shown = [pair for pair in pairs if kind == "all" or pair.kind == kind]
     on_page = shown[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
     ids = [ref.id for pair in on_page for ref in (pair.left, pair.right)]
@@ -100,7 +106,8 @@ def ui_disputes(
     }
     roles, listed, charges = _roles(db, ids), _rf_levels(db, ids), _articles_by_group(db, ids)
     sections = "".join(
-        _pair_section(pair, records, roles, listed, charges, kind, page) for pair in on_page
+        _pair_section(pair, records, roles, listed, charges, kind, page, notes.get(pair.keys, ""))
+        for pair in on_page
     )
     chips = " ".join(
         f'<a class="chip{" active" if key == kind else ""}" '
@@ -132,6 +139,51 @@ def ui_disputes(
     )
 
 
+def _candidate(ref: EntityRef, regions: dict[int, list[Any]]) -> str:
+    """A name with its card's region: three «Денис Владимирович Попов» differ by it."""
+    region = str(regions[ref.id][0][0]) if split_key(ref.key)[1] and regions.get(ref.id) else ""
+    return f"«{display_name(ref.name)}»" + (f" ({region})" if region else "")
+
+
+def _why_not_merged(db: Session, pairs: list[Pair]) -> dict[tuple[str, str], str]:
+    """Why a pair was left to a person: a side could be any of several people (the check
+    merges a pair only when it is the one)."""
+    listed = set(
+        db.scalars(
+            select(EntityGroupRfMatchRecord.group_id).where(EntityGroupRfMatchRecord.level == FULL)
+        )
+    )
+    partners: dict[int, list[EntityRef]] = {}
+    for pair in pairs:
+        partners.setdefault(pair.left.id, []).append(pair.right)
+        partners.setdefault(pair.right.id, []).append(pair.left)
+    ambiguous = [ref.id for refs in partners.values() if len(refs) > 1 for ref in refs]
+    regions = {
+        group_id: list(found)
+        for group_id, found in db.execute(
+            select(EntityGroupRecord.id, EntityGroupRecord.regions).where(
+                EntityGroupRecord.id.in_(ambiguous)
+            )
+        ).all()
+    }
+    notes: dict[tuple[str, str], str] = {}
+    for pair in pairs:
+        side = next((ref for ref in (pair.left, pair.right) if len(partners[ref.id]) > 1), None)
+        if side is None:
+            continue
+        on_list = (
+            ", хотя одна сторона в перечне"
+            if pair.left.id in listed or pair.right.id in listed
+            else ""
+        )
+        names = ", ".join(_candidate(ref, regions) for ref in partners[side.id])
+        notes[pair.keys] = (
+            f"Не слито автоматически{on_list}: «{display_name(side.name)}» подходит сразу "
+            f"к нескольким людям — {names}. Решите, кто это."
+        )
+    return notes
+
+
 def _pair_section(
     pair: Pair,
     records: dict[int, EntityGroupRecord],
@@ -140,6 +192,7 @@ def _pair_section(
     charges: dict[int, list[tuple[str, bool]]],
     kind: str,
     page: int,
+    note: str,
 ) -> str:
     left, right = records.get(pair.left.id), records.get(pair.right.id)
     if left is None or right is None:
@@ -147,6 +200,7 @@ def _pair_section(
     key_a, key_b = pair.keys
     return f"""<section class="band pair" id="pair-{left.id}-{right.id}">
   <p class="muted">{escape(_KIND_HINTS[pair.kind])}</p>
+  {f'<p class="warning">{escape(note)}</p>' if note else ""}
   <div class="pair-sides">{_side(left, roles, listed, charges)}{_side(right, roles, listed, charges)}</div>
   <form method="post" action="/ui/disputes/decide" class="run-bar">
     <input type="hidden" name="key_a" value="{escape(key_a, quote=True)}">

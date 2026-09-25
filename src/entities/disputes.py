@@ -7,10 +7,15 @@ and «Игорь Ранав»). A form of a given name the model left as written
 
 - patronymic: one given name and surname, one entity with a patronymic, one without;
 - similar: one surname, given names one letter or two apart at the end («Лида» and
-  «Лидия», «Данил» and «Данила»), not of two genders.
+  «Лидия», «Данил» and «Данила»), not of two genders;
+- region: one full name, a registry card's region on one side only (the news named a
+  name that cards of several regions carry).
 
 «same» merges the two at once (`merge_groups`) and at every rebuild (`merge_decided`);
-«different» takes the pair off the list. Decisions are kept by entity key.
+«different» takes the pair off the list. Decisions are kept by entity key. A pair with
+one side on the Rosfinmonitoring list, or a name without a patronymic beside the one
+full name it can be, is never asked about: the check merges it (`merge_clear_pairs`),
+unless one side could be either of two people.
 """
 
 from __future__ import annotations
@@ -31,13 +36,19 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityPairDecisionRecord,
 )
-from entities.grouping import Entity
+from entities.grouping import Entity, split_key
 from extraction.name_frequency import lookup_gender
 
 SAME = "same"
 DIFFERENT = "different"
+MANUAL = "manual"
+# Taken for one person because one side is on the Rosfinmonitoring list.
+BY_RF = "rf"
+# Taken for one person: a name without a patronymic and the one full name it can be.
+BY_REGION = "region"
 PATRONYMIC = "patronymic"
 SIMILAR = "similar"
+REGION = "region"
 # The stronger of two roles survives a merge.
 _ROLE_RANK = {"figurant": 3, "possible": 2, "mentioned": 1, "unclear": 0}
 
@@ -83,34 +94,72 @@ def _gender(name: str) -> str | None:
     return lookup_gender(words[0]) if words else None
 
 
+def resolve_keys(pairs: Iterable[tuple[str, str]], keys: Iterable[str]) -> list[tuple[str, str]]:
+    """Decided pairs in today's keys. A decision made before a card's region entered the
+    key names the entity by its name alone: it holds for the one entity of that name
+    (with any region); with several, it is left out."""
+    known = set(keys)
+    by_name: dict[str, list[str]] = defaultdict(list)
+    for key in known:
+        by_name[split_key(key)[0]].append(key)
+
+    def today(key: str) -> str | None:
+        if key in known:
+            return key
+        found = by_name.get(key, [])
+        return found[0] if len(found) == 1 else None
+
+    resolved: list[tuple[str, str]] = []
+    for first, second in pairs:
+        left, right = today(first), today(second)
+        if left is not None and right is not None and left != right:
+            resolved.append(pair_keys(left, right))
+    return resolved
+
+
+def _words(key: str) -> list[str]:
+    return split_key(key)[0].split()
+
+
 def find_pairs(
     entities: Iterable[EntityRef], decided: Iterable[tuple[str, str]] = ()
 ) -> list[Pair]:
     """The pairs to decide, most mentioned first; a decided pair is left out."""
-    done = set(decided)
+    entities = list(entities)
+    done = set(resolve_keys(decided, [entity.key for entity in entities]))
     by_name: dict[tuple[str, str], list[EntityRef]] = defaultdict(list)
     by_surname: dict[str, list[EntityRef]] = defaultdict(list)
     for entity in entities:
-        words = entity.key.split()
+        words = _words(entity.key)
         if len(words) < 2:
             continue
         by_name[words[0], words[-1]].append(entity)
         by_surname[words[-1]].append(entity)
     pairs: list[Pair] = []
     for group in by_name.values():
-        bare = [entity for entity in group if len(entity.key.split()) == 2]
-        full = [entity for entity in group if len(entity.key.split()) > 2]
+        bare = [entity for entity in group if len(_words(entity.key)) == 2]
+        full = [entity for entity in group if len(_words(entity.key)) > 2]
         pairs += [Pair(PATRONYMIC, left, right) for left in bare for right in full]
+        # One full name, a card's region on one side only: the news may name either card.
+        pairs += [
+            Pair(REGION, left, right)
+            for left in full
+            for right in full
+            if split_key(left.key)[0] == split_key(right.key)[0]
+            and split_key(left.key)[1] is None
+            and split_key(right.key)[1] is not None
+        ]
     for group in by_surname.values():
         for index, left in enumerate(group):
             for right in group[index + 1 :]:
-                left_words, right_words = left.key.split(), right.key.split()
+                left_words, right_words = _words(left.key), _words(right.key)
                 if not _similar_given(left_words[0], right_words[0]):
                     continue
                 genders = {_gender(left.name), _gender(right.name)} - {None}
                 middle = {tuple(left_words[1:-1]), tuple(right_words[1:-1])} - {()}
-                # Two genders, or two patronymics: two people.
-                if len(genders) > 1 or len(middle) > 1:
+                regions = {split_key(left.key)[1], split_key(right.key)[1]} - {None}
+                # Two genders, two patronymics or two regions: two people.
+                if len(genders) > 1 or len(middle) > 1 or len(regions) > 1:
                     continue
                 pairs.append(Pair(SIMILAR, left, right))
     pairs = [pair for pair in pairs if pair.keys not in done]
@@ -142,9 +191,7 @@ def merge_decided(entities: Sequence[Entity], same: Iterable[tuple[str, str]]) -
             key = parent[key]
         return key
 
-    for first, second in same:
-        if first not in by_key or second not in by_key:
-            continue
+    for first, second in resolve_keys(same, by_key):
         first, second = find(first), find(second)
         if first == second:
             continue
@@ -165,6 +212,7 @@ def merge_decided(entities: Sequence[Entity], same: Iterable[tuple[str, str]]) -
             name_source=entity.name_source,
             patronymic=entity.patronymic,
             regions=Counter(entity.regions),
+            region_tag=entity.region_tag,
         )
         for key, entity in by_key.items()
         if find(key) == key
@@ -273,7 +321,9 @@ def merge_groups(session: Session, first: EntityGroupRecord, second: EntityGroup
     return keep.id
 
 
-def decide(session: Session, first_key: str, second_key: str, decision: str) -> int | None:
+def decide(
+    session: Session, first_key: str, second_key: str, decision: str, *, source: str = MANUAL
+) -> int | None:
     """Record a decision in the caller's transaction; merge at once when «same». The id
     of the merged entity, or None."""
     if decision not in (SAME, DIFFERENT):
@@ -281,9 +331,11 @@ def decide(session: Session, first_key: str, second_key: str, decision: str) -> 
     key_a, key_b = pair_keys(first_key, second_key)
     record = session.get(EntityPairDecisionRecord, (key_a, key_b))
     if record is None:
-        session.add(EntityPairDecisionRecord(key_a=key_a, key_b=key_b, decision=decision))
+        session.add(
+            EntityPairDecisionRecord(key_a=key_a, key_b=key_b, decision=decision, source=source)
+        )
     else:
-        record.decision = decision
+        record.decision, record.source = decision, source
     session.flush()
     if decision != SAME:
         return None
@@ -293,3 +345,47 @@ def decide(session: Session, first_key: str, second_key: str, decision: str) -> 
     if len(groups) != 2:
         return None
     return merge_groups(session, groups[0], groups[1])
+
+
+def merge_clear_pairs(session: Session, *, listed_level: str) -> Counter[str]:
+    """Merge, in the caller's transaction, every undecided pair that leaves no choice;
+    how many were merged, by source.
+
+    A pair leaves no choice when each side is in no other pair and either a side is on
+    the list (a match of `listed_level`: whoever it is, it is on the list) or it is a
+    name without a patronymic beside the one full name it can be (with the one region of
+    that name's cards). Someone who could be either of two people («Денис Попов» beside
+    four Денис Попов) stays for a person to decide."""
+    refs = [
+        EntityRef(id=row.id, key=row.key, name=row.name, mention_count=row.mention_count)
+        for row in session.execute(
+            select(
+                EntityGroupRecord.id,
+                EntityGroupRecord.key,
+                EntityGroupRecord.name,
+                EntityGroupRecord.mention_count,
+            )
+        ).all()
+    ]
+    listed = set(
+        session.scalars(
+            select(EntityGroupRfMatchRecord.group_id).where(
+                EntityGroupRfMatchRecord.level == listed_level
+            )
+        )
+    )
+    pairs = find_pairs(refs, decided_pairs(session))
+    seen = Counter(ref.id for pair in pairs for ref in (pair.left, pair.right))
+    merged: Counter[str] = Counter()
+    for pair in pairs:
+        if seen[pair.left.id] > 1 or seen[pair.right.id] > 1:
+            continue
+        if pair.left.id in listed or pair.right.id in listed:
+            source = BY_RF
+        elif pair.kind == PATRONYMIC:
+            source = BY_REGION
+        else:
+            continue
+        decide(session, pair.left.key, pair.right.key, SAME, source=source)
+        merged[source] += 1
+    return merged

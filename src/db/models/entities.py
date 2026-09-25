@@ -154,6 +154,9 @@ class EntityPairDecisionRecord(Base):
     key_a: Mapped[str] = mapped_column(String(255), primary_key=True)
     key_b: Mapped[str] = mapped_column(String(255), primary_key=True)
     decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    # manual: a person decided on «Спорные случаи»; rf: one side is on the
+    # Rosfinmonitoring list, so the pair is taken for one person without asking.
+    source: Mapped[str] = mapped_column(String(16), nullable=False, server_default="manual")
     decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

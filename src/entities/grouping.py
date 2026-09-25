@@ -12,6 +12,11 @@ again; elsewhere it is its own entity. The price: one person written both ways i
 different articles is two entities. A mention of a surname alone, or with initials,
 joins an entity only through a full name of that surname in the same article.
 Namesakes without a patronymic still become one entity: a known simplification.
+
+A registry card's region parts namesakes further: two cards of one «Денис Владимирович
+Попов», of Курская and Краснодарский край, are two people. Their keys carry the region
+after `REGION_SEP`. A full name without a region (the news) joins a card's entity only
+when that name has cards of one region.
 """
 
 from __future__ import annotations
@@ -28,6 +33,8 @@ CASE_ENDINGS = ("а", "я", "у", "ю", "е", "ом", "ем", "ым", "им", "�
 _VOWELS = frozenset("аеёиоуыэюя")
 # A shorter stem is no surname: «Ли» must not become the base of «Лиа» and «Лию».
 MIN_STEM = 3
+# Between a key's name and the region of the registry card that parts namesakes.
+REGION_SEP = " · "
 
 
 @dataclass(frozen=True)
@@ -55,6 +62,8 @@ class Entity:
     patronymic: str | None = None
     # Region → publications naming it (registry cards only).
     regions: Counter[str] = field(default_factory=Counter)
+    # The card's region in the key, when it parts this entity from namesakes.
+    region_tag: str | None = None
 
 
 @dataclass(frozen=True)
@@ -112,6 +121,12 @@ def surname_roots(surnames: Iterable[str]) -> dict[str, str]:
     return {surname: find(surname) for surname in set(surnames)}
 
 
+def split_key(key: str) -> tuple[str, str | None]:
+    """(the name part, the region part or None) of an entity key."""
+    name, sep, region = key.partition(REGION_SEP)
+    return name, region if sep else None
+
+
 def _patronymic_key(patronymic: str) -> str:
     """«Викторович», «Викторовича», «Викторовичем» → «викторович»: its shortest base."""
     return min(_bases(_fold(patronymic)), key=lambda base: (len(base), base))
@@ -149,9 +164,15 @@ def group_mentions(mentions: Sequence[PersonMention]) -> list[Entity]:
     # Per article, given name and surname, the patronymic entities it names.
     with_patronymic: dict[tuple[int, str, str], set[str]] = defaultdict(set)
     region_seen: set[tuple[str, int]] = set()
+    # Per full name with a patronymic, the keys of its cards' regions.
+    regional: dict[str, set[str]] = defaultdict(set)
 
-    def add(key: str, mention: PersonMention, patronymic: str | None) -> Entity:
-        entity = entities.setdefault(key, Entity(key=key, name="", patronymic=patronymic))
+    def add(
+        key: str, mention: PersonMention, patronymic: str | None, region: str | None = None
+    ) -> Entity:
+        entity = entities.setdefault(
+            key, Entity(key=key, name="", patronymic=patronymic, region_tag=region)
+        )
         entity.mention_ids.append(mention.mention_id)
         entity.variants[_display(mention)] += 1
         if mention.region and (key, mention.article_id) not in region_seen:
@@ -159,23 +180,38 @@ def group_mentions(mentions: Sequence[PersonMention]) -> list[Entity]:
             entity.regions[mention.region] += 1
         return entity
 
-    # Mentions with a patronymic first: a name without one then knows whom its article
-    # names in full.
-    for mention in sorted(full, key=lambda item: not (item.patronymic or "").strip()):
+    def order(item: PersonMention) -> tuple[bool, bool]:
+        """Cards with a patronymic and a region first, then other names with a patronymic:
+        a name that lacks either then knows the entities it may join."""
+        return not (item.patronymic or "").strip(), not item.region
+
+    for mention in sorted(full, key=order):
         first = _fold(mention.first_name or "")
         surname = _fold(mention.last_name or "")
         root = roots[first][surname]
         written = (mention.patronymic or "").strip()
+        region: str | None = None
         if written:
             patronymic: str | None = _patronymic_key(written)
             key = f"{first} {patronymic} {root}"
+            if mention.region:
+                region = mention.region.strip()
+                key = f"{key}{REGION_SEP}{_fold(region)}"
+                regional[f"{first} {patronymic} {root}"].add(key)
+            else:
+                cards = regional.get(key, set())
+                if len(cards) == 1:
+                    key = next(iter(cards))
+            region = entities[key].region_tag if key in entities else region
             with_patronymic[(mention.article_id, first, root)].add(key)
             patronymic_forms[key][written] += 1
         else:
             patronymic = None
             named = with_patronymic.get((mention.article_id, first, root), set())
             key = next(iter(named)) if len(named) == 1 else f"{first} {root}"
-        add(key, mention, patronymic)
+            if key in entities:
+                patronymic, region = entities[key].patronymic, entities[key].region_tag
+        add(key, mention, patronymic, region)
         surname_forms[key][(mention.last_name or "").strip()] += 1
         first_forms[key][(mention.first_name or "").strip()] += 1
         for form in _bases(surname) | {root}:
@@ -196,7 +232,7 @@ def group_mentions(mentions: Sequence[PersonMention]) -> list[Entity]:
         # Two people of that surname in the article (father and son): nobody's mention.
         if len(candidates) == 1:
             key = next(iter(candidates))
-            add(key, mention, entities[key].patronymic)
+            add(key, mention, entities[key].patronymic, entities[key].region_tag)
             # A bare surname is often the nominative the full names lacked («Моор»).
             surname_forms[key][mention.last_name.strip()] += 1
 
@@ -219,7 +255,7 @@ def _nominative_surname(first: str, key: str, forms: Counter[str]) -> str:
     Иванова» is already nominative), and so does a surname written one way only
     («Бабуа»)."""
     surname = min(forms.items(), key=lambda item: (len(item[0]), -item[1], item[0]))[0]
-    root = key.rsplit(" ", 1)[1]
+    root = split_key(key)[0].rsplit(" ", 1)[1]
     declined = len({_fold(form) for form in forms}) > 1 and _fold(surname) != root
     if (
         declined
@@ -281,10 +317,12 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
         given = names.get(entity.key)
         if given is not None and not given.is_person:
             continue
+        # A card's region parts namesakes of one name: the new key keeps it.
+        region = f"{REGION_SEP}{_fold(entity.region_tag)}" if entity.region_tag else ""
         if given is None or not given.nominative.strip():
             # The rules keep the order the text used; «Турбин Арсений» joins «Арсений Турбин».
             name = given_name_first(entity.name)
-            key = entity.key if name == entity.name else name_key(name)
+            key = entity.key if name == entity.name else name_key(name) + region
             gender, source = entity.gender, entity.name_source
         else:
             name = given_name_first(given.nominative)
@@ -296,7 +334,7 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
                 words = name.split()
                 middle = entity.name.split()[1:-1]
                 name = " ".join([words[0], *middle, *words[1:]])
-            key = name_key(name)
+            key = name_key(name) + region
             gender = None if given.gender == "unknown" else given.gender
             source = "model"
         target = merged.get(key)
@@ -310,6 +348,7 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
                 name_source=source,
                 patronymic=entity.patronymic,
                 regions=Counter(entity.regions),
+                region_tag=entity.region_tag,
             )
             continue
         target.mention_ids += entity.mention_ids

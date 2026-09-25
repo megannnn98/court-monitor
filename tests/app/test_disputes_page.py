@@ -5,12 +5,19 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import EntityGroupRecord, EntityPairDecisionRecord
+from db.orm_models import (
+    EntityGroupRecord,
+    EntityGroupRfMatchRecord,
+    EntityPairDecisionRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+)
 from web.app import app
 from web.dependencies import get_db
 
@@ -28,6 +35,13 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_db, None)
 
 
+def _regions(key: str) -> list[list[object]]:
+    """A card's region as the card writes it: from the key, or Ранав's."""
+    if " · " in key:
+        return [[key.split(" · ")[1].capitalize(), 1]]
+    return [["Чукотский автономный округ", 1]] if key == "игорь александрович ранав" else []
+
+
 def _entities(session_factory: sessionmaker[Session], *entities: tuple[str, str, int]) -> None:
     with session_factory.begin() as session:
         for key, name, mentions in entities:
@@ -39,7 +53,7 @@ def _entities(session_factory: sessionmaker[Session], *entities: tuple[str, str,
                     mention_count=mentions,
                     article_count=mentions,
                     event_types={},
-                    regions=[["Чукотский автономный округ", 1]] if "александрович" in key else [],
+                    regions=_regions(key),
                 )
             )
 
@@ -114,3 +128,52 @@ def test_one_person_merges_and_different_people_leave_the_list(
         ("игорь александрович ранав", "игорь ранав"): "same",
         ("лида мониава", "лидия мониава"): "different",
     }
+
+
+def test_a_pair_with_a_listed_side_left_to_a_person_says_why(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _entities(
+        session_factory,
+        ("денис попов", "Денис Попов", 63),
+        ("денис владимирович попов · курская область", "Денис Владимирович Попов", 6),
+        ("денис александрович попов", "Денис Александрович Попов", 2),
+        # Listed too, but the only one of its name: no «several people» to explain (the
+        # next check merges it).
+        ("игорь ранав", "Игорь Ранав", 13),
+        ("игорь александрович ранав", "Игорь Александрович Ранав", 2),
+    )
+    with session_factory.begin() as session:
+        snapshot = RosfinmonitoringSnapshotRecord(
+            snapshot_date=datetime(2026, 9, 25, tzinfo=UTC),
+            source_url="https://example.test",
+            content_hash="x",
+            entry_count=1,
+            fetched_at=datetime(2026, 9, 25, tzinfo=UTC),
+        )
+        session.add(snapshot)
+        session.flush()
+        entry = RosfinmonitoringEntryRecord(
+            snapshot_id=snapshot.id,
+            full_name="ПОПОВ ДЕНИС ВЛАДИМИРОВИЧ",
+            normalized_name="попов денис владимирович",
+            matching_key="поповденисвладимирович",
+        )
+        session.add(entry)
+        session.flush()
+        for key in ("денис владимирович попов · курская область", "игорь александрович ранав"):
+            listed = session.scalar(
+                select(EntityGroupRecord.id).where(EntityGroupRecord.key == key)
+            )
+            session.add(EntityGroupRfMatchRecord(group_id=listed, entry_id=entry.id, level="full"))
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/disputes").text
+
+    assert "Нерешённых пар: 3." in page
+    # Both pairs of «Денис Попов» say why; only the listed one says it is on the list.
+    assert page.count("Не слито автоматически") == 2
+    assert page.count("Не слито автоматически, хотя одна сторона в перечне") == 1
+    assert "«Попов Денис» подходит сразу к нескольким людям" in page
+    # The card's region, as the card wrote it, tells namesakes of one full name apart.
+    assert "«Попов Денис Владимирович» (Курская область), «Попов Денис Александрович»" in page

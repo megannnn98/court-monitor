@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
+    EntityPairDecisionRecord,
     RosfinmonitoringSnapshotRecord,
 )
 from entities.rf_check import EntityRfCheck, match_level
@@ -67,7 +68,7 @@ PEOPLE = (
     "Абдулла Гасанович Абабакаров",  # the list's full name
     "Абдулла Абабакаров",  # no patronymic: maybe a namesake
     "Иван Петрович Иванов",  # another patronymic: another person
-    "Иван Иванов",
+    "Иван Иванов",  # its one full name is Иван Петрович: the check merges them
     "Пётр Сидоров",  # not on the list
     "Соломатин П.",  # an initial names nobody for certain
 )
@@ -82,16 +83,14 @@ def test_a_fresh_list_becomes_a_snapshot_and_the_entities_are_matched_by_name(
     again = EntityRfCheck(session_factory, download=_page).run()
 
     assert (first.new_snapshot, first.full, first.possible, first.entries) == (True, 1, 2, 2)
-    assert first.download_error is None
-    # The same list is no new snapshot; the matches are rewritten, not added.
-    assert (again.new_snapshot, again.full, again.possible) == (False, 1, 2)
+    assert (first.download_error, first.merged, first.merged_region) == (None, 1, 1)
+    # The same list is no new snapshot; the matches are rewritten, not added. The first
+    # check took «Абдулла Абабакаров» for the listed one and «Иван Иванов» for Иван
+    # Петрович, whose patronymic is not the list's.
+    assert (again.new_snapshot, again.full, again.possible, again.merged) == (False, 1, 0, 0)
     assert again.download_error is None
     assert _snapshots(session_factory) == 1
-    assert _levels(session_factory) == {
-        "Абдулла Гасанович Абабакаров": ["full"],
-        "Абдулла Абабакаров": ["name"],
-        "Иван Иванов": ["name"],
-    }
+    assert _levels(session_factory) == {"Абдулла Гасанович Абабакаров": ["full"]}
 
 
 def test_a_changed_list_is_a_new_snapshot_and_the_check_uses_it(
@@ -103,7 +102,7 @@ def test_a_changed_list_is_a_new_snapshot_and_the_check_uses_it(
     changed = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
     result = EntityRfCheck(session_factory, download=lambda: _page(changed)).run()
 
-    assert (result.new_snapshot, result.entries, result.possible) == (True, 3, 3)
+    assert (result.new_snapshot, result.entries, result.possible) == (True, 3, 1)
     assert _snapshots(session_factory) == 2
     assert _levels(session_factory)["Пётр Сидоров"] == ["name"]
 
@@ -120,7 +119,7 @@ def test_an_unreachable_site_leaves_the_last_snapshot_in_use(
     result = EntityRfCheck(session_factory, download=down).run()
 
     assert result.download_error == "ConnectError: fedsfm.ru is down"
-    assert (result.new_snapshot, result.full, result.possible) == (False, 1, 2)
+    assert (result.new_snapshot, result.full, result.possible) == (False, 1, 0)
 
 
 def test_no_list_at_all_checks_nothing(session_factory: sessionmaker[Session]) -> None:
@@ -149,3 +148,61 @@ def test_the_patronymic_tells_a_namesake(
     entity: str | None, entry: str | None, level: str | None
 ) -> None:
     assert match_level(entity, entry) == level
+
+
+def test_a_disputed_pair_with_one_side_on_the_list_is_one_person_without_asking(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _entities(
+        session_factory,
+        "Абдулла Абабакаров",
+        # Its only pair with a listed side: taken for one person.
+        "Абдулла Гасанович Абабакаров",
+        "Иван Иванов",
+        # Two listed Ivanovs: the bare one could be either, a person decides.
+        "Иван Иванович Иванов",
+        "Иван Петрович Иванов",
+    )
+    listed = PERSONS + "<li>3. ИВАНОВ ИВАН ПЕТРОВИЧ*, , ;</li>"
+
+    result = EntityRfCheck(session_factory, download=lambda: _page(listed)).run()
+
+    assert result.merged == 1
+    with session_factory() as session:
+        names = set(session.scalars(select(EntityGroupRecord.name)))
+        decisions = session.execute(
+            select(
+                EntityPairDecisionRecord.key_a,
+                EntityPairDecisionRecord.key_b,
+                EntityPairDecisionRecord.decision,
+                EntityPairDecisionRecord.source,
+            )
+        ).all()
+    assert "Абдулла Абабакаров" not in names and "Абдулла Гасанович Абабакаров" in names
+    assert {"Иван Иванов", "Иван Иванович Иванов", "Иван Петрович Иванов"} <= names
+    assert decisions == [("абдулла абабакаров", "абдулла гасанович абабакаров", "same", "rf")]
+
+
+def test_a_name_without_patronymic_and_its_one_full_name_are_one_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Off the list too: the one full name (one card region) the news name can be."""
+    _entities(
+        session_factory,
+        "Мария Пономаренко",
+        "Мария Николаевна Пономаренко",
+        # One surname, two forms of a name, off the list: a person decides.
+        "Лида Мониава",
+        "Лидия Мониава",
+    )
+
+    result = EntityRfCheck(session_factory, download=_page).run()
+
+    assert (result.merged, result.merged_region) == (0, 1)
+    with session_factory() as session:
+        assert set(session.scalars(select(EntityGroupRecord.name))) == {
+            "Мария Николаевна Пономаренко",
+            "Лида Мониава",
+            "Лидия Мониава",
+        }
+        assert session.scalar(select(EntityPairDecisionRecord.source)) == "region"
