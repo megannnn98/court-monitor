@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
@@ -45,7 +44,11 @@ from entities.officials import OFFICIAL_KINDS, official_marks, titled_entities
 logger = logging.getLogger("entities")
 
 # v2: «administrative» — a model without it called an administrative case «accused».
-PROMPT_VERSION = "roles-v2"
+# v3: «foreign» — a case abroad (a detention by the SBU in Kyiv) was «accused».
+# v4: «historical» (a 1938 arrest by the Nazis) and «support» (a letter-writing evening
+# for a political prisoner, no news of the case) were «accused».
+# v5: support that recalls an old sentence, a portrait on a placard: still «support».
+PROMPT_VERSION = "roles-v5"
 BATCH_SIZE = 50
 CONCURRENCY = 8
 MAX_TOKENS = 8_000
@@ -58,6 +61,9 @@ Kind = Literal[
     "accused",
     "detained",
     "administrative",
+    "foreign",
+    "historical",
+    "support",
     "lawyer",
     "judge",
     "prosecutor",
@@ -75,6 +81,9 @@ KIND_LABELS = {
     "accused": "обвиняемый",
     "detained": "задержан или обыскан",
     "administrative": "административное дело",
+    "foreign": "дело не в России",
+    "historical": "историческая репрессия",
+    "support": "только поддержка",
     "lawyer": "адвокат",
     "judge": "судья",
     "prosecutor": "прокурор",
@@ -111,8 +120,18 @@ SYSTEM_PROMPT = """Ты определяешь роль человека в уг
 - id: id записи.
 - source: имя из записи, дословно.
 - kind: роль этого человека в уголовном деле:
-  - accused — на него заведено именно УГОЛОВНОЕ дело (статья УК): подозреваемый, \
-обвиняемый, подсудимый, осуждённый, арестован или объявлен в розыск по уголовному делу;
+  - accused — на него заведено именно УГОЛОВНОЕ дело (статья УК) РОССИЙСКИМИ властями \
+(следствие, суд, ФСБ, МВД России; в том числе заочно или в розыске в России): \
+подозреваемый, обвиняемый, подсудимый, осуждённый, арестован или объявлен в розыск;
+  - foreign — его задержали, обвинили или судят НЕ российские власти (Украина, СБУ, \
+Беларусь, другие страны), а российского уголовного дела против него в цитатах нет;
+  - historical — это историческая репрессия, а не современное дело: СССР, 1930-е годы, \
+нацистская Германия, реабилитированные;
+  - support — публикации о нём только про поддержку (вечер писем, акция, плакат с его \
+портретом, сбор денег, письма в колонию) или про дела других людей (его соратника, \
+родственника), а нового события его собственного дела (задержание, обвинение, суд, \
+приговор, апелляция, этап) в них нет. Напоминание о давнем приговоре — не новое \
+событие: это тоже support;
   - administrative — против него только административное дело: протокол по КоАП, \
 штраф, административный арест, снятие с выборов; уголовного дела нет;
   - detained — задержан или у него обыск, но никакое дело против него не названо \
@@ -328,16 +347,16 @@ class FigurantResult:
 
 
 def _accepted(version: str, kind: str, explanation: str) -> bool:
-    """A roles-v1 answer holds unless it is what v2 fixed: an administrative case the
-    model, lacking «administrative», called «accused»."""
+    """An earlier answer holds unless it is «accused»: v2 asked it again for an
+    administrative case, v3 for a case abroad (a detention by the SBU was «accused»), v4
+    for a historical case and for support alone, v5 for support that recalls a sentence."""
     return (
-        version == "roles-v1"
+        version in ("roles-v1", "roles-v2", "roles-v3", "roles-v4")
         and kind in KINDS
-        and not (kind == "accused" and _ADMINISTRATIVE.search(explanation))
+        and kind != "accused"
     )
 
 
-_ADMINISTRATIVE = re.compile(r"административ|коап|штраф", re.IGNORECASE)
 ROLE_CACHE: AnswerCache[RoleAnswer] = AnswerCache(
     record=EntityRoleAnswerRecord,
     field="kind",

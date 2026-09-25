@@ -210,6 +210,9 @@ def test_an_answer_that_names_someone_else_is_dropped() -> None:
         ("accused", "figurant"),
         ("detained", "possible"),
         ("administrative", "possible"),
+        ("foreign", "mentioned"),
+        ("historical", "mentioned"),
+        ("support", "mentioned"),
         ("lawyer", "mentioned"),
         ("victim", "mentioned"),
         ("unknown", "unclear"),
@@ -377,25 +380,21 @@ def test_an_accused_sticks_when_the_quotes_change_the_rest_is_asked_again(
     assert _roles(session_factory)["Александр Беда"] == ("figurant", "accused", "model")
 
 
-def test_an_earlier_prompt_s_answer_holds_unless_the_change_touches_it(
+def test_an_earlier_prompt_s_answer_holds_unless_it_is_accused(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
     FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
     with session_factory.begin() as session:
-        session.execute(text("UPDATE entity_role_answers SET prompt_version = 'roles-v1'"))
-        # v2 fixed this one: an administrative case v1 called «accused».
-        session.execute(
-            text(
-                "UPDATE entity_role_answers SET explanation = 'оштрафован по КоАП' "
-                "WHERE kind = 'accused' AND explanation LIKE '%Беда%'"
-            )
-        )
-    again = FakeClassifier(KINDS)
+        session.execute(text("UPDATE entity_role_answers SET prompt_version = 'roles-v4'"))
+    # v5 asks every «accused» again: Беда's case turns out to be abroad.
+    again = FakeClassifier({**KINDS, "Александр Беда": "foreign"})
 
     FigurantFinder(session_factory, classifier=again).run()
 
-    assert [item.name for item in again.asked] == ["Александр Беда"]
+    assert sorted(item.name for item in again.asked) == ["Александр Беда", "Иван Петров"]
+    assert _roles(session_factory)["Александр Беда"] == ("mentioned", "foreign", "model")
+    assert _roles(session_factory)["Иван Петров"][0] == "figurant"
 
 
 def test_past_the_budget_the_rest_is_unasked_and_counted(

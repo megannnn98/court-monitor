@@ -32,6 +32,8 @@ from entities.grouping import (
     apply_names,
     attach_bare,
     group_mentions,
+    kinship,
+    merge_swapped,
     nominative_form,
 )
 from entities.llm import BudgetExceededError, Spend, ask_in_batches
@@ -192,9 +194,10 @@ class EntityCollector:
         articles = {mention.mention_id: mention.article_id for mention in mentions}
 
         self._on_stage("grouping")
-        entities = group_mentions(mentions)
+        # «Жене Владимира» names a relative, not a person.
+        entities = group_mentions([mention for mention in mentions if not kinship(mention)])
         names, asked, cached, failures, unasked, cost = self._names(entities, quotes)
-        entities = apply_names(entities, names)
+        entities = merge_swapped(apply_names(entities, names))
         # A person's «one person» decisions, kept by key, merge again at every rebuild.
         with self._session_factory() as session:
             entities = merge_decided(entities, same_pairs(session))

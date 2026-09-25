@@ -7,7 +7,7 @@ from itertools import count
 
 import pytest
 
-from entities.grouping import Entity, PersonMention, group_mentions
+from entities.grouping import Entity, PersonMention, group_mentions, kinship, merge_swapped
 
 _ids = count(1)
 
@@ -488,3 +488,36 @@ def test_a_form_the_rule_is_not_sure_of_goes_to_the_model(form: str) -> None:
     from entities.grouping import nominative_form
 
     assert nominative_form(form) is None
+
+
+@pytest.mark.parametrize(
+    ("surface", "relative"),
+    [
+        # «Жена задержанного Владимира Гульчака»: his wife, no Женя.
+        ("Жене Владимира", True),
+        ("Сыну Ивана", True),
+        ("Брата Кирилла", True),
+        # A Женя with a surname stays a person.
+        ("Жене Беркович", False),
+        ("Жена Навального", False),
+        ("Владимир Гульчак", False),
+    ],
+)
+def test_a_kin_word_before_a_declined_given_name_is_no_person(surface: str, relative: bool) -> None:
+    assert kinship(PersonMention(1, 1, None, None, surface=surface)) is relative
+
+
+def test_the_same_two_words_swapped_are_one_person() -> None:
+    drion = Entity(key="алексис дрион", name="Алексис Дрион", mention_ids=[1, 2, 3])
+    swapped = Entity(key="дрион алексис", name="Дрион Алексис", mention_ids=[4])
+    other = Entity(key="алексис петров", name="Алексис Петров", mention_ids=[5])
+    elsewhere = Entity(key="дрион алексис · крым", name="Дрион Алексис", mention_ids=[6])
+
+    merged = merge_swapped([swapped, drion, other, elsewhere])
+
+    assert [(entity.name, entity.mention_ids) for entity in merged] == [
+        ("Алексис Дрион", [1, 2, 3, 4]),
+        ("Алексис Петров", [5]),
+        # Another region: namesakes parted by their cards stay apart.
+        ("Дрион Алексис", [6]),
+    ]

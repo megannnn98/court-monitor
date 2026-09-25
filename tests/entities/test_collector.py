@@ -298,3 +298,33 @@ def test_a_single_nominative_form_is_named_without_the_model(
             "female",
             "rules",
         )
+
+
+def test_a_relative_is_no_entity_and_a_swapped_name_is_one(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        _, run = seed.article(
+            source,
+            external_id="digest",
+            title="Приговор",
+            text=(
+                "Владимира Гульчака приговорили. Жене Владимира отказали. "
+                "Алексис Дрион и Дрион Алексис."
+            ),
+            published_at=datetime(2026, 9, 21, tzinfo=UTC),
+        )
+        _person(session, seed, run, "Владимира Гульчака", "Владимир", "Гульчак")
+        _person(session, seed, run, "Жене Владимира", "Женя", "Владимир")
+        _person(session, seed, run, "Алексис Дрион", "Алексис", "Дрион")
+        _person(session, seed, run, "Дрион Алексис", "Дрион", "Алексис")
+        seed.event(run, "приговорили", event_type="sentence", event_date=None, links=[])
+        session.commit()
+
+    EntityCollector(session_factory).run()
+
+    with session_factory() as session:
+        names = sorted(session.scalars(select(EntityGroupRecord.name)).all())
+    assert names == ["Алексис Дрион", "Владимир Гульчак"]

@@ -393,6 +393,100 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
     return sorted(merged.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
 
 
+# «Жене Владимира» is «жена Владимира», no Женя: a kin word before a declined given name.
+_KIN = frozenset(
+    [
+        "жена",
+        "жены",
+        "жене",
+        "жену",
+        "женой",
+        "муж",
+        "мужа",
+        "мужу",
+        "мужем",
+        "вдова",
+        "вдовы",
+        "вдове",
+        "вдову",
+        "вдовой",
+        "сын",
+        "сына",
+        "сыну",
+        "сыном",
+        "дочь",
+        "дочери",
+        "дочерью",
+        "мать",
+        "матери",
+        "матерью",
+        "мама",
+        "мамы",
+        "маме",
+        "маму",
+        "отец",
+        "отца",
+        "отцу",
+        "отцом",
+        "папа",
+        "папы",
+        "папе",
+        "брат",
+        "брата",
+        "брату",
+        "братом",
+        "сестра",
+        "сестры",
+        "сестре",
+        "сестру",
+        "сестрой",
+    ]
+)
+
+
+def _declined_given_name(word: str) -> bool:
+    """«Владимира», «Наталье»: a known given name, declined."""
+    stem = word[:-1]
+    return any(
+        base != word and lookup_gender(base) is not None
+        for base in (stem, f"{stem}а", f"{stem}я", f"{stem}й", f"{stem}ь")
+    )
+
+
+def kinship(mention: PersonMention) -> bool:
+    """A mention that names a relative, not a person: «Жене Владимира (Гульчака)»."""
+    words = _display(mention).split()
+    return len(words) >= 2 and _fold(words[0]) in _KIN and _declined_given_name(words[1])
+
+
+def merge_swapped(entities: Sequence[Entity]) -> list[Entity]:
+    """«Дрион Алексис» and «Алексис Дрион»: two words, the same, the order swapped — one
+    person, when the dictionary knows neither word to tell the given name. The more
+    mentioned one keeps its name."""
+    merged: dict[str, Entity] = {}
+    by_words: dict[tuple[frozenset[str], str], str] = {}
+    for entity in sorted(entities, key=lambda item: (-len(item.mention_ids), item.key)):
+        name_part, _, region = entity.key.partition(REGION_SEP)
+        words = name_part.split()
+        pair = len(words) == 2 and words[0] != words[1]
+        target_key = by_words.get((frozenset(words), region)) if pair else None
+        if target_key is None:
+            merged[entity.key] = replace(
+                entity,
+                mention_ids=list(entity.mention_ids),
+                variants=Counter(entity.variants),
+                regions=Counter(entity.regions),
+            )
+            if pair:
+                by_words[(frozenset(words), region)] = entity.key
+            continue
+        target = merged[target_key]
+        target.mention_ids += entity.mention_ids
+        target.variants.update(entity.variants)
+        target.regions.update(entity.regions)
+    return sorted(merged.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
+
+
 def attach_bare(entities: Sequence[Entity], article_of: Mapping[int, int]) -> list[Entity]:
     """Entities named by a surname alone («Алексеев» of «Иноагент Алексеев», a title the
     extractor took for a given name) handed to the full name of that surname their
