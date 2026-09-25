@@ -12,6 +12,8 @@ body {
 aside {
   position: fixed;
   inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
   width: 220px;
   padding: 18px 12px;
   background: #24292f;
@@ -34,8 +36,20 @@ nav a.home {
 }
 
 nav {
-  display: grid;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   gap: 4px;
+}
+
+/* Officials, logs, wiki: at the bottom of the menu. */
+.nav-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  border-top: 1px solid #3b434d;
+  padding-top: 8px;
 }
 
 nav a {

@@ -100,6 +100,9 @@ def _page(
     tools = [
         ("entities", "Сущности", "/ui/entities"),
         ("disputes", "Спорные случаи", "/ui/disputes"),
+    ]
+    # Looked at now and then: at the bottom of the menu.
+    reference = [
         ("officials", "Должностные лица", "/ui/officials"),
         ("logs", "Логи", "/ui/logs"),
         ("wiki", "Вики", "/ui/wiki"),
@@ -114,15 +117,20 @@ def _page(
         f"{_icon('political')}<span>Результат</span>"
         f'<span class="nav-count">{counts["result"]}</span></a>'
     )
+
+    def plain(items: list[tuple[str, str, str]]) -> str:
+        return "\n".join(
+            f'<a class="{"active" if key == active else ""}" href="{href}">'
+            f"{_icon(key)}<span>{label}</span></a>"
+            for key, label, href in items
+        )
+
     links = (
         home
         + result
         + '<div class="nav-group">Инструменты</div>'
-        + "\n".join(
-            f'<a class="{"active" if key == active else ""}" href="{href}">'
-            f"{_icon(key)}<span>{label}</span></a>"
-            for key, label, href in tools
-        )
+        + plain(tools)
+        + f'<div class="nav-bottom">{plain(reference)}</div>'
     )
     warning_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     return HTMLResponse(

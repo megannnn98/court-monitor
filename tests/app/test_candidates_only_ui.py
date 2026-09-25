@@ -58,6 +58,14 @@ def test_the_menu_hides_the_candidates_for_now(session_factory: sessionmaker[Ses
     assert 'class="home" href="/ui/management"><svg class="icon"' in nav.group(1)
     assert '<span>Результат</span><span class="nav-count">0</span>' in nav.group(1)
     assert '<div class="nav-group">Инструменты</div>' in nav.group(1)
+    # Officials, logs and wiki at the bottom, apart.
+    bottom = re.search(r'<div class="nav-bottom">(.*?)</div>', nav.group(1), re.DOTALL)
+    assert bottom is not None
+    assert re.findall(r"<span>([^<]+)</span>", bottom.group(1)) == [
+        "Должностные лица",
+        "Логи",
+        "Вики",
+    ]
     assert links == [
         ("/ui/management", "Главная: Управление"),
         ("/ui/political", "Результат"),
