@@ -14,12 +14,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from db.orm_models import EntityGroupRecord
+from extraction.name_frequency import lookup_gender
 from operator_console import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
     OperationRun,
 )
+from web.candidate_rows import _surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page
 from web.ui.management import (
@@ -52,8 +54,28 @@ _SORTS: dict[str, tuple[ColumnElement[Any], ...]] = {
         EntityGroupRecord.last_published_at.desc().nulls_last(),
         EntityGroupRecord.key.asc(),
     ),
-    "name": (EntityGroupRecord.name.asc(), EntityGroupRecord.key.asc()),
 }
+
+
+def display_name(name: str) -> str:
+    """The name surname first, as the candidates read: «Иванов Иван Петрович».
+
+    An initial stays an initial: «Соломатин П.» is already surname first; «Дмитрий С.»
+    (a known given name and a surname's initial) reads «С. Дмитрий»."""
+    words = name.split()
+    initials = [word for word in words if "." in word]
+    if not initials:
+        return _surname_first(name)
+    full = [word for word in words if "." not in word]
+    if len(full) == 1:
+        if lookup_gender(full[0]) is not None:
+            return " ".join([*initials, full[0]])
+        return " ".join([full[0], *initials])
+    return " ".join([_surname_first(" ".join(full)), *initials])
+
+
+def _surname_key(entity: EntityGroupRecord) -> tuple[str, str]:
+    return display_name(entity.name).lower().replace("ё", "е"), entity.key
 
 
 def _events(event_types: dict[str, int]) -> str:
@@ -129,12 +151,20 @@ def ui_entities(
             )
         )
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    entities = db.scalars(
-        query.order_by(*_SORTS[sort]).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
-    ).all()
+    if sort == "name":
+        # By the name as shown: the surname is not a column, and ten thousand short rows
+        # sort here in milliseconds.
+        ordered = sorted(db.scalars(query).all(), key=_surname_key)
+        entities = ordered[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+    else:
+        entities = list(
+            db.scalars(
+                query.order_by(*_SORTS[sort]).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
+            ).all()
+        )
     rows = "".join(
         f"<tr><td>{position}</td>"
-        f'<td><a href="/ui/entities/{quote(entity.key)}">{escape(entity.name)}</a>'
+        f'<td><a href="/ui/entities/{quote(entity.key)}">{escape(display_name(entity.name))}</a>'
         f"{_source_mark(entity.name_source)}</td>"
         f'<td class="muted">{escape(", ".join(form for form, _ in entity.variants[:3]))}</td>'
         f'<td class="num">{entity.mention_count}</td><td class="num">{entity.article_count}</td>'
@@ -149,7 +179,7 @@ def ui_entities(
             ("mentions", "По упоминаниям"),
             ("articles", "По статьям"),
             ("recent", "По свежести"),
-            ("name", "По имени"),
+            ("name", "По фамилии"),
         )
     )
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
@@ -255,7 +285,7 @@ def ui_entity(
             f"<td>{marked}</td></tr>"
         )
     related = "".join(
-        f'<li><a href="/ui/entities/{quote(other_key)}">{escape(name)}</a> '
+        f'<li><a href="/ui/entities/{quote(other_key)}">{escape(display_name(name))}</a> '
         f'<span class="muted">— общих статей: {shared}</span></li>'
         for other_key, name, shared in db.execute(
             _RELATED, {"group": entity.id, "limit": RELATED_LIMIT}
@@ -283,7 +313,7 @@ def ui_entity(
   <tbody>{"".join(articles)}</tbody></table>
 </section>"""
     return _page(
-        entity.name,
+        display_name(entity.name),
         body,
         active="entities",
         instruction="Сущность — все упоминания этого имени в статьях с уголовными делами.",

@@ -83,7 +83,11 @@ def _source_kind(definition: SourceDefinition) -> str:
     return "telegram" if definition.base_url.startswith("https://t.me/") else "site"
 
 
-def _source_rows(db: Session, definitions: Sequence[SourceDefinition], selected: set[str]) -> str:
+def _source_rows(
+    db: Session,
+    definitions: Sequence[SourceDefinition],
+    selected: set[str],
+) -> str:
     """One table row per news source: when a document of it was last fetched, and its articles.
 
     The fetch time comes from the documents themselves, not from the monitoring checkpoint:
@@ -640,7 +644,7 @@ def _management_page(
   </table>
   <div class="run-bar">
     {stepper(state or PipelineState(current="load"), checked_count)}
-    <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки — для шагов 1 и 4, на расписание не влияют.
+    <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки — для шага 1, на расписание не влияют.
     Жёлтая дата — не загружался больше {STALE_AFTER.days} дней.</span>
   </div>
 </form>
@@ -742,16 +746,6 @@ async def start_management_run(
     return await _start(request, db, registry, "load")
 
 
-@router.post("/ui/management/resolve", response_model=None)
-async def start_management_resolution(
-    request: Request,
-    db: Session = Depends(get_db),  # noqa: B008
-    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
-) -> HTMLResponse | RedirectResponse:
-    """Step 4: resolve the persons of the selected sources, then classify and match once."""
-    return await _start(request, db, registry, "resolve")
-
-
 @router.post("/ui/management/purge", response_model=None)
 def start_management_purge(
     db: Session = Depends(get_db),  # noqa: B008
@@ -799,7 +793,7 @@ def _start_whole_database(
 
 
 async def _start(
-    request: Request, db: Session, registry: OperationRegistry, mode: Literal["load", "resolve"]
+    request: Request, db: Session, registry: OperationRegistry, mode: Literal["load"]
 ) -> HTMLResponse | RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
     selected = list(dict.fromkeys(form.get("sources", [])))

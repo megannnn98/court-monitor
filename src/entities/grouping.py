@@ -196,6 +196,26 @@ def _display(mention: PersonMention) -> str:
     )
 
 
+_PATRONYMIC_ENDINGS = ("вич", "вна", "ична")
+
+
+def given_name_first(name: str) -> str:
+    """«Турбин Арсений» → «Арсений Турбин»: a model sometimes answers surname first.
+
+    Only when the dictionary is sure: the last word (or the one before a patronymic) is a
+    known given name and the first is not. A name it does not know stays as written."""
+    words = name.split()
+    if len(words) < 2 or any("." in word for word in words):
+        return " ".join(words)
+    has_patronymic = len(words) == 3 and words[2].lower().endswith(_PATRONYMIC_ENDINGS)
+    given = words[1] if has_patronymic else words[-1]
+    if lookup_gender(words[0]) is not None or lookup_gender(given) is None:
+        return " ".join(words)
+    if has_patronymic:
+        return " ".join([words[1], words[2], words[0]])
+    return " ".join([words[-1], *words[:-1]])
+
+
 def name_key(name: str) -> str:
     """The key of a written name: given name and surname folded, the patronymic dropped.
 
@@ -217,9 +237,13 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
         if given is not None and not given.is_person:
             continue
         if given is None or not given.nominative.strip():
-            key, name, gender, source = entity.key, entity.name, entity.gender, entity.name_source
+            # The rules keep the order the text used; «Турбин Арсений» joins «Арсений Турбин».
+            name = given_name_first(entity.name)
+            key = entity.key if name == entity.name else name_key(name)
+            gender, source = entity.gender, entity.name_source
         else:
-            key, name = name_key(given.nominative), given.nominative.strip()
+            name = given_name_first(given.nominative)
+            key = name_key(name)
             gender = None if given.gender == "unknown" else given.gender
             source = "model"
         target = merged.get(key)

@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from urllib.parse import quote
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
@@ -98,9 +99,10 @@ def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
         nobody = client.get("/ui/entities", params={"q": "Петров"}).text
 
     assert 'href="/ui/entities">Сущности</a>' in page
-    assert f'<a href="/ui/entities/{MOOR}">Александр Моор</a>' in page
+    # Surname first, as the candidates are.
+    assert f'<a href="/ui/entities/{MOOR}">Моор Александр</a>' in page
     assert "Найдено: 2." in page
-    assert "Найдено: 1." in by_declined_form and "Александр Моор" in by_declined_form
+    assert "Найдено: 1." in by_declined_form and "Моор Александр" in by_declined_form
     assert "Найдено: 0." in nobody
 
 
@@ -118,7 +120,7 @@ def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
     assert "<mark>Александра Моора</mark>" in card.text
     assert "<mark>Александру Моору</mark>" in card.text
     assert re.search(
-        r'href="/ui/entities/[^"]+">Иван Иванов</a>\s*<span class="muted">— общих статей: 1',
+        r'href="/ui/entities/[^"]+">Иванов Иван</a>\s*<span class="muted">— общих статей: 1',
         card.text,
     )
     assert "Арест: 1" in card.text
@@ -169,6 +171,78 @@ def test_a_name_a_model_gave_is_marked(session_factory: sessionmaker[Session]) -
         card = client.get(f"/ui/entities/{MOOR}").text
         other = client.get("/ui/entities/" + quote("иван иванов")).text
 
-    assert re.search(r">Александр Моор</a> <span class=\"badge\"[^>]*>ИИ</span>", page)
+    assert re.search(r">Моор Александр</a> <span class=\"badge\"[^>]*>ИИ</span>", page)
     assert "Имя: дала модель · мужчина" in card
     assert "Имя: по правилам склейки" in other
+
+
+def test_names_read_surname_first_and_sort_by_surname(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        for key, name in (
+            ("анна яковлева", "Анна Яковлева"),
+            ("борис абрамов", "Борис Петрович Абрамов"),
+            ("вера моор", "Вера Моор"),
+        ):
+            session.execute(
+                text(
+                    "INSERT INTO entity_groups (key, name, variants, mention_count, "
+                    "article_count, event_types) VALUES (:key, :name, '[]', 1, 1, '{}')"
+                ),
+                {"key": key, "name": name},
+            )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities", params={"sort": "name"}).text
+        card = client.get("/ui/entities/" + quote("борис абрамов")).text
+
+    assert re.findall(r'<a href="/ui/entities/[^"]+">([^<]+)</a>', page) == [
+        "Абрамов Борис Петрович",
+        "Моор Вера",
+        "Яковлева Анна",
+    ]
+    assert "<title>Абрамов Борис Петрович</title>" in card
+
+
+@pytest.mark.parametrize(
+    ("stored", "shown"),
+    [
+        ("Иван Иванов", "Иванов Иван"),
+        ("Иван Петрович Иванов", "Иванов Иван Петрович"),
+        ("Соломатин П.", "Соломатин П."),  # a surname and a given name's initial
+        ("Дмитрий С.", "С. Дмитрий"),  # a given name and a surname's initial
+        ("Бонцлер", "Бонцлер"),
+    ],
+)
+def test_a_name_is_shown_surname_first_initials_kept(stored: str, shown: str) -> None:
+    from web.ui.entities import display_name
+
+    assert display_name(stored) == shown
+
+
+def test_initials_sort_by_the_name_as_shown(session_factory: sessionmaker[Session]) -> None:
+    with session_factory.begin() as session:
+        for key, name in (
+            ("дмитрий с", "Дмитрий С."),
+            ("соломатин п", "Соломатин П."),
+            ("анна яковлева", "Анна Яковлева"),
+        ):
+            session.execute(
+                text(
+                    "INSERT INTO entity_groups (key, name, variants, mention_count, "
+                    "article_count, event_types) VALUES (:key, :name, '[]', 1, 1, '{}')"
+                ),
+                {"key": key, "name": name},
+            )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities", params={"sort": "name"}).text
+
+    assert re.findall(r'<a href="/ui/entities/[^"]+">([^<]+)</a>', page) == [
+        "С. Дмитрий",
+        "Соломатин П.",
+        "Яковлева Анна",
+    ]

@@ -219,3 +219,11 @@ def test_a_declined_surname_still_matches_its_nominative() -> None:
     answers = matched_answers(items, [_named(0, "Александра Моора", "Александр Моор")])
 
     assert answers[0].nominative == "Александр Моор"
+
+
+def test_a_surname_first_form_still_matches_the_answer_that_reorders_it() -> None:
+    items = [NameItem(0, ("Турбин Арсений", "Арсений"), "")]
+
+    answers = matched_answers(items, [_named(0, "Турбин Арсений", "Арсений Турбин")])
+
+    assert answers[0].nominative == "Арсений Турбин"

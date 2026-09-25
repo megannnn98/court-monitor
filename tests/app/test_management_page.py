@@ -115,7 +115,7 @@ def test_empty_or_registry_source_selection_does_not_start_a_run(
 
 def _source_row(page: str, source: str) -> str:
     match = re.search(
-        rf'<tr data-kind="[a-z]+" data-search="[^"]*">(?:(?!</tr>).)*value="{re.escape(source)}"'
+        rf'<tr data-kind="[a-z]+" data-search="[^"]*"[^>]*>(?:(?!</tr>).)*value="{re.escape(source)}"'
         r"(?:(?!</tr>).)*</tr>",
         page,
     )
@@ -210,25 +210,34 @@ def test_the_stylesheet_url_carries_its_version(session_factory: sessionmaker[Se
     assert re.search(r'href="/static/local-ui\.css\?v=[0-9a-f]{12}"', page)
 
 
-def test_resolve_starts_person_resolution_of_the_selected_sources(
+def test_person_resolution_has_no_button_and_no_route(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
     finish_steps(session_factory, registry, "load", "purge", "entities")
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/management")
-        response = client.post(
-            "/ui/management/resolve",
-            data={"sources": ["sota-vision", "ovd-info"]},
-            follow_redirects=False,
-        )
-        run_page = client.get(response.headers["location"])
+        bar = _run_bar(client.get("/ui/management").text)
+        response = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
 
-    assert 'id="step-resolve" class="step current run-button"' in page.text
-    assert response.status_code == 303
-    run = registry.runs_of("monitor")[0]
-    assert run.parameters.mode == "resolve"
+    assert "Разрешить персоны" not in bar
+    # The cycle is three steps: after entities it is the load's turn again.
+    assert re.findall(r'id="step-(\w+)" class="step current', bar) == ["load"]
+    assert response.status_code == 404
+    assert registry.runs_of("monitor")[0].parameters.mode == "entities"
+
+
+def test_an_earlier_resolution_run_still_shows_its_card(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    run = registry.start(
+        "monitor", OperationParameters(sources=["sota-vision", "ovd-info"], mode="resolve")
+    )
+
+    with _client(session_factory, registry) as client:
+        run_page = client.get(f"/ui/management?run_id={run.id}")
+
     assert run.command[2:] == [
         "monitor-resolve",
         "--selected-source",
@@ -248,7 +257,7 @@ def test_a_step_out_of_turn_is_refused_by_the_server(
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
-        early = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
+        early = client.post("/ui/management/entities")
         early_purge = client.post("/ui/management/purge")
         client.post("/ui/management/run", data={"sources": ["ovd-info"]}, follow_redirects=False)
         while_loading = client.post("/ui/management/purge")
@@ -496,19 +505,23 @@ def test_while_a_resolution_runs_its_button_stops_it(
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
     finish_steps(session_factory, registry, "load", "purge", "entities")
 
+    # A resolution has no button, but one started before (or by the bot) can be stopped.
+    run_id = _live(session_factory, registry, "resolve")
+
     with _client(session_factory, registry) as client:
-        client.post(
-            "/ui/management/resolve", data={"sources": ["ovd-info"]}, follow_redirects=False
-        )
-        bar = _run_bar(client.get("/ui/management").text)
+        page = client.get("/ui/management").text
+        bar = _run_bar(page)
+        refused = client.post("/ui/management/run", data={"sources": ["ovd-info"]})
 
     steps = re.findall(r"<button [^>]*>([^<]*)", bar)
     assert [step.split(" (")[0] for step in steps] == [
-        "✓ 1. Подгрузить статьи",
-        "✓ 2. Очистить от мусора",
-        "✓ 3. Собрать сущности",
-        "■ Остановить: Разрешить персоны",
+        "■ Остановить: Разрешение персон",
+        "2. Очистить от мусора",
+        "3. Собрать сущности",
     ]
+    assert f'formaction="/ui/management/runs/{run_id}/stop"' in bar
+    assert "Идёт разрешение персон." in page
+    assert refused.status_code == 409 and "(Разрешение персон)" in refused.text
 
 
 def test_the_purge_runs_in_the_background_and_its_button_stops_it(
@@ -555,8 +568,9 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
         (("load",), "failed", "purge"),  # one broken source does not block the cycle
         (("load", "purge"), "failed", "purge"),  # a crashed purge is repeated
         (("load", "purge"), "interrupted", "purge"),
-        (("load", "purge", "entities"), "succeeded", "resolve"),
+        (("load", "purge", "entities"), "succeeded", "load"),
         (("load", "purge", "entities", "resolve"), "succeeded", "load"),
+        (("load", "resolve"), "failed", "load"),  # a resolution ends the cycle
     ],
 )
 def test_the_current_step_follows_the_latest_run(
@@ -571,7 +585,7 @@ def test_the_current_step_follows_the_latest_run(
         bar = _run_bar(client.get("/ui/management").text)
 
     assert re.findall(r'id="step-(\w+)" class="step current', bar) == [current]
-    assert bar.count(" disabled") >= 3  # every other step is grey
+    assert bar.count(" disabled") >= 2  # every other step is grey
 
 
 def test_the_entities_step_starts_from_management(

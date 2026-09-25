@@ -254,6 +254,11 @@ def _surname_bases(name: str) -> set[str]:
     return _bases(_fold(words[-1])) if words else set()
 
 
+def _word_bases(form: str) -> set[str]:
+    """Every word of a form: the news also writes «Турбин Арсений», surname first."""
+    return {base for word in form.split() for base in _bases(_fold(word))}
+
+
 def matched_answers(
     items: Sequence[NameItem], names: Sequence[NormalizedName]
 ) -> dict[int, NormalizedName]:
@@ -270,7 +275,7 @@ def matched_answers(
             continue
         echoed = name.source.strip() == item.forms[0].strip()
         plausible = not name.is_person or any(
-            _surname_bases(name.nominative) & _surname_bases(form) for form in item.forms
+            _surname_bases(name.nominative) & _word_bases(form) for form in item.forms
         )
         if echoed and plausible:
             kept[name.id] = name

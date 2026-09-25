@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from itertools import count
 
+import pytest
+
 from entities.grouping import Entity, PersonMention, group_mentions
 
 _ids = count(1)
@@ -190,3 +192,49 @@ def test_a_patronymic_from_the_model_does_not_keep_people_apart() -> None:
         "Роман Андреевич Попков",
         3,
     )
+
+
+@pytest.mark.parametrize(
+    ("answer", "stored"),
+    [
+        ("Турбин Арсений", "Арсений Турбин"),
+        ("Иванов Иван Петрович", "Иван Петрович Иванов"),
+        ("Арсений Турбин", "Арсений Турбин"),
+        ("Лида Мониава", "Лида Мониава"),  # no word in the dictionary: left as written
+        ("Соломатин П.", "Соломатин П."),
+    ],
+)
+def test_a_surname_first_answer_is_turned_given_name_first(answer: str, stored: str) -> None:
+    from entities.grouping import given_name_first
+
+    assert given_name_first(answer) == stored
+
+
+def test_a_surname_first_answer_merges_with_the_same_person() -> None:
+    from entities.grouping import GivenName, apply_names
+
+    entities = group_mentions(
+        [mention("Арсений", "Турбин"), mention("Арсения", "Турбина", article=2)]
+    )
+    names = {entity.key: GivenName("Турбин Арсений", "male", True) for entity in entities}
+
+    [entity] = apply_names(entities, names)
+
+    assert (entity.key, entity.name, len(entity.mention_ids)) == (
+        "арсений турбин",
+        "Арсений Турбин",
+        2,
+    )
+
+
+def test_a_rule_name_written_surname_first_joins_the_same_person() -> None:
+    from entities.grouping import GivenName, apply_names
+
+    reversed_ = mention("Турбин", "Арсений")  # the text wrote the surname first
+    right = mention("Арсений", "Турбин", article=2)
+    entities = group_mentions([reversed_, right])
+    right_key = next(entity.key for entity in entities if entity.name == "Арсений Турбин")
+
+    named = apply_names(entities, {right_key: GivenName("Арсений Турбин", "male", True)})
+
+    assert [(entity.name, len(entity.mention_ids)) for entity in named] == [("Арсений Турбин", 2)]

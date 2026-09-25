@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from operator_console import OperationParameters, OperationRegistry
 
-_WITH_SOURCES = ("load", "resolve")
+_WITH_SOURCES = ("load", "resolve")  # resolve: runs from before, or the bot
 
 
 def finish_steps(
