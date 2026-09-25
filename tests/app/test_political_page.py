@@ -118,6 +118,12 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
         response = client.get("/ui/political/export.xlsx", params={"months": 0})
 
     assert response.status_code == 200
+    # All the time: from the earliest latest news (Иванов's, 400 days ago) to today.
+    today = datetime.now(UTC).date()
+    assert response.headers["content-disposition"] == (
+        f'attachment; filename="result_{(today - timedelta(days=400)).isoformat()}_'
+        f'{today.isoformat()}.xlsx"'
+    )
     sheet = load_workbook(BytesIO(response.content)).active
     assert sheet is not None
     rows = list(sheet.iter_rows(values_only=True))
@@ -164,6 +170,10 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
     assert f'name="date_from" value="{old["date_from"]}"' in in_old
     assert "Иванов Иван" in dates_win
     assert "Найдено: 1." in ticked and 'value="true" checked' in ticked
+    assert (
+        f'filename="result_{old["date_from"]}_{old["date_to"]}.xlsx"'
+        in (excel.headers["content-disposition"])
+    )
     rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
     assert [row[1] for row in rows[1:]] == ["Иванов Иван"]
 

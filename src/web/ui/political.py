@@ -378,6 +378,21 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
     return buffer.getvalue()
 
 
+def export_name(
+    chosen: Filters, found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], today: date
+) -> str:
+    """`result_<from>_<to>.xlsx`: the dates chosen, else the period's start, else the
+    earliest latest news of the rows; up to the date chosen, else today."""
+    start = chosen.date_from
+    if start is None and chosen.months:
+        start = today - timedelta(days=30 * chosen.months)
+    if start is None:
+        dates = [row.last_published_at for row, _ in found if row.last_published_at is not None]
+        start = min(dates).date() if dates else today
+    end = chosen.date_to or today
+    return f"result_{start.isoformat()}_{end.isoformat()}.xlsx"
+
+
 @router.get("/ui/political/export.xlsx")
 def ui_political_export(
     months: int = Query(default=0),
@@ -387,9 +402,11 @@ def ui_political_export(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    found, _, _ = _rows(db, filters(months, date_from, date_to, hide_maybe_listed))
+    chosen = filters(months, date_from, date_to, hide_maybe_listed)
+    found, _, _ = _rows(db, chosen)
+    name = export_name(chosen, found, datetime.now(UTC).date())
     return Response(
         political_xlsx(_details(db, found)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="result.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
