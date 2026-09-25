@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -24,6 +23,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityNameNormalizationRecord,
 )
+from entities.answers import input_hash
 from entities.disputes import merge_decided, same_pairs
 from entities.grouping import (
     Entity,
@@ -32,7 +32,9 @@ from entities.grouping import (
     apply_names,
     attach_bare,
     group_mentions,
+    nominative_form,
 )
+from entities.llm import BudgetExceededError, Spend, ask_in_batches
 from entities.normalizer import (
     BATCH_SIZE,
     PROMPT_VERSION,
@@ -137,6 +139,9 @@ class CollectResult:
     normalized_now: int = 0
     normalized_cached: int = 0
     normalize_failures: int = 0
+    # Left unasked (the run's budget was spent), and what the model's calls cost.
+    normalize_unasked: int = 0
+    model_cost_usd: float = 0.0
     # Criminal Code articles tied to the entities, and the entities that have any.
     charges: int = 0
     charged_entities: int = 0
@@ -188,7 +193,7 @@ class EntityCollector:
 
         self._on_stage("grouping")
         entities = group_mentions(mentions)
-        names, asked, cached, failures = self._names(entities, quotes)
+        names, asked, cached, failures, unasked, cost = self._names(entities, quotes)
         entities = apply_names(entities, names)
         # A person's «one person» decisions, kept by key, merge again at every rebuild.
         with self._session_factory() as session:
@@ -241,6 +246,8 @@ class EntityCollector:
             normalized_now=asked,
             normalized_cached=cached,
             normalize_failures=failures,
+            normalize_unasked=unasked,
+            model_cost_usd=round(cost, 6),
             charges=charges,
             charged_entities=charged,
         )
@@ -260,29 +267,52 @@ class EntityCollector:
 
     def _names(
         self, entities: Sequence[Entity], quotes: Mapping[int, str]
-    ) -> tuple[dict[str, GivenName], int, int, int]:
+    ) -> tuple[dict[str, GivenName], int, int, int, int, float]:
         """Earlier answers from the cache; the rest asked in batches, each batch kept.
 
-        A failed batch leaves its entities with their rule names: the list is still
-        built, and the next rebuild asks about them again."""
+        An answer is found by the forms it named (`forms:` + their hash), so a rebuild
+        that changes the keys asks nothing again; an older answer kept by the rule key
+        still counts. A failed batch leaves its entities with their rule names: the list
+        is still built, and the next rebuild asks about them again. Past the run's budget
+        nothing more is asked."""
+        forms = {
+            entity.key: tuple(form for form, _ in entity.variants.most_common(MAX_FORMS))
+            for entity in entities
+        }
+        by_forms = {key: f"forms:{input_hash(*found)}" for key, found in forms.items()}
         with self._session_factory() as session:
-            names = {
+            records = {
                 record.key: GivenName(record.nominative, record.gender, record.is_person)
                 for record in session.scalars(
                     select(EntityNameNormalizationRecord).where(
-                        EntityNameNormalizationRecord.prompt_version == PROMPT_VERSION
+                        EntityNameNormalizationRecord.prompt_version == PROMPT_VERSION,
+                        EntityNameNormalizationRecord.key.in_(
+                            set(by_forms.values()) | set(by_forms)
+                        ),
                     )
                 )
             }
-        cached = sum(entity.key in names for entity in entities)
+        names: dict[str, GivenName] = {}
+        for entity in entities:
+            given = records.get(by_forms[entity.key]) or records.get(entity.key)
+            if given is not None:
+                names[entity.key] = given
+        cached = len(names)
+        # A single form already in the nominative needs no model (`nominative_form`).
+        for entity in entities:
+            if entity.key not in names and len(forms[entity.key]) == 1:
+                ruled = nominative_form(forms[entity.key][0])
+                if ruled is not None:
+                    names[entity.key] = ruled
         missing = [entity for entity in entities if entity.key not in names]
         if self._normalizer is None or not missing:
             if missing:
                 logger.warning(
                     "event=entity_names_not_normalized entities=%d reason=no_model", len(missing)
                 )
-            return names, 0, cached, 0
+            return names, 0, cached, 0, 0, 0.0
         normalizer = self._normalizer
+        spend: Spend | None = getattr(normalizer, "spend", None)
         batches = [
             missing[start : start + BATCH_SIZE] for start in range(0, len(missing), BATCH_SIZE)
         ]
@@ -291,52 +321,56 @@ class EntityCollector:
             items = [
                 NameItem(
                     id=position,
-                    forms=tuple(form for form, _ in entity.variants.most_common(MAX_FORMS)),
+                    forms=forms[entity.key],
                     quote=quotes.get(entity.mention_ids[0], ""),
                 )
                 for position, entity in enumerate(batch)
             ]
             return normalizer.normalize(items)
 
-        asked = failures = done = 0
+        asked = failures = unasked = done = 0
         # Batches go out in parallel: the calls wait on the provider, not on this process.
         # Answers are written here, one batch at a time, as they come.
-        with ThreadPoolExecutor(max_workers=NORMALIZE_CONCURRENCY) as pool:
-            futures = {pool.submit(ask, batch): batch for batch in batches}
-            for future in as_completed(futures):
-                batch = futures[future]
-                done += len(batch)
-                self._on_stage(f"normalizing {done}/{len(missing)}")
-                try:
-                    answers = future.result()
-                except NameNormalizerError as exc:
-                    failures += len(batch)
-                    logger.warning(
-                        "event=entity_names_batch_failed entities=%d error=%s", len(batch), exc
+        for batch, result in ask_in_batches(
+            batches, ask, concurrency=NORMALIZE_CONCURRENCY, spend=spend
+        ):
+            done += len(batch)
+            self._on_stage(f"normalizing {done}/{len(missing)}")
+            if isinstance(result, BudgetExceededError):
+                unasked += len(batch)
+                continue
+            if isinstance(result, Exception):
+                if not isinstance(result, NameNormalizerError):
+                    raise result
+                failures += len(batch)
+                logger.warning(
+                    "event=entity_names_batch_failed entities=%d error=%s", len(batch), result
+                )
+                continue
+            rows = [
+                {
+                    "key": by_forms[batch[position].key],
+                    "prompt_version": PROMPT_VERSION,
+                    "model": normalizer.model,
+                    "nominative": answer.nominative.strip(),
+                    "gender": answer.gender,
+                    "is_person": answer.is_person,
+                }
+                for position, answer in result.items()
+            ]
+            failures += len(batch) - len(rows)
+            if rows:
+                with self._session_factory.begin() as session:
+                    session.execute(
+                        pg_insert(EntityNameNormalizationRecord)
+                        .values(rows)
+                        .on_conflict_do_nothing()
                     )
-                    continue
-                rows = [
-                    {
-                        "key": batch[position].key,
-                        "prompt_version": PROMPT_VERSION,
-                        "model": normalizer.model,
-                        "nominative": answer.nominative.strip(),
-                        "gender": answer.gender,
-                        "is_person": answer.is_person,
-                    }
-                    for position, answer in answers.items()
-                ]
-                failures += len(batch) - len(rows)
-                if rows:
-                    with self._session_factory.begin() as session:
-                        session.execute(
-                            pg_insert(EntityNameNormalizationRecord)
-                            .values(rows)
-                            .on_conflict_do_nothing()
-                        )
-                    for row in rows:
-                        names[str(row["key"])] = GivenName(
-                            str(row["nominative"]), str(row["gender"]), bool(row["is_person"])
-                        )
-                asked += len(rows)
-        return names, asked, cached, failures
+                for position, answer in result.items():
+                    names[batch[position].key] = GivenName(
+                        answer.nominative.strip(), answer.gender, answer.is_person
+                    )
+            asked += len(rows)
+        if unasked:
+            logger.warning("event=entity_names_budget_spent unasked=%d", unasked)
+        return names, asked, cached, failures, unasked, spend.cost_usd if spend else 0.0

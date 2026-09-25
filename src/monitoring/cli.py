@@ -43,6 +43,7 @@ MONITORING_COMMANDS = frozenset(
         "check-entities-rosfin",
         "find-figurants",
         "find-political",
+        "compare-entity-models",
         "monitoring-status",
         "monitoring-findings",
     }
@@ -162,6 +163,17 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         ),
     )
 
+    compare = subparsers.add_parser(
+        "compare-entity-models",
+        help=(
+            "Ask the configured model (ENTITY_NORMALIZE_MODEL) what the steps already "
+            "answered, on a sample, and report the agreement; writes nothing"
+        ),
+    )
+    compare.add_argument("--step", choices=("names", "roles", "politics"), required=True)
+    compare.add_argument("--sample", type=int, default=200)
+    compare.add_argument("--seed", type=int, default=1)
+
     status = subparsers.add_parser("monitoring-status", help="Show monitoring runs and checkpoints")
     status.add_argument("--run-id", type=int, default=None, help="Show one run with failed items")
 
@@ -182,6 +194,30 @@ def _print(payload: BaseModel | list[Any] | dict[str, Any]) -> None:
             default=lambda value: value.model_dump(mode="json"),
         )
     )
+
+
+def _compare_models(
+    session_factory: sessionmaker[Session], step: str, sample: int, seed: int
+) -> bool:
+    from entities import compare
+
+    if step == "names":
+        normalizer = name_normalizer_from_env()
+        if normalizer is None:
+            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
+        result = compare.compare_names(session_factory, normalizer, size=sample, seed=seed)
+    elif step == "roles":
+        roles = role_classifier_from_env()
+        if roles is None:
+            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
+        result = compare.compare_roles(session_factory, roles, size=sample, seed=seed)
+    else:
+        politics = politics_classifier_from_env()
+        if politics is None:
+            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
+        result = compare.compare_politics(session_factory, politics, size=sample, seed=seed)
+    _print(result.report())
+    return True
 
 
 def run_monitoring_command(
@@ -215,6 +251,8 @@ def run_monitoring_command(
                 "normalized_now": collected.normalized_now,
                 "normalized_cached": collected.normalized_cached,
                 "normalize_failures": collected.normalize_failures,
+                "normalize_unasked": collected.normalize_unasked,
+                "model_cost_usd": collected.model_cost_usd,
                 "charges": collected.charges,
                 "charged_entities": collected.charged_entities,
             }
@@ -264,6 +302,8 @@ def run_monitoring_command(
         ).run()
         _print(dataclasses.asdict(found_political))
         return True
+    if args.command == "compare-entity-models":
+        return _compare_models(session_factory, args.step, args.sample, args.seed)
     services = build_services(session_factory)
     monitoring = services.monitoring
 

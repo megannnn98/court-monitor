@@ -343,3 +343,93 @@ def test_a_surname_alone_is_nobody_for_certain(session_factory: sessionmaker[Ses
 
     assert "Беда" not in [item.name for item in classifier.asked]
     assert _roles(session_factory)["Беда"] == ("unclear", None, "rules")
+
+
+def test_a_rebuild_that_changes_the_keys_asks_nothing_again(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE entity_groups SET key = key || ' · новый ключ'"))
+    again = FakeClassifier(KINDS)
+
+    result = FigurantFinder(session_factory, classifier=again).run()
+
+    # The question is the same: its hash finds the answer, whatever the key.
+    assert again.asked == []
+    assert result.cached == 3
+
+
+def test_an_accused_sticks_when_the_quotes_change_the_rest_is_asked_again(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    # New publications: every question changed.
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE entity_role_answers SET input_hash = md5(input_hash)"))
+    again = FakeClassifier(KINDS)
+
+    FigurantFinder(session_factory, classifier=again).run()
+
+    assert [item.name for item in again.asked] == ["Фёдор Сирош"]
+    assert _roles(session_factory)["Александр Беда"] == ("figurant", "accused", "model")
+
+
+def test_an_earlier_prompt_s_answer_holds_unless_the_change_touches_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE entity_role_answers SET prompt_version = 'roles-v1'"))
+        # v2 fixed this one: an administrative case v1 called «accused».
+        session.execute(
+            text(
+                "UPDATE entity_role_answers SET explanation = 'оштрафован по КоАП' "
+                "WHERE kind = 'accused' AND explanation LIKE '%Беда%'"
+            )
+        )
+    again = FakeClassifier(KINDS)
+
+    FigurantFinder(session_factory, classifier=again).run()
+
+    assert [item.name for item in again.asked] == ["Александр Беда"]
+
+
+def test_past_the_budget_the_rest_is_unasked_and_counted(
+    session_factory: sessionmaker[Session],
+) -> None:
+    from entities.llm import Spend
+
+    _seed(session_factory)
+    spent = FakeClassifier(KINDS)
+    spent.spend = Spend(budget_usd=0.0)  # type: ignore[attr-defined]
+
+    result = FigurantFinder(session_factory, classifier=spent).run()
+
+    assert spent.asked == []
+    assert (result.unasked, result.asked_now) == (3, 0)
+    # Unasked, the rules' charge still makes Петров a figurant.
+    assert _roles(session_factory)["Иван Петров"] == ("figurant", None, "article")
+
+
+def test_another_model_is_compared_on_what_the_steps_answered(
+    session_factory: sessionmaker[Session],
+) -> None:
+    from entities.compare import compare_roles
+
+    _seed(session_factory)
+    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    # The other model takes the lawyer for the accused.
+    other = FakeClassifier({**KINDS, "Фёдор Сирош": "accused"})
+    other.model = "local-model"  # type: ignore[misc]
+
+    result = compare_roles(session_factory, other, size=10, seed=1)
+
+    report = result.report()
+    assert (report["sample"], report["answered"], report["agree"]) == (3, 3, 2)
+    assert report["agreement"] == 0.667
+    assert report["confusion"]["mentioned → figurant"] == 1
+    assert report["disagreements"][0]["name"] == "Фёдор Сирош"

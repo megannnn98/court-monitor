@@ -69,16 +69,17 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
             links=[],
             entity_links=[(petrov, "target"), (law, "legal_basis")],
         )
-        # A charge by a Criminal Code article, but not a political one: the model decides.
-        text_ = "Суд осудил Александра Беду по ч. 1 ст. 105 УК РФ за убийство."
+        # A charge under an article no rule settles (318: often the protests): the model
+        # decides.
+        text_ = "Суд осудил Александра Беду по ч. 1 ст. 318 УК РФ за удар полицейского."
         _, run = seed.article(source, external_id="beda", title="Приговор", text=text_)
         beda = _person(session, seed, run, "Александра Беду", "Александр Беда")
         murder = seed.mention(
-            run, "ч. 1 ст. 105 УК РФ", person_id=None, entity_type="legal_reference"
+            run, "ч. 1 ст. 318 УК РФ", person_id=None, entity_type="legal_reference"
         )
         session.get_one(EntityMentionRecord, murder).normalized_data = {
             "code": "УК РФ",
-            "article": "105",
+            "article": "318",
             "part": "1",
             "clause": None,
         }
@@ -97,7 +98,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
                 "card",
                 (
                     "Анна Смирнова обвиняется. Проект «Поддержка политзаключённых. Мемориал» "
-                    "внёс человека в реестр преследуемых: «Антивоенное дело»."
+                    "внёс человека в реестр преследуемых: «Другие жертвы политических репрессий»."
                 ),
                 "Анна Смирнова",
                 "Анна Смирнова",
@@ -172,8 +173,8 @@ def test_a_political_article_settles_it_and_a_model_reads_the_rest(
     assert sorted(item.name for item in classifier.asked) == ["Александр Беда", "Анна Смирнова"]
     smirnova = next(item for item in classifier.asked if item.name == "Анна Смирнова")
     beda = next(item for item in classifier.asked if item.name == "Александр Беда")
-    assert beda.articles == ("105",)
-    assert smirnova.memorial == "Антивоенное дело"
+    assert beda.articles == ("318",)
+    assert smirnova.memorial == "Другие жертвы политических репрессий"
     assert _verdicts(session_factory) == {
         "Иван Петров": ("political", "article"),
         "Александр Беда": ("criminal", "model"),
@@ -218,3 +219,62 @@ def test_an_answer_that_names_someone_else_is_dropped() -> None:
 )
 def test_an_answer_maps_to_a_verdict(answer: str, verdict: str) -> None:
     assert verdict_of(answer) == verdict
+
+
+def test_a_political_verdict_sticks_when_the_input_changes(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE entity_politics_answers SET input_hash = md5(input_hash)"))
+    again = FakeClassifier(VERDICTS)
+
+    PoliticsFinder(session_factory, classifier=again).run()
+
+    # Смирнова stays political unasked; Беда's «criminal» is asked again.
+    assert [item.name for item in again.asked] == ["Александр Беда"]
+
+
+def test_the_rules_settle_common_crime_and_the_memorial_s_sure_categories(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        # Беда charged with murder alone; Смирнова on the «Антивоенное дело» list.
+        session.execute(
+            text("UPDATE entity_group_charges SET article = '105' WHERE article = '318'")
+        )
+        session.execute(
+            text(
+                "UPDATE parsed_articles SET text = replace(text, "
+                "'«Другие жертвы политических репрессий»', '«Антивоенное дело»')"
+            )
+        )
+    classifier = FakeClassifier(VERDICTS)
+
+    result = PoliticsFinder(session_factory, classifier=classifier).run()
+
+    assert classifier.asked == []
+    assert _verdicts(session_factory) == {
+        "Иван Петров": ("political", "article"),
+        "Александр Беда": ("criminal", "article"),
+        "Анна Смирнова": ("political", "memorial"),
+    }
+    assert (result.political_memorial, result.criminal_rules, result.criminal) == (1, 1, 1)
+
+
+def test_hooliganism_is_no_common_crime_for_the_rules(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """ст. 213: Pussy Riot's article; the model reads it."""
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE entity_group_charges SET article = '213' WHERE article = '318'")
+        )
+    classifier = FakeClassifier(VERDICTS)
+
+    PoliticsFinder(session_factory, classifier=classifier).run()
+
+    assert "Александр Беда" in [item.name for item in classifier.asked]

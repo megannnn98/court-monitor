@@ -15,35 +15,43 @@ key and a hash of what was sent, so a new quote or prompt asks again.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
+import re
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, select, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import delete, insert, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupRoleRecord, EntityRoleAnswerRecord
-from entities.normalizer import OPENROUTER_DEFAULT_MODEL, OPENROUTER_TIMEOUT_SECONDS, OPENROUTER_URL
+from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.llm import (
+    OPENROUTER_MODEL,
+    OPENROUTER_URL,
+    Endpoint,
+    ModelError,
+    Spend,
+    budget_from_env,
+    chat_json,
+    endpoint_from_env,
+)
 from entities.officials import OFFICIAL_KINDS, official_marks, titled_entities
 
 logger = logging.getLogger("entities")
 
 # v2: «administrative» — a model without it called an administrative case «accused».
 PROMPT_VERSION = "roles-v2"
-BATCH_SIZE = 25
+BATCH_SIZE = 50
 CONCURRENCY = 8
 MAX_TOKENS = 8_000
 # Publications quoted per entity, and characters of text on each side of the mention.
-QUOTES = 3
-QUOTE_CONTEXT = 200
+QUOTES = 2
+QUOTE_CONTEXT = 150
 INSERT_CHUNK = 5_000
 
 Kind = Literal[
@@ -192,57 +200,44 @@ def matched_answers(
 
 
 class OpenRouterRoleClassifier:
+    """Through an OpenAI-compatible API: OpenRouter (DeepSeek by default) or a local
+    model (`entities.llm.Endpoint`)."""
+
     def __init__(
-        self, api_key: str, *, model: str = OPENROUTER_DEFAULT_MODEL, http_client: httpx.Client
+        self,
+        api_key: str | None,
+        *,
+        model: str = OPENROUTER_MODEL,
+        http_client: httpx.Client,
+        endpoint: Endpoint | None = None,
+        spend: Spend | None = None,
     ) -> None:
-        self._api_key = api_key
-        self._model = model
+        self._endpoint = endpoint or Endpoint("openrouter", OPENROUTER_URL, model, api_key)
         self._http = http_client
+        self.spend = spend or Spend()
 
     @property
     def model(self) -> str:
-        return self._model
+        return self._endpoint.model
 
     def classify(self, items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
         payload = json.dumps(
             [{"id": item.id, "name": item.name, "quotes": list(item.quotes)} for item in items],
             ensure_ascii=False,
         )
-        body = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": payload},
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "roles", "strict": True, "schema": _RESPONSE_SCHEMA},
-            },
-            "provider": {"require_parameters": True},
-            "reasoning": {"enabled": False},
-            "temperature": 0,
-            "max_tokens": MAX_TOKENS,
-        }
         try:
-            response = self._http.post(
-                OPENROUTER_URL,
-                json=body,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                timeout=OPENROUTER_TIMEOUT_SECONDS,
+            content = chat_json(
+                self._http,
+                self._endpoint,
+                system=SYSTEM_PROMPT,
+                user=payload,
+                schema_name="roles",
+                schema=_RESPONSE_SCHEMA,
+                max_tokens=MAX_TOKENS,
+                spend=self.spend,
             )
-        except httpx.HTTPError as exc:
-            raise RoleClassifierError(f"{type(exc).__name__}: {exc}") from exc
-        if response.status_code >= 400:
-            raise RoleClassifierError(f"HTTP {response.status_code}: {response.text[:300]}")
-        try:
-            choice = response.json()["choices"][0]
-            content = choice["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise RoleClassifierError(f"unusable answer: {type(exc).__name__}") from exc
-        if choice.get("finish_reason") not in (None, "stop"):
-            raise RoleClassifierError(
-                f"unusable answer: finish_reason={choice.get('finish_reason')}"
-            )
+        except ModelError as exc:
+            raise RoleClassifierError(str(exc)) from exc
         try:
             batch = RoleBatch.model_validate_json(content)
         except ValidationError as exc:
@@ -250,7 +245,7 @@ class OpenRouterRoleClassifier:
         answers = matched_answers(items, batch.answers)
         logger.info(
             "event=entity_roles_classified model=%s asked=%d answered=%d",
-            self._model,
+            self.model,
             len(items),
             len(answers),
         )
@@ -258,13 +253,19 @@ class OpenRouterRoleClassifier:
 
 
 def role_classifier_from_env(env: Mapping[str, str] | None = None) -> RoleClassifier | None:
-    """OpenRouter when its key is set; None otherwise: the rest is then «unclear»."""
+    """A local model or OpenRouter (`entities.llm.endpoint_from_env`); None otherwise:
+    the rest is then «unclear»."""
     env = os.environ if env is None else env
-    key = env.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
+    endpoint = endpoint_from_env(env)
+    if endpoint is None:
         return None
-    model = env.get("ENTITY_NORMALIZE_MODEL", "").strip() or OPENROUTER_DEFAULT_MODEL
-    return OpenRouterRoleClassifier(key, model=model, http_client=httpx.Client())
+    return OpenRouterRoleClassifier(
+        endpoint.api_key,
+        model=endpoint.model,
+        http_client=httpx.Client(),
+        endpoint=endpoint,
+        spend=Spend(budget_from_env(env)),
+    )
 
 
 # The entities off the list, each with the rules' charge if it has one: an event with a
@@ -321,12 +322,35 @@ class FigurantResult:
     asked_now: int
     cached: int
     failures: int
+    # Left unasked: the run's budget was spent; the next run asks them.
+    unasked: int = 0
+    cost_usd: float = 0.0
 
 
-def _input_hash(item: RoleItem) -> str:
-    return hashlib.sha256(
-        json.dumps([PROMPT_VERSION, item.name, *item.quotes], ensure_ascii=False).encode()
-    ).hexdigest()
+def _accepted(version: str, kind: str, explanation: str) -> bool:
+    """A roles-v1 answer holds unless it is what v2 fixed: an administrative case the
+    model, lacking «administrative», called «accused»."""
+    return (
+        version == "roles-v1"
+        and kind in KINDS
+        and not (kind == "accused" and _ADMINISTRATIVE.search(explanation))
+    )
+
+
+_ADMINISTRATIVE = re.compile(r"административ|коап|штраф", re.IGNORECASE)
+ROLE_CACHE: AnswerCache[RoleAnswer] = AnswerCache(
+    record=EntityRoleAnswerRecord,
+    field="kind",
+    prompt_version=PROMPT_VERSION,
+    accepted=_accepted,
+    sticky=lambda kind: kind == "accused",
+    make=lambda group_id, kind, explanation: RoleAnswer(
+        id=group_id,
+        source="",
+        kind=kind,  # type: ignore[arg-type]
+        explanation=explanation,
+    ),
+)
 
 
 class FigurantFinder:
@@ -407,7 +431,22 @@ class FigurantFinder:
         }
         keys = {row.id: row.key for row in rest}
         charged = {row.id: row for row in rest if row.article is not None}
-        answers, asked, cached, failures = self._answers(items, keys)
+        found = ask_missing(
+            self._session_factory,
+            ROLE_CACHE,
+            self._classifier,
+            items,
+            keys,
+            {group_id: input_hash(item.name, *item.quotes) for group_id, item in items.items()},
+            batch_size=BATCH_SIZE,
+            concurrency=CONCURRENCY,
+            value_of=lambda answer: answer.kind,
+            explanation_of=lambda answer: answer.explanation,
+            on_stage=self._on_stage,
+            event="entity_roles",
+            errors=(RoleClassifierError,),
+        )
+        answers = found.answers
 
         for group_id, item in items.items():
             answer = answers.get(group_id)
@@ -463,83 +502,11 @@ class FigurantFinder:
             possible=roles.count(POSSIBLE),
             mentioned=roles.count(MENTIONED),
             unclear=roles.count(UNCLEAR),
-            asked_now=asked,
-            cached=cached,
-            failures=failures,
+            asked_now=found.asked,
+            cached=found.cached,
+            failures=found.failures,
+            unasked=found.unasked,
+            cost_usd=round(found.cost_usd, 6),
         )
         logger.info("event=entity_figurants_found %s", result)
         return result
-
-    def _answers(
-        self, items: Mapping[int, RoleItem], keys: Mapping[int, str]
-    ) -> tuple[dict[int, RoleAnswer], int, int, int]:
-        """Cached answers for the same input; the rest asked in parallel batches, each
-        batch cached as it comes. A failed batch stays unanswered, asked again next time."""
-        hashes = {group_id: _input_hash(item) for group_id, item in items.items()}
-        with self._session_factory() as session:
-            known = {
-                (record.key, record.input_hash): record
-                for record in session.scalars(
-                    select(EntityRoleAnswerRecord).where(
-                        EntityRoleAnswerRecord.prompt_version == PROMPT_VERSION
-                    )
-                )
-            }
-        answers: dict[int, RoleAnswer] = {}
-        for group_id, item in items.items():
-            record = known.get((keys[group_id], hashes[group_id]))
-            if record is not None and record.kind in KINDS:
-                answers[group_id] = RoleAnswer(
-                    id=group_id,
-                    source=item.name,
-                    kind=record.kind,  # type: ignore[arg-type]
-                    explanation=record.explanation,
-                )
-        cached = len(answers)
-        missing = [item for group_id, item in items.items() if group_id not in answers]
-        if self._classifier is None or not missing:
-            if missing:
-                logger.warning("event=entity_roles_not_asked entities=%d", len(missing))
-            return answers, 0, cached, 0
-        classifier = self._classifier
-        batches = [
-            missing[start : start + BATCH_SIZE] for start in range(0, len(missing), BATCH_SIZE)
-        ]
-        asked = failures = done = 0
-        with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
-            futures = {pool.submit(classifier.classify, batch): batch for batch in batches}
-            for future in as_completed(futures):
-                batch = futures[future]
-                done += len(batch)
-                self._on_stage(f"asking {done}/{len(missing)}")
-                try:
-                    got = future.result()
-                except RoleClassifierError as exc:
-                    failures += len(batch)
-                    logger.warning(
-                        "event=entity_roles_batch_failed entities=%d error=%s", len(batch), exc
-                    )
-                    continue
-                failures += len(batch) - len(got)
-                if got:
-                    with self._session_factory.begin() as session:
-                        session.execute(
-                            pg_insert(EntityRoleAnswerRecord)
-                            .values(
-                                [
-                                    {
-                                        "key": keys[group_id],
-                                        "input_hash": hashes[group_id],
-                                        "prompt_version": PROMPT_VERSION,
-                                        "model": classifier.model,
-                                        "kind": answer.kind,
-                                        "explanation": answer.explanation,
-                                    }
-                                    for group_id, answer in got.items()
-                                ]
-                            )
-                            .on_conflict_do_nothing()
-                        )
-                answers.update(got)
-                asked += len(got)
-        return answers, asked, cached, failures

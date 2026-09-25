@@ -22,6 +22,16 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from entities.grouping import _bases, _fold
+from entities.llm import (
+    OPENROUTER_MODEL,
+    OPENROUTER_URL,
+    Endpoint,
+    ModelError,
+    Spend,
+    budget_from_env,
+    chat_json,
+    endpoint_from_env,
+)
 
 logger = logging.getLogger("entities")
 
@@ -29,9 +39,7 @@ logger = logging.getLogger("entities")
 # overrides it.
 DEFAULT_MODEL = "claude-haiku-4-5"
 # DeepSeek through OpenRouter, the user's choice once the Anthropic account had no credit.
-OPENROUTER_DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash"
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_TIMEOUT_SECONDS = 120.0
+OPENROUTER_DEFAULT_MODEL = OPENROUTER_MODEL
 # The answer's JSON schema, spelled out for providers' strict mode (no $defs).
 _RESPONSE_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -166,87 +174,68 @@ def _payload(items: Sequence[NameItem]) -> str:
 
 
 class OpenRouterNameNormalizer:
-    """The same task through OpenRouter's OpenAI-compatible API (DeepSeek by default).
-
-    `require_parameters` sends the request only to providers that honour the JSON
-    schema; an answer that still breaks it is a failure, never a name."""
+    """The same task through an OpenAI-compatible API: OpenRouter (DeepSeek by default)
+    or a local model (`entities.llm.Endpoint`). An answer that breaks the schema is a
+    failure, never a name."""
 
     def __init__(
-        self, api_key: str, *, model: str = OPENROUTER_DEFAULT_MODEL, http_client: httpx.Client
+        self,
+        api_key: str | None,
+        *,
+        model: str = OPENROUTER_DEFAULT_MODEL,
+        http_client: httpx.Client,
+        endpoint: Endpoint | None = None,
+        spend: Spend | None = None,
     ) -> None:
-        self._api_key = api_key
-        self._model = model
+        self._endpoint = endpoint or Endpoint("openrouter", OPENROUTER_URL, model, api_key)
         self._http = http_client
+        self.spend = spend or Spend()
 
     @property
     def model(self) -> str:
-        return self._model
+        return self._endpoint.model
 
     def normalize(self, items: Sequence[NameItem]) -> dict[int, NormalizedName]:
-        body = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": _payload(items)},
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "names", "strict": True, "schema": _RESPONSE_SCHEMA},
-            },
-            "provider": {"require_parameters": True},
-            # A reasoning model spends the whole max_tokens thinking and cuts the answer;
-            # naming needs no chain of thought.
-            "reasoning": {"enabled": False},
-            "temperature": 0,
-            "max_tokens": MAX_TOKENS,
-        }
         try:
-            response = self._http.post(
-                OPENROUTER_URL,
-                json=body,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                timeout=OPENROUTER_TIMEOUT_SECONDS,
+            content = chat_json(
+                self._http,
+                self._endpoint,
+                system=SYSTEM_PROMPT,
+                user=_payload(items),
+                schema_name="names",
+                schema=_RESPONSE_SCHEMA,
+                max_tokens=MAX_TOKENS,
+                spend=self.spend,
             )
-        except httpx.HTTPError as exc:
-            raise NameNormalizerError(f"{type(exc).__name__}: {exc}") from exc
-        if response.status_code >= 400:
-            # The provider's message says why (credit, model, schema); it holds no secret.
-            raise NameNormalizerError(f"HTTP {response.status_code}: {response.text[:300]}")
-        try:
-            choice = response.json()["choices"][0]
-            content = choice["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise NameNormalizerError(f"unusable answer: {type(exc).__name__}") from exc
-        # Checked first: a cut answer is also broken JSON, and the cut is the reason.
-        if choice.get("finish_reason") not in (None, "stop"):
-            raise NameNormalizerError(
-                f"unusable answer: finish_reason={choice.get('finish_reason')}"
-            )
+        except ModelError as exc:
+            raise NameNormalizerError(str(exc)) from exc
         try:
             batch = NormalizedBatch.model_validate_json(content)
         except ValidationError as exc:
             raise NameNormalizerError(f"unusable answer: {type(exc).__name__}") from exc
         answers = matched_answers(items, batch.names)
-        usage = response.json().get("usage") or {}
         logger.info(
-            "event=entity_names_normalized model=%s asked=%d answered=%d input_tokens=%s "
-            "output_tokens=%s",
-            self._model,
+            "event=entity_names_normalized model=%s asked=%d answered=%d",
+            self.model,
             len(items),
             len(answers),
-            usage.get("prompt_tokens"),
-            usage.get("completion_tokens"),
         )
         return answers
 
 
 def name_normalizer_from_env(env: Mapping[str, str] | None = None) -> NameNormalizer | None:
-    """OpenRouter when its key is set, else Claude when its key is set, else none."""
+    """A local model or OpenRouter (`entities.llm.endpoint_from_env`), else Claude when
+    its key is set, else none."""
     env = os.environ if env is None else env
-    openrouter_key = env.get("OPENROUTER_API_KEY", "").strip()
-    if openrouter_key:
-        model = env.get("ENTITY_NORMALIZE_MODEL", "").strip() or OPENROUTER_DEFAULT_MODEL
-        return OpenRouterNameNormalizer(openrouter_key, model=model, http_client=httpx.Client())
+    endpoint = endpoint_from_env(env)
+    if endpoint is not None:
+        return OpenRouterNameNormalizer(
+            endpoint.api_key,
+            model=endpoint.model,
+            http_client=httpx.Client(),
+            endpoint=endpoint,
+            spend=Spend(budget_from_env(env)),
+        )
     return ClaudeNameNormalizer.from_env(env)
 
 

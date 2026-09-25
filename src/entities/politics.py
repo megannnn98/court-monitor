@@ -13,30 +13,38 @@ Answers are cached by the entity key and a hash of what was sent.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, select, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import delete, insert, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityPoliticsAnswerRecord
-from entities.normalizer import OPENROUTER_DEFAULT_MODEL, OPENROUTER_TIMEOUT_SECONDS, OPENROUTER_URL
+from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.llm import (
+    OPENROUTER_MODEL,
+    OPENROUTER_URL,
+    Endpoint,
+    ModelError,
+    Spend,
+    budget_from_env,
+    chat_json,
+    endpoint_from_env,
+)
 from entities.roles import _QUOTES, QUOTE_CONTEXT, QUOTES
 from persecution.classifier import POLITICAL_ARTICLES
 
 logger = logging.getLogger("entities")
 
 PROMPT_VERSION = "politics-v1"
-BATCH_SIZE = 25
+BATCH_SIZE = 50
 CONCURRENCY = 8
 MAX_TOKENS = 8_000
 INSERT_CHUNK = 5_000
@@ -150,16 +158,25 @@ def matched_answers(
 
 
 class OpenRouterPoliticsClassifier:
+    """Through an OpenAI-compatible API: OpenRouter (DeepSeek by default) or a local
+    model (`entities.llm.Endpoint`)."""
+
     def __init__(
-        self, api_key: str, *, model: str = OPENROUTER_DEFAULT_MODEL, http_client: httpx.Client
+        self,
+        api_key: str | None,
+        *,
+        model: str = OPENROUTER_MODEL,
+        http_client: httpx.Client,
+        endpoint: Endpoint | None = None,
+        spend: Spend | None = None,
     ) -> None:
-        self._api_key = api_key
-        self._model = model
+        self._endpoint = endpoint or Endpoint("openrouter", OPENROUTER_URL, model, api_key)
         self._http = http_client
+        self.spend = spend or Spend()
 
     @property
     def model(self) -> str:
-        return self._model
+        return self._endpoint.model
 
     def classify(self, items: Sequence[PoliticsItem]) -> dict[int, PoliticsAnswer]:
         payload = json.dumps(
@@ -175,41 +192,19 @@ class OpenRouterPoliticsClassifier:
             ],
             ensure_ascii=False,
         )
-        body = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": payload},
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "politics", "strict": True, "schema": _RESPONSE_SCHEMA},
-            },
-            "provider": {"require_parameters": True},
-            "reasoning": {"enabled": False},
-            "temperature": 0,
-            "max_tokens": MAX_TOKENS,
-        }
         try:
-            response = self._http.post(
-                OPENROUTER_URL,
-                json=body,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                timeout=OPENROUTER_TIMEOUT_SECONDS,
+            content = chat_json(
+                self._http,
+                self._endpoint,
+                system=SYSTEM_PROMPT,
+                user=payload,
+                schema_name="politics",
+                schema=_RESPONSE_SCHEMA,
+                max_tokens=MAX_TOKENS,
+                spend=self.spend,
             )
-        except httpx.HTTPError as exc:
-            raise PoliticsClassifierError(f"{type(exc).__name__}: {exc}") from exc
-        if response.status_code >= 400:
-            raise PoliticsClassifierError(f"HTTP {response.status_code}: {response.text[:300]}")
-        try:
-            choice = response.json()["choices"][0]
-            content = choice["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise PoliticsClassifierError(f"unusable answer: {type(exc).__name__}") from exc
-        if choice.get("finish_reason") not in (None, "stop"):
-            raise PoliticsClassifierError(
-                f"unusable answer: finish_reason={choice.get('finish_reason')}"
-            )
+        except ModelError as exc:
+            raise PoliticsClassifierError(str(exc)) from exc
         try:
             batch = PoliticsBatch.model_validate_json(content)
         except ValidationError as exc:
@@ -217,23 +212,27 @@ class OpenRouterPoliticsClassifier:
         answers = matched_answers(items, batch.answers)
         logger.info(
             "event=entity_politics_classified model=%s asked=%d answered=%d",
-            self._model,
+            self.model,
             len(items),
             len(answers),
         )
         return answers
 
 
-def politics_classifier_from_env(
-    env: Mapping[str, str] | None = None,
-) -> PoliticsClassifier | None:
-    """OpenRouter when its key is set; None otherwise: the rest is then «unclear»."""
+def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> PoliticsClassifier | None:
+    """A local model or OpenRouter (`entities.llm.endpoint_from_env`); None otherwise:
+    the rest is then «unclear»."""
     env = os.environ if env is None else env
-    key = env.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
+    endpoint = endpoint_from_env(env)
+    if endpoint is None:
         return None
-    model = env.get("ENTITY_NORMALIZE_MODEL", "").strip() or OPENROUTER_DEFAULT_MODEL
-    return OpenRouterPoliticsClassifier(key, model=model, http_client=httpx.Client())
+    return OpenRouterPoliticsClassifier(
+        endpoint.api_key,
+        model=endpoint.model,
+        http_client=httpx.Client(),
+        endpoint=endpoint,
+        spend=Spend(budget_from_env(env)),
+    )
 
 
 # The figurants off the list, with their Criminal Code articles.
@@ -284,15 +283,61 @@ class PoliticsResult:
     asked_now: int
     cached: int
     failures: int
+    # By the «Мемориал» category alone; common-crime articles alone: no model asked.
+    political_memorial: int = 0
+    criminal_rules: int = 0
+    # Left unasked: the run's budget was spent; the next run asks them.
+    unasked: int = 0
+    cost_usd: float = 0.0
 
 
-def _input_hash(item: PoliticsItem) -> str:
-    return hashlib.sha256(
-        json.dumps(
-            [PROMPT_VERSION, item.name, *item.quotes, *item.articles, item.memorial],
-            ensure_ascii=False,
-        ).encode()
-    ).hexdigest()
+# «Мемориал» categories the model called political in 98% of cases (354 of 362): the
+# category settles it. «Другие жертвы» (91%), «Архив» (42%) and «без лишения свободы»
+# (47%) do not: the model reads those.
+POLITICAL_CATEGORIES = frozenset(
+    {
+        "Антивоенное дело",
+        "Список политзаключённых (без преследуемых за религию)",
+        "Список политзаключённых, преследуемых за религию",
+        "Свидетели Иеговы",
+        "Погибшие жертвы политического преследования",
+    }
+)
+# Articles of common crime: a figurant charged under these alone, off «Мемориал», was
+# «criminal» for the model in 208 of 213 cases. Not 213 (hooliganism: Pussy Riot) nor
+# 318 (violence against an official: the protests).
+COMMON_CRIME_ARTICLES = frozenset(
+    {
+        "105", "111", "112", "115", "116", "119", "131", "132", "134", "135",
+        "158", "159", "160", "161", "162", "163", "228", "228.1", "229", "264",
+        "290", "291", "291.1",
+    }
+)  # fmt: skip
+
+
+def _settled(articles: Sequence[str], memorial: str | None) -> tuple[str, str, str] | None:
+    """(verdict, method, reason) where the rules know the model's answer; None to ask."""
+    if memorial in POLITICAL_CATEGORIES:
+        return POLITICAL, "memorial", f"«Мемориал»: {memorial}"
+    if memorial is None and articles and set(articles) <= COMMON_CRIME_ARTICLES:
+        listed = ", ".join(sorted(set(articles)))
+        return CRIMINAL, "article", f"ст. {listed} УК — обычная уголовная статья"
+    return None
+
+
+POLITICS_CACHE: AnswerCache[PoliticsAnswer] = AnswerCache(
+    record=EntityPoliticsAnswerRecord,
+    field="verdict",
+    prompt_version=PROMPT_VERSION,
+    accepted=lambda _version, _verdict, _explanation: False,
+    sticky=lambda verdict: verdict == "political",
+    make=lambda group_id, verdict, explanation: PoliticsAnswer(
+        id=group_id,
+        source="",
+        verdict=verdict,  # type: ignore[arg-type]
+        explanation=explanation,
+    ),
+)
 
 
 class PoliticsFinder:
@@ -331,6 +376,11 @@ class PoliticsFinder:
                 {"groups": [row.id for row in rest], "context": QUOTE_CONTEXT, "quotes": QUOTES},
             ).all():
                 quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+        # Where the answer is known without asking (measured against the model's answers).
+        settled = {
+            row.id: rule for row in rest if (rule := _settled(row.articles, memorial.get(row.id)))
+        }
+        asked_rows = [row for row in rest if row.id not in settled]
         items = {
             row.id: PoliticsItem(
                 id=row.id,
@@ -339,10 +389,28 @@ class PoliticsFinder:
                 articles=tuple(row.articles),
                 memorial=memorial.get(row.id),
             )
-            for row in rest
+            for row in asked_rows
         }
-        keys = {row.id: row.key for row in rest}
-        answers, asked, cached, failures = self._answers(items, keys)
+        keys = {row.id: row.key for row in asked_rows}
+        found = ask_missing(
+            self._session_factory,
+            POLITICS_CACHE,
+            self._classifier,
+            items,
+            keys,
+            {
+                group_id: input_hash(item.name, *item.quotes, *item.articles, item.memorial)
+                for group_id, item in items.items()
+            },
+            batch_size=BATCH_SIZE,
+            concurrency=CONCURRENCY,
+            value_of=lambda answer: answer.verdict,
+            explanation_of=lambda answer: answer.explanation,
+            on_stage=self._on_stage,
+            event="entity_politics",
+            errors=(PoliticsClassifierError,),
+        )
+        answers = found.answers
 
         rows: list[dict[str, object]] = [
             {
@@ -353,6 +421,16 @@ class PoliticsFinder:
                 "quote": quote,
             }
             for group_id, (article, quote) in political.items()
+        ]
+        rows += [
+            {
+                "group_id": group_id,
+                "verdict": verdict,
+                "method": method,
+                "reason": reason,
+                "quote": next(iter(quotes.get(group_id, [])), ""),
+            }
+            for group_id, (verdict, method, reason) in settled.items()
         ]
         for group_id, item in items.items():
             answer = answers.get(group_id)
@@ -386,90 +464,20 @@ class PoliticsFinder:
                 session.execute(
                     insert(EntityGroupPoliticsRecord), rows[start : start + INSERT_CHUNK]
                 )
-        verdicts = [str(row["verdict"]) for row in rows]
+        verdicts = Counter((str(row["verdict"]), str(row["method"])) for row in rows)
         result = PoliticsResult(
             figurants=len(figurants),
             political_rules=len(political),
-            political_model=verdicts.count(POLITICAL) - len(political),
-            criminal=verdicts.count(CRIMINAL),
-            unclear=verdicts.count(UNCLEAR),
-            asked_now=asked,
-            cached=cached,
-            failures=failures,
+            political_memorial=verdicts[(POLITICAL, "memorial")],
+            political_model=verdicts[(POLITICAL, "model")],
+            criminal=sum(count for (verdict, _), count in verdicts.items() if verdict == CRIMINAL),
+            criminal_rules=verdicts[(CRIMINAL, "article")],
+            unclear=sum(count for (verdict, _), count in verdicts.items() if verdict == UNCLEAR),
+            asked_now=found.asked,
+            cached=found.cached,
+            failures=found.failures,
+            unasked=found.unasked,
+            cost_usd=round(found.cost_usd, 6),
         )
         logger.info("event=entity_politics_found %s", result)
         return result
-
-    def _answers(
-        self, items: Mapping[int, PoliticsItem], keys: Mapping[int, str]
-    ) -> tuple[dict[int, PoliticsAnswer], int, int, int]:
-        """Cached answers for the same input; the rest asked in parallel batches, each
-        batch cached as it comes. A failed batch stays unanswered, asked again next time."""
-        hashes = {group_id: _input_hash(item) for group_id, item in items.items()}
-        with self._session_factory() as session:
-            known = {
-                (record.key, record.input_hash): record
-                for record in session.scalars(
-                    select(EntityPoliticsAnswerRecord).where(
-                        EntityPoliticsAnswerRecord.prompt_version == PROMPT_VERSION
-                    )
-                )
-            }
-        answers: dict[int, PoliticsAnswer] = {}
-        for group_id, item in items.items():
-            record = known.get((keys[group_id], hashes[group_id]))
-            if record is not None and record.verdict in VERDICTS:
-                answers[group_id] = PoliticsAnswer(
-                    id=group_id,
-                    source=item.name,
-                    verdict=record.verdict,  # type: ignore[arg-type]
-                    explanation=record.explanation,
-                )
-        cached = len(answers)
-        missing = [item for group_id, item in items.items() if group_id not in answers]
-        if self._classifier is None or not missing:
-            if missing:
-                logger.warning("event=entity_politics_not_asked entities=%d", len(missing))
-            return answers, 0, cached, 0
-        classifier = self._classifier
-        batches = [
-            missing[start : start + BATCH_SIZE] for start in range(0, len(missing), BATCH_SIZE)
-        ]
-        asked = failures = done = 0
-        with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
-            futures = {pool.submit(classifier.classify, batch): batch for batch in batches}
-            for future in as_completed(futures):
-                batch = futures[future]
-                done += len(batch)
-                self._on_stage(f"asking {done}/{len(missing)}")
-                try:
-                    got = future.result()
-                except PoliticsClassifierError as exc:
-                    failures += len(batch)
-                    logger.warning(
-                        "event=entity_politics_batch_failed entities=%d error=%s", len(batch), exc
-                    )
-                    continue
-                failures += len(batch) - len(got)
-                if got:
-                    with self._session_factory.begin() as session:
-                        session.execute(
-                            pg_insert(EntityPoliticsAnswerRecord)
-                            .values(
-                                [
-                                    {
-                                        "key": keys[group_id],
-                                        "input_hash": hashes[group_id],
-                                        "prompt_version": PROMPT_VERSION,
-                                        "model": classifier.model,
-                                        "verdict": answer.verdict,
-                                        "explanation": answer.explanation,
-                                    }
-                                    for group_id, answer in got.items()
-                                ]
-                            )
-                            .on_conflict_do_nothing()
-                        )
-                answers.update(got)
-                asked += len(got)
-        return answers, asked, cached, failures

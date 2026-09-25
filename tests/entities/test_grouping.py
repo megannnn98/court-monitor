@@ -445,3 +445,46 @@ def test_a_surname_alone_joins_the_full_name_of_its_article() -> None:
 
     # Article 10 names Иван Алексеев; article 12 names Пётр: each takes its own.
     assert attached == {"иван алексеев": [1, 2, 3], "пётр алексеев": [4, 5]}
+
+
+@pytest.mark.parametrize(
+    ("form", "name", "gender"),
+    [
+        ("Иван Петров", "Иван Петров", "male"),
+        ("Анна Олеговна Смирнова", "Анна Олеговна Смирнова", "female"),
+        # A registry card writes the surname first, before the patronymic.
+        ("Смирнова Анна Олеговна", "Анна Олеговна Смирнова", "female"),
+        # A surname that is also a given name: the patronymic tells which is which.
+        ("Ким Игорь Васильевич", "Игорь Васильевич Ким", "male"),
+    ],
+)
+def test_a_form_already_in_the_nominative_needs_no_model(form: str, name: str, gender: str) -> None:
+    from entities.grouping import nominative_form
+
+    ruled = nominative_form(form)
+
+    assert ruled is not None and (ruled.nominative, ruled.gender, ruled.source) == (
+        name,
+        gender,
+        "rules",
+    )
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        "Ивана Петрова",  # the dictionary knows no oblique given name
+        "Александра Моора",  # a woman's name, and a man's genitive
+        "Петров Иван",  # surname first without a patronymic
+        "Надежда Валуевы",  # a plural
+        "Юрий Николаевич",  # a patronymic for a surname
+        "Вячеслав Костина",  # a man with a declined surname
+        "Анна Смирновой",  # a woman with a declined surname
+        "Соломатин П.",  # an initial
+        "Иван Петров Сидоров",  # the middle word is no patronymic: two surnames?
+    ],
+)
+def test_a_form_the_rule_is_not_sure_of_goes_to_the_model(form: str) -> None:
+    from entities.grouping import nominative_form
+
+    assert nominative_form(form) is None

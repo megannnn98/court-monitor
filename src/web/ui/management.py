@@ -497,6 +497,8 @@ def _entities_card(run: OperationRun) -> str:
         ("normalized_cached", "Имён из кэша", ""),
         ("normalize_failures", "Не удалось нормализовать", "failed"),
         ("charged_entities", "Со статьями УК", ""),
+        ("normalize_unasked", "Не спрошено: лимит расходов", "failed"),
+        ("model_cost_usd", "Стоимость модели, $", ""),
         ("charges", "Связей со статьями УК", ""),
     )
     summary = " ".join(
@@ -620,6 +622,8 @@ def _figurants_card(run: OperationRun) -> str:
         ("failures", "Модель не ответила", "failed"),
         ("asked_now", "Ответов модели сейчас", ""),
         ("cached", "Из кэша", ""),
+        ("unasked", "Не спрошено: лимит расходов", "failed"),
+        ("cost_usd", "Стоимость модели, $", ""),
     )
     summary = " ".join(
         _badge(f"{label}: {totals[key]}", badge)
@@ -668,11 +672,15 @@ def _political_card(run: OperationRun) -> str:
     labels = (
         ("political_rules", "Политические по статье УК", "succeeded"),
         ("political_model", "Политические по ответу модели", "succeeded"),
+        ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
+        ("criminal_rules", "Уголовные по статье (без модели)", ""),
         ("criminal", "Уголовные", ""),
         ("unclear", "Не ясно", ""),
         ("failures", "Модель не ответила", "failed"),
         ("asked_now", "Ответов модели сейчас", ""),
         ("cached", "Из кэша", ""),
+        ("unasked", "Не спрошено: лимит расходов", "failed"),
+        ("cost_usd", "Стоимость модели, $", ""),
     )
     summary = " ".join(
         _badge(f"{label}: {totals[key]}", badge)

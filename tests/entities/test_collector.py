@@ -127,7 +127,8 @@ def _seed_declined_and_nominative(session_factory: sessionmaker[Session]) -> Non
         source = seed.source("news", "https://news.example.test")
         for external_id, text_, surface, first, last in (
             ("a", "Суд арестовал Александра Моора.", "Александра Моора", "Александра", "Моора"),
-            ("b", "Александр Моор получил срок.", "Александр Моор", "Александр", "Моор"),
+            # Surname first, no patronymic: which is which is the model's to say.
+            ("b", "Моор Александр получил срок.", "Моор Александр", "Александр", "Моор"),
         ):
             _, run = seed.article(source, external_id=external_id, title=external_id, text=text_)
             _person(session, seed, run, surface, first, last)
@@ -139,7 +140,7 @@ def test_model_names_merge_entities_and_are_asked_once(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed_declined_and_nominative(session_factory)
-    table = {"Александра Моора": "Александр Моор", "Александр Моор": "Александр Моор"}
+    table = {"Александра Моора": "Александр Моор", "Моор Александр": "Александр Моор"}
     first_model = FakeNormalizer(table)
     second_model = FakeNormalizer(table)
 
@@ -182,7 +183,7 @@ def test_many_batches_are_asked_in_parallel_and_all_kept(
     monkeypatch.setattr(entities.collector, "BATCH_SIZE", 1)
     _seed_declined_and_nominative(session_factory)
     model = FakeNormalizer(
-        {"Александра Моора": "Александр Моор", "Александр Моор": "Александр Моор"}
+        {"Александра Моора": "Александр Моор", "Моор Александр": "Александр Моор"}
     )
     stages: list[str] = []
 
@@ -230,3 +231,70 @@ def test_a_registry_card_gives_its_region_and_keeps_its_namesake_apart(
         "Николай Викторович Бондаренко": [["Луганская область", 1]],
         "Николай Бондаренко": [],
     }
+
+
+def test_a_name_is_kept_by_its_forms_and_an_older_answer_by_key_still_counts(
+    session_factory: sessionmaker[Session],
+) -> None:
+    from sqlalchemy import text
+
+    from db.orm_models import EntityNameNormalizationRecord
+    from entities.normalizer import PROMPT_VERSION
+
+    _seed_declined_and_nominative(session_factory)
+    table = {"Александра Моора": "Александр Моор", "Моор Александр": "Александр Моор"}
+    EntityCollector(session_factory, normalizer=FakeNormalizer(table)).run()
+    with session_factory() as session:
+        keys = set(session.scalars(select(EntityNameNormalizationRecord.key)))
+    # Kept by the forms it named: a rebuild that changes the entity keys asks nothing.
+    assert keys and all(key.startswith("forms:") for key in keys)
+
+    # An older answer kept by the rule key of the entity is still an answer.
+    with session_factory.begin() as session:
+        session.execute(text("DELETE FROM entity_name_normalizations"))
+        session.add(
+            EntityNameNormalizationRecord(
+                key="александр моор",
+                prompt_version=PROMPT_VERSION,
+                model="old",
+                nominative="Александр Моор",
+                gender="male",
+                is_person=True,
+            )
+        )
+    again = FakeNormalizer(table)
+
+    result = EntityCollector(session_factory, normalizer=again).run()
+
+    assert again.asked == [("Александра Моора",)]
+    assert result.normalized_cached == 1
+
+
+def test_a_single_nominative_form_is_named_without_the_model(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        text_ = "Суд арестовал. Анна Олеговна Смирнова не признала вину."
+        _, run = seed.article(source, external_id="a", title="a", text=text_)
+        mention_id = seed.mention(run, "Анна Олеговна Смирнова", person_id=None)
+        session.get_one(EntityMentionRecord, mention_id).normalized_data = {
+            "first_name": "Анна",
+            "last_name": "Смирнова",
+            "patronymic": "Олеговна",
+        }
+        seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
+        session.commit()
+    model = FakeNormalizer({})
+
+    result = EntityCollector(session_factory, normalizer=model).run()
+
+    assert model.asked == [] and result.normalized_now == 0
+    with session_factory() as session:
+        entity = session.scalars(select(EntityGroupRecord)).one()
+        assert (entity.name, entity.gender, entity.name_source) == (
+            "Анна Олеговна Смирнова",
+            "female",
+            "rules",
+        )
