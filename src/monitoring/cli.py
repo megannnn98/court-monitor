@@ -22,7 +22,7 @@ from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck
 from entities.roles import FigurantFinder, role_classifier_from_env
-from monitoring.junk_purge import JunkPurge, JunkPurgeResult
+from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
 from observability import configure_logging
@@ -469,16 +469,25 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
 
     def progress(result: JunkPurgeResult) -> None:
         logger.info(
-            "event=junk_purge_progress articles=%d total=%d persons=%d reviews=%d",
+            "event=junk_purge_progress articles=%d total=%d persons=%d reviews=%d outdated=%d",
             result.articles,
             total,
             result.persons,
             result.reviews,
+            result.outdated,
         )
 
-    purge = JunkPurge(session_factory, on_progress=progress)
+    since = since_from_env()
+    purge = JunkPurge(session_factory, on_progress=progress, since=since)
     total = purge.count()
-    logger.info("event=junk_purge_started total=%d", total)
+    logger.info("event=junk_purge_started total=%d since=%s", total, since.date() if since else "-")
     result = purge.run()
-    _print({"articles": result.articles, "persons": result.persons, "reviews": result.reviews})
+    _print(
+        {
+            "articles": result.articles,
+            "outdated": result.outdated,
+            "persons": result.persons,
+            "reviews": result.reviews,
+        }
+    )
     return True

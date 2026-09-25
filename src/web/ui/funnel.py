@@ -14,12 +14,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from entities.officials import OFFICIAL_KINDS
-from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
+from monitoring.junk_purge import CRIMINAL_EVENT_TYPES, EXPIRED_CONTENT_TYPE
 
 _COUNTS = text(
     """
     SELECT
-      (SELECT count(*) FROM source_documents),
+      (SELECT count(*) FROM source_documents WHERE content_type <> :expired),
       (SELECT count(*) FROM parsed_articles),
       (SELECT count(*) FROM entity_groups),
       (SELECT count(*) FROM entity_groups g WHERE NOT EXISTS (
@@ -83,7 +83,9 @@ def funnel(db: Session) -> Funnel:
         unclear,
         since,
         until,
-    ) = db.execute(_COUNTS, {"officials": sorted(OFFICIAL_KINDS)}).one()
+    ) = db.execute(
+        _COUNTS, {"officials": sorted(OFFICIAL_KINDS), "expired": EXPIRED_CONTENT_TYPE}
+    ).one()
     criminal_publications = (
         db.scalar(_CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}) or 0
     )

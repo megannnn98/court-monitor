@@ -7,6 +7,10 @@ the post and never downloads it again. A person left with no mention and no even
 goes too, with what cascades from it (classifications, Rosfinmonitoring matches,
 resolution decisions, findings).
 
+An article published before the working date (`since`, `PIPELINE_SINCE`) goes the
+same way, whatever it is about; its tombstone is marked `EXPIRED_CONTENT_TYPE`, so that
+what is counted as loaded is only what the work covers.
+
 Batches of their own transactions: a stopped purge keeps what it removed and leaves a
 consistent database; the next purge goes on from there.
 """
@@ -14,8 +18,10 @@ consistent database; the next purge goes on from there.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
+import os
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, time
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -28,6 +34,8 @@ logger = logging.getLogger("monitoring")
 # The events of a criminal case; `fine` is administrative and does not keep an article.
 CRIMINAL_EVENT_TYPES = ("case_opened", "charge", "arrest", "detention", "sentence", "search")
 BATCH_SIZE = 500
+# The tombstone of an article before the working date.
+EXPIRED_CONTENT_TYPE = "application/x-court-monitor-expired"
 
 # Articles whose latest successful extraction found no criminal-case event. An article
 # never extracted successfully is not judged.
@@ -50,11 +58,34 @@ _JUNK_ARTICLES = text(
 ).bindparams(bindparam("criminal", expanding=True))
 
 
+# Articles published before the working date, news or registry alike.
+_OUTDATED_ARTICLES = text(
+    """
+    SELECT a.id FROM parsed_articles a
+    WHERE a.published_at < :since
+    ORDER BY a.id
+    LIMIT :limit
+    """
+)
+
+
+def since_from_env(env: Mapping[str, str] | None = None) -> datetime | None:
+    """`PIPELINE_SINCE` (YYYY-MM-DD) as the start of that day, UTC; None when unset."""
+    env = os.environ if env is None else env
+    value = env.get("PIPELINE_SINCE", "").strip()
+    if not value:
+        return None
+    return datetime.combine(date.fromisoformat(value), time.min, UTC)
+
+
 @dataclass
 class JunkPurgeResult:
+    # Every article deleted: before the working date and without a criminal case.
     articles: int = 0
     persons: int = 0
     reviews: int = 0
+    # Of `articles`, those before the working date.
+    outdated: int = 0
 
 
 class JunkPurge:
@@ -64,20 +95,35 @@ class JunkPurge:
         *,
         batch_size: int = BATCH_SIZE,
         on_progress: Callable[[JunkPurgeResult], None] = lambda _result: None,
+        since: datetime | None = None,
     ) -> None:
         if batch_size < 1:
             raise ValueError("batch_size must be greater than zero")
+        self._since = since
         self._session_factory = session_factory
         self._batch_size = batch_size
         self._on_progress = on_progress
 
     def count(self) -> int:
-        """How many articles are junk now."""
+        """How many articles go now: before the working date, or junk."""
         with self._session_factory() as session:
-            return len(self._junk_articles(session, limit=None))
+            outdated = set(self._outdated_articles(session, limit=None))
+            return len(outdated | set(self._junk_articles(session, limit=None)))
 
     def run(self) -> JunkPurgeResult:
         result = JunkPurgeResult()
+        while True:
+            with self._session_factory.begin() as session:
+                article_ids = self._outdated_articles(session, limit=self._batch_size)
+                if not article_ids:
+                    break
+                persons = self._purge_articles(
+                    session, article_ids, content_type=EXPIRED_CONTENT_TYPE
+                )
+                result.articles += len(article_ids)
+                result.outdated += len(article_ids)
+                result.persons += self._purge_orphans(session, persons)
+            self._on_progress(result)
         while True:
             with self._session_factory.begin() as session:
                 article_ids = self._junk_articles(session, limit=self._batch_size)
@@ -92,6 +138,11 @@ class JunkPurge:
         self._on_progress(result)
         return result
 
+    def _outdated_articles(self, session: Session, *, limit: int | None) -> list[int]:
+        if self._since is None:
+            return []
+        return list(session.scalars(_OUTDATED_ARTICLES, {"since": self._since, "limit": limit}))
+
     def _junk_articles(self, session: Session, *, limit: int | None) -> list[int]:
         return list(
             session.scalars(
@@ -99,8 +150,11 @@ class JunkPurge:
             ).all()
         )
 
-    def _purge_articles(self, session: Session, article_ids: Sequence[int]) -> list[int]:
-        """Delete the articles and all extracted from them; the persons they named."""
+    def _purge_articles(
+        self, session: Session, article_ids: Sequence[int], *, content_type: str | None = None
+    ) -> list[int]:
+        """Delete the articles and all extracted from them; the persons they named. The
+        tombstone keeps its content type unless one is given."""
         ids = {"ids": list(article_ids)}
         persons = list(
             session.scalars(
@@ -142,10 +196,11 @@ class JunkPurge:
         )
         # The tombstone: the post stays known to discovery, its content goes.
         session.execute(
-            text("UPDATE source_documents SET raw_content = '' WHERE id IN :documents").bindparams(
-                bindparam("documents", expanding=True)
-            ),
-            {"documents": documents},
+            text(
+                "UPDATE source_documents SET raw_content = '', "
+                "content_type = coalesce(:content_type, content_type) WHERE id IN :documents"
+            ).bindparams(bindparam("documents", expanding=True)),
+            {"documents": documents, "content_type": content_type},
         )
         return persons
 

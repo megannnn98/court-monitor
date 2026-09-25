@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
@@ -15,7 +17,12 @@ from db.orm_models import (
     SemanticDocumentRecord,
     SourceDocument,
 )
-from monitoring.junk_purge import JunkPurge, JunkPurgeResult
+from monitoring.junk_purge import (
+    EXPIRED_CONTENT_TYPE,
+    JunkPurge,
+    JunkPurgeResult,
+    since_from_env,
+)
 
 
 def _semantic(session: Session, entity_type: str, entity_id: int) -> None:
@@ -171,3 +178,46 @@ def test_a_purged_post_is_not_downloaded_again(session_factory: sessionmaker[Ses
     assert purged.articles == 1
     assert ovd.fetches == fetches
     assert (again.documents_skipped, again.documents_ingested) == (2, 0)
+
+
+def test_an_article_before_the_working_date_goes_though_it_is_criminal(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    since = datetime(2026, 9, 20, tzinfo=UTC)
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE parsed_articles SET published_at = :at"), {"at": since})
+        # The criminal article is a day too old; the unjudged one also, never extracted.
+        session.execute(
+            text("UPDATE parsed_articles SET published_at = :at WHERE id IN (:a, :b)"),
+            {"at": since - timedelta(days=1), "a": ids["criminal"], "b": ids["unjudged"]},
+        )
+
+    purge = JunkPurge(session_factory, since=since)
+    assert purge.count() == 4
+    result = purge.run()
+
+    assert (result.articles, result.outdated) == (4, 2)
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(ParsedArticleRecord)) == 0
+        # Tombstones all; the ones before the working date are marked so.
+        types = dict(
+            session.execute(select(SourceDocument.external_id, SourceDocument.content_type)).all()
+        )
+        assert types["criminal"] == types["unjudged"] == EXPIRED_CONTENT_TYPE
+        assert types["junk"] != EXPIRED_CONTENT_TYPE
+
+
+def test_without_a_working_date_nothing_goes_for_its_age(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE parsed_articles SET published_at = '2004-01-01'"))
+
+    assert JunkPurge(session_factory).run().outdated == 0
+
+
+def test_the_working_date_comes_from_the_environment() -> None:
+    assert since_from_env({"PIPELINE_SINCE": "2026-09-20"}) == datetime(2026, 9, 20, tzinfo=UTC)
+    assert since_from_env({}) is None
