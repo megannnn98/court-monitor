@@ -361,15 +361,19 @@ def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
-        listed = client.get("/ui/entities", params={"rf": "only"}).text
         everyone = client.get("/ui/entities", params={"rf": "all"}).text
+        # The form sends the hidden «all» first, then the ticked box's «hide».
+        ticked = client.get("/ui/entities?rf=all&rf=hide").text
         card = client.get(f"/ui/entities/{MOOR}").text
 
     assert "Моор Александр" not in page and "Найдено: 1." in page
-    assert "Без перечня РФМ (скрыто 1)" in page
+    assert '<input id="rf-hide" type="checkbox" name="rf" value="hide" checked' in page
+    assert "Скрыть тех, кто в перечне РФМ (1)" in page
     # A name without a patronymic may be a namesake: shown, marked.
     assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
-    assert "Моор Александр Петрович" in listed and "Найдено: 1." in listed
     assert "Найдено: 2." in everyone
+    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", everyone)
+    assert 'value="hide"\n      onchange' in everyone  # unticked: no «checked»
+    assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
     assert "<h2>Росфинмониторинг</h2>" in card
     assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card

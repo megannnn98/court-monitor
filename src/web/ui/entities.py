@@ -318,7 +318,7 @@ def _last_collect(registry: OperationRegistry) -> OperationRun | None:
 def ui_entities(
     q: str = Query(default="", max_length=200),
     article: str = Query(default="", max_length=32),
-    rf: str = Query(default="hide", pattern="^(hide|only|all)$"),
+    rf: str = Query(default="hide", pattern="^(hide|all)$"),
     sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
@@ -348,8 +348,6 @@ def ui_entities(
     hidden = db.scalar(select(func.count()).select_from(query.where(in_list).subquery())) or 0
     if rf == "hide":
         query = query.where(~in_list)
-    elif rf == "only":
-        query = query.where(in_list)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     if sort == "name":
         # By the name as shown: the surname is not a column, and ten thousand short rows
@@ -385,16 +383,6 @@ def ui_entities(
             ("name", "По фамилии"),
         )
     )
-    rf_links = " ".join(
-        f'<a class="chip{" active" if key == rf else ""}" '
-        f'href="/ui/entities?{urlencode({"q": q, "article": article, "rf": key, "sort": sort})}">'
-        f"{label}</a>"
-        for key, label in (
-            ("hide", f"Без перечня РФМ (скрыто {hidden})"),
-            ("only", "Только в перечне"),
-            ("all", "Все"),
-        )
-    )
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     pager = " ".join(
         f'<a href="/ui/entities?{urlencode({"q": q, "article": article, "rf": rf, "sort": sort, "page": number})}">'
@@ -405,11 +393,14 @@ def ui_entities(
 <form method="get" class="toolbar">
   <input type="search" name="q" value="{escape(q, quote=True)}" placeholder="Имя или вариант написания">
   <input type="hidden" name="sort" value="{sort}">
-  <input type="hidden" name="rf" value="{rf}">
   <input type="search" name="article" value="{escape(article, quote=True)}" placeholder="Статья УК, напр. 207.3" size="18">
   <button>Найти</button>
   <span class="chips">{sort_links}</span>
-  <span class="chips">{rf_links}</span>
+  <!-- Unticked, only the hidden «all» is sent; ticked, the box's «hide» comes last and wins. -->
+  <input type="hidden" name="rf" value="all">
+  <label title="ФИО с отчеством совпало с перечнем Росфинмониторинга">
+    <input id="rf-hide" type="checkbox" name="rf" value="hide"{" checked" if rf == "hide" else ""}
+      onchange="this.form.submit()"> Скрыть тех, кто в перечне РФМ ({hidden})</label>
 </form>
 <p class="muted">Найдено: {total}{f" по статье УК {escape(article)}" if article else ""}. Только люди и только из
 публикаций с уголовным делом; одна сущность — одно имя с фамилией в любом падеже (однофамильцы
