@@ -33,6 +33,7 @@ from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import persons as ui_persons
+from web.ui import political as ui_political
 from web.ui import wiki as ui_wiki
 
 logger = logging.getLogger("api")
@@ -84,6 +85,7 @@ for module in (
     ui_logs,
     ui_entities,
     ui_disputes,
+    ui_political,
     operations,
     monitoring,
     health,

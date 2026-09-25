@@ -162,6 +162,42 @@ class EntityPairDecisionRecord(Base):
     )
 
 
+class EntityGroupPoliticsRecord(Base):
+    """Whether a figurant's criminal case is political persecution or common crime.
+
+    Rewritten by every «Отобрать политические дела»; only figurants off the
+    Rosfinmonitoring list have one."""
+
+    __tablename__ = "entity_group_politics"
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    # political, criminal or unclear.
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    # article: a political article of the Criminal Code; model: a model read the quotes.
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class EntityPoliticsAnswerRecord(Base):
+    """A model's verdict on a figurant's case for this very input: reused until the
+    input or the prompt changes."""
+
+    __tablename__ = "entity_politics_answers"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class EntityNameNormalizationRecord(Base):
     """What a model answered for an entity key: reused by every later rebuild.
 

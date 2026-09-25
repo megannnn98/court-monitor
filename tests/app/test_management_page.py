@@ -520,6 +520,7 @@ def test_while_a_resolution_runs_its_button_stops_it(
         "3. Собрать сущности",
         "4. Сверить с Росфинмониторингом",
         "5. Найти фигурантов",
+        "6. Отобрать политические дела",
     ]
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in bar
     assert "Идёт разрешение персон." in page
@@ -572,7 +573,8 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
         (("load", "purge"), "interrupted", "purge"),
         (("load", "purge", "entities"), "succeeded", "rosfin"),
         (("load", "purge", "entities", "rosfin"), "succeeded", "figurants"),
-        (("load", "purge", "entities", "rosfin", "figurants"), "succeeded", "load"),
+        (("load", "purge", "entities", "rosfin", "figurants"), "succeeded", "political"),
+        (("load", "purge", "entities", "rosfin", "figurants", "political"), "succeeded", "load"),
         (("load", "purge", "entities", "rosfin"), "failed", "rosfin"),  # a crash is repeated
         (("load", "purge", "entities", "resolve"), "succeeded", "load"),
         (("load", "resolve"), "failed", "load"),  # a resolution ends the cycle
@@ -683,3 +685,36 @@ def test_step_five_finds_the_figurants_from_management(
     assert "Фигуранты по ответу модели: 1200" in done
     assert "Только упомянуты: 1700" in done
     assert "Модель не ответила: 10" in done
+
+
+def test_step_six_finds_the_political_cases_from_management(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "rosfin", "figurants")
+
+    with _client(session_factory, registry) as client:
+        bar = _run_bar(client.get("/ui/management").text)
+        response = client.post("/ui/management/political", follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'succeeded', stdout = :out "
+                    "WHERE id = :id"
+                ),
+                {
+                    "id": run_id,
+                    "out": '{"figurants": 4831, "political_rules": 1378, "political_model": 1500, '
+                    '"criminal": 1800, "unclear": 150, "asked_now": 3450, "cached": 0, '
+                    '"failures": 3}',
+                },
+            )
+        done = client.get(response.headers["location"]).text
+
+    assert 'id="step-political" class="step current" type="submit"' in bar
+    run = registry.get(run_id)
+    assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
+    assert "Политические по статье УК: 1378" in done
+    assert "Политические по ответу модели: 1500" in done
+    assert "Уголовные: 1800" in done and 'href="/ui/political">Список</a>' in done

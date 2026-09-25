@@ -57,6 +57,7 @@ def test_the_menu_hides_the_candidates_for_now(session_factory: sessionmaker[Ses
     assert links == [
         ("/ui/entities", "Сущности"),
         ("/ui/disputes", "Спорные случаи"),
+        ("/ui/political", "Список"),
         ("/ui/management", "Управление"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),

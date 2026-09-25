@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from application import ApplicationServices, build_application_services
 from entities.collector import EntityCollector
 from entities.normalizer import name_normalizer_from_env
+from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck
 from entities.roles import FigurantFinder, role_classifier_from_env
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult
@@ -41,6 +42,7 @@ MONITORING_COMMANDS = frozenset(
         "collect-entities",
         "check-entities-rosfin",
         "find-figurants",
+        "find-political",
         "monitoring-status",
         "monitoring-findings",
     }
@@ -152,6 +154,14 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         ),
     )
 
+    subparsers.add_parser(
+        "find-political",
+        help=(
+            "Tell which figurants off the Rosfinmonitoring list are politically persecuted "
+            "(a political УК article, then a model for the rest)"
+        ),
+    )
+
     status = subparsers.add_parser("monitoring-status", help="Show monitoring runs and checkpoints")
     status.add_argument("--run-id", type=int, default=None, help="Show one run with failed items")
 
@@ -242,6 +252,17 @@ def run_monitoring_command(
             on_stage=lambda stage: logger.info("event=entity_figurants_stage stage=%s", stage),
         ).run()
         _print(dataclasses.asdict(found))
+        return True
+    if args.command == "find-political":
+        politics = politics_classifier_from_env()
+        if politics is None:
+            logger.warning("event=entity_politics_no_model: OPENROUTER_API_KEY is not set")
+        found_political = PoliticsFinder(
+            session_factory,
+            classifier=politics,
+            on_stage=lambda stage: logger.info("event=entity_politics_stage stage=%s", stage),
+        ).run()
+        _print(dataclasses.asdict(found_political))
         return True
     services = build_services(session_factory)
     monitoring = services.monitoring

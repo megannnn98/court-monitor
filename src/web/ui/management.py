@@ -35,7 +35,7 @@ router = APIRouter()
 
 _OPERATION = "monitor"
 # Runs over the whole database: no source selection, a card of their own.
-_WHOLE_DATABASE = ("purge", "entities", "rosfin", "figurants")
+_WHOLE_DATABASE = ("purge", "entities", "rosfin", "figurants", "political")
 _RUN_STATUS_LABELS = {
     OperationRunStatus.PENDING: "В очереди",
     OperationRunStatus.RUNNING: "Выполняется",
@@ -154,6 +154,7 @@ _MODE_TITLES = {
     "entities": "Сборка сущностей",
     "rosfin": "Сверка с Росфинмониторингом",
     "figurants": "Поиск фигурантов",
+    "political": "Отбор политических дел",
     None: "Загрузка и разрешение",
 }
 
@@ -639,6 +640,59 @@ def _figurants_card(run: OperationRun) -> str:
 </section>"""
 
 
+_POLITICAL_STAGE = re.compile(r"event=entity_politics_stage stage=([^\n]+)")
+
+
+def _political_card(run: OperationRun) -> str:
+    """Telling persecution from crime: the model's progress while it runs; the verdicts after."""
+    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+    stages = _POLITICAL_STAGE.findall(run.stderr)
+    stage = stages[-1].strip() if stages else ""
+    if stage.startswith("asking "):
+        done, _, total = stage.removeprefix("asking ").partition("/")
+        progress = (
+            f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
+            f'max="{escape(total)}"></progress><p><strong>Модель читает дела: '
+            f"{escape(done)} из {escape(total)}</strong></p></div>"
+        )
+    else:
+        label = {"reading": "Читаю фигурантов и цитаты…", "writing": "Сохраняю…"}.get(
+            stage, "Готовлюсь…"
+        )
+        progress = f'<div class="progress-box"><p><strong>{label}</strong></p></div>'
+    try:
+        totals = json.loads(run.stdout) if run.stdout else {}
+    except json.JSONDecodeError:
+        totals = {}
+    labels = (
+        ("political_rules", "Политические по статье УК", "succeeded"),
+        ("political_model", "Политические по ответу модели", "succeeded"),
+        ("criminal", "Уголовные", ""),
+        ("unclear", "Не ясно", ""),
+        ("failures", "Модель не ответила", "failed"),
+        ("asked_now", "Ответов модели сейчас", ""),
+        ("cached", "Из кэша", ""),
+    )
+    summary = " ".join(
+        _badge(f"{label}: {totals[key]}", badge)
+        for key, label, badge in labels
+        if isinstance(totals, dict) and totals.get(key)
+    )
+    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
+    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
+    refresh = (
+        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
+    )
+    return f"""<section class="band run-card">
+  <h2>Запуск #{run.id} · {_MODE_TITLES["political"]} {overall}</h2>
+  <p class="muted">Начат {started} · <a href="/ui/political">Список</a> ·
+  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
+  {progress if in_progress else ""}
+  <p class="run-summary">{summary}</p>
+  {refresh}
+</section>"""
+
+
 def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
     if run.parameters.mode == "purge":
         return _purge_card(run)
@@ -648,6 +702,8 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
         return _rosfin_card(run)
     if run.parameters.mode == "figurants":
         return _figurants_card(run)
+    if run.parameters.mode == "political":
+        return _political_card(run)
     """A card per run: status, counts per outcome and, folded, the sources that ran.
 
     Sources the run never reached are only counted: listed one by one they buried the
@@ -889,6 +945,15 @@ def start_management_purge(
     return _start_whole_database(db, registry, "purge")
 
 
+@router.post("/ui/management/political", response_model=None)
+def start_management_political(
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse | RedirectResponse:
+    """Step 6: tell persecution from crime among the figurants off the list."""
+    return _start_whole_database(db, registry, "political")
+
+
 @router.post("/ui/management/figurants", response_model=None)
 def start_management_figurants(
     db: Session = Depends(get_db),  # noqa: B008
@@ -932,7 +997,7 @@ def _refused(
 def _start_whole_database(
     db: Session,
     registry: OperationRegistry,
-    mode: Literal["purge", "entities", "rosfin", "figurants"],
+    mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
 ) -> HTMLResponse | RedirectResponse:
     everything = {item.name for item in news_sources()}
     refusal = out_of_turn(current_state(registry), mode)

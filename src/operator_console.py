@@ -64,9 +64,11 @@ class OperationParameters(BaseModel):
     # monitor only: "load" loads and extracts, "resolve" resolves persons and classifies,
     # "purge" deletes the articles without a criminal case, "entities" rebuilds the person
     # entities, "rosfin" checks them against the Rosfinmonitoring list, "figurants" tells
-    # who a case is opened against; unset, one run loads and resolves. All are one
-    # operation: they never run at once.
-    mode: Literal["load", "resolve", "purge", "entities", "rosfin", "figurants"] | None = None
+    # who a case is opened against, "political" which cases are persecution; unset, one
+    # run loads and resolves. All are one operation: they never run at once.
+    mode: (
+        Literal["load", "resolve", "purge", "entities", "rosfin", "figurants", "political"] | None
+    ) = None
     limit: int | None = Field(default=None, ge=1, le=100_000)
     workers: int | None = Field(default=None, ge=1, le=32)
 
@@ -540,6 +542,7 @@ _WHOLE_DATABASE_COMMANDS = {
     "entities": "collect-entities",
     "rosfin": "check-entities-rosfin",
     "figurants": "find-figurants",
+    "political": "find-political",
 }
 
 

@@ -1,6 +1,6 @@
-"""The manual pipeline: five steps in a cycle, one button that can be pressed at a time.
+"""The manual pipeline: six steps in a cycle, one button that can be pressed at a time.
 
-1. load → 2. purge → 3. entities → 4. rosfin → 5. figurants → back to 1. Person resolution has no button for now
+1. load → 2. purge → 3. entities → 4. rosfin → 5. figurants → 6. political → back to 1. Person resolution has no button for now
 (the user's call); a resolution run, from before or from the bot's /update, ends a
 cycle. The step that may run now comes from the latest monitor run alone:
 - a live run is the current step (its button stops it);
@@ -19,13 +19,14 @@ from html import escape
 from operator_console import OperationRegistry, OperationRun, OperationRunStatus
 
 OPERATION = "monitor"
-STAGES = ("load", "purge", "entities", "rosfin", "figurants")
+STAGES = ("load", "purge", "entities", "rosfin", "figurants", "political")
 TITLES = {
     "load": "Подгрузить статьи",
     "purge": "Очистить от мусора",
     "entities": "Собрать сущности",
     "rosfin": "Сверить с Росфинмониторингом",
     "figurants": "Найти фигурантов",
+    "political": "Отобрать политические дела",
     # No button; names a resolution run that is still going.
     "resolve": "Разрешение персон",
 }
@@ -35,6 +36,7 @@ HINTS = {
     "entities": "собрать людей из упоминаний и привести имена к именительному падежу",
     "rosfin": "скачать свежий перечень Росфинмониторинга и скрыть из «Сущностей» тех, кто в нём",
     "figurants": "понять, на кого из оставшихся заведено дело, а кто только упомянут",
+    "political": "отделить политическое преследование от уголовщины — это «Список»",
 }
 _ACTIONS = {
     "load": "/ui/management/run",
@@ -42,6 +44,7 @@ _ACTIONS = {
     "entities": "/ui/management/entities",
     "rosfin": "/ui/management/rosfin",
     "figurants": "/ui/management/figurants",
+    "political": "/ui/management/political",
 }
 # Steps that take the source selection; the others cover the whole database.
 _WITH_SOURCES = frozenset({"load"})
@@ -101,7 +104,7 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
 
 
 def stepper(state: PipelineState, checked_count: int, *, back: str = "management") -> str:
-    """The five buttons joined by arrows; only the current one can be pressed.
+    """The six buttons joined by arrows; only the current one can be pressed.
 
     Buttons submit the page's source form (`formaction`), so the steps with sources
     carry the selection; the selection script only touches `.run-button`."""

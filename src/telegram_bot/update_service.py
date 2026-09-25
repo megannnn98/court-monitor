@@ -134,7 +134,7 @@ class UpdateService:
         runs = [
             run
             for run in self._operations.runs_of(MONITOR_OPERATION, limit=5)
-            if run.parameters.mode not in ("purge", "entities", "rosfin", "figurants")
+            if run.parameters.mode not in ("purge", "entities", "rosfin", "figurants", "political")
         ]
         return None if not runs else self._status_of(runs[0])
 

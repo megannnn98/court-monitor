@@ -57,6 +57,7 @@ def _page(
     nav = [
         ("entities", "Сущности", "/ui/entities"),
         ("disputes", "Спорные случаи", "/ui/disputes"),
+        ("political", "Список", "/ui/political"),
         ("management", "Управление", "/ui/management"),
         ("logs", "Логи", "/ui/logs"),
         ("wiki", "Вики", "/ui/wiki"),

@@ -7,11 +7,13 @@ from db.models.base import Base
 from db.models.entities import (
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
+    EntityGroupPoliticsRecord,
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
     EntityNameNormalizationRecord,
     EntityPairDecisionRecord,
+    EntityPoliticsAnswerRecord,
     EntityRoleAnswerRecord,
 )
 from db.models.extraction import (
@@ -63,12 +65,14 @@ __all__ = [
     "Base",
     "EntityGroupChargeRecord",
     "EntityGroupMentionRecord",
+    "EntityGroupPoliticsRecord",
     "EntityGroupRecord",
     "EntityGroupRfMatchRecord",
     "EntityGroupRoleRecord",
     "EntityMentionRecord",
     "EntityNameNormalizationRecord",
     "EntityPairDecisionRecord",
+    "EntityPoliticsAnswerRecord",
     "EntityRoleAnswerRecord",
     "EventEntityMentionRecord",
     "ExtractedEventRecord",
