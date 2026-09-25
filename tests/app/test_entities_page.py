@@ -120,7 +120,7 @@ def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
     assert "<mark>Александра Моора</mark>" in card.text
     assert "<mark>Александру Моору</mark>" in card.text
     assert re.search(
-        r'href="/ui/entities/[^"]+">Иванов Иван</a>\s*<span class="muted">— общих статей: 1',
+        r'href="/ui/entities/[^"]+">Иванов Иван</a>\s*<span class="muted">— общих публикаций: 1',
         card.text,
     )
     assert "Арест: 1" in card.text
@@ -246,3 +246,92 @@ def test_initials_sort_by_the_name_as_shown(session_factory: sessionmaker[Sessio
         "Соломатин П.",
         "Яковлева Анна",
     ]
+
+
+def _law(session: Session, seed: ResearchSeeder, run: int, surface: str, article: str) -> int:
+    mention_id = seed.mention(run, surface, person_id=None, entity_type="legal_reference")
+    session.get_one(EntityMentionRecord, mention_id).normalized_data = {
+        "code": "УК РФ",
+        "article": article,
+        "part": "2" if "ч. 2" in surface else None,
+        "clause": None,
+    }
+    return mention_id
+
+
+def _charged(session_factory: sessionmaker[Session]) -> None:
+    """Моор is charged alone under 205.2; Иванов and Петров share 207.3 and 20.3.1."""
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        text_ = "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ."
+        _, run = seed.article(source, external_id="moor", title="Арест Моора", text=text_)
+        moor = _person(session, seed, run, "Александра Моора", "Александр", "Моор")
+        law = _law(session, seed, run, "ч. 2 ст. 205.2 УК РФ", "205.2")
+        seed.event(
+            run,
+            text_,
+            event_type="arrest",
+            event_date=None,
+            links=[],
+            entity_links=[(moor, "target"), (law, "legal_basis")],
+        )
+        text_ = "Ивана Иванова и Петра Петрова обвинили по ст. 207.3 УК РФ."
+        _, run = seed.article(source, external_id="pair", title="Обвинение", text=text_)
+        seed.event(
+            run,
+            text_,
+            event_type="charge",
+            event_date=None,
+            links=[],
+            entity_links=[
+                (_person(session, seed, run, "Ивана Иванова", "Иван", "Иванов"), "target"),
+                (_person(session, seed, run, "Петра Петрова", "Петр", "Петров"), "target"),
+                (_law(session, seed, run, "ст. 207.3 УК РФ", "207.3"), "legal_basis"),
+            ],
+        )
+        session.commit()
+    EntityCollector(session_factory).run()
+
+
+def test_a_card_lists_the_criminal_code_articles_with_their_publications(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _charged(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        moor = client.get(f"/ui/entities/{MOOR}").text
+        ivanov = client.get("/ui/entities/" + quote("иван иванов")).text
+
+    assert "<h2>Статьи УК</h2>" in moor
+    assert re.search(
+        r"<summary><b>ст\. 205\.2</b> \(ч\. 2\) <span class=\"badge\">политическая</span> ", moor
+    )
+    assert "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ." in moor
+    assert "публикаций: 1" in moor
+    # Named beside another target: shown, but marked shared; the only target is not.
+    shared = 'title="Во всех событиях обвиняемыми названы и другие люди">общая</span>'
+    assert re.search(r"<b>ст\. 207\.3</b>.*?" + re.escape(shared), ivanov)
+    assert shared not in moor
+
+
+def test_the_list_shows_the_articles_and_filters_by_one(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _charged(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities").text
+        by_article = client.get("/ui/entities", params={"article": "207.3"}).text
+
+    assert '<a href="/ui/entities?article=205.2&sort=mentions">205.2</a>' in page
+    assert (
+        '<a href="/ui/entities?article=207.3&sort=mentions" class="muted" title="общая">'
+        "207.3</a>" in page
+    )
+    assert "Найдено: 3" in page
+    assert "Найдено: 2 по статье УК 207.3" in by_article
+    assert "Иванов Иван" in by_article and "Петров Петр" in by_article
+    assert "Моор Александр" not in by_article

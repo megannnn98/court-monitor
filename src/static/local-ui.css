@@ -482,3 +482,9 @@ pre.log {
   flex-basis: 100%;
   margin: 4px 0 0;
 }
+
+/* «Статьи УК» on an entity card: one folded article per line. */
+.charges { list-style: none; padding-left: 0; }
+.charges li { margin: 0.4em 0; }
+.charges summary { cursor: pointer; }
+.charges table { margin-top: 0.4em; }

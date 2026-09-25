@@ -14,11 +14,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, distinct, func, insert, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
+    EntityGroupChargeRecord,
     EntityGroupMentionRecord,
     EntityGroupRecord,
     EntityNameNormalizationRecord,
@@ -79,6 +80,40 @@ _EVENTS = text(
 
 # Characters of article text on each side of a mention, for the model's quote.
 QUOTE_CONTEXT = 120
+# Characters of an event's text kept as the evidence of a charge.
+CHARGE_QUOTE_LIMIT = 400
+
+# The Criminal Code articles the events tie to the entities just written: the entity's
+# mention is the event's target and the article its legal basis. КоАП is left out (a
+# fine is not a criminal case). `other_targets` counts the event's targets outside this
+# entity: the extractor makes every person of the sentence a target.
+_CHARGES = text(
+    """
+    INSERT INTO entity_group_charges
+        (group_id, event_id, publication_id, article, part, clause, event_type,
+         other_targets, quote)
+    SELECT DISTINCT ON (g.group_id, e.id, l.normalized_data->>'article',
+                        l.normalized_data->>'part', l.normalized_data->>'clause')
+           g.group_id, e.id, r.article_id, l.normalized_data->>'article',
+           l.normalized_data->>'part', l.normalized_data->>'clause', e.event_type,
+           (SELECT count(*) FROM event_entity_mentions o
+            WHERE o.event_id = e.id AND o.role = 'target'
+              AND NOT EXISTS (SELECT 1 FROM entity_group_mentions s
+                              WHERE s.mention_id = o.mention_id AND s.group_id = g.group_id)),
+           substr(a.text, e.start_offset + 1, least(e.end_offset - e.start_offset, :limit))
+    FROM entity_group_mentions g
+    JOIN event_entity_mentions t ON t.mention_id = g.mention_id AND t.role = 'target'
+    JOIN extracted_events e ON e.id = t.event_id
+    JOIN event_entity_mentions b ON b.event_id = e.id AND b.role = 'legal_basis'
+    JOIN entity_mentions l ON l.id = b.mention_id
+    JOIN article_extraction_runs r ON r.id = e.extraction_run_id
+    JOIN parsed_articles a ON a.id = r.article_id
+    WHERE l.normalized_data->>'code' IN ('УК РФ', 'УК')
+      AND coalesce(l.normalized_data->>'article', '') <> ''
+    ORDER BY g.group_id, e.id, l.normalized_data->>'article', l.normalized_data->>'part',
+             l.normalized_data->>'clause'
+    """
+)
 
 
 @dataclass(frozen=True)
@@ -90,6 +125,9 @@ class CollectResult:
     normalized_now: int = 0
     normalized_cached: int = 0
     normalize_failures: int = 0
+    # Criminal Code articles tied to the entities, and the entities that have any.
+    charges: int = 0
+    charged_entities: int = 0
 
 
 class EntityCollector:
@@ -157,6 +195,13 @@ class EntityCollector:
                 session.execute(
                     insert(EntityGroupMentionRecord), links[start : start + INSERT_CHUNK]
                 )
+            self._on_stage("charges")
+            session.execute(_CHARGES, {"limit": CHARGE_QUOTE_LIMIT})
+            charges, charged = session.execute(
+                select(
+                    func.count(), func.count(distinct(EntityGroupChargeRecord.group_id))
+                ).select_from(EntityGroupChargeRecord)
+            ).one()
         result = CollectResult(
             mentions=len(mentions),
             entities=len(entities),
@@ -164,16 +209,20 @@ class EntityCollector:
             normalized_now=asked,
             normalized_cached=cached,
             normalize_failures=failures,
+            charges=charges,
+            charged_entities=charged,
         )
         logger.info(
             "event=entities_collected mentions=%d entities=%d grouped=%d normalized_now=%d "
-            "normalized_cached=%d normalize_failures=%d",
+            "normalized_cached=%d normalize_failures=%d charges=%d charged_entities=%d",
             result.mentions,
             result.entities,
             result.grouped,
             result.normalized_now,
             result.normalized_cached,
             result.normalize_failures,
+            result.charges,
+            result.charged_entities,
         )
         return result
 

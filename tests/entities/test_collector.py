@@ -81,7 +81,7 @@ def test_entities_are_rebuilt_from_the_articles_with_a_criminal_case(
     again = EntityCollector(session_factory).run()
 
     assert (result.mentions, result.entities, result.grouped) == (3, 1, 3)
-    assert stages == ["reading", "grouping", "writing"]
+    assert stages == ["reading", "grouping", "writing", "charges"]
     assert again == result  # a rebuild, not an append
     with session_factory() as session:
         [entity] = session.scalars(select(EntityGroupRecord)).all()

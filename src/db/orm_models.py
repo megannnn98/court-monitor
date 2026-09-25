@@ -5,6 +5,7 @@ Importing this module registers every table on `Base.metadata`, which Alembic re
 
 from db.models.base import Base
 from db.models.entities import (
+    EntityGroupChargeRecord,
     EntityGroupMentionRecord,
     EntityGroupRecord,
     EntityNameNormalizationRecord,
@@ -56,6 +57,7 @@ from db.models.sources import (
 __all__ = [
     "ArticleExtractionRunRecord",
     "Base",
+    "EntityGroupChargeRecord",
     "EntityGroupMentionRecord",
     "EntityGroupRecord",
     "EntityMentionRecord",

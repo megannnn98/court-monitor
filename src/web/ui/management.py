@@ -458,7 +458,12 @@ def _purge_card(run: OperationRun) -> str:
 
 
 _ENTITIES_STAGE = re.compile(r"event=entities_collect_stage stage=([^\n]+)")
-_ENTITIES_STAGES = {"reading": "Читаю упоминания…", "grouping": "Склеиваю…", "writing": "Сохраняю…"}
+_ENTITIES_STAGES = {
+    "reading": "Читаю упоминания…",
+    "grouping": "Склеиваю…",
+    "writing": "Сохраняю…",
+    "charges": "Связываю со статьями УК…",
+}
 
 
 def _entities_card(run: OperationRun) -> str:
@@ -488,6 +493,8 @@ def _entities_card(run: OperationRun) -> str:
         ("normalized_now", "Имён от модели сейчас", ""),
         ("normalized_cached", "Имён из кэша", ""),
         ("normalize_failures", "Не удалось нормализовать", "failed"),
+        ("charged_entities", "Со статьями УК", ""),
+        ("charges", "Связей со статьями УК", ""),
     )
     summary = " ".join(
         _badge(f"{label}: {totals[key]}", badge)

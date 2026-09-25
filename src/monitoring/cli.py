@@ -184,6 +184,8 @@ def run_monitoring_command(
                 "normalized_now": collected.normalized_now,
                 "normalized_cached": collected.normalized_cached,
                 "normalize_failures": collected.normalize_failures,
+                "charges": collected.charges,
+                "charged_entities": collected.charged_entities,
             }
         )
         return True

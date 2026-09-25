@@ -49,6 +49,38 @@ class EntityGroupMentionRecord(Base):
     )
 
 
+class EntityGroupChargeRecord(Base):
+    """A Criminal Code article an event ties to the entity: it is the event's target and
+    the article its legal basis. One row per event and article; rebuilt with the groups."""
+
+    __tablename__ = "entity_group_charges"
+    __table_args__ = (
+        Index("ix_entity_group_charges_group_id", "group_id"),
+        Index("ix_entity_group_charges_article", "article"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_groups.id", ondelete="CASCADE"), nullable=False
+    )
+    event_id: Mapped[int] = mapped_column(
+        ForeignKey("extracted_events.id", ondelete="CASCADE"), nullable=False
+    )
+    # The publication (parsed article) the event was found in.
+    publication_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), nullable=False
+    )
+    # «205.2», its part and clause when the text gives them.
+    article: Mapped[str] = mapped_column(String(32), nullable=False)
+    part: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    clause: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Targets of the event that are other people: above zero the article is shared, and
+    # the extractor makes everyone in the sentence a target (lawyers and judges too).
+    other_targets: Mapped[int] = mapped_column(Integer, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class EntityNameNormalizationRecord(Base):
     """What a model answered for an entity key: reused by every later rebuild.
 
