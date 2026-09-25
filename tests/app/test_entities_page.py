@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.pipeline_runs import finish_steps
 from support.research_db_fixtures import ResearchSeeder
 
-from db.orm_models import EntityMentionRecord
+from db.orm_models import EntityGroupPoliticsRecord, EntityMentionRecord
 from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
 from entities.roles import FigurantFinder, RoleAnswer, RoleItem
@@ -446,3 +446,46 @@ def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Se
 
     assert re.search(r"Моор Александр</a>.*?<span class=\"muted\">Луганская область</span>", page)
     assert "<p><b>Регион:</b> Луганская область</p>" in card
+
+
+def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _collected(session_factory)
+    FigurantFinder(session_factory, classifier=_Roles()).run()
+    with session_factory.begin() as session:
+        moor = session.scalar(text("SELECT id FROM entity_groups WHERE key = 'александр моор'"))
+        session.add(
+            EntityGroupPoliticsRecord(
+                group_id=moor, verdict="political", method="model", reason="—", quote=""
+            )
+        )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        card = client.get(f"/ui/entities/{MOOR}").text
+        listed = client.get("/ui/political").text
+        marked = client.post(
+            f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
+        )
+        officials = client.get("/ui/officials").text
+        unmarked = client.post(
+            f"/ui/entities/{MOOR}/official",
+            data={"official": "no", "back": "officials"},
+            follow_redirects=False,
+        )
+        after = client.get("/ui/officials").text
+        missing = client.post("/ui/entities/никто/official", data={"official": "yes"})
+
+    assert '<button type="submit" class="secondary">Это должностное лицо</button>' in card
+    assert marked.status_code == 303 and marked.headers["location"] == f"/ui/entities/{MOOR}"
+    assert 'href="/ui/officials">Должностные лица</a>' in officials
+    assert "Найдено: 1." in officials and "Моор Александр" in officials
+    # An official leaves «Список» at once.
+    assert "Моор Александр" in listed
+    with session_factory() as session:
+        assert session.scalar(text("SELECT count(*) FROM entity_group_politics")) == 0
+    assert "должностное лицо — отмечен вручную" in officials
+    assert unmarked.headers["location"] == "/ui/officials"
+    assert "Найдено: 0." in after
+    assert missing.status_code == 404

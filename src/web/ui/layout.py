@@ -58,6 +58,7 @@ def _page(
         ("entities", "Сущности", "/ui/entities"),
         ("disputes", "Спорные случаи", "/ui/disputes"),
         ("political", "Список", "/ui/political"),
+        ("officials", "Должностные лица", "/ui/officials"),
         ("management", "Управление", "/ui/management"),
         ("logs", "Логи", "/ui/logs"),
         ("wiki", "Вики", "/ui/wiki"),

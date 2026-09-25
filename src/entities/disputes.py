@@ -94,6 +94,16 @@ def _gender(name: str) -> str | None:
     return lookup_gender(words[0]) if words else None
 
 
+def resolve_key(key: str, known: Iterable[str]) -> str | None:
+    """A kept key in today's keys: itself, or — made before a card's region entered the
+    key — the one entity of that name (with any region); None with none or several."""
+    known = set(known)
+    if key in known:
+        return key
+    found = [today for today in known if split_key(today)[0] == key]
+    return found[0] if len(found) == 1 else None
+
+
 def resolve_keys(pairs: Iterable[tuple[str, str]], keys: Iterable[str]) -> list[tuple[str, str]]:
     """Decided pairs in today's keys. A decision made before a card's region entered the
     key names the entity by its name alone: it holds for the one entity of that name

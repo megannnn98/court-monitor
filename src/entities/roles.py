@@ -1,11 +1,13 @@
 """Which person entities a criminal case is opened against, and which are only mentioned.
 
-Only the entities off the Rosfinmonitoring list are looked at. The rules settle the sure
-ones: the only target of an event whose legal basis is a Criminal Code article is a
-figurant («Трофимов Андрей Николаевич осужден по статьям: …»). For the rest the rules
-are blind («суд признал Александра Беду виновным» has no event), so a model reads a few
-quotes and names the person's role: accused, lawyer, judge, … A failed or missing answer
-leaves «unclear», never «figurant».
+Only the entities off the Rosfinmonitoring list are looked at. Officials first (judges,
+prosecutors, investigators, governors — `entities.officials`): named in cases, never
+their figurants. For everyone else a model reads a few quotes and names the person's
+role: accused, lawyer, judge, … The rules' charge (the only target of an event whose
+legal basis is a Criminal Code article) is the first quote, not a verdict: the extractor
+makes anyone the sentence names a target — «дело против мужчины, оскорбившего главу СК
+Александра Бастрыкина» made Бастрыкин the one charged. Unanswered, the charge still
+makes a figurant; otherwise a failed or missing answer leaves «unclear».
 
 The model only answers; the roles are written here. Answers are cached by the entity
 key and a hash of what was sent, so a new quote or prompt asks again.
@@ -30,6 +32,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupRoleRecord, EntityRoleAnswerRecord
 from entities.normalizer import OPENROUTER_DEFAULT_MODEL, OPENROUTER_TIMEOUT_SECONDS, OPENROUTER_URL
+from entities.officials import OFFICIAL_KINDS, official_marks, titled_entities
 
 logger = logging.getLogger("entities")
 
@@ -308,8 +311,10 @@ _QUOTES = text(
 @dataclass(frozen=True)
 class FigurantResult:
     entities: int
+    # Figurants by the rules' charge alone: the model did not answer about them.
     figurant_rules: int
     figurant_model: int
+    officials: int
     possible: int
     mentioned: int
     unclear: int
@@ -340,55 +345,88 @@ class FigurantFinder:
         self._on_stage("reading")
         with self._session_factory() as session:
             entities = session.execute(_ENTITIES).all()
-            rest = [row for row in entities if row.article is None]
+            ids = [row.id for row in entities]
+            titles = titled_entities(session, ids)
+            marks = official_marks(session, {row.id: row.key for row in entities})
             quotes: dict[int, list[str]] = {}
             for group_id, quote in session.execute(
-                _QUOTES,
-                {"groups": [row.id for row in rest], "context": QUOTE_CONTEXT, "quotes": QUOTES},
+                _QUOTES, {"groups": ids, "context": QUOTE_CONTEXT, "quotes": QUOTES}
             ).all():
                 quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+        # An official is named in cases, never their figurant: no need to ask.
+        # A person's mark first, either way; then a title before the name in the texts.
+        officials = {row.id for row in entities if marks.get(row.id, row.id in titles)}
+        rows: list[dict[str, object]] = []
+        for row in entities:
+            if row.id not in officials:
+                continue
+            kind, title = titles.get(row.id, ("official", ""))
+            reason = (
+                "отмечен вручную" if marks.get(row.id) else f"в текстах: «{title}» перед именем"
+            )
+            rows.append(
+                {
+                    "group_id": row.id,
+                    "role": MENTIONED,
+                    "kind": kind,
+                    "method": "official",
+                    "reason": f"должностное лицо — {reason}",
+                    "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
+                }
+            )
+        # The rest go to the model, the rules' charge too: the extractor makes anyone the
+        # sentence names a target («дело против мужчины, оскорбившего главу СК …»). The
+        # charge's sentence is the first quote.
+        rest = [row for row in entities if row.id not in officials]
         items = {
-            row.id: RoleItem(id=row.id, name=row.name, quotes=tuple(quotes.get(row.id, [])))
+            row.id: RoleItem(
+                id=row.id,
+                name=row.name,
+                quotes=tuple(
+                    ([" ".join(row.quote.split())] if row.quote else []) + quotes.get(row.id, [])
+                ),
+            )
             for row in rest
         }
         keys = {row.id: row.key for row in rest}
+        charged = {row.id: row for row in rest if row.article is not None}
         answers, asked, cached, failures = self._answers(items, keys)
 
-        rows: list[dict[str, object]] = [
-            {
-                "group_id": row.id,
-                "role": FIGURANT,
-                "kind": None,
-                "method": "article",
-                "reason": f"ст. {row.article} УК — единственный обвиняемый в событии",
-                "quote": row.quote,
-            }
-            for row in entities
-            if row.article is not None
-        ]
         for group_id, item in items.items():
             answer = answers.get(group_id)
             quote = item.quotes[0] if item.quotes else ""
             if answer is None:
-                reason = "модель не настроена" if self._classifier is None else "модель не ответила"
+                failed = "модель не настроена" if self._classifier is None else "модель не ответила"
+                charge = charged.get(group_id)
                 rows.append(
                     {
                         "group_id": group_id,
-                        "role": UNCLEAR,
+                        # Unanswered, the rules' charge still stands; nothing else does.
+                        "role": FIGURANT if charge is not None else UNCLEAR,
                         "kind": None,
-                        "method": "model",
-                        "reason": reason,
+                        "method": "article" if charge is not None else "model",
+                        "reason": (
+                            f"ст. {charge.article} УК — единственный обвиняемый в событии "
+                            f"({failed})"
+                            if charge is not None
+                            else failed
+                        ),
                         "quote": quote,
                     }
                 )
                 continue
+            role = role_of(answer.kind)
+            reason = answer.explanation
+            if answer.kind in OFFICIAL_KINDS and marks.get(group_id) is False:
+                # The model sees an official where a person said there is none.
+                role, reason = UNCLEAR, f"модель: {reason}; пометка должностного лица снята вручную"
             rows.append(
                 {
                     "group_id": group_id,
-                    "role": role_of(answer.kind),
+                    "role": role,
                     "kind": answer.kind,
                     "method": "model",
-                    "reason": answer.explanation,
+                    "reason": reason,
                     "quote": quote,
                 }
             )
@@ -402,8 +440,9 @@ class FigurantFinder:
         by_model = sum(row["role"] == FIGURANT and row["method"] == "model" for row in rows)
         result = FigurantResult(
             entities=len(entities),
-            figurant_rules=len(entities) - len(rest),
+            figurant_rules=sum(row["method"] == "article" for row in rows),
             figurant_model=by_model,
+            officials=len(officials),
             possible=roles.count(POSSIBLE),
             mentioned=roles.count(MENTIONED),
             unclear=roles.count(UNCLEAR),

@@ -198,6 +198,19 @@ class EntityPoliticsAnswerRecord(Base):
     )
 
 
+class EntityOfficialMarkRecord(Base):
+    """A person's word on whether an entity is an official (judge, prosecutor, …): it
+    overrides what the texts and the model say, and survives every rebuild."""
+
+    __tablename__ = "entity_official_marks"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    official: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class EntityNameNormalizationRecord(Base):
     """What a model answered for an entity key: reused by every later rebuild.
 

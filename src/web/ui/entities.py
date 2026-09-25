@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import parse_qs, quote, urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import Text, cast, exists, func, or_, select, text
 from sqlalchemy.orm import Session
@@ -26,6 +26,7 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     RosfinmonitoringEntryRecord,
 )
+from entities.officials import OFFICIAL_KINDS, mark_official
 from entities.rf_check import FULL
 from entities.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE
 from extraction.name_frequency import lookup_gender
@@ -287,17 +288,53 @@ def _role_mark(found: tuple[str, str | None] | None) -> str:
     return f' <span class="badge {badge}">{escape(_role_label(role, kind))}</span>'
 
 
-def _role_section(db: Session, group_id: int) -> str:
-    record = db.get(EntityGroupRoleRecord, group_id)
+_ROLE_METHODS = {
+    "article": "статья УК в событии",
+    "model": "ответ модели по цитатам",
+    "official": "должностное лицо",
+    "manual": "ручная пометка",
+}
+
+
+def _role_section(db: Session, entity: EntityGroupRecord) -> str:
+    record = db.get(EntityGroupRoleRecord, entity.id)
+    official = record is not None and record.kind in OFFICIAL_KINDS
+    button = (
+        f'<form method="post" action="/ui/entities/{quote(entity.key)}/official">'
+        f'<input type="hidden" name="official" value="{"no" if official else "yes"}">'
+        f'<button type="submit" class="secondary">'
+        f"{'Не должностное лицо' if official else 'Это должностное лицо'}</button></form>"
+    )
     if record is None:
-        return ""
-    method = "статья УК в событии" if record.method == "article" else "ответ модели по цитатам"
+        return f'<section class="band"><h2>Роль в деле</h2>{button}</section>'
     return f"""<section class="band">
   <h2>Роль в деле</h2>
-  <p>{_role_mark((record.role, record.kind))} <span class="muted">— {method}</span></p>
+  <p>{_role_mark((record.role, record.kind))} <span class="muted">— {
+        _ROLE_METHODS.get(record.method, record.method)
+    }</span></p>
   <p>{escape(record.reason)}</p>
   {f'<blockquote class="muted">{escape(record.quote)}</blockquote>' if record.quote else ""}
+  {button}
 </section>"""
+
+
+@router.post("/ui/entities/{key}/official", response_model=None)
+async def mark_entity_official(
+    key: str,
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """A person's word: this entity is (or is not) an official; applied at once."""
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Сущность не найдена")
+    mark_official(db, entity, (form.get("official") or [""])[0] == "yes")
+    db.commit()
+    back = (form.get("back") or [""])[0]
+    return RedirectResponse(
+        "/ui/officials" if back == "officials" else f"/ui/entities/{quote(key)}", status_code=303
+    )
 
 
 def _rf_mark(level: str | None) -> str:
@@ -645,7 +682,7 @@ def ui_entity(
   <p class="muted">Упомянуты в тех же публикациях; чем больше общих, тем теснее связь.</p>
   <ul>{related or '<li class="muted">Никого рядом.</li>'}</ul>
 </section>
-{_role_section(db, entity.id)}
+{_role_section(db, entity)}
 {_rf_section(db, entity.id)}
 {_charges_section(db, entity.id)}
 <section class="band">

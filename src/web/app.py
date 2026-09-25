@@ -32,6 +32,7 @@ from web.ui import disputes as ui_disputes
 from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
+from web.ui import officials as ui_officials
 from web.ui import persons as ui_persons
 from web.ui import political as ui_political
 from web.ui import wiki as ui_wiki
@@ -86,6 +87,7 @@ for module in (
     ui_entities,
     ui_disputes,
     ui_political,
+    ui_officials,
     operations,
     monitoring,
     health,

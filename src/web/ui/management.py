@@ -611,8 +611,9 @@ def _figurants_card(run: OperationRun) -> str:
     except json.JSONDecodeError:
         totals = {}
     labels = (
-        ("figurant_rules", "Фигуранты по статье УК", "succeeded"),
+        ("figurant_rules", "Фигуранты по статье УК без ответа модели", "succeeded"),
         ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
+        ("officials", "Должностные лица", ""),
         ("possible", "Задержаны, обысканы или административное дело", "pending"),
         ("mentioned", "Только упомянуты", ""),
         ("unclear", "Не ясно", ""),

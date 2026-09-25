@@ -681,7 +681,7 @@ def test_step_five_finds_the_figurants_from_management(
     run = registry.get(run_id)
     assert (run.parameters.mode, run.command[2:]) == ("figurants", ["find-figurants"])
     assert '<progress class="overall" value="50" max="3200">' in running
-    assert "Фигуранты по статье УК: 3650" in done
+    assert "Фигуранты по статье УК без ответа модели: 3650" in done
     assert "Фигуранты по ответу модели: 1200" in done
     assert "Только упомянуты: 1700" in done
     assert "Модель не ответила: 10" in done
