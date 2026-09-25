@@ -7,6 +7,7 @@ and why, and where to look. The home page shows it whole; «Результат»
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from html import escape
 
 from sqlalchemy import text
@@ -27,7 +28,9 @@ _COUNTS = text(
       (SELECT count(*) FROM entity_group_roles WHERE kind = ANY(:officials)),
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'political'),
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'criminal'),
-      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'unclear')
+      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'unclear'),
+      (SELECT min(published_at) FROM parsed_articles),
+      (SELECT max(published_at) FROM parsed_articles)
     """
 )
 _CRIMINAL_PUBLICATIONS = text(
@@ -49,11 +52,25 @@ class Stage:
     href: str
 
 
+@dataclass(frozen=True)
+class Funnel:
+    stages: list[Stage]
+    # The dates of the first and the latest publication: the funnel counts them all.
+    since: datetime | None
+    until: datetime | None
+
+    @property
+    def period(self) -> str:
+        if self.since is None or self.until is None:
+            return "публикаций пока нет"
+        return f"публикации с {self.since:%d.%m.%Y} по {self.until:%d.%m.%Y}"
+
+
 def _n(value: int) -> str:
     return f"{value:,}".replace(",", " ")
 
 
-def funnel(db: Session) -> list[Stage]:
+def funnel(db: Session) -> Funnel:
     (
         documents,
         publications,
@@ -64,11 +81,13 @@ def funnel(db: Session) -> list[Stage]:
         political,
         criminal,
         unclear,
+        since,
+        until,
     ) = db.execute(_COUNTS, {"officials": sorted(OFFICIAL_KINDS)}).one()
     criminal_publications = (
         db.scalar(_CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}) or 0
     )
-    return [
+    stages = [
         Stage("1", "Публикаций скачано", documents, "", "/ui/management"),
         Stage(
             "2",
@@ -109,10 +128,12 @@ def funnel(db: Session) -> list[Stage]:
             "/ui/political",
         ),
     ]
+    return Funnel(stages, since, until)
 
 
-def funnel_html(stages: list[Stage]) -> str:
+def funnel_html(whole: Funnel) -> str:
     """The funnel whole: a bar per stage, narrower as it goes, the result last."""
+    stages = whole.stages
     top = max(stages[0].count, 1)
     rows = "".join(
         f'<a class="funnel-stage{" result" if index == len(stages) - 1 else ""}" '
@@ -125,6 +146,8 @@ def funnel_html(stages: list[Stage]) -> str:
     )
     return f"""<section class="band funnel">
   <h2>Воронка отбора</h2>
+  <p class="funnel-period"><b>За всё время:</b> {escape(whole.period)}. Период на
+  «Результате» выбирается отдельно.</p>
   <p class="muted">Шаги 1–6 ниже по очереди сужают поток: из скачанных публикаций — к людям с
   политическими уголовными делами, которых нет в перечне. Нажмите на ступень, чтобы её
   посмотреть.</p>
@@ -132,9 +155,10 @@ def funnel_html(stages: list[Stage]) -> str:
 </section>"""
 
 
-def funnel_line(stages: list[Stage]) -> str:
+def funnel_line(whole: Funnel) -> str:
     """The funnel in one line, for «Результат»."""
-    parts = " → ".join(f"{_n(stage.count)} {escape(stage.label.lower())}" for stage in stages)
+    parts = " → ".join(f"{_n(stage.count)} {escape(stage.label.lower())}" for stage in whole.stages)
     return (
-        f'<p class="muted funnel-line">Воронка: {parts}. <a href="/ui/management">Подробнее</a></p>'
+        f'<p class="muted funnel-line">Воронка за всё время ({escape(whole.period)}): {parts}. '
+        '<a href="/ui/management">Подробнее</a></p>'
     )

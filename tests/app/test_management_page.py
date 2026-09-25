@@ -9,12 +9,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.pipeline_runs import finish_steps
 from support.research_db_fixtures import ResearchSeeder
 
-from db.orm_models import OperatorOperationRunRecord, SourceDocument
+from db.orm_models import OperatorOperationRunRecord
 from monitoring.models import MonitoringStage, MonitoringTrigger
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import OperationParameters, OperationRegistry, OperationRunStatus
@@ -40,7 +40,7 @@ def _client(
         app.dependency_overrides.pop(get_operation_registry, None)
 
 
-def test_management_page_lists_only_news_sources_and_selects_all(
+def test_the_home_page_has_no_source_list_step_one_loads_them_all(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
@@ -50,14 +50,8 @@ def test_management_page_lists_only_news_sources_and_selects_all(
 
     assert response.status_code == 200
     assert '<a class="home active" href="/ui/management"><svg class="icon"' in response.text
-    assert 'id="toggle-all-sources" type="checkbox" checked' in response.text
-    checkboxes = re.findall(
-        r'<input type="checkbox" name="sources" value="([^"]+)" (checked)?>', response.text
-    )
-    listed_sources = {name for name, _checked in checkboxes}
-    assert listed_sources == {source.name for source in news_sources()}
-    assert all(checked == "checked" for _name, checked in checkboxes)
-    assert "memopzk-figurants" not in listed_sources
+    assert 'name="sources"' not in response.text and "source-table" not in response.text
+    assert f"Шаг 1 скачивает все новостные источники ({len(news_sources())})" in response.text
 
 
 def test_post_starts_one_tracked_run_for_the_selected_sources(
@@ -91,91 +85,43 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
     ]
     assert len(queued) == 1
     assert "Запуск #" in run_page.text
-    assert "sota-vision" in run_page.text and "ovd-info" in run_page.text
     assert "Ждут очереди: 2" in run_page.text
     with session_factory() as session:
         assert session.get(OperatorOperationRunRecord, run_id) is not None
 
 
-def test_empty_or_registry_source_selection_does_not_start_a_run(
+def test_step_one_without_sources_loads_every_news_source(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
-        empty = client.post("/ui/management/run", data={})
+        everything = client.post("/ui/management/run", data={}, follow_redirects=False)
+
+    assert everything.status_code == 303
+    (run,) = registry.runs_of("monitor")
+    assert run.parameters.sources == [source.name for source in news_sources()]
+    assert "memopzk-figurants" not in run.parameters.sources
+
+
+def test_a_registry_source_does_not_start_a_run(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
         registry_source = client.post("/ui/management/run", data={"sources": ["memopzk-figurants"]})
 
-    assert empty.status_code == 400
-    assert "Выберите хотя бы один" in empty.text
     assert registry_source.status_code == 400
     assert "не новостной источник" in registry_source.text
     assert registry.runs_of("monitor") == []
 
 
-def _source_row(page: str, source: str) -> str:
-    match = re.search(
-        rf'<tr data-kind="[a-z]+" data-search="[^"]*"[^>]*>(?:(?!</tr>).)*value="{re.escape(source)}"'
-        r"(?:(?!</tr>).)*</tr>",
-        page,
-    )
-    assert match is not None, source
-    return match.group(0)
-
-
-def test_the_source_table_shows_when_each_source_last_loaded_and_its_articles(
-    session_factory: sessionmaker[Session],
-) -> None:
-    now = datetime.now(UTC)
-    with session_factory.begin() as session:
-        seed = ResearchSeeder(session)
-        sota = seed.source("SOTA", "https://sota.vision")
-        seed.article(sota, external_id="sota-1", title="Суд", text="Текст")
-        ovd = seed.source("ОВД-Инфо", "https://ovd.info")
-        for index in range(2):
-            seed.article(ovd, external_id=f"ovd-{index}", title="Задержание", text="Текст")
-        # Catch-up loads never write the monitoring checkpoint: the fetch time is the truth.
-        for document in session.scalars(select(SourceDocument)).all():
-            document.fetched_at = now - (
-                timedelta(hours=2) if document.external_id == "sota-1" else timedelta(days=10)
-            )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
-
-    with _client(session_factory, registry) as client:
-        page = client.get("/ui/management").text
-
-    fresh, stale, never = (
-        _source_row(page, "sota-vision"),
-        _source_row(page, "ovd-info"),
-        _source_row(page, "tg-mash"),
-    )
-    assert '<td class="">' in fresh and '<td class="num">1</td>' in fresh
-    # Ten days without a fetched document is flagged; never is flagged louder.
-    assert '<td class="stale">' in stale and '<td class="num">2</td>' in stale
-    assert '<td class="never">никогда</td><td class="num">0</td>' in never
-
-
-def test_every_source_has_a_filterable_kind(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
-
-    with _client(session_factory, registry) as client:
-        page = client.get("/ui/management").text
-
-    assert _source_row(page, "ovd-info").startswith('<tr data-kind="site"')
-    assert _source_row(page, "tg-mash").startswith('<tr data-kind="telegram"')
-    assert _source_row(page, "tg-moscowcourts").startswith('<tr data-kind="court"')
-    assert f'data-kind="all">Все ({len(news_sources())})</button>' in page
-    assert 'id="source-search"' in page
-
-
-def test_the_first_step_counts_the_selection_and_is_off_without_one(
+def test_the_first_step_counts_every_source(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
         full = _run_bar(client.get("/ui/management").text)
-        empty = _run_bar(client.post("/ui/management/run", data={}).text)
 
     total = len(news_sources())
     assert (
@@ -183,7 +129,7 @@ def test_the_first_step_counts_the_selection_and_is_off_without_one(
         'formaction="/ui/management/run"'
     ) in full
     assert f'1. Подгрузить статьи (<span class="selected-count">{total}</span>)' in full
-    assert re.search(r'id="step-load"[^>]* disabled>', empty)
+    assert not re.search(r'id="step-load"[^>]* disabled>', full)
 
 
 def test_the_latest_manual_runs_are_listed_with_their_status(
@@ -368,8 +314,6 @@ def test_an_ended_run_is_a_card_that_counts_the_sources_it_never_reached(
     assert "Подробно по источникам (2)" in details
     assert "ovd-info" in details and "sota-vision" in details
     assert "tg-mash" not in details and "tg-astrapress" not in details
-    # The source selection follows the card, not dozens of rows later.
-    assert page.index("</details>") < page.index('id="source-table"')
 
 
 def test_a_source_held_by_another_run_is_busy_even_when_the_report_was_cut(
@@ -721,6 +665,14 @@ def test_step_six_finds_the_political_cases_from_management(
 
 
 def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[Session]) -> None:
+    with session_factory.begin() as session:
+        seed = ResearchSeeder(session)
+        ovd = seed.source("ОВД-Инфо", "https://ovd.info")
+        for day, external_id in (
+            (datetime(2025, 3, 4, tzinfo=UTC), "old"),
+            (datetime(2026, 9, 1, tzinfo=UTC), "new"),
+        ):
+            seed.article(ovd, external_id=external_id, title="Суд", text="Текст", published_at=day)
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
 
     with _client(session_factory, registry) as client:
@@ -730,3 +682,20 @@ def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[
     steps = re.findall(r'<span class="funnel-step">(\d)</span>', page)
     assert steps == ["1", "2", "3", "4", "5", "6"]
     assert 'class="funnel-stage result" href="/ui/political"' in page
+    # The funnel counts every publication: it says from when to when.
+    assert "<b>За всё время:</b> публикации с 04.03.2025 по 01.09.2026." in page
+
+
+def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    ids = finish_steps(
+        session_factory, registry, "load", "purge", "entities", "rosfin", "figurants", "political"
+    )
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    listed = [
+        int(run_id) for run_id in re.findall(r'<a href="/ui/management\?run_id=(\d+)">#', page)
+    ]
+    assert listed == ids[:1:-1]

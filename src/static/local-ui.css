@@ -191,14 +191,6 @@ dd {
   margin: 0 0 16px;
 }
 
-.source-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
-  margin: 0 0 10px;
-}
-
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -224,32 +216,9 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.source-table .pick {
-  width: 36px;
-  text-align: center;
-}
-
-.source-table input[type="checkbox"] {
-  min-width: auto;
-  margin: 0;
-}
-
-.source-table tbody tr:hover td {
-  background: #f6f8fa;
-}
-
 td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-td.stale {
-  background: #fff8c5;
-}
-
-td.never {
-  color: #cf222e;
-  background: #ffebe9;
 }
 
 .run-bar {
@@ -652,4 +621,8 @@ nav a.result:hover {
 
 .funnel-dropped {
   font-size: 12px;
+}
+
+.funnel-period {
+  margin: 0 0 6px;
 }

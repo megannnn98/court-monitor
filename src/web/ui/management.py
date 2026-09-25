@@ -1,21 +1,21 @@
-"""Temporary news-source selection and manual pipeline runs."""
+"""Manual pipeline runs: step 1 loads every news source, steps 2–6 the whole database."""
 
 from __future__ import annotations
 
 import json
 import re
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from html import escape
 from typing import Literal
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from db.orm_models import MonitoringRunRecord, ParsedArticleRecord, Source, SourceDocument
+from db.orm_models import MonitoringRunRecord
 from monitoring.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import (
@@ -26,7 +26,7 @@ from operator_console import (
     OperationRun,
     OperationRunStatus,
 )
-from sources.source_registry import SourceDefinition, news_sources
+from sources.source_registry import news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
@@ -52,12 +52,7 @@ _RUN_STATUS_BADGES = {
     OperationRunStatus.FAILED: "failed",
     OperationRunStatus.INTERRUPTED: "failed",
 }
-# A source that has not loaded successfully for this long is worth a look.
-STALE_AFTER = timedelta(days=7)
-HISTORY_SIZE = 10
-# Only a display filter: court press services are recognised by their name.
-_COURT_NAME = re.compile(r"суд|фемид", re.IGNORECASE)
-_SOURCE_KINDS = {"telegram": "Telegram", "court": "Суд", "site": "Сайт"}
+HISTORY_SIZE = 4
 
 
 def _stop_form(run: OperationRun, back: str) -> str:
@@ -76,76 +71,6 @@ def _badge(label: str, css_class: str = "") -> str:
 
 def _local_time(moment: datetime) -> str:
     return moment.astimezone().strftime("%d.%m.%Y %H:%M")
-
-
-def _source_kind(definition: SourceDefinition) -> str:
-    if _COURT_NAME.search(definition.source_name):
-        return "court"
-    return "telegram" if definition.base_url.startswith("https://t.me/") else "site"
-
-
-def _source_rows(
-    db: Session,
-    definitions: Sequence[SourceDefinition],
-    selected: set[str],
-) -> str:
-    """One table row per news source: when a document of it was last fetched, and its articles.
-
-    The fetch time comes from the documents themselves, not from the monitoring checkpoint:
-    catch-up and backfill loads never write the checkpoint, so it would call a source that
-    loads every day "never loaded"."""
-    loads = {
-        str(base_url): (int(count), fetched_at)
-        for base_url, count, fetched_at in db.execute(
-            select(
-                Source.base_url,
-                func.count(ParsedArticleRecord.id),
-                func.max(SourceDocument.fetched_at),
-            )
-            .join(SourceDocument, SourceDocument.source_id == Source.id)
-            .outerjoin(ParsedArticleRecord, ParsedArticleRecord.document_id == SourceDocument.id)
-            .group_by(Source.base_url)
-        ).all()
-    }
-    now = datetime.now(UTC)
-    rows: list[str] = []
-    for item in definitions:
-        articles, fetched_at = loads.get(item.base_url, (0, None))
-        if fetched_at is None:
-            loaded = '<td class="never">никогда</td>'
-        else:
-            freshness = "stale" if now - fetched_at > STALE_AFTER else ""
-            loaded = f'<td class="{freshness}">{escape(_local_time(fetched_at))}</td>'
-        kind = _source_kind(item)
-        search = f"{item.source_name} {item.name}".lower()
-        rows.append(
-            f'<tr data-kind="{kind}" data-search="{escape(search, quote=True)}">'
-            f'<td class="pick"><input type="checkbox" name="sources" '
-            f'value="{escape(item.name, quote=True)}" '
-            f"{'checked' if item.name in selected else ''}></td>"
-            f"<td>{escape(item.source_name)}</td>"
-            f"<td><code>{escape(item.name)}</code></td>"
-            f"<td>{_SOURCE_KINDS[kind]}</td>"
-            f"{loaded}"
-            f'<td class="num">{articles}</td>'
-            "</tr>"
-        )
-    return "".join(rows)
-
-
-def _filter_chips(definitions: Sequence[SourceDefinition]) -> str:
-    counts = {kind: 0 for kind in _SOURCE_KINDS}
-    for item in definitions:
-        counts[_source_kind(item)] += 1
-    chips = [
-        f'<button type="button" class="chip active" data-kind="all">Все ({len(definitions)})</button>'
-    ]
-    chips += [
-        f'<button type="button" class="chip" data-kind="{kind}">{label} ({counts[kind]})</button>'
-        for kind, label in _SOURCE_KINDS.items()
-        if counts[kind]
-    ]
-    return "".join(chips)
 
 
 _MODE_TITLES = {
@@ -814,7 +739,6 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
 def _management_page(
     db: Session,
     *,
-    selected: set[str],
     run: OperationRun | None = None,
     history: Sequence[OperationRun] = (),
     state: PipelineState | None = None,
@@ -822,70 +746,19 @@ def _management_page(
     status_code: int = 200,
 ) -> HTMLResponse:
     definitions = news_sources()
-    all_checked = bool(definitions) and all(item.name in selected for item in definitions)
-    checked_count = sum(item.name in selected for item in definitions)
     run_html = _run_results(db, run, run.parameters.sources or []) if run else ""
     error_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     body = f"""{error_html}
 {run_html}
 {funnel_html(funnel(db))}
 <form method="post" action="/ui/management/run" class="source-form">
-  <div class="source-tools">
-    <input id="source-search" type="search" placeholder="Поиск по названию или id" autocomplete="off">
-    <div class="chips">{_filter_chips(definitions)}</div>
-  </div>
-  <table id="source-table" class="source-table">
-    <thead><tr>
-      <th class="pick"><input id="toggle-all-sources" type="checkbox" {"checked" if all_checked else ""} title="Выбрать все видимые"></th>
-      <th>Источник</th><th>ID</th><th>Тип</th>
-      <th title="Когда последний раз скачана публикация этого источника">Последняя загрузка</th>
-      <th title="Сколько статей этого источника уже в базе">Статей в БД</th>
-    </tr></thead>
-    <tbody>{_source_rows(db, definitions, selected)}</tbody>
-  </table>
   <div class="run-bar">
-    {stepper(state or PipelineState(current="load"), checked_count)}
-    <span class="muted">Выбрано <span id="selected-total">{checked_count}</span> из {len(definitions)}. Галочки — для шага 1, на расписание не влияют.
-    Жёлтая дата — не загружался больше {STALE_AFTER.days} дней.</span>
+    {stepper(state or PipelineState(current="load"), len(definitions))}
+    <span class="muted">Шаг 1 скачивает все новостные источники ({len(definitions)}); шаги 2–6
+    работают со всей базой.</span>
   </div>
 </form>
-{_history(history, run)}
-<script>
-const rows = [...document.querySelectorAll('#source-table tbody tr')];
-const boxes = rows.map(row => row.querySelector('input[name="sources"]'));
-const toggleAll = document.getElementById('toggle-all-sources');
-const search = document.getElementById('source-search');
-const chips = [...document.querySelectorAll('.chips .chip')];
-let kind = 'all';
-function refresh() {{
-  const shown = rows.filter(row => !row.hidden).map(row => row.querySelector('input[name="sources"]'));
-  const checked = boxes.filter(box => box.checked).length;
-  document.querySelectorAll('.selected-count').forEach(count => {{ count.textContent = checked; }});
-  document.getElementById('selected-total').textContent = checked;
-  document.querySelectorAll('.run-button').forEach(button => {{ button.disabled = checked === 0; }});
-  toggleAll.checked = shown.length > 0 && shown.every(box => box.checked);
-  toggleAll.indeterminate = shown.some(box => box.checked) && !toggleAll.checked;
-}}
-function applyFilter() {{
-  const query = search.value.trim().toLowerCase();
-  rows.forEach(row => {{
-    row.hidden = (kind !== 'all' && row.dataset.kind !== kind)
-      || (query !== '' && !row.dataset.search.includes(query));
-  }});
-  chips.forEach(chip => chip.classList.toggle('active', chip.dataset.kind === kind));
-  refresh();
-}}
-toggleAll.addEventListener('change', () => {{
-  rows.filter(row => !row.hidden).forEach(row => {{
-    row.querySelector('input[name="sources"]').checked = toggleAll.checked;
-  }});
-  refresh();
-}});
-boxes.forEach(box => box.addEventListener('change', refresh));
-search.addEventListener('input', applyFilter);
-chips.forEach(chip => chip.addEventListener('click', () => {{ kind = chip.dataset.kind; applyFilter(); }}));
-refresh();
-</script>"""
+{_history(history, run)}"""
     page = _page(
         "Управление",
         body,
@@ -894,7 +767,7 @@ refresh();
             "Четыре шага по кругу: подгрузить статьи → очистить от мусора → собрать "
             "сущности → разрешить персоны. Нажать можно только подсвеченный шаг."
         ),
-        next_action="Галочки источников действуют на шаги 1 и 4; шаги 2 и 3 — на всю базу.",
+        next_action="Шаг 1 скачивает все новостные источники; шаги 2–6 — вся база.",
         db=db,
     )
     page.status_code = status_code
@@ -916,8 +789,6 @@ def ui_management(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse:
-    definitions = news_sources()
-    selected = {item.name for item in definitions}
     run: OperationRun | None = None
     if run_id is not None:
         try:
@@ -928,13 +799,10 @@ def ui_management(
             run.parameters.sources is None and run.parameters.mode not in _WHOLE_DATABASE
         ):
             raise HTTPException(status_code=404, detail="Запуск не найден")
-        selected = set(run.parameters.sources or selected)
     history = _recent_runs(registry)
     if run_id is None:
         run = history[0] if history else None
-    return _management_page(
-        db, selected=selected, run=run, history=history, state=current_state(registry)
-    )
+    return _management_page(db, run=run, history=history, state=current_state(registry))
 
 
 @router.post("/ui/management/run", response_model=None)
@@ -943,7 +811,7 @@ async def start_management_run(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Step 1: load and extract the selected sources."""
+    """Step 1: load and extract every news source (or, from the API, the ones sent)."""
     return await _start(request, db, registry, "load")
 
 
@@ -993,11 +861,10 @@ def start_management_entities(
 
 
 def _refused(
-    db: Session, registry: OperationRegistry, warning: str, status_code: int, selected: set[str]
+    db: Session, registry: OperationRegistry, warning: str, status_code: int
 ) -> HTMLResponse:
     return _management_page(
         db,
-        selected=selected,
         warning=warning,
         history=_recent_runs(registry),
         state=current_state(registry),
@@ -1010,15 +877,14 @@ def _start_whole_database(
     registry: OperationRegistry,
     mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
 ) -> HTMLResponse | RedirectResponse:
-    everything = {item.name for item in news_sources()}
     refusal = out_of_turn(current_state(registry), mode)
     if refusal is not None:
-        return _refused(db, registry, refusal, 409, everything)
+        return _refused(db, registry, refusal, 409)
     try:
         run = registry.start(_OPERATION, OperationParameters(mode=mode))
     except OperationConflictError:
         # Another worker started a run between the check and the start.
-        return _refused(db, registry, "Идёт другой запуск.", 409, everything)
+        return _refused(db, registry, "Идёт другой запуск.", 409)
     return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
 
 
@@ -1026,25 +892,18 @@ async def _start(
     request: Request, db: Session, registry: OperationRegistry, mode: Literal["load"]
 ) -> HTMLResponse | RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    selected = list(dict.fromkeys(form.get("sources", [])))
-    allowed = {item.name for item in news_sources()}
+    everything = [item.name for item in news_sources()]
+    # The page sends no sources: all of them. The API may still name some.
+    selected = list(dict.fromkeys(form.get("sources", []))) or everything
     refusal = out_of_turn(current_state(registry), mode)
     if refusal is not None:
-        return _refused(db, registry, refusal, 409, set(selected) & allowed)
-    if not selected:
-        return _refused(db, registry, "Выберите хотя бы один новостной источник.", 400, set())
-    if not set(selected) <= allowed:
-        return _refused(
-            db,
-            registry,
-            "В запросе есть неизвестный или не новостной источник.",
-            400,
-            set(selected) & allowed,
-        )
+        return _refused(db, registry, refusal, 409)
+    if not set(selected) <= set(everything):
+        return _refused(db, registry, "В запросе есть неизвестный или не новостной источник.", 400)
     try:
         run = registry.start(_OPERATION, OperationParameters(sources=selected, mode=mode))
     except OperationConflictError:
-        return _refused(db, registry, "Идёт другой запуск.", 409, set(selected))
+        return _refused(db, registry, "Идёт другой запуск.", 409)
     return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
 
 
