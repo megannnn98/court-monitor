@@ -53,10 +53,10 @@ def _page(
     warning: str | None = None,
 ) -> HTMLResponse:
     counts = _status_counts(db)
-    # The customer's console: the candidates and the wiki, nothing else.
+    # «Кандидаты» is hidden for now (the page still answers by its link).
     nav = [
-        ("candidates", "Кандидаты", "/ui/candidates"),
         ("entities", "Сущности", "/ui/entities"),
+        ("disputes", "Спорные случаи", "/ui/disputes"),
         ("management", "Управление", "/ui/management"),
         ("logs", "Логи", "/ui/logs"),
         ("wiki", "Вики", "/ui/wiki"),

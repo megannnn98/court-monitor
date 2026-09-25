@@ -28,6 +28,7 @@ from web.routers import (
     search,
 )
 from web.ui import candidates as ui_candidates
+from web.ui import disputes as ui_disputes
 from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
@@ -82,6 +83,7 @@ for module in (
     ui_management,
     ui_logs,
     ui_entities,
+    ui_disputes,
     operations,
     monitoring,
     health,

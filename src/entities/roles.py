@@ -33,7 +33,8 @@ from entities.normalizer import OPENROUTER_DEFAULT_MODEL, OPENROUTER_TIMEOUT_SEC
 
 logger = logging.getLogger("entities")
 
-PROMPT_VERSION = "roles-v1"
+# v2: «administrative» — a model without it called an administrative case «accused».
+PROMPT_VERSION = "roles-v2"
 BATCH_SIZE = 25
 CONCURRENCY = 8
 MAX_TOKENS = 8_000
@@ -45,6 +46,7 @@ INSERT_CHUNK = 5_000
 Kind = Literal[
     "accused",
     "detained",
+    "administrative",
     "lawyer",
     "judge",
     "prosecutor",
@@ -61,6 +63,7 @@ KINDS: tuple[str, ...] = Kind.__args__  # type: ignore[attr-defined]
 KIND_LABELS = {
     "accused": "обвиняемый",
     "detained": "задержан или обыскан",
+    "administrative": "административное дело",
     "lawyer": "адвокат",
     "judge": "судья",
     "prosecutor": "прокурор",
@@ -82,7 +85,7 @@ UNCLEAR = "unclear"
 def role_of(kind: str) -> str:
     if kind == "accused":
         return FIGURANT
-    if kind == "detained":
+    if kind in ("detained", "administrative"):
         return POSSIBLE
     if kind == "unknown":
         return UNCLEAR
@@ -97,9 +100,11 @@ SYSTEM_PROMPT = """Ты определяешь роль человека в уг
 - id: id записи.
 - source: имя из записи, дословно.
 - kind: роль этого человека в уголовном деле:
-  - accused — на него заведено уголовное дело: подозреваемый, обвиняемый, подсудимый, \
-осуждённый, арестован или объявлен в розыск по уголовному делу;
-  - detained — задержан или у него обыск, но уголовное дело против него не названо \
+  - accused — на него заведено именно УГОЛОВНОЕ дело (статья УК): подозреваемый, \
+обвиняемый, подсудимый, осуждённый, арестован или объявлен в розыск по уголовному делу;
+  - administrative — против него только административное дело: протокол по КоАП, \
+штраф, административный арест, снятие с выборов; уголовного дела нет;
+  - detained — задержан или у него обыск, но никакое дело против него не названо \
 (например, задержание на акции);
   - lawyer, judge, prosecutor, police (следователь, полицейский, сотрудник ФСБ), witness, \
 victim, official (чиновник, депутат), journalist, activist (правозащитник, активист), \

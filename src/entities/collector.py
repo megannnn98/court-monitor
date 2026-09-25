@@ -24,6 +24,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityNameNormalizationRecord,
 )
+from entities.disputes import merge_decided, same_pairs
 from entities.grouping import Entity, GivenName, PersonMention, apply_names, group_mentions
 from entities.normalizer import (
     BATCH_SIZE,
@@ -62,7 +63,9 @@ _MENTIONS = text(
            m.normalized_data->>'last_name',
            m.normalized_data->>'patronymic',
            substr(a.text, greatest(m.start_offset - :context, 0) + 1,
-                  m.end_offset - greatest(m.start_offset - :context, 0) + :context)
+                  m.end_offset - greatest(m.start_offset - :context, 0) + :context),
+           -- A registry card (memopzk) names its person's region on a line of its own.
+           substring(a.text from '(?:^|\n)Регион: ([^\n]+?)\\.?(?:\n|$)')
     FROM entity_mentions m
     JOIN criminal c ON c.run_id = m.extraction_run_id
     JOIN parsed_articles a ON a.id = c.article_id
@@ -151,10 +154,21 @@ class EntityCollector:
             published: dict[int, datetime | None] = {}
             quotes: dict[int, str] = {}
             mentions: list[PersonMention] = []
-            for mention_id, article_id, published_at, first, last, patronymic, quote in rows:
+            for (
+                mention_id,
+                article_id,
+                published_at,
+                first,
+                last,
+                patronymic,
+                quote,
+                region,
+            ) in rows:
                 published[mention_id] = published_at
                 quotes[mention_id] = " ".join((quote or "").split())
-                mentions.append(PersonMention(mention_id, article_id, first, last, patronymic))
+                mentions.append(
+                    PersonMention(mention_id, article_id, first, last, patronymic, region)
+                )
             events: dict[int, list[str]] = defaultdict(list)
             for mention_id, event_type in session.execute(
                 _EVENTS, {"mentions": list(published)}
@@ -166,6 +180,9 @@ class EntityCollector:
         entities = group_mentions(mentions)
         names, asked, cached, failures = self._names(entities, quotes)
         entities = apply_names(entities, names)
+        # A person's «one person» decisions, kept by key, merge again at every rebuild.
+        with self._session_factory() as session:
+            entities = merge_decided(entities, same_pairs(session))
 
         with self._session_factory.begin() as session:
             self._on_stage("writing")
@@ -187,6 +204,7 @@ class EntityCollector:
                         last_published_at=max(dates) if dates else None,
                         gender=entity.gender,
                         name_source=entity.name_source,
+                        regions=[list(item) for item in entity.regions.most_common()],
                     )
                     .returning(EntityGroupRecord.id)
                 ).scalar_one()

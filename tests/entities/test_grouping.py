@@ -69,13 +69,75 @@ def test_different_given_names_or_surnames_stay_apart() -> None:
     }
 
 
-def test_a_patronymic_does_not_split_a_person_and_shows_as_a_variant() -> None:
+def test_a_patronymic_keeps_namesakes_of_other_articles_apart() -> None:
+    """The registry's «Николай Викторович Бондаренко» is not the deputy of the news."""
     entities = group_mentions(
-        [mention("Иван", "Иванов", patronymic="Петрович"), mention("Иван", "Иванов", article=2)]
+        [
+            mention("Николай", "Бондаренко", patronymic="Викторович", article=1),
+            mention("Николай", "Бондаренко", article=2),
+            mention("Николай", "Бондаренко", article=3),
+        ]
     )
 
-    assert names(entities) == {"Иван Иванов": 2}
-    assert set(entities[0].variants) == {"Иван Петрович Иванов", "Иван Иванов"}
+    assert names(entities) == {"Николай Бондаренко": 2, "Николай Викторович Бондаренко": 1}
+    assert {entity.key: entity.patronymic for entity in entities} == {
+        "николай бондаренко": None,
+        "николай викторович бондаренко": "викторович",
+    }
+
+
+def test_a_name_without_patronymic_joins_the_full_name_of_its_article() -> None:
+    entities = group_mentions(
+        [
+            mention("Иван", "Иванов", patronymic="Петрович", article=1),
+            mention("Иван", "Иванов", article=1),
+            mention(None, "Иванова", article=1),
+            # Declined, the same patronymic is the same person in another article too.
+            mention("Иван", "Иванова", patronymic="Петровича", article=2),
+        ]
+    )
+
+    assert names(entities) == {"Иван Петрович Иванов": 4}
+    assert set(entities[0].variants) == {
+        "Иван Петрович Иванов",
+        "Иван Иванов",
+        "Иванова",
+        "Иван Петровича Иванова",
+    }
+
+
+def test_two_patronymics_in_one_article_leave_the_short_name_to_nobody_of_them() -> None:
+    """Father and son: «Иван Иванов» alone could be either."""
+    entities = group_mentions(
+        [
+            mention("Иван", "Иванов", patronymic="Петрович"),
+            mention("Иван", "Иванов", patronymic="Иванович"),
+            mention("Иван", "Иванов"),
+        ]
+    )
+
+    assert names(entities) == {
+        "Иван Петрович Иванов": 1,
+        "Иван Иванович Иванов": 1,
+        "Иван Иванов": 1,
+    }
+
+
+def test_the_regions_of_the_registry_cards_count_publications() -> None:
+    def card(article: int, region: str | None) -> PersonMention:
+        return PersonMention(next(_ids), article, "Анна", "Смирнова", "Олеговна", region)
+
+    [entity] = group_mentions(
+        [
+            card(1, "Москва"),
+            card(1, "Москва"),
+            card(2, "Москва"),
+            card(3, "Тверская область"),
+            card(4, None),
+        ]
+    )
+
+    assert entity.regions == {"Москва": 2, "Тверская область": 1}
 
 
 def test_a_bare_surname_joins_the_full_name_of_its_article_only() -> None:
@@ -176,22 +238,34 @@ def test_model_names_rename_merge_and_drop_what_is_no_person() -> None:
     assert (kept.gender, kept.name_source) == (None, "rules")
 
 
-def test_a_patronymic_from_the_model_does_not_keep_people_apart() -> None:
+def test_a_model_neither_adds_nor_drops_the_patronymic_that_parts_namesakes() -> None:
     from entities.grouping import GivenName, apply_names
 
     full = mention("Роман", "Попков", patronymic="Андреевич")
     short = mention("Роман", "Попков", article=2)
     other = mention("Роман", "Попкова", article=3)
     entities = group_mentions([full, short, other])
-    names = {entity.key: GivenName("Роман Андреевич Попков", "male", True) for entity in entities}
+    by_key = {entity.key: entity for entity in entities}
+    names = {
+        # Asked about the forms without a patronymic, a model may still add one.
+        next(key for key, entity in by_key.items() if entity.patronymic is None): GivenName(
+            "Роман Андреевич Попков", "male", True
+        ),
+        # And may leave it out where the forms had it.
+        next(key for key, entity in by_key.items() if entity.patronymic): GivenName(
+            "Роман Попков", "male", True
+        ),
+    }
 
-    [entity] = apply_names(entities, names)
+    named = {
+        entity.key: (entity.name, len(entity.mention_ids))
+        for entity in apply_names(entities, names)
+    }
 
-    assert (entity.key, entity.name, len(entity.mention_ids)) == (
-        "роман попков",
-        "Роман Андреевич Попков",
-        3,
-    )
+    assert named == {
+        "роман попков": ("Роман Попков", 2),
+        "роман андреевич попков": ("Роман Андреевич Попков", 1),
+    }
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,7 @@ from db.models.entities import (
     EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
     EntityNameNormalizationRecord,
+    EntityPairDecisionRecord,
     EntityRoleAnswerRecord,
 )
 from db.models.extraction import (
@@ -67,6 +68,7 @@ __all__ = [
     "EntityGroupRoleRecord",
     "EntityMentionRecord",
     "EntityNameNormalizationRecord",
+    "EntityPairDecisionRecord",
     "EntityRoleAnswerRecord",
     "EventEntityMentionRecord",
     "ExtractedEventRecord",

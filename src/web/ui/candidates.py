@@ -25,8 +25,8 @@ router = APIRouter()
 
 @router.get("/ui")
 def ui_root() -> RedirectResponse:
-    """The console is the candidates page now: `/ui` opens it."""
-    return RedirectResponse("/ui/candidates", status_code=303)
+    """`/ui` opens the entities: «Кандидаты» is hidden from the menu for now."""
+    return RedirectResponse("/ui/entities", status_code=303)
 
 
 @router.get("/ui/candidates")

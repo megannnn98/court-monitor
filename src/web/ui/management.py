@@ -607,7 +607,7 @@ def _figurants_card(run: OperationRun) -> str:
     labels = (
         ("figurant_rules", "Фигуранты по статье УК", "succeeded"),
         ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
-        ("possible", "Задержаны или обысканы", "pending"),
+        ("possible", "Задержаны, обысканы или административное дело", "pending"),
         ("mentioned", "Только упомянуты", ""),
         ("unclear", "Не ясно", ""),
         ("failures", "Модель не ответила", "failed"),

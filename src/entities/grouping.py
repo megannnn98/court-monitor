@@ -3,10 +3,15 @@
 Pure logic, no database. The extraction normalizer already puts names it knows into the
 nominative; a surname its dictionary does not know stays declined («Моора», «Моору»).
 So two surnames are one when one is the other plus an oblique case ending, and one
-entity is one given name with one surname (the patronymic does not split it). A mention
-of a surname alone, or with initials, joins an entity only through a full name of that
-surname in the same article. Namesakes with the same given name become one entity: a
-known simplification, not an identity claim.
+entity is one given name with one surname — and one patronymic when the text gave one.
+
+A patronymic keeps namesakes apart: «Николай Викторович Бондаренко» of a registry card
+is not the «Николай Бондаренко» of the news about a deputy. A name without a patronymic
+joins the patronymic one only in the same article, where it is the same person named
+again; elsewhere it is its own entity. The price: one person written both ways in
+different articles is two entities. A mention of a surname alone, or with initials,
+joins an entity only through a full name of that surname in the same article.
+Namesakes without a patronymic still become one entity: a known simplification.
 """
 
 from __future__ import annotations
@@ -32,6 +37,8 @@ class PersonMention:
     first_name: str | None
     last_name: str | None
     patronymic: str | None = None
+    # The region a registry card gives for its person («Регион: Луганская область»).
+    region: str | None = None
 
 
 @dataclass
@@ -43,6 +50,11 @@ class Entity:
     gender: str | None = None
     # "rules" (this module) or "model" (a name a model gave, `apply_names`).
     name_source: str = "rules"
+    # The folded patronymic that keeps this entity apart from its namesakes; None when
+    # the text named the person without one.
+    patronymic: str | None = None
+    # Region → publications naming it (registry cards only).
+    regions: Counter[str] = field(default_factory=Counter)
 
 
 @dataclass(frozen=True)
@@ -100,12 +112,19 @@ def surname_roots(surnames: Iterable[str]) -> dict[str, str]:
     return {surname: find(surname) for surname in set(surnames)}
 
 
+def _patronymic_key(patronymic: str) -> str:
+    """«Викторович», «Викторовича», «Викторовичем» → «викторович»: its shortest base."""
+    return min(_bases(_fold(patronymic)), key=lambda base: (len(base), base))
+
+
 def _cleaned(mention: PersonMention) -> PersonMention:
     """A «given name» that is the surname again («Горинов Горинов») is an extraction
     error: the mention is a bare surname."""
     first, last = mention.first_name, mention.last_name
     if first and last and _bases(_fold(first)) & _bases(_fold(last)):
-        return PersonMention(mention.mention_id, mention.article_id, None, last, None)
+        return PersonMention(
+            mention.mention_id, mention.article_id, None, last, None, mention.region
+        )
     return mention
 
 
@@ -124,17 +143,39 @@ def group_mentions(mentions: Sequence[PersonMention]) -> list[Entity]:
     entities: dict[str, Entity] = {}
     surname_forms: dict[str, Counter[str]] = defaultdict(Counter)
     first_forms: dict[str, Counter[str]] = defaultdict(Counter)
+    patronymic_forms: dict[str, Counter[str]] = defaultdict(Counter)
     # Per article, the entities a bare surname there may refer to.
     in_article: dict[tuple[int, str], set[str]] = defaultdict(set)
+    # Per article, given name and surname, the patronymic entities it names.
+    with_patronymic: dict[tuple[int, str, str], set[str]] = defaultdict(set)
+    region_seen: set[tuple[str, int]] = set()
 
-    for mention in full:
+    def add(key: str, mention: PersonMention, patronymic: str | None) -> Entity:
+        entity = entities.setdefault(key, Entity(key=key, name="", patronymic=patronymic))
+        entity.mention_ids.append(mention.mention_id)
+        entity.variants[_display(mention)] += 1
+        if mention.region and (key, mention.article_id) not in region_seen:
+            region_seen.add((key, mention.article_id))
+            entity.regions[mention.region] += 1
+        return entity
+
+    # Mentions with a patronymic first: a name without one then knows whom its article
+    # names in full.
+    for mention in sorted(full, key=lambda item: not (item.patronymic or "").strip()):
         first = _fold(mention.first_name or "")
         surname = _fold(mention.last_name or "")
         root = roots[first][surname]
-        key = f"{first} {root}"
-        entity = entities.setdefault(key, Entity(key=key, name=""))
-        entity.mention_ids.append(mention.mention_id)
-        entity.variants[_display(mention)] += 1
+        written = (mention.patronymic or "").strip()
+        if written:
+            patronymic: str | None = _patronymic_key(written)
+            key = f"{first} {patronymic} {root}"
+            with_patronymic[(mention.article_id, first, root)].add(key)
+            patronymic_forms[key][written] += 1
+        else:
+            patronymic = None
+            named = with_patronymic.get((mention.article_id, first, root), set())
+            key = next(iter(named)) if len(named) == 1 else f"{first} {root}"
+        add(key, mention, patronymic)
         surname_forms[key][(mention.last_name or "").strip()] += 1
         first_forms[key][(mention.first_name or "").strip()] += 1
         for form in _bases(surname) | {root}:
@@ -155,15 +196,17 @@ def group_mentions(mentions: Sequence[PersonMention]) -> list[Entity]:
         # Two people of that surname in the article (father and son): nobody's mention.
         if len(candidates) == 1:
             key = next(iter(candidates))
-            entity = entities[key]
-            entity.mention_ids.append(mention.mention_id)
-            entity.variants[_display(mention)] += 1
+            add(key, mention, entities[key].patronymic)
             # A bare surname is often the nominative the full names lacked («Моор»).
             surname_forms[key][mention.last_name.strip()] += 1
 
     for key, entity in entities.items():
         first = first_forms[key].most_common(1)[0][0]
-        entity.name = f"{first} {_nominative_surname(first, key, surname_forms[key])}"
+        surname = _nominative_surname(first, key, surname_forms[key])
+        patronymic_form = (
+            f" {patronymic_forms[key].most_common(1)[0][0]}" if patronymic_forms[key] else ""
+        )
+        entity.name = f"{first}{patronymic_form} {surname}"
     return sorted(entities.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
 
 
@@ -176,7 +219,7 @@ def _nominative_surname(first: str, key: str, forms: Counter[str]) -> str:
     Иванова» is already nominative), and so does a surname written one way only
     («Бабуа»)."""
     surname = min(forms.items(), key=lambda item: (len(item[0]), -item[1], item[0]))[0]
-    root = key.split(" ", 1)[1]
+    root = key.rsplit(" ", 1)[1]
     declined = len({_fold(form) for form in forms}) > 1 and _fold(surname) != root
     if (
         declined
@@ -217,12 +260,14 @@ def given_name_first(name: str) -> str:
 
 
 def name_key(name: str) -> str:
-    """The key of a written name: given name and surname folded, the patronymic dropped.
+    """The key of a written name: its words folded, the patronymic kept — it tells
+    namesakes apart, as the rules do."""
+    return " ".join(_fold(word) for word in name.split())
 
-    «Роман Андреевич Попков» and «Роман Попков» are one person: the rules never split by
-    patronymic either."""
-    words = [_fold(word) for word in name.split()]
-    return " ".join(words[:1] + words[-1:]) if len(words) > 2 else " ".join(words)
+
+def _without_patronymic(name: str) -> str:
+    words = name.split()
+    return " ".join([words[0], words[-1]]) if len(words) > 2 else name
 
 
 def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> list[Entity]:
@@ -243,6 +288,14 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
             gender, source = entity.gender, entity.name_source
         else:
             name = given_name_first(given.nominative)
+            if entity.patronymic is None:
+                # The text gave no patronymic: one from the model would join a namesake.
+                name = _without_patronymic(name)
+            elif len(name.split()) < 3 and not any("." in word for word in name.split()):
+                # Nor may the model drop the one that keeps this person apart.
+                words = name.split()
+                middle = entity.name.split()[1:-1]
+                name = " ".join([words[0], *middle, *words[1:]])
             key = name_key(name)
             gender = None if given.gender == "unknown" else given.gender
             source = "model"
@@ -255,8 +308,11 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
                 variants=Counter(entity.variants),
                 gender=gender,
                 name_source=source,
+                patronymic=entity.patronymic,
+                regions=Counter(entity.regions),
             )
             continue
         target.mention_ids += entity.mention_ids
         target.variants.update(entity.variants)
+        target.regions.update(entity.regions)
     return sorted(merged.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))

@@ -238,6 +238,14 @@ def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
     return levels
 
 
+def _regions(regions: list[Any], *, short: bool = False) -> str:
+    """The regions registry cards give: in the list after the name, on the card in full."""
+    if not regions:
+        return ""
+    names = ", ".join(escape(str(region)) for region, _count in regions)
+    return f'<br><span class="muted">{names}</span>' if short else names
+
+
 def _box(name: str, value: str, ticked: bool, label: str, title: str) -> str:
     """A tick box of the list form: a hidden «all» first, so an unticked box says so."""
     return (
@@ -265,7 +273,7 @@ def _role_label(role: str, kind: str | None) -> str:
     if role == FIGURANT:
         return "фигурант дела"
     if role == POSSIBLE:
-        return "задержан или обыскан"
+        return KIND_LABELS.get(kind or "", "задержан или обыскан")
     if role == MENTIONED:
         return f"упомянут: {KIND_LABELS.get(kind or '', 'другое')}"
     return "не ясно"
@@ -478,7 +486,7 @@ def ui_entities(
         f"<tr><td>{position}</td>"
         f'<td><a href="/ui/entities/{quote(entity.key)}">{escape(display_name(entity.name))}</a>'
         f"{_source_mark(entity.name_source)}{_rf_mark(listed.get(entity.id))}"
-        f"{_role_mark(roles.get(entity.id))}</td>"
+        f"{_role_mark(roles.get(entity.id))}{_regions(entity.regions, short=True)}</td>"
         f'<td class="muted">{escape(", ".join(form for form, _ in entity.variants[:3]))}</td>'
         f'<td class="num">{entity.mention_count}</td><td class="num">{entity.article_count}</td>'
         f"<td>{_article_links(charges.get(entity.id, []), keep)}</td>"
@@ -624,6 +632,7 @@ def ui_entity(
     body = f"""<p><a href="/ui/entities">← Все сущности</a></p>
 <section class="band">
   <p><b>Как писали:</b> {variants}</p>
+  {f"<p><b>Регион:</b> {_regions(entity.regions)}</p>" if entity.regions else ""}
   <p class="muted">Имя: {"дала модель" if entity.name_source == "model" else "по правилам склейки"}{
         {"male": " · мужчина", "female": " · женщина"}.get(entity.gender or "", "")
     }</p>

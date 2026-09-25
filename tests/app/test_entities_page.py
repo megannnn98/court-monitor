@@ -395,7 +395,7 @@ class _Roles:
     model = "fake-model"
 
     def classify(self, items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
-        kinds = {"Александр Моор": "accused", "Иван Иванов": "lawyer"}
+        kinds = {"Александр Моор": "accused", "Иван Иванов": "administrative"}
         return {
             item.id: RoleAnswer(
                 id=item.id, source=item.name, kind=kinds[item.name], explanation="по цитате"
@@ -424,5 +424,25 @@ def test_only_the_figurants_are_listed_by_default(
     assert re.search(r"Моор Александр</a>.*?фигурант дела</span>", page)
     assert "Иванов Иван" not in page
     assert '<input id="box-figurants" type="checkbox" name="figurants" value="only" checked' in page
-    assert "Найдено: 2." in everyone and "упомянут: адвокат" in everyone
+    # An administrative case is no criminal one: not a figurant, and says so.
+    assert "Найдено: 2." in everyone and "административное дело</span>" in everyone
     assert "<h2>Роль в деле</h2>" in card and "ответ модели по цитатам" in card
+
+
+def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Session]) -> None:
+    _collected(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE entity_groups SET regions = '[[\"Луганская область\", 1]]' WHERE key = :key"
+            ),
+            {"key": "александр моор"},
+        )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/entities").text
+        card = client.get(f"/ui/entities/{MOOR}").text
+
+    assert re.search(r"Моор Александр</a>.*?<span class=\"muted\">Луганская область</span>", page)
+    assert "<p><b>Регион:</b> Луганская область</p>" in card

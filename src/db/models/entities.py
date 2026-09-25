@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +32,10 @@ class EntityGroupRecord(Base):
     gender: Mapped[str | None] = mapped_column(String(8), nullable=True)
     # rules: the grouping rules named it; model: a language model gave the nominative.
     name_source: Mapped[str] = mapped_column(String(8), nullable=False, server_default="rules")
+    # [[region, publications], …] from registry cards, most named first; the news give none.
+    regions: Mapped[list[Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -135,6 +139,22 @@ class EntityRoleAnswerRecord(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EntityPairDecisionRecord(Base):
+    """A person's decision on two entities that may be one person: «same» merges them,
+    now and at every rebuild; «different» takes the pair off «Спорные случаи».
+
+    Keyed by the entity keys, which survive a rebuild; `key_a` sorts before `key_b`."""
+
+    __tablename__ = "entity_pair_decisions"
+
+    key_a: Mapped[str] = mapped_column(String(255), primary_key=True)
+    key_b: Mapped[str] = mapped_column(String(255), primary_key=True)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 

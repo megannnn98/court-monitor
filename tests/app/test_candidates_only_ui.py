@@ -47,7 +47,7 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_db, None)
 
 
-def test_the_menu_is_exactly_candidates_and_wiki(session_factory: sessionmaker[Session]) -> None:
+def test_the_menu_hides_the_candidates_for_now(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         page = client.get("/ui/candidates")
 
@@ -55,8 +55,8 @@ def test_the_menu_is_exactly_candidates_and_wiki(session_factory: sessionmaker[S
     assert nav is not None
     links = re.findall(r'href="([^"]+)">([^<]+)</a>', nav.group(1))
     assert links == [
-        ("/ui/candidates", "Кандидаты"),
         ("/ui/entities", "Сущности"),
+        ("/ui/disputes", "Спорные случаи"),
         ("/ui/management", "Управление"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),
@@ -73,12 +73,12 @@ def test_a_removed_page_is_not_found(
     assert response.status_code == 404
 
 
-def test_the_console_root_opens_the_candidates(session_factory: sessionmaker[Session]) -> None:
+def test_the_console_root_opens_the_entities(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         response = client.get("/ui", follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/ui/candidates"
+    assert response.headers["location"] == "/ui/entities"
 
 
 def test_the_candidates_the_wiki_and_their_exports_are_served(

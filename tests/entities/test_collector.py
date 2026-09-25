@@ -194,3 +194,39 @@ def test_many_batches_are_asked_in_parallel_and_all_kept(
         "normalizing 1/2",
         "normalizing 2/2",
     ]
+
+
+def test_a_registry_card_gives_its_region_and_keeps_its_namesake_apart(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("memopzk", "https://memopzk.example.test")
+        card = (
+            "Бондаренко Николай Викторович.\nРегион: Луганская область.\n"
+            "Бондаренко Николай Викторович осужден по статьям: ст. 299 УК РФ."
+        )
+        _, run = seed.article(source, external_id="card", title="Бондаренко", text=card)
+        mention_id = seed.mention(run, "Бондаренко Николай Викторович осужден", person_id=None)
+        session.get_one(EntityMentionRecord, mention_id).normalized_data = {
+            "first_name": "Николай",
+            "last_name": "Бондаренко",
+            "patronymic": "Викторович",
+        }
+        seed.event(run, "осужден", event_type="sentence", event_date=None, links=[])
+        news = "В Саратове задержали депутата Николая Бондаренко."
+        _, run = seed.article(source, external_id="news", title="Задержание", text=news)
+        _person(session, seed, run, "Николая Бондаренко", "Николай", "Бондаренко")
+        seed.event(run, "задержали", event_type="arrest", event_date=None, links=[])
+        session.commit()
+
+    EntityCollector(session_factory).run()
+
+    with session_factory() as session:
+        entities = {
+            entity.name: entity.regions for entity in session.scalars(select(EntityGroupRecord))
+        }
+    assert entities == {
+        "Николай Викторович Бондаренко": [["Луганская область", 1]],
+        "Николай Бондаренко": [],
+    }

@@ -198,6 +198,7 @@ def test_an_answer_that_names_someone_else_is_dropped() -> None:
     [
         ("accused", "figurant"),
         ("detained", "possible"),
+        ("administrative", "possible"),
         ("lawyer", "mentioned"),
         ("victim", "mentioned"),
         ("unknown", "unclear"),

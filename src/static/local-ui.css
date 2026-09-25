@@ -511,3 +511,18 @@ label.check input[type="checkbox"] {
   margin: 0;
   padding: 0;
 }
+
+/* «Спорные случаи»: the two entities side by side. */
+.pair-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.pair-side h3 {
+  margin: 0 0 6px;
+}
+
+.pair-side p {
+  margin: 4px 0;
+}
