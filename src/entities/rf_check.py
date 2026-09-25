@@ -76,7 +76,13 @@ class RfCheckResult:
 
 
 def _fold(text: str) -> list[str]:
-    return text.lower().replace("ё", "е").split()
+    """Words as compared, both sides alike: «ё» is «е», and «-ье-»/«-ья» are «-ие-»/«-ия»
+    — the list and the news spell «Валериевна» and «Валерьевна», «Наталия» and «Наталья»
+    for one person."""
+    folded = text.lower().replace("ё", "е")
+    for soft, plain in (("ье", "ие"), ("ья", "ия"), ("ьи", "ии")):
+        folded = folded.replace(soft, plain)
+    return folded.split()
 
 
 def _entity_parts(name: str) -> tuple[str, str, str | None] | None:

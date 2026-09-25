@@ -526,3 +526,32 @@ label.check input[type="checkbox"] {
 .pair-side p {
   margin: 4px 0;
 }
+
+/* Chips that are links look like the chip buttons; date fields keep their own width. */
+a.chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  color: #24292f;
+  background: #fff;
+  text-decoration: none;
+}
+
+a.chip.active {
+  border-color: #0969da;
+  color: #fff;
+  background: #0969da;
+}
+
+label.dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+}
+
+label.dates input[type="date"] {
+  min-width: 0;
+  width: auto;
+}

@@ -122,3 +122,38 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
         ("Смирнова Анна", "Москва", None),
         ("Иванов Иван", None, "да"),
     ]
+
+
+def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    today = datetime.now(UTC).date()
+    recent = {"date_from": (today - timedelta(days=30)).isoformat(), "date_to": today.isoformat()}
+    old = {
+        "date_from": (today - timedelta(days=500)).isoformat(),
+        "date_to": (today - timedelta(days=300)).isoformat(),
+    }
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political").text
+        in_recent = client.get("/ui/political", params=recent).text
+        in_old = client.get("/ui/political", params=old).text
+        # Dates given, the months are not the choice: a year-old case, though «3 months».
+        dates_win = client.get("/ui/political", params={**old, "months": 3}).text
+        # The form sends the hidden «false» first, then the ticked box's «true».
+        ticked = client.get("/ui/political?hide_maybe_listed=false&hide_maybe_listed=true").text
+        excel = client.get("/ui/political/export.xlsx", params=old)
+
+    assert (
+        '<input id="box-hide-maybe" type="checkbox" name="hide_maybe_listed" value="true" onchange'
+        in page
+    )
+    assert '<button type="submit" name="months" value="3" class="chip"' in page
+    assert '<input type="date" name="date_from" value="">' in page
+    # Смирнова's latest news is 10 days old, Иванов's 400.
+    assert "Найдено: 1." in in_recent and "Смирнова Анна" in in_recent
+    assert "Найдено: 1." in in_old and "Иванов Иван" in in_old
+    assert f'name="date_from" value="{old["date_from"]}"' in in_old
+    assert "Иванов Иван" in dates_win
+    assert "Найдено: 1." in ticked and 'value="true" checked' in ticked
+    rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
+    assert [row[1] for row in rows[1:]] == ["Иванов Иван"]

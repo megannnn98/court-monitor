@@ -206,3 +206,16 @@ def test_a_name_without_patronymic_and_its_one_full_name_are_one_person(
             "Лидия Мониава",
         }
         assert session.scalar(select(EntityPairDecisionRecord.source)) == "region"
+
+
+def test_spelling_variants_of_one_name_match(session_factory: sessionmaker[Session]) -> None:
+    """The list writes «ВАЛЕРИЕВНА», the news «Валерьевна»; «НАТАЛИЯ» and «Наталья»."""
+    _entities(session_factory, "Виолетта Валерьевна Веригина", "Наталья Евгеньевна Шульга")
+    listed = """
+    <li>1. ВЕРИГИНА ВИОЛЕТТА ВАЛЕРИЕВНА*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>
+    <li>2. ШУЛЬГА НАТАЛИЯ ЕВГЕНИЕВНА*, 01.01.1980 г.р. , Г. КИЕВ;</li>
+    """
+
+    result = EntityRfCheck(session_factory, download=lambda: _page(listed)).run()
+
+    assert result.full == 2

@@ -9,7 +9,7 @@ rows go to Excel.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from html import escape
 from io import BytesIO
 from typing import Any
@@ -59,8 +59,50 @@ class ListRow:
     links: list[tuple[str, str, datetime | None]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class Filters:
+    """The list's filters: a period of the latest news — the last months, or dates — and
+    whether to hide those the list may carry without a patronymic."""
+
+    months: int = 0
+    date_from: date | None = None
+    date_to: date | None = None
+    hide_maybe_listed: bool = False
+
+    @property
+    def custom(self) -> bool:
+        return self.date_from is not None or self.date_to is not None
+
+    def query(self) -> dict[str, str]:
+        """As URL parameters, for the pager and the Excel link."""
+        return {
+            "months": str(self.months),
+            "date_from": self.date_from.isoformat() if self.date_from else "",
+            "date_to": self.date_to.isoformat() if self.date_to else "",
+            "hide_maybe_listed": str(self.hide_maybe_listed).lower(),
+        }
+
+
+def _parse_date(text: str) -> date | None:
+    try:
+        return date.fromisoformat(text.strip()) if text.strip() else None
+    except ValueError:
+        return None
+
+
+def filters(months: int, date_from: str, date_to: str, hide_maybe_listed: bool) -> Filters:
+    """Dates, when given, win over the months."""
+    start, end = _parse_date(date_from), _parse_date(date_to)
+    return Filters(
+        months=0 if start or end or months not in PERIODS else months,
+        date_from=start,
+        date_to=end,
+        hide_maybe_listed=hide_maybe_listed,
+    )
+
+
 def _rows(
-    db: Session, *, months: int, hide_maybe_listed: bool
+    db: Session, chosen: Filters
 ) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, int]:
     """The list's entities, latest news first; how many there are, and how many of them
     the list may carry under a name without a patronymic."""
@@ -70,11 +112,18 @@ def _rows(
         .join(EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id)
         .where(EntityGroupPoliticsRecord.verdict == POLITICAL)
     )
-    if months:
-        since = datetime.now(UTC) - timedelta(days=30 * months)
+    if chosen.months:
+        since = datetime.now(UTC) - timedelta(days=30 * chosen.months)
         query = query.where(EntityGroupRecord.last_published_at >= since)
+    if chosen.date_from is not None:
+        start = datetime.combine(chosen.date_from, time.min, UTC)
+        query = query.where(EntityGroupRecord.last_published_at >= start)
+    if chosen.date_to is not None:
+        # The whole last day.
+        end = datetime.combine(chosen.date_to + timedelta(days=1), time.min, UTC)
+        query = query.where(EntityGroupRecord.last_published_at < end)
     maybe = db.scalar(select(func.count()).select_from(query.where(maybe_listed).subquery())) or 0
-    if hide_maybe_listed:
+    if chosen.hide_maybe_listed:
         query = query.where(~maybe_listed)
     rows = db.execute(
         query.order_by(
@@ -158,35 +207,54 @@ def _html_row(position: int, row: ListRow) -> str:
 @router.get("/ui/political", response_class=HTMLResponse)
 def ui_political(
     months: int = Query(default=0),
+    date_from: str = Query(default="", max_length=10),
+    date_to: str = Query(default="", max_length=10),
     hide_maybe_listed: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    months = months if months in PERIODS else 0
-    found, total, maybe = _rows(db, months=months, hide_maybe_listed=hide_maybe_listed)
+    chosen = filters(months, date_from, date_to, hide_maybe_listed)
+    found, total, maybe = _rows(db, chosen)
     on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
     rows = "".join(
         _html_row(position, row)
         for position, row in enumerate(on_page, start=(page - 1) * PAGE_SIZE + 1)
     )
-    keep = {"months": months, "hide_maybe_listed": str(hide_maybe_listed).lower()}
+    keep = chosen.query()
+    # A period button clears the dates: the months are the choice then.
     periods = " ".join(
-        f'<a class="chip{" active" if key == months else ""}" '
-        f'href="/ui/political?{urlencode({**keep, "months": key})}">{label}</a>'
+        f'<button type="submit" name="months" value="{key}" '
+        f'class="chip{" active" if key == chosen.months and not chosen.custom else ""}" '
+        "onclick=\"this.form.date_from.value='';this.form.date_to.value=''\">"
+        f"{label}</button>"
         for key, label in PERIODS.items()
     )
-    toggle = urlencode({**keep, "hide_maybe_listed": str(not hide_maybe_listed).lower()})
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     pager = " ".join(
         f'<a href="/ui/political?{urlencode({**keep, "page": number})}">'
         f"{'<b>' + str(number) + '</b>' if number == page else number}</a>"
         for number in range(1, pages + 1)
     )
-    body = f"""<p class="chips">{periods}</p>
-<p class="toolbar">
-  <a class="chip{" active" if hide_maybe_listed else ""}" href="/ui/political?{toggle}">Скрыть возможных в перечне ({maybe})</a>
-  <a class="secondary" href="/ui/political/export.xlsx?{urlencode(keep)}">Скачать Excel</a>
-</p>
+    dates = (
+        f'<label class="dates">с <input type="date" name="date_from" '
+        f'value="{chosen.date_from.isoformat() if chosen.date_from else ""}"></label>'
+        f'<label class="dates">по <input type="date" name="date_to" '
+        f'value="{chosen.date_to.isoformat() if chosen.date_to else ""}"></label>'
+        '<button type="submit">Показать</button>'
+    )
+    body = f"""<form method="get" action="/ui/political" class="toolbar">
+  <span class="chips">{periods}</span>
+  <span class="chips">{dates}</span>
+  <div class="filter-row">
+    <!-- Unticked, only the hidden «false» is sent; ticked, the box's «true» comes last. -->
+    <input type="hidden" name="hide_maybe_listed" value="false">
+    <label class="check" title="Совпали имя и фамилия с перечнем, отчества нет с одной из сторон">
+      <input id="box-hide-maybe" type="checkbox" name="hide_maybe_listed" value="true"{
+        " checked" if chosen.hide_maybe_listed else ""
+    } onchange="this.form.submit()"> Скрыть возможных в перечне ({maybe})</label>
+    <a class="secondary" href="/ui/political/export.xlsx?{urlencode(keep)}">Скачать Excel</a>
+  </div>
+</form>
 <p class="muted">Найдено: {total}. Фигуранты уголовных дел, которых нет в перечне
 Росфинмониторинга, и дело которых — политическое преследование. Жирная статья — из списка
 политических; «Последняя новость» показывает, свежий ли случай.</p>
@@ -265,12 +333,13 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
 @router.get("/ui/political/export.xlsx")
 def ui_political_export(
     months: int = Query(default=0),
+    date_from: str = Query(default="", max_length=10),
+    date_to: str = Query(default="", max_length=10),
     hide_maybe_listed: bool = Query(default=False),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    months = months if months in PERIODS else 0
-    found, _, _ = _rows(db, months=months, hide_maybe_listed=hide_maybe_listed)
+    found, _, _ = _rows(db, filters(months, date_from, date_to, hide_maybe_listed))
     return Response(
         political_xlsx(_details(db, found)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
