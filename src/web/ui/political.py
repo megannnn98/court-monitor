@@ -27,7 +27,6 @@ from db.orm_models import (
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
-    EntityGroupRfMatchRecord,
 )
 from entities.news import KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
@@ -45,7 +44,7 @@ LINKS = 3
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
-FILTER_NAMES = ("months", "date_from", "date_to", "hide_maybe_listed", "news")
+FILTER_NAMES = ("months", "date_from", "date_to", "news")
 # What the latest news is (`entities.news`): the operator's new cases and sentences first.
 NEWS_FILTERS = {
     "all": "Любая свежая новость",
@@ -110,12 +109,11 @@ class ListRow:
 @dataclass(frozen=True)
 class Filters:
     """The list's filters: a period of the latest news — the last months, or dates — and
-    whether to hide those the list may carry without a patronymic."""
+    what the latest news is."""
 
     months: int = 0
     date_from: date | None = None
     date_to: date | None = None
-    hide_maybe_listed: bool = False
     news: str = "all"
 
     @property
@@ -128,7 +126,6 @@ class Filters:
             "months": str(self.months),
             "date_from": self.date_from.isoformat() if self.date_from else "",
             "date_to": self.date_to.isoformat() if self.date_to else "",
-            "hide_maybe_listed": str(self.hide_maybe_listed).lower(),
             "news": self.news,
         }
 
@@ -174,16 +171,13 @@ def _date_field(name: str, label: str, value: date | None) -> str:
     )
 
 
-def filters(
-    months: int, date_from: str, date_to: str, hide_maybe_listed: bool, news: str = "all"
-) -> Filters:
+def filters(months: int, date_from: str, date_to: str, news: str = "all") -> Filters:
     """Dates, when given, win over the months."""
     start, end = _parse_date(date_from), _parse_date(date_to)
     return Filters(
         months=0 if start or end or months not in PERIODS else months,
         date_from=start,
         date_to=end,
-        hide_maybe_listed=hide_maybe_listed,
         news=news if news in NEWS_FILTERS else "all",
     )
 
@@ -202,25 +196,15 @@ def remembered(cookie: str) -> Filters | None:
         months,
         values.get("date_from", "")[:10],
         values.get("date_to", "")[:10],
-        values.get("hide_maybe_listed") == "true",
         values.get("news", "all"),
     )
 
 
 def _rows(
     db: Session, chosen: Filters
-) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, int, dict[str, int]]:
-    """The list's entities, latest news first; how many there are, how many of them the
-    list may carry under a name without a patronymic, and how many of each latest news
-    (in the period, before the choice of the news)."""
-    # By the name alone and never with the patronymic: maybe a namesake.
-    maybe_listed = exists().where(
-        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
-        EntityGroupRfMatchRecord.level != FULL,
-    ) & ~exists().where(
-        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
-        EntityGroupRfMatchRecord.level == FULL,
-    )
+) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, dict[str, int]]:
+    """The list's entities, latest news first; how many there are, and how many of each
+    latest news (in the period, before the choice of the news)."""
     query = (
         select(EntityGroupRecord, EntityGroupPoliticsRecord)
         .join(EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id)
@@ -236,9 +220,6 @@ def _rows(
         # The whole last day.
         end = datetime.combine(chosen.date_to + timedelta(days=1), time.min, UTC)
         query = query.where(EntityGroupRecord.last_published_at < end)
-    maybe = db.scalar(select(func.count()).select_from(query.where(maybe_listed).subquery())) or 0
-    if chosen.hide_maybe_listed:
-        query = query.where(~maybe_listed)
     in_period = query.subquery()
     news_counts = {
         str(kind): count
@@ -260,7 +241,7 @@ def _rows(
             EntityGroupRecord.last_published_at.desc().nulls_last(), EntityGroupRecord.key
         )
     ).all()
-    return [(entity, politics) for entity, politics in rows], len(rows), maybe, news_counts
+    return [(entity, politics) for entity, politics in rows], len(rows), news_counts
 
 
 def _details(
@@ -377,16 +358,15 @@ def ui_political(
     months: int = Query(default=0),
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
-    hide_maybe_listed: bool = Query(default=False),
     news: str = Query(default="all", max_length=16),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    chosen = filters(months, date_from, date_to, hide_maybe_listed, news)
+    chosen = filters(months, date_from, date_to, news)
     # No filters in the address: the last ones chosen, not «all the time».
     if not any(name in request.query_params for name in FILTER_NAMES):
         chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
-    found, total, maybe, news_counts = _rows(db, chosen)
+    found, total, news_counts = _rows(db, chosen)
     on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
     rows = "".join(
         _html_row(position, row)
@@ -420,12 +400,6 @@ def ui_political(
   <span class="chips">{periods}</span>
   <span class="chips">{dates}</span>
   <div class="filter-row">
-    <!-- Unticked, only the hidden «false» is sent; ticked, the box's «true» comes last. -->
-    <input type="hidden" name="hide_maybe_listed" value="false">
-    <label class="check" title="Совпали имя и фамилия с перечнем, отчества нет с одной из сторон">
-      <input id="box-hide-maybe" type="checkbox" name="hide_maybe_listed" value="true"{
-        " checked" if chosen.hide_maybe_listed else ""
-    } onchange="this.form.submit()"> Скрыть возможных в перечне ({maybe})</label>
     <!-- The form's own values, not the page's: dates picked but not shown yet count. -->
     <label class="field">Свежая новость <select name="news" onchange="this.form.submit()">{
         news_options
@@ -565,13 +539,12 @@ def ui_political_export(
     months: int = Query(default=0),
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
-    hide_maybe_listed: bool = Query(default=False),
     news: str = Query(default="all", max_length=16),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    chosen = filters(months, date_from, date_to, hide_maybe_listed, news)
-    found, _, _, _ = _rows(db, chosen)
+    chosen = filters(months, date_from, date_to, news)
+    found, _, _ = _rows(db, chosen)
     name = export_name(chosen, found, datetime.now(UTC).date())
     return Response(
         political_xlsx(_details(db, found)),

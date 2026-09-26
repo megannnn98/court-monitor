@@ -113,7 +113,10 @@ def test_the_list_is_the_political_the_period_tells_new_from_old(
     with _client(session_factory) as client:
         page = client.get("/ui/political").text
         fresh = client.get("/ui/political", params={"months": 3}).text
-        certain = client.get("/ui/political", params={"hide_maybe_listed": "true"}).text
+        # The box that hid the maybe-namesakes is gone: an old address hides nobody.
+        old_box = client.get(
+            "/ui/political", params={"months": 0, "hide_maybe_listed": "true"}
+        ).text
 
     assert "<title>Результат</title>" in page
     assert '<span>Результат</span><span class="nav-count">2</span>' in page
@@ -123,15 +126,13 @@ def test_the_list_is_the_political_the_period_tells_new_from_old(
     assert "Найдено: 2." in page and "Беда" not in page
     assert "Смирнова Анна" in page and "Москва" in page and "модель: так про Анна Смирнова" in page
     assert 'Иванов Иван</a> <span class="badge pending">возможно в перечне</span>' in page
-    assert "Скрыть возможных в перечне (1)" in page
+    assert "Скрыть возможных" not in page and "hide_maybe_listed" not in page
     # Иванов's latest news is a year old: not a new case.
     assert "Найдено: 1." in fresh and "Иванов" not in fresh
-    assert "Найдено: 1." in certain and "Иванов Иван" not in certain
-    # On the list with the patronymic: in the result, the list's word beside the name; the
-    # box hides only the maybe-namesakes.
+    assert "Найдено: 2." in old_box and "Иванов Иван" in old_box
+    # On the list with the patronymic: in the result, the list's word beside the name.
     assert 'Смирнова Анна</a> <span class="badge">в перечне РФМ</span>' in page
     assert "СМИРНОВА АННА ПЕТРОВНА, 01.02.1990 г.р., Г. МОСКВА" in page
-    assert "Смирнова Анна" in certain
 
 
 def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Session]) -> None:
@@ -177,14 +178,8 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
         in_old = client.get("/ui/political", params=old).text
         # Dates given, the months are not the choice: a year-old case, though «3 months».
         dates_win = client.get("/ui/political", params={**old, "months": 3}).text
-        # The form sends the hidden «false» first, then the ticked box's «true».
-        ticked = client.get("/ui/political?hide_maybe_listed=false&hide_maybe_listed=true").text
         excel = client.get("/ui/political/export.xlsx", params=old)
 
-    assert (
-        '<input id="box-hide-maybe" type="checkbox" name="hide_maybe_listed" value="true" onchange'
-        in page
-    )
     assert '<button type="submit" name="months" value="3" class="chip"' in page
     # Day/month/year whatever the browser's language: no native date field.
     assert '<input type="text" name="date_from" value="" placeholder="дд/мм/гггг"' in page
@@ -208,7 +203,6 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
         f'class="date-native" tabindex="-1" aria-hidden="true" value="{old["date_from"]}"' in in_old
     )
     assert "Иванов Иван" in dates_win
-    assert "Найдено: 1." in ticked and 'value="true" checked' in ticked
     assert (
         f'filename="result_{old["date_from"]}_{old["date_to"]}.xlsx"'
         in (excel.headers["content-disposition"])
@@ -240,8 +234,9 @@ def test_the_period_is_kept_for_a_reload_and_the_menu(
         client.cookies.set(
             "political_filters",
             f"months%3D0%26date_from%3D{old['date_from']}%26date_to%3D{old['date_to']}"
-            "%26hide_maybe_listed%3Dfalse",
+            "%26hide_maybe_listed%3Dtrue",
         )
+        # Kept by the old box ticked: hides nobody now.
         picked = client.get("/ui/political").text
 
     shown = date.fromisoformat(old["date_from"]).strftime("%d/%m/%Y")
