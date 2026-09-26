@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
 
 from fastapi.testclient import TestClient
@@ -185,7 +185,8 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
         in page
     )
     assert '<button type="submit" name="months" value="3" class="chip"' in page
-    assert '<input type="date" name="date_from" value="">' in page
+    # Day/month/year whatever the browser's language: no native date field.
+    assert '<input type="text" name="date_from" value="" placeholder="дд/мм/гггг"' in page
     # The export sends the form as it is: dates picked without «Показать» count.
     assert '<button type="submit" class="secondary" formaction="/ui/political/export.xlsx">' in page
     assert page.index('<input type="hidden" name="months" value="0">') < page.index(
@@ -194,7 +195,8 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
     # Смирнова's latest news is 10 days old, Иванов's 400.
     assert "Найдено: 1." in in_recent and "Смирнова Анна" in in_recent
     assert "Найдено: 1." in in_old and "Иванов Иван" in in_old
-    assert f'name="date_from" value="{old["date_from"]}"' in in_old
+    shown = date.fromisoformat(old["date_from"]).strftime("%d/%m/%Y")
+    assert f'name="date_from" value="{shown}"' in in_old
     assert "Иванов Иван" in dates_win
     assert "Найдено: 1." in ticked and 'value="true" checked' in ticked
     assert (
@@ -232,7 +234,24 @@ def test_the_period_is_kept_for_a_reload_and_the_menu(
         )
         picked = client.get("/ui/political").text
 
-    assert "Найдено: 1." in again and f'name="date_from" value="{old["date_from"]}"' in again
+    shown = date.fromisoformat(old["date_from"]).strftime("%d/%m/%Y")
+    assert "Найдено: 1." in again and f'name="date_from" value="{shown}"' in again
     assert "Найдено: 2." in everything
     assert "Найдено: 1." in picked and "Иванов Иван" in picked
     assert 'id="political-filters"' in picked and "document.cookie" in picked
+
+
+def test_the_form_s_day_month_year_is_read(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    today = datetime.now(UTC).date()
+    written = {
+        "date_from": (today - timedelta(days=30)).strftime("%d/%m/%Y"),
+        "date_to": today.strftime("%d/%m/%Y"),
+    }
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political", params=written).text
+
+    # Смирнова's latest news is 10 days old, Иванов's 400.
+    assert "Найдено: 1." in page and "Смирнова Анна" in page
+    assert f'value="{written["date_from"]}"' in page

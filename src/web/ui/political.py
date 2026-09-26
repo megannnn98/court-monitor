@@ -114,10 +114,32 @@ class Filters:
 
 
 def _parse_date(text: str) -> date | None:
-    try:
-        return date.fromisoformat(text.strip()) if text.strip() else None
-    except ValueError:
+    """«25/09/2026» as the form writes it (day/month/year), «25.09.2026», or the
+    ISO «2026-09-25» of the links and the cookie."""
+    value = text.strip()
+    if not value:
         return None
+    for layout in ("%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, layout).date()  # noqa: DTZ007 - a date, no time
+        except ValueError:
+            continue
+    return None
+
+
+def _form_date(value: date | None) -> str:
+    return f"{value:%d/%m/%Y}" if value else ""
+
+
+def _date_field(name: str, label: str, value: date | None) -> str:
+    """A day/month/year field, whatever the browser's language: a native date field
+    shows the browser's own order (month first in an English one)."""
+    return (
+        f'<label class="dates">{label} <input type="text" name="{name}" '
+        f'value="{_form_date(value)}" placeholder="дд/мм/гггг" inputmode="numeric" '
+        'pattern="\\d{1,2}/\\d{1,2}/\\d{4}" title="день/месяц/год" size="10" '
+        "data-date></label>"
+    )
 
 
 def filters(months: int, date_from: str, date_to: str, hide_maybe_listed: bool) -> Filters:
@@ -310,11 +332,9 @@ def ui_political(
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     pages_html = pager("/ui/political", keep, page, pages)
     dates = (
-        f'<label class="dates">с <input type="date" name="date_from" '
-        f'value="{chosen.date_from.isoformat() if chosen.date_from else ""}"></label>'
-        f'<label class="dates">по <input type="date" name="date_to" '
-        f'value="{chosen.date_to.isoformat() if chosen.date_to else ""}"></label>'
-        '<button type="submit">Показать</button>'
+        _date_field("date_from", "с", chosen.date_from)
+        + _date_field("date_to", "по", chosen.date_to)
+        + '<button type="submit">Показать</button>'
     )
     # The chosen months ride along hidden; a period button, sent later, wins over them.
     body = f"""<form method="get" action="/ui/political" class="toolbar" id="political-filters">
@@ -344,7 +364,7 @@ def ui_political(
 <script>
 // Dates picked but not shown yet are kept too: a reload shows them.
 document.getElementById("political-filters").addEventListener("change", (event) => {{
-  if (event.target.type !== "date") return;
+  if (!("date" in event.target.dataset)) return;
   const form = new URLSearchParams(new FormData(event.target.form));
   document.cookie = "{FILTERS_COOKIE}=" + encodeURIComponent(form.toString()) +
     "; path=/ui/political; max-age=31536000; samesite=lax";
