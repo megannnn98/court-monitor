@@ -47,34 +47,40 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_db, None)
 
 
-def test_the_menu_hides_the_candidates_for_now(session_factory: sessionmaker[Session]) -> None:
+def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         page = client.get("/ui/candidates")
 
-    nav = re.search(r"<nav>(.*?)</nav>", page.text, re.DOTALL)
+    nav = re.search(r'<nav id="main-nav" aria-label="Разделы">(.*?)</nav>', page.text, re.DOTALL)
     assert nav is not None
-    links = re.findall(r'href="([^"]+)"><svg[^>]*>.*?</svg><span>([^<]+)</span>', nav.group(1))
-    # The home page first, apart; «Результат» under it, with its count; then the tools.
-    assert 'class="home" href="/ui/management"><svg class="icon"' in nav.group(1)
+    links = re.findall(r'href="([^"]+)"[^>]*><svg[^>]*>.*?</svg><span>([^<]+)</span>', nav.group(1))
+    # The person and the evidence first; «Результат» apart, with its count; «Кандидаты»
+    # hidden; the pipeline under «Система» at the bottom.
     assert '<span>Результат</span><span class="nav-count">0</span>' in nav.group(1)
-    assert '<div class="nav-group">Инструменты</div>' in nav.group(1)
-    # Officials, logs and wiki at the bottom, apart.
-    bottom = re.search(r'<div class="nav-bottom">(.*?)</div>', nav.group(1), re.DOTALL)
-    assert bottom is not None
+    assert '<span>Очередь</span><span class="nav-count">0</span>' in nav.group(1)
+    bottom = re.search(r'<div class="nav-bottom">(.*)</div>', nav.group(1), re.DOTALL)
+    assert bottom is not None and '<div class="nav-group">Система</div>' in bottom.group(1)
     assert re.findall(r"<span>([^<]+)</span>", bottom.group(1)) == [
+        "Управление",
         "Должностные лица",
         "Логи",
         "Вики",
     ]
     assert links == [
-        ("/ui/management", "Главная: Управление"),
+        ("/ui/overview", "Обзор"),
         ("/ui/political", "Результат"),
-        ("/ui/entities", "Сущности"),
-        ("/ui/disputes", "Спорные случаи"),
+        ("/ui/investigations", "Расследование"),
+        ("/ui/entities", "Люди"),
+        ("/ui/publications", "Публикации"),
+        ("/ui/queue", "Очередь"),
+        ("/ui/management", "Управление"),
         ("/ui/officials", "Должностные лица"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),
     ]
+    # The phone: a menu button with a label, the page reachable past the menu.
+    assert 'class="nav-toggle" aria-label="Меню"' in page.text
+    assert '<a class="skip-link" href="#content">К содержанию</a>' in page.text
 
 
 @pytest.mark.parametrize(("method", "path"), REMOVED_PAGES)
@@ -93,9 +99,9 @@ def test_the_site_opens_on_its_home_page(session_factory: sessionmaker[Session])
         site = client.get("/", follow_redirects=False)
         page = client.get("/ui/entities").text
 
-    assert (console.status_code, console.headers["location"]) == (303, "/ui/management")
-    assert (site.status_code, site.headers["location"]) == (303, "/ui/management")
-    assert '<a class="brand" href="/ui/management">court-monitor</a>' in page
+    assert (console.status_code, console.headers["location"]) == (303, "/ui/overview")
+    assert (site.status_code, site.headers["location"]) == (303, "/ui/overview")
+    assert '<a class="brand" href="/ui/overview">court-monitor</a>' in page
 
 
 def test_the_candidates_the_wiki_and_their_exports_are_served(

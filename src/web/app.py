@@ -29,12 +29,16 @@ from web.routers import (
 )
 from web.ui import candidates as ui_candidates
 from web.ui import disputes as ui_disputes
+from web.ui import dossier as ui_dossier
 from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import officials as ui_officials
+from web.ui import overview as ui_overview
 from web.ui import persons as ui_persons
 from web.ui import political as ui_political
+from web.ui import publications as ui_publications
+from web.ui import queue as ui_queue
 from web.ui import wiki as ui_wiki
 
 logger = logging.getLogger("api")
@@ -84,8 +88,12 @@ for module in (
     ui_candidates,
     ui_management,
     ui_logs,
+    ui_overview,
+    ui_dossier,
     ui_entities,
     ui_disputes,
+    ui_queue,
+    ui_publications,
     ui_political,
     ui_officials,
     operations,

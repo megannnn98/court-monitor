@@ -28,7 +28,7 @@ from persecution.classifier import POLITICAL_ARTICLES
 from web.dependencies import get_db
 from web.ui.entities import _articles_by_group, _date, display_name
 from web.ui.funnel import funnel, funnel_line
-from web.ui.layout import _page
+from web.ui.layout import _page, pager
 
 router = APIRouter()
 
@@ -257,11 +257,7 @@ def ui_political(
         for key, label in PERIODS.items()
     )
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-    pager = " ".join(
-        f'<a href="/ui/political?{urlencode({**keep, "page": number})}">'
-        f"{'<b>' + str(number) + '</b>' if number == page else number}</a>"
-        for number in range(1, pages + 1)
-    )
+    pages_html = pager("/ui/political", keep, page, pages)
     dates = (
         f'<label class="dates">с <input type="date" name="date_from" '
         f'value="{chosen.date_from.isoformat() if chosen.date_from else ""}"></label>'
@@ -292,7 +288,7 @@ def ui_political(
 <table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Регион</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
-<p class="pager">{pager if pages > 1 else ""}</p>
+{pages_html}
 <script>
 // Dates picked but not shown yet are kept too: a reload shows them.
 document.getElementById("political-filters").addEventListener("change", (event) => {{

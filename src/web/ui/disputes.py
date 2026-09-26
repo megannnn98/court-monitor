@@ -39,7 +39,7 @@ from web.ui.entities import (
     _roles,
     display_name,
 )
-from web.ui.layout import _page
+from web.ui.layout import _page, pager
 
 router = APIRouter()
 
@@ -116,16 +116,12 @@ def ui_disputes(
         for key, label in _KINDS.items()
     )
     pages = (len(shown) + PAGE_SIZE - 1) // PAGE_SIZE
-    pager = " ".join(
-        f'<a href="/ui/disputes?{urlencode({"kind": kind, "page": number})}">'
-        f"{'<b>' + str(number) + '</b>' if number == page else number}</a>"
-        for number in range(1, pages + 1)
-    )
+    pages_html = pager("/ui/disputes", {"kind": kind}, page, pages)
     body = f"""<p class="chips">{chips}</p>
 <p class="muted">Нерешённых пар: {len(shown)}. «Один человек» сливает две сущности сразу и при
 каждой следующей сборке; «Разные люди» убирает пару из списка.</p>
 {sections or '<p class="muted">Спорных пар нет.</p>'}
-<p class="pager">{pager if pages > 1 else ""}</p>"""
+{pages_html}"""
     return _page(
         "Спорные случаи",
         body,
@@ -218,18 +214,18 @@ async def decide_dispute(
     request: Request,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> RedirectResponse:
-    form: dict[str, Any] = {
-        key: values[0]
-        for key, values in parse_qs(
-            (await request.body()).decode("utf-8", errors="replace")
-        ).items()
-    }
+    fields = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    form: dict[str, Any] = {key: values[0] for key, values in fields.items()}
     key_a, key_b = str(form.get("key_a", "")), str(form.get("key_b", ""))
     decision = str(form.get("decision", ""))
     if not key_a or not key_b or key_a == key_b or decision not in (SAME, DIFFERENT):
         raise HTTPException(status_code=400, detail="Неполное решение")
     decide(db, key_a, key_b, decision)
     db.commit()
+    if form.get("back") == "queue":
+        # The queue shows the next pair; the ones put off stay put off.
+        skip = urlencode([("skip", item) for item in fields.get("skip", [])])
+        return RedirectResponse(f"/ui/queue?{skip}#pairs", status_code=303)
     kind = form.get("kind") if form.get("kind") in _KINDS else "all"
     page = str(form.get("page", "1"))
     return RedirectResponse(

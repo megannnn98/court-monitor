@@ -1,6 +1,7 @@
 """Operator console: the person card and the article view behind a candidate."""
 
 from html import escape
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
@@ -10,7 +11,9 @@ from web.candidate_rows import _surname_first
 from web.dependencies import get_db
 from web.routers.articles import _article_response
 from web.routers.persons import get_person_detail
-from web.ui.layout import _fmt, _page
+from web.ui.entities import _EVENT_LABELS, display_name
+from web.ui.layout import _fmt, _page, external_url
+from web.ui.publications import _EVENTS, _PEOPLE
 
 router = APIRouter()
 
@@ -77,12 +80,36 @@ def ui_get_article(
         )
     else:
         rendered = escape(text)
+    people = db.execute(_PEOPLE, {"articles": [article_id]}).all()
+    events = db.execute(_EVENTS, {"articles": [article_id]}).all()
+    people_html = ", ".join(
+        f'<a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a>'
+        for _article, key, name, _mentions in sorted(people, key=lambda row: -row[3])
+    )
+    events_html = " ".join(
+        f'<span class="badge">{escape(_EVENT_LABELS.get(kind, kind))}'
+        f"{f': {count}' if count > 1 else ''}</span>"
+        for _article, kind, count in sorted(events, key=lambda row: row[1])
+    )
+    url = external_url(article.url)
+    source = (
+        f'<a href="{escape(url, quote=True)}" rel="noopener noreferrer" target="_blank">'
+        f"{escape(url)}</a>"
+        if url
+        else escape(article.url)
+    )
     return _page(
         article.title,
-        f"""<p><a href="{escape(article.url)}">{escape(article.url)}</a></p>
+        f"""<p><a href="/ui/publications">← Публикации</a> · {source}</p>
+<section class="band">
+  <dl class="facts">
+    <dt>Люди</dt><dd>{people_html or '<span class="muted">—</span>'}</dd>
+    <dt>События</dt><dd>{events_html or '<span class="muted">—</span>'}</dd>
+  </dl>
+</section>
 <article>{rendered}</article>""",
-        active="candidates",
-        instruction="Это полный ParsedArticle.text — source of truth для evidence.",
-        next_action="Проверьте подсвеченный span или вернитесь к карточке Person.",
+        active="publications",
+        instruction="Полный текст публикации — первоисточник доказательств.",
+        next_action="Проверьте подсвеченный фрагмент; откройте досье упомянутого человека.",
         db=db,
     )

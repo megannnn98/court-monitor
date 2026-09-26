@@ -1,4 +1,4 @@
-"""The «Сущности» page: the list, a card, and the rebuild button."""
+"""«Люди»: the list, the old card address (now the dossier), and the rebuild button."""
 
 from __future__ import annotations
 
@@ -100,9 +100,9 @@ def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
         by_declined_form = client.get("/ui/entities", params={"q": "Моору"}).text
         nobody = client.get("/ui/entities", params={"q": "Петров"}).text
 
-    assert "<span>Сущности</span></a>" in page
-    # Surname first, as the candidates are.
-    assert f'<a href="/ui/entities/{MOOR}">Моор Александр</a>' in page
+    assert "<span>Люди</span></a>" in page
+    # Surname first, as the candidates are; the name opens the dossier.
+    assert f'<a href="/ui/investigations/{MOOR}">Моор Александр</a>' in page
     assert "Найдено: 2." in page
     assert "Найдено: 1." in by_declined_form and "Моор Александр" in by_declined_form
     assert "Найдено: 0." in nobody
@@ -122,7 +122,7 @@ def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
     assert "<mark>Александра Моора</mark>" in card.text
     assert "<mark>Александру Моору</mark>" in card.text
     assert re.search(
-        r'href="/ui/entities/[^"]+">Иванов Иван</a>\s*<span class="muted">— общих публикаций: 1',
+        r'href="/ui/investigations/[^"]+">Иванов Иван</a></td><td class="num">1</td>',
         card.text,
     )
     assert "Арест: 1" in card.text
@@ -174,8 +174,8 @@ def test_a_name_a_model_gave_is_marked(session_factory: sessionmaker[Session]) -
         other = client.get("/ui/entities/" + quote("иван иванов")).text
 
     assert re.search(r">Моор Александр</a> <span class=\"badge\"[^>]*>ИИ</span>", page)
-    assert "Имя: дала модель · мужчина" in card
-    assert "Имя: по правилам склейки" in other
+    assert "<dt>Имя</dt><dd>дала модель · мужчина</dd>" in card
+    assert "<dt>Имя</dt><dd>по правилам склейки</dd>" in other
 
 
 def test_names_read_surname_first_and_sort_by_surname(
@@ -200,7 +200,7 @@ def test_names_read_surname_first_and_sort_by_surname(
         page = client.get("/ui/entities", params={"sort": "name"}).text
         card = client.get("/ui/entities/" + quote("борис абрамов")).text
 
-    assert re.findall(r'<a href="/ui/entities/[^"]+">([^<]+)</a>', page) == [
+    assert re.findall(r'<a href="/ui/investigations/[^"]+">([^<]+)</a>', page) == [
         "Абрамов Борис Петрович",
         "Моор Вера",
         "Яковлева Анна",
@@ -243,7 +243,7 @@ def test_initials_sort_by_the_name_as_shown(session_factory: sessionmaker[Sessio
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities", params={"sort": "name"}).text
 
-    assert re.findall(r'<a href="/ui/entities/[^"]+">([^<]+)</a>', page) == [
+    assert re.findall(r'<a href="/ui/investigations/[^"]+">([^<]+)</a>', page) == [
         "С. Дмитрий",
         "Соломатин П.",
         "Яковлева Анна",
@@ -306,15 +306,16 @@ def test_a_card_lists_the_criminal_code_articles_with_their_publications(
         moor = client.get(f"/ui/entities/{MOOR}").text
         ivanov = client.get("/ui/entities/" + quote("иван иванов")).text
 
-    assert "<h2>Статьи УК</h2>" in moor
+    assert '<h2 id="charges-title">Статьи УК</h2>' in moor
     assert re.search(
-        r"<summary><b>ст\. 205\.2</b> \(ч\. 2\) <span class=\"badge\">политическая</span> ", moor
+        r">ст\. 205\.2</a> <span class=\"badge\">политическая</span> \(ч\. 2\) "
+        r'<span class="muted">публикаций: 1</span>',
+        moor,
     )
     assert "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ." in moor
-    assert "публикаций: 1" in moor
     # Named beside another target: shown, but marked shared; the only target is not.
     shared = 'title="Во всех событиях обвиняемыми названы и другие люди">общая</span>'
-    assert re.search(r"<b>ст\. 207\.3</b>.*?" + re.escape(shared), ivanov)
+    assert re.search(r">ст\. 207\.3</a>.*?" + re.escape(shared), ivanov)
     assert shared not in moor
 
 
@@ -329,11 +330,11 @@ def test_the_list_shows_the_articles_and_filters_by_one(
         by_article = client.get("/ui/entities", params={"article": "207.3"}).text
 
     assert (
-        '<a href="/ui/entities?article=205.2&rf=hide&rf_possible=all&figurants=only&sort=mentions">205.2</a>'
+        '<a href="/ui/entities?article=205.2&rf=hide&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions">205.2</a>'
         in page
     )
     assert (
-        '<a href="/ui/entities?article=207.3&rf=hide&rf_possible=all&figurants=only&sort=mentions" class="muted" title="общая">'
+        '<a href="/ui/entities?article=207.3&rf=hide&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions" class="muted" title="общая">'
         "207.3</a>" in page
     )
     assert "Найдено: 3" in page
@@ -387,7 +388,7 @@ def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
     assert 'name="rf_possible" value="hide" checked' in both
     assert "Найдено: 0." in both
     assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
-    assert "<h2>Росфинмониторинг</h2>" in card
+    assert "<h3>Росфинмониторинг</h3>" in card and "в перечне Росфинмониторинга" in card
     assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card
 
 
@@ -420,13 +421,14 @@ def test_only_the_figurants_are_listed_by_default(
 
     # Before step 5 nobody has a role: all are shown, and the page says why.
     assert "Фигуранты ещё не определены" in before and "Найдено: 2." in before
-    assert "Только фигуранты дел (1)" in page and "Найдено: 1." in page
+    assert "Найдено: 1." in page
     assert re.search(r"Моор Александр</a>.*?фигурант дела</span>", page)
     assert "Иванов Иван" not in page
-    assert '<input id="box-figurants" type="checkbox" name="figurants" value="only" checked' in page
+    # The role is a choice now; «figurants=all» of the old links still means every role.
+    assert '<option value="figurant" selected>Фигуранты дел</option>' in page
     # An administrative case is no criminal one: not a figurant, and says so.
     assert "Найдено: 2." in everyone and "административное дело</span>" in everyone
-    assert "<h2>Роль в деле</h2>" in card and "ответ модели по цитатам" in card
+    assert "<h3>Роль в деле</h3>" in card and "ответ модели по цитатам" in card
 
 
 def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Session]) -> None:
@@ -445,7 +447,7 @@ def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Se
         card = client.get(f"/ui/entities/{MOOR}").text
 
     assert re.search(r"Моор Александр</a>.*?<span class=\"muted\">Луганская область</span>", page)
-    assert "<p><b>Регион:</b> Луганская область</p>" in card
+    assert "<dt>Регион</dt><dd>Луганская область</dd>" in card
 
 
 def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
@@ -478,7 +480,8 @@ def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
         missing = client.post("/ui/entities/никто/official", data={"official": "yes"})
 
     assert '<button type="submit" class="secondary">Это должностное лицо</button>' in card
-    assert marked.status_code == 303 and marked.headers["location"] == f"/ui/entities/{MOOR}"
+    assert marked.status_code == 303
+    assert marked.headers["location"] == f"/ui/investigations/{MOOR}"
     assert "<span>Должностные лица</span></a>" in officials
     assert "Найдено: 1." in officials and "Моор Александр" in officials
     # An official leaves «Список» at once.
@@ -508,10 +511,12 @@ def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session])
         missing = client.post("/ui/entities/никто/name", data={"name": "Кто-то"})
 
     assert '<button type="submit" class="secondary">Исправить имя</button>' in card
-    assert corrected.status_code == 303 and corrected.headers["location"] == f"/ui/entities/{MOOR}"
+    assert corrected.status_code == 303
+    assert corrected.headers["location"] == f"/ui/investigations/{MOOR}"
     # Written surname first, kept given name first, shown surname first.
     assert "<title>Моор Александр Викторович</title>" in after
-    assert 'value="Александр Викторович Моор"' in after and "Имя: исправлено вручную" in after
+    assert 'value="Александр Викторович Моор"' in after
+    assert "<dt>Имя</dt><dd>исправлено вручную</dd>" in after
     assert "Моор Александр Викторович</a>" in listed and "исправлено</span>" in listed
     assert empty.status_code == 400 and missing.status_code == 404
 
