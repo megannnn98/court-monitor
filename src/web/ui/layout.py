@@ -187,12 +187,19 @@ def _page(
       <span><small>Очередь</small><strong>{counts["queue"]}</strong></span>
       <span><small>Последний запуск</small><strong>{escape(str(counts["latest_run"]))}</strong></span>
     </section>
-    <section class="instruction">
+    <header class="page-head">
       <h1>{escape(title)}</h1>
-      <p>{escape(instruction)}</p>
-      <p><strong>Дальше:</strong> {escape(next_action)}</p>
-      {warning_html}
-    </section>
+      <!-- What the page is and what to do next: at hand, not in the way. -->
+      <details class="hint">
+        <summary title="Как это работает"><span class="hint-mark" aria-hidden="true">?</span>
+          Как это работает</summary>
+        <div class="hint-body">
+          <p>{escape(instruction)}</p>
+          <p><strong>Дальше:</strong> {escape(next_action)}</p>
+        </div>
+      </details>
+    </header>
+    {warning_html}
     {body}
   </main>
 </body>
