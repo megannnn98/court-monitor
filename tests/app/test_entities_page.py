@@ -330,11 +330,11 @@ def test_the_list_shows_the_articles_and_filters_by_one(
         by_article = client.get("/ui/entities", params={"article": "207.3"}).text
 
     assert (
-        '<a href="/ui/entities?article=205.2&rf=hide&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions">205.2</a>'
+        '<a href="/ui/entities?article=205.2&rf=all&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions">205.2</a>'
         in page
     )
     assert (
-        '<a href="/ui/entities?article=207.3&rf=hide&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions" class="muted" title="общая">'
+        '<a href="/ui/entities?article=207.3&rf=all&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions" class="muted" title="общая">'
         "207.3</a>" in page
     )
     assert "Найдено: 3" in page
@@ -352,7 +352,7 @@ RF_PAGE = """<!doctype html><html>
 </ol></div></html>""".encode()
 
 
-def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
+def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidden(
     session_factory: sessionmaker[Session],
 ) -> None:
     _collected(session_factory)
@@ -373,8 +373,10 @@ def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
         both = client.get("/ui/entities?rf=all&rf=hide&rf_possible=all&rf_possible=hide").text
         card = client.get(f"/ui/entities/{MOOR}").text
 
-    assert "Моор Александр" not in page and "Найдено: 1." in page
-    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" checked' in page
+    # The list confirms who a person is: shown by default, hidden only on request.
+    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", page)
+    assert "Найдено: 2." in page
+    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in page
     assert "Скрыть тех, кто в перечне РФМ (1)" in page
     # A name without a patronymic may be a namesake: shown, marked.
     assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
@@ -388,6 +390,7 @@ def test_entities_on_the_rosfinmonitoring_list_are_hidden_and_marked(
     assert 'name="rf_possible" value="hide" checked' in both
     assert "Найдено: 0." in both
     assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
+    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" checked' in ticked
     assert "<h3>Росфинмониторинг</h3>" in card and "в перечне Росфинмониторинга" in card
     assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card
 

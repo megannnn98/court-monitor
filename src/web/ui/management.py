@@ -832,7 +832,7 @@ def start_management_political(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Step 6: tell persecution from crime among the figurants off the list."""
+    """Step 6: tell persecution from crime among the figurants."""
     return _start_whole_database(db, registry, "political")
 
 
@@ -841,7 +841,7 @@ def start_management_figurants(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Step 5: tell who a case is opened against among the entities off the list."""
+    """Step 5: tell who a case is opened against among the entities."""
     return _start_whole_database(db, registry, "figurants")
 
 

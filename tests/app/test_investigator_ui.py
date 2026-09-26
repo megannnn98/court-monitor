@@ -338,7 +338,8 @@ def test_the_rosfinmonitoring_status_is_shown_as_it_is(
     assert "не найден в перечне" in clear
     assert "возможно в перечне (тёзка без отчества)" in maybe and "МООР АЛЕКСАНДР ПЕТРОВИЧ" in maybe
     assert "может быть тёзка" in maybe
-    assert '<span class="badge failed">в перечне Росфинмониторинга</span>' in listed
+    # On the list: who the person is, not a mark against them.
+    assert '<span class="badge ">в перечне Росфинмониторинга</span>' in listed
 
 
 def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(

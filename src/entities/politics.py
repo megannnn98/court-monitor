@@ -1,7 +1,7 @@
 """Which figurants' criminal cases are political persecution, and which common crime.
 
-Only figurants off the Rosfinmonitoring list are looked at: the list is for those the
-state already names; the goal is the persecuted it does not. A political article of the
+Every figurant is looked at, on the Rosfinmonitoring list or not: the list confirms who a
+person is (the birth date, the place), it does not make a case known. A political article of the
 Criminal Code (the classifier's list: 207.3, 280.3, 275, …) settles it by the rules. For
 the rest a model reads the quotes, the articles and the «Мемориал» registry category and
 answers political, criminal or unknown; a failed or missing answer is «unclear», never
@@ -235,7 +235,7 @@ def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> Politi
     )
 
 
-# The figurants off the list, with their Criminal Code articles.
+# The figurants, with their Criminal Code articles.
 _FIGURANTS = text(
     """
     SELECT g.id, g.key, g.name,
@@ -243,9 +243,6 @@ _FIGURANTS = text(
                      FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles
     FROM entity_groups g
     JOIN entity_group_roles r ON r.group_id = g.id AND r.role = 'figurant'
-    WHERE NOT EXISTS (
-        SELECT 1 FROM entity_group_rf_matches m WHERE m.group_id = g.id AND m.level = 'full'
-    )
     ORDER BY g.id
     """
 )

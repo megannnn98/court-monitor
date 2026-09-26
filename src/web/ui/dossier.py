@@ -424,10 +424,10 @@ def _day(moment: datetime | None) -> str:
 def rf_status(matches: list[Any]) -> tuple[str, str]:
     """(label, badge): on the list for certain, maybe a namesake, or not found."""
     if any(match.level == FULL for match in matches):
-        return "в перечне Росфинмониторинга", "failed"
+        return "в перечне Росфинмониторинга", ""
     if matches:
         return "возможно в перечне (тёзка без отчества)", "pending"
-    return "не найден в перечне", "succeeded"
+    return "не найден в перечне", ""
 
 
 def _badge(label: str, css: str = "") -> str:
@@ -520,8 +520,8 @@ def _decision(dossier: Dossier) -> str:
     способ и цитату.</p>"""
     else:
         verdict = (
-            '<p class="muted">Шаг 6 не оценивал это дело: оценивают только фигурантов, которых '
-            "нет в перечне.</p>"
+            '<p class="muted">Шаг 6 не оценивал это дело: оценивают только фигурантов '
+            "уголовных дел.</p>"
         )
     if entity.role:
         role = f"""<p>{_badge(_role_label(entity.role, entity.kind))}
@@ -532,7 +532,7 @@ def _decision(dossier: Dossier) -> str:
         role = '<p class="muted">Шаг 5 ещё не определял роль.</p>'
     rf_label, rf_badge = rf_status(dossier.rf)
     rf_items = "".join(
-        f"<li>{_badge('ФИО с отчеством' if row.level == FULL else 'имя и фамилия', 'failed' if row.level == FULL else 'pending')} "
+        f"<li>{_badge('ФИО с отчеством' if row.level == FULL else 'имя и фамилия', '' if row.level == FULL else 'pending')} "
         f"{escape(row.full_name)}{f', {row.birth_date:%d.%m.%Y} г.р.' if row.birth_date else ''}"
         f"{f', {escape(row.birth_place)}' if row.birth_place else ''}</li>"
         for row in dossier.rf
@@ -556,8 +556,9 @@ def _decision(dossier: Dossier) -> str:
     <div><h3>Росфинмониторинг</h3>
       <p>{_badge(rf_label, rf_badge)}</p>
       {f"<ul>{rf_items}</ul>" if rf_items else ""}
-      <p class="muted">Последний снимок перечня: {_day(dossier.snapshot_date)}. Даты рождения в
-      новостях нет — тёзку отличает только отчество.</p>
+      <p class="muted">Перечень подтверждает личность: дата рождения и место. Последний снимок
+      перечня: {_day(dossier.snapshot_date)}. Даты рождения в новостях нет — тёзку отличает
+      только отчество.</p>
     </div>
   </div>
   <h3>Ограничения</h3>

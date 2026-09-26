@@ -54,6 +54,16 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
             matching_key="ивановиваниванович",
         )
         session.add(entry)
+        # Смирнова on the list with her patronymic: who she is, confirmed.
+        confirmed = RosfinmonitoringEntryRecord(
+            snapshot_id=snapshot.id,
+            full_name="СМИРНОВА АННА ПЕТРОВНА",
+            normalized_name="смирнова анна петровна",
+            matching_key="смирновааннапетровна",
+            birth_date=datetime(1990, 2, 1, tzinfo=UTC),
+            birth_place="Г. МОСКВА",
+        )
+        session.add(confirmed)
         for key, name, verdict, days, regions in (
             ("анна смирнова", "Анна Смирнова", "political", 10, [["Москва", 1]]),
             ("иван иванов", "Иван Иванов", "political", 400, []),
@@ -85,6 +95,13 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
                 session.add(
                     EntityGroupRfMatchRecord(group_id=entity.id, entry_id=entry.id, level="name")
                 )
+            if key == "анна смирнова":
+                session.flush()
+                session.add(
+                    EntityGroupRfMatchRecord(
+                        group_id=entity.id, entry_id=confirmed.id, level="full"
+                    )
+                )
 
 
 def test_the_list_is_the_political_the_period_tells_new_from_old(
@@ -109,6 +126,11 @@ def test_the_list_is_the_political_the_period_tells_new_from_old(
     # Иванов's latest news is a year old: not a new case.
     assert "Найдено: 1." in fresh and "Иванов" not in fresh
     assert "Найдено: 1." in certain and "Иванов Иван" not in certain
+    # On the list with the patronymic: in the result, the list's word beside the name; the
+    # box hides only the maybe-namesakes.
+    assert 'Смирнова Анна</a> <span class="badge">в перечне РФМ</span>' in page
+    assert "СМИРНОВА АННА ПЕТРОВНА, 01.02.1990 г.р., Г. МОСКВА" in page
+    assert "Смирнова Анна" in certain
 
 
 def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Session]) -> None:
@@ -128,9 +150,14 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
     assert sheet is not None
     rows = list(sheet.iter_rows(values_only=True))
     assert rows[0][:3] == ("№", "Фамилия Имя", "Регион")
+    assert rows[0][8] == "Перечень РФМ"
     assert [(row[1], row[2], row[8]) for row in rows[1:]] == [
-        ("Смирнова Анна", "Москва", None),
-        ("Иванов Иван", None, "да"),
+        (
+            "Смирнова Анна",
+            "Москва",
+            "в перечне: СМИРНОВА АННА ПЕТРОВНА, 01.02.1990 г.р., Г. МОСКВА",
+        ),
+        ("Иванов Иван", None, "возможно тёзка: ИВАНОВ ИВАН ИВАНОВИЧ"),
     ]
 
 

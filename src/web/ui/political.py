@@ -1,10 +1,11 @@
-"""«Результат»: the politically persecuted who are not on the Rosfinmonitoring list — what
-the whole pipeline is for.
+"""«Результат»: the politically persecuted — what the whole pipeline is for.
 
-A figurant of a criminal case (step 5), off the list (step 4), whose case is political
-persecution (step 6). A name the list may carry without a patronymic stays, marked. The
-period filter answers «new or old case» by the date of the latest publication; the same
-rows go to Excel.
+A figurant of a criminal case (step 5) whose case is political persecution (step 6), on
+the Rosfinmonitoring list or not: the list does not make a case known, it confirms who a
+person is (the operator's word) — its birth date and place are shown beside the name. A
+name the list carries without a patronymic may be a namesake: marked, and can be hidden.
+The period filter answers «new or old case» by the date of the latest publication; the
+same rows go to Excel.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRfMatchRecord
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
+from entities.rf_check import FULL
 from persecution.classifier import POLITICAL_ARTICLES
 from web.dependencies import get_db
 from web.ui.entities import _articles_by_group, _date, display_name
@@ -52,12 +54,35 @@ _PUBLICATIONS = text(
 )
 
 
+_RF_ENTRIES = text(
+    """
+    SELECT m.group_id, m.level, e.full_name, e.birth_date, e.birth_place
+    FROM entity_group_rf_matches m JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
+    WHERE m.group_id = ANY(:groups)
+    ORDER BY m.group_id, m.level = 'full' DESC, e.full_name
+    """
+)
+
+
+def rf_text(row: ListRow) -> str:
+    """The list's word on the person, for the page and for Excel."""
+    if row.rf_level == FULL:
+        return f"в перечне: {row.rf_entry}"
+    if row.rf_level is not None:
+        return f"возможно тёзка: {row.rf_entry}"
+    return ""
+
+
 @dataclass
 class ListRow:
     entity: EntityGroupRecord
     politics: EntityGroupPoliticsRecord
+    # On the list by the name alone (no patronymic on one side): maybe a namesake.
     maybe_listed: bool
     articles: list[tuple[str, bool]] = field(default_factory=list)
+    # The list's entry: «full» (the name with the patronymic) or «name», and who it is.
+    rf_level: str | None = None
+    rf_entry: str = ""
     memorial: str | None = None
     first_published: datetime | None = None
     # (title, url, published) of the latest publications.
@@ -129,7 +154,14 @@ def _rows(
 ) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, int]:
     """The list's entities, latest news first; how many there are, and how many of them
     the list may carry under a name without a patronymic."""
-    maybe_listed = exists().where(EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id)
+    # By the name alone and never with the patronymic: maybe a namesake.
+    maybe_listed = exists().where(
+        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
+        EntityGroupRfMatchRecord.level != FULL,
+    ) & ~exists().where(
+        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
+        EntityGroupRfMatchRecord.level == FULL,
+    )
     query = (
         select(EntityGroupRecord, EntityGroupPoliticsRecord)
         .join(EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id)
@@ -160,17 +192,29 @@ def _details(
     db: Session, found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]]
 ) -> list[ListRow]:
     ids = [entity.id for entity, _ in found]
-    listed = set(
-        db.scalars(
-            select(EntityGroupRfMatchRecord.group_id).where(
-                EntityGroupRfMatchRecord.group_id.in_(ids)
-            )
-        )
-    )
     rows = {
-        entity.id: ListRow(entity=entity, politics=politics, maybe_listed=entity.id in listed)
+        entity.id: ListRow(entity=entity, politics=politics, maybe_listed=False)
         for entity, politics in found
     }
+    # The strongest entry of each: the query gives those with the patronymic first.
+    for group_id, level, full_name, birth_date, birth_place in db.execute(
+        _RF_ENTRIES, {"groups": ids}
+    ).all():
+        row = rows[group_id]
+        if row.rf_level is not None:
+            continue
+        row.rf_level = level
+        row.rf_entry = ", ".join(
+            part
+            for part in (
+                full_name,
+                f"{birth_date:%d.%m.%Y} г.р." if birth_date else "",
+                birth_place or "",
+            )
+            if part
+        )
+    for row in rows.values():
+        row.maybe_listed = row.rf_level is not None and row.rf_level != FULL
     for group_id, articles in _articles_by_group(db, ids).items():
         rows[group_id].articles = articles
     for group_id, category in db.execute(MEMORIAL_CATEGORIES, {"groups": ids}).all():
@@ -212,12 +256,19 @@ def _html_row(position: int, row: ListRow) -> str:
         for title, url, _ in row.links
         if url.startswith(("http://", "https://"))
     )
-    maybe = ' <span class="badge pending">возможно в перечне</span>' if row.maybe_listed else ""
+    listed = (
+        ' <span class="badge">в перечне РФМ</span>'
+        if row.rf_level == FULL
+        else ' <span class="badge pending">возможно в перечне</span>'
+        if row.maybe_listed
+        else ""
+    )
     return (
         f"<tr><td>{position}</td>"
-        f'<td><a href="/ui/entities/{quote(entity.key)}">{escape(display_name(entity.name))}</a>'
-        f"{maybe}</td>"
+        f'<td><a href="/ui/investigations/{quote(entity.key)}">'
+        f"{escape(display_name(entity.name))}</a>{listed}</td>"
         f"<td>{escape(_regions_text(entity))}</td>"
+        f'<td class="muted">{escape(row.rf_entry)}</td>'
         f"<td>{articles}</td>"
         f'<td>{escape(_basis(row))}<br><span class="muted">{escape(row.politics.quote[:200])}</span></td>'
         f"<td>{escape(row.memorial or '')}</td>"
@@ -282,10 +333,11 @@ def ui_political(
   </div>
 </form>
 {funnel_line(funnel(db))}
-<p class="muted">Найдено: {total}. Фигуранты уголовных дел, которых нет в перечне
-Росфинмониторинга, и дело которых — политическое преследование. Жирная статья — из списка
-политических; «Последняя новость» показывает, свежий ли случай.</p>
-<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Регион</th><th>Статьи УК</th>
+<p class="muted">Найдено: {total}. Фигуранты уголовных дел, дело которых — политическое
+преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
+него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
+Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.</p>
+<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
 {pages_html}
@@ -303,8 +355,8 @@ document.getElementById("political-filters").addEventListener("change", (event) 
         body,
         active="political",
         instruction=(
-            "Люди, против которых заведены политические уголовные дела и которых нет в перечне "
-            "Росфинмониторинга."
+            "Люди, против которых заведены политические уголовные дела; перечень "
+            "Росфинмониторинга подтверждает их личность."
         ),
         next_action=(
             "Выберите период, чтобы увидеть свежие случаи; скачайте Excel. Результат обновляют "
@@ -337,7 +389,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             "Мемориал",
             "Первая новость",
             "Последняя новость",
-            "Возможно в перечне",
+            "Перечень РФМ",
             "Публикации",
         ]
     )
@@ -356,7 +408,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             row.entity.last_published_at.replace(tzinfo=None)
             if row.entity.last_published_at
             else None,
-            "да" if row.maybe_listed else None,
+            rf_text(row) or None,
             "\n".join(url for _, url, _ in row.links) or None,
         ]
         sheet.append(values)

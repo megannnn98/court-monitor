@@ -40,7 +40,7 @@ def _person(session: Session, seed: ResearchSeeder, run: int, surface: str, name
 
 def _seed(session_factory: sessionmaker[Session]) -> None:
     """Петров: charged by an article (the rules). Беда and Сирош: a sentence the rules
-    cannot read. Орлов: on the Rosfinmonitoring list."""
+    cannot read. Орлов: on the Rosfinmonitoring list, looked at all the same."""
     with session_factory() as session:
         seed = ResearchSeeder(session)
         source = seed.source("news", "https://news.example.test")
@@ -105,7 +105,13 @@ class FakeClassifier:
         }
 
 
-KINDS = {"Иван Петров": "accused", "Александр Беда": "accused", "Фёдор Сирош": "lawyer"}
+KINDS = {
+    "Иван Петров": "accused",
+    "Александр Беда": "accused",
+    "Фёдор Сирош": "lawyer",
+    # On the list, and looked at all the same: the list confirms who, not which case.
+    "Олег Иванович Орлов": "accused",
+}
 
 
 def _roles(session_factory: sessionmaker[Session]) -> dict[str, tuple[str, str | None, str]]:
@@ -129,11 +135,13 @@ def test_the_rules_settle_the_charged_and_a_model_reads_the_rest(
 
     result = FigurantFinder(session_factory, classifier=classifier).run()
 
-    # Орлов is on the list: not asked about. Петров's charge is asked about too, its
-    # sentence first: the extractor makes anyone a sentence names a target.
+    # Орлов is on the list and asked about too: the list confirms who a person is, not
+    # which case. Петров's charge is asked about too, its sentence first: the extractor
+    # makes anyone a sentence names a target.
     assert sorted(item.name for item in classifier.asked) == [
         "Александр Беда",
         "Иван Петров",
+        "Олег Иванович Орлов",
         "Фёдор Сирош",
     ]
     petrov = next(item for item in classifier.asked if item.name == "Иван Петров")
@@ -144,9 +152,10 @@ def test_the_rules_settle_the_charged_and_a_model_reads_the_rest(
         "Иван Петров": ("figurant", "accused", "model"),
         "Александр Беда": ("figurant", "accused", "model"),
         "Фёдор Сирош": ("mentioned", "lawyer", "model"),
+        "Олег Иванович Орлов": ("figurant", "accused", "model"),
     }
-    assert (result.entities, result.figurant_rules, result.figurant_model) == (3, 0, 2)
-    assert (result.mentioned, result.unclear, result.asked_now, result.cached) == (1, 0, 3, 0)
+    assert (result.entities, result.figurant_rules, result.figurant_model) == (4, 0, 3)
+    assert (result.mentioned, result.unclear, result.asked_now, result.cached) == (1, 0, 4, 0)
 
 
 def test_the_same_quotes_are_answered_from_the_cache(
@@ -159,7 +168,7 @@ def test_the_same_quotes_are_answered_from_the_cache(
     result = FigurantFinder(session_factory, classifier=again).run()
 
     assert again.asked == []
-    assert (result.asked_now, result.cached, result.figurant_model) == (0, 3, 2)
+    assert (result.asked_now, result.cached, result.figurant_model) == (0, 4, 3)
     assert _roles(session_factory)["Александр Беда"] == ("figurant", "accused", "model")
 
 
@@ -175,11 +184,11 @@ def test_a_failed_model_leaves_unclear_never_figurant_and_asks_again(
     FigurantFinder(session_factory, classifier=retry).run()
 
     # Unanswered, the rules' charge still makes Петров a figurant; nothing else does.
-    assert (failed.failures, failed.unclear, failed.figurant_model) == (3, 2, 0)
+    assert (failed.failures, failed.unclear, failed.figurant_model) == (4, 3, 0)
     assert failed.figurant_rules == 1
     assert petrov == ("figurant", None, "article")
     assert unclear == ("unclear", None, "model")
-    assert len(retry.asked) == 3
+    assert len(retry.asked) == 4
 
 
 def test_without_a_model_only_the_rules_decide(session_factory: sessionmaker[Session]) -> None:
@@ -187,7 +196,7 @@ def test_without_a_model_only_the_rules_decide(session_factory: sessionmaker[Ses
 
     result = FigurantFinder(session_factory).run()
 
-    assert (result.figurant_rules, result.unclear) == (1, 2)
+    assert (result.figurant_rules, result.unclear) == (1, 3)
     with session_factory() as session:
         reasons = set(session.scalars(select(EntityGroupRoleRecord.reason)).all())
     assert "модель не настроена" in reasons
@@ -361,7 +370,7 @@ def test_a_rebuild_that_changes_the_keys_asks_nothing_again(
 
     # The question is the same: its hash finds the answer, whatever the key.
     assert again.asked == []
-    assert result.cached == 3
+    assert result.cached == 4
 
 
 def test_an_accused_sticks_when_the_quotes_change_the_rest_is_asked_again(
@@ -392,7 +401,11 @@ def test_an_earlier_prompt_s_answer_holds_unless_it_is_accused(
 
     FigurantFinder(session_factory, classifier=again).run()
 
-    assert sorted(item.name for item in again.asked) == ["Александр Беда", "Иван Петров"]
+    assert sorted(item.name for item in again.asked) == [
+        "Александр Беда",
+        "Иван Петров",
+        "Олег Иванович Орлов",
+    ]
     assert _roles(session_factory)["Александр Беда"] == ("mentioned", "foreign", "model")
     assert _roles(session_factory)["Иван Петров"][0] == "figurant"
 
@@ -409,7 +422,7 @@ def test_past_the_budget_the_rest_is_unasked_and_counted(
     result = FigurantFinder(session_factory, classifier=spent).run()
 
     assert spent.asked == []
-    assert (result.unasked, result.asked_now) == (3, 0)
+    assert (result.unasked, result.asked_now) == (4, 0)
     # Unasked, the rules' charge still makes Петров a figurant.
     assert _roles(session_factory)["Иван Петров"] == ("figurant", None, "article")
 
@@ -428,7 +441,7 @@ def test_another_model_is_compared_on_what_the_steps_answered(
     result = compare_roles(session_factory, other, size=10, seed=1)
 
     report = result.report()
-    assert (report["sample"], report["answered"], report["agree"]) == (3, 3, 2)
-    assert report["agreement"] == 0.667
+    assert (report["sample"], report["answered"], report["agree"]) == (4, 4, 3)
+    assert report["agreement"] == 0.75
     assert report["confusion"]["mentioned → figurant"] == 1
     assert report["disagreements"][0]["name"] == "Фёдор Сирош"

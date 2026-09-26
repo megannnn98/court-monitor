@@ -265,7 +265,7 @@ async def mark_entity_official(
 
 def _rf_mark(level: str | None) -> str:
     if level == FULL:
-        return ' <span class="badge failed">в перечне</span>'
+        return ' <span class="badge">в перечне</span>'
     if level is not None:
         return ' <span class="badge pending">возможно в перечне</span>'
     return ""
@@ -374,7 +374,8 @@ def _all_regions(db: Session) -> list[str]:
 def ui_entities(
     q: str = Query(default="", max_length=200),
     article: str = Query(default="", max_length=32),
-    rf: str = Query(default="hide", pattern="^(hide|all)$"),
+    # The list confirms who a person is: shown by default, hidden only on request.
+    rf: str = Query(default="all", pattern="^(hide|all)$"),
     rf_possible: str = Query(default="all", pattern="^(hide|all)$"),
     # The old «only the figurants» box: `role` says more; kept for the old links.
     figurants: str = Query(default="only", pattern="^(only|all)$"),

@@ -45,7 +45,7 @@ def _person(session: Session, seed: ResearchSeeder, run: int, surface: str, name
 
 def _seed(session_factory: sessionmaker[Session]) -> None:
     """Петров: a political article. Беда: a sentence the rules cannot read. Смирнова: a
-    «Мемориал» card. Сирош: a lawyer. Орлов: on the list."""
+    «Мемориал» card. Сирош: a lawyer. Орлов: on the list, judged all the same."""
     with session_factory() as session:
         seed = ResearchSeeder(session)
         source = seed.source("news", "https://news.example.test")
@@ -146,7 +146,12 @@ class FakeClassifier:
         }
 
 
-VERDICTS = {"Александр Беда": "criminal", "Анна Смирнова": "political"}
+VERDICTS = {
+    "Александр Беда": "criminal",
+    "Анна Смирнова": "political",
+    # On the list, and judged all the same.
+    "Олег Иванович Орлов": "political",
+}
 
 
 def _verdicts(session_factory: sessionmaker[Session]) -> dict[str, tuple[str, str]]:
@@ -169,8 +174,13 @@ def test_a_political_article_settles_it_and_a_model_reads_the_rest(
 
     result = PoliticsFinder(session_factory, classifier=classifier).run()
 
-    # Петров by the rules; Сирош is no figurant; Орлов is on the list.
-    assert sorted(item.name for item in classifier.asked) == ["Александр Беда", "Анна Смирнова"]
+    # Петров by the rules; Сирош is no figurant; Орлов on the list is judged too: the list
+    # confirms who a person is, not which case.
+    assert sorted(item.name for item in classifier.asked) == [
+        "Александр Беда",
+        "Анна Смирнова",
+        "Олег Иванович Орлов",
+    ]
     smirnova = next(item for item in classifier.asked if item.name == "Анна Смирнова")
     beda = next(item for item in classifier.asked if item.name == "Александр Беда")
     assert beda.articles == ("318",)
@@ -179,9 +189,10 @@ def test_a_political_article_settles_it_and_a_model_reads_the_rest(
         "Иван Петров": ("political", "article"),
         "Александр Беда": ("criminal", "model"),
         "Анна Смирнова": ("political", "model"),
+        "Олег Иванович Орлов": ("political", "model"),
     }
-    assert (result.figurants, result.political_rules, result.political_model) == (3, 1, 1)
-    assert (result.criminal, result.unclear, result.asked_now) == (1, 0, 2)
+    assert (result.figurants, result.political_rules, result.political_model) == (4, 1, 2)
+    assert (result.criminal, result.unclear, result.asked_now) == (1, 0, 3)
 
 
 def test_the_same_input_is_answered_from_the_cache(session_factory: sessionmaker[Session]) -> None:
@@ -192,7 +203,7 @@ def test_the_same_input_is_answered_from_the_cache(session_factory: sessionmaker
     result = PoliticsFinder(session_factory, classifier=again).run()
 
     assert again.asked == []
-    assert (result.asked_now, result.cached, result.political_model) == (0, 2, 1)
+    assert (result.asked_now, result.cached, result.political_model) == (0, 3, 2)
 
 
 def test_a_failed_model_leaves_unclear_never_political(
@@ -202,7 +213,7 @@ def test_a_failed_model_leaves_unclear_never_political(
 
     result = PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS, fail=True)).run()
 
-    assert (result.failures, result.unclear, result.political_model) == (2, 2, 0)
+    assert (result.failures, result.unclear, result.political_model) == (3, 3, 0)
     assert _verdicts(session_factory)["Анна Смирнова"] == ("unclear", "model")
 
 
@@ -255,11 +266,13 @@ def test_the_rules_settle_common_crime_and_the_memorial_s_sure_categories(
 
     result = PoliticsFinder(session_factory, classifier=classifier).run()
 
-    assert classifier.asked == []
+    # Only Орлов, with neither article nor category, is left to the model.
+    assert [item.name for item in classifier.asked] == ["Олег Иванович Орлов"]
     assert _verdicts(session_factory) == {
         "Иван Петров": ("political", "article"),
         "Александр Беда": ("criminal", "article"),
         "Анна Смирнова": ("political", "memorial"),
+        "Олег Иванович Орлов": ("political", "model"),
     }
     assert (result.political_memorial, result.criminal_rules, result.criminal) == (1, 1, 1)
 

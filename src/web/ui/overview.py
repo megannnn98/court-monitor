@@ -144,7 +144,7 @@ def ui_overview(
   {_kpi("Публикации", articles, "/ui/publications", "с уголовным делом")}
   {_kpi("Люди", people, "/ui/entities?figurants=all&rf=all", "выделено из упоминаний")}
   {_kpi("Фигуранты", figurants, "/ui/entities", "на них заведено дело")}
-  {_kpi("Результат", result, "/ui/political", "политические дела вне перечня")}
+  {_kpi("Результат", result, "/ui/political", "политические уголовные дела")}
   {_kpi("Очередь", work.total, "/ui/queue", "ждут решения оператора")}
 </section>
 <div class="overview-grid">

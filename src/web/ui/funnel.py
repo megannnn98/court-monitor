@@ -22,8 +22,7 @@ _COUNTS = text(
       (SELECT count(*) FROM source_documents WHERE content_type <> :expired),
       (SELECT count(*) FROM parsed_articles),
       (SELECT count(*) FROM entity_groups),
-      (SELECT count(*) FROM entity_groups g WHERE NOT EXISTS (
-          SELECT 1 FROM entity_group_rf_matches m WHERE m.group_id = g.id AND m.level = 'full')),
+      (SELECT count(DISTINCT group_id) FROM entity_group_rf_matches WHERE level = 'full'),
       (SELECT count(*) FROM entity_group_roles WHERE role = 'figurant'),
       (SELECT count(*) FROM entity_group_roles WHERE kind = ANY(:officials)),
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'political'),
@@ -75,7 +74,7 @@ def funnel(db: Session) -> Funnel:
         documents,
         publications,
         entities,
-        off_list,
+        listed,
         figurants,
         officials,
         political,
@@ -107,19 +106,21 @@ def funnel(db: Session) -> Funnel:
             "спорные — в «Спорных случаях»",
             "/ui/entities?rf=all&figurants=all",
         ),
+        # The list confirms who a person is; it drops nobody.
         Stage(
             "4",
-            "Нет в перечне РФМ",
-            off_list,
-            f"отсеяно {_n(entities - off_list)} — они в перечне Росфинмониторинга",
-            "/ui/entities?rf=hide&figurants=all",
+            "Сверены с перечнем РФМ",
+            entities,
+            f"никто не отсеян: {_n(listed)} найдены в перечне — их личность подтверждают "
+            "дата рождения и место",
+            "/ui/entities?rf=all&role=all",
         ),
         Stage(
             "5",
             "Фигуранты уголовных дел",
             figurants,
-            f"отсеяно {_n(off_list - figurants)}: только упомянуты, административное дело, "
-            f"должностные лица ({_n(officials)}), не ясно",
+            f"отсеяно {_n(entities - figurants)}: только упомянуты, административное дело, "
+            f"дело не в России, должностные лица ({_n(officials)}), не ясно",
             "/ui/entities",
         ),
         Stage(
@@ -151,8 +152,8 @@ def funnel_html(whole: Funnel) -> str:
   <p class="funnel-period"><b>За всё время:</b> {escape(whole.period)}. Период на
   «Результате» выбирается отдельно.</p>
   <p class="muted">Шаги 1–6 ниже по очереди сужают поток: из скачанных публикаций — к людям с
-  политическими уголовными делами, которых нет в перечне. Нажмите на ступень, чтобы её
-  посмотреть.</p>
+  политическими уголовными делами. Перечень Росфинмониторинга никого не отсеивает, он
+  подтверждает личность. Нажмите на ступень, чтобы её посмотреть.</p>
   {rows}
 </section>"""
 

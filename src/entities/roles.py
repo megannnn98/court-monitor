@@ -1,6 +1,7 @@
 """Which person entities a criminal case is opened against, and which are only mentioned.
 
-Only the entities off the Rosfinmonitoring list are looked at. Officials first (judges,
+Every entity is looked at, on the Rosfinmonitoring list or not: the list confirms who a
+person is, it does not make a case known (the operator's word). Officials first (judges,
 prosecutors, investigators, governors — `entities.officials`): named in cases, never
 their figurants. For everyone else a model reads a few quotes and names the person's
 role: accused, lawyer, judge, … The rules' charge (the only target of an event whose
@@ -287,8 +288,8 @@ def role_classifier_from_env(env: Mapping[str, str] | None = None) -> RoleClassi
     )
 
 
-# The entities off the list, each with the rules' charge if it has one: an event with a
-# Criminal Code article names it the only target.
+# Every entity, each with the rules' charge if it has one: an event with a Criminal Code
+# article names it the only target.
 _ENTITIES = text(
     """
     SELECT g.id, g.key, g.name, c.article, c.quote
@@ -297,9 +298,6 @@ _ENTITIES = text(
         SELECT article, quote FROM entity_group_charges
         WHERE group_id = g.id AND other_targets = 0 ORDER BY id LIMIT 1
     ) c ON true
-    WHERE NOT EXISTS (
-        SELECT 1 FROM entity_group_rf_matches r WHERE r.group_id = g.id AND r.level = 'full'
-    )
     ORDER BY g.id
     """
 )
