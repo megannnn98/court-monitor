@@ -59,5 +59,6 @@
  "POST /ui/management/purge",
  "POST /ui/management/rosfin",
  "POST /ui/management/run",
- "POST /ui/management/runs/{run_id}/stop"
+ "POST /ui/management/runs/{run_id}/stop",
+ "POST /ui/queue/reset-decisions"
 ]

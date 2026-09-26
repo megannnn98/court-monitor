@@ -350,6 +350,30 @@ def merge_groups(session: Session, first: EntityGroupRecord, second: EntityGroup
     return keep.id
 
 
+def decision_counts(session: Session) -> Counter[str]:
+    """The kept decisions by who made them: «manual», «rf», «region»."""
+    return Counter(
+        {
+            source: count
+            for source, count in session.execute(
+                select(EntityPairDecisionRecord.source, func.count()).group_by(
+                    EntityPairDecisionRecord.source
+                )
+            ).all()
+        }
+    )
+
+
+def reset_decisions(session: Session) -> int:
+    """Forget every decision on a pair, in the caller's transaction; how many went.
+
+    A «different» pair is disputed again at once. A «same» one stays merged until the
+    next rebuild of the entities (step 3), which then keeps the two apart; the automatic
+    ones (the list, the region) come back with step 4."""
+    deleted = session.execute(delete(EntityPairDecisionRecord))
+    return int(deleted.rowcount or 0)  # type: ignore[attr-defined]
+
+
 def decide(
     session: Session, first_key: str, second_key: str, decision: str, *, source: str = MANUAL
 ) -> int | None:

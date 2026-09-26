@@ -10,11 +10,13 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from html import escape
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -23,7 +25,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
-from entities.disputes import DIFFERENT, SAME, Pair
+from entities.disputes import DIFFERENT, SAME, Pair, decision_counts, reset_decisions
 from entities.politics import UNCLEAR as UNCLEAR_VERDICT
 from entities.roles import UNCLEAR as UNCLEAR_ROLE
 from web.dependencies import get_db
@@ -43,6 +45,7 @@ from web.ui.layout import _page
 from web.ui.workload import dispute_pairs
 
 router = APIRouter()
+logger = logging.getLogger("entities")
 
 LIST_LIMIT = 100
 SHARED_LIMIT = 5
@@ -177,6 +180,7 @@ def _entity_rows(db: Session, rows: list[tuple[str, str, str]], empty: str) -> s
 @router.get("/ui/queue", response_class=HTMLResponse)
 def ui_queue(
     key: str = Query(default="", max_length=300),
+    reset: int | None = Query(default=None, ge=0),
     skip: list[str] = Query(default_factory=list),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
@@ -222,6 +226,29 @@ def ui_queue(
         ).all()
     ]
     failed = db.execute(_FAILED_EXTRACTIONS, {"limit": LIST_LIMIT}).all()
+    decided = decision_counts(db)
+    reset_html = (
+        f'<p class="warning" role="status">Решения по парам сброшены: {reset}. Слитые люди '
+        "разделятся при следующей сборке сущностей (шаг 3).</p>"
+        if reset is not None
+        else ""
+    )
+    total_decided = sum(decided.values())
+    confirm = (
+        f"Удалить все решения по спорным парам ({total_decided}, из них вручную "
+        f"{decided.get('manual', 0)})? Пары «Разные люди» вернутся сразу, слитые люди "
+        "разделятся при следующей сборке сущностей. Это необратимо."
+    )
+    reset_form = (
+        f"""<form method="post" action="/ui/queue/reset-decisions" class="reset-form"
+    onsubmit="return confirm({escape(json.dumps(confirm, ensure_ascii=False), quote=True)})">
+    <button type="submit" class="danger">Сбросить все решения по парам</button>
+    <span class="muted">Сохранено решений: {total_decided} (вручную: {decided.get("manual", 0)},
+    по перечню: {decided.get("rf", 0)}, по региону: {decided.get("region", 0)}).</span>
+  </form>"""
+        if total_decided
+        else '<p class="muted">Сохранённых решений по парам нет.</p>'
+    )
     failed_html = (
         '<table><thead><tr><th scope="col">Публикация</th><th scope="col">Ошибка</th>'
         "</tr></thead><tbody>"
@@ -244,7 +271,9 @@ def ui_queue(
   <h2 id="pairs-title">Спорные совпадения людей</h2>
   <p class="muted">Решение сохраняется вручную и применяется при каждой пересборке; автоматика его
   не перезаписывает. «Отложить» только показывает следующую пару.</p>
+  {reset_html}
   {pair_html}
+  {reset_form}
 </section>
 <section class="band" id="roles" aria-labelledby="roles-title">
   <h2 id="roles-title">Неясная роль в деле</h2>
@@ -271,3 +300,12 @@ def ui_queue(
         next_action="Решите пару — откроется следующая; неясные случаи откройте в досье.",
         db=db,
     )
+
+
+@router.post("/ui/queue/reset-decisions", response_model=None)
+def reset_pair_decisions(db: Session = Depends(get_db)) -> RedirectResponse:  # noqa: B008
+    """Forget every decision on a pair: the operator starts the pairs over."""
+    deleted = reset_decisions(db)
+    db.commit()
+    logger.info("event=pair_decisions_reset deleted=%d", deleted)
+    return RedirectResponse(f"/ui/queue?reset={deleted}#pairs", status_code=303)

@@ -593,3 +593,33 @@ def test_the_interface_speaks_russian(session_factory: sessionmaker[Session]) ->
         assert '<html lang="ru">' in page
     assert "Разобрать очередь" not in pages["/ui/overview"]  # the queue is empty
     assert "Спорные совпадения людей" in pages["/ui/queue"]
+
+
+def test_every_pair_decision_can_be_reset(session_factory: sessionmaker[Session]) -> None:
+    _pairs(session_factory)
+    with session_factory.begin() as session:
+        for key_a, key_b, source in (
+            ("олег орлов", "олег петрович орлов", "manual"),
+            ("анна ивановна смирнова", "анна смирнова", "region"),
+        ):
+            session.add(
+                EntityPairDecisionRecord(
+                    key_a=key_a, key_b=key_b, decision="different", source=source
+                )
+            )
+
+    with _client(session_factory) as client:
+        before = client.get("/ui/queue").text
+        reset = client.post("/ui/queue/reset-decisions", follow_redirects=False)
+        after = client.get(reset.headers["location"]).text
+
+    # Asked first, with what goes; the button only when there is something to forget.
+    assert "Сбросить все решения по парам" in before
+    assert "Сохранено решений: 2 (вручную: 1," in before and "Спорных пар нет." in before
+    assert "return confirm(" in before and "Это необратимо." in before
+    assert reset.status_code == 303 and reset.headers["location"] == "/ui/queue?reset=2#pairs"
+    assert "Решения по парам сброшены: 2." in after
+    # Both pairs are disputed again; nothing is left to reset.
+    assert "Пара 1 из 2" in after and "Сохранённых решений по парам нет." in after
+    with session_factory() as session:
+        assert session.scalar(text("SELECT count(*) FROM entity_pair_decisions")) == 0
