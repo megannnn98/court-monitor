@@ -139,8 +139,11 @@ def test_post_passes_published_date_range_to_monitor(
             data={"published_from": "2026-09-01", "published_to": "2026-09-25"},
             follow_redirects=False,
         )
+        run_page = client.get(response.headers["location"])
 
     assert response.status_code == 303
+    assert "Период публикаций: " in run_page.text
+    assert "2026-09-01 — 2026-09-25" in run_page.text
     run = registry.runs_of("monitor")[0]
     assert run.parameters.published_from == "2026-09-01"
     assert run.parameters.published_to == "2026-09-25"

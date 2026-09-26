@@ -268,6 +268,20 @@ def _duration(seconds: float) -> str:
     return f"{hours} ч {minutes:02d} мин" if hours else f"{minutes} мин {seconds:02d} с"
 
 
+def _published_range_label(run: OperationRun) -> str:
+    published_from = run.parameters.published_from
+    published_to = run.parameters.published_to
+    if published_from is None and published_to is None:
+        return ""
+    if published_from is not None and published_to is not None:
+        label = f"{published_from} — {published_to}"
+    elif published_from is not None:
+        label = f"с {published_from}"
+    else:
+        label = f"по {published_to}"
+    return f'<p class="muted">Период публикаций: <strong>{escape(label)}</strong></p>'
+
+
 def _progress(db: Session, run: OperationRun) -> str:
     """Where a live manual run is: which source of how many, and how far into it.
 
@@ -727,6 +741,7 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
   <h2>Запуск #{run.id} · {_MODE_TITLES[run.parameters.mode]} {_badge(overall, overall_badge)}</h2>
   <p class="muted">Начат {started} · источников выбрано: {len(selected)} ·
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
+  {_published_range_label(run)}
   {_progress(db, run)}
   <p class="run-summary">{summary}</p>
   <details{" open" if in_progress else ""}>
