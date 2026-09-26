@@ -1,11 +1,24 @@
 from datetime import datetime
 
-from selectolax.parser import HTMLParser
+from selectolax.parser import HTMLParser, Node
 
 from sources.ingestion_errors import NoTextError, ParseError
 from sources.models import ParsedArticle, RawDocument
 
 TITLE_MAX_CHARS = 120
+_REPLY = "tgme_widget_message_reply"
+
+
+def own_text_node(root: HTMLParser | Node) -> Node | None:
+    """The post's own text block. A reply shows the post it answers above it, in a text
+    block of the same class inside the reply: that one is someone else's text."""
+    for node in root.css(".tgme_widget_message_text"):
+        parent = node.parent
+        while parent is not None and _REPLY not in (parent.attributes.get("class") or ""):
+            parent = parent.parent
+        if parent is None:
+            return node
+    return None
 
 
 class TelegramPostParser:
@@ -14,7 +27,7 @@ class TelegramPostParser:
     def parse(self, raw: RawDocument) -> ParsedArticle:
         # Line breaks inside a post are <br/>; keep them as paragraph boundaries.
         tree = HTMLParser(raw.content.replace(b"<br/>", b"\n").replace(b"<br>", b"\n"))
-        text_node = tree.css_first(".tgme_widget_message_text")
+        text_node = own_text_node(tree)
         if text_node is None:
             # A rendered post (its bubble is there) without a text is a media post;
             # no bubble at all means the embed changed, a real failure.

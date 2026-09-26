@@ -271,3 +271,41 @@ def test_a_telegram_source_takes_the_configured_history_window() -> None:
 
     assert isinstance(adapter, TelegramSourceAdapter)
     assert adapter._history_days == 90
+
+
+REPLY_HTML = (FIXTURES / "telegram_reply_post.html").read_bytes()
+_QUOTED = (
+    '<a class="tgme_widget_message_reply" href="https://t.me/chan/1">'
+    '<div class="tgme_widget_message_text js-message_reply_text">Старый пост</div></a>'
+)
+
+
+def test_a_reply_is_read_by_its_own_text_not_the_post_it_quotes() -> None:
+    """ASTRA 126130: a post about Касьянов quoting an older one about Ходорковский."""
+    article = TelegramPostParser().parse(
+        RawDocument(
+            external_id="126130",
+            url="https://t.me/astrapress/126130?embed=1&mode=tme",
+            fetched_at=datetime(2026, 9, 24, tzinfo=UTC),
+            content_type="text/html",
+            content=REPLY_HTML,
+        )
+    )
+
+    assert article.title.startswith("Прокуратура потребовала завести уголовное дело")
+    assert "Касьянов" in article.text and "Ходорковск" not in article.text
+
+
+def test_a_reply_of_only_media_has_no_text_of_its_own() -> None:
+    bubble = (
+        '<div class="tgme_widget_message" data-post="chan/2">'
+        f'<div class="tgme_widget_message_bubble">{_QUOTED}'
+        '<a class="tgme_widget_message_date"><time datetime="2026-09-01T00:00:00+00:00"></time></a>'
+        "</div></div>"
+    )
+
+    with pytest.raises(NoTextError):
+        TelegramPostParser().parse(_raw_post(bubble))
+    assert [post.has_text for post in TelegramListingParser("chan").parse(bubble.encode())] == [
+        False
+    ]

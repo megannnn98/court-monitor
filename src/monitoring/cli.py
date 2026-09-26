@@ -358,6 +358,7 @@ def run_monitoring_command(
                 "news_new_case": news.new_case,
                 "news_sentence": news.sentence,
                 "news_ongoing": news.ongoing,
+                "news_closed": news.closed,
                 "news_other": news.other,
                 "news_unknown": news.unknown,
                 "news_cost_usd": news.cost_usd,

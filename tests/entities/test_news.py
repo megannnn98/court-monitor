@@ -16,7 +16,8 @@ from db.orm_models import (
     EntityMentionRecord,
 )
 from entities.collector import EntityCollector
-from entities.news import NewsAnswer, NewsFinder, NewsItem, NewsReaderError
+from entities.news import KINDS as NEWS_SCHEMA_KINDS
+from entities.news import SYSTEM_PROMPT, NewsAnswer, NewsFinder, NewsItem, NewsReaderError
 
 
 def _person(
@@ -96,8 +97,9 @@ KINDS = {"Александр Моор": "ongoing", "Иван Петров": "sen
 class FakeReader:
     model = "fake-model"
 
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False, kinds: dict[str, str] | None = None) -> None:
         self.fail = fail
+        self.kinds = kinds or KINDS
         self.asked: list[NewsItem] = []
 
     def classify(self, items: Sequence[NewsItem]) -> dict[int, NewsAnswer]:
@@ -106,7 +108,7 @@ class FakeReader:
             raise NewsReaderError("provider down")
         return {
             item.id: NewsAnswer(
-                id=item.id, source=item.name, kind=KINDS[item.name], explanation="так в тексте"
+                id=item.id, source=item.name, kind=self.kinds[item.name], explanation="так в тексте"
             )  # type: ignore[arg-type]
             for item in items
         }
@@ -178,3 +180,15 @@ def test_without_an_answer_the_news_is_unknown_and_asked_again(
     assert (failed.unknown, failed.failures) == (2, 2)
     assert set(unknown.values()) == {"unknown"}
     assert len(retry.asked) == 2
+
+
+def test_a_case_of_the_past_is_closed(session_factory: sessionmaker[Session]) -> None:
+    """Гершкович, exchanged in 2024, remembering his arrest: no case now."""
+    _seed(session_factory)
+    reader = FakeReader(kinds={"Александр Моор": "closed", "Иван Петров": "sentence"})
+
+    result = NewsFinder(session_factory, reader=reader).run()
+
+    assert _kinds(session_factory)["Александр Моор"] == "closed"
+    assert (result.closed, result.ongoing, result.sentence) == (1, 0, 1)
+    assert "closed" in NEWS_SCHEMA_KINDS and "вышел на свободу" in SYSTEM_PROMPT

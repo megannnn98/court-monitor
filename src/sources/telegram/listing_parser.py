@@ -6,6 +6,7 @@ from datetime import datetime
 from selectolax.parser import HTMLParser
 
 from sources.models import SourceReference
+from sources.telegram.article_parser import own_text_node
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,7 @@ class TelegramListingParser:
                 TelegramListingPost(
                     post_id=post_id,
                     published_at=datetime.fromisoformat(time_node.attributes["datetime"] or ""),
-                    has_text=node.css_first(".tgme_widget_message_text") is not None,
+                    has_text=own_text_node(node) is not None,
                     reference=post_reference(self._username, post_id),
                 )
             )

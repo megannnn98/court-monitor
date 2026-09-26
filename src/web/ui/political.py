@@ -28,7 +28,7 @@ from db.orm_models import (
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
 )
-from entities.news import KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
+from entities.news import CLOSED, KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
 from persecution.classifier import POLITICAL_ARTICLES
@@ -51,6 +51,7 @@ NEWS_FILTERS = {
     NEW_CASE: "Новые дела",
     SENTENCE: "Приговоры",
     ONGOING: "Продолжение дела",
+    CLOSED: "Дело завершено",
     OTHER: "Другое",
     UNKNOWN: "Не определено",
 }

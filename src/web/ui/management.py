@@ -669,6 +669,7 @@ def _political_card(run: OperationRun) -> str:
         ("news_new_case", "Свежая новость: новое дело", "succeeded"),
         ("news_sentence", "Свежая новость: приговор", "succeeded"),
         ("news_ongoing", "Свежая новость: продолжение дела", ""),
+        ("news_closed", "Свежая новость: дело завершено", ""),
         ("news_unknown", "Свежая новость не определена", "pending"),
         ("unnamed", "Безымянных фигурантов", "succeeded"),
         ("unnamed_cost_usd", "Стоимость (безымянные), $", ""),

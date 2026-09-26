@@ -6,7 +6,8 @@ person by the date of their latest news, which tells neither: a man arrested in 
 whose arrest was extended this week looks like one detained yesterday.
 
 A model reads each political case's latest quotes (the latest first, with its date) and
-names the latest news: new_case, sentence, ongoing or other. The date of our first
+names the latest news: new_case, sentence, ongoing, closed (the person is free or
+dead: a case of the past remembered) or other. The date of our first
 publication is no evidence — we keep only the publications since the working date — so
 the text decides: «задержан в 2023 году», «продлили арест», «апелляционный суд».
 Answers are cached by the quotes (`entities.answers`); nothing sticks: the news changes.
@@ -44,7 +45,7 @@ from entities.politics import POLITICAL
 
 logger = logging.getLogger("entities")
 
-PROMPT_VERSION = "news-v1"
+PROMPT_VERSION = "news-v2"
 BATCH_SIZE = 25
 CONCURRENCY = 8
 MAX_TOKENS = 6_000
@@ -56,16 +57,19 @@ QUOTE_CONTEXT = 300
 NEW_CASE = "new_case"
 SENTENCE = "sentence"
 ONGOING = "ongoing"
+# The case is over: released, exchanged, served, acquitted, pardoned, or dead.
+CLOSED = "closed"
 OTHER = "other"
 # No model answered: the kind is not known.
 UNKNOWN = "unknown"
 
-Kind = Literal["new_case", "sentence", "ongoing", "other"]
+Kind = Literal["new_case", "sentence", "ongoing", "closed", "other"]
 KINDS: tuple[str, ...] = Kind.__args__  # type: ignore[attr-defined]
 KIND_LABELS = {
     NEW_CASE: "новое дело",
     SENTENCE: "приговор",
     ONGOING: "продолжение дела",
+    CLOSED: "дело завершено",
     OTHER: "другое",
     UNKNOWN: "не определено",
 }
@@ -86,7 +90,11 @@ SYSTEM_PROMPT = """Ты определяешь, о чём последняя н�
   - sentence — вынесен приговор, в том числе заочный;
   - ongoing — продолжение уже известного дела: продление ареста или меры, заседание, \
 перенос, апелляция и кассация, этап, перевод, условия содержания, новые обвинения по \
-давнему делу, освобождение, окончание срока;
+давнему делу — пока человек под следствием, под стражей или отбывает срок;
+  - closed — дело завершено: человек вышел на свободу (освобождён, обменян, отбыл срок, \
+оправдан, помилован, дело прекращено) или умер — сейчас или раньше, а публикация \
+вспоминает прошлое (рассказ, интервью, годовщина). Если знаешь, что человека давно \
+освободили или обменяли, а новых дел против него в цитатах нет — это closed;
   - other — публикация не о деле: поддержка, интервью, упоминание в перечне.
 - explanation: одна короткая фраза по-русски, на чём основан ответ.
 
@@ -306,6 +314,7 @@ class NewsResult:
     new_case: int = 0
     sentence: int = 0
     ongoing: int = 0
+    closed: int = 0
     other: int = 0
     unknown: int = 0
     asked_now: int = 0
@@ -401,6 +410,7 @@ class NewsFinder:
             new_case=kinds[NEW_CASE],
             sentence=kinds[SENTENCE],
             ongoing=kinds[ONGOING],
+            closed=kinds[CLOSED],
             other=kinds[OTHER],
             unknown=kinds[UNKNOWN],
             asked_now=found.asked,
