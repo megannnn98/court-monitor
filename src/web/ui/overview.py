@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from db.orm_models import UnnamedFigurantRecord
 from entities.news import NEW_CASE, SENTENCE
 from entities.politics import POLITICAL
-from entities.unnamed import candidates
+from entities.unnamed import Candidates, candidates
 from web.dependencies import get_db
 from web.ui.entities import display_name
 from web.ui.layout import _page
@@ -76,6 +76,17 @@ def _news_band(db: Session, kind: str, title: str, count: int, empty: str) -> st
 </section>"""
 
 
+def _found(found: Candidates, *, age_told: bool = True) -> str:
+    """How many of the list may be this person — the ones worth looking at."""
+    if not age_told:
+        return "возраст не назван — искать в перечне не по чему"
+    if found.likely:
+        return f"вероятных в перечне: {found.likely}"
+    if found.total:
+        return f"того возраста в перечне {found.total} — примет мало"
+    return "в перечне никого"
+
+
 def _unnamed_band(db: Session, open_count: int) -> str:
     latest = db.scalars(
         select(UnnamedFigurantRecord)
@@ -85,14 +96,14 @@ def _unnamed_band(db: Session, open_count: int) -> str:
     ).all()
     items = []
     for figurant in latest:
-        found = candidates(db, figurant).total
+        found = candidates(db, figurant)
         quote_text = " ".join(figurant.quote.split())
         if len(quote_text) > QUOTE_LIMIT:
             quote_text = quote_text[:QUOTE_LIMIT].rstrip() + "…"
         items.append(
             f'<li><span class="when">{_day(figurant.published_at)}</span> '
             f"«{escape(quote_text)}»"
-            f'<span class="why">{_facts(figurant)} · кандидатов в перечне: {found}</span></li>'
+            f'<span class="why">{_facts(figurant)} · {_found(found, age_told=figurant.age is not None)}</span></li>'
         )
     return f"""<section class="band" aria-labelledby="unnamed-title">
   <h2 id="unnamed-title">Неопознанные фигуранты <span class="count">{open_count}</span></h2>

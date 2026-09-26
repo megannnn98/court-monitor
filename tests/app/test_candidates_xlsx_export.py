@@ -149,6 +149,8 @@ def test_names_are_written_surname_first() -> None:
     assert _surname_first("Корнилов Алексей Леонидович") == "Корнилов Алексей Леонидович"
     assert _surname_first("Е.А. Аничкина") == "Аничкина Е.А."
     assert _surname_first("Навальный") == "Навальный"
+    # A surname in «-ович» after a given name is a surname, not a patronymic.
+    assert _surname_first("Михаил Антонович") == "Антонович Михаил"
 
 
 def test_new_cases_and_sentences_come_first_then_the_newest(

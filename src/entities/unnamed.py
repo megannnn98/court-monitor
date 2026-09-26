@@ -46,6 +46,7 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
+from entities.politics import COMMON_CRIME_ARTICLES
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")
@@ -325,11 +326,27 @@ class UnnamedResult:
     unnamed: int = 0
     named: int = 0
     not_cases: int = 0
+    # A case of common crime only (theft, alimony): nobody the list would carry.
+    common_crime: int = 0
     asked_now: int = 0
     cached: int = 0
     failures: int = 0
     unasked: int = 0
     cost_usd: float = 0.0
+
+
+# Common crime, as «Отобрать политические дела» reads it, and more the unnamed bring:
+# drawing a minor into a crime, alimony, abuse images of minors, drunk driving.
+UNNAMED_COMMON_CRIME = COMMON_CRIME_ARTICLES | {"150", "157", "242.2", "264.1"}
+# An attempt and complicity say nothing of what the crime is.
+_NEUTRAL_ARTICLES = frozenset({"30", "33"})
+
+
+def common_crime_only(articles: Sequence[str]) -> bool:
+    """Every article common crime, none of them political: the list — terrorists and
+    extremists — does not carry such a person. No articles: nothing told, kept."""
+    told = {article.strip() for article in articles} - _NEUTRAL_ARTICLES - {""}
+    return bool(told) and told <= UNNAMED_COMMON_CRIME
 
 
 def _initial(value: str) -> str | None:
@@ -403,6 +420,9 @@ class UnnamedFinder:
             if answer.named:
                 result.named += 1
                 continue
+            if common_crime_only(answer.articles):
+                result.common_crime += 1
+                continue
             rows.append(
                 {
                     "key": sentence.key,
@@ -456,6 +476,9 @@ class Candidates:
     # Entries of that age and sex (and initial) in all; `shown` are the best of them.
     total: int
     snapshot_date: datetime | None
+    # The ones worth looking at: born there, or narrowed by an initial, or few in all;
+    # 0 when only the age and sex tell, hundreds of them.
+    likely: int = 0
 
 
 def candidate_key(normalized_name: str, birth_date: date) -> str:
@@ -567,11 +590,12 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
     # there are few; without either, a list of hundreds tells nothing — only its size.
     best = [item for item in found if item.place_match or item.decision == SAME]
     if best:
-        top = best[:shown]
+        likely = len(best)
     elif figurant.initial or len(found) <= shown:
-        top = found[:shown]
+        likely = len(found)
     else:
-        top = []
+        likely = 0
+    top = (best or found)[:shown] if likely else []
     if top:
         first_seen = {
             (name, birth): seen
@@ -581,7 +605,7 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
         }
         for item in top:
             item.first_seen = first_seen.get((item.key.split("|")[0], item.birth_date))
-    return Candidates(top, len(found), snapshot_date)
+    return Candidates(top, len(found), snapshot_date, likely)
 
 
 def decide(session: Session, figurant_key: str, candidate: str, decision: str) -> None:

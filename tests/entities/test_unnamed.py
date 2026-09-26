@@ -24,6 +24,7 @@ from entities.unnamed import (
     UnnamedItem,
     UnnamedReaderError,
     candidates,
+    common_crime_only,
     decide,
     described_sentences,
 )
@@ -66,6 +67,7 @@ class FakeReader:
         for item in items:
             victim = "Кушвы" in item.sentence
             named = "Петрова" in item.context
+            theft = "кражу" in item.sentence
             answers[item.id] = UnnamedAnswer(
                 id=item.id,
                 is_case=not victim,
@@ -74,7 +76,7 @@ class FakeReader:
                 gender="male",
                 place="Тюмень",
                 initial="",
-                articles=["205"],
+                articles=["150", "158"] if theft else ["205"],
                 event="detention",
                 explanation="так в тексте",
             )
@@ -255,3 +257,43 @@ def test_a_person_s_word_is_kept_and_orders_the_candidates(
 
     assert found.shown[0].decision == SAME
     assert decisions == [("", NONE), (purtov.key, SAME)]
+
+
+def test_a_case_of_common_crime_only_is_no_unnamed_figurant(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        for external_id, text_ in (
+            ("tyumen", TYUMEN),
+            ("theft", "Задержан 19-летний житель Тулы, втянувший подростка в кражу."),
+        ):
+            _, run = seed.article(
+                source,
+                external_id=external_id,
+                title=external_id,
+                text=text_,
+                published_at=datetime(2024, 11, 25, tzinfo=UTC),
+            )
+            seed.event(run, text_[:10], event_type="detention", event_date=None, links=[])
+        session.commit()
+
+    result = UnnamedFinder(session_factory, reader=FakeReader()).run()
+
+    with session_factory() as session:
+        quotes = session.scalars(select(UnnamedFigurantRecord.quote)).all()
+    assert (result.unnamed, result.common_crime) == (1, 1)
+    assert [quote[:17] for quote in quotes] == ["В Тюмени задержан"]
+
+
+def test_common_crime_only_is_every_article_common_none_political() -> None:
+    assert common_crime_only(["150", "158"])
+    # An attempt says nothing of the crime.
+    assert common_crime_only(["105", "30"])
+    # One political or terrorist article, or one not known as common: kept.
+    assert not common_crime_only(["158", "205"])
+    assert not common_crime_only(["167"])
+    assert not common_crime_only(["30"])
+    # Nothing told: kept.
+    assert not common_crime_only([])

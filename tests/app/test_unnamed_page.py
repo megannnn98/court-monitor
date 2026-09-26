@@ -188,7 +188,21 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
     unnamed = page[page.index('id="unnamed-title"') :]
     assert 'Неопознанные фигуранты <span class="count">1</span>' in unnamed
     assert "&lt;b&gt;на железной дороге&lt;/b&gt;" in unnamed and "<b>на" not in unnamed
-    assert "17 лет · мужчина · Тюмень · задержание · ст. 205 · кандидатов в перечне: 1" in unnamed
+    assert "17 лет · мужчина · Тюмень · задержание · ст. 205 · вероятных в перечне: 1" in unnamed
     assert '<a href="/ui/unnamed">Все: 1 →</a>' in unnamed
     # Closed («никого нет в перечне»): off the overview.
     assert "Неопознанных нет." in closed
+
+
+def test_the_overview_counts_the_candidates_worth_looking_at() -> None:
+    from entities.unnamed import Candidates
+    from web.ui.overview import _found
+
+    assert _found(Candidates([], 545, None, likely=12)) == "вероятных в перечне: 12"
+    # Hundreds of that age and sex, nothing else told: their number says nothing.
+    assert _found(Candidates([], 545, None)) == "того возраста в перечне 545 — примет мало"
+    assert _found(Candidates([], 0, None)) == "в перечне никого"
+    # No age: nothing to search the list by, not «nobody».
+    assert _found(Candidates([], 0, None), age_told=False) == (
+        "возраст не назван — искать в перечне не по чему"
+    )

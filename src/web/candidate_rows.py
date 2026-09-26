@@ -24,6 +24,7 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
     SourceDocument,
 )
+from extraction.name_frequency import lookup_gender
 
 
 class _CandidateNews(NamedTuple):
@@ -343,7 +344,9 @@ def _surname_first(name: str) -> str:
     if "." in words[0]:
         initials = [word for word in words if "." in word]
         return " ".join([*(word for word in words if "." not in word), *initials])
-    if words[-1].lower().endswith(_PATRONYMIC_ENDINGS):
+    # «Михаил Антонович»: a given name, then a surname in «-ович», not a patronymic.
+    two_given_first = len(words) == 2 and lookup_gender(words[0]) is not None
+    if words[-1].lower().endswith(_PATRONYMIC_ENDINGS) and not two_given_first:
         return name
     if len(words) == 3 and words[1].lower().endswith(_PATRONYMIC_ENDINGS):
         return " ".join([words[2], words[0], words[1]])
