@@ -44,6 +44,10 @@ uv run python src/main.py validate-config
 | `ER_CANDIDATE_LIMIT` | кандидатов на упоминание в ER v2, по умолчанию `30` (2..200) |
 | `ER_AUTO_LINK_MIN_SCORE`, `ER_REVIEW_MIN_SCORE`, `ER_MIN_MARGIN` | пороги решения ER v2, по умолчанию `0.85`, `0.40`, `0.10` (подобраны по `evaluate-er`) |
 | `ER_SEMANTIC_CANDIDATES`, `ER_SEMANTIC_CANDIDATE_MIN_SCORE` | semantic-кандидаты для ER (по умолчанию выключены); порог только для генерации кандидатов, не для решения |
+| `OPENROUTER_API_KEY` | ключ OpenRouter для модели шагов 3, 5, 6 и безымянных фигурантов; без него решают только правила, остальное «неясно» |
+| `ENTITY_NORMALIZE_MODEL` | модель OpenRouter для этих шагов; по умолчанию `deepseek/deepseek-v4.1-flash` |
+| `ENTITY_MODEL_BUDGET_USD` | сколько может потратить один запуск шага, по умолчанию `2`; что не спросили — спросит следующий запуск |
+| `PIPELINE_SINCE` | рабочая дата (`YYYY-MM-DD`): шаг 2 удаляет публикации раньше неё; в `compose.yaml` — `2026-09-20`; пусто — по дате не удаляется |
 
 Для Docker Compose также используются:
 

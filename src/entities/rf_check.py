@@ -4,8 +4,9 @@ The list is downloaded afresh from fedsfm.ru, stored as a new snapshot when it c
 and every entity is compared with the latest imported snapshot by name. The news give
 no birth date, so the patronymic is the only thing that tells a person from a namesake:
 
-- full: given name, patronymic and surname are the list's — hidden from «Сущности»;
-- name: given name and surname are, one side has no patronymic — shown, marked.
+- full: given name, patronymic and surname are the list's — who the person is,
+  confirmed by the entry's birth date and place (the list drops nobody);
+- name: given name and surname are, one side has no patronymic — maybe a namesake.
 
 A different patronymic on both sides is another person. The entities stay: only the
 matches are rewritten, so a wrong one is visible and the next check corrects it.

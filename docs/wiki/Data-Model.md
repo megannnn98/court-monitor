@@ -154,6 +154,29 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 
 `article_chunks` — это уже история: таблица существовала до удаления `ArticleChunk` из домена, см. [ADR 0002](../adr/0002-drop-dense-hybrid-search.md). Старые миграции не переписаны задним числом.
 
+## Сущности и безымянные фигуранты (шаги 3–6)
+
+Люди консоли «Следователь» ([Pipeline](Pipeline.md)). Производные таблицы
+пересобираются своим шагом целиком; решения оператора и кэши ответов модели
+хранятся по ключу и переживают пересборку.
+
+| Таблица | Кто пишет | Смысл |
+|---|---|---|
+| `entity_groups` | шаг 3 | человек: `key` («имя фамилия», склонения и «ё» сведены; для тёзок с разными регионами — « · регион»), имя, варианты написания, число упоминаний и публикаций, события, регионы, дата последней публикации, источник имени (`rules`, `model`, `manual`) |
+| `entity_group_mentions` | шаг 3 | какие упоминания (`entity_mentions`) составляют человека |
+| `entity_group_charges` | шаг 3 | статья УК события, где человек — обвиняемый: часть, тип события, цитата, `other_targets` (сколько ещё обвиняемых в событии) |
+| `entity_group_rf_matches` | шаг 4 | совпадение с записью перечня: `full` или `name` |
+| `entity_group_roles` | шаг 5 | роль: `figurant`, `possible`, `mentioned`, `unclear`; `kind` (accused, foreign, historical, support, …), способ (`model`, `article`, `official`, `rules`), причина, цитата |
+| `entity_group_politics` | шаг 6 | вердикт `political` / `criminal` / `unclear`, способ (`article`, `memorial`, `model`), причина, цитата |
+| `unnamed_figurants` | шаг 6 | безымянные фигуранты — [Unnamed Figurants](Unnamed-Figurants.md) |
+| `entity_name_normalizations`, `entity_role_answers`, `entity_politics_answers`, `unnamed_answers` | шаги 3, 5, 6 | кэш ответов модели по хэшу вопроса и версии промпта |
+| `entity_pair_decisions` | оператор, шаг 4 | «один человек» / «разные люди» по паре ключей; `source`: `manual`, `rf`, `region` |
+| `entity_name_overrides` | оператор | исправленное имя по ключу |
+| `entity_official_marks` | оператор | «должностное лицо» или «нет» по ключу |
+| `unnamed_decisions` | оператор | «это он» / «не он» / «никого нет» по ключу фигуранта и «ФИО|дата рождения» записи перечня |
+
+Миграции: от `x8y9z0a1b2c3_entity_groups.py` до `c9d0e1f2a4b5_unnamed_figurants.py`.
+
 ## `operator_operation_runs`
 
 Запуски routine operations из операторской консоли (`operator_console.OperationRegistry`, миграция `s3t4u5v6w7x8`). Источник истины — PostgreSQL: все процессы API видят одни и те же runs, перезапуск API историю не теряет.
@@ -161,8 +184,8 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 | Поле | Тип | Смысл |
 |---|---|---|
 | `id` | serial PK | номер run |
-| `operation_name` | varchar(64) | операция из allowlist (`discover-and-ingest`, `extract-entities`, `resolve-people`, `classify-persecution`) |
-| `parameters` | jsonb | проверенные параметры (`source`, `limit`, `workers`) |
+| `operation_name` | varchar(64) | операция из allowlist (`monitor`, `discover-and-ingest`, `extract-entities`, `resolve-people`, `classify-persecution`) |
+| `parameters` | jsonb | проверенные параметры (`source`, `sources`, `mode`, `limit`, `workers`); `mode` у `monitor` — шаг консоли: `load`, `purge`, `entities`, `rosfin`, `figurants`, `political` |
 | `command` | jsonb | argv процесса, собранный из allowlist; shell не используется |
 | `status` | varchar(16) | `pending` → `running` → `succeeded` / `failed`; `interrupted` — процесс пропал (CHECK) |
 | `created_at`, `started_at`, `heartbeat_at`, `finished_at` | timestamptz | время по часам базы (`now()`) |

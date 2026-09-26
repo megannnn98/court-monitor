@@ -1,9 +1,10 @@
 # court-monitor — вики
 
 `court-monitor` собирает публикации из источников, извлекает людей и события,
-сводит упоминания в карточки Person, классифицирует признаки политического
-преследования, сверяет Росфинмониторинг и помогает оператору выпускать список
-кандидатов.
+сводит упоминания в людей, определяет, на кого заведено уголовное дело и
+политическое ли оно, сверяет людей с перечнем Росфинмониторинга (он подтверждает
+личность, а не отсеивает) и опознаёт безымянных фигурантов. Результат — список
+политических уголовных дел в консоли «Следователь».
 
 Вики рассчитана на две роли:
 
@@ -20,7 +21,8 @@ Status](Implementation-Status.md).
 1. Запустить проект локально: [Getting Started](Getting-Started.md).
 2. Понять общий поток данных: [Overview](Overview.md).
 3. Разобрать автоматическую докачку и статусы: [Monitoring](Monitoring.md).
-4. Смотреть и применять ручные решения: [Local Web UI](Local-Web-UI.md).
+4. Работать в консоли «Следователь»: [Local Web UI](Local-Web-UI.md); шесть
+   шагов обработки — [Pipeline](Pipeline.md).
 5. Проверять качество: [Evaluation](Evaluation.md) и [Real-World
    Validation](RealWorldValidation.md).
 
@@ -41,7 +43,10 @@ Status](Implementation-Status.md).
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
 - [Telegram Bot](Telegram-Bot.md) — бот: `/update` (докачка через operation runs), `/status`, `/people` за период; allowlist, long polling
-- [Local Web UI](Local-Web-UI.md) — локальная веб-морда для ER-ревью, карточки Person, evidence spans и lexical search
+- [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: обзор, «Результат», досье человека, люди, безымянные, публикации, очередь, управление
+- [Pipeline](Pipeline.md) — шесть шагов от публикации до «Результата», модель и расходы, старый путь через Person
+- [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
+- [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
@@ -53,7 +58,7 @@ Status](Implementation-Status.md).
 - “Как запустить?” — [Getting Started](Getting-Started.md), потом
   [Setup](Setup.md).
 - “Почему run упал?” — [Monitoring](Monitoring.md), [Testing](Testing.md).
-- “Почему человек попал в кандидаты?” — [Pipeline](Pipeline.md),
+- “Почему человек попал в «Результат»?” — его досье в консоли, [Pipeline](Pipeline.md),
   [Persecution Classification](Persecution-Classification.md),
   [Rosfinmonitoring](Rosfinmonitoring.md).
 - “Почему это один человек или разные?” — [Entity Resolution](Entity-Resolution.md).

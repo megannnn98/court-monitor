@@ -18,6 +18,25 @@
 
 ## Last verified
 
+2026-09-26, branch `feat/investigator-ui`, commit `6258f87` (then merged into `main`).
+
+| Check | Command | Result |
+|---|---|---|
+| Ruff | `uv run ruff check .` | all checks passed |
+| mypy | `uv run mypy src` | no issues, 327 files |
+| Tests, PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` | 2 230 passed, 33 skipped |
+| Migrations | `alembic upgrade head` on `court_monitor_test` and on the working database (after a dump) | ok, up to `c9d0e1f2a4b5` |
+| Image | `docker compose -f compose.yaml -f compose.gpu.yaml --profile production build api`, API recreated | healthy; every console page answers on the working data |
+
+The 33 skipped tests need a service or a model: person-NER model 21
+(`PERSON_NER_MODEL_TESTS=1`), Qdrant 4 (`QDRANT_TEST_URL`), Together AI 4
+(`TOGETHER_LIVE_TESTS=1` / `LIVE_LLM_TESTS=1`), embedding model 3
+(`SEMANTIC_MODEL_TESTS=1`), `sentence_transformers` not installed 1.
+
+Not run: CI on GitHub; a visual check in a dark theme.
+
+## Previous verification
+
 2026-09-18, branch `fix-main-technical-debt`, commit `80092e3`, Python 3.13.13.
 Every result below comes from a run on that date; nothing is carried over.
 
@@ -59,7 +78,9 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Entity resolution | `src/persons/` | ER v2 with human review — [Entity-Resolution](Entity-Resolution.md) |
 | Persecution classification | `src/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |
 | Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
-| Candidates | `src/candidates/` | political persecution and `NOT_MATCHED` — [Pipeline](Pipeline.md) |
+| Entities (console) | `src/entities/` | the six-step pipeline of the console: people from mentions, the Rosfinmonitoring check (confirms who, drops nobody), roles, political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
+| Unnamed figurants | `src/entities/unnamed.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
+| Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by the Telegram bot — [Pipeline](Pipeline.md) |
 | Research | `src/research/` | deterministic research in one read-only REPEATABLE READ snapshot, LangGraph workflow, reports — [Research](Research.md), [Research-Workflow](Research-Workflow.md), [Research-Reports](Research-Reports.md) |
 | Semantic retrieval | `src/semantic_retrieval/` | candidate ids from Qdrant (default) or pgvector (`SEMANTIC_VECTOR_BACKEND`, [ADR 0018](../adr/0018-pgvector-vector-store.md)), facts from PostgreSQL — [Semantic-Retrieval](Semantic-Retrieval.md) |
 | Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings — [Monitoring](Monitoring.md) |
