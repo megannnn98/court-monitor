@@ -188,6 +188,12 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
     assert '<button type="submit" name="months" value="3" class="chip"' in page
     # Day/month/year whatever the browser's language: no native date field.
     assert '<input type="text" name="date_from" value="" placeholder="дд/мм/гггг"' in page
+    # A calendar at hand; its own field has no name, so it sends nothing.
+    assert page.count('class="secondary date-open" title="Выбрать в календаре"') == 2
+    assert (
+        '<input type="date" class="date-native" tabindex="-1" aria-hidden="true" value="">' in page
+    )
+    assert "showPicker()" in page
     # The export sends the form as it is: dates picked without «Показать» count.
     assert '<button type="submit" class="secondary" formaction="/ui/political/export.xlsx">' in page
     assert page.index('<input type="hidden" name="months" value="0">') < page.index(
@@ -198,6 +204,9 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
     assert "Найдено: 1." in in_old and "Иванов Иван" in in_old
     shown = date.fromisoformat(old["date_from"]).strftime("%d/%m/%Y")
     assert f'name="date_from" value="{shown}"' in in_old
+    assert (
+        f'class="date-native" tabindex="-1" aria-hidden="true" value="{old["date_from"]}"' in in_old
+    )
     assert "Иванов Иван" in dates_win
     assert "Найдено: 1." in ticked and 'value="true" checked' in ticked
     assert (

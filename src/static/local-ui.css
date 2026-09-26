@@ -205,32 +205,34 @@ h2 {
   font-size: 16px;
 }
 
+/* A status line, not figures to look at: quiet, one line, no cards. */
 .status-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin: 0 0 16px;
-}
-
-.status-strip span {
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: baseline;
-  gap: 7px;
-  min-width: 122px;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.status-strip small {
+  gap: 4px 14px;
+  margin: 0 0 12px;
+  font-size: 12px;
   color: var(--muted);
 }
 
+.status-strip span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.status-strip span + span::before {
+  content: "·";
+  margin-right: 9px;
+  color: var(--border-strong);
+}
+
+.status-strip small {
+  font-size: inherit;
+}
+
 .status-strip strong {
-  font-size: 14px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -668,15 +670,6 @@ pre {
     position: static;
   }
 
-  .status-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .status-strip span {
-    min-width: 0;
-  }
-
   .instruction {
     padding: 12px;
   }
@@ -876,6 +869,82 @@ label.dates {
 label.dates input[type="date"] {
   min-width: 0;
   width: auto;
+}
+
+/* «Результат»'s filters: one height for every control, each row on one line. */
+#political-filters {
+  align-items: center;
+}
+
+#political-filters .chips {
+  align-items: center;
+}
+
+#political-filters button,
+#political-filters input[type="text"],
+#political-filters select {
+  box-sizing: border-box;
+  height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+#political-filters input[type="text"] {
+  min-width: 0;
+  width: calc(11ch + 22px);
+}
+
+/* A date field and its calendar button, one control; the native field only anchors
+   the browser's calendar under it. */
+#political-filters .date-pick {
+  position: relative;
+  display: inline-flex;
+}
+
+#political-filters .date-pick input[type="text"] {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+#political-filters .date-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  padding: 0;
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+#political-filters .date-native {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#political-filters .filter-row {
+  align-items: center;
+}
+
+#political-filters label.field {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  font-size: inherit;
+}
+
+#political-filters label.field select {
+  min-width: 0;
+  min-height: 0;
 }
 
 /* «Результат»: what the pipeline is for, right under the home page. */

@@ -147,6 +147,13 @@ def _parse_date(text: str) -> date | None:
     return None
 
 
+_CALENDAR_ICON = (
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>'
+)
+
+
 def _form_date(value: date | None) -> str:
     return f"{value:%d/%m/%Y}" if value else ""
 
@@ -155,10 +162,15 @@ def _date_field(name: str, label: str, value: date | None) -> str:
     """A day/month/year field, whatever the browser's language: a native date field
     shows the browser's own order (month first in an English one)."""
     return (
-        f'<label class="dates">{label} <input type="text" name="{name}" '
+        f'<label class="dates">{label} <span class="date-pick"><input type="text" name="{name}" '
         f'value="{_form_date(value)}" placeholder="дд/мм/гггг" inputmode="numeric" '
         'pattern="\\d{1,2}/\\d{1,2}/\\d{4}" title="день/месяц/год" size="10" '
-        "data-date></label>"
+        "data-date>"
+        # The browser's calendar, unnamed and unseen: it only fills the field above.
+        '<button type="button" class="secondary date-open" title="Выбрать в календаре" '
+        f'aria-label="Календарь">{_CALENDAR_ICON}</button>'
+        '<input type="date" class="date-native" tabindex="-1" aria-hidden="true" '
+        f'value="{value.isoformat() if value else ""}"></span></label>'
     )
 
 
@@ -431,6 +443,22 @@ def ui_political(
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
 {pages_html}
 <script>
+// The calendar: opened by its button, the day it gives written day/month/year.
+document.querySelectorAll("#political-filters .date-pick").forEach((pick) => {{
+  const field = pick.querySelector("[data-date]");
+  const native = pick.querySelector(".date-native");
+  pick.querySelector(".date-open").addEventListener("click", () => {{
+    const [d, m, y] = field.value.split("/");
+    native.value = y && m && d ? `${{y}}-${{m.padStart(2, "0")}}-${{d.padStart(2, "0")}}` : "";
+    try {{ native.showPicker(); }} catch {{ native.focus(); }}
+  }});
+  native.addEventListener("change", () => {{
+    if (!native.value) return;
+    const [y, m, d] = native.value.split("-");
+    field.value = `${{d}}/${{m}}/${{y}}`;
+    field.dispatchEvent(new Event("change", {{ bubbles: true }}));
+  }});
+}});
 // Dates picked but not shown yet are kept too: a reload shows them.
 document.getElementById("political-filters").addEventListener("change", (event) => {{
   if (!("date" in event.target.dataset)) return;
