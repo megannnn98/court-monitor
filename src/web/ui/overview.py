@@ -14,6 +14,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
+from entities.news import KIND_LABELS as NEWS_LABELS
 from entities.politics import POLITICAL
 from entities.roles import FIGURANT
 from operator_console import OperationRegistry, OperationRun
@@ -35,10 +36,11 @@ SOURCE_ERRORS = 8
 # The figurants whose first publication is the latest: the new cases.
 _NEW_FIGURANTS = text(
     """
-    SELECT g.key, g.name, first.first_at, po.verdict
+    SELECT g.key, g.name, first.first_at, po.verdict, ne.kind
     FROM entity_groups g
     JOIN entity_group_roles ro ON ro.group_id = g.id AND ro.role = :figurant
     LEFT JOIN entity_group_politics po ON po.group_id = g.id
+    LEFT JOIN entity_group_news ne ON ne.group_id = g.id
     JOIN LATERAL (
         SELECT min(a.published_at) AS first_at FROM entity_group_mentions gm
         JOIN entity_mentions m ON m.id = gm.mention_id
@@ -132,8 +134,9 @@ def ui_overview(
     new_rows = "".join(
         f'<tr><td><a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a></td>'
         f"<td>{_day(first_at)}</td>"
-        f"<td>{_badge(VERDICT_LABELS.get(verdict, verdict), 'succeeded' if verdict == POLITICAL else '') if verdict else '<span class=muted>не оценено</span>'}</td></tr>"
-        for key, name, first_at, verdict in new
+        f"<td>{_badge(VERDICT_LABELS.get(verdict, verdict), 'succeeded' if verdict == POLITICAL else '') if verdict else '<span class=muted>не оценено</span>'}</td>"
+        f"<td>{escape(NEWS_LABELS.get(kind, kind)) if kind else '—'}</td></tr>"
+        for key, name, first_at, verdict, kind in new
     )
     error_rows = "".join(
         f"<tr><td>{escape(source or 'общий проход')}</td><td>{escape(stage or '—')}</td>"
@@ -154,7 +157,8 @@ def ui_overview(
   {
         f'''<table><caption class="visually-hidden">Новые фигуранты</caption>
   <thead><tr><th scope="col">Человек</th><th scope="col">Первая публикация</th>
-  <th scope="col">Дело</th></tr></thead><tbody>{new_rows}</tbody></table>'''
+  <th scope="col">Дело</th><th scope="col">Свежая новость</th></tr></thead>
+  <tbody>{new_rows}</tbody></table>'''
         if new_rows
         else '<p class="empty">Фигурантов пока нет: шаг 4 не запускался.</p>'
     }

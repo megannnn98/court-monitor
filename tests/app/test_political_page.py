@@ -12,6 +12,7 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
+    EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
@@ -255,3 +256,46 @@ def test_the_form_s_day_month_year_is_read(session_factory: sessionmaker[Session
     # Смирнова's latest news is 10 days old, Иванов's 400.
     assert "Найдено: 1." in page and "Смирнова Анна" in page
     assert f'value="{written["date_from"]}"' in page
+
+
+def _news(session_factory: sessionmaker[Session]) -> None:
+    """Смирнова's latest news: a new case. Иванов's: never read."""
+    with session_factory.begin() as session:
+        smirnova = session.query(EntityGroupRecord).filter_by(key="анна смирнова").one()
+        session.add(
+            EntityGroupNewsRecord(
+                group_id=smirnova.id,
+                kind="new_case",
+                method="model",
+                reason="возбуждено дело",
+                quote="цитата",
+                published_at=smirnova.last_published_at,
+            )
+        )
+
+
+def test_the_latest_news_is_marked_and_chosen(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    _news(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political", params={"months": 0}).text
+        new_cases = client.get("/ui/political", params={"months": 0, "news": "new_case"}).text
+        # Kept for the reload, as the period is.
+        again = client.get("/ui/political").text
+        sentences = client.get("/ui/political", params={"months": 0, "news": "sentence"}).text
+        nonsense = client.get("/ui/political", params={"months": 0, "news": "drop table"}).text
+        excel = client.get("/ui/political/export.xlsx", params={"months": 0, "news": "new_case"})
+
+    assert "<th>Свежая новость</th>" in page
+    assert '<span class="badge succeeded" title="возбуждено дело">новое дело</span>' in page
+    assert '<option value="new_case">Новые дела (1)</option>' in page
+    assert '<option value="sentence">Приговоры (0)</option>' in page
+    assert "Найдено: 1." in new_cases and "Иванов Иван" not in new_cases
+    assert '<option value="new_case" selected>' in new_cases
+    assert "Найдено: 1." in again and '<option value="new_case" selected>' in again
+    assert "Найдено: 0." in sentences
+    assert "Найдено: 2." in nonsense
+    rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
+    assert rows[0][-1] == "Свежая новость"
+    assert [(row[1], row[-1]) for row in rows[1:]] == [("Смирнова Анна", "новое дело")]

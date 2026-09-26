@@ -126,6 +126,9 @@ def test_a_failed_download_checks_by_the_last_snapshot_then_judges(
     assert (output["rf_full"], output["rf_possible"], output["rf_error"]) == (1, 0, None)
     assert output["figurants"] == 1 and output["unclear"] == 1
     assert "unnamed" in output and "unnamed_cost_usd" in output
+    # What the political cases' latest news is: none political here, nothing asked.
+    assert (output["news_new_case"], output["news_sentence"], output["news_unknown"]) == (0, 0, 0)
+    assert "news_cost_usd" in output
     assert _counts(session_factory) == (1, 1)
 
 

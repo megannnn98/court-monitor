@@ -23,7 +23,13 @@ from openpyxl import Workbook
 from sqlalchemy import exists, func, select, text
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRfMatchRecord
+from db.orm_models import (
+    EntityGroupNewsRecord,
+    EntityGroupPoliticsRecord,
+    EntityGroupRecord,
+    EntityGroupRfMatchRecord,
+)
+from entities.news import KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
 from persecution.classifier import POLITICAL_ARTICLES
@@ -39,7 +45,16 @@ LINKS = 3
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
-FILTER_NAMES = ("months", "date_from", "date_to", "hide_maybe_listed")
+FILTER_NAMES = ("months", "date_from", "date_to", "hide_maybe_listed", "news")
+# What the latest news is (`entities.news`): the operator's new cases and sentences first.
+NEWS_FILTERS = {
+    "all": "Любая свежая новость",
+    NEW_CASE: "Новые дела",
+    SENTENCE: "Приговоры",
+    ONGOING: "Продолжение дела",
+    OTHER: "Другое",
+    UNKNOWN: "Не определено",
+}
 
 _PUBLICATIONS = text(
     """
@@ -83,6 +98,9 @@ class ListRow:
     # The list's entry: «full» (the name with the patronymic) or «name», and who it is.
     rf_level: str | None = None
     rf_entry: str = ""
+    # What the latest news is, and why the model said so.
+    news_kind: str | None = None
+    news_reason: str = ""
     memorial: str | None = None
     first_published: datetime | None = None
     # (title, url, published) of the latest publications.
@@ -98,6 +116,7 @@ class Filters:
     date_from: date | None = None
     date_to: date | None = None
     hide_maybe_listed: bool = False
+    news: str = "all"
 
     @property
     def custom(self) -> bool:
@@ -110,6 +129,7 @@ class Filters:
             "date_from": self.date_from.isoformat() if self.date_from else "",
             "date_to": self.date_to.isoformat() if self.date_to else "",
             "hide_maybe_listed": str(self.hide_maybe_listed).lower(),
+            "news": self.news,
         }
 
 
@@ -142,7 +162,9 @@ def _date_field(name: str, label: str, value: date | None) -> str:
     )
 
 
-def filters(months: int, date_from: str, date_to: str, hide_maybe_listed: bool) -> Filters:
+def filters(
+    months: int, date_from: str, date_to: str, hide_maybe_listed: bool, news: str = "all"
+) -> Filters:
     """Dates, when given, win over the months."""
     start, end = _parse_date(date_from), _parse_date(date_to)
     return Filters(
@@ -150,6 +172,7 @@ def filters(months: int, date_from: str, date_to: str, hide_maybe_listed: bool) 
         date_from=start,
         date_to=end,
         hide_maybe_listed=hide_maybe_listed,
+        news=news if news in NEWS_FILTERS else "all",
     )
 
 
@@ -168,14 +191,16 @@ def remembered(cookie: str) -> Filters | None:
         values.get("date_from", "")[:10],
         values.get("date_to", "")[:10],
         values.get("hide_maybe_listed") == "true",
+        values.get("news", "all"),
     )
 
 
 def _rows(
     db: Session, chosen: Filters
-) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, int]:
-    """The list's entities, latest news first; how many there are, and how many of them
-    the list may carry under a name without a patronymic."""
+) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, int, dict[str, int]]:
+    """The list's entities, latest news first; how many there are, how many of them the
+    list may carry under a name without a patronymic, and how many of each latest news
+    (in the period, before the choice of the news)."""
     # By the name alone and never with the patronymic: maybe a namesake.
     maybe_listed = exists().where(
         EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
@@ -202,12 +227,28 @@ def _rows(
     maybe = db.scalar(select(func.count()).select_from(query.where(maybe_listed).subquery())) or 0
     if chosen.hide_maybe_listed:
         query = query.where(~maybe_listed)
+    in_period = query.subquery()
+    news_counts = {
+        str(kind): count
+        for kind, count in db.execute(
+            select(EntityGroupNewsRecord.kind, func.count())
+            .join(in_period, in_period.c.id == EntityGroupNewsRecord.group_id)
+            .group_by(EntityGroupNewsRecord.kind)
+        ).all()
+    }
+    if chosen.news != "all":
+        query = query.where(
+            exists().where(
+                EntityGroupNewsRecord.group_id == EntityGroupRecord.id,
+                EntityGroupNewsRecord.kind == chosen.news,
+            )
+        )
     rows = db.execute(
         query.order_by(
             EntityGroupRecord.last_published_at.desc().nulls_last(), EntityGroupRecord.key
         )
     ).all()
-    return [(entity, politics) for entity, politics in rows], len(rows), maybe
+    return [(entity, politics) for entity, politics in rows], len(rows), maybe, news_counts
 
 
 def _details(
@@ -218,6 +259,12 @@ def _details(
         entity.id: ListRow(entity=entity, politics=politics, maybe_listed=False)
         for entity, politics in found
     }
+    for group_id, kind, reason in db.execute(
+        select(
+            EntityGroupNewsRecord.group_id, EntityGroupNewsRecord.kind, EntityGroupNewsRecord.reason
+        ).where(EntityGroupNewsRecord.group_id.in_(ids))
+    ).all():
+        rows[group_id].news_kind, rows[group_id].news_reason = kind, reason
     # The strongest entry of each: the query gives those with the patronymic first.
     for group_id, level, full_name, birth_date, birth_place in db.execute(
         _RF_ENTRIES, {"groups": ids}
@@ -267,6 +314,17 @@ def _basis(row: ListRow) -> str:
     return f"{method}: {row.politics.reason}"
 
 
+def _news_mark(row: ListRow) -> str:
+    """The latest news as a mark; the new cases and the sentences stand out."""
+    if row.news_kind is None:
+        return '<span class="muted">—</span>'
+    css = {NEW_CASE: "succeeded", SENTENCE: "succeeded", UNKNOWN: "pending"}.get(row.news_kind, "")
+    return (
+        f'<span class="badge {css}" title="{escape(row.news_reason, quote=True)}">'
+        f"{escape(KIND_LABELS.get(row.news_kind, row.news_kind))}</span>"
+    )
+
+
 def _html_row(position: int, row: ListRow) -> str:
     entity = row.entity
     articles = ", ".join(
@@ -289,6 +347,7 @@ def _html_row(position: int, row: ListRow) -> str:
         f"<tr><td>{position}</td>"
         f'<td><a href="/ui/investigations/{quote(entity.key)}">'
         f"{escape(display_name(entity.name))}</a>{listed}</td>"
+        f"<td>{_news_mark(row)}</td>"
         f"<td>{escape(_regions_text(entity))}</td>"
         f'<td class="muted">{escape(row.rf_entry)}</td>'
         f"<td>{articles}</td>"
@@ -307,14 +366,15 @@ def ui_political(
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
     hide_maybe_listed: bool = Query(default=False),
+    news: str = Query(default="all", max_length=16),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    chosen = filters(months, date_from, date_to, hide_maybe_listed)
+    chosen = filters(months, date_from, date_to, hide_maybe_listed, news)
     # No filters in the address: the last ones chosen, not «all the time».
     if not any(name in request.query_params for name in FILTER_NAMES):
         chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
-    found, total, maybe = _rows(db, chosen)
+    found, total, maybe, news_counts = _rows(db, chosen)
     on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
     rows = "".join(
         _html_row(position, row)
@@ -331,6 +391,12 @@ def ui_political(
     )
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     pages_html = pager("/ui/political", keep, page, pages)
+    news_options = "".join(
+        f'<option value="{key}"{" selected" if key == chosen.news else ""}>{escape(label)}'
+        f"{f' ({news_counts.get(key, 0)})' if key != 'all' else ''}</option>"
+        for key, label in NEWS_FILTERS.items()
+        if key in ("all", NEW_CASE, SENTENCE, ONGOING) or news_counts.get(key)
+    )
     dates = (
         _date_field("date_from", "с", chosen.date_from)
         + _date_field("date_to", "по", chosen.date_to)
@@ -349,6 +415,9 @@ def ui_political(
         " checked" if chosen.hide_maybe_listed else ""
     } onchange="this.form.submit()"> Скрыть возможных в перечне ({maybe})</label>
     <!-- The form's own values, not the page's: dates picked but not shown yet count. -->
+    <label class="field">Свежая новость <select name="news" onchange="this.form.submit()">{
+        news_options
+    }</select></label>
     <button type="submit" class="secondary" formaction="/ui/political/export.xlsx">Скачать Excel</button>
   </div>
 </form>
@@ -357,7 +426,7 @@ def ui_political(
 преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
 Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.</p>
-<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
+<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Свежая новость</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
 {pages_html}
@@ -411,6 +480,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             "Последняя новость",
             "Перечень РФМ",
             "Публикации",
+            "Свежая новость",
         ]
     )
     for position, row in enumerate(rows, start=1):
@@ -430,6 +500,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             else None,
             rf_text(row) or None,
             "\n".join(url for _, url, _ in row.links) or None,
+            KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
         ]
         sheet.append(values)
         line = position + 1
@@ -467,11 +538,12 @@ def ui_political_export(
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
     hide_maybe_listed: bool = Query(default=False),
+    news: str = Query(default="all", max_length=16),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    chosen = filters(months, date_from, date_to, hide_maybe_listed)
-    found, _, _ = _rows(db, chosen)
+    chosen = filters(months, date_from, date_to, hide_maybe_listed, news)
+    found, _, _, _ = _rows(db, chosen)
     name = export_name(chosen, found, datetime.now(UTC).date())
     return Response(
         political_xlsx(_details(db, found)),

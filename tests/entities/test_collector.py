@@ -328,3 +328,48 @@ def test_a_relative_is_no_entity_and_a_swapped_name_is_one(
     with session_factory() as session:
         names = sorted(session.scalars(select(EntityGroupRecord.name)).all())
     assert names == ["Алексис Дрион", "Владимир Гульчак"]
+
+
+def test_a_pseudonym_in_brackets_after_a_name_is_that_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        _, run = seed.article(
+            source,
+            external_id="purkin",
+            title="Арест",
+            text=(
+                "Суд заочно арестовал блогера Дмитрия Пуркина (Дед Архимед). "
+                "Певицу Монеточку (Елизавету Гырдымову) оштрафовали. "
+                "Ивана Петрова задержали (Олега Орлова)."
+            ),
+            published_at=datetime(2026, 9, 25, tzinfo=UTC),
+        )
+        _person(session, seed, run, "Дмитрия Пуркина", "Дмитрий", "Пуркин")
+        _person(session, seed, run, "Дед Архимед", "Дед", "Архимед")
+        _person(session, seed, run, "Елизавету Гырдымову", "Елизавета", "Гырдымова")
+        _person(session, seed, run, "Ивана Петрова", "Иван", "Петров")
+        _person(session, seed, run, "Олега Орлова", "Олег", "Орлов")
+        seed.event(run, "заочно арестовал", event_type="arrest", event_date=None, links=[])
+        session.commit()
+
+    EntityCollector(session_factory).run()
+
+    with session_factory() as session:
+        entities = {
+            name: variants
+            for name, variants in session.execute(
+                select(EntityGroupRecord.name, EntityGroupRecord.variants)
+            ).all()
+        }
+    # The pseudonym joins the name before it, whose name stays; a bracket not right after
+    # a name, or not closed right after the mention, joins nothing.
+    assert sorted(entities) == [
+        "Дмитрий Пуркин",
+        "Елизавета Гырдымова",
+        "Иван Петров",
+        "Олег Орлов",
+    ]
+    assert "Дед Архимед" in {variant for variant, _count in entities["Дмитрий Пуркин"]}

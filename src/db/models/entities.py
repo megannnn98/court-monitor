@@ -304,3 +304,41 @@ class UnnamedDecisionRecord(Base):
     decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class EntityGroupNewsRecord(Base):
+    """What a political case's latest news is: a new case, a sentence, or more of an old
+    one — the operator adds the new ones and the sentences first.
+
+    Rewritten by every «Отобрать политические дела»; only the political have one."""
+
+    __tablename__ = "entity_group_news"
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    # new_case, sentence, ongoing or other.
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    # model: a model read the latest quotes; none: no model answered.
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+    # The latest publication the answer is about.
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EntityNewsAnswerRecord(Base):
+    """A model's reading of a case's latest news, for these very quotes: reused until the
+    quotes or the prompt change."""
+
+    __tablename__ = "entity_news_answers"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

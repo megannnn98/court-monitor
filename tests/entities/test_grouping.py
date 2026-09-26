@@ -7,7 +7,14 @@ from itertools import count
 
 import pytest
 
-from entities.grouping import Entity, PersonMention, group_mentions, kinship, merge_swapped
+from entities.grouping import (
+    Entity,
+    PersonMention,
+    attach_aliases,
+    group_mentions,
+    kinship,
+    merge_swapped,
+)
 
 _ids = count(1)
 
@@ -521,3 +528,20 @@ def test_the_same_two_words_swapped_are_one_person() -> None:
         # Another region: namesakes parted by their cards stay apart.
         ("Дрион Алексис", [6]),
     ]
+
+
+def test_a_pseudonym_joins_the_named_person_whose_name_stays() -> None:
+    purkin = Entity("дмитрий пуркин", "Дмитрий Пуркин", [1], Counter({"Дмитрия Пуркина": 1}))
+    # The pseudonym, also named alone in another article: all of it is the person.
+    alias = Entity("дед архимед", "Дед Архимед", [2, 3], Counter({"Дед Архимед": 2}))
+    other = Entity("иван петров", "Иван Петров", [4], Counter({"Ивана Петрова": 1}))
+
+    merged = attach_aliases([alias, purkin, other], [(2, 1), (4, 99), (1, 1)])
+
+    assert [(entity.name, entity.mention_ids) for entity in merged] == [
+        ("Дмитрий Пуркин", [1, 2, 3]),
+        ("Иван Петров", [4]),
+    ]
+    assert merged[0].variants == Counter({"Дмитрия Пуркина": 1, "Дед Архимед": 2})
+    # The entities given are left as they were.
+    assert purkin.mention_ids == [1] and alias.key == "дед архимед"

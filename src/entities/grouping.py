@@ -527,6 +527,31 @@ def attach_bare(entities: Sequence[Entity], article_of: Mapping[int, int]) -> li
     return sorted(merged.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
 
 
+def attach_aliases(entities: Sequence[Entity], aliases: Iterable[tuple[int, int]]) -> list[Entity]:
+    """A pseudonym written in brackets right after a name («блогера Дмитрия Пуркина (Дед
+    Архимед)») is that person: its entity — every mention of it — joins the named one,
+    whose name stays. `aliases` pairs the bracketed mention with the name's mention.
+    """
+    by_key = {
+        entity.key: replace(
+            entity, mention_ids=list(entity.mention_ids), variants=Counter(entity.variants)
+        )
+        for entity in entities
+    }
+    key_of = {m: entity.key for entity in entities for m in entity.mention_ids}
+    for alias, named in aliases:
+        source, target = key_of.get(alias), key_of.get(named)
+        if source is None or target is None or source == target:
+            continue
+        moved = by_key.pop(source)
+        by_key[target].mention_ids += moved.mention_ids
+        by_key[target].variants.update(moved.variants)
+        by_key[target].regions.update(moved.regions)
+        for m in moved.mention_ids:
+            key_of[m] = target
+    return sorted(by_key.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
+
+
 _PATRONYMIC_TAILS = ("вич", "вна", "ична")
 _GENDERS = {"masc": "male", "femn": "female"}
 

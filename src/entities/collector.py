@@ -30,6 +30,7 @@ from entities.grouping import (
     GivenName,
     PersonMention,
     apply_names,
+    attach_aliases,
     attach_bare,
     group_mentions,
     kinship,
@@ -85,6 +86,24 @@ _MENTIONS = text(
     WHERE m.entity_type = 'person'
     """
 )
+# A person's mention in brackets right after another's: «Дмитрия Пуркина (Дед Архимед)».
+# Offsets are Python's, from 0; `substr` counts from 1.
+_ALIASES = text(
+    r"""
+    SELECT a.id, n.id
+    FROM entity_mentions a
+    JOIN article_extraction_runs r ON r.id = a.extraction_run_id
+    JOIN parsed_articles p ON p.id = r.article_id
+    JOIN entity_mentions n
+      ON n.extraction_run_id = a.extraction_run_id AND n.entity_type = 'person'
+     AND n.end_offset < a.start_offset
+    WHERE a.entity_type = 'person' AND a.start_offset > 0
+      AND substr(p.text, a.start_offset, 1) = '('
+      AND substr(p.text, a.end_offset + 1, 1) = ')'
+      AND substr(p.text, n.end_offset + 1, a.start_offset - n.end_offset) ~ '^[ \t]*\($'
+    """
+)
+
 _EVENTS = text(
     """
     SELECT em.mention_id, e.event_type FROM event_entity_mentions em
@@ -203,6 +222,10 @@ class EntityCollector:
             entities = merge_decided(entities, same_pairs(session))
             # And a person's corrections of names.
             entities = apply_overrides(entities, name_overrides(session))
+        # A pseudonym in brackets after a name is that person («Пуркина (Дед Архимед)»).
+        with self._session_factory() as session:
+            aliases = [(alias, named) for alias, named in session.execute(_ALIASES).all()]
+        entities = attach_aliases(entities, aliases)
         # A surname alone joins the full name of that surname its article names.
         entities = attach_bare(entities, articles)
 

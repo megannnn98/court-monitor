@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
 from entities.collector import EntityCollector
+from entities.news import NewsFinder, NewsResult, news_reader_from_env
 from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck, RfCheckResult
@@ -46,6 +47,7 @@ MONITORING_COMMANDS = frozenset(
         "find-figurants",
         "find-political",
         "find-unnamed",
+        "find-news",
         "compare-entity-models",
         "monitoring-status",
         "monitoring-findings",
@@ -175,6 +177,14 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         help=(
             "Match entities against Rosfinmonitoring, tell which figurants are politically "
             "persecuted, then find the unnamed figurants"
+        ),
+    )
+
+    subparsers.add_parser(
+        "find-news",
+        help=(
+            "Tell what each political case's latest news is: a new case, a sentence, or "
+            "more of an old one"
         ),
     )
 
@@ -336,6 +346,8 @@ def run_monitoring_command(
             classifier=politics,
             on_stage=lambda stage: logger.info("event=entity_politics_stage stage=%s", stage),
         ).run()
+        # What each political case's latest news is: the new cases and the sentences first.
+        news = _find_news(session_factory)
         # The final step ends with unnamed figurants: their cases are read the same way.
         unnamed = _find_unnamed(session_factory)
         _print(
@@ -343,12 +355,21 @@ def run_monitoring_command(
                 **_rf_totals(rf_checked),
                 "rf_error": rf_error,
                 **dataclasses.asdict(found_political),
+                "news_new_case": news.new_case,
+                "news_sentence": news.sentence,
+                "news_ongoing": news.ongoing,
+                "news_other": news.other,
+                "news_unknown": news.unknown,
+                "news_cost_usd": news.cost_usd,
                 "unnamed": unnamed.unnamed,
                 "unnamed_asked_now": unnamed.asked_now,
                 "unnamed_failures": unnamed.failures,
                 "unnamed_cost_usd": unnamed.cost_usd,
             }
         )
+        return True
+    if args.command == "find-news":
+        _print(dataclasses.asdict(_find_news(session_factory)))
         return True
     if args.command == "find-unnamed":
         _print(dataclasses.asdict(_find_unnamed(session_factory)))
@@ -543,6 +564,17 @@ def _rf_totals(checked: RfCheckResult | None) -> dict[str, object]:
         "rf_merged": checked.merged,
         "region_merged": checked.merged_region,
     }
+
+
+def _find_news(session_factory: sessionmaker[Session]) -> NewsResult:
+    reader = news_reader_from_env()
+    if reader is None:
+        logger.warning("event=entity_news_no_model: OPENROUTER_API_KEY is not set")
+    return NewsFinder(
+        session_factory,
+        reader=reader,
+        on_stage=lambda stage: logger.info("event=entity_news_stage stage=%s", stage),
+    ).run()
 
 
 def _find_unnamed(session_factory: sessionmaker[Session]) -> UnnamedResult:

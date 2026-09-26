@@ -342,6 +342,33 @@ def test_the_rosfinmonitoring_status_is_shown_as_it_is(
     assert '<span class="badge ">в перечне Росфинмониторинга</span>' in listed
 
 
+def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _case(session_factory)
+    with _client(session_factory) as client:
+        unread = client.get(f"/ui/investigations/{quote(MOOR)}").text
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "INSERT INTO entity_group_news (group_id, kind, method, reason, quote) "
+                "SELECT id, 'sentence', 'model', 'суд вынес приговор', '' FROM entity_groups "
+                "WHERE key = :key"
+            ),
+            {"key": MOOR},
+        )
+
+    with _client(session_factory) as client:
+        dossier = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        overview = client.get("/ui/overview").text
+
+    assert "Свежая новость" not in unread
+    role = dossier[dossier.index("<h3>Роль в деле</h3>") :]
+    assert '<h3>Свежая новость</h3>\n    <p><span class="badge succeeded">приговор</span>' in role
+    assert "суд вынес приговор" in role
+    assert '<th scope="col">Свежая новость</th>' in overview and "приговор" in overview
+
+
 def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(
     session_factory: sessionmaker[Session],
 ) -> None:

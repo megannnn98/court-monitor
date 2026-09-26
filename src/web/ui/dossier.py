@@ -30,6 +30,8 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
+from entities.news import KIND_LABELS as NEWS_LABELS
+from entities.news import NEW_CASE, SENTENCE
 from entities.officials import OFFICIAL_KINDS
 from entities.politics import CRIMINAL, POLITICAL
 from entities.rf_check import FULL
@@ -75,6 +77,7 @@ _ENTITY = text(
            ro.quote AS role_quote,
            po.verdict, po.method AS verdict_method, po.reason AS verdict_reason,
            po.quote AS verdict_quote,
+           ne.kind AS news_kind, ne.reason AS news_reason,
            (SELECT min(a.published_at) FROM entity_group_mentions gm
               JOIN entity_mentions m ON m.id = gm.mention_id
               JOIN article_extraction_runs r ON r.id = m.extraction_run_id
@@ -83,6 +86,7 @@ _ENTITY = text(
     FROM entity_groups g
     LEFT JOIN entity_group_roles ro ON ro.group_id = g.id
     LEFT JOIN entity_group_politics po ON po.group_id = g.id
+    LEFT JOIN entity_group_news ne ON ne.group_id = g.id
     WHERE g.key = :key
     """
 )
@@ -552,7 +556,7 @@ def _decision(dossier: Dossier) -> str:
   <h2 id="decision-title">Решение системы</h2>
   <div class="decision-grid">
     <div><h3>Политичность дела</h3>{verdict}</div>
-    <div><h3>Роль в деле</h3>{role}</div>
+    <div><h3>Роль в деле</h3>{role}{_news(entity)}</div>
     <div><h3>Росфинмониторинг</h3>
       <p>{_badge(rf_label, rf_badge)}</p>
       {f"<ul>{rf_items}</ul>" if rf_items else ""}
@@ -594,6 +598,15 @@ def _charges(dossier: Dossier) -> str:
   событии обвиняемыми названы и другие люди: статья может относиться не к нему.</p>
   <ul class="charges">{"".join(items)}</ul>
 </section>"""
+
+
+def _news(entity: Any) -> str:
+    """What the latest news is: the operator's new cases and sentences first."""
+    if not entity.news_kind:
+        return ""
+    return f"""<h3>Свежая новость</h3>
+    <p>{_badge(NEWS_LABELS.get(entity.news_kind, entity.news_kind), "succeeded" if entity.news_kind in (NEW_CASE, SENTENCE) else "")}</p>
+    <p class="muted">{escape(entity.news_reason)}</p>"""
 
 
 def _timeline(dossier: Dossier) -> str:
