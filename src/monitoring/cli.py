@@ -11,6 +11,7 @@ import json
 import logging
 import sys
 from collections.abc import Callable
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel
@@ -107,6 +108,18 @@ def add_monitoring_arguments(subparsers: Any) -> None:
             "With --catch-up: load and extract only; person resolution and the derived "
             "stages are left to monitor-resolve"
         ),
+    )
+    monitor.add_argument(
+        "--published-from",
+        type=date.fromisoformat,
+        default=None,
+        help="Only ingest articles published on or after YYYY-MM-DD",
+    )
+    monitor.add_argument(
+        "--published-to",
+        type=date.fromisoformat,
+        default=None,
+        help="Only ingest articles published on or before YYYY-MM-DD",
     )
 
     resolve = subparsers.add_parser(
@@ -362,6 +375,16 @@ def run_monitoring_command(
         raise SystemExit("--load-only requires --catch-up")
     if args.catch_up and (args.dry_run or args.backfill):
         raise SystemExit("--catch-up cannot be combined with --dry-run or --backfill")
+    if (
+        args.published_from is not None
+        and args.published_to is not None
+        and args.published_from > args.published_to
+    ):
+        raise SystemExit("--published-from must be <= --published-to")
+    if (args.published_from is not None or args.published_to is not None) and args.dry_run:
+        raise SystemExit(
+            "published date filters require fetching/parsing; --dry-run cannot apply them"
+        )
     if args.selected_source is not None:
         if not args.catch_up:
             raise SystemExit("--selected-source requires --catch-up")
@@ -399,6 +422,8 @@ def run_monitoring_command(
                 trigger=trigger,
                 discovery_limit=args.limit,
                 refetch_known=args.refetch_known,
+                published_from=args.published_from,
+                published_to=args.published_to,
                 with_derived=not args.catch_up,
                 with_resolution=not args.load_only,
             )

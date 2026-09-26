@@ -54,6 +54,8 @@ def test_the_home_page_has_no_source_list_step_one_loads_them_all(
         response.text
     )
     assert 'name="sources"' not in response.text and "source-table" not in response.text
+    assert 'name="published_from"' in response.text
+    assert 'name="published_to"' in response.text
     assert f"Шаг 1 скачивает все новостные источники ({len(news_sources())})" in response.text
     assert "Шесть шагов по кругу" in response.text
     assert "Четыре шага по кругу" not in response.text
@@ -124,6 +126,42 @@ def test_step_one_without_sources_loads_every_news_source(
     (run,) = registry.runs_of("monitor")
     assert run.parameters.sources == [source.name for source in news_sources()]
     assert "memopzk-figurants" not in run.parameters.sources
+
+
+def test_post_passes_published_date_range_to_monitor(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        response = client.post(
+            "/ui/management/run",
+            data={"published_from": "2026-09-01", "published_to": "2026-09-25"},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    run = registry.runs_of("monitor")[0]
+    assert run.parameters.published_from == "2026-09-01"
+    assert run.parameters.published_to == "2026-09-25"
+    assert "--published-from" in run.command
+    assert "--published-to" in run.command
+
+
+def test_post_rejects_reversed_published_date_range(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        response = client.post(
+            "/ui/management/run",
+            data={"published_from": "2026-09-25", "published_to": "2026-09-01"},
+        )
+
+    assert response.status_code == 400
+    assert "не позже" in response.text
+    assert registry.runs_of("monitor") == []
 
 
 def test_a_registry_source_does_not_start_a_run(session_factory: sessionmaker[Session]) -> None:

@@ -6,12 +6,20 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
-from support.monitoring_fixtures import MEDIA_ONLY, PETROV, SIDOROV, FakeUpstream, build_service
+from support.monitoring_fixtures import (
+    MEDIA_ONLY,
+    PETROV,
+    SIDOROV,
+    FakeUpstream,
+    build_service,
+    table_counts,
+)
 
 from application import ApplicationServices
 from monitoring.cli import (
@@ -97,6 +105,40 @@ def test_monitor_one_source_dry_run_writes_nothing(
     assert isinstance(status, dict)
     assert status["latest_runs"] == []
     assert status["sources"] == []
+
+
+def test_monitor_date_range_persists_only_articles_in_range(
+    session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
+) -> None:
+    ovd = FakeUpstream()
+    ovd.publish("old", SIDOROV, published_at=datetime(2026, 8, 31, tzinfo=UTC))
+    ovd.publish("new", PETROV, published_at=datetime(2026, 9, 5, tzinfo=UTC))
+
+    runs = _run(
+        session_factory,
+        {"ovd-info": ovd},
+        capsys,
+        "monitor",
+        "--catch-up",
+        "--load-only",
+        "--selected-source",
+        "ovd-info",
+        "--published-from",
+        "2026-09-01",
+        "--published-to",
+        "2026-09-30",
+    )
+
+    assert isinstance(runs, list)
+    (run,) = runs
+    assert run["documents_ingested"] == 1
+    assert run["documents_skipped"] == 1
+    assert run["stage_metrics"]["ingestion"]["skipped_out_of_published_range"] == 1
+    assert ovd.fetches == ["old", "new"]
+    assert table_counts(session_factory, "source_documents", "parsed_articles") == {
+        "source_documents": 1,
+        "parsed_articles": 1,
+    }
 
 
 def test_monitor_reports_an_already_running_source(
@@ -242,6 +284,20 @@ def test_selected_catch_up_continues_after_one_selected_source_fails(
         (
             ("monitor", "--catch-up", "--backfill", "--source", "ovd-info", "--limit", "5"),
             "--catch-up cannot",
+        ),
+        (
+            (
+                "monitor",
+                "--published-from",
+                "2026-09-30",
+                "--published-to",
+                "2026-09-01",
+            ),
+            "--published-from must be <= --published-to",
+        ),
+        (
+            ("monitor", "--published-from", "2026-09-01", "--dry-run"),
+            "published date filters require fetching/parsing",
         ),
     ],
 )

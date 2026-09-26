@@ -21,6 +21,26 @@ uv run python src/main.py monitoring-findings --all
 `monitoring_run_items`/логи stage. Повторный запуск безопасен: work selection
 берет недоделанное из PostgreSQL.
 
+### Загрузка за заданные даты
+
+В веб-консоли «Управление» в блоке «Даты публикаций для шага 1» укажите даты
+`С` и `По`, затем нажмите «Подгрузить статьи». Обе границы включаются. Пустое
+поле означает отсутствие ограничения; статья без `published_at` при заданном
+диапазоне пропускается.
+
+То же через CLI:
+
+```bash
+uv run python src/main.py monitor \
+  --catch-up --load-only --selected-source ovd-info \
+  --published-from 2026-09-01 --published-to 2026-09-30
+```
+
+Фильтр применяется после discovery, скачивания и разбора статьи, до записи в
+`source_documents`/`parsed_articles`. Поэтому `--limit` источника должен быть
+достаточным, чтобы discovery дошёл до нужных дат. Диапазон не применяется к
+`--dry-run`: dry-run только показывает найденные ссылки и ничего не скачивает.
+
 ## Архитектура
 
 Dagster — оболочка вокруг pipeline, а не часть домена: он запускает те же методы `MonitoringService`, что и CLI.

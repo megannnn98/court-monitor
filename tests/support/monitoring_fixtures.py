@@ -55,15 +55,22 @@ MALFORMED_MARKER = "MALFORMED"
 class FakeUpstream:
     """Listing order = insertion order; `fetches` counts document downloads."""
 
-    articles: dict[str, tuple[str, str]] = field(default_factory=dict)
+    articles: dict[str, tuple[str, str, datetime | None]] = field(default_factory=dict)
     fetches: list[str] = field(default_factory=list)
     discoveries: int = 0
     # Discoveries allowed to stop where stored documents begin (they list everything anyway).
     discoveries_until_known: int = 0
     discovery_error: Exception | None = None
 
-    def publish(self, external_id: str, text: str, *, title: str | None = None) -> None:
-        self.articles[external_id] = (title or external_id, text)
+    def publish(
+        self,
+        external_id: str,
+        text: str,
+        *,
+        title: str | None = None,
+        published_at: datetime | None = None,
+    ) -> None:
+        self.articles[external_id] = (title or external_id, text, published_at)
 
 
 class FakeSourceAdapter:
@@ -88,28 +95,31 @@ class FakeSourceAdapter:
 
     async def fetch(self, reference: SourceReference) -> RawDocument:
         self._upstream.fetches.append(reference.external_id)
-        title, text = self._upstream.articles[reference.external_id]
+        title, text, published_at = self._upstream.articles[reference.external_id]
+        date_line = published_at.isoformat() if published_at else ""
         return RawDocument(
             external_id=reference.external_id,
             url=reference.url,
             fetched_at=datetime.now(UTC),
             content_type="text/plain",
-            content=f"{title}\n{text}".encode(),
+            content=f"{title}\n{date_line}\n{text}".encode(),
         )
 
 
 class FakeArticleParser:
     def parse(self, raw_document: RawDocument) -> ParsedArticle:
-        title, _, text = raw_document.content.decode().partition("\n")
+        title, _, rest = raw_document.content.decode().partition("\n")
+        date_line, _, text = rest.partition("\n")
         if text == MEDIA_ONLY:
             raise NoTextError(f"No text in {raw_document.external_id}")
         if not text:
             raise ParseError(f"No article text in {raw_document.external_id}")
+        published_at = datetime.fromisoformat(date_line) if date_line else None
         return ParsedArticle(
             external_id=raw_document.external_id,
             url=raw_document.url,
             title=title,
-            published_at=None,
+            published_at=published_at,
             text=text,
         )
 

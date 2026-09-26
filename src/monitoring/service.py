@@ -16,6 +16,7 @@ from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from datetime import date
 from typing import Any
 
 import httpx
@@ -50,8 +51,7 @@ from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotL
 from semantic_retrieval.indexer import DEFAULT_BATCH_SIZE, SemanticIndexer
 from semantic_retrieval.models import RetrievalEntityType
 from sources.ingestion_errors import NoTextError
-from sources.ingestion_pipeline import IngestionPipeline
-from sources.models import SourceReference
+from sources.models import ParsedArticle, SourceReference
 from sources.source_adapter import DiscoversUntilKnown, DocumentFetcher
 from sources.source_registry import SourceDefinition
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
@@ -79,6 +79,8 @@ class RunHandle:
     trigger: MonitoringTrigger
     discovery_limit: int = 0
     refetch_known: bool = False
+    published_from: date | None = None
+    published_to: date | None = None
     # Resolution only: nothing was discovered, so the checkpoint must not move.
     resolve_only: bool = False
 
@@ -219,17 +221,30 @@ class MonitoringService:
         trigger: MonitoringTrigger = MonitoringTrigger.MANUAL,
         discovery_limit: int | None = None,
         refetch_known: bool = False,
+        published_from: date | None = None,
+        published_to: date | None = None,
     ) -> RunHandle:
         """Raises `MonitoringAlreadyRunningError` when this source is already being monitored."""
         self._source(source)
         if refetch_known and trigger is not MonitoringTrigger.BACKFILL:
             raise ValueError("refetch_known is only allowed for a backfill")
+        if (
+            published_from is not None
+            and published_to is not None
+            and published_from > published_to
+        ):
+            raise ValueError("published_from must be <= published_to")
         limit = discovery_limit or self._settings.discovery_limit
+        parameters: dict[str, Any] = {"discovery_limit": limit, "refetch_known": refetch_known}
+        if published_from is not None:
+            parameters["published_from"] = published_from.isoformat()
+        if published_to is not None:
+            parameters["published_to"] = published_to.isoformat()
         run_id = self._repository.start_run(
             scope=source_scope(source),
             source=source,
             trigger=trigger,
-            parameters={"discovery_limit": limit, "refetch_known": refetch_known},
+            parameters=parameters,
             stale_after=self._settings.stale_run_after,
         )
         return RunHandle(
@@ -238,6 +253,8 @@ class MonitoringService:
             trigger=trigger,
             discovery_limit=limit,
             refetch_known=refetch_known,
+            published_from=published_from,
+            published_to=published_to,
         )
 
     def start_derived_run(
@@ -303,6 +320,8 @@ class MonitoringService:
         trigger: MonitoringTrigger = MonitoringTrigger.MANUAL,
         discovery_limit: int | None = None,
         refetch_known: bool = False,
+        published_from: date | None = None,
+        published_to: date | None = None,
         with_derived: bool = True,
         with_resolution: bool = True,
     ) -> MonitoringRunView:
@@ -314,7 +333,12 @@ class MonitoringService:
         if with_derived and not with_resolution:
             raise ValueError("the derived stages need resolution")
         handle = self.start_source_run(
-            source, trigger=trigger, discovery_limit=discovery_limit, refetch_known=refetch_known
+            source,
+            trigger=trigger,
+            discovery_limit=discovery_limit,
+            refetch_known=refetch_known,
+            published_from=published_from,
+            published_to=published_to,
         )
         try:
             discovery = self.discover(handle)
@@ -471,15 +495,13 @@ class MonitoringService:
         outcomes: Counter[str] = Counter()
         async with self._deps.create_http_client() as client:
             adapter = definition.create_adapter(client, self._deps.create_fetcher())
-            pipeline = IngestionPipeline(
-                source_adapter=adapter,
-                parser=definition.create_parser(),
-                persistence=self._deps.create_ingestion_persistence(definition),
-            )
+            parser = definition.create_parser()
+            persistence = self._deps.create_ingestion_persistence(definition)
             for reference in references:
                 self._repository.heartbeat(handle.run_id)
                 try:
-                    result = await pipeline.run(reference)
+                    raw_document = await adapter.fetch(reference)
+                    parsed = parser.parse(raw_document)
                 except NoTextError:
                     # Nothing to read, nothing broken: a skip, not a failure of the run.
                     logger.info(
@@ -501,7 +523,21 @@ class MonitoringService:
                     self._repository.add_counters(handle.run_id, {"documents_failed": 1})
                     outcomes[f"failed_{kind.value}"] += 1
                     continue
-                article_ids.append(result.persistence.article_id)
+                if not _published_in_range(
+                    parsed, published_from=handle.published_from, published_to=handle.published_to
+                ):
+                    logger.info(
+                        "event=monitoring_document_skipped run_id=%s url=%s reason=%s published_at=%s",
+                        handle.run_id,
+                        reference.url,
+                        _published_skip_reason(parsed),
+                        parsed.published_at.isoformat() if parsed.published_at else None,
+                    )
+                    self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
+                    outcomes[_published_skip_reason(parsed)] += 1
+                    continue
+                result = persistence.save(raw_document, parsed)
+                article_ids.append(result.article_id)
                 self._repository.add_counters(handle.run_id, {"documents_ingested": 1})
                 outcomes["ingested"] += 1
         return article_ids, outcomes
@@ -868,3 +904,22 @@ def _require_source(handle: RunHandle) -> str:
     if handle.source is None:
         raise ValueError(f"Monitoring run {handle.run_id} has no source")
     return handle.source
+
+
+def _published_in_range(
+    article: ParsedArticle, *, published_from: date | None, published_to: date | None
+) -> bool:
+    if published_from is None and published_to is None:
+        return True
+    if article.published_at is None:
+        return False
+    published_on = article.published_at.date()
+    return (published_from is None or published_on >= published_from) and (
+        published_to is None or published_on <= published_to
+    )
+
+
+def _published_skip_reason(article: ParsedArticle) -> str:
+    if article.published_at is None:
+        return "skipped_unknown_published_date"
+    return "skipped_out_of_published_range"

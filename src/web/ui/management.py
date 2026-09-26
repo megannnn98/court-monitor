@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from html import escape
 from typing import Literal
 from urllib.parse import parse_qs
@@ -761,6 +761,13 @@ def _management_page(
     <span class="muted">Шаг 1 скачивает все новостные источники ({len(definitions)}); шаги 2–6
     работают со всей базой.</span>
   </div>
+  <fieldset class="date-range">
+    <legend>Даты публикаций для шага 1</legend>
+    <label>С <input type="date" name="published_from"></label>
+    <label>По <input type="date" name="published_to"></label>
+    <p class="muted">Пусто — без ограничения. Фильтр применяется к дате публикации после
+    загрузки статьи; для старых дат увеличьте limit источника.</p>
+  </fieldset>
 </form>
 {_history(history, run)}"""
     page = _page(
@@ -897,6 +904,16 @@ async def _start(
     request: Request, db: Session, registry: OperationRegistry, mode: Literal["load"]
 ) -> HTMLResponse | RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    published_from = _parse_date_field(form, "published_from")
+    published_to = _parse_date_field(form, "published_to")
+    if published_from == "invalid" or published_to == "invalid":
+        return _refused(db, registry, "Дата должна быть в формате YYYY-MM-DD.", 400)
+    if (
+        isinstance(published_from, date)
+        and isinstance(published_to, date)
+        and published_from > published_to
+    ):
+        return _refused(db, registry, "Дата «С» должна быть не позже даты «По».", 400)
     everything = [item.name for item in news_sources()]
     # The page sends no sources: all of them. The API may still name some.
     selected = list(dict.fromkeys(form.get("sources", []))) or everything
@@ -906,10 +923,32 @@ async def _start(
     if not set(selected) <= set(everything):
         return _refused(db, registry, "В запросе есть неизвестный или не новостной источник.", 400)
     try:
-        run = registry.start(_OPERATION, OperationParameters(sources=selected, mode=mode))
+        run = registry.start(
+            _OPERATION,
+            OperationParameters(
+                sources=selected,
+                mode=mode,
+                published_from=published_from.isoformat()
+                if isinstance(published_from, date)
+                else None,
+                published_to=published_to.isoformat() if isinstance(published_to, date) else None,
+            ),
+        )
     except OperationConflictError:
         return _refused(db, registry, "Идёт другой запуск.", 409)
     return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
+
+
+def _parse_date_field(
+    form: dict[str, list[str]], field: Literal["published_from", "published_to"]
+) -> date | Literal["invalid"] | None:
+    raw = (form.get(field) or [""])[0].strip()
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return "invalid"
 
 
 @router.post("/ui/management/runs/{run_id}/stop", response_model=None)

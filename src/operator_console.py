@@ -61,6 +61,8 @@ LIVE_STATUSES = (OperationRunStatus.PENDING.value, OperationRunStatus.RUNNING.va
 class OperationParameters(BaseModel):
     source: str | None = None
     sources: list[str] | None = None
+    published_from: str | None = None
+    published_to: str | None = None
     # monitor only: "load" loads and extracts, "resolve" resolves persons and classifies,
     # "purge" deletes the articles without a criminal case, "entities" rebuilds the person
     # entities, "rosfin" checks them against the Rosfinmonitoring list, "figurants" tells
@@ -317,8 +319,13 @@ class OperationRegistry:
         """Record a pending run and hand it to the executor; returns without waiting."""
         definition = self.definition(name)
         parameters = self._with_defaults(definition, parameters)
-        if (parameters.sources is not None or parameters.mode is not None) and name != "monitor":
-            raise ValueError("sources and mode are only supported for monitor")
+        if (
+            parameters.sources is not None
+            or parameters.published_from is not None
+            or parameters.published_to is not None
+            or parameters.mode is not None
+        ) and name != "monitor":
+            raise ValueError("sources, published dates and mode are only supported for monitor")
         command = _command_for(definition.name, parameters)
         self.interrupt_stale_runs()
         try:
@@ -571,6 +578,10 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
             command += ["--source", _require_source(parameters.source)]
         if parameters.mode == "load":
             command.append("--load-only")
+        if parameters.published_from is not None:
+            command += ["--published-from", parameters.published_from]
+        if parameters.published_to is not None:
+            command += ["--published-to", parameters.published_to]
         command += ["--limit", str(_require_limit(parameters.limit))]
     elif name == "discover-and-ingest":
         source = _require_source(parameters.source)
