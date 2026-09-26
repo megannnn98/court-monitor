@@ -164,6 +164,7 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 |---|---|---|
 | `entity_groups` | шаг 3 | человек: `key` («имя фамилия», склонения и «ё» сведены; для тёзок с разными регионами — « · регион»), имя, варианты написания, число упоминаний и публикаций, события, регионы, дата последней публикации, источник имени (`rules`, `model`, `manual`) |
 | `entity_group_mentions` | шаг 3 | какие упоминания (`entity_mentions`) составляют человека |
+| `entity_group_unnamed_mentions` | шаг 3 | какие безымянные цитаты (`unnamed_figurants`) оператор опознал как этого человека; связь пересобирается по устойчивому решению |
 | `entity_group_charges` | шаг 3 | статья УК события, где человек — обвиняемый: часть, тип события, цитата, `other_targets` (сколько ещё обвиняемых в событии) |
 | `entity_group_rf_matches` | шаг 5 | совпадение с записью перечня: `full` или `name` |
 | `entity_group_roles` | шаг 4 | роль: `figurant`, `possible`, `mentioned`, `unclear`; `kind` (accused, foreign, historical, support, …), способ (`model`, `article`, `official`, `rules`), причина, цитата |
@@ -173,9 +174,11 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 | `entity_pair_decisions` | оператор, шаг 5 (слияния по перечню и региону) | «один человек» / «разные люди» по паре ключей; `source`: `manual`, `rf`, `region` |
 | `entity_name_overrides` | оператор | исправленное имя по ключу |
 | `entity_official_marks` | оператор | «должностное лицо» или «нет» по ключу |
-| `unnamed_decisions` | оператор | «это он» / «не он» / «никого нет» по ключу фигуранта и «ФИО|дата рождения» записи перечня |
+| `unnamed_identity_resolutions` | оператор | опознание безымянного по ключу фигуранта: запись РФМ, существующий человек, имя вручную, нет записи РФМ, недостаточно данных |
+| `unnamed_decisions` | оператор | отрицания конкретных кандидатов РФМ (`different`) по ключу фигуранта и «ФИО|дата рождения» |
 
-Миграции: от `x8y9z0a1b2c3_entity_groups.py` до `c9d0e1f2a4b5_unnamed_figurants.py`.
+Миграции: от `x8y9z0a1b2c3_entity_groups.py` до
+`e1f2a4b5c6d7_unnamed_identity_resolutions.py`.
 
 ## `operator_operation_runs`
 

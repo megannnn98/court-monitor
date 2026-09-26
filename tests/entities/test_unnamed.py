@@ -17,7 +17,7 @@ from db.orm_models import (
 )
 from entities.unnamed import (
     DIFFERENT,
-    NONE,
+    RF_ENTRY,
     SAME,
     UnnamedAnswer,
     UnnamedFinder,
@@ -27,6 +27,7 @@ from entities.unnamed import (
     common_crime_only,
     decide,
     described_sentences,
+    resolve_identity,
 )
 
 TYUMEN = (
@@ -243,20 +244,29 @@ def test_a_person_s_word_is_kept_and_orders_the_candidates(
 
     with session_factory.begin() as session:
         decide(session, figurant.key, purtov.key, DIFFERENT)
-        decide(session, figurant.key, purtov.key, SAME)
-        decide(session, figurant.key, "whatever", NONE)
+        resolve_identity(
+            session,
+            figurant.key,
+            RF_ENTRY,
+            normalized_name="пуртов егор владимирович",
+            rf_name="пуртов егор владимирович",
+            rf_birth_date=purtov.birth_date,
+        )
     # A new search keeps them: they hold to the keys.
     UnnamedFinder(session_factory, reader=FakeReader()).run()
 
     with session_factory() as session:
         figurant = session.scalars(select(UnnamedFigurantRecord)).one()
         found = candidates(session, figurant)
-        decisions = session.execute(
-            text("SELECT candidate, decision FROM unnamed_decisions ORDER BY candidate")
-        ).all()
+        resolution = session.execute(
+            text(
+                "SELECT resolution, normalized_name, rf_birth_date "
+                "FROM unnamed_identity_resolutions"
+            )
+        ).one()
 
     assert found.shown[0].decision == SAME
-    assert decisions == [("", NONE), (purtov.key, SAME)]
+    assert resolution == (RF_ENTRY, "пуртов егор владимирович", purtov.birth_date)
 
 
 def test_a_case_of_common_crime_only_is_no_unnamed_figurant(

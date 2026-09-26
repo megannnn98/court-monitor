@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupNewsRecord, EntityNewsAnswerRecord
 from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.evidence import person_evidence_cte
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -269,17 +270,13 @@ _CASES = text(
 )
 # Per case, its latest publications, each with one excerpt around its first mention.
 _QUOTES = text(
-    """
-    WITH mentions AS (
-        SELECT gm.group_id, a.id AS publication, a.published_at,
-               substr(a.text, greatest(m.start_offset - :context, 0) + 1,
-                      m.end_offset - greatest(m.start_offset - :context, 0) + :context) AS quote,
-               row_number() OVER (PARTITION BY gm.group_id, a.id ORDER BY m.start_offset) AS nth
-        FROM entity_group_mentions gm
-        JOIN entity_mentions m ON m.id = gm.mention_id
-        JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-        JOIN parsed_articles a ON a.id = r.article_id
-        WHERE gm.group_id = ANY(:groups)
+    f"""
+    WITH {person_evidence_cte()},
+    mentions AS (
+        SELECT group_id, article_id AS publication, published_at, quote,
+               row_number() OVER (PARTITION BY group_id, article_id ORDER BY start_offset) AS nth
+        FROM person_evidence
+        WHERE group_id = ANY(:groups)
     ), latest AS (
         SELECT group_id, publication, published_at, quote,
                row_number() OVER (

@@ -34,7 +34,12 @@ from sqlalchemy import delete, insert, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import UnnamedAnswerRecord, UnnamedDecisionRecord, UnnamedFigurantRecord
+from db.orm_models import (
+    UnnamedAnswerRecord,
+    UnnamedDecisionRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
+)
 from entities.answers import AnswerCache, ask_missing, input_hash
 from entities.llm import (
     OPENROUTER_MODEL,
@@ -62,6 +67,13 @@ CANDIDATES_SHOWN = 10
 SAME = "same"
 DIFFERENT = "different"
 NONE = "none"
+RF_ENTRY = "rf_entry"
+EXISTING_PERSON = "existing_person"
+SUPPLIED_NAME = "supplied_name"
+NO_RF_MATCH = "no_rf_match"
+INSUFFICIENT = "insufficient"
+IDENTIFIED = frozenset({RF_ENTRY, EXISTING_PERSON, SUPPLIED_NAME})
+RESOLUTIONS = frozenset({RF_ENTRY, EXISTING_PERSON, SUPPLIED_NAME, NO_RF_MATCH, INSUFFICIENT})
 
 # A person by age: «17-летний», «17 летняя», «подросток», «несовершеннолетний».
 _DESCRIBED = re.compile(r"\b\d{1,2}\s*-?\s*летн|\bподрост|\bнесовершеннолетн", re.IGNORECASE)
@@ -544,13 +556,30 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
         },
     ).all()
     stems = _stems(figurant.place)
-    decided = {
+    rejected = {
         candidate: decision
         for candidate, decision in session.execute(
-            text("SELECT candidate, decision FROM unnamed_decisions WHERE figurant_key = :key"),
+            text(
+                "SELECT candidate, decision FROM unnamed_decisions "
+                "WHERE figurant_key = :key AND decision = 'different'"
+            ),
             {"key": figurant.key},
         ).all()
     }
+    identified = session.execute(
+        text(
+            """
+            SELECT rf_name, rf_birth_date FROM unnamed_identity_resolutions
+            WHERE figurant_key = :key AND resolution = 'rf_entry'
+            """
+        ),
+        {"key": figurant.key},
+    ).first()
+    same_key = (
+        candidate_key(identified.rf_name, identified.rf_birth_date)
+        if identified and identified.rf_name and identified.rf_birth_date
+        else None
+    )
     found: list[Candidate] = []
     for row in rows:
         place = row.birth_place.lower()
@@ -573,7 +602,7 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
                 first_seen=None,
                 reasons=reasons,
                 place_match=place_match,
-                decision=decided.get(key),
+                decision=SAME if key == same_key else rejected.get(key),
             )
         )
     # Confirmed first, then born there, then the exact age; the rejected last.
@@ -609,12 +638,9 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
 
 
 def decide(session: Session, figurant_key: str, candidate: str, decision: str) -> None:
-    """A person's word, in the caller's transaction: «same» or «different» about an
-    entry; «none» (no entry) — nobody on the list is this person."""
-    if decision not in (SAME, DIFFERENT, NONE):
+    """A person's word that a list entry is not this unnamed figurant."""
+    if decision != DIFFERENT:
         raise ValueError(f"unknown decision: {decision}")
-    if decision == NONE:
-        candidate = ""
     statement = pg_insert(UnnamedDecisionRecord).values(
         figurant_key=figurant_key, candidate=candidate, decision=decision
     )
@@ -622,5 +648,56 @@ def decide(session: Session, figurant_key: str, candidate: str, decision: str) -
         statement.on_conflict_do_update(
             index_elements=["figurant_key", "candidate"],
             set_={"decision": decision, "decided_at": text("now()")},
+        )
+    )
+
+
+def resolve_identity(
+    session: Session,
+    figurant_key: str,
+    resolution: str,
+    *,
+    normalized_name: str | None = None,
+    existing_person_key: str | None = None,
+    rf_name: str | None = None,
+    rf_birth_date: date | None = None,
+) -> None:
+    """A person's stable identification of an unnamed figurant."""
+    if resolution not in RESOLUTIONS:
+        raise ValueError(f"unknown resolution: {resolution}")
+    if resolution == RF_ENTRY and (not normalized_name or not rf_name or rf_birth_date is None):
+        raise ValueError("rf_entry needs a name and birth date")
+    if resolution == EXISTING_PERSON and not existing_person_key:
+        raise ValueError("existing_person needs a person key")
+    if resolution == SUPPLIED_NAME and not normalized_name:
+        raise ValueError("supplied_name needs a name")
+    statement = pg_insert(UnnamedIdentityResolutionRecord).values(
+        figurant_key=figurant_key,
+        resolution=resolution,
+        normalized_name=normalized_name,
+        existing_person_key=existing_person_key,
+        rf_name=rf_name,
+        rf_birth_date=rf_birth_date,
+    )
+    session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["figurant_key"],
+            set_={
+                "resolution": resolution,
+                "normalized_name": normalized_name,
+                "existing_person_key": existing_person_key,
+                "rf_name": rf_name,
+                "rf_birth_date": rf_birth_date,
+                "source": "manual",
+                "decided_at": text("now()"),
+            },
+        )
+    )
+
+
+def clear_resolution(session: Session, figurant_key: str) -> None:
+    session.execute(
+        delete(UnnamedIdentityResolutionRecord).where(
+            UnnamedIdentityResolutionRecord.figurant_key == figurant_key
         )
     )

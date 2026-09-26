@@ -123,15 +123,16 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
 
 def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Session]) -> None:
     _seed(session_factory)
-    candidate = "пуртов егор владимирович|2007-02-17"
 
     with _client(session_factory) as client:
         same = client.post(
-            "/ui/unnamed/decide",
+            "/ui/unnamed/resolve",
             data={
                 "figurant": "k" * 64,
-                "candidate": candidate,
-                "decision": "same",
+                "resolution": "rf_entry",
+                "normalized_name": "Пуртов Егор Владимирович",
+                "rf_name": "пуртов егор владимирович",
+                "rf_birth_date": "2007-02-17",
                 "back": "status=open&page=1",
             },
             follow_redirects=False,
@@ -139,36 +140,58 @@ def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Ses
         found = client.get("/ui/unnamed", params={"status": "found"}).text
         still_open = client.get("/ui/unnamed").text
         incomplete = client.post(
-            "/ui/unnamed/decide", data={"figurant": "k" * 64, "decision": "same"}
+            "/ui/unnamed/resolve", data={"figurant": "k" * 64, "resolution": "rf_entry"}
         )
-        unknown = client.post("/ui/unnamed/decide", data={"figurant": "x", "decision": "none"})
+        unknown = client.post(
+            "/ui/unnamed/resolve", data={"figurant": "x", "resolution": "no_rf_match"}
+        )
 
     assert same.status_code == 303
-    assert same.headers["location"] == f"/ui/unnamed?status=open&page=1#u-{'k' * 64}"
-    assert "Опознаны (1)" in found and "опознан: ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ" in found
+    assert same.headers["location"] == f"/ui/unnamed?status=open&page=1&person_q=#u-{'k' * 64}"
+    assert "Опознаны (1)" in found and "опознан: Пуртов Егор Владимирович" in found
     assert '<span class="badge succeeded">это он</span>' in found
     assert "В этом разделе никого." in still_open
     assert incomplete.status_code == 400 and unknown.status_code == 400
     with session_factory() as session:
-        assert session.execute(text("SELECT candidate, decision FROM unnamed_decisions")).all() == [
-            (candidate, "same")
+        assert session.execute(
+            text(
+                "SELECT resolution, normalized_name, rf_name, rf_birth_date "
+                "FROM unnamed_identity_resolutions"
+            )
+        ).all() == [
+            (
+                "rf_entry",
+                "Пуртов Егор Владимирович",
+                "пуртов егор владимирович",
+                datetime(2007, 2, 17, tzinfo=UTC).date(),
+            )
         ]
 
 
-def test_nobody_on_the_list_closes_the_case(session_factory: sessionmaker[Session]) -> None:
+def test_no_rf_match_stays_open_and_insufficient_closes(
+    session_factory: sessionmaker[Session],
+) -> None:
     _seed(session_factory)
 
     with _client(session_factory) as client:
         client.post(
-            "/ui/unnamed/decide", data={"figurant": "k" * 64, "candidate": "", "decision": "none"}
+            "/ui/unnamed/resolve",
+            data={"figurant": "k" * 64, "resolution": "no_rf_match"},
         )
-        closed = client.get("/ui/unnamed", params={"status": "none"}).text
+        no_rf = client.get("/ui/unnamed", params={"status": "no_rf"}).text
+        still_open = client.get("/ui/unnamed").text
         queue = client.get("/ui/queue").text
+        client.post(
+            "/ui/unnamed/resolve",
+            data={"figurant": "k" * 64, "resolution": "insufficient"},
+        )
+        closed = client.get("/ui/queue").text
 
-    assert (
-        "Никого в перечне (1)" in closed and '<span class="badge">никого в перечне</span>' in closed
-    )
-    assert '<a class="chip" href="/ui/unnamed">Безымянные: 0</a>' in queue
+    assert "Нет записи РФМ (1)" in no_rf
+    assert '<span class="badge">подходящей записи РФМ нет</span>' in no_rf
+    assert "Не разобраны (1)" in still_open
+    assert '<a class="chip" href="/ui/unnamed">Безымянные: 1</a>' in queue
+    assert '<a class="chip" href="/ui/unnamed">Безымянные: 0</a>' in closed
 
 
 def test_the_overview_shows_the_open_unnamed_with_their_candidates(
@@ -179,8 +202,8 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
     with _client(session_factory) as client:
         page = client.get("/ui/overview").text
         client.post(
-            "/ui/unnamed/decide",
-            data={"figurant": "k" * 64, "decision": "none", "back": "status=open"},
+            "/ui/unnamed/resolve",
+            data={"figurant": "k" * 64, "resolution": "insufficient", "back": "status=open"},
             follow_redirects=False,
         )
         closed = client.get("/ui/overview").text
@@ -190,7 +213,7 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
     assert "&lt;b&gt;на железной дороге&lt;/b&gt;" in unnamed and "<b>на" not in unnamed
     assert "17 лет · мужчина · Тюмень · задержание · ст. 205 · вероятных в перечне: 1" in unnamed
     assert '<a href="/ui/unnamed">Все: 1 →</a>' in unnamed
-    # Closed («никого нет в перечне»): off the overview.
+    # Closed as insufficient: off the overview.
     assert "Неопознанных нет." in closed
 
 

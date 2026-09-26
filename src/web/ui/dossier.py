@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from html import escape
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -30,6 +30,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
+from entities.evidence import person_evidence_cte
 from entities.news import KIND_LABELS as NEWS_LABELS
 from entities.news import NEW_CASE, SENTENCE
 from entities.officials import OFFICIAL_KINDS
@@ -78,11 +79,10 @@ _ENTITY = text(
            po.verdict, po.method AS verdict_method, po.reason AS verdict_reason,
            po.quote AS verdict_quote,
            ne.kind AS news_kind, ne.reason AS news_reason,
-           (SELECT min(a.published_at) FROM entity_group_mentions gm
-              JOIN entity_mentions m ON m.id = gm.mention_id
-              JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-              JOIN parsed_articles a ON a.id = r.article_id
-            WHERE gm.group_id = g.id) AS first_published_at
+           (WITH """
+    + person_evidence_cte()
+    + """
+            SELECT min(published_at) FROM person_evidence WHERE group_id = g.id) AS first_published_at
     FROM entity_groups g
     LEFT JOIN entity_group_roles ro ON ro.group_id = g.id
     LEFT JOIN entity_group_politics po ON po.group_id = g.id
@@ -142,21 +142,15 @@ _ORGS = text(
 # Q6 — the publications naming this person, the latest first, an excerpt around the
 # first mention in each.
 _PUBLICATIONS = text(
-    """
+    f"""
+    WITH {person_evidence_cte()}
     SELECT * FROM (
-        SELECT DISTINCT ON (a.id) a.id, a.title, a.published_at, d.canonical_url,
-               s.name AS source, m.start_offset, m.end_offset,
-               substr(a.text, greatest(m.start_offset - :context, 0) + 1,
-                      m.end_offset - greatest(m.start_offset - :context, 0) + :context) AS quote,
-               greatest(m.start_offset - :context, 0) AS quote_start
-        FROM entity_group_mentions gm
-        JOIN entity_mentions m ON m.id = gm.mention_id
-        JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-        JOIN parsed_articles a ON a.id = r.article_id
-        JOIN source_documents d ON d.id = a.document_id
-        JOIN sources s ON s.id = d.source_id
-        WHERE gm.group_id = :group
-        ORDER BY a.id, m.start_offset
+        SELECT DISTINCT ON (article_id) article_id AS id, title, published_at, canonical_url,
+               source, start_offset, end_offset, quote, quote_start, kind,
+               resolution, rf_name, rf_birth_date, decided_at
+        FROM person_evidence
+        WHERE group_id = :group
+        ORDER BY article_id, kind, start_offset
     ) found
     ORDER BY published_at DESC NULLS LAST, id DESC
     LIMIT :limit
@@ -164,43 +158,42 @@ _PUBLICATIONS = text(
 )
 # Q7 — the other people of these publications.
 _OTHERS = text(
-    """
-    SELECT DISTINCT r.article_id, g.key, g.name
-    FROM entity_group_mentions gm
-    JOIN entity_groups g ON g.id = gm.group_id
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    WHERE r.article_id = ANY(:articles) AND gm.group_id <> :group
+    f"""
+    WITH {person_evidence_cte()}
+    SELECT DISTINCT e.article_id, g.key, g.name
+    FROM person_evidence e
+    JOIN entity_groups g ON g.id = e.group_id
+    WHERE e.article_id = ANY(:articles) AND e.group_id <> :group
     """
 )
 # Q8 — the people most often in the same publications.
 _RELATED = text(
-    """
-    WITH mine AS (
-        SELECT DISTINCT r.article_id FROM entity_group_mentions gm
-        JOIN entity_mentions m ON m.id = gm.mention_id
-        JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-        WHERE gm.group_id = :group
+    f"""
+    WITH {person_evidence_cte()},
+    mine AS (
+        SELECT DISTINCT article_id FROM person_evidence
+        WHERE group_id = :group
     )
     SELECT g.key, g.name, count(DISTINCT r.article_id) AS shared
-    FROM entity_group_mentions gm
-    JOIN entity_groups g ON g.id = gm.group_id
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    WHERE r.article_id IN (SELECT article_id FROM mine) AND gm.group_id <> :group
+    FROM person_evidence r
+    JOIN entity_groups g ON g.id = r.group_id
+    WHERE r.article_id IN (SELECT article_id FROM mine) AND r.group_id <> :group
     GROUP BY g.key, g.name ORDER BY shared DESC, g.name LIMIT :limit
     """
 )
 # Q9 — the publication a verdict's quote comes from (its text, spaces folded).
 _QUOTE_SOURCE = text(
-    """
-    SELECT a.id FROM entity_group_mentions gm
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
-    WHERE gm.group_id = :group
-      AND position(:needle IN regexp_replace(a.text, '\\s+', ' ', 'g')) > 0
-    ORDER BY a.published_at DESC NULLS LAST LIMIT 1
+    f"""
+    WITH {person_evidence_cte()}
+    SELECT e.article_id
+    FROM person_evidence e
+    JOIN parsed_articles a ON a.id = e.article_id
+    WHERE e.group_id = :group
+      AND (
+          (e.kind = 'mention' AND position(:needle IN regexp_replace(a.text, '\\s+', ' ', 'g')) > 0)
+          OR (e.kind <> 'mention' AND position(:needle IN regexp_replace(e.quote, '\\s+', ' ', 'g')) > 0)
+      )
+    ORDER BY published_at DESC NULLS LAST LIMIT 1
     """
 )
 
@@ -248,6 +241,11 @@ class Publication:
     end: int
     text_start: int
     text_end: int
+    evidence_kind: str = "mention"
+    resolution: str | None = None
+    rf_name: str | None = None
+    rf_birth_date: date | None = None
+    decided_at: datetime | None = None
     events: set[str] = field(default_factory=set)
     articles: set[str] = field(default_factory=set)
     others: list[tuple[str, str]] = field(default_factory=list)
@@ -285,7 +283,7 @@ def _marked(quote_text: str, start: int, end: int) -> str:
 
 
 def load(db: Session, key: str) -> Dossier | None:
-    entity = db.execute(_ENTITY, {"key": key}).first()
+    entity = db.execute(_ENTITY, {"key": key, "context": QUOTE_CONTEXT}).first()
     if entity is None:
         return None
     rf_rows = db.execute(_RF, {"group": entity.id}).all()
@@ -367,6 +365,11 @@ def load(db: Session, key: str) -> Dossier | None:
             row.end_offset - row.quote_start,
             row.start_offset,
             row.end_offset,
+            row.kind,
+            row.resolution,
+            row.rf_name,
+            row.rf_birth_date,
+            row.decided_at,
             articles=set(articles_by_publication.get(row.id, set())),
         )
         for row in db.execute(
@@ -382,18 +385,22 @@ def load(db: Session, key: str) -> Dossier | None:
         publication.events = events_by_publication.get(publication.article_id, set())
     if by_id:
         for article_id, other_key, other_name in db.execute(
-            _OTHERS, {"articles": list(by_id), "group": entity.id}
+            _OTHERS, {"articles": list(by_id), "group": entity.id, "context": QUOTE_CONTEXT}
         ).all():
             by_id[article_id].others.append((other_key, other_name))
     related = [
         (row.key, row.name, row.shared)
-        for row in db.execute(_RELATED, {"group": entity.id, "limit": RELATED_LIMIT}).all()
+        for row in db.execute(
+            _RELATED, {"group": entity.id, "limit": RELATED_LIMIT, "context": QUOTE_CONTEXT}
+        ).all()
     ]
 
     verdict_source = None
     needle = " ".join((entity.verdict_quote or "").split())[:80]
     if needle:
-        verdict_source = db.scalar(_QUOTE_SOURCE, {"group": entity.id, "needle": needle})
+        verdict_source = db.scalar(
+            _QUOTE_SOURCE, {"group": entity.id, "needle": needle, "context": QUOTE_CONTEXT}
+        )
     disputes = [
         pair.right.key if pair.left.key == key else pair.left.key
         for pair in dispute_pairs(db)
@@ -839,10 +846,29 @@ def _evidence(dossier: Dossier) -> str:
             if url
             else ""
         )
+        identification = ""
+        if publication.evidence_kind == "unnamed_resolution":
+            source = (
+                f"запись РФМ {publication.rf_name}, {publication.rf_birth_date:%d.%m.%Y}"
+                if publication.resolution == "rf_entry"
+                and publication.rf_name
+                and publication.rf_birth_date
+                else "существующий человек"
+                if publication.resolution == "existing_person"
+                else "имя указано вручную"
+                if publication.resolution == "supplied_name"
+                else "ручное решение"
+            )
+            identification = (
+                f'<p class="muted">Опознан оператором: {escape(source)}'
+                f"{f', {_day(publication.decided_at)}' if publication.decided_at else ''}. "
+                "Цитата оставлена как в публикации.</p>"
+            )
         cards.append(
             f"""<article class="evidence">
   <h3><a href="/ui/articles/{publication.article_id}?start={publication.text_start}&amp;end={publication.text_end}">{escape(publication.title)}</a></h3>
   <p class="muted">{escape(publication.source)} · {_day(publication.published_at)}{external}</p>
+  {identification}
   <p class="quote">{_marked(publication.quote, publication.start, publication.end)}</p>
   <dl class="facts compact">
     {f"<dt>События</dt><dd>{events}</dd>" if events else ""}

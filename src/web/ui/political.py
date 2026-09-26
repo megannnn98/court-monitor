@@ -28,6 +28,7 @@ from db.orm_models import (
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
 )
+from entities.evidence import person_evidence_cte
 from entities.news import CLOSED, KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
@@ -57,14 +58,11 @@ NEWS_FILTERS = {
 }
 
 _PUBLICATIONS = text(
-    """
-    SELECT DISTINCT gm.group_id, a.id, a.title, a.published_at, d.canonical_url
-    FROM entity_group_mentions gm
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
-    JOIN source_documents d ON d.id = a.document_id
-    WHERE gm.group_id = ANY(:groups)
+    f"""
+    WITH {person_evidence_cte()}
+    SELECT DISTINCT group_id, article_id AS id, title, published_at, canonical_url
+    FROM person_evidence
+    WHERE group_id = ANY(:groups)
     """
 )
 
@@ -283,7 +281,9 @@ def _details(
     for group_id, category in db.execute(MEMORIAL_CATEGORIES, {"groups": ids}).all():
         rows[group_id].memorial = category
     publications: dict[int, list[tuple[str, str, datetime | None]]] = {}
-    for group_id, _id, title, published_at, url in db.execute(_PUBLICATIONS, {"groups": ids}).all():
+    for group_id, _id, title, published_at, url in db.execute(
+        _PUBLICATIONS, {"groups": ids, "context": 0}
+    ).all():
         publications.setdefault(group_id, []).append((title, url, published_at))
     oldest = datetime.min.replace(tzinfo=UTC)
     for group_id, found_publications in publications.items():

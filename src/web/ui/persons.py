@@ -80,7 +80,7 @@ def ui_get_article(
         )
     else:
         rendered = escape(text)
-    people = db.execute(_PEOPLE, {"articles": [article_id]}).all()
+    people = db.execute(_PEOPLE, {"articles": [article_id], "context": 0}).all()
     events = db.execute(_EVENTS, {"articles": [article_id]}).all()
     people_html = ", ".join(
         f'<a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a>'

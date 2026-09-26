@@ -1,9 +1,9 @@
 """Person entities gathered from mentions (`entities.grouping`). Derived and rebuilt whole."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,6 +52,16 @@ class EntityGroupMentionRecord(Base):
     mention_id: Mapped[int] = mapped_column(
         ForeignKey("entity_mentions.id", ondelete="CASCADE"), primary_key=True
     )
+
+
+class EntityGroupUnnamedMentionRecord(Base):
+    __tablename__ = "entity_group_unnamed_mentions"
+    __table_args__ = (Index("ix_entity_group_unnamed_mentions_figurant_key", "figurant_key"),)
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("entity_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    figurant_key: Mapped[str] = mapped_column(String(64), primary_key=True)
 
 
 class EntityGroupChargeRecord(Base):
@@ -301,6 +311,27 @@ class UnnamedDecisionRecord(Base):
     figurant_key: Mapped[str] = mapped_column(String(64), primary_key=True)
     candidate: Mapped[str] = mapped_column(String(255), primary_key=True)
     decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class UnnamedIdentityResolutionRecord(Base):
+    """A person's identification of an unnamed figurant, kept by the figurant key.
+
+    The link to rebuilt entity groups is materialized by step 3 in
+    `entity_group_unnamed_mentions`; this row is the stable manual decision.
+    """
+
+    __tablename__ = "unnamed_identity_resolutions"
+
+    figurant_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    resolution: Mapped[str] = mapped_column(String(32), nullable=False)
+    normalized_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    existing_person_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rf_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rf_birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, server_default="manual")
     decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -12,6 +12,7 @@ from db.models.entities import (
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
+    EntityGroupUnnamedMentionRecord,
     EntityNameNormalizationRecord,
     EntityNameOverrideRecord,
     EntityNewsAnswerRecord,
@@ -22,6 +23,7 @@ from db.models.entities import (
     UnnamedAnswerRecord,
     UnnamedDecisionRecord,
     UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
 )
 from db.models.extraction import (
     ArticleExtractionRunRecord,
@@ -77,6 +79,7 @@ __all__ = [
     "EntityGroupRecord",
     "EntityGroupRfMatchRecord",
     "EntityGroupRoleRecord",
+    "EntityGroupUnnamedMentionRecord",
     "EntityMentionRecord",
     "EntityNameNormalizationRecord",
     "EntityNameOverrideRecord",
@@ -113,4 +116,5 @@ __all__ = [
     "UnnamedAnswerRecord",
     "UnnamedDecisionRecord",
     "UnnamedFigurantRecord",
+    "UnnamedIdentityResolutionRecord",
 ]

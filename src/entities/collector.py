@@ -21,10 +21,13 @@ from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
     EntityGroupRecord,
+    EntityGroupUnnamedMentionRecord,
     EntityNameNormalizationRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
 )
 from entities.answers import input_hash
-from entities.disputes import merge_decided, same_pairs
+from entities.disputes import KeyIndex, merge_decided, same_pairs
 from entities.grouping import (
     Entity,
     GivenName,
@@ -32,9 +35,11 @@ from entities.grouping import (
     apply_names,
     attach_aliases,
     attach_bare,
+    given_name_first,
     group_mentions,
     kinship,
     merge_swapped,
+    name_key,
     nominative_form,
 )
 from entities.llm import BudgetExceededError, Spend, ask_in_batches
@@ -112,6 +117,32 @@ _EVENTS = text(
     """
 )
 
+_UNNAMED_CHARGES = text(
+    """
+    WITH latest AS (
+        SELECT DISTINCT ON (article_id) id, article_id
+        FROM article_extraction_runs
+        WHERE status = 'succeeded'
+        ORDER BY article_id, id DESC
+    )
+    INSERT INTO entity_group_charges
+        (group_id, event_id, publication_id, article, part, clause, event_type,
+         other_targets, quote)
+    SELECT gum.group_id, e.id, u.article_id, article.value, NULL, NULL, u.event_type, 0, u.quote
+    FROM entity_group_unnamed_mentions gum
+    JOIN unnamed_figurants u ON u.key = gum.figurant_key
+    JOIN LATERAL jsonb_array_elements_text(u.articles) AS article ON true
+    JOIN LATERAL (
+        SELECT e.id FROM latest r
+        JOIN extracted_events e ON e.extraction_run_id = r.id
+        WHERE r.article_id = u.article_id
+          AND e.event_type = u.event_type
+        ORDER BY e.id DESC LIMIT 1
+    ) e ON true
+    WHERE coalesce(article.value, '') <> ''
+    """
+)
+
 
 # Characters of article text on each side of a mention, for the model's quote.
 QUOTE_CONTEXT = 120
@@ -166,6 +197,52 @@ class CollectResult:
     # Criminal Code articles tied to the entities, and the entities that have any.
     charges: int = 0
     charged_entities: int = 0
+
+
+def _apply_unnamed_resolutions(
+    entities: Sequence[Entity], session: Session
+) -> tuple[list[Entity], dict[str, list[UnnamedFigurantRecord]]]:
+    """Add operator-identified unnamed figurants as evidence of their real person."""
+    by_key = {entity.key: entity for entity in entities}
+    index = KeyIndex(by_key)
+    evidence: dict[str, list[UnnamedFigurantRecord]] = defaultdict(list)
+    rows = session.execute(
+        select(UnnamedIdentityResolutionRecord, UnnamedFigurantRecord)
+        .join(
+            UnnamedFigurantRecord,
+            UnnamedFigurantRecord.key == UnnamedIdentityResolutionRecord.figurant_key,
+        )
+        .where(
+            UnnamedIdentityResolutionRecord.resolution.in_(
+                ("rf_entry", "existing_person", "supplied_name")
+            )
+        )
+    ).all()
+    for resolution, figurant in rows:
+        if resolution.resolution == "existing_person":
+            target_key = index.today(resolution.existing_person_key or "")
+            if target_key is None:
+                continue
+        else:
+            name = given_name_first((resolution.normalized_name or "").strip())
+            if not name:
+                continue
+            target_key = name_key(name)
+            if target_key not in by_key:
+                by_key[target_key] = Entity(
+                    key=target_key,
+                    name=name,
+                    variants=Counter({name: 1}),
+                    gender=figurant.gender,
+                    name_source="operator",
+                )
+                index = KeyIndex(by_key)
+            elif by_key[target_key].gender is None:
+                by_key[target_key].gender = figurant.gender
+        evidence[target_key].append(figurant)
+    return sorted(
+        by_key.values(), key=lambda entity: (-len(entity.mention_ids), entity.key)
+    ), evidence
 
 
 class EntityCollector:
@@ -228,13 +305,25 @@ class EntityCollector:
         entities = attach_aliases(entities, aliases)
         # A surname alone joins the full name of that surname its article names.
         entities = attach_bare(entities, articles)
+        with self._session_factory() as session:
+            entities, unnamed = _apply_unnamed_resolutions(entities, session)
 
         with self._session_factory.begin() as session:
             self._on_stage("writing")
             session.execute(delete(EntityGroupRecord))
             links: list[dict[str, int]] = []
+            unnamed_links: list[dict[str, int | str]] = []
             for entity in entities:
                 dates = [d for m in entity.mention_ids if (d := published[m]) is not None]
+                unnamed_rows = unnamed.get(entity.key, [])
+                dates += [
+                    figurant.published_at for figurant in unnamed_rows if figurant.published_at
+                ]
+                article_ids = {articles[m] for m in entity.mention_ids} | {
+                    figurant.article_id for figurant in unnamed_rows
+                }
+                event_types = Counter(kind for m in entity.mention_ids for kind in events[m])
+                event_types.update(figurant.event_type for figurant in unnamed_rows)
                 group_id = session.execute(
                     insert(EntityGroupRecord)
                     .values(
@@ -242,10 +331,8 @@ class EntityCollector:
                         name=entity.name,
                         variants=[list(item) for item in entity.variants.most_common()],
                         mention_count=len(entity.mention_ids),
-                        article_count=len({articles[m] for m in entity.mention_ids}),
-                        event_types=dict(
-                            Counter(kind for m in entity.mention_ids for kind in events[m])
-                        ),
+                        article_count=len(article_ids),
+                        event_types=dict(event_types),
                         last_published_at=max(dates) if dates else None,
                         gender=entity.gender,
                         name_source=entity.name_source,
@@ -254,12 +341,22 @@ class EntityCollector:
                     .returning(EntityGroupRecord.id)
                 ).scalar_one()
                 links += [{"group_id": group_id, "mention_id": m} for m in entity.mention_ids]
+                unnamed_links += [
+                    {"group_id": group_id, "figurant_key": figurant.key}
+                    for figurant in unnamed_rows
+                ]
             for start in range(0, len(links), INSERT_CHUNK):
                 session.execute(
                     insert(EntityGroupMentionRecord), links[start : start + INSERT_CHUNK]
                 )
+            for start in range(0, len(unnamed_links), INSERT_CHUNK):
+                session.execute(
+                    insert(EntityGroupUnnamedMentionRecord),
+                    unnamed_links[start : start + INSERT_CHUNK],
+                )
             self._on_stage("charges")
             session.execute(_CHARGES, {"limit": CHARGE_QUOTE_LIMIT})
+            session.execute(_UNNAMED_CHARGES)
             charges, charged = session.execute(
                 select(
                     func.count(), func.count(distinct(EntityGroupChargeRecord.group_id))
@@ -268,7 +365,7 @@ class EntityCollector:
         result = CollectResult(
             mentions=len(mentions),
             entities=len(entities),
-            grouped=len(links),
+            grouped=len(links) + len(unnamed_links),
             normalized_now=asked,
             normalized_cached=cached,
             normalize_failures=failures,

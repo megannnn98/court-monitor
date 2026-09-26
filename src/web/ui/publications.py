@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from entities.evidence import person_evidence_cte
 from web.dependencies import get_db
 from web.ui.entities import _EVENT_LABELS, display_name
 from web.ui.layout import _page, pager
@@ -45,13 +46,12 @@ _SOURCES = text(
     """
 )
 _PEOPLE = text(
-    """
-    SELECT DISTINCT r.article_id, g.key, g.name, g.mention_count
-    FROM entity_group_mentions gm
-    JOIN entity_groups g ON g.id = gm.group_id
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    WHERE r.article_id = ANY(:articles)
+    f"""
+    WITH {person_evidence_cte()}
+    SELECT DISTINCT e.article_id, g.key, g.name, g.mention_count
+    FROM person_evidence e
+    JOIN entity_groups g ON g.id = e.group_id
+    WHERE e.article_id = ANY(:articles)
     """
 )
 _EVENTS = text(
@@ -78,7 +78,9 @@ def ui_publications(
     people: dict[int, list[tuple[str, str, int]]] = defaultdict(list)
     events: dict[int, list[tuple[str, int]]] = defaultdict(list)
     if ids:
-        for article_id, key, name, mentions in db.execute(_PEOPLE, {"articles": ids}).all():
+        for article_id, key, name, mentions in db.execute(
+            _PEOPLE, {"articles": ids, "context": 0}
+        ).all():
             people[article_id].append((key, name, mentions))
         for article_id, event_type, count in db.execute(_EVENTS, {"articles": ids}).all():
             events[article_id].append((event_type, count))

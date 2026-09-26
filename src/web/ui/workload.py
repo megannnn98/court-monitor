@@ -39,7 +39,7 @@ class Workload:
     pairs: int
     unclear_roles: int
     unclear_verdicts: int
-    # Unnamed figurants neither identified nor closed as «nobody on the list».
+    # Unnamed figurants with no identification yet; no_rf_match stays open.
     unnamed: int = 0
 
     @property
@@ -51,8 +51,9 @@ _OPEN_UNNAMED = text(
     """
     SELECT count(*) FROM unnamed_figurants f
     WHERE NOT EXISTS (
-        SELECT 1 FROM unnamed_decisions d
-        WHERE d.figurant_key = f.key AND d.decision IN ('same', 'none')
+        SELECT 1 FROM unnamed_identity_resolutions r
+        WHERE r.figurant_key = f.key
+          AND r.resolution IN ('rf_entry', 'existing_person', 'supplied_name', 'insufficient')
     )
     """
 )

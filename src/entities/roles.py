@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupRoleRecord, EntityRoleAnswerRecord
 from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.evidence import person_evidence_cte
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -292,7 +293,14 @@ def role_classifier_from_env(env: Mapping[str, str] | None = None) -> RoleClassi
 # article names it the only target.
 _ENTITIES = text(
     """
-    SELECT g.id, g.key, g.name, c.article, c.quote
+    SELECT g.id, g.key, g.name, c.article, c.quote,
+           EXISTS (
+               SELECT 1
+               FROM entity_group_unnamed_mentions gum
+               JOIN unnamed_identity_resolutions ir ON ir.figurant_key = gum.figurant_key
+               WHERE gum.group_id = g.id
+                 AND ir.resolution IN ('rf_entry', 'existing_person', 'supplied_name')
+           ) AS operator_identified
     FROM entity_groups g
     LEFT JOIN LATERAL (
         SELECT article, quote FROM entity_group_charges
@@ -303,18 +311,13 @@ _ENTITIES = text(
 )
 # Per entity, one mention of each of its latest publications, with the text around it.
 _QUOTES = text(
-    """
-    WITH m AS (
-        SELECT gm.group_id, a.id AS publication, a.published_at,
-               substr(a.text, greatest(em.start_offset - :context, 0) + 1,
-                      em.end_offset - greatest(em.start_offset - :context, 0) + :context)
-                   AS quote,
-               row_number() OVER (PARTITION BY gm.group_id, a.id ORDER BY em.start_offset) AS n
-        FROM entity_group_mentions gm
-        JOIN entity_mentions em ON em.id = gm.mention_id
-        JOIN article_extraction_runs r ON r.id = em.extraction_run_id
-        JOIN parsed_articles a ON a.id = r.article_id
-        WHERE gm.group_id = ANY(:groups)
+    f"""
+    WITH {person_evidence_cte()},
+    m AS (
+        SELECT group_id, article_id AS publication, published_at, quote,
+               row_number() OVER (PARTITION BY group_id, article_id ORDER BY start_offset) AS n
+        FROM person_evidence
+        WHERE group_id = ANY(:groups)
     ), latest AS (
         SELECT group_id, quote,
                row_number() OVER (PARTITION BY group_id
@@ -432,10 +435,25 @@ class FigurantFinder:
                     "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
                 }
             )
+        operator_rows = [
+            row for row in entities if row.id not in officials and row.operator_identified
+        ]
+        for row in operator_rows:
+            rows.append(
+                {
+                    "group_id": row.id,
+                    "role": FIGURANT,
+                    "kind": None,
+                    "method": "operator",
+                    "reason": "безымянный фигурант опознан оператором",
+                    "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
+                }
+            )
         # The rest go to the model, the rules' charge too: the extractor makes anyone the
         # sentence names a target («дело против мужчины, оскорбившего главу СК …»). The
         # charge's sentence is the first quote.
-        rest = [row for row in entities if row.id not in officials | surname_only]
+        operator_ids = {row.id for row in operator_rows}
+        rest = [row for row in entities if row.id not in officials | surname_only | operator_ids]
         items = {
             row.id: RoleItem(
                 id=row.id,
@@ -513,7 +531,7 @@ class FigurantFinder:
         by_model = sum(row["role"] == FIGURANT and row["method"] == "model" for row in rows)
         result = FigurantResult(
             entities=len(entities),
-            figurant_rules=sum(row["method"] == "article" for row in rows),
+            figurant_rules=sum(row["method"] in ("article", "operator") for row in rows),
             figurant_model=by_model,
             officials=len(officials),
             possible=roles.count(POSSIBLE),

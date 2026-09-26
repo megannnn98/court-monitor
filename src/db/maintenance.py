@@ -8,6 +8,8 @@ from sqlalchemy import Engine, text
 DISPOSABLE_TABLES = (
     "entity_news_answers",
     "entity_group_news",
+    "entity_group_unnamed_mentions",
+    "unnamed_identity_resolutions",
     "unnamed_decisions",
     "unnamed_answers",
     "unnamed_figurants",

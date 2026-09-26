@@ -52,8 +52,9 @@ _NEWS_COUNTS = text(
 )
 # The unnamed nobody has identified or closed yet.
 _OPEN = """NOT EXISTS (
-    SELECT 1 FROM unnamed_decisions d
-    WHERE d.figurant_key = unnamed_figurants.key AND d.decision IN ('same', 'none'))"""
+    SELECT 1 FROM unnamed_identity_resolutions r
+    WHERE r.figurant_key = unnamed_figurants.key
+      AND r.resolution IN ('rf_entry', 'existing_person', 'supplied_name', 'insufficient'))"""
 
 
 def _day(moment: datetime | None) -> str:

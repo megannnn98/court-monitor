@@ -6,13 +6,27 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.research_db_fixtures import ResearchSeeder
 
-from db.orm_models import EntityGroupMentionRecord, EntityGroupRecord, EntityMentionRecord
+from db.orm_models import (
+    EntityGroupChargeRecord,
+    EntityGroupMentionRecord,
+    EntityGroupNewsRecord,
+    EntityGroupPoliticsRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityGroupUnnamedMentionRecord,
+    EntityMentionRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
+)
 from entities.collector import EntityCollector
+from entities.news import NewsFinder
 from entities.normalizer import NameItem, NameNormalizerError, NormalizedName
+from entities.politics import POLITICAL, PoliticsFinder
+from entities.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
 
 
 def _person(
@@ -373,3 +387,141 @@ def test_a_pseudonym_in_brackets_after_a_name_is_that_person(
         "Олег Орлов",
     ]
     assert "Дед Архимед" in {variant for variant, _count in entities["Дмитрий Пуркин"]}
+
+
+def _seed_unnamed(
+    session_factory: sessionmaker[Session],
+    *,
+    resolution: str = "rf_entry",
+    existing_key: str | None = None,
+) -> None:
+    with session_factory.begin() as session:
+        seed = ResearchSeeder(session)
+        source = seed.source(
+            f"unnamed-news-{resolution}",
+            f"https://unnamed-{resolution}.example.test",
+        )
+        article, run = seed.article(
+            source,
+            external_id=f"unnamed-{resolution}",
+            title="Без имени",
+            text="17-летнего жителя Тюмени задержали по делу о дискредитации армии.",
+            published_at=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+        seed.event(run, "задержали", event_type="detention", event_date=None, links=[])
+        session.add(
+            UnnamedFigurantRecord(
+                key="u" * 64,
+                article_id=article,
+                start_offset=0,
+                end_offset=68,
+                quote="17-летнего жителя Тюмени задержали по делу о дискредитации армии.",
+                age=17,
+                gender="male",
+                place="Тюмень",
+                initial=None,
+                articles=["280.3"],
+                event_type="detention",
+                explanation="задержали по уголовному делу",
+                published_at=datetime(2026, 9, 1, tzinfo=UTC),
+            )
+        )
+        session.add(
+            UnnamedIdentityResolutionRecord(
+                figurant_key="u" * 64,
+                resolution=resolution,
+                normalized_name="Егор Владимирович Пуртов"
+                if resolution != "existing_person"
+                else "Александр Моор",
+                existing_person_key=existing_key,
+                rf_name="Егор Владимирович Пуртов" if resolution == "rf_entry" else None,
+                rf_birth_date=datetime(2007, 2, 17, tzinfo=UTC).date()
+                if resolution == "rf_entry"
+                else None,
+            )
+        )
+
+
+def test_an_rf_entry_resolution_creates_operator_evidence_without_fake_mentions(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed_unnamed(session_factory)
+
+    first = EntityCollector(session_factory).run()
+    with session_factory.begin() as session:
+        figurant = session.scalars(select(UnnamedFigurantRecord)).one()
+        replacement = {
+            column.name: getattr(figurant, column.name)
+            for column in UnnamedFigurantRecord.__table__.columns
+            if column.name != "id"
+        }
+        session.delete(figurant)
+        session.flush()
+        session.add(UnnamedFigurantRecord(**replacement))
+        assert session.scalar(select(EntityGroupUnnamedMentionRecord.figurant_key)) == "u" * 64
+    second = EntityCollector(session_factory).run()
+
+    class NeverCalled:
+        model = "never-called"
+
+        def classify(self, _items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
+            raise AssertionError("operator identification must not call the role model")
+
+    FigurantFinder(session_factory, classifier=NeverCalled()).run()
+    PoliticsFinder(session_factory).run()
+    NewsFinder(session_factory).run()
+
+    assert first == second
+    with session_factory() as session:
+        [entity] = session.scalars(select(EntityGroupRecord)).all()
+        assert (entity.name, entity.name_source, entity.mention_count, entity.article_count) == (
+            "Егор Владимирович Пуртов",
+            "operator",
+            0,
+            1,
+        )
+        assert session.scalars(select(EntityGroupMentionRecord)).all() == []
+        assert session.scalar(select(EntityGroupUnnamedMentionRecord.figurant_key)) == "u" * 64
+        charge = session.scalars(select(EntityGroupChargeRecord)).one()
+        assert (charge.article, charge.event_type, charge.quote) == (
+            "280.3",
+            "detention",
+            "17-летнего жителя Тюмени задержали по делу о дискредитации армии.",
+        )
+        assert session.get_one(EntityGroupRoleRecord, entity.id).role == FIGURANT
+        assert session.get_one(EntityGroupRoleRecord, entity.id).method == "operator"
+        assert session.get_one(EntityGroupPoliticsRecord, entity.id).verdict == POLITICAL
+        assert session.get_one(EntityGroupNewsRecord, entity.id).quote.startswith("17-летнего")
+
+
+def test_existing_person_resolution_adds_the_unnamed_publication_to_today_s_group(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    EntityCollector(session_factory).run()
+    with session_factory() as session:
+        key = session.scalars(select(EntityGroupRecord.key)).one()
+    _seed_unnamed(session_factory, resolution="existing_person", existing_key=key)
+
+    EntityCollector(session_factory).run()
+
+    with session_factory() as session:
+        [entity] = session.scalars(select(EntityGroupRecord)).all()
+        assert (entity.key, entity.article_count, entity.mention_count) == (key, 3, 3)
+        linked = set(session.scalars(select(EntityGroupMentionRecord.mention_id)))
+        assert ids["arrested"] in linked
+        assert session.scalar(select(EntityGroupUnnamedMentionRecord.figurant_key)) == "u" * 64
+
+
+def test_no_rf_match_and_insufficient_create_no_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    for resolution in ("no_rf_match", "insufficient"):
+        _seed_unnamed(session_factory, resolution=resolution)
+        EntityCollector(session_factory).run()
+        with session_factory() as session:
+            assert session.scalars(select(EntityGroupRecord)).all() == []
+            assert session.scalars(select(EntityGroupUnnamedMentionRecord)).all() == []
+        with session_factory.begin() as session:
+            session.execute(delete(UnnamedFigurantRecord))
+            session.execute(delete(UnnamedIdentityResolutionRecord))
