@@ -52,6 +52,25 @@ def test_the_home_page_has_no_source_list_step_one_loads_them_all(
     assert '<a class="home active" href="/ui/management"><svg class="icon"' in response.text
     assert 'name="sources"' not in response.text and "source-table" not in response.text
     assert f"Шаг 1 скачивает все новостные источники ({len(news_sources())})" in response.text
+    assert "Шесть шагов по кругу" in response.text
+    assert "Четыре шага по кругу" not in response.text
+
+
+def test_the_console_status_strip_is_in_russian(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    assert "Статьи" in page
+    assert "Персоны" in page
+    assert "Ожидают проверки" in page
+    assert "Последний запуск" in page
+    assert "Persons:" not in page
+    assert "ER pending:" not in page
+    assert "Последний run:" not in page
 
 
 def test_post_starts_one_tracked_run_for_the_selected_sources(

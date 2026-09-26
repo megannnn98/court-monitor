@@ -39,7 +39,7 @@ def _status_counts(db: Session) -> dict[str, object]:
         "articles": db.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0,
         "persons": db.scalar(select(func.count()).select_from(PersonRecord)) or 0,
         "pending_reviews": pending or 0,
-        "latest_run": latest_run.status if latest_run is not None else "нет",
+        "latest_run": _run_status_label(latest_run.status if latest_run is not None else None),
         "result": db.scalar(
             select(func.count())
             .select_from(EntityGroupPoliticsRecord)
@@ -47,6 +47,18 @@ def _status_counts(db: Session) -> dict[str, object]:
         )
         or 0,
     }
+
+
+def _run_status_label(status: object | None) -> str:
+    value = getattr(status, "value", status)
+    return {
+        "pending": "в очереди",
+        "running": "выполняется",
+        "completed": "завершён",
+        "completed_with_errors": "завершён с ошибками",
+        "failed": "ошибка",
+        "aborted": "остановлен",
+    }.get(str(value), "нет" if value is None else str(value))
 
 
 # The home page: the pipeline's steps, where every run starts.
@@ -143,16 +155,18 @@ def _page(
   <link rel="stylesheet" href="/static/local-ui.css?v={_CSS_VERSION}">
 </head>
 <body>
+  <a class="skip-link" href="#content">К содержанию</a>
   <aside>
     <a class="brand" href="{HOME}">court-monitor</a>
+    <span class="brand-caption">аналитическая система</span>
     <nav>{links}</nav>
   </aside>
-  <main>
+  <main id="content">
     <section class="status-strip">
-      <span>Статьи: <strong>{counts["articles"]}</strong></span>
-      <span>Persons: <strong>{counts["persons"]}</strong></span>
-      <span>ER pending: <strong>{counts["pending_reviews"]}</strong></span>
-      <span>Последний run: <strong>{escape(str(counts["latest_run"]))}</strong></span>
+      <span><small>Статьи</small><strong>{counts["articles"]}</strong></span>
+      <span><small>Персоны</small><strong>{counts["persons"]}</strong></span>
+      <span><small>Ожидают проверки</small><strong>{counts["pending_reviews"]}</strong></span>
+      <span><small>Последний запуск</small><strong>{escape(str(counts["latest_run"]))}</strong></span>
     </section>
     <section class="instruction">
       <h1>{escape(title)}</h1>
