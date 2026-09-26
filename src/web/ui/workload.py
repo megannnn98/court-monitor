@@ -2,7 +2,7 @@
 
 Every page shows the size of this queue in the menu; «Очередь» shows its items. Nothing
 here decides anything: the pairs come from `entities.disputes`, the rest from what
-steps 5 and 6 wrote.
+steps 4 and 5 wrote.
 """
 
 from __future__ import annotations

@@ -501,7 +501,7 @@ def test_empty_states_say_so(session_factory: sessionmaker[Session]) -> None:
     assert "Ничего не найдено." in publications
     assert "Никого не найдено." in investigations
     assert "Нет событий, где этот человек назван участником" in witness
-    assert "Шаг 6 не оценивал это дело" in witness
+    assert "Шаг 5 не оценивал это дело" in witness
 
 
 def test_loaded_and_typed_text_is_escaped(session_factory: sessionmaker[Session]) -> None:

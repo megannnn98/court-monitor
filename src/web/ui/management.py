@@ -1,4 +1,4 @@
-"""Manual pipeline runs: step 1 loads every news source, steps 2–6 the whole database."""
+"""Manual pipeline runs: step 1 loads every news source, steps 2–5 the whole database."""
 
 from __future__ import annotations
 
@@ -35,7 +35,8 @@ from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
 router = APIRouter()
 
 _OPERATION = "monitor"
-# Runs over the whole database: no source selection, a card of their own.
+# Runs over the whole database: no source selection, a card of their own. `rosfin` stays
+# here so old standalone runs remain accessible in the UI.
 _WHOLE_DATABASE = ("purge", "entities", "rosfin", "figurants", "political")
 _RUN_STATUS_LABELS = {
     OperationRunStatus.PENDING: "В очереди",
@@ -80,7 +81,7 @@ _MODE_TITLES = {
     "entities": "Сборка сущностей",
     "rosfin": "Сверка с Росфинмониторингом",
     "figurants": "Поиск фигурантов",
-    "political": "Отбор политических дел",
+    "political": "Политические дела и сверка с РФМ",
     None: "Загрузка и разрешение",
 }
 
@@ -432,6 +433,8 @@ def _entities_card(run: OperationRun) -> str:
         totals = json.loads(run.stdout) if run.stdout else {}
     except json.JSONDecodeError:
         totals = {}
+    if not isinstance(totals, dict):
+        totals = {}
     labels = (
         ("entities", "Сущностей", "succeeded"),
         ("grouped", "Упоминаний в них", ""),
@@ -554,6 +557,8 @@ def _figurants_card(run: OperationRun) -> str:
         totals = json.loads(run.stdout) if run.stdout else {}
     except json.JSONDecodeError:
         totals = {}
+    if not isinstance(totals, dict):
+        totals = {}
     labels = (
         ("figurant_rules", "Фигуранты по статье УК без ответа модели", "succeeded"),
         ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
@@ -587,15 +592,23 @@ def _figurants_card(run: OperationRun) -> str:
 </section>"""
 
 
-_POLITICAL_STAGE = re.compile(r"event=entity_politics_stage stage=([^\n]+)")
+_FINAL_STAGE = re.compile(r"event=(entities_rf_check_stage|entity_politics_stage) stage=([^\n]+)")
+_FINAL_RF_STAGES = {
+    "downloading": "Скачиваю перечень с fedsfm.ru…",
+    "importing": "Перечень изменился — сохраняю новый снимок…",
+    "matching": "Сверяю сущности с перечнем…",
+    "writing": "Сохраняю сверку с РФМ…",
+    "merging": "Сливаю спорные пары по перечню…",
+}
 
 
 def _political_card(run: OperationRun) -> str:
     """Telling persecution from crime: the model's progress while it runs; the verdicts after."""
     in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    stages = _POLITICAL_STAGE.findall(run.stderr)
-    stage = stages[-1].strip() if stages else ""
-    if stage.startswith("asking "):
+    stages = _FINAL_STAGE.findall(run.stderr)
+    stage_source, stage = stages[-1] if stages else ("", "")
+    stage = stage.strip()
+    if stage_source == "entity_politics_stage" and stage.startswith("asking "):
         done, _, total = stage.removeprefix("asking ").partition("/")
         progress = (
             f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
@@ -603,15 +616,45 @@ def _political_card(run: OperationRun) -> str:
             f"{escape(done)} из {escape(total)}</strong></p></div>"
         )
     else:
-        label = {"reading": "Читаю фигурантов и цитаты…", "writing": "Сохраняю…"}.get(
-            stage, "Готовлюсь…"
+        label = (
+            _FINAL_RF_STAGES.get(stage, "Готовлюсь…")
+            if stage_source == "entities_rf_check_stage"
+            else {"reading": "Читаю фигурантов и цитаты…", "writing": "Сохраняю…"}.get(
+                stage, "Готовлюсь…"
+            )
         )
         progress = f'<div class="progress-box"><p><strong>{label}</strong></p></div>'
     try:
         totals = json.loads(run.stdout) if run.stdout else {}
     except json.JSONDecodeError:
         totals = {}
+    if not isinstance(totals, dict):
+        totals = {}
+    snapshot = ""
+    if totals.get("snapshot_id"):
+        snapshot_date = str(totals.get("snapshot_date") or "")[:10]
+        snapshot = (
+            f'<p class="muted">Сверено по снимку перечня РФМ #{escape(str(totals["snapshot_id"]))}'
+            f"{f' от {escape(snapshot_date)}' if snapshot_date else ''}.</p>"
+        )
+    elif totals:
+        # The step ran without the list: none imported yet, or the check failed.
+        snapshot = (
+            '<p class="warning">Сверка с РФМ не выполнена: '
+            f"{escape(str(totals['rf_error'])) if totals.get('rf_error') else 'снимков перечня нет'}"
+            ". Политичность оценена без неё.</p>"
+        )
+    if totals.get("download_error"):
+        snapshot += (
+            '<p class="warning">Свежий перечень не скачан, сверено по последнему сохранённому '
+            f"снимку: {escape(str(totals['download_error']))}</p>"
+        )
     labels = (
+        # The list confirms who a person is: no mark against them.
+        ("rf_full", "В перечне (ФИО с отчеством)", ""),
+        ("rf_possible", "Возможно в перечне", "pending"),
+        ("rf_merged", "Спорных пар слито по перечню", ""),
+        ("region_merged", "Слито «одно ФИО — один человек»", ""),
         ("political_rules", "Политические по статье УК", "succeeded"),
         ("political_model", "Политические по ответу модели", "succeeded"),
         ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
@@ -641,6 +684,7 @@ def _political_card(run: OperationRun) -> str:
   <p class="muted">Начат {started} · <a href="/ui/political">Результат</a> ·
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if in_progress else ""}
+  {snapshot}
   <p class="run-summary">{summary}</p>
   {refresh}
 </section>"""
@@ -773,7 +817,7 @@ def _management_page(
 <form method="post" action="/ui/management/run" class="source-form">
   <div class="run-bar">
     {stepper(state or PipelineState(current="load"), len(definitions))}
-    <span class="muted">Шаг 1 скачивает все новостные источники ({len(definitions)}); шаги 2–6
+    <span class="muted">Шаг 1 скачивает все новостные источники ({len(definitions)}); шаги 2–5
     работают со всей базой.</span>
   </div>
   <fieldset class="date-range">
@@ -790,11 +834,11 @@ def _management_page(
         body,
         active="management",
         instruction=(
-            "Шесть шагов по кругу: подгрузить статьи → очистить от мусора → собрать "
-            "сущности → сверить с Росфинмониторингом → определить фигурантов → выделить "
-            "политические дела. Нажать можно только подсвеченный шаг."
+            "Пять шагов по кругу: подгрузить статьи → очистить от мусора → собрать "
+            "сущности → определить фигурантов → выделить политические дела и сверить "
+            "с РФМ. Нажать можно только подсвеченный шаг."
         ),
-        next_action="Шаг 1 скачивает все новостные источники; шаги 2–6 — вся база.",
+        next_action="Шаг 1 скачивает все новостные источники; шаги 2–5 — вся база.",
         db=db,
     )
     page.status_code = status_code
@@ -856,7 +900,7 @@ def start_management_political(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Step 6: tell persecution from crime among the figurants."""
+    """Step 5: tell persecution from crime and check Rosfinmonitoring."""
     return _start_whole_database(db, registry, "political")
 
 
@@ -865,17 +909,8 @@ def start_management_figurants(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
-    """Step 5: tell who a case is opened against among the entities."""
+    """Step 4: tell who a case is opened against among the entities."""
     return _start_whole_database(db, registry, "figurants")
-
-
-@router.post("/ui/management/rosfin", response_model=None)
-def start_management_rosfin(
-    db: Session = Depends(get_db),  # noqa: B008
-    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
-) -> HTMLResponse | RedirectResponse:
-    """Step 4: check the entities against a fresh Rosfinmonitoring list."""
-    return _start_whole_database(db, registry, "rosfin")
 
 
 @router.post("/ui/management/entities", response_model=None)

@@ -58,7 +58,6 @@
  "POST /ui/management/figurants",
  "POST /ui/management/political",
  "POST /ui/management/purge",
- "POST /ui/management/rosfin",
  "POST /ui/management/run",
  "POST /ui/management/runs/{run_id}/stop",
  "POST /ui/queue/reset-decisions",

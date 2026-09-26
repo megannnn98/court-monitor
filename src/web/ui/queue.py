@@ -5,7 +5,7 @@
   and why it was not merged by itself. «Один человек» and «Разные люди» are the
   decisions of `entities.disputes.decide` (kept by key, as «manual», for every rebuild;
   the automatic merges never overwrite them); «Отложить» only moves on, for this visit.
-- The unclear answers of steps 5 and 6, and the failed extractions, as lists to open.
+- The unclear answers of steps 4 and 5, and the failed extractions, as lists to open.
 """
 
 from __future__ import annotations
@@ -285,7 +285,7 @@ def ui_queue(
 </section>
 <section class="band" id="verdicts" aria-labelledby="verdicts-title">
   <h2 id="verdicts-title">Неясная политичность</h2>
-  <p class="muted">Шаг 6 не смог отнести дело ни к политическим, ни к обычным уголовным.</p>
+  <p class="muted">Шаг 5 не смог отнести дело ни к политическим, ни к обычным уголовным.</p>
   {_entity_rows(db, verdicts, "Неясных дел нет.")}
 </section>
 <section class="band" id="failed" aria-labelledby="failed-title">

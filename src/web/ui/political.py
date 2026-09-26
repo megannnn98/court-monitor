@@ -1,6 +1,6 @@
 """«Результат»: the politically persecuted — what the whole pipeline is for.
 
-A figurant of a criminal case (step 5) whose case is political persecution (step 6), on
+A figurant of a criminal case (step 4) whose case is political persecution (step 5), on
 the Rosfinmonitoring list or not: the list does not make a case known, it confirms who a
 person is (the operator's word) — its birth date and place are shown beside the name. A
 name the list carries without a patronymic may be a namesake: marked, and can be hidden.

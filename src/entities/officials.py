@@ -9,7 +9,7 @@ first that speaks wins:
    Александру Бастрыкину») in at least two mentions or half of them — once among many
    is the title of someone beside («критик главы региона Ростислав Мурзагулов»);
    «бывший судья» is no title;
-3. the model's role of step 5 (judge, prosecutor, police, official).
+3. the model's role of step 4 (judge, prosecutor, police, official).
 
 Deputies are no officials here: opposition deputies are among the persecuted.
 """
@@ -134,7 +134,7 @@ def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]
 
 def mark_official(session: Session, entity: EntityGroupRecord, official: bool) -> None:
     """A person's mark, in the caller's transaction, applied at once: an official leaves
-    the figurants and «Результат» now, not at the next step 5."""
+    the figurants and «Результат» now, not at the next step 4."""
     record = session.get(EntityOfficialMarkRecord, entity.key)
     if record is None:
         session.add(EntityOfficialMarkRecord(key=entity.key, official=official))

@@ -1,7 +1,7 @@
 """Does another model answer as the one the steps trust? On a sample, before switching.
 
 A cheaper model may answer worse. This asks it (`ENTITY_NORMALIZE_MODEL`) the questions
-steps 5 and 6 already have answers to and the names step 3 has, and counts how often
+steps 4 and 5 already have answers to and the names step 3 has, and counts how often
 the two agree — nothing is written. Switch only where the agreement is good enough.
 """
 
@@ -102,7 +102,7 @@ def _ask[Item, Answer](
 def compare_roles(
     session_factory: sessionmaker[Session], other: RoleClassifier, *, size: int, seed: int
 ) -> Comparison:
-    """The roles the model gave (step 5) against the other model's."""
+    """The roles the model gave (step 4) against the other model's."""
     with session_factory() as session:
         rows = session.execute(
             select(EntityGroupRecord.id, EntityGroupRecord.name, EntityGroupRoleRecord.role)
@@ -124,7 +124,7 @@ def compare_roles(
 def compare_politics(
     session_factory: sessionmaker[Session], other: PoliticsClassifier, *, size: int, seed: int
 ) -> Comparison:
-    """The verdicts the model gave (step 6) against the other model's."""
+    """The verdicts the model gave (step 5) against the other model's."""
     with session_factory() as session:
         rows = session.execute(
             select(EntityGroupRecord.id, EntityGroupRecord.name, EntityGroupPoliticsRecord.verdict)

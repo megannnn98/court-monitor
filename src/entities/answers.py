@@ -1,11 +1,11 @@
 """The cache of a model's answers about entities, and the asking of what it lacks.
 
-What steps 5 and 6 share, so that a rebuild costs nothing it need not:
+What steps 4 and 5 share, so that a rebuild costs nothing it need not:
 
 - An answer is found by the hash of the question (`input_hash`), not by the entity
   key: a rebuild, a merge, a region in the key, a new rule of grouping — none of them
   asks again what was asked.
-- A positive answer sticks: an entity once «accused» (step 5) or «political» (step 6)
+- A positive answer sticks: an entity once «accused» (step 4) or «political» (step 5)
   is not asked again when its quotes change (a new publication); only a person undoes
   it. The others are asked again then: a new publication may bring a case.
 - A new prompt version need not ask everything again: `accepted` takes the answers of

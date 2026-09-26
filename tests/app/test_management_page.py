@@ -57,7 +57,7 @@ def test_the_home_page_has_no_source_list_step_one_loads_them_all(
     assert 'name="published_from"' in response.text
     assert 'name="published_to"' in response.text
     assert f"Шаг 1 скачивает все новостные источники ({len(news_sources())})" in response.text
-    assert "Шесть шагов по кругу" in response.text
+    assert "Пять шагов по кругу" in response.text
     assert "Четыре шага по кругу" not in response.text
 
 
@@ -230,8 +230,8 @@ def test_person_resolution_has_no_button_and_no_route(
         response = client.post("/ui/management/resolve", data={"sources": ["ovd-info"]})
 
     assert "Разрешить персоны" not in bar
-    # After entities comes the Rosfinmonitoring check.
-    assert re.findall(r'id="step-(\w+)" class="step current', bar) == ["rosfin"]
+    # After entities come the figurants; the list is checked in the final step.
+    assert re.findall(r'id="step-(\w+)" class="step current', bar) == ["figurants"]
     assert response.status_code == 404
     assert registry.runs_of("monitor")[0].parameters.mode == "entities"
 
@@ -525,9 +525,8 @@ def test_while_a_resolution_runs_its_button_stops_it(
         "■ Остановить: Разрешение персон",
         "2. Очистить от мусора",
         "3. Собрать сущности",
-        "4. Сверить с Росфинмониторингом",
-        "5. Найти фигурантов",
-        "6. Отобрать политические дела",
+        "4. Найти фигурантов",
+        "5. Отобрать политические дела и сверить с РФМ",
     ]
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in bar
     assert "Идёт разрешение персон." in page
@@ -578,11 +577,15 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
         (("load",), "failed", "purge"),  # one broken source does not block the cycle
         (("load", "purge"), "failed", "purge"),  # a crashed purge is repeated
         (("load", "purge"), "interrupted", "purge"),
-        (("load", "purge", "entities"), "succeeded", "rosfin"),
-        (("load", "purge", "entities", "rosfin"), "succeeded", "figurants"),
-        (("load", "purge", "entities", "rosfin", "figurants"), "succeeded", "political"),
-        (("load", "purge", "entities", "rosfin", "figurants", "political"), "succeeded", "load"),
-        (("load", "purge", "entities", "rosfin"), "failed", "rosfin"),  # a crash is repeated
+        (("load", "purge", "entities"), "succeeded", "figurants"),
+        (("load", "purge", "entities", "figurants"), "succeeded", "political"),
+        (("load", "purge", "entities", "figurants", "political"), "succeeded", "load"),
+        (("load", "purge", "entities", "figurants"), "failed", "figurants"),  # a crash is repeated
+        (("load", "purge", "entities", "rosfin"), "succeeded", "figurants"),  # legacy run
+        # An old standalone check that failed or was lost is not repeated: the final step
+        # checks the list anyway.
+        (("load", "purge", "entities", "rosfin"), "failed", "figurants"),
+        (("load", "purge", "entities", "rosfin"), "interrupted", "figurants"),
         (("load", "purge", "entities", "resolve"), "succeeded", "load"),
         (("load", "resolve"), "failed", "load"),  # a resolution ends the cycle
     ],
@@ -617,15 +620,15 @@ def test_the_entities_step_starts_from_management(
     assert "Сборка сущностей" in page and "Готовлюсь" in page
 
 
-def test_the_rosfinmonitoring_check_starts_from_management(
+def test_the_final_step_includes_rosfinmonitoring_check(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    finish_steps(session_factory, registry, "load", "purge", "entities")
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
         bar = _run_bar(client.get("/ui/management").text)
-        response = client.post("/ui/management/rosfin", follow_redirects=False)
+        response = client.post("/ui/management/political", follow_redirects=False)
         run_id = registry.runs_of("monitor")[0].id
         with session_factory.begin() as session:
             session.execute(
@@ -637,25 +640,26 @@ def test_the_rosfinmonitoring_check_starts_from_management(
                     "id": run_id,
                     "out": '{"snapshot_id": 2, "snapshot_date": "2026-09-25T00:00:00+00:00", '
                     '"entries": 22950, "new_snapshot": true, "download_error": null, '
-                    '"entities": 10421, "rf_full": 3605, "rf_possible": 950}',
+                    '"entities": 10421, "rf_full": 3605, "rf_possible": 950, '
+                    '"rf_merged": 12, "region_merged": 7}',
                 },
             )
         page = client.get(response.headers["location"]).text
 
-    assert 'id="step-rosfin" class="step current" type="submit"' in bar
+    assert 'id="step-political" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("rosfin", ["check-entities-rosfin"])
-    assert "Сверка с Росфинмониторингом" in page
-    assert "снимок #2 от 2026-09-25, записей 22950 — <b>новый</b>" in page
+    assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
+    assert "Политические дела и сверка с РФМ" in page
+    assert "Сверено по снимку перечня РФМ #2 от 2026-09-25" in page
     assert "В перечне (ФИО с отчеством): 3605" in page
     assert "Возможно в перечне: 950" in page
 
 
-def test_step_five_finds_the_figurants_from_management(
+def test_step_four_finds_the_figurants_from_management(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    finish_steps(session_factory, registry, "load", "purge", "entities", "rosfin")
+    finish_steps(session_factory, registry, "load", "purge", "entities")
 
     with _client(session_factory, registry) as client:
         bar = _run_bar(client.get("/ui/management").text)
@@ -698,7 +702,7 @@ def test_step_six_finds_the_political_cases_from_management(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    finish_steps(session_factory, registry, "load", "purge", "entities", "rosfin", "figurants")
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
         bar = _run_bar(client.get("/ui/management").text)
@@ -712,7 +716,8 @@ def test_step_six_finds_the_political_cases_from_management(
                 ),
                 {
                     "id": run_id,
-                    "out": '{"figurants": 4831, "political_rules": 1378, "political_model": 1500, '
+                    "out": '{"rf_full": 3605, "rf_possible": 950, "figurants": 4831, '
+                    '"political_rules": 1378, "political_model": 1500, '
                     '"criminal": 1800, "unclear": 150, "asked_now": 3450, "cached": 0, '
                     '"failures": 3}',
                 },
@@ -724,6 +729,7 @@ def test_step_six_finds_the_political_cases_from_management(
     assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
     assert "Политические по статье УК: 1378" in done
     assert "Политические по ответу модели: 1500" in done
+    assert "В перечне (ФИО с отчеством): 3605" in done
     assert "Уголовные: 1800" in done and 'href="/ui/political">Результат</a>' in done
 
 
@@ -743,7 +749,7 @@ def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[
 
     assert "<h2>Воронка отбора</h2>" in page
     steps = re.findall(r'<span class="funnel-step">(\d)</span>', page)
-    assert steps == ["1", "2", "3", "4", "5", "6"]
+    assert steps == ["1", "2", "3", "4", "5"]
     assert 'class="funnel-stage result" href="/ui/political"' in page
     # The funnel counts every publication: it says from when to when.
     assert "<b>За всё время:</b> публикации с 04.03.2025 по 01.09.2026." in page
@@ -752,7 +758,7 @@ def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[
 def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[Session]) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
     ids = finish_steps(
-        session_factory, registry, "load", "purge", "entities", "rosfin", "figurants", "political"
+        session_factory, registry, "load", "purge", "entities", "figurants", "political"
     )
 
     with _client(session_factory, registry) as client:
@@ -761,4 +767,79 @@ def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[S
     listed = [
         int(run_id) for run_id in re.findall(r'<a href="/ui/management\?run_id=(\d+)">#', page)
     ]
-    assert listed == ids[:1:-1]
+    # Five runs: the four latest, newest first.
+    assert listed == ids[:0:-1]
+
+
+def test_a_live_old_list_check_is_named_as_what_it_is(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities")
+    finish_steps(session_factory, registry, "rosfin", status="running")
+
+    with _client(session_factory, registry) as client:
+        bar = _run_bar(client.get("/ui/management").text)
+
+    # Its stop button stands on the next step, and says which run it stops.
+    assert "Остановить: Сверка с РФМ (прежний отдельный шаг)" in bar
+    assert "Найти фигурантов</button>" not in bar
+
+
+@pytest.mark.parametrize(
+    ("out", "shown", "hidden"),
+    [
+        (
+            (
+                '{"snapshot_id": 3, "snapshot_date": "2026-09-25T00:00:00+00:00", '
+                '"download_error": "ConnectTimeout: timed out", "rf_full": 3, "figurants": 1}'
+            ),
+            [
+                (
+                    "Свежий перечень не скачан, сверено по последнему сохранённому снимку: "
+                    "ConnectTimeout: timed out"
+                ),
+                "Сверено по снимку перечня РФМ #3 от 2026-09-25",
+            ],
+            ["Сверка с РФМ не выполнена"],
+        ),
+        (
+            '{"snapshot_id": null, "download_error": "ConnectTimeout: timed out", "figurants": 1}',
+            ["Сверка с РФМ не выполнена: снимков перечня нет. Политичность оценена без неё."],
+            ["Сверено по снимку"],
+        ),
+        (
+            (
+                '{"snapshot_id": null, "rf_error": "RuntimeError: the database went away", '
+                '"figurants": 1}'
+            ),
+            ["Сверка с РФМ не выполнена: RuntimeError: the database went away."],
+            ["Сверено по снимку"],
+        ),
+    ],
+)
+def test_the_final_card_says_how_the_list_was_checked(
+    session_factory: sessionmaker[Session], out: str, shown: list[str], hidden: list[str]
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+
+    with _client(session_factory, registry) as client:
+        response = client.post("/ui/management/political", follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'succeeded', stdout = :out "
+                    "WHERE id = :id"
+                ),
+                {"id": run_id, "out": out},
+            )
+        page = client.get(response.headers["location"]).text
+
+    for text_ in shown:
+        assert text_ in page
+    for text_ in hidden:
+        assert text_ not in page
+    # On the list is who a person is: no red mark.
+    assert '<span class="badge failed">В перечне' not in page

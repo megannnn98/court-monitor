@@ -199,7 +199,7 @@ def ui_unnamed(
         for key, label in _STATUSES.items()
     )
     empty = (
-        '<p class="empty">Безымянных фигурантов пока нет: их находит шаг 6 «Отобрать '
+        '<p class="empty">Безымянных фигурантов пока нет: их находит шаг 5 «Отобрать '
         "политические дела».</p>"
         if not figurants
         else '<p class="empty">В этом разделе никого.</p>'

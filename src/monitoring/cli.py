@@ -21,7 +21,7 @@ from application import ApplicationServices, build_application_services
 from entities.collector import EntityCollector
 from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
-from entities.rf_check import EntityRfCheck
+from entities.rf_check import EntityRfCheck, RfCheckResult
 from entities.roles import FigurantFinder, role_classifier_from_env
 from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
@@ -173,8 +173,8 @@ def add_monitoring_arguments(subparsers: Any) -> None:
     subparsers.add_parser(
         "find-political",
         help=(
-            "Tell which figurants are politically persecuted (a political УК article, then a "
-            "model for the rest); then find the unnamed figurants"
+            "Match entities against Rosfinmonitoring, tell which figurants are politically "
+            "persecuted, then find the unnamed figurants"
         ),
     )
 
@@ -315,6 +315,19 @@ def run_monitoring_command(
         _print(dataclasses.asdict(found))
         return True
     if args.command == "find-political":
+        # The list first: it confirms who is who before the verdicts. Its failure (the
+        # site, the database) must not cost the verdicts: they run, and the output says why
+        # the list was not checked.
+        rf_error: str | None = None
+        rf_checked: RfCheckResult | None = None
+        try:
+            rf_checked = EntityRfCheck(
+                session_factory,
+                on_stage=lambda stage: logger.info("event=entities_rf_check_stage stage=%s", stage),
+            ).run()
+        except Exception as exc:  # reported in the output; the step goes on
+            logger.exception("event=entities_rf_check_failed")
+            rf_error = f"{type(exc).__name__}: {exc}"
         politics = politics_classifier_from_env()
         if politics is None:
             logger.warning("event=entity_politics_no_model: OPENROUTER_API_KEY is not set")
@@ -323,10 +336,12 @@ def run_monitoring_command(
             classifier=politics,
             on_stage=lambda stage: logger.info("event=entity_politics_stage stage=%s", stage),
         ).run()
-        # Step 6 ends with the unnamed figurants: their cases are read the same way.
+        # The final step ends with unnamed figurants: their cases are read the same way.
         unnamed = _find_unnamed(session_factory)
         _print(
             {
+                **_rf_totals(rf_checked),
+                "rf_error": rf_error,
                 **dataclasses.asdict(found_political),
                 "unnamed": unnamed.unnamed,
                 "unnamed_asked_now": unnamed.asked_now,
@@ -510,6 +525,24 @@ def _resolve(args: argparse.Namespace, monitoring: MonitoringService) -> bool:
     if exit_code:
         raise SystemExit(exit_code)
     return True
+
+
+def _rf_totals(checked: RfCheckResult | None) -> dict[str, object]:
+    """The list check's figures in the final step's output; none when it failed."""
+    if checked is None:
+        return {"snapshot_id": None}
+    return {
+        "snapshot_id": checked.snapshot_id,
+        "snapshot_date": checked.snapshot_date.isoformat() if checked.snapshot_date else None,
+        "entries": checked.entries,
+        "new_snapshot": checked.new_snapshot,
+        "download_error": checked.download_error,
+        "entities": checked.entities,
+        "rf_full": checked.full,
+        "rf_possible": checked.possible,
+        "rf_merged": checked.merged,
+        "region_merged": checked.merged_region,
+    }
 
 
 def _find_unnamed(session_factory: sessionmaker[Session]) -> UnnamedResult:

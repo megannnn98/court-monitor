@@ -46,7 +46,7 @@ from web.ui.management import (
     _badge,
     _local_time,
 )
-from web.ui.pipeline import PipelineState, current_state, out_of_turn
+from web.ui.pipeline import PipelineState, current_state, deepseek_confirmation, out_of_turn
 
 router = APIRouter()
 
@@ -290,8 +290,12 @@ def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
         )
     refusal = out_of_turn(state, "entities")
     if refusal is None:
+        warning = deepseek_confirmation("entities")
+        confirm = (
+            f" onsubmit=\"return confirm('{escape(warning, quote=True)}')\"" if warning else ""
+        )
         return (
-            '<form method="post" action="/ui/entities/collect" class="run-bar">'
+            f'<form method="post" action="/ui/entities/collect" class="run-bar"{confirm}>'
             '<button id="collect-button" type="submit">3. Собрать сущности</button>'
             f'<span class="muted">{last}</span></form>'
         )
@@ -435,7 +439,7 @@ def ui_entities(
         query = query.where(~in_list)
     if rf_possible == "hide":
         query = query.where(~maybe_listed)
-    # Before step 5 has run nobody has a role: the role then filters nothing.
+    # Before step 4 has run nobody has a role: the role then filters nothing.
     roles_known = db.scalar(select(exists().select_from(EntityGroupRoleRecord))) or False
     if role != "all" and roles_known:
         query = query.where(
@@ -472,7 +476,7 @@ def ui_entities(
     roles_note = (
         ""
         if roles_known
-        else '<p class="warning">Фигуранты ещё не определены — шаг 5 в '
+        else '<p class="warning">Фигуранты ещё не определены — шаг 4 в '
         '<a href="/ui/management">«Управлении»</a>; пока показаны все.</p>'
     )
     found_by = f" по статье УК {escape(article)}" if article else ""

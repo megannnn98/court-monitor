@@ -106,28 +106,23 @@ def funnel(db: Session) -> Funnel:
             "спорные — в «Спорных случаях»",
             "/ui/entities?rf=all&figurants=all",
         ),
-        # The list confirms who a person is; it drops nobody.
         Stage(
             "4",
-            "Сверены с перечнем РФМ",
-            entities,
-            f"никто не отсеян: {_n(listed)} найдены в перечне — их личность подтверждают "
-            "дата рождения и место",
-            "/ui/entities?rf=all&role=all",
-        ),
-        Stage(
-            "5",
             "Фигуранты уголовных дел",
             figurants,
             f"отсеяно {_n(entities - figurants)}: только упомянуты, административное дело, "
             f"дело не в России, должностные лица ({_n(officials)}), не ясно",
             "/ui/entities",
         ),
+        # The list is checked in the final step too; it confirms who a person is and drops
+        # nobody.
         Stage(
-            "6",
+            "5",
             "Политические дела — Результат",
             political,
-            f"отсеяно {_n(criminal)} с обычной уголовщиной и {_n(unclear)} неясных",
+            f"отсеяно {_n(criminal)} с обычной уголовщиной и {_n(unclear)} неясных; перечень РФМ "
+            f"никого не отсеял — {_n(listed)} найдены в нём, их личность подтверждают дата "
+            "рождения и место",
             "/ui/political",
         ),
     ]
@@ -151,7 +146,7 @@ def funnel_html(whole: Funnel) -> str:
   <h2>Воронка отбора</h2>
   <p class="funnel-period"><b>За всё время:</b> {escape(whole.period)}. Период на
   «Результате» выбирается отдельно.</p>
-  <p class="muted">Шаги 1–6 ниже по очереди сужают поток: из скачанных публикаций — к людям с
+  <p class="muted">Шаги 1–5 ниже по очереди сужают поток: из скачанных публикаций — к людям с
   политическими уголовными делами. Перечень Росфинмониторинга никого не отсеивает, он
   подтверждает личность. Нажмите на ступень, чтобы её посмотреть.</p>
   {rows}

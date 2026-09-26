@@ -516,11 +516,11 @@ def _decision(dossier: Dossier) -> str:
       <span class="muted">— {escape(_VERDICT_METHODS.get(entity.verdict_method, entity.verdict_method))}</span></p>
     <p><b>Причина:</b> {escape(entity.verdict_reason)}</p>
     {f"<blockquote>{escape(entity.verdict_quote)}</blockquote>" if entity.verdict_quote else ""}
-    <p class="muted">Доказательство: {evidence}. Уверенность не хранится: шаг 6 пишет вердикт,
+    <p class="muted">Доказательство: {evidence}. Уверенность не хранится: шаг 5 пишет вердикт,
     способ и цитату.</p>"""
     else:
         verdict = (
-            '<p class="muted">Шаг 6 не оценивал это дело: оценивают только фигурантов '
+            '<p class="muted">Шаг 5 не оценивал это дело: оценивают только фигурантов '
             "уголовных дел.</p>"
         )
     if entity.role:

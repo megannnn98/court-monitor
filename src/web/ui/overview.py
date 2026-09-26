@@ -74,7 +74,7 @@ def _kpi(label: str, value: object, href: str, note: str = "") -> str:
 
 
 def _stages(runs: list[OperationRun], state: PipelineState) -> str:
-    """The six steps: the latest run of each, and which one may run now."""
+    """The five steps: the latest run of each, and which one may run now."""
     latest: dict[str, OperationRun] = {}
     for each in runs:
         mode = each.parameters.mode or ""
@@ -156,7 +156,7 @@ def ui_overview(
   <thead><tr><th scope="col">Человек</th><th scope="col">Первая публикация</th>
   <th scope="col">Дело</th></tr></thead><tbody>{new_rows}</tbody></table>'''
         if new_rows
-        else '<p class="empty">Фигурантов пока нет: шаг 5 не запускался.</p>'
+        else '<p class="empty">Фигурантов пока нет: шаг 4 не запускался.</p>'
     }
 </section>
 <section class="band" aria-labelledby="queue-title">
@@ -202,6 +202,6 @@ def ui_overview(
         body,
         active="overview",
         instruction="Что найдено, что нового и что ждёт решения.",
-        next_action="Откройте нового фигуранта или разберите очередь; цикл обработки — кнопкой текущего этапа.",
+        next_action="Откройте нового фигуранта или разберите очередь; цикл из пяти этапов — кнопкой текущего.",
         db=db,
     )

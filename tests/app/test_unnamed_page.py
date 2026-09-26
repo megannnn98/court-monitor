@@ -95,7 +95,7 @@ def test_nobody_yet_says_where_they_come_from(session_factory: sessionmaker[Sess
         page = client.get("/ui/unnamed").text
 
     assert "<title>Безымянные</title>" in page
-    assert "Безымянных фигурантов пока нет: их находит шаг 6" in page
+    assert "Безымянных фигурантов пока нет: их находит шаг 5" in page
     assert '<span>Безымянные</span><span class="nav-count">' not in page
     assert 'href="/ui/unnamed" aria-current="page"' in page
 

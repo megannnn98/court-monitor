@@ -181,7 +181,7 @@ class UnnamedReader(Protocol):
 
 
 class OpenRouterUnnamedReader:
-    """Through OpenRouter (DeepSeek by default), as steps 5 and 6."""
+    """Through OpenRouter (DeepSeek by default), as steps 4 and 5."""
 
     def __init__(
         self,

@@ -143,7 +143,7 @@ def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:
         snapshot_date=datetime.now(UTC),
     ).snapshot_id
 
-    # Step 6: Match persons to Rosfinmonitoring
+    # Final pipeline step: Match persons to Rosfinmonitoring
     matcher = RuleBasedRosfinmonitoringMatcher(session_factory)
     match_persistence = RosfinMatchPersistence(session_factory)
     with session_factory() as session:

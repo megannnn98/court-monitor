@@ -78,7 +78,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Entity resolution | `src/persons/` | ER v2 with human review — [Entity-Resolution](Entity-Resolution.md) |
 | Persecution classification | `src/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |
 | Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
-| Entities (console) | `src/entities/` | the six-step pipeline of the console: people from mentions, the Rosfinmonitoring check (confirms who, drops nobody), roles, political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
+| Entities (console) | `src/entities/` | the five-step pipeline of the console: people from mentions, roles, and the final Rosfinmonitoring check plus political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
 | Unnamed figurants | `src/entities/unnamed.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
 | Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by the Telegram bot — [Pipeline](Pipeline.md) |
 | Research | `src/research/` | deterministic research in one read-only REPEATABLE READ snapshot, LangGraph workflow, reports — [Research](Research.md), [Research-Workflow](Research-Workflow.md), [Research-Reports](Research-Reports.md) |
