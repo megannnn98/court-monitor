@@ -12,7 +12,7 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import MonitoringRunRecord
@@ -803,6 +803,53 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
 </section>"""
 
 
+SOURCE_ERRORS = 8
+# A source's failed loads, the latest first: parsing and network errors of step 1.
+_SOURCE_ERRORS = text(
+    """
+    SELECT r.source, i.stage, i.error_type, left(i.error_message, 240) AS message, i.created_at
+    FROM monitoring_run_items i JOIN monitoring_runs r ON r.id = i.run_id
+    WHERE i.status = 'failed'
+    ORDER BY i.created_at DESC, i.id DESC
+    LIMIT :limit
+    """
+)
+_RECENT_SOURCE_ERRORS = text(
+    """
+    SELECT count(DISTINCT r.source)
+    FROM monitoring_run_items i JOIN monitoring_runs r ON r.id = i.run_id
+    WHERE i.status = 'failed' AND i.created_at >= now() - interval '7 days'
+    """
+)
+
+
+def recent_source_errors(db: Session) -> int:
+    """The sources that failed to load in the last week."""
+    return db.scalar(_RECENT_SOURCE_ERRORS) or 0
+
+
+def _source_errors(db: Session) -> str:
+    rows = "".join(
+        f"<tr><td>{escape(source or 'общий проход')}</td><td>{escape(stage or '—')}</td>"
+        f"<td>{escape(error_type or '')}: {escape(message or '')}</td>"
+        f"<td>{created_at.astimezone():%d.%m.%Y}</td></tr>"
+        for source, stage, error_type, message, created_at in db.execute(
+            _SOURCE_ERRORS, {"limit": SOURCE_ERRORS}
+        ).all()
+    )
+    table = (
+        f"""<table><caption class="visually-hidden">Последние ошибки</caption>
+  <thead><tr><th scope="col">Источник</th><th scope="col">Этап</th><th scope="col">Ошибка</th>
+  <th scope="col">Когда</th></tr></thead><tbody>{rows}</tbody></table>"""
+        if rows
+        else '<p class="empty">Ошибок нет.</p>'
+    )
+    return f"""<section class="band" id="source-errors" aria-labelledby="errors-title">
+  <h2 id="errors-title">Ошибки источников</h2>
+  {table}
+</section>"""
+
+
 def _management_page(
     db: Session,
     *,
@@ -832,7 +879,8 @@ def _management_page(
     загрузки статьи; для старых дат увеличьте limit источника.</p>
   </fieldset>
 </form>
-{_history(history, run)}"""
+{_history(history, run)}
+{_source_errors(db)}"""
     page = _page(
         "Управление",
         body,

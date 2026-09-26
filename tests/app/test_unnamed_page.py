@@ -169,3 +169,26 @@ def test_nobody_on_the_list_closes_the_case(session_factory: sessionmaker[Sessio
         "Никого в перечне (1)" in closed and '<span class="badge">никого в перечне</span>' in closed
     )
     assert '<a class="chip" href="/ui/unnamed">Безымянные: 0</a>' in queue
+
+
+def test_the_overview_shows_the_open_unnamed_with_their_candidates(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/overview").text
+        client.post(
+            "/ui/unnamed/decide",
+            data={"figurant": "k" * 64, "decision": "none", "back": "status=open"},
+            follow_redirects=False,
+        )
+        closed = client.get("/ui/overview").text
+
+    unnamed = page[page.index('id="unnamed-title"') :]
+    assert 'Неопознанные фигуранты <span class="count">1</span>' in unnamed
+    assert "&lt;b&gt;на железной дороге&lt;/b&gt;" in unnamed and "<b>на" not in unnamed
+    assert "17 лет · мужчина · Тюмень · задержание · ст. 205 · кандидатов в перечне: 1" in unnamed
+    assert '<a href="/ui/unnamed">Все: 1 →</a>' in unnamed
+    # Closed («никого нет в перечне»): off the overview.
+    assert "Неопознанных нет." in closed

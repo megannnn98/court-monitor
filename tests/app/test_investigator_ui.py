@@ -207,25 +207,42 @@ def _listed(session_factory: sessionmaker[Session], level: str) -> None:
         session.add(EntityGroupRfMatchRecord(group_id=group, entry_id=entry, level=level))
 
 
-def test_the_overview_shows_the_figures_the_new_figurants_and_the_pipeline(
-    session_factory: sessionmaker[Session],
-) -> None:
+def _news(session_factory: sessionmaker[Session], key: str, kind: str, reason: str) -> None:
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "INSERT INTO entity_group_news (group_id, kind, method, reason, quote, "
+                "published_at) SELECT id, :kind, 'model', :reason, '', last_published_at "
+                "FROM entity_groups WHERE key = :key"
+            ),
+            {"key": key, "kind": kind, "reason": reason},
+        )
+
+
+def test_the_overview_is_what_is_new(session_factory: sessionmaker[Session]) -> None:
     _case(session_factory)
+    _news(session_factory, MOOR, "new_case", "арестован по новому делу")
+    # Иванов's news is no political case's: not on the overview.
+    _news(session_factory, "иван иванов", "sentence", "приговор свидетелю")
 
     with _client(session_factory) as client:
         page = client.get("/ui/overview")
 
     assert page.status_code == 200
     assert "<title>Обзор</title>" in page.text
-    for label in ("Публикации", "Люди", "Фигуранты", "Результат", "Очередь"):
-        assert f'<span class="kpi-label">{label}</span>' in page.text
-    assert re.search(
-        r'<span class="kpi-label">Результат</span><strong class="kpi-value">1<', page.text
-    )
-    assert f'href="/ui/investigations/{quote(MOOR)}">Моор Александр</a>' in page.text
-    assert "Цикл обработки" in page.text and "1. Подгрузить статьи" in page.text
-    # The runs' tables are folded.
-    assert "<details><summary>Последние запуски подробно</summary>" in page.text
+    new_cases = page.text[
+        page.text.index('id="new_case-title"') : page.text.index('id="sentence-title"')
+    ]
+    assert 'Новые дела <span class="count">1</span>' in new_cases
+    assert f'href="/ui/investigations/{quote(MOOR)}">Моор Александр</a>' in new_cases
+    assert "арестован по новому делу" in new_cases
+    assert 'href="/ui/political?months=0&news=new_case">Все: 1 →</a>' in new_cases
+    assert 'Приговоры <span class="count">0</span>' in page.text
+    assert "Приговоров нет." in page.text and "приговор свидетелю" not in page.text
+    assert "Неопознанные фигуранты" in page.text
+    # The pipeline, its runs and the figures are elsewhere; the status line keeps the figures.
+    for gone in ("Цикл обработки", "kpi", "Последние запуски", "Ошибки источников"):
+        assert gone not in page.text, gone
 
 
 def test_a_dossier_opens_and_an_unknown_person_is_not_found(
@@ -366,7 +383,7 @@ def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
     role = dossier[dossier.index("<h3>Роль в деле</h3>") :]
     assert '<h3>Свежая новость</h3>\n    <p><span class="badge succeeded">приговор</span>' in role
     assert "суд вынес приговор" in role
-    assert '<th scope="col">Свежая новость</th>' in overview and "приговор" in overview
+    assert "суд вынес приговор" in overview
 
 
 def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(
@@ -521,8 +538,9 @@ def test_empty_states_say_so(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         witness = client.get("/ui/investigations/" + quote("иван иванов")).text
 
-    assert "Фигурантов пока нет" in overview and "Ошибок нет." in overview
-    assert "Очередь пуста." in overview
+    assert "Новых дел нет." in overview and "Приговоров нет." in overview
+    assert "Неопознанных нет." in overview and "Решений оператора не ждёт ничего." in overview
+    assert "ошибками загрузки" not in overview
     assert "Спорных пар нет." in queue and "Неясных ролей нет." in queue
     assert "Неясных дел нет." in queue and "Сбоев нет." in queue
     assert "Ничего не найдено." in publications
@@ -619,7 +637,7 @@ def test_the_interface_speaks_russian(session_factory: sessionmaker[Session]) ->
         for english in ("Persons", "ER pending", "run:", "Dashboard", "Search", "Timeline"):
             assert english not in visible, (path, english)
         assert '<html lang="ru">' in page
-    assert "Разобрать очередь" not in pages["/ui/overview"]  # the queue is empty
+    assert 'href="/ui/queue">Разобрать</a>' not in pages["/ui/overview"]  # the queue is empty
     assert "Спорные совпадения людей" in pages["/ui/queue"]
 
 

@@ -1,211 +1,152 @@
-"""«Обзор», the home page: what is found, what is new, what waits for the operator, and
-where the pipeline stands. The technical tables of the runs stay folded or on
-«Управление»."""
+"""«Обзор», the home page: what is new — the political cases' new cases and sentences, the
+unnamed figurants to identify — and what waits for the operator. The pipeline, its runs
+and the sources' errors are on «Управление»."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from html import escape
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from entities.news import KIND_LABELS as NEWS_LABELS
+from db.orm_models import UnnamedFigurantRecord
+from entities.news import NEW_CASE, SENTENCE
 from entities.politics import POLITICAL
-from entities.roles import FIGURANT
-from operator_console import OperationRegistry, OperationRun
-from sources.source_registry import news_sources
-from web.dependencies import get_db, get_operation_registry
-from web.ui.dossier import VERDICT_LABELS
+from entities.unnamed import candidates
+from web.dependencies import get_db
 from web.ui.entities import display_name
-from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
-from web.ui.management import _RUN_STATUS_BADGES, _RUN_STATUS_LABELS, _badge, _history
-from web.ui.pipeline import OPERATION, STAGES, TITLES, PipelineState, current_state, stepper
+from web.ui.management import recent_source_errors
+from web.ui.unnamed import _facts
 from web.ui.workload import workload
 
 router = APIRouter()
 
-NEW_FIGURANTS = 10
-SOURCE_ERRORS = 8
+LATEST = 8
+UNNAMED = 5
+QUOTE_LIMIT = 160
 
-# The figurants whose first publication is the latest: the new cases.
-_NEW_FIGURANTS = text(
+# A political case's latest news of one kind, the latest first.
+_LATEST_NEWS = text(
     """
-    SELECT g.key, g.name, first.first_at, po.verdict, ne.kind
-    FROM entity_groups g
-    JOIN entity_group_roles ro ON ro.group_id = g.id AND ro.role = :figurant
-    LEFT JOIN entity_group_politics po ON po.group_id = g.id
-    LEFT JOIN entity_group_news ne ON ne.group_id = g.id
-    JOIN LATERAL (
-        SELECT min(a.published_at) AS first_at FROM entity_group_mentions gm
-        JOIN entity_mentions m ON m.id = gm.mention_id
-        JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-        JOIN parsed_articles a ON a.id = r.article_id
-        WHERE gm.group_id = g.id
-    ) first ON true
-    ORDER BY first.first_at DESC NULLS LAST, g.key
+    SELECT g.key, g.name, n.published_at, n.reason
+    FROM entity_group_news n
+    JOIN entity_groups g ON g.id = n.group_id
+    JOIN entity_group_politics p ON p.group_id = g.id AND p.verdict = :political
+    WHERE n.kind = :kind
+    ORDER BY n.published_at DESC NULLS LAST, g.key
     LIMIT :limit
     """
 )
-_SOURCE_ERRORS = text(
+_NEWS_COUNTS = text(
     """
-    SELECT r.source, i.stage, i.error_type, left(i.error_message, 240) AS message, i.created_at
-    FROM monitoring_run_items i JOIN monitoring_runs r ON r.id = i.run_id
-    WHERE i.status = 'failed'
-    ORDER BY i.created_at DESC, i.id DESC
-    LIMIT :limit
+    SELECT n.kind, count(*)
+    FROM entity_group_news n
+    JOIN entity_group_politics p ON p.group_id = n.group_id AND p.verdict = :political
+    GROUP BY n.kind
     """
 )
+# The unnamed nobody has identified or closed yet.
+_OPEN = """NOT EXISTS (
+    SELECT 1 FROM unnamed_decisions d
+    WHERE d.figurant_key = unnamed_figurants.key AND d.decision IN ('same', 'none'))"""
 
 
 def _day(moment: datetime | None) -> str:
-    return moment.astimezone().strftime("%d.%m.%Y") if moment else "—"
+    return moment.astimezone().strftime("%d.%m") if moment else "—"
 
 
-def _kpi(label: str, value: object, href: str, note: str = "") -> str:
-    return (
-        f'<a class="kpi" href="{href}"><span class="kpi-label">{escape(label)}</span>'
-        f'<strong class="kpi-value">{value}</strong>'
-        f"{f'<span class=kpi-note>{escape(note)}</span>' if note else ''}</a>"
+def _news_band(db: Session, kind: str, title: str, count: int, empty: str) -> str:
+    rows = db.execute(_LATEST_NEWS, {"political": POLITICAL, "kind": kind, "limit": LATEST}).all()
+    items = "".join(
+        f'<li><span class="when">{_day(published_at)}</span> '
+        f'<a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a>'
+        f'<span class="why">{escape(reason)}</span></li>'
+        for key, name, published_at, reason in rows
     )
+    more = f"/ui/political?{urlencode({'months': 0, 'news': kind})}"
+    return f"""<section class="band news-band" aria-labelledby="{kind}-title">
+  <h2 id="{kind}-title">{title} <span class="count">{count}</span></h2>
+  {f'<ul class="news-list">{items}</ul>' if items else f'<p class="empty">{empty}</p>'}
+  {f'<p><a href="{more}">Все: {count} →</a></p>' if count else ""}
+</section>"""
 
 
-def _stages(runs: list[OperationRun], state: PipelineState) -> str:
-    """The five steps: the latest run of each, and which one may run now."""
-    latest: dict[str, OperationRun] = {}
-    for each in runs:
-        mode = each.parameters.mode or ""
-        if mode in STAGES and mode not in latest:
-            latest[mode] = each
-    rows = []
-    for number, stage in enumerate(STAGES, start=1):
-        run = latest.get(stage)
-        status = (
-            _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
-            if run is not None
-            else '<span class="muted">не запускался</span>'
+def _unnamed_band(db: Session, open_count: int) -> str:
+    latest = db.scalars(
+        select(UnnamedFigurantRecord)
+        .where(text(_OPEN))
+        .order_by(UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id)
+        .limit(UNNAMED)
+    ).all()
+    items = []
+    for figurant in latest:
+        found = candidates(db, figurant).total
+        quote_text = " ".join(figurant.quote.split())
+        if len(quote_text) > QUOTE_LIMIT:
+            quote_text = quote_text[:QUOTE_LIMIT].rstrip() + "…"
+        items.append(
+            f'<li><span class="when">{_day(figurant.published_at)}</span> '
+            f"«{escape(quote_text)}»"
+            f'<span class="why">{_facts(figurant)} · кандидатов в перечне: {found}</span></li>'
         )
-        when = (
-            f'<a href="/ui/management?run_id={run.id}">#{run.id}</a> {_day(run.created_at)}'
-            if run is not None
-            else ""
-        )
-        now = ' <span class="badge running">сейчас</span>' if stage == state.current else ""
-        rows.append(
-            f"<tr><td>{number}. {escape(TITLES[stage])}{now}</td><td>{status}</td><td>{when}</td></tr>"
-        )
-    return "".join(rows)
+    return f"""<section class="band" aria-labelledby="unnamed-title">
+  <h2 id="unnamed-title">Неопознанные фигуранты <span class="count">{open_count}</span></h2>
+  <p class="muted">Публикация не называет человека («17-летний житель Тюмени»); кто это может
+  быть — по перечню Росфинмониторинга.</p>
+  {
+        f'<ul class="news-list">{"".join(items)}</ul>'
+        if items
+        else '<p class="empty">Неопознанных нет.</p>'
+    }
+  {f'<p><a href="/ui/unnamed">Все: {open_count} →</a></p>' if open_count else ""}
+</section>"""
 
 
 @router.get("/ui/overview", response_class=HTMLResponse)
-def ui_overview(
-    db: Session = Depends(get_db),  # noqa: B008
-    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
-) -> HTMLResponse:
+def ui_overview(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     work = workload(db)
-    articles = db.scalar(text("SELECT count(*) FROM parsed_articles")) or 0
-    people = db.scalar(select(func.count()).select_from(EntityGroupRecord)) or 0
-    figurants = (
-        db.scalar(
-            select(func.count())
-            .select_from(EntityGroupRoleRecord)
-            .where(EntityGroupRoleRecord.role == FIGURANT)
-        )
-        or 0
-    )
-    result = (
-        db.scalar(
-            select(func.count())
-            .select_from(EntityGroupPoliticsRecord)
-            .where(EntityGroupPoliticsRecord.verdict == POLITICAL)
-        )
-        or 0
-    )
-    errors = db.execute(_SOURCE_ERRORS, {"limit": SOURCE_ERRORS}).all()
-    new = db.execute(_NEW_FIGURANTS, {"figurant": FIGURANT, "limit": NEW_FIGURANTS}).all()
-    state = current_state(registry)
-    runs = registry.runs_of(OPERATION, limit=50)
-
-    new_rows = "".join(
-        f'<tr><td><a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a></td>'
-        f"<td>{_day(first_at)}</td>"
-        f"<td>{_badge(VERDICT_LABELS.get(verdict, verdict), 'succeeded' if verdict == POLITICAL else '') if verdict else '<span class=muted>не оценено</span>'}</td>"
-        f"<td>{escape(NEWS_LABELS.get(kind, kind)) if kind else '—'}</td></tr>"
-        for key, name, first_at, verdict, kind in new
-    )
-    error_rows = "".join(
-        f"<tr><td>{escape(source or 'общий проход')}</td><td>{escape(stage or '—')}</td>"
-        f"<td>{escape(error_type or '')}: {escape(message or '')}</td><td>{_day(created_at)}</td></tr>"
-        for source, stage, error_type, message, created_at in errors
-    )
-    body = f"""<section class="kpis" aria-label="Итоговые показатели">
-  {_kpi("Публикации", articles, "/ui/publications", "с уголовным делом")}
-  {_kpi("Люди", people, "/ui/entities?figurants=all&rf=all", "выделено из упоминаний")}
-  {_kpi("Фигуранты", figurants, "/ui/entities", "на них заведено дело")}
-  {_kpi("Результат", result, "/ui/political", "политические уголовные дела")}
-  {_kpi("Очередь", work.total, "/ui/queue", "ждут решения оператора")}
-</section>
-<div class="overview-grid">
-<section class="band" aria-labelledby="new-title">
-  <h2 id="new-title">Новые фигуранты</h2>
-  <p class="muted">По дате первой публикации о человеке.</p>
-  {
-        f'''<table><caption class="visually-hidden">Новые фигуранты</caption>
-  <thead><tr><th scope="col">Человек</th><th scope="col">Первая публикация</th>
-  <th scope="col">Дело</th><th scope="col">Свежая новость</th></tr></thead>
-  <tbody>{new_rows}</tbody></table>'''
-        if new_rows
-        else '<p class="empty">Фигурантов пока нет: шаг 4 не запускался.</p>'
+    counts = {
+        str(kind): int(count)
+        for kind, count in db.execute(_NEWS_COUNTS, {"political": POLITICAL}).all()
     }
-</section>
-<section class="band" aria-labelledby="queue-title">
-  <h2 id="queue-title">Очередь проверки</h2>
-  <ul class="queue-summary">
-    <li><a href="/ui/queue#pairs">Спорные совпадения людей</a> <strong>{work.pairs}</strong></li>
-    <li><a href="/ui/queue#roles">Неясная роль в деле</a> <strong>{work.unclear_roles}</strong></li>
-    <li><a href="/ui/queue#verdicts">Неясная политичность</a> <strong>{
-        work.unclear_verdicts
-    }</strong></li>
-    <li><a href="/ui/unnamed">Безымянные фигуранты</a> <strong>{work.unnamed}</strong></li>
-  </ul>
-  {
-        '<p class="empty">Очередь пуста.</p>'
-        if not work.total
-        else '<p><a class="button-link" href="/ui/queue">Разобрать очередь</a></p>'
-    }
-</section>
+    new_cases, sentences = counts.get(NEW_CASE, 0), counts.get(SENTENCE, 0)
+    decisions = work.pairs + work.unclear_roles + work.unclear_verdicts
+    queue = (
+        f"""<p class="queue-line">Нужно ваше решение:
+  <a href="/ui/queue#pairs">спорных совпадений — {work.pairs}</a> ·
+  <a href="/ui/queue#roles">неясных ролей — {work.unclear_roles}</a> ·
+  <a href="/ui/queue#verdicts">неясной политичности — {work.unclear_verdicts}</a>
+  <a class="button-link" href="/ui/queue">Разобрать</a></p>"""
+        if decisions
+        else '<p class="queue-line muted">Решений оператора не ждёт ничего.</p>'
+    )
+    failed = recent_source_errors(db)
+    errors = (
+        f'<p class="warning">Источников с ошибками загрузки за неделю: {failed} — '
+        '<a href="/ui/management#source-errors">Управление</a>.</p>'
+        if failed
+        else ""
+    )
+    body = f"""{errors}
+<div class="overview-grid news-grid">
+{_news_band(db, NEW_CASE, "Новые дела", new_cases, "Новых дел нет.")}
+{_news_band(db, SENTENCE, "Приговоры", sentences, "Приговоров нет.")}
 </div>
-<section class="band" aria-labelledby="pipeline-title">
-  <h2 id="pipeline-title">Цикл обработки</h2>
-  <form method="post" action="/ui/management/run" class="run-bar">
-    {stepper(state, len(news_sources()))}
-  </form>
-  <table><caption class="visually-hidden">Этапы</caption>
-  <thead><tr><th scope="col">Этап</th><th scope="col">Последний запуск</th>
-  <th scope="col">Когда</th></tr></thead><tbody>{_stages(runs, state)}</tbody></table>
-  <details><summary>Последние запуски подробно</summary>{_history(runs[:10], None)}</details>
-  <details><summary>Воронка отбора</summary>{funnel_html(funnel(db))}</details>
-</section>
-<section class="band" aria-labelledby="errors-title">
-  <h2 id="errors-title">Ошибки источников</h2>
-  {
-        f'''<table><caption class="visually-hidden">Последние ошибки</caption>
-  <thead><tr><th scope="col">Источник</th><th scope="col">Этап</th><th scope="col">Ошибка</th>
-  <th scope="col">Когда</th></tr></thead><tbody>{error_rows}</tbody></table>'''
-        if error_rows
-        else '<p class="empty">Ошибок нет.</p>'
-    }
-</section>"""
+{_unnamed_band(db, work.unnamed)}
+{queue}"""
     return _page(
         "Обзор",
         body,
         active="overview",
-        instruction="Что найдено, что нового и что ждёт решения.",
-        next_action="Откройте нового фигуранта или разберите очередь; цикл из пяти этапов — кнопкой текущего.",
+        instruction=(
+            "Что нового: политические дела, о которых свежая новость — новое дело или "
+            "приговор, и фигуранты, которых публикации не называют."
+        ),
+        next_action="Откройте человека или «Все →»; спорное разберите в очереди.",
         db=db,
     )

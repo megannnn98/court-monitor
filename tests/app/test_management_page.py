@@ -843,3 +843,37 @@ def test_the_final_card_says_how_the_list_was_checked(
         assert text_ not in page
     # On the list is who a person is: no red mark.
     assert '<span class="badge failed">В перечне' not in page
+
+
+def test_the_sources_errors_are_here_and_the_overview_only_warns(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    with _client(session_factory, registry) as client:
+        clean = client.get("/ui/management").text
+        clean_home = client.get("/ui/overview").text
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    run = monitoring.start_run(
+        scope="source:tg-broblsud",
+        source="tg-broblsud",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=1),
+    )
+    monitoring.record_failure(
+        run,
+        stage=MonitoringStage.INGESTION,
+        entity_type="source_document",
+        error=ValueError("Post text not found"),
+    )
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+        home = client.get("/ui/overview").text
+
+    assert 'id="source-errors"' in clean and "Ошибок нет." in clean
+    assert "ошибками загрузки" not in clean_home
+    errors = page[page.index('id="source-errors"') :]
+    assert "tg-broblsud" in errors and "ValueError: Post text not found" in errors
+    assert "Источников с ошибками загрузки за неделю: 1" in home
+    assert 'href="/ui/management#source-errors"' in home

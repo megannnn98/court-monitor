@@ -1441,53 +1441,55 @@ article.evidence p {
 }
 
 /* ── Обзор ──────────────────────────────────────────────────────────────── */
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 16px;
-}
-
-a.kpi {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  text-decoration: none;
-}
-
-a.kpi:hover {
-  border-color: var(--accent);
-}
-
-.kpi-label {
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.kpi-value {
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-}
-
-.kpi-note {
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+/* «Что нового»: new cases beside sentences; each a short list, the date first. */
+.news-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.band h2 .count {
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+ul.news-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+ul.news-list li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+ul.news-list .when {
+  display: inline-block;
+  min-width: 3.2em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+ul.news-list .why {
+  display: block;
+  margin-left: 3.2em;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+p.queue-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 16px 0 0;
 }
 
 ul.queue-summary {
@@ -1659,10 +1661,6 @@ table.people td .badge {
 }
 
 @media (max-width: 1100px) {
-  .kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .overview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1698,10 +1696,6 @@ table.people td .badge {
 
   .status-strip span {
     flex: none;
-  }
-
-  .kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pair-sides {
