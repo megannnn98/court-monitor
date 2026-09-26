@@ -71,6 +71,8 @@ _ICONS = {
     "publications": '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 '
     '1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/>'
     '<path d="M10 6h8v4h-8V6Z"/>',
+    "unnamed": '<circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/>'
+    '<circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/>',
     "queue": '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 '
     '2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
     "political": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/>'
@@ -106,6 +108,7 @@ _SECTIONS = (
     ("overview", "Обзор", HOME),
     ("investigations", "Расследование", "/ui/investigations"),
     ("entities", "Люди", "/ui/entities"),
+    ("unnamed", "Безымянные", "/ui/unnamed"),
     ("publications", "Публикации", "/ui/publications"),
     ("queue", "Очередь", "/ui/queue"),
 )

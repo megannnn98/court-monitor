@@ -609,6 +609,8 @@ def _political_card(run: OperationRun) -> str:
         ("cached", "Из кэша", ""),
         ("unasked", "Не спрошено: лимит расходов", "failed"),
         ("cost_usd", "Стоимость модели, $", ""),
+        ("unnamed", "Безымянных фигурантов", "succeeded"),
+        ("unnamed_cost_usd", "Стоимость (безымянные), $", ""),
     )
     summary = " ".join(
         _badge(f"{label}: {totals[key]}", badge)

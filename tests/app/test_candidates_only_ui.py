@@ -71,6 +71,7 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         ("/ui/political", "Результат"),
         ("/ui/investigations", "Расследование"),
         ("/ui/entities", "Люди"),
+        ("/ui/unnamed", "Безымянные"),
         ("/ui/publications", "Публикации"),
         ("/ui/queue", "Очередь"),
         ("/ui/management", "Управление"),

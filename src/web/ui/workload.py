@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
@@ -39,10 +39,23 @@ class Workload:
     pairs: int
     unclear_roles: int
     unclear_verdicts: int
+    # Unnamed figurants neither identified nor closed as «nobody on the list».
+    unnamed: int = 0
 
     @property
     def total(self) -> int:
-        return self.pairs + self.unclear_roles + self.unclear_verdicts
+        return self.pairs + self.unclear_roles + self.unclear_verdicts + self.unnamed
+
+
+_OPEN_UNNAMED = text(
+    """
+    SELECT count(*) FROM unnamed_figurants f
+    WHERE NOT EXISTS (
+        SELECT 1 FROM unnamed_decisions d
+        WHERE d.figurant_key = f.key AND d.decision IN ('same', 'none')
+    )
+    """
+)
 
 
 def workload(db: Session) -> Workload:
@@ -56,4 +69,9 @@ def workload(db: Session) -> Workload:
         .select_from(EntityGroupPoliticsRecord)
         .where(EntityGroupPoliticsRecord.verdict == UNCLEAR_VERDICT)
     )
-    return Workload(len(dispute_pairs(db)), unclear_roles or 0, unclear_verdicts or 0)
+    return Workload(
+        len(dispute_pairs(db)),
+        unclear_roles or 0,
+        unclear_verdicts or 0,
+        db.scalar(_OPEN_UNNAMED) or 0,
+    )

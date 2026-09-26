@@ -167,6 +167,7 @@ def ui_overview(
     <li><a href="/ui/queue#verdicts">Неясная политичность</a> <strong>{
         work.unclear_verdicts
     }</strong></li>
+    <li><a href="/ui/unnamed">Безымянные фигуранты</a> <strong>{work.unnamed}</strong></li>
   </ul>
   {
         '<p class="empty">Очередь пуста.</p>'

@@ -42,6 +42,7 @@
  "GET /ui/political/export.xlsx",
  "GET /ui/publications",
  "GET /ui/queue",
+ "GET /ui/unnamed",
  "GET /ui/wiki",
  "GET /ui/wiki/export.pdf",
  "GET /ui/wiki/{slug}",
@@ -60,5 +61,6 @@
  "POST /ui/management/rosfin",
  "POST /ui/management/run",
  "POST /ui/management/runs/{run_id}/stop",
- "POST /ui/queue/reset-decisions"
+ "POST /ui/queue/reset-decisions",
+ "POST /ui/unnamed/decide"
 ]

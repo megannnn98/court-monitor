@@ -22,6 +22,7 @@ from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck
 from entities.roles import FigurantFinder, role_classifier_from_env
+from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
@@ -43,6 +44,7 @@ MONITORING_COMMANDS = frozenset(
         "check-entities-rosfin",
         "find-figurants",
         "find-political",
+        "find-unnamed",
         "compare-entity-models",
         "monitoring-status",
         "monitoring-findings",
@@ -150,16 +152,24 @@ def add_monitoring_arguments(subparsers: Any) -> None:
     subparsers.add_parser(
         "find-figurants",
         help=(
-            "Tell the entities off the Rosfinmonitoring list a criminal case is opened "
-            "against from those only mentioned (rules, then a model for the rest)"
+            "Tell the entities a criminal case is opened against from those only mentioned "
+            "(rules, then a model for the rest)"
         ),
     )
 
     subparsers.add_parser(
         "find-political",
         help=(
-            "Tell which figurants off the Rosfinmonitoring list are politically persecuted "
-            "(a political УК article, then a model for the rest)"
+            "Tell which figurants are politically persecuted (a political УК article, then a "
+            "model for the rest); then find the unnamed figurants"
+        ),
+    )
+
+    subparsers.add_parser(
+        "find-unnamed",
+        help=(
+            "Find the figurants the publications do not name («17-летний житель Тюмени») "
+            "for matching with the Rosfinmonitoring list"
         ),
     )
 
@@ -300,7 +310,20 @@ def run_monitoring_command(
             classifier=politics,
             on_stage=lambda stage: logger.info("event=entity_politics_stage stage=%s", stage),
         ).run()
-        _print(dataclasses.asdict(found_political))
+        # Step 6 ends with the unnamed figurants: their cases are read the same way.
+        unnamed = _find_unnamed(session_factory)
+        _print(
+            {
+                **dataclasses.asdict(found_political),
+                "unnamed": unnamed.unnamed,
+                "unnamed_asked_now": unnamed.asked_now,
+                "unnamed_failures": unnamed.failures,
+                "unnamed_cost_usd": unnamed.cost_usd,
+            }
+        )
+        return True
+    if args.command == "find-unnamed":
+        _print(dataclasses.asdict(_find_unnamed(session_factory)))
         return True
     if args.command == "compare-entity-models":
         return _compare_models(session_factory, args.step, args.sample, args.seed)
@@ -462,6 +485,17 @@ def _resolve(args: argparse.Namespace, monitoring: MonitoringService) -> bool:
     if exit_code:
         raise SystemExit(exit_code)
     return True
+
+
+def _find_unnamed(session_factory: sessionmaker[Session]) -> UnnamedResult:
+    reader = unnamed_reader_from_env()
+    if reader is None:
+        logger.warning("event=unnamed_no_model: OPENROUTER_API_KEY is not set")
+    return UnnamedFinder(
+        session_factory,
+        reader=reader,
+        on_stage=lambda stage: logger.info("event=unnamed_stage stage=%s", stage),
+    ).run()
 
 
 def _purge_junk(session_factory: sessionmaker[Session]) -> bool:

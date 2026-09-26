@@ -166,8 +166,8 @@ class EntityPairDecisionRecord(Base):
 class EntityGroupPoliticsRecord(Base):
     """Whether a figurant's criminal case is political persecution or common crime.
 
-    Rewritten by every «Отобрать политические дела»; only figurants off the
-    Rosfinmonitoring list have one."""
+    Rewritten by every «Отобрать политические дела»; every figurant has one, on the
+    Rosfinmonitoring list or not."""
 
     __tablename__ = "entity_group_politics"
 
@@ -239,5 +239,68 @@ class EntityNameNormalizationRecord(Base):
     gender: Mapped[str] = mapped_column(String(8), nullable=False)
     is_person: Mapped[bool] = mapped_column(Boolean, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class UnnamedFigurantRecord(Base):
+    """A person a publication charges without a name — «17-летний житель Тюмени» — with
+    what the text tells of them, to be matched with the Rosfinmonitoring list.
+
+    Derived: rewritten by every search (`entities.unnamed`). `key` is the hash of the
+    publication and the sentence: it survives a rebuild, and the decisions hold to it."""
+
+    __tablename__ = "unnamed_figurants"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    start_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+    # What the text tells: the age, male/female, the town or region, the surname's initial.
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    place: Mapped[str] = mapped_column(Text, nullable=False)
+    initial: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    articles: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class UnnamedAnswerRecord(Base):
+    """A model's reading of a sentence about an unnamed person, for this very sentence:
+    reused until the sentence or the prompt changes."""
+
+    __tablename__ = "unnamed_answers"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    # The answer as JSON (`entities.unnamed.UnnamedAnswer`).
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class UnnamedDecisionRecord(Base):
+    """A person's word on an unnamed figurant: this entry of the list is them («same»), it
+    is not («different»), or none is («none», with an empty candidate).
+
+    Not derived: kept through every search, by the figurant's key and the entry's name
+    and birth date (an entry's id changes with every snapshot of the list)."""
+
+    __tablename__ = "unnamed_decisions"
+
+    figurant_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    candidate: Mapped[str] = mapped_column(String(255), primary_key=True)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

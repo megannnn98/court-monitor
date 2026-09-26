@@ -42,7 +42,7 @@ from web.ui.entities import (
     display_name,
 )
 from web.ui.layout import _page
-from web.ui.workload import dispute_pairs
+from web.ui.workload import dispute_pairs, workload
 
 router = APIRouter()
 logger = logging.getLogger("entities")
@@ -226,6 +226,7 @@ def ui_queue(
         ).all()
     ]
     failed = db.execute(_FAILED_EXTRACTIONS, {"limit": LIST_LIMIT}).all()
+    unnamed = workload(db).unnamed
     decided = decision_counts(db)
     reset_html = (
         f'<p class="warning" role="status">Решения по парам сброшены: {reset}. Слитые люди '
@@ -266,6 +267,7 @@ def ui_queue(
   <a class="chip" href="#roles">Неясная роль: {len(roles)}</a>
   <a class="chip" href="#verdicts">Неясная политичность: {len(verdicts)}</a>
   <a class="chip" href="#failed">Сбои извлечения: {len(failed)}</a>
+  <a class="chip" href="/ui/unnamed">Безымянные: {unnamed}</a>
 </p>
 <section class="band" id="pairs" aria-labelledby="pairs-title">
   <h2 id="pairs-title">Спорные совпадения людей</h2>

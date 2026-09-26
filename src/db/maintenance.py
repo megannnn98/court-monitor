@@ -6,6 +6,9 @@ from sqlalchemy import Engine, text
 
 # Every table research, extraction and semantic retrieval write to.
 DISPOSABLE_TABLES = (
+    "unnamed_decisions",
+    "unnamed_answers",
+    "unnamed_figurants",
     "entity_name_normalizations",
     "entity_name_overrides",
     "entity_official_marks",

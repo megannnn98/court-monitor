@@ -17,6 +17,9 @@ from db.models.entities import (
     EntityPairDecisionRecord,
     EntityPoliticsAnswerRecord,
     EntityRoleAnswerRecord,
+    UnnamedAnswerRecord,
+    UnnamedDecisionRecord,
+    UnnamedFigurantRecord,
 )
 from db.models.extraction import (
     ArticleExtractionRunRecord,
@@ -103,4 +106,7 @@ __all__ = [
     "Source",
     "SourceDocument",
     "SourceMonitoringStateRecord",
+    "UnnamedAnswerRecord",
+    "UnnamedDecisionRecord",
+    "UnnamedFigurantRecord",
 ]

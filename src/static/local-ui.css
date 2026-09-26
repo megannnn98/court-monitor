@@ -1650,3 +1650,41 @@ table.people td .badge {
     min-height: 44px;
   }
 }
+
+/* ── Безымянные ──────────────────────────────────────────────────────────── */
+article.unnamed-card {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  white-space: normal;
+}
+
+article.unnamed-card p {
+  margin: 4px 0;
+}
+
+form.inline-form {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+}
+
+table.candidates th[scope="row"] {
+  color: var(--text);
+  font-size: 12.5px;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+}
+
+td.actions-cell {
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  form.inline-form button {
+    min-height: 44px;
+  }
+}

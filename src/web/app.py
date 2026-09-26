@@ -39,6 +39,7 @@ from web.ui import persons as ui_persons
 from web.ui import political as ui_political
 from web.ui import publications as ui_publications
 from web.ui import queue as ui_queue
+from web.ui import unnamed as ui_unnamed
 from web.ui import wiki as ui_wiki
 
 logger = logging.getLogger("api")
@@ -94,6 +95,7 @@ for module in (
     ui_disputes,
     ui_queue,
     ui_publications,
+    ui_unnamed,
     ui_political,
     ui_officials,
     operations,
