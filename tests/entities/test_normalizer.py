@@ -251,3 +251,35 @@ def test_an_adjective_surname_answer_names_its_declined_forms() -> None:
     )
 
     assert matched_answers(items, [answer]) == {0: answer}
+
+
+@pytest.mark.parametrize(
+    ("forms", "nominative"),
+    [
+        # Hard after к/г/х: «-ский», «-цкий» decline «-ого», «-ому».
+        (("Павлу Масловскому", "Масловского"), "Павел Масловский"),
+        (("Амханицкого Андрея",), "Андрей Амханицкий"),
+        # The «е» of «-ец» drops.
+        (("Тараса Березовца",), "Тарас Березовец"),
+        (("Павлу Выменцу", "Выменцу Павлу Сергеевичу"), "Павел Выменец"),
+        # «-ай» declines on the stem without «й».
+        (("Тиктокера Некоглая",), "Некоглай"),
+        # A double surname, part by part.
+        (("Григория Михнова-Вайтенко",), "Григорий Михнов-Вайтенко"),
+    ],
+)
+def test_a_nominative_declined_by_russian_grammar_is_kept(
+    forms: tuple[str, ...], nominative: str
+) -> None:
+    items = [NameItem(0, forms, "")]
+
+    answers = matched_answers(items, [_named(0, forms[0], nominative)])
+
+    assert answers[0].nominative == nominative
+
+
+def test_a_pseudonym_named_as_its_person_is_still_another_surname() -> None:
+    """«Дед Архимед» is Пуркин, but by the brackets (`attach_aliases`), not by the model."""
+    items = [NameItem(0, ("Дед Архимед",), "")]
+
+    assert matched_answers(items, [_named(0, "Дед Архимед", "Дмитрий Пуркин")]) == {}

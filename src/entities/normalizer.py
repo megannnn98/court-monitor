@@ -239,14 +239,38 @@ def name_normalizer_from_env(env: Mapping[str, str] | None = None) -> NameNormal
     return ClaudeNameNormalizer.from_env(env)
 
 
+def _nominative_stems(surname: str) -> set[str]:
+    """The stems a nominative surname declines on, beyond `_bases` (built to keep
+    namesakes apart, not to decline): «Масловский» → «Масловского» (hard, after к/г/х),
+    «Березовец» → «Березовца» (the «е» drops), «Некоглай» → «Некоглая»."""
+    stems: set[str] = set()
+    if surname.endswith(("кий", "гий", "хий")):
+        stems.add(surname[:-2])
+    if surname.endswith("ец"):
+        stems.add(f"{surname[:-2]}ц")
+    if len(surname) > 2 and surname.endswith("й") and surname[-2] in "аеиоуыэюя":
+        stems.add(surname[:-1])
+    return stems
+
+
 def _surname_bases(name: str) -> set[str]:
+    """The model's surname: each part of a double one («Михнов-Вайтенко»), declinable."""
     words = name.split()
-    return _bases(_fold(words[-1])) if words else set()
+    if not words:
+        return set()
+    return {
+        base
+        for part in _fold(words[-1]).split("-")
+        for base in _bases(part) | _nominative_stems(part)
+    }
 
 
 def _word_bases(form: str) -> set[str]:
-    """Every word of a form: the news also writes «Турбин Арсений», surname first."""
-    return {base for word in form.split() for base in _bases(_fold(word))}
+    """Every word of a form, and each part of a double surname: the news also writes
+    «Турбин Арсений», surname first."""
+    return {
+        base for word in form.split() for part in _fold(word).split("-") for base in _bases(part)
+    }
 
 
 def matched_answers(
