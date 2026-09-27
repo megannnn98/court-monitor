@@ -193,7 +193,7 @@ _QUOTE_SOURCE = text(
           (e.kind = 'mention' AND position(:needle IN regexp_replace(a.text, '\\s+', ' ', 'g')) > 0)
           OR (e.kind <> 'mention' AND position(:needle IN regexp_replace(e.quote, '\\s+', ' ', 'g')) > 0)
       )
-    ORDER BY published_at DESC NULLS LAST LIMIT 1
+    ORDER BY e.published_at DESC NULLS LAST LIMIT 1
     """
 )
 
