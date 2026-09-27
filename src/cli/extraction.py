@@ -11,9 +11,7 @@ from sqlalchemy.exc import NoResultFound
 from cli.context import CliContext
 from cli_batches import (
     DEFAULT_WORKERS,
-    MAX_GPU_WORKERS,
     extract_articles,
-    extraction_uses_gpu,
     merge_extraction_results,
     run_chunks,
     worker_count,
@@ -38,10 +36,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         "--workers",
         type=int,
         default=DEFAULT_WORKERS,
-        help=(
-            "Extract articles in this many worker processes, at most "
-            f"{MAX_GPU_WORKERS} with the person recognizer on the GPU"
-        ),
+        help="Extract articles in this many worker processes",
     )
     extract_entities_parser.set_defaults(handler=run_extract_entities)
     evaluate_extraction_parser = subparsers.add_parser(
@@ -84,7 +79,7 @@ def run_extract_entities(args: argparse.Namespace, context: CliContext) -> None:
             )
         ]
 
-    extract_workers = worker_count(args.workers, len(article_ids), uses_gpu=extraction_uses_gpu())
+    extract_workers = worker_count(args.workers, len(article_ids))
     if extract_workers > 1:
         database_engine.dispose()
     with ProgressBar("extract-entities", len(article_ids)) as progress:

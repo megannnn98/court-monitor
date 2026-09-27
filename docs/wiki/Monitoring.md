@@ -264,7 +264,7 @@ uv run alembic upgrade head
 docker compose --profile monitoring up -d --build   # webserver :3000, daemon
 ```
 
-`dagster-db-init` создаёт отдельную БД `DAGSTER_PG_DB` (по умолчанию `court_monitor_dagster`); таблицы Dagster не смешиваются с доменными. На видеокарте NVIDIA: `compose.gpu.yaml` собирает образ с группой `semantic` (модель отсева мусора) и распознавателем имён (GLiNER), отдаёт GPU контейнерам `api` и `dagster-daemon` и позволяет задать `PERSON_EXTRACTION_STRATEGY=hybrid` (по умолчанию `rule_based`: гибрид пока дробит персоны, см. комментарий в файле); подготовка хоста описана в заголовке файла.
+`dagster-db-init` создаёт отдельную БД `DAGSTER_PG_DB` (по умолчанию `court_monitor_dagster`); таблицы Dagster не смешиваются с доменными. На видеокарте NVIDIA: `compose.gpu.yaml` собирает образ с группой `semantic` (модель отсева мусора) и отдаёт GPU контейнерам `api` и `dagster-daemon`; подготовка хоста описана в заголовке файла.
 
 ## Ограничения
 

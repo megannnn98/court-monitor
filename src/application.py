@@ -18,9 +18,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.database import create_database_engine, create_session_factory
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.events import RuleBasedEventExtractor
+from extraction.extractors import RuleBasedEntityExtractor
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.person_ner.factory import build_entity_extractor
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
 from monitoring.findings import MonitoringFindingService, MonitoringQueryProvider
@@ -99,7 +99,7 @@ def build_monitoring_service(
         extraction_documents=SqlAlchemyExtractionDocumentRepository(session_factory),
         extraction_pipeline=extraction_pipeline
         or ExtractionPipeline(
-            extractors=[build_entity_extractor()],
+            extractors=[RuleBasedEntityExtractor()],
             normalizers=[RuleBasedMentionNormalizer()],
             event_extractor=RuleBasedEventExtractor(),
             persistence=SqlAlchemyExtractionPersistence(session_factory),

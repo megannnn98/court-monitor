@@ -29,33 +29,18 @@ from db.orm_models import (
 )
 from extraction.parallel_resolution import resolve_runs
 from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.person_ner.config import PersonExtractionStrategy, PersonNerSettings
 from sources.models import ParsedArticle, RawDocument
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 TEXTS = [SIDOROV, PETROV, IVANOV]
 
 
-def _settings(strategy: PersonExtractionStrategy, device: str | None) -> PersonNerSettings:
-    return PersonNerSettings(
-        strategy=strategy, model_id="m", revision=None, device=device, min_score=0.5
-    )
-
-
-def test_worker_count_is_capped_by_items_cores_and_gpu_memory() -> None:
+def test_worker_count_is_capped_by_items_and_cores() -> None:
     assert worker_count(8, 3) == 3
     assert worker_count(64, 10_000) == cli_batches.MAX_WORKERS
-    assert worker_count(8, 10_000, uses_gpu=True) == cli_batches.MAX_GPU_WORKERS
     assert worker_count(8, 0) == 1
     with pytest.raises(ValueError, match="greater than zero"):
         worker_count(0, 10)
-
-
-def test_only_a_model_on_cuda_counts_as_gpu_extraction() -> None:
-    rules = _settings(PersonExtractionStrategy.RULE_BASED, "cuda")
-    assert cli_batches.extraction_uses_gpu(rules) is False
-    assert cli_batches.extraction_uses_gpu(_settings(PersonExtractionStrategy.HYBRID, "cuda:0"))
-    assert not cli_batches.extraction_uses_gpu(_settings(PersonExtractionStrategy.NER, "cpu"))
 
 
 @pytest.mark.parametrize("workers", [1, 3])

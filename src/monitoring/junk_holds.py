@@ -16,10 +16,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.events import RuleBasedEventExtractor
+from extraction.extractors import RuleBasedEntityExtractor
 from extraction.models import ExtractionRunStatus
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.person_ner.factory import build_entity_extractor
 from extraction.pipeline import ExtractionPipeline
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 from monitoring.junk_screen import HELD, JUNK
@@ -70,7 +70,7 @@ def hold_again(session: Session, article_id: int) -> bool:
 def _pipeline(session_factory: sessionmaker[Session]) -> ExtractionPipeline:
     # The monitoring's own pipeline (`application.build_monitoring_service`).
     return ExtractionPipeline(
-        extractors=[build_entity_extractor()],
+        extractors=[RuleBasedEntityExtractor()],
         normalizers=[RuleBasedMentionNormalizer()],
         event_extractor=RuleBasedEventExtractor(),
         persistence=SqlAlchemyExtractionPersistence(session_factory),

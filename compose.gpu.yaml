@@ -1,4 +1,4 @@
-# GPU override: the person recognizer (GLiNER) and semantic indexing on the NVIDIA card.
+# GPU override: semantic indexing on the NVIDIA card.
 #
 # Host prerequisite (Arch Linux), once:
 #   sudo pacman -S nvidia-container-toolkit
@@ -10,13 +10,10 @@
 #   docker compose --profile production build
 #   docker compose --profile production up -d
 #
-# Switching the person-extraction strategy changes the extraction run version: monitoring
-# re-extracts every article, and a bulk rebuild is the faster way (docs/wiki/Pipeline.md).
 x-gpu-build: &gpu-build
   context: .
   args:
     INSTALL_SEMANTIC: "1"
-    INSTALL_NER: "1"
 
 x-gpu-device: &gpu-device
   resources:
@@ -26,13 +23,8 @@ x-gpu-device: &gpu-device
           count: all
           capabilities: [gpu]
 
-x-person-ner-environment: &person-ner-environment
-  # Rule-based until the hybrid's spans are fixed: on the working corpus it merged a
-  # preceding word into names («Щукино Даниил Неонов») and left inflected forms, splitting
-  # persons and losing 26 of 190 candidates. Set hybrid explicitly to try it.
-  PERSON_EXTRACTION_STRATEGY: ${PERSON_EXTRACTION_STRATEGY:-rule_based}
-  PERSON_NER_DEVICE: ${PERSON_NER_DEVICE:-cuda}
-  # The model is downloaded once into the hf_cache volume.
+x-semantic-environment: &semantic-environment
+  # The embedding model is downloaded once into the hf_cache volume.
   HF_HOME: /opt/hf_cache
 
 services:
@@ -43,7 +35,7 @@ services:
     build: *gpu-build
     deploy: *gpu-device
     environment:
-      <<: *person-ner-environment
+      <<: *semantic-environment
     volumes:
       - hf_cache:/opt/hf_cache
 
@@ -54,7 +46,7 @@ services:
   dagster-daemon:
     deploy: *gpu-device
     environment:
-      <<: *person-ner-environment
+      <<: *semantic-environment
     volumes:
       - hf_cache:/opt/hf_cache
 

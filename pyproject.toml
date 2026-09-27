@@ -38,16 +38,6 @@ dev = [
 semantic = [
     "sentence-transformers>=5.0",
 ]
-# Person-name detection: the recognizer model and the experiment that chose it.
-# Not needed by the rule-based person extraction, so it stays an opt-in group:
-# `uv sync --group ner`. Deliberately not gliner2's "local" extra, which pins
-# transformers<5 and would downgrade the semantic stack.
-ner = [
-    "gliner2>=2.0",
-    "peft>=0.10",
-    "torch>=2.4",
-    "transformers>=5.0",
-]
 
 [tool.uv]
 # Deployment images use --no-default-groups, so API, CLI and Dagster never need dev tools.
@@ -55,9 +45,6 @@ default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
-markers = [
-    "person_ner_model: downloads and runs the person NER model; opt-in via PERSON_NER_MODEL_TESTS=1",
-]
 
 [[tool.mypy.overrides]]
 # Morphological dictionary for personal names; ships no type information.
@@ -73,8 +60,6 @@ module = [
     "torch.*",
     "transformers",
     "transformers.*",
-    "gliner2",
-    "gliner2.*",
     # The junk screen's measurements (`evaluation.junk_screen`) come with the group.
     "numpy",
     "numpy.*",

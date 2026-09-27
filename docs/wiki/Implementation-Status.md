@@ -18,6 +18,21 @@
 
 ## Last verified
 
+2026-09-27, `main` `aceb2ce` with the local GLiNER removal:
+
+| Check | Command | Result |
+|---|---|---|
+| Ruff | `uv run ruff check src tests migrations evaluation`, `ruff format --check` | all checks passed, 412 files formatted |
+| mypy | `MYPYPATH=src:tests uv run mypy --strict src tests` | the same 19 errors in 9 unrelated test files documented below; no changed file is named |
+| Targeted tests | extraction, batch CLI, junk screen and held-article UI tests | 103 passed, 5 skipped |
+| Tests, no services | `uv run pytest -q` | 957 passed, 509 skipped |
+| Compose | `docker compose -f compose.yaml -f compose.gpu.yaml --profile production config --quiet` | valid |
+
+Not run: PostgreSQL integration tests, image build, deployment, production operations,
+or model/API calls.
+
+## Previous full verification
+
 2026-09-27, branch `chore/slim-to-two-scenarios` (from `main` `8c361e1`): the product cut
 down to its two workflows — publications to new criminal cases checked against
 Rosfinmonitoring, and unnamed figurants identified by hand.
@@ -35,8 +50,9 @@ Rosfinmonitoring, and unnamed figurants identified by hand.
 | Workflow 1 on the copy | `monitor --source ovd-info/sota-vision/tg-mediazzzona`; `purge-junk` with `JUNK_SCREEN=1`; steps 3–5 | runs `completed`, 2 new posts ingested; the screen loaded e5 on CUDA, kept the held article and deleted what a person had marked junk; with the model unloadable it stopped with `JunkScreenError` before deleting anything |
 | Workflow 2 on the copy | `find-unnamed`; «Это он» (`POST /ui/unnamed/resolve`); step 3 again | 113 unnamed; the decision stored (`rf_entry`, manual) and linked to the person by step 3 |
 
-The 21 skipped tests need the person-NER model (`PERSON_NER_MODEL_TESTS=1`). The model
-steps ran without API keys: answers came from the cache, nothing was asked or paid.
+The 21 skipped tests needed the person-NER model available in that historical snapshot.
+The model steps ran without API keys: answers came from the cache, nothing was asked or
+paid.
 
 Not run: CI on GitHub; the GPU image (`compose.gpu.yaml`) build and a deployment; the
 steps that call OpenRouter or Together AI with a key; downloading a new Rosfinmonitoring
@@ -72,7 +88,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 |---|---|---|---|
 | PostgreSQL integration | 368 | 0 | `TEST_DATABASE_URL` (a database named `court_monitor_test`) |
 | Qdrant integration | 1 | 0 | `QDRANT_TEST_URL` |
-| Real person-NER model | 21 | 21 | `PERSON_NER_MODEL_TESTS=1` (downloads the GLiNER model) |
+| Real person-NER model (removed after this snapshot) | 21 | 21 | `PERSON_NER_MODEL_TESTS=1` |
 | Real embedding model | 3 | 3 | `SEMANTIC_MODEL_TESTS=1` (downloads the embedding model) |
 | Live Together AI | 4 | 4 | `TOGETHER_LIVE_TESTS=1` / `LIVE_LLM_TESTS=1` with `TOGETHER_API_KEY`, `TOGETHER_MODEL` |
 
@@ -81,7 +97,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Area | Where | Notes |
 |---|---|---|
 | Sources | `src/sources/` | 75 sources: `ovd-info`, `sota-vision`, `sudrf-2zovs`, `memopzk-figurants` (registry of «Поддержка политзаключённых. Мемориал»), `kommersant` (site via RSS), 70 Telegram channels — [Ingestion](Ingestion.md) |
-| Extraction | `src/extraction/` | rule-based mentions, normalization to the nominative, events; optional GLiNER recognizer (off in production) — [Extraction](Extraction.md) |
+| Extraction | `src/extraction/` | rule-based mentions, normalization to the nominative, events — [Extraction](Extraction.md) |
 | Entity resolution | `src/persons/` | ER v2 with human review — [Entity-Resolution](Entity-Resolution.md) |
 | Persecution classification | `src/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |
 | Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
@@ -135,8 +151,8 @@ monitoring-status: нет зависших или бесконечно пада�
 | `monitoring` | + Dagster DB init, webserver, daemon |
 | `production` | PostgreSQL, API, Dagster |
 
-`compose.gpu.yaml` on top builds the image with the semantic (junk screen) and NER groups
-and gives the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
+`compose.gpu.yaml` on top builds the image with the semantic group for the junk screen and
+gives the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
 
 ## Known limitations
 

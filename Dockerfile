@@ -19,17 +19,14 @@ RUN apt-get update \
     && apt-get clean
 
 # Semantic indexing needs sentence-transformers (large); opt in with
-# `docker compose build --build-arg INSTALL_SEMANTIC=1`. The person recognizer (GLiNER,
-# torch with CUDA) likewise with INSTALL_NER=1; compose.gpu.yaml sets both.
+# `docker compose build --build-arg INSTALL_SEMANTIC=1`. compose.gpu.yaml sets it.
 ARG INSTALL_SEMANTIC=0
-ARG INSTALL_NER=0
 COPY pyproject.toml uv.lock ./
 # Keep downloaded wheels in BuildKit's cache, outside the image layer. This avoids
 # repeating large GPU package downloads when dependency installation runs again.
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     groups=""; \
     if [ "$INSTALL_SEMANTIC" = "1" ]; then groups="$groups --group semantic"; fi; \
-    if [ "$INSTALL_NER" = "1" ]; then groups="$groups --group ner"; fi; \
     uv sync --frozen --no-default-groups --no-install-project $groups
 
 # PlantUML draws every diagram but a sequence one with Graphviz, which the package only

@@ -29,8 +29,8 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile production restart 
 
 ## Почему именно так
 
-**Оба compose-файла.** `compose.gpu.yaml` собирает образ с группами `semantic` и `ner`
-(sentence-transformers, torch с CUDA, GLiNER) и отдаёт контейнерам видеокарту. Команда без
+**Оба compose-файла.** `compose.gpu.yaml` собирает образ с группой `semantic`
+(sentence-transformers и torch с CUDA) и отдаёт контейнерам видеокарту. Команда без
 него пересоздаст контейнеры без GPU и без модели отсева мусора (`JUNK_SCREEN=1`). Чтобы не
 писать `-f` каждый раз, можно добавить в `.env`:
 

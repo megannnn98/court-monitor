@@ -68,13 +68,6 @@ uv run mypy --strict src tests
 
 ## Опциональные проверки
 
-Реальная модель распознавания имён (GLiNER):
-
-```bash
-uv sync --group ner
-PERSON_NER_MODEL_TESTS=1 uv run pytest -m person_ner_model
-```
-
 Real-world validation:
 
 ```bash

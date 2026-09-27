@@ -19,9 +19,9 @@ from sqlalchemy import create_engine, text
 
 from extraction.documents import content_hash_for_text
 from extraction.events import RuleBasedEventExtractor
+from extraction.extractors import RuleBasedEntityExtractor
 from extraction.models import ArticleExtractionResult, ExtractionDocument
 from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.person_ner.factory import build_entity_extractor
 from extraction.pipeline import ExtractionPipeline
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 
@@ -82,7 +82,7 @@ def judged_articles(database_url: str) -> Iterator[tuple[JudgedArticle, str]]:
     """Each article judged, with its text."""
     captured = _Captured()
     pipeline = ExtractionPipeline(
-        extractors=[build_entity_extractor()],
+        extractors=[RuleBasedEntityExtractor()],
         normalizers=[RuleBasedMentionNormalizer()],
         event_extractor=RuleBasedEventExtractor(),
         persistence=captured,
