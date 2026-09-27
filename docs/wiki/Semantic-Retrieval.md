@@ -207,7 +207,7 @@ downstream Research Workflow и замер стоимости. Representation н
 | индекс построен другой моделью | `failed` / `semantic_retrieval_unavailable` (`IndexModelMismatchError`) |
 | инкрементальная индексация после смены `SEMANTIC_VECTOR_BACKEND` без полного rebuild | `IndexBackendMismatchError` (CLI — код 2 и сообщение) |
 | запрос без `semantic_query` при недоступном Qdrant | работает как раньше |
-| некорректные semantic-переменные (`SEMANTIC_CANDIDATE_POOL_SIZE=abc`, `EMBEDDING_DEVICE=gpu`, `SEMANTIC_DENSE_MIN_SCORE=abc`, другая `EMBEDDING_MODEL_ID` без порога) | `SemanticConfigurationError` при сборке workflow: API 503 на **все** `/research/query`, включая structured-запросы без `semantic_query` (fail-fast); CLI — сообщение и выход |
+| некорректные semantic-переменные (`SEMANTIC_CANDIDATE_POOL_SIZE=abc`, неизвестный `EMBEDDING_PROVIDER`, `EMBEDDING_DEVICE=gpu`, OpenRouter без ключа/model id, `SEMANTIC_DENSE_MIN_SCORE=abc`, другая `EMBEDDING_MODEL_ID` без порога) | `SemanticConfigurationError` при сборке workflow: API 503 на **все** `/research/query`, включая structured-запросы без `semantic_query` (fail-fast); CLI — сообщение и выход |
 
 ## Конфигурация
 
@@ -216,7 +216,9 @@ downstream Research Workflow и замер стоимости. Representation н
 | `SEMANTIC_VECTOR_BACKEND` | `qdrant`; `pgvector` — векторы в PostgreSQL, `QDRANT_URL` не нужна |
 | `QDRANT_URL` | не задана (при `qdrant` semantic retrieval выключен) |
 | `PERSON_QDRANT_COLLECTION` / `EVENT_QDRANT_COLLECTION` | `persons_semantic` / `events_semantic` (имена логических коллекций для обоих backend'ов) |
-| `EMBEDDING_MODEL_ID` / `EMBEDDING_DEVICE` / `EMBEDDING_BATCH_SIZE` | `intfloat/multilingual-e5-base` / `auto` / `32` |
+| `EMBEDDING_PROVIDER` | `local`; `openrouter` использует embeddings API и `OPENROUTER_API_KEY` |
+| `EMBEDDING_MODEL_ID` / `EMBEDDING_DEVICE` / `EMBEDDING_BATCH_SIZE` | `intfloat/multilingual-e5-base` / `auto` / `32`; device только для `local` |
+| `EMBEDDING_TIMEOUT_SECONDS` / `EMBEDDING_MAX_RETRIES` | `90` / `2`, только для `openrouter` |
 | `RERANKER_MODEL_ID` / `RERANKER_DEVICE` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` / `auto` |
 | `SEMANTIC_RERANK` | выключен |
 | `SEMANTIC_CANDIDATE_POOL_SIZE` | `100` (1..200) |

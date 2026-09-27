@@ -101,22 +101,68 @@ def test_turned_on_the_screen_is_loaded_and_tried_before_the_purge(
 ) -> None:
     made: list[FakeEmbedder] = []
 
-    def embedder(config: object) -> FakeEmbedder:
+    def embedder(_env: object, *, model_id: str) -> FakeEmbedder:
         made.append(FakeEmbedder())
         return made[-1]
 
-    monkeypatch.setattr(junk_screen, "SentenceTransformerEmbedder", embedder)
+    monkeypatch.setattr(junk_screen, "create_text_embedder", embedder)
 
     screen = screen_from_env({"JUNK_SCREEN": "1", "JUNK_SCREEN_MODEL": str(_model(tmp_path))})
 
     assert screen is not None and len(made[0].texts) == 1
 
 
+def test_turned_on_the_screen_uses_the_configured_embedding_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made: list[tuple[dict[str, str], str]] = []
+
+    def embedder(env: dict[str, str], *, model_id: str) -> FakeEmbedder:
+        made.append((env, model_id))
+        return FakeEmbedder()
+
+    monkeypatch.setattr(junk_screen, "create_text_embedder", embedder)
+    env = {
+        "JUNK_SCREEN": "1",
+        "JUNK_SCREEN_MODEL": str(_model(tmp_path)),
+        "EMBEDDING_PROVIDER": "openrouter",
+        "OPENROUTER_API_KEY": "key",
+    }
+
+    screen = screen_from_env(env)
+
+    assert screen is not None
+    assert made == [(env, "fake")]
+
+
+def test_the_model_file_supplies_the_provider_when_the_environment_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made: list[dict[str, str]] = []
+
+    def embedder(env: dict[str, str], *, model_id: str) -> FakeEmbedder:
+        made.append(env)
+        return FakeEmbedder()
+
+    monkeypatch.setattr(junk_screen, "create_text_embedder", embedder)
+
+    screen_from_env(
+        {
+            "JUNK_SCREEN": "1",
+            "JUNK_SCREEN_MODEL": str(_model(tmp_path, embedding_provider="openrouter")),
+        }
+    )
+
+    assert made[0]["EMBEDDING_PROVIDER"] == "openrouter"
+
+
 def test_turned_on_and_broken_the_screen_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        junk_screen, "SentenceTransformerEmbedder", lambda _c: FakeEmbedder(fail=True)
+        junk_screen,
+        "create_text_embedder",
+        lambda _env, *, model_id: FakeEmbedder(fail=True),
     )
 
     with pytest.raises(JunkScreenError):

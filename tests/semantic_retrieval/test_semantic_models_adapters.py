@@ -25,6 +25,7 @@ from semantic_retrieval.cli import (
 from semantic_retrieval.embeddings import (
     EmbeddingConfig,
     EmbeddingProfile,
+    OpenRouterEmbedder,
     SentenceTransformerEmbedder,
     embedding_profile,
     parse_device,
@@ -164,10 +165,10 @@ def test_e5_keeps_its_prefixes_and_its_own_input_length(fake_models: None) -> No
 
 def test_embedding_profiles_are_explicit_per_model() -> None:
     assert embedding_profile("intfloat/multilingual-e5-base") == EmbeddingProfile(
-        query_prefix="query: ", document_prefix="passage: ", max_seq_length=None
+        query_prefix="query: ", document_prefix="passage: ", max_seq_length=None, dimension=768
     )
     assert embedding_profile("BAAI/bge-m3") == EmbeddingProfile(
-        query_prefix="", document_prefix="", max_seq_length=512
+        query_prefix="", document_prefix="", max_seq_length=512, dimension=1024
     )
     # Unknown models keep the earlier rule: E5 names get E5's prefixes, others none.
     assert embedding_profile("intfloat/multilingual-e5-large").query_prefix == "query: "
@@ -358,6 +359,21 @@ def test_creating_semantic_components_touches_neither_network_nor_models(
 
     assert _FakeSentenceTransformer.instances == []
     assert components.reranker is None
+
+
+def test_semantic_components_use_the_configured_openrouter_embedder() -> None:
+    components = create_semantic_components(
+        None,  # type: ignore[arg-type]  # not used until retrieval runs
+        SemanticRetrievalConfig(qdrant_url=":memory:"),
+        {
+            "EMBEDDING_PROVIDER": "openrouter",
+            "EMBEDDING_MODEL_ID": "baai/bge-m3",
+            "OPENROUTER_API_KEY": "key",
+            "SEMANTIC_DENSE_MIN_SCORE": "0.5",
+        },
+    )
+
+    assert isinstance(components.embedder, OpenRouterEmbedder)
 
 
 def test_semantic_cli_reports_unavailable_qdrant_without_traceback(

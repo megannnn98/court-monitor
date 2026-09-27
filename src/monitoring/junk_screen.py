@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder, TextEmbedder
+from semantic_retrieval.embeddings import TextEmbedder, create_text_embedder
 from semantic_retrieval.models import SemanticConfigurationError
 
 DEFAULT_MODEL_PATH = Path(__file__).with_name("junk_screen_model.json")
@@ -57,6 +57,7 @@ class ScreenModel:
     coefficients: tuple[float, ...]
     intercept: float
     cutoff: float
+    embedding_provider: str = "local"
 
     @classmethod
     def load(cls, path: Path) -> ScreenModel:
@@ -69,10 +70,16 @@ class ScreenModel:
                 coefficients=tuple(float(value) for value in data["coefficients"]),
                 intercept=float(data["intercept"]),
                 cutoff=float(data["cutoff"]),
+                embedding_provider=str(data.get("embedding_provider") or "local"),
             )
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise JunkScreenError(f"Cannot read the junk screen model {path}: {exc}") from exc
-        if not model.coefficients or not 0 < model.cutoff < 1 or model.article_chars < 1:
+        if (
+            not model.coefficients
+            or not 0 < model.cutoff < 1
+            or model.article_chars < 1
+            or model.embedding_provider not in ("local", "openrouter")
+        ):
             raise JunkScreenError(f"The junk screen model {path} is not usable")
         return model
 
@@ -126,16 +133,13 @@ def screen_from_env(env: Mapping[str, str] | None = None) -> EmbeddingScreen | N
     if env.get("JUNK_SCREEN", "").strip().lower() not in ("1", "true", "yes", "on"):
         return None
     model = ScreenModel.load(Path(env.get("JUNK_SCREEN_MODEL") or DEFAULT_MODEL_PATH))
+    embedding_env = dict(env)
+    embedding_env.setdefault("EMBEDDING_PROVIDER", model.embedding_provider)
     try:
-        config = EmbeddingConfig.from_env(env)
+        embedder = create_text_embedder(embedding_env, model_id=model.model_id)
     except (ValueError, SemanticConfigurationError) as exc:
         raise JunkScreenError(f"The junk screen's embedding settings: {exc}") from exc
-    screen = EmbeddingScreen(
-        model,
-        SentenceTransformerEmbedder(
-            EmbeddingConfig(model.model_id, config.device, config.batch_size)
-        ),
-    )
+    screen = EmbeddingScreen(model, embedder)
     screen.scores([("Проверка", "Проверка модели отсева перед очисткой.")])
     return screen
 

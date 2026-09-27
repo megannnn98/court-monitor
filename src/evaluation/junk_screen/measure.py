@@ -25,8 +25,9 @@ On calibration an article is never compared with its own fragments or itself.
 from __future__ import annotations
 
 import json
+import os
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,7 @@ from typing import Any
 import numpy as np
 
 from evaluation.junk_screen.corpus import LEGAL_WORDS
+from semantic_retrieval.embeddings import EmbeddingSpend, create_text_embedder
 
 ROOT = Path(__file__).resolve().parents[3]
 SAMPLE = ROOT / "var" / "junk_screen" / "sample.jsonl"
@@ -267,7 +269,14 @@ def _logistic_scores(
     return [float(p) for p in model.predict_proba(embedded.articles[list(screened)])[:, 1]]
 
 
-def run(models: Sequence[str]) -> dict[str, Any]:
+def run(
+    models: Sequence[str],
+    *,
+    env: Mapping[str, str] | None = None,
+    spend: EmbeddingSpend | None = None,
+) -> dict[str, Any]:
+    env = os.environ if env is None else env
+    spend = spend or EmbeddingSpend(budget_usd=1.0)
     articles = load()
     calibration = [i for i, a in enumerate(articles) if a.published_at < SPLIT_AT]
     validation = [i for i, a in enumerate(articles) if a.published_at >= SPLIT_AT]
@@ -286,9 +295,7 @@ def run(models: Sequence[str]) -> dict[str, Any]:
     results.append(outcome("legal_words", "-", None, [a.legal_words for a in part], part))
     errors: dict[str, Any] = {}
     for model_id in models:
-        from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder
-
-        embedder = SentenceTransformerEmbedder(EmbeddingConfig(model_id=model_id))
+        embedder = create_text_embedder(env, model_id=model_id, spend=spend)
         embedded = Embedded(embedder.embed_documents, articles)
         name = model_id.split("/")[-1]
         rule_cal, margin_cal = _fragment_scores(embedded, articles, calibration, cal_purged)
@@ -330,6 +337,11 @@ def run(models: Sequence[str]) -> dict[str, Any]:
             }
     summary["results"] = [asdict(result) for result in results]
     summary["errors"] = errors
+    summary["embedding_usage"] = {
+        "calls": spend.calls,
+        "prompt_tokens": spend.prompt_tokens,
+        "cost_usd": round(spend.cost_usd, 6),
+    }
     return summary
 
 
@@ -357,17 +369,22 @@ SCREEN_MODEL = ROOT / "src" / "monitoring" / "junk_screen_model.json"
 LABELS_OUT = ROOT / "evaluation" / "junk_screen" / "labels.json"
 
 
-def export(model_id: str) -> dict[str, Any]:
+def export(
+    model_id: str,
+    *,
+    env: Mapping[str, str] | None = None,
+    spend: EmbeddingSpend | None = None,
+) -> dict[str, Any]:
     """The screen `purge-junk` uses: the logistic regression fitted on the calibration
     part, with the cutoff chosen there out of fold — the one the validation measured."""
     from sklearn.linear_model import LogisticRegression
 
-    from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder
-
+    env = os.environ if env is None else env
+    spend = spend or EmbeddingSpend(budget_usd=1.0)
     articles = load()
     calibration = [i for i, a in enumerate(articles) if a.published_at < SPLIT_AT]
     cal_purged = [i for i in calibration if articles[i].purged]
-    embedder = SentenceTransformerEmbedder(EmbeddingConfig(model_id=model_id))
+    embedder = create_text_embedder(env, model_id=model_id, spend=spend)
     embedded = Embedded(embedder.embed_documents, articles)
     cal_scores = _logistic_scores(embedded, articles, calibration, cal_purged, cross=True)
     cutoff = choose_cutoff(
@@ -378,6 +395,7 @@ def export(model_id: str) -> dict[str, Any]:
     screen = {
         "version": "junk-screen-v1",
         "model_id": model_id,
+        "embedding_provider": (env.get("EMBEDDING_PROVIDER") or "local").strip().lower(),
         "article_chars": ARTICLE_CHARS,
         "coefficients": [round(float(c), 6) for c in model.coef_[0]],
         "intercept": round(float(model.intercept_[0]), 6),
@@ -398,7 +416,15 @@ def export(model_id: str) -> dict[str, Any]:
         for a in articles
     ]
     LABELS_OUT.write_text(json.dumps(labels, ensure_ascii=False, indent=0) + "\n", encoding="utf-8")
-    return {"cutoff": screen["cutoff"], "calibration": len(calibration)}
+    return {
+        "cutoff": screen["cutoff"],
+        "calibration": len(calibration),
+        "embedding_usage": {
+            "calls": spend.calls,
+            "prompt_tokens": spend.prompt_tokens,
+            "cost_usd": round(spend.cost_usd, 6),
+        },
+    }
 
 
 if __name__ == "__main__" and sys.argv[1:2] == ["export"]:

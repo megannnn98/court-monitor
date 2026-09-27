@@ -36,7 +36,9 @@ uv run python src/main.py validate-config
 | `TOGETHER_BASE_URL` | OpenAI-совместимый endpoint, по умолчанию `https://api.together.ai/v1`; локальная модель через Ollama — `http://127.0.0.1:11434/v1` |
 | `QDRANT_URL` | Qdrant для semantic retrieval; без неё запросы с `semantic_query` завершаются `semantic_retrieval_not_configured`, остальное работает |
 | `PERSON_QDRANT_COLLECTION`, `EVENT_QDRANT_COLLECTION` | коллекции, по умолчанию `persons_semantic`, `events_semantic` |
-| `EMBEDDING_MODEL_ID`, `EMBEDDING_DEVICE` | `intfloat/multilingual-e5-base`, `auto` (`cpu`/`cuda`) |
+| `EMBEDDING_PROVIDER` | `local` для sentence-transformers или `openrouter` для API; OpenRouter требует `OPENROUTER_API_KEY` и явный `EMBEDDING_MODEL_ID` |
+| `EMBEDDING_MODEL_ID`, `EMBEDDING_DEVICE`, `EMBEDDING_BATCH_SIZE` | `intfloat/multilingual-e5-base`, `auto` (`cpu`/`cuda`), `32`; device используется только локальным provider |
+| `EMBEDDING_TIMEOUT_SECONDS`, `EMBEDDING_MAX_RETRIES` | таймаут API (`90`) и число повторов временных ошибок OpenRouter (`2`) |
 | `RERANKER_MODEL_ID`, `RERANKER_DEVICE`, `SEMANTIC_RERANK` | cross-encoder, по умолчанию выключен (`SEMANTIC_RERANK=1`) |
 | `SEMANTIC_CANDIDATE_POOL_SIZE` | размер пула кандидатов, по умолчанию `100` (1..200) |
 | `SEMANTIC_DENSE_MIN_SCORE` | порог семантической релевантности (dense cosine), `0.80` откалиброван для `intfloat/multilingual-e5-base`; при другой `EMBEDDING_MODEL_ID` обязателен |
@@ -73,8 +75,12 @@ TOGETHER_TIMEOUT_SECONDS=30
 QDRANT_URL=http://127.0.0.1:6333
 PERSON_QDRANT_COLLECTION=persons_semantic
 EVENT_QDRANT_COLLECTION=events_semantic
+EMBEDDING_PROVIDER=local
 EMBEDDING_MODEL_ID=intfloat/multilingual-e5-base
 EMBEDDING_DEVICE=auto
+EMBEDDING_BATCH_SIZE=32
+EMBEDDING_TIMEOUT_SECONDS=90
+EMBEDDING_MAX_RETRIES=2
 RERANKER_MODEL_ID=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
 RERANKER_DEVICE=auto
 SEMANTIC_RERANK=0

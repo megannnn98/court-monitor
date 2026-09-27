@@ -26,7 +26,7 @@ from semantic_retrieval.documents import (
     EventSemanticDocumentBuilder,
     PersonSemanticDocumentBuilder,
 )
-from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder, TextEmbedder
+from semantic_retrieval.embeddings import TextEmbedder, create_text_embedder
 from semantic_retrieval.indexer import SemanticIndexer
 from semantic_retrieval.models import (
     RetrievalBackend,
@@ -220,16 +220,16 @@ def create_semantic_components(
 ) -> SemanticComponents:
     store = create_configured_vector_store(config, session_factory)
     use_reranker = config.rerank if with_reranker is None else with_reranker
-    embedding_config = EmbeddingConfig.from_env(env)
+    embedder = create_text_embedder(env)
     return SemanticComponents(
         session_factory=session_factory,
         store=store,
-        embedder=SentenceTransformerEmbedder(embedding_config),
+        embedder=embedder,
         collections=config.collections,
         reranker=CrossEncoderReranker(RerankerConfig.from_env(env)) if use_reranker else None,
         rerank_candidates=config.rerank_candidates,
         # Threshold is tied to the embedding model (fails for an uncalibrated model).
         dense_min_score=resolve_dense_min_score(
-            os.environ if env is None else env, embedding_config.model_id
+            os.environ if env is None else env, embedder.model_id
         ),
     )
