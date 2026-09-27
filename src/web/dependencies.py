@@ -1,15 +1,12 @@
 """FastAPI dependencies shared by every route: the database session and the services built once."""
 
-import logging
 import os
 from collections.abc import Iterator
 from functools import lru_cache
 
-import httpx
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session, sessionmaker
 
-from channel_feed.published import load_published_keys
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from health import (
     ReadinessChecker,
@@ -21,8 +18,6 @@ from monitoring.models import (
 from operator_console import (
     OperationRegistry,
 )
-
-logger = logging.getLogger("api")
 
 
 # Database dependency
@@ -60,18 +55,6 @@ def get_operation_registry(db: Session = Depends(get_db)) -> OperationRegistry: 
     """Runs live in PostgreSQL, so a registry holds no state of its own: one per request,
     on the engine of the request's session (an overridden `get_db` included)."""
     return OperationRegistry(session_factory_for(db))
-
-
-def get_published_name_keys() -> frozenset[str]:
-    """The channel's published people; a dependency so tests need no network.
-
-    An unreachable channel leaves nothing out, and the page says so.
-    """
-    try:
-        return load_published_keys()
-    except httpx.HTTPError:
-        logger.warning("event=channel_published_unavailable", exc_info=True)
-        return frozenset()
 
 
 def get_readiness_checker() -> ReadinessChecker:

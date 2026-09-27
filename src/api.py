@@ -10,7 +10,6 @@ from web.dependencies import (
     _get_session_factory,
     get_db,
     get_operation_registry,
-    get_published_name_keys,
     get_readiness_checker,
 )
 
@@ -19,6 +18,5 @@ __all__ = [
     "app",
     "get_db",
     "get_operation_registry",
-    "get_published_name_keys",
     "get_readiness_checker",
 ]

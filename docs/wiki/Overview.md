@@ -46,7 +46,7 @@ component "Extraction" as Extraction
 component "Entity Resolution" as ER
 component "Persecution classification" as Persecution
 component "Rosfinmonitoring matching" as RF
-component "Candidate query / channel queue" as Candidates
+component "Candidate query" as Candidates
 database "PostgreSQL" as DB
 database "Qdrant / pgvector" as Vectors
 

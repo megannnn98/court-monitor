@@ -86,7 +86,6 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings — [Monitoring](Monitoring.md) |
 | HTTP API and console | `src/api.py` (entry point), `src/web/` | REST routers, operator console, exports, wiki — [Local-Web-UI](Local-Web-UI.md) |
 | Operator operations | `src/operator_console.py` | runs in PostgreSQL (`operator_operation_runs`) — [Data-Model](Data-Model.md) |
-| Channel queue | `src/channel_feed/` | queue for @enbv2022 — [ADR 0017](../adr/0017-channel-feed-sources.md) |
 | CLI | `src/main.py` (entry point), `src/cli/` | one composition root (`cli/context.py`) |
 | ORM | `src/db/models/`, `src/db/orm_models.py` | models by domain on one `Base`; migrations in `migrations/` |
 
@@ -154,8 +153,7 @@ the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
 - `src/monitoring/service.py` and `src/extraction/extractors.py` stay single modules:
   their parts share run state and rule tables, and splitting them was not worth the
   risk.
-- A registry card changed after ingestion is not re-read; the channel queue's name
-  suggestions for unnamed news are suggestions only (about three in four right).
+- A registry card changed after ingestion is not re-read.
 - Dagster schedules are created stopped; they are started by hand.
 - Switching `SEMANTIC_VECTOR_BACKEND` needs a full `rebuild-semantic-index`: the
   `indexed_at` marks are shared, and an incremental run on the other backend stops with
