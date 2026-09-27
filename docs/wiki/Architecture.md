@@ -47,12 +47,10 @@ package "Domain" {
   component "ER v2" as ER
   component "Persecution" as Persecution
   component "Rosfinmonitoring" as Rosfin
-  component "Semantic index" as Semantic
-  component "Research / Candidates" as Research
+  component "Candidates" as Candidates
 }
 
 database "PostgreSQL\nsource of truth" as PG
-database "Qdrant / pgvector\nderived index" as Vectors
 database "PostgreSQL\nDagster metadata" as DagsterDB
 
 Dagster --> Root
@@ -64,18 +62,15 @@ Monitoring --> Extraction
 Monitoring --> ER
 Monitoring --> Persecution
 Monitoring --> Rosfin
-Monitoring --> Semantic
 Monitoring --> Findings
-Findings --> Research
+Findings --> Candidates
 
 Sources --> PG
 Extraction --> PG
 ER --> PG
 Persecution --> PG
 Rosfin --> PG
-Research --> PG
-Semantic --> PG
-Semantic --> Vectors
+Candidates --> PG
 Monitoring --> PG
 Dagster --> DagsterDB
 @enduml
@@ -89,15 +84,13 @@ Dagster --> DagsterDB
 | API / UI | `src/api.py`, `src/web/` | FastAPI, JSON endpoints, operator console |
 | Composition root | `src/application.py`, `src/cli/context.py` | настройки, engine, session factory, сервисы |
 | Orchestration | `src/monitoring/` | порядок стадий, runs, checkpoints, findings |
-| Domain | `src/sources/`, `src/extraction/`, `src/persons/`, `src/persecution/`, `src/rosfinmonitoring/`, `src/candidates/`, `src/research/` | бизнес-решения и persistence |
-| Semantic index | `src/semantic_retrieval/` | semantic documents и vector store |
+| Domain | `src/sources/`, `src/extraction/`, `src/persons/`, `src/persecution/`, `src/rosfinmonitoring/`, `src/candidates/`, `src/entities/` | бизнес-решения и persistence |
 | Database | `src/db/`, `migrations/` | ORM и Alembic schema |
 
 ## Данные и артефакты
 
 - PostgreSQL — source of truth: статьи, mentions, persons, classifications,
   RF matches, monitoring runs.
-- Qdrant или pgvector — производный индекс; его можно перестроить из PostgreSQL.
 - Dagster metadata — отдельная БД для scheduler/webserver, не доменная история.
 - Reports и evaluation artifacts лежат в `reports/` и `evaluation/`.
 
@@ -115,6 +108,5 @@ uv run pytest tests/monitoring tests/app
 
 - Dagster не принимает доменных решений; он только запускает pipeline.
 - API и Dagster не применяют миграции сами. Миграции — явный шаг.
-- Qdrant/pgvector не источник фактов. При сомнении сверяться с PostgreSQL.
 - Порты compose опубликованы на localhost; наружный доступ требует reverse proxy
   с auth/rate limit.

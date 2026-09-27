@@ -1,4 +1,4 @@
-"""ER v2 orchestration: candidates (exact key, alias, trigram, semantic) → features → score → decision.
+"""ER v2 orchestration: candidates (exact key, alias, trigram) → features → score → decision.
 
 `PersonResolutionEngine` only reads (CLI dry-run, evaluation). The
 `PersonResolutionService` applies a decision to a mention inside the caller's

@@ -5,6 +5,8 @@
 Accepted, 2026-09-17. Adds two sources and a read-only view; changes no candidate
 definition (ADR 0006, ADR 0007).
 
+**The queue is removed** 2026-09-27 (`chore/slim-to-two-scenarios`): `src/channel_feed/` had no caller left in the app. The sources stay.
+
 ## Context
 
 The customer fills the Telegram channel @enbv2022 («Если б не было войны») with one

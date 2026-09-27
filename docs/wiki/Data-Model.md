@@ -204,7 +204,7 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 
 ## Векторы pgvector: `semantic_vector_collections`, `semantic_vectors`, `semantic_index_state`
 
-Миграция `t4u5v6w7x8y9` ([ADR 0018](../adr/0018-pgvector-vector-store.md)) включает расширение `vector`. Таблицы — производные данные, как `semantic_documents`; фактов в них нет. Заполняются только при `SEMANTIC_VECTOR_BACKEND=pgvector`.
+Миграция `t4u5v6w7x8y9` ([ADR 0018](../adr/0018-pgvector-vector-store.md)) включает расширение `vector`. Таблицы — производные данные, как `semantic_documents`; фактов в них нет. Векторный поиск удалён из кода: эти таблицы и `semantic_documents` остаются в схеме (применённые миграции не откатываются), но их никто не пишет и не читает.
 
 | Таблица | Поля | Смысл |
 |---|---|---|

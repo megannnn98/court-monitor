@@ -71,12 +71,10 @@ package "Domain services (decide)" {
   component "ER v2\nExtractionResolutionService" as ER
   component "PersecutionClassificationService" as Persecution
   component "RuleBasedRosfinmonitoringMatcher" as Rosfin
-  component "SemanticIndexer" as Semantic
   component "CandidateQueryService" as Candidates
 }
 
 database "PostgreSQL\n(source of truth)" as PG
-database "Qdrant\n(derived index)" as Qdrant
 database "court_monitor_dagster\n(Dagster metadata)" as DagsterDB
 
 Sched --> Job
@@ -94,7 +92,6 @@ Svc --> Extraction
 Svc --> ER
 Svc --> Persecution
 Svc --> Rosfin
-Svc --> Semantic
 Svc --> Findings
 Findings --> Candidates
 
@@ -106,8 +103,6 @@ ER --> PG
 Persecution --> PG
 Rosfin --> PG
 Candidates --> PG
-Semantic --> PG
-Semantic --> Qdrant
 @enduml
 ```
 
@@ -130,15 +125,13 @@ if (Есть импортированный RF snapshot?) then (да)
 else (нет)
   :rf_matching: skipped = no_rf_snapshot;
 endif
-:Semantic index (incremental, stale entities);
-note right: Qdrant недоступен → retryable item,\nPostgreSQL не откатывается
-:Research / CandidateQueryService (POLITICAL + NOT_MATCHED);
+:CandidateQueryService (POLITICAL + NOT_MATCHED);
 :Monitoring findings (dedup, first_seen, active);
 stop
 @enduml
 ```
 
-Asset graph Dagster повторяет эти этапы: `source_discovery → source_ingestion → entity_extraction → person_resolution → persecution_classification → rosfinmonitoring_matching → semantic_indexing → monitoring_summary`. Между assets передаются только `RunHandle`, IDs и счётчики — не тексты статей.
+Asset graph Dagster повторяет эти этапы: `source_discovery → source_ingestion → entity_extraction → person_resolution → persecution_classification → rosfinmonitoring_matching → monitoring_summary`. Между assets передаются только `RunHandle`, IDs и счётчики — не тексты статей.
 
 ## Идемпотентность и восстановление
 
@@ -151,9 +144,8 @@ Asset graph Dagster повторяет эти этапы: `source_discovery → 
 | resolution | успешные runs с непривязанным person mention без ER-решения |
 | classification | активные persons без классификации текущей версии или с evidence новее неё |
 | RF matching | активные persons без match для latest snapshot или с evidence новее него |
-| semantic | persons/events с отсутствующим, неиндексированным или устаревшим документом |
 
-Evidence change — самое позднее из: person создан/обновлён, привязано событие, добавлен alias, записано или отревьюено ER-решение. Результат считается свежим, только если записан позже изменения evidence как минимум на `EVIDENCE_SETTLE_INTERVAL` (10 минут): timestamps evidence — это начало транзакции, а не commit, и без запаса параллельный run мог бы классифицировать Person до commit чужой ER-транзакции и больше её не пересчитать. Цена — один идемпотентный пересчёт недавно изменённых persons. Поэтому Person, созданная ручным ER review, будет классифицирована, сматчена и проиндексирована следующим run'ом без повторного ingestion.
+Evidence change — самое позднее из: person создан/обновлён, привязано событие, добавлен alias, записано или отревьюено ER-решение. Результат считается свежим, только если записан позже изменения evidence как минимум на `EVIDENCE_SETTLE_INTERVAL` (10 минут): timestamps evidence — это начало транзакции, а не commit, и без запаса параллельный run мог бы классифицировать Person до commit чужой ER-транзакции и больше её не пересчитать. Цена — один идемпотентный пересчёт недавно изменённых persons. Поэтому Person, созданная ручным ER review, будет классифицирована и сматчена следующим run'ом без повторного ingestion.
 
 Сценарий «discover OK → ingest OK → extraction упал на середине»: следующий run помечает старый run `aborted` (нет heartbeat дольше `MONITORING_STALE_RUN_AFTER_MINUTES`), не скачивает уже сохранённые документы и доделывает extraction/ER/классификацию. Ручная очистка не нужна.
 
@@ -168,20 +160,17 @@ participant "Dagster" as D
 participant "run_derived_monitoring op" as Op
 participant "MonitoringService.run_derived" as S
 database "PostgreSQL" as PG
-participant "Qdrant" as Q
 
 loop retry_count < max_retries (3), exponential backoff
   D -> Op : execute (attempt = retry_count + 1)
   Op -> S : run_derived()
-  S -> PG : select stale persons/events
-  S -> Q : upsert vectors
-  alt Qdrant unavailable
-    Q --> S : RetrievalUnavailableError
+  S -> PG : classify, match RF, evaluate findings
+  alt retryable item failure (e.g. connection lost)
     S -> PG : monitoring_run_items (retryable), run completed_with_errors
     S --> Op : run with retryable items
     Op --> D : raise RetryableMonitoringFailure
-  else indexed
-    S -> PG : mark indexed, run completed
+  else no retryable failure
+    S -> PG : run completed
     S --> Op : run completed
     Op --> D : success (break)
   end
@@ -192,11 +181,11 @@ end
 ## Run, статусы, ошибки
 
 - `monitoring_runs.status`: `running`, `completed`, `completed_with_errors` (есть item failures), `failed` (упал этап целиком), `aborted` (stale).
-- Счётчики: `documents_discovered/ingested/skipped/failed`, `articles_extracted`, `events_created`, `persons_created/linked`, `person_reviews_created`, `classifications_created`, `rf_matches_created`, `semantic_entities_indexed`, `findings_created`, `error_count`.
-- `stage_metrics`: разбивки по этапам — статусы классификации и RF, `duration_ms`, `skipped` (`no_rf_snapshot`), `status` semantic (`indexed` / `failed` / `not_configured`).
+- Счётчики: `documents_discovered/ingested/skipped/failed`, `articles_extracted`, `events_created`, `persons_created/linked`, `person_reviews_created`, `classifications_created`, `rf_matches_created`, `findings_created`, `error_count` (`semantic_entities_indexed` остался от удалённого векторного индекса и больше не растёт).
+- `stage_metrics`: разбивки по этапам — статусы классификации и RF, `duration_ms`, `skipped` (`no_rf_snapshot`).
 - `monitoring_run_items`: какой объект упал — stage, entity type/id или URL, `error_type`, сообщение (без SQL-параметров), `failure_kind` (`retryable` / `non_retryable`, по типу исключения).
 
-Структурированные логи (logger `monitoring`, stderr): `monitoring_run_started`, `monitoring_discovery_completed`, `monitoring_ingestion_completed`, `monitoring_extraction_completed`, `monitoring_er_completed`, `monitoring_classification_completed`, `monitoring_rf_completed`, `monitoring_semantic_completed`, `monitoring_findings_completed`, `monitoring_run_completed`, `monitoring_run_failed`, плюс `monitoring_item_failed` и `monitoring_run_aborted_stale`. Секреты (DATABASE_URL, ключи) не логируются и не попадают в Dagster config.
+Структурированные логи (logger `monitoring`, stderr): `monitoring_run_started`, `monitoring_discovery_completed`, `monitoring_ingestion_completed`, `monitoring_extraction_completed`, `monitoring_er_completed`, `monitoring_classification_completed`, `monitoring_rf_completed`, `monitoring_findings_completed`, `monitoring_run_completed`, `monitoring_run_failed`, плюс `monitoring_item_failed` и `monitoring_run_aborted_stale`. Секреты (DATABASE_URL, ключи) не логируются и не попадают в Dagster config.
 
 ## Параллельность
 
@@ -212,7 +201,7 @@ end
 - Критерий MVP: `political_persecution_not_in_rf` / `enbv-v1` — через `CandidateQueryService` (latest classification `political`, confidence ≥ 0.7, RF `not_matched` для latest snapshot). RF `ambiguous`/`needs_review`/`insufficient_data` не считаются отсутствием.
 - Dedup: `(finding_type, person_id, criteria_version)`; повторный run обновляет только `last_seen_*`.
 - История: `first_seen_run_id`/`first_seen_at` не меняются; перестал удовлетворять критерию → `active = false`, `inactive_since`. «Когда Person впервые попала в результаты и в каком run» — `first_seen_*`.
-- Provenance: `persecution_classification_id`, `rosfin_match_id`, `snapshot_id`; evidence и источники — через Person (`POST /research`).
+- Provenance: `persecution_classification_id`, `rosfin_match_id`, `snapshot_id`; evidence и источники — через Person (`GET /persons/{id}/detail`).
 - Без RF snapshot оценка пропускается (`no_rf_snapshot`), ложных findings нет.
 - Новые критерии — через `MonitoringQueryProvider`.
 
@@ -238,7 +227,7 @@ uv run alembic upgrade head
 uv run python src/main.py monitor
 # один источник
 uv run python src/main.py monitor --source ovd-info
-# докачка: все источники до resolution, затем classification / RF / semantic / findings
+# докачка: все источники до resolution, затем classification / RF / findings
 # один раз (без флага они идут после каждого источника); кнопка «Докачать новые
 # публикации» в /ui/operations запускает именно это
 uv run python src/main.py monitor --catch-up
@@ -246,7 +235,7 @@ uv run python src/main.py monitor --catch-up
 uv run python src/main.py monitor --source ovd-info --dry-run --limit 5
 # backfill (checkpoint не меняет)
 uv run python src/main.py monitor --backfill --source ovd-info --limit 500
-# повторить classification / RF / semantic / findings без web discovery
+# повторить classification / RF / findings без web discovery
 uv run python src/main.py monitor-derived
 # статус, один run с упавшими объектами, findings
 uv run python src/main.py monitoring-status
@@ -275,7 +264,7 @@ uv run alembic upgrade head
 docker compose --profile monitoring up -d --build   # webserver :3000, daemon
 ```
 
-`dagster-db-init` создаёт отдельную БД `DAGSTER_PG_DB` (по умолчанию `court_monitor_dagster`); таблицы Dagster не смешиваются с доменными. Semantic-этап в контейнерах: собрать образ с `--build-arg INSTALL_SEMANTIC=1`, поднять `--profile semantic` и задать `MONITORING_QDRANT_URL=http://qdrant:6333`. На видеокарте NVIDIA: `compose.gpu.yaml` собирает образ с semantic и распознавателем имён (GLiNER), отдаёт GPU контейнерам `api` и `dagster-daemon` включает semantic-этап и позволяет задать `PERSON_EXTRACTION_STRATEGY=hybrid` (по умолчанию `rule_based`: гибрид пока дробит персоны, см. комментарий в файле); подготовка хоста описана в заголовке файла.
+`dagster-db-init` создаёт отдельную БД `DAGSTER_PG_DB` (по умолчанию `court_monitor_dagster`); таблицы Dagster не смешиваются с доменными. На видеокарте NVIDIA: `compose.gpu.yaml` собирает образ с группой `semantic` (модель отсева мусора) и распознавателем имён (GLiNER), отдаёт GPU контейнерам `api` и `dagster-daemon` и позволяет задать `PERSON_EXTRACTION_STRATEGY=hybrid` (по умолчанию `rule_based`: гибрид пока дробит персоны, см. комментарий в файле); подготовка хоста описана в заголовке файла.
 
 ## Ограничения
 

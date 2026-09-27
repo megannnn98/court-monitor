@@ -31,7 +31,7 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile production restart 
 
 **Оба compose-файла.** `compose.gpu.yaml` собирает образ с группами `semantic` и `ner`
 (sentence-transformers, torch с CUDA, GLiNER) и отдаёт контейнерам видеокарту. Команда без
-него пересоздаст контейнеры без GPU и без семантического шага мониторинга. Чтобы не
+него пересоздаст контейнеры без GPU и без модели отсева мусора (`JUNK_SCREEN=1`). Чтобы не
 писать `-f` каждый раз, можно добавить в `.env`:
 
 ```
@@ -114,25 +114,18 @@ docker builder du --builder default | tail -1                    # скольк�
 (`alembic downgrade <ревизия>`) — только если новая миграция мешает старому коду; перед
 этим — резервная копия из «Перед выпуском».
 
-## Семантический backend
-
-Выпуск не меняет `SEMANTIC_VECTOR_BACKEND`: по умолчанию остаётся Qdrant. Переход на
-pgvector — отдельная процедура с паузой мониторинга и полной перестройкой индекса, см.
-раздел «Switching a deployment (runbook)» в
-[ADR 0018](../adr/0018-pgvector-vector-store.md).
-
 ## Кодовые точки входа
 
 - `Dockerfile` — образ API/Dagster/migrate.
 - `compose.yaml` — базовые сервисы и production profile.
-- `compose.gpu.yaml` — semantic/NER зависимости и GPU.
+- `compose.gpu.yaml` — зависимости отсева мусора и NER, GPU.
 - `migrations/` — Alembic шаг `migrate`.
 - `src/health.py`, `src/web/routers/health.py` — readiness/liveness.
 
 ## Ограничения и типичные ошибки
 
 - Не пропускать `migrate`: API сам миграции не применяет.
-- Не собирать GPU-выпуск без `compose.gpu.yaml`, если нужен semantic/NER.
+- Не собирать GPU-выпуск без `compose.gpu.yaml`, если нужны отсев мусора или NER.
 - Проверять свободное место до сборки: зависимости CUDA и старые слои занимают
   много места.
 - Откат к старому коду не всегда значит downgrade БД; downgrade только если

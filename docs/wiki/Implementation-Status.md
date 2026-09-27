@@ -81,9 +81,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Entities (console) | `src/entities/` | the five-step pipeline of the console: people from mentions, roles, and the final Rosfinmonitoring check plus political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
 | Unnamed figurants | `src/entities/unnamed.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
 | Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by monitoring findings — [Pipeline](Pipeline.md) |
-| Research | `src/research/` | deterministic research in one read-only REPEATABLE READ snapshot, LangGraph workflow, reports — [Research](Research.md), [Research-Workflow](Research-Workflow.md), [Research-Reports](Research-Reports.md) |
-| Semantic retrieval | `src/semantic_retrieval/` | candidate ids from Qdrant (default) or pgvector (`SEMANTIC_VECTOR_BACKEND`, [ADR 0018](../adr/0018-pgvector-vector-store.md)), facts from PostgreSQL — [Semantic-Retrieval](Semantic-Retrieval.md) |
-| Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings — [Monitoring](Monitoring.md) |
+| Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings; the junk screen before step 2 (`junk_screen.py`, its embedding model in `embedder.py`) — [Monitoring](Monitoring.md), [Junk-Screen](Junk-Screen.md) |
 | HTTP API and console | `src/api.py` (entry point), `src/web/` | REST routers, operator console, exports, wiki — [Local-Web-UI](Local-Web-UI.md) |
 | Operator operations | `src/operator_console.py` | runs in PostgreSQL (`operator_operation_runs`) — [Data-Model](Data-Model.md) |
 | CLI | `src/main.py` (entry point), `src/cli/` | one composition root (`cli/context.py`) |
@@ -112,13 +110,10 @@ monitoring-status: нет зависших или бесконечно пада�
 `python src/main.py <command>` (`--help` works without a database):
 
 - ingestion: `ingest`, `discover-and-ingest`
-- search: `search`, `evaluate-search`
 - extraction: `extract-entities`, `evaluate-extraction`
 - persons: `resolve-people`, `resolve-person`, `person-resolution-reviews`, `evaluate-er`
 - Rosfinmonitoring: `import-rosfinmonitoring`, `match-rosfinmonitoring`
 - classification and candidates: `classify-persecution`, `list-candidates`
-- research: `research`, `ask`
-- semantic retrieval: `rebuild-semantic-index`, `semantic-search`, `evaluate-retrieval`
 - monitoring: `monitor`, `monitor-derived`, `monitoring-status`, `monitoring-findings`
 - evaluation: `evaluate-final`, `build-real-world-corpus`, `real-world-corpus-status`, `real-world-golden`, `evaluate-real-world`
 - configuration: `validate-config`
@@ -128,14 +123,13 @@ monitoring-status: нет зависших или бесконечно пада�
 | Profile | Services |
 |---|---|
 | (none) | PostgreSQL 18.6 with pgvector (`pgvector/pgvector:pg18-bookworm`, pinned by digest) |
-| `semantic` | + Qdrant |
 | `migrate` | one-shot `alembic upgrade head` |
 | `api` | + API |
 | `monitoring` | + Dagster DB init, webserver, daemon |
-| `production` | PostgreSQL, Qdrant, API, Dagster |
+| `production` | PostgreSQL, API, Dagster |
 
-`compose.gpu.yaml` on top builds the image with the semantic and NER groups and gives
-the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
+`compose.gpu.yaml` on top builds the image with the semantic (junk screen) and NER groups
+and gives the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
 
 ## Known limitations
 
@@ -146,22 +140,16 @@ the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
 - Operation runs execute in a thread of the API process that accepted them; if that
   process dies, the run becomes `interrupted` after 5 minutes without a heartbeat and
   is not resumed.
-- The workflow resolves "the latest Rosfinmonitoring snapshot" before the research
-  transaction; the chosen id is re-checked inside it.
-- `evaluate-search` writes its fixed corpus into the database of `DATABASE_URL`
-  (source «ОВД-Инфо evaluation»), unlike the evaluations with a disposable database.
 - `src/monitoring/service.py` and `src/extraction/extractors.py` stay single modules:
   their parts share run state and rule tables, and splitting them was not worth the
   risk.
 - A registry card changed after ingestion is not re-read.
 - Dagster schedules are created stopped; they are started by hand.
-- Switching `SEMANTIC_VECTOR_BACKEND` needs a full `rebuild-semantic-index`: the
-  `indexed_at` marks are shared, and an incremental run on the other backend stops with
-  `IndexBackendMismatchError` ([ADR 0018](../adr/0018-pgvector-vector-store.md)).
 - The migration `t4u5v6w7x8y9` creates the `vector` extension: the PostgreSQL image must
   be the pgvector one before `alembic upgrade head` runs.
-- With pgvector, person search is exact (no HNSW), event search HNSW; exact search time
-  grows linearly with the number of persons ([ADR 0018](../adr/0018-pgvector-vector-store.md)).
+- The tables of the removed vector index stay in the schema, written and read by nothing:
+  `semantic_documents`, `semantic_vector_collections`, `semantic_vectors`,
+  `semantic_index_state`. Dropping them needs its own migration.
 
 ## Reproduce
 
@@ -173,9 +161,7 @@ uv run mypy --strict src tests
 uv run pytest
 
 docker compose up -d postgres
-docker compose --profile semantic up -d qdrant
-TEST_DATABASE_URL=postgresql+psycopg://…/court_monitor_test \
-QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest
+TEST_DATABASE_URL=postgresql+psycopg://…/court_monitor_test uv run pytest
 
 DATABASE_URL=postgresql+psycopg://…/court_monitor_test uv run alembic upgrade head
 docker compose --profile production config

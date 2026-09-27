@@ -69,16 +69,6 @@ uv run alembic heads
 `validate-config` печатает текущую конфигурацию без секретов. `alembic current`
 и `alembic heads` должны показывать один и тот же head revision.
 
-Qdrant нужен только для semantic retrieval / semantic indexing. Для ручного
-structured research без semantic-запросов достаточно PostgreSQL. Если нужен
-semantic:
-
-```bash
-docker compose --profile semantic up -d qdrant
-uv sync --group semantic
-uv run python src/main.py rebuild-semantic-index --entity all
-```
-
 ## 2. Загрузить небольшой набор статей
 
 ```bash
@@ -264,18 +254,7 @@ fi
 `match-rosfinmonitoring` и `list-candidates` честно завершатся с
 `Rosfinmonitoring snapshot <id> not found`.
 
-## 8. Natural-language поиск
-
-Нужны `TOGETHER_API_KEY` и `TOGETHER_MODEL` в `.env`. LLM только переводит
-вопрос в структурированный `ResearchRequest`; факты берутся из PostgreSQL.
-
-```bash
-uv run python src/main.py ask \
-  "Найди людей, которых преследовали за антивоенную деятельность" \
-  --show-request
-```
-
-## 9. API
+## 8. API
 
 ```bash
 # терминал 1
@@ -302,8 +281,8 @@ curl "http://localhost:8001/candidates?snapshot_id=<real-snapshot-id>&min_confid
 ```
 
 `/health/live` проверяет, что процесс отвечает. `/health/ready` проверяет БД и
-schema head; Qdrant, Together AI и stale monitoring runs попадают в degraded
-status, а не валят процесс.
+schema head; stale monitoring runs попадают в degraded status, а не валят
+процесс.
 
 Если порт `8001` тоже занят, выбрать другой:
 
@@ -311,7 +290,7 @@ status, а не валят процесс.
 uv run uvicorn --app-dir src api:app --reload --port 8002
 ```
 
-## 10. Проверки
+## 9. Проверки
 
 Быстрая проверка без внешних сервисов:
 
@@ -327,11 +306,10 @@ uv run ruff format --check src tests
 uv run mypy --strict src tests
 ```
 
-Integration tests с PostgreSQL/Qdrant:
+Integration tests с PostgreSQL:
 
 ```bash
 export TEST_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test"
-export QDRANT_TEST_URL="http://127.0.0.1:6333"
 
 DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
 uv run pytest
@@ -348,10 +326,10 @@ uv run python src/main.py evaluate-final --no-fail-on-gates
 `EVALUATION_DATABASE_URL` должен указывать на одноразовую БД с именем,
 заканчивающимся на `_test` или `_eval`.
 
-## 11. Automated monitoring
+## 10. Automated monitoring
 
 Monitoring запускает тот же pipeline повторяемо: discovery/ingestion,
-extraction, ER, classification, RF matching, semantic indexing и findings.
+extraction, ER, classification, RF matching и findings.
 
 Ручной запуск без Dagster:
 
@@ -376,9 +354,9 @@ docker compose --profile monitoring up -d --build
 
 UI: `http://127.0.0.1:3000`. Подробности: `docs/wiki/Monitoring.md`.
 
-## 12. Production-like local profile
+## 11. Production-like local profile
 
-Один compose profile поднимает PostgreSQL, Qdrant, API и Dagster. Миграции
+Один compose profile поднимает PostgreSQL, API и Dagster. Миграции
 запускаются отдельным шагом:
 
 ```bash
@@ -391,11 +369,11 @@ curl -s http://127.0.0.1:8001/health/live
 curl -s http://127.0.0.1:8001/health/ready
 ```
 
-Порты опубликованы только на `127.0.0.1`: PostgreSQL `5433`, Qdrant `6333`,
+Порты опубликованы только на `127.0.0.1`: PostgreSQL `5433`,
 API `8001`, Dagster `3000`. У API нет auth/rate limiting; наружу только через
 reverse proxy с ними.
 
-## 13. Real-World Validation v1
+## 12. Real-World Validation v1
 
 Real-world validation проверяет pipeline на зафиксированном корпусе реальных
 публикаций. Полные тексты лежат в локальном cache `var/real_world/` и не

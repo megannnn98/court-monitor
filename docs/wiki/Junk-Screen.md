@@ -13,7 +13,7 @@
 доказательство дела: удержанная статья не идёт дальше по конвейеру, пока в ней не найдено
 событие.
 
-По умолчанию **выключен**.
+В коде по умолчанию **выключен**; `compose.yaml` включает его для API (`JUNK_SCREEN=1`).
 
 ## Быстрый сценарий
 
@@ -56,7 +56,9 @@
 
 ## Кодовые точки входа
 
-- Оценщик: `src/monitoring/junk_screen.py`; очистка: `src/monitoring/junk_purge.py`.
+- Оценщик: `src/monitoring/junk_screen.py`; загрузка модели embeddings (sentence-transformers,
+  префикс E5 `passage: `, `EMBEDDING_DEVICE`, `EMBEDDING_BATCH_SIZE`):
+  `src/monitoring/embedder.py`; очистка: `src/monitoring/junk_purge.py`.
 - «Мусор» / «Извлечь заново»: `src/monitoring/junk_holds.py`; страница:
   `src/web/ui/junk_holds.py`.
 - Замер и переобучение: `src/evaluation/junk_screen/` (корпус из дампа до очистки,
@@ -65,8 +67,8 @@
 
 ## Ограничения и типичные ошибки
 
-- Нужен образ с `INSTALL_SEMANTIC=1` (torch, sentence-transformers); в текущем боевом
-  образе их нет — включённый отсев упадёт до удаления с `JunkScreenError`.
+- Нужен образ с `INSTALL_SEMANTIC=1` (torch, sentence-transformers; `compose.gpu.yaml`
+  его собирает); без них включённый отсев упадёт до удаления с `JunkScreenError`.
 - Разметка сделана моделью (DeepSeek) и проверена выборочно; в проверочной части всего 63
   дела — оценки грубые (полнота 0,70–0,89).
 - Пропускает сводки новостей («Главные новости к вечеру»), удерживает зря давние дела

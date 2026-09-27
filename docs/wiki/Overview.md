@@ -48,7 +48,6 @@ component "Persecution classification" as Persecution
 component "Rosfinmonitoring matching" as RF
 component "Candidate query" as Candidates
 database "PostgreSQL" as DB
-database "Qdrant / pgvector" as Vectors
 
 Operator --> Entry
 Entry --> Discovery
@@ -63,8 +62,6 @@ Persecution --> DB : persecution_classifications
 DB --> RF
 RF --> DB : rosfin_matches
 DB --> Candidates
-Vectors --> ER : semantic candidates
-Vectors --> Candidates : semantic retrieval support
 @enduml
 ```
 
@@ -89,8 +86,6 @@ snapshot РФМ подтверждено отсутствие, запись по
 | `src/persecution/` | political persecution classification |
 | `src/rosfinmonitoring/` | snapshots and matching |
 | `src/candidates/` | final candidate query |
-| `src/research/` | deterministic research responses and reports |
-| `src/semantic_retrieval/` | semantic documents, Qdrant/pgvector vector store |
 | `src/monitoring/` | automated pipeline runs, checkpoints, findings |
 | `src/db/`, `migrations/` | ORM and Alembic schema |
 
@@ -120,6 +115,5 @@ uv run pytest
 - `list-candidates` требует загруженный snapshot РФМ и match по нему.
 - ER-review убирает запись из очереди ER, но не скрывает Person из candidates:
   candidates зависят от classification, РФМ, статуса Person и UI-фильтров.
-- Semantic index производный; при смене backend/model нужен rebuild.
 - Текущий проверенный статус проекта не здесь, а в [Implementation
   Status](Implementation-Status.md).

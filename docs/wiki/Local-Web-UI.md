@@ -127,5 +127,5 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 - Счётчик очереди в меню пересчитывает спорные пары по всей базе на каждой
   странице.
 - «Отложить» не хранится в базе.
-- JSON API (`/persons`, `/articles`, `/search`, `/operations/runs`, …) консоль не
+- JSON API (`/persons`, `/articles`, `/operations/runs`, …) консоль не
   меняет; он остаётся контрактом для автоматизации.

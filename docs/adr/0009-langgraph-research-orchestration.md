@@ -6,6 +6,8 @@ Accepted. The final `assemble_response` step is replaced by planning, result
 evaluation, report and human review gate nodes in
 [ADR 0010](0010-research-report-review-routing.md).
 
+**Removed** 2026-09-27 with the research layer (`chore/slim-to-two-scenarios`); the code is in the Git history.
+
 ## Context
 
 ADR 0008 introduced `ResearchRequest` → `ResearchService` → `ResearchResponse`:

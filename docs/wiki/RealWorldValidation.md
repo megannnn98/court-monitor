@@ -31,7 +31,6 @@ file "evaluation/real_world/golden/*" as Golden
 file "evaluation/real_world/policy_v1.json" as Policy
 file "evaluation/real_world/rf_snapshot_eval_v1.csv" as RF
 database "disposable PostgreSQL\n*_test / *_eval" as DB
-database "Qdrant\noptional semantic benchmark" as Qdrant
 rectangle "evaluate-real-world" as Eval
 file "reports/real_world_validation_v1.json/md" as Reports
 
@@ -43,7 +42,6 @@ Cache --> Eval : replay documents offline
 Policy --> Eval : hard gates, quality targets
 RF --> Eval : evaluation RF snapshot
 Eval --> DB : truncate disposable tables, run product pipeline
-Eval ..> Qdrant : only with --semantic-model
 Eval --> Reports
 @enduml
 ```
@@ -155,52 +153,6 @@ Manifest уже содержит детерминированный stratified s
 - RF: если персона в snapshot, но статья не даёт отчества/даты рождения — `needs_review`/`ambiguous` с `acceptable_review: true`; `not_matched` только если записи с таким ФИО нет.
 - Известное ограничение системы — `known_limitation` + конкретные `known_limitation_kinds`; оно исключает из hard gates только эти виды ошибок.
 
-## Retrieval queries и relevance judgments
-
-`evaluation/real_world/retrieval_queries.json` — список `RealRetrievalQuery`
-(схема в `src/evaluation/real_world/retrieval_eval.py`, валидация при загрузке):
-
-| поле | смысл |
-|---|---|
-| `query_id`, `text`, `entity_type`, `split` | идентификатор, текст запроса, PERSON/EVENT, split запроса |
-| `judgments` | ключ сущности → grade `2` (явно релевантна), `1` (частично), `0` (явно нерелевантна). Ключ: golden person id, `case_id/event_id` для события или `extra-person:`/`extra-event:` для сущности из статьи корпуса без golden-разметки |
-| `expected_no_match` | запрос, для которого в корпусе не должно быть принятой сущности; у него не может быть grade > 0 и он не может быть `semantic_only` |
-| `semantic_only` | у запроса нет общих словарных основ с релевантными документами (проверяется отдельно) |
-| `tags` | класс запроса: `semantic_only`, `group`, `negative_hard`, `negative_offtopic`, `namesake_trap`, `initials`, `paraphrase`, … — по ним режутся метрики |
-| `notes` | пояснение разметчика |
-
-Ключ, которого **нет** в `judgments`, считается UNJUDGED: он никогда не
-учитывается как нерелевантный, поэтому precision считается только по
-размеченной части выдачи, а recall@k — нижняя оценка. Пустой `judgments`
-допустим только при `expected_no_match`.
-
-`query_problems()` дополнительно проверяет уникальность `query_id`, наличие
-тегов, существование ключей в golden и то, что релевантная сущность принадлежит
-тому же split, что и запрос (иначе запрос протекал бы в чужой split).
-
-DRAFT-оценки pooled-кандидатов лежат отдельно, в
-`evaluation/semantic_v2/pool_judgments.json`:
-
-```json
-{
-  "status": "DRAFT",
-  "annotation_origin": "agent_draft",
-  "judgments":   {"rq-12": {"gp-ivanov-ivan": 2, "gp-petrov-petr": 0}},
-  "cross_split": {"rq-12": {"gp-sidorov-sidor": 1}},
-  "retired":     {"rq-108": "pool review found a partial match: …"}
-}
-```
-
-- `judgments` — оценки, которые используют метрики;
-- `cross_split` — релевантные сущности из статей другого split: оценены, но в
-  метриках остаются UNJUDGED, чтобы не протащить чужой split;
-- `retired` — запросы, выбывшие из метрик по итогу review (например «negative»,
-  для которого нашлось частичное совпадение).
-
-Кандидаты для разметки набираются пулингом (union top-100 нескольких систем),
-а листы для человека — blind: `var/real_world/review/semantic_v2/`
-(`sheet_priority.csv`, `sheet_full.csv`, `keys.json`), без модели, ранга и score.
-
 ## Evaluation Run
 
 `evaluate-real-world` runs product code through one disposable PostgreSQL database:
@@ -208,9 +160,8 @@ DRAFT-оценки pooled-кандидатов лежат отдельно, в
 1. Namesake ER benchmark on seeded persons.
 2. Temporal corpus replay `T0..T3`.
 3. Extraction, event association, ER, persecution, RF and candidate metrics against selected golden split.
-4. Retrieval and research benchmarks.
-5. Monitoring scenarios and DB invariants.
-6. Safety gates and JSON/Markdown report.
+4. Monitoring scenarios and DB invariants.
+5. Safety gates and JSON/Markdown report.
 
 ```bash
 export EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval
@@ -222,8 +173,6 @@ Options:
 - `--split dev|validation|test|all` selects golden split; `test` forces `--verified-only`.
 - `--verified-only` excludes DRAFT cases.
 - `--full` adds repeated runs, failure injection and manual review continuation.
-- `--semantic-model` uses real embeddings + Qdrant; otherwise semantic benchmark is marked `NOT_RUN`.
-- `--llm-intake` uses Together AI for natural-language intake; otherwise intake is `NOT_RUN`.
 - `--no-fail-on-gates` writes reports and exits 0 even when gates fail.
 
 Database safety: URL must point to a disposable database name ending `_test` or `_eval`; runner truncates disposable domain tables.
@@ -232,19 +181,16 @@ Locked test split: DRAFT-кейсы `test` не попадают ни в `--spli
 
 Exit codes: `0` — все обязательные gates прошли (или `--no-fail-on-gates`), `1` — провален hard gate или quality target, `2` — infrastructure/data error (нет manifest/cache, hash не совпал, golden невалиден, БД недоступна или не disposable).
 
-Полный прогон с реальной моделью:
+Полный прогон:
 
 ```bash
-docker compose --profile semantic up -d qdrant
-uv sync --group semantic
-QDRANT_TEST_URL=http://127.0.0.1:6333 \
-  uv run python src/main.py evaluate-real-world --split all --full --semantic-model
+uv run python src/main.py evaluate-real-world --split all --full
 ```
 
 ## CI
 
 - Обычный CI: unit tests evaluator-а (`tests/evaluation/test_real_world_*.py`) на committed fixtures, без сети и моделей.
-- PostgreSQL job: `test_real_world_monitoring_scenarios.py` реплеит маленький HTML-корпус через production pipeline (rerun, crash recovery, Qdrant outage, source/DB failures, no snapshot, manual review).
+- PostgreSQL job: `test_real_world_monitoring_scenarios.py` реплеит маленький HTML-корпус через production pipeline (rerun, crash recovery, source/DB failures, no snapshot, manual review).
 - Реальный корпус (`build-real-world-corpus`) и полный `evaluate-real-world` — только явные команды, не CI.
 
 ## Report Contract
@@ -258,7 +204,7 @@ Important statuses:
 - `PRELIMINARY` — DRAFT annotations or too few VERIFIED articles; no production claim.
 - `INFRASTRUCTURE_ERROR` — run could not execute safely.
 
-Hard gates include false person auto-link, false RF absence, cross-person persecution attribution, contradicted report claims, duplicate monitoring findings, rerun duplicates, no-snapshot findings, RF review-status findings and DB invariant violations.
+Hard gates include false person auto-link, false RF absence, cross-person persecution attribution, duplicate monitoring findings, rerun duplicates, no-snapshot findings, RF review-status findings and DB invariant violations.
 
 ## Limits
 
@@ -266,4 +212,4 @@ Hard gates include false person auto-link, false RF absence, cross-person persec
 - Evaluation RF snapshot is committed for this corpus, not real current Rosfinmonitoring list.
 - Real network is used only while building corpus; evaluation replays cached documents.
 - Failure injection is in-process; real SIGKILL and PostgreSQL restart are not simulated.
-- Semantic and LLM sections are opt-in and may be `NOT_RUN`.
+- The research and retrieval benchmarks were removed with those features (policy `real-world-policy-v1.2`); `reports/real_world_validation_v1.*` still shows them as measured before.

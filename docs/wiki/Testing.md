@@ -4,7 +4,7 @@
 
 Эта страница объясняет, какие проверки запускать перед изменениями и что они
 реально доказывают. Оператору важны smoke-команды. Программисту — разница между
-unit, PostgreSQL/Qdrant integration, model tests и real-world validation.
+unit, PostgreSQL integration, model tests и real-world validation.
 
 ## Быстрый сценарий
 
@@ -18,13 +18,11 @@ uv run mypy --strict src tests
 uv run pytest
 ```
 
-С PostgreSQL и Qdrant:
+С PostgreSQL:
 
 ```bash
 docker compose up -d postgres
-docker compose --profile semantic up -d qdrant
 export TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
-export QDRANT_TEST_URL=http://127.0.0.1:6333
 DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
 env -u DATABASE_URL uv run pytest
 ```
@@ -40,8 +38,9 @@ env -u DATABASE_URL uv run pytest
 - `tests/persons/` — ER v2, review queue, AI review policy;
 - `tests/persecution/`, `tests/rosfinmonitoring/`, `tests/candidates/` —
   product decision layers;
-- `tests/research/`, `tests/semantic_retrieval/`, `tests/llm/` — research,
-  semantic retrieval, LLM adapters;
+- `tests/entities/` — шаги 3–5 консоли и безымянные фигуранты;
+- `tests/monitoring/` — monitoring pipeline, отсев мусора и очистка;
+- `tests/llm/` — LLM adapters;
 - `tests/app/` — CLI/API/end-to-end contracts;
 - `tests/support/` — fakes and database fixtures.
 
@@ -55,7 +54,7 @@ env -u DATABASE_URL uv run pytest
 ```
 
 Смысл: обычные и integration tests прошли в этой среде; skipped обычно означают
-отключенные реальные модели или live LLM, а не ошибку.
+отключенную реальную модель распознавания имён, а не ошибку.
 
 ## Линтеры и типы
 
@@ -69,23 +68,11 @@ uv run mypy --strict src tests
 
 ## Опциональные проверки
 
-Live Together AI:
+Реальная модель распознавания имён (GLiNER):
 
 ```bash
-TOGETHER_LIVE_TESTS=1 TOGETHER_API_KEY=... TOGETHER_MODEL=... uv run pytest -m live_together
-```
-
-Semantic models:
-
-```bash
-uv sync --group semantic
-SEMANTIC_MODEL_TESTS=1 uv run pytest -m semantic_models
-```
-
-Real Qdrant:
-
-```bash
-QDRANT_TEST_URL=http://127.0.0.1:6333 uv run pytest -m qdrant
+uv sync --group ner
+PERSON_NER_MODEL_TESTS=1 uv run pytest -m person_ner_model
 ```
 
 Real-world validation:
@@ -111,8 +98,6 @@ EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@loc
   collation, upserts и concurrency.
 - DB-тесты намеренно требуют базу `court_monitor_test`, чтобы не писать в
   рабочую БД.
-- Qdrant/model/live LLM tests запускаются только явным opt-in.
+- Тесты с реальной моделью распознавания имён запускаются только явным opt-in.
 - Real-world validation не является частью обычного `pytest`: ему нужны
   disposable DB, cache и golden dataset.
-- Chunk-level dense/hybrid tests удалены вместе со старым `ArticleChunk`; текущий
-  semantic retrieval — entity-level.

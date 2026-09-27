@@ -1,6 +1,6 @@
 # court-monitor
 
-Универсальный source layer: обнаружение и загрузка статей из нескольких источников (ОВД-Инфо, SOTA — sota.vision, публичные Telegram-каналы, пресс-службы судов на движке sudrf.ru), их разбора, сохранения и полнотекстового поиска.
+Универсальный source layer: обнаружение и загрузка статей из нескольких источников (ОВД-Инфо, SOTA — sota.vision, публичные Telegram-каналы, пресс-службы судов на движке sudrf.ru), их разбора и сохранения; из них — новые уголовные дела, сверка с Росфинмониторингом и опознание безымянных фигурантов.
 
 ## Language
 
@@ -31,31 +31,6 @@ _Avoid_: документ (без уточнения — используй то
 
 **IngestionPipeline**:
 Оркестратор одной статьи: `DocumentFetcher.fetch` → `ArticleParser.parse` → `IngestionPersistence.save`. Результат — `IngestionResult`. Источник-агностичен — конкретный fetcher/parser передаются снаружи.
-
-**SearchQuery / SearchHit**:
-`SearchQuery` — текст запроса и лимит выдачи. `SearchHit` — одна найденная статья (`ParsedArticle`) целиком с оценкой релевантности (`score`); идентичность — `source_base_url` + `external_id`.
-
-**SearchBackend**:
-Протокол (`Protocol`) поиска: принимает `SearchQuery`, возвращает `list[SearchHit]`. Единственная текущая реализация — `PostgresLexicalSearch`. Ранее в проекте также были dense/hybrid/reranked-hybrid backend'ы поверх Qdrant — удалены вместе с `ArticleChunk`, см. [ADR 0002](docs/adr/0002-drop-dense-hybrid-search.md).
-
-**Lexical search**:
-Поиск по `tsvector`-индексу PostgreSQL (`websearch_to_tsquery`, конфигурация `russian`) по полю `ParsedArticle.text`. Точное совпадение словоформ/лемм, без учёта семантики.
-_Avoid_: полнотекстовый поиск (используй только описательно)
-
-**Evaluation case / Evaluation report**:
-`EvaluationCase` — тестовый запрос с ожидаемым `ArticleReference` (`source_base_url` + `external_id`). `EvaluationReport` — результат прогона всех кейсов через `SearchBackend` с метрикой `mean_reciprocal_rank`.
-
-**ResearchRequest / ResearchService**:
-`ResearchRequest` — структурированный детерминированный запрос: `object_type` (сейчас только `person`), `PersonResearchCriteria`, `limit`. `ResearchService.execute()` отвечает на него через существующие domain services (для `political` + RF-статуса — `CandidateQueryService`) и возвращает `ResearchResponse`. Natural language/LLM — выше, в адаптерах. См. [ADR 0008](docs/adr/0008-research-domain-and-research-service.md).
-_Avoid_: поиск (для research — это не lexical search), запрос к LLM
-
-**Research result / Evidence**:
-`PersonResearchResult` — результат по канонической `Person`: алиасы, связанные события, классификация, RF-статус по snapshot, `warnings` и `review_required`. `ResearchEvidence` — span статьи (offsets + текст span), подтверждающий факт именно об этом человеке; статья — только provenance (`ResearchSource`), не результат.
-_Avoid_: статья как результат
-
-**Research workflow / Request intake**:
-LangGraph-граф, превращающий natural-language запрос в `ResearchRequest` и выполняющий его через `ResearchService`. Request intake — единственный шаг с LLM (Together AI): извлекает структурированный запрос, `unsupported_criteria` и вопрос для уточнения; факты не создаёт. Результат — `ResearchQueryResult` со статусом `completed` / `clarification_required` / `failed`. См. [ADR 0009](docs/adr/0009-langgraph-research-orchestration.md).
-_Avoid_: агент (автономного цикла нет), ответ LLM
 
 **MonitoringRun**:
 Один прогон automated monitoring (ADR 0013) по источнику (`scope = source:<name>`) или только derived-этапов (`scope = derived`): статус, счётчики, метрики этапов, упавшие объекты (`monitoring_run_items`). Orchestration state, не доменные данные; одновременно не больше одного `running` на scope.

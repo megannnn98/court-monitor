@@ -4,6 +4,8 @@
 
 Accepted
 
+**Removed** 2026-09-27 with the research layer (`chore/slim-to-two-scenarios`); the code is in the Git history.
+
 ## Context
 
 The pipeline already produces canonical persons, their resolved mentions and

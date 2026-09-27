@@ -1,7 +1,7 @@
 """Together AI structured-output client (infrastructure boundary).
 
-Only this module knows about Together's HTTP API. The workflow depends on
-`research_workflow.llm.StructuredLlmClient`.
+Only this module knows about Together's HTTP API. The AI review of ER decisions
+depends on `llm.structured.StructuredLlmClient`.
 """
 
 from __future__ import annotations

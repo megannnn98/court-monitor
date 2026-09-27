@@ -23,8 +23,7 @@ Status](Implementation-Status.md).
 3. Разобрать автоматическую докачку и статусы: [Monitoring](Monitoring.md).
 4. Работать в консоли «Следователь»: [Local Web UI](Local-Web-UI.md); пять
    шагов обработки — [Pipeline](Pipeline.md).
-5. Проверять качество: [Evaluation](Evaluation.md) и [Real-World
-   Validation](RealWorldValidation.md).
+5. Проверять качество: [Real-World Validation](RealWorldValidation.md).
 
 ## Карта страниц
 
@@ -34,12 +33,7 @@ Status](Implementation-Status.md).
 - [Ingestion](Ingestion.md) — загрузка, разбор HTML, полный текст статьи
 - [Data-Model](Data-Model.md) — таблицы PostgreSQL, persistence
 - [Extraction](Extraction.md) — mention extraction, normalization, events, metrics
-- [Search](Search.md) — lexical (Postgres) поиск
-- [Research-Workflow](Research-Workflow.md) — natural-language запросы: LangGraph + Together AI → `ResearchRequest` → `ResearchService`
-- [Research](Research.md) — детерминированный research layer: `ResearchRequest` → `ResearchService` → Person-результаты с evidence
-- [Research-Reports](Research-Reports.md) — отчёт с claims/citations, human review policy, database-first source routing
-- [Semantic-Retrieval](Semantic-Retrieval.md) — entity-level lexical + dense + RRF кандидаты (Qdrant), evaluation backend'ов
-- [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm/semantic кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
+- [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
 - [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: обзор, «Результат», досье человека, люди, безымянные, публикации, очередь, управление
@@ -47,7 +41,6 @@ Status](Implementation-Status.md).
 - [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
 - [Junk Screen](Junk-Screen.md) — отсев мусора с проверкой: статьи, где извлечение пропустило дело, удерживаются, а не удаляются
 - [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности
-- [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
 - [Rebuild-Image](Rebuild-Image.md) — пересборка образа и выпуск: команды, миграции, проверка, уборка места, откат

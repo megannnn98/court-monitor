@@ -52,7 +52,7 @@ class SourceDefinition:
     create_adapter: Callable[[httpx.AsyncClient, DocumentFetcher], SourceAdapter]
     create_parser: Callable[[], ArticleParser]
     kind: SourceKind = SourceKind.NEWS
-    # Declared capabilities used by research source routing. Every adapter
+    # Declared capabilities of the source. Every adapter
     # here implements SourceAdapter: listing discovery and direct fetch.
     supports_discovery: bool = True
     supports_direct_fetch: bool = True

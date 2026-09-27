@@ -35,7 +35,7 @@ def health_live() -> LivenessReport:
 def health_ready(
     checker: ReadinessChecker = Depends(get_readiness_checker),  # noqa: B008
 ) -> ReadinessReport | JSONResponse:
-    """Database and schema are required; Qdrant, Together AI and monitoring are reported."""
+    """Database and schema are required; monitoring is reported."""
     report = checker.check()
     if report.status is ReadinessStatus.UNAVAILABLE:
         return JSONResponse(status_code=503, content=report.model_dump(mode="json"))

@@ -30,20 +30,15 @@ uv run python src/main.py validate-config
 | Переменная | Использование |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection URL |
-| `TOGETHER_API_KEY` | ключ Together AI для natural-language запросов (`ask`, `POST /research/query`) |
+| `TOGETHER_API_KEY` | ключ Together AI для AI-review решений ER (`ENTITY_REVIEW_PROVIDER=together`, ADR 0020) |
 | `TOGETHER_MODEL` | id модели Together с поддержкой JSON schema; значения по умолчанию нет |
 | `TOGETHER_TIMEOUT_SECONDS` | таймаут запроса к Together, по умолчанию `30` |
 | `TOGETHER_BASE_URL` | OpenAI-совместимый endpoint, по умолчанию `https://api.together.ai/v1`; локальная модель через Ollama — `http://127.0.0.1:11434/v1` |
-| `QDRANT_URL` | Qdrant для semantic retrieval; без неё запросы с `semantic_query` завершаются `semantic_retrieval_not_configured`, остальное работает |
-| `PERSON_QDRANT_COLLECTION`, `EVENT_QDRANT_COLLECTION` | коллекции, по умолчанию `persons_semantic`, `events_semantic` |
-| `EMBEDDING_MODEL_ID`, `EMBEDDING_DEVICE` | `intfloat/multilingual-e5-base`, `auto` (`cpu`/`cuda`) |
-| `RERANKER_MODEL_ID`, `RERANKER_DEVICE`, `SEMANTIC_RERANK` | cross-encoder, по умолчанию выключен (`SEMANTIC_RERANK=1`) |
-| `SEMANTIC_CANDIDATE_POOL_SIZE` | размер пула кандидатов, по умолчанию `100` (1..200) |
-| `SEMANTIC_DENSE_MIN_SCORE` | порог семантической релевантности (dense cosine), `0.80` откалиброван для `intfloat/multilingual-e5-base`; при другой `EMBEDDING_MODEL_ID` обязателен |
-| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-retrieval`, `evaluate-er` и `evaluate-real-world` |
+| `JUNK_SCREEN` | отсев мусора перед шагом 2 ([Junk Screen](Junk-Screen.md)); в `compose.yaml` для API `1`, в коде по умолчанию выключен; нужен `uv sync --group semantic` |
+| `EMBEDDING_DEVICE`, `EMBEDDING_BATCH_SIZE` | где и какими пачками считает модель отсева: `auto` (`cpu`/`cuda`), `32`; сама модель — та, что названа в `junk_screen_model.json` |
+| `EVALUATION_DATABASE_URL` | одноразовая БД (`*_test`/`*_eval`) для `evaluate-er`, `evaluate-final` и `evaluate-real-world` |
 | `ER_CANDIDATE_LIMIT` | кандидатов на упоминание в ER v2, по умолчанию `30` (2..200) |
 | `ER_AUTO_LINK_MIN_SCORE`, `ER_REVIEW_MIN_SCORE`, `ER_MIN_MARGIN` | пороги решения ER v2, по умолчанию `0.85`, `0.40`, `0.10` (подобраны по `evaluate-er`) |
-| `ER_SEMANTIC_CANDIDATES`, `ER_SEMANTIC_CANDIDATE_MIN_SCORE` | semantic-кандидаты для ER (по умолчанию выключены); порог только для генерации кандидатов, не для решения |
 | `OPENROUTER_API_KEY` | ключ OpenRouter для модели шагов 3, 4, 5 и безымянных фигурантов; без него решают только правила, остальное «неясно» |
 | `ENTITY_NORMALIZE_MODEL` | модель OpenRouter для этих шагов; по умолчанию `deepseek/deepseek-v4.1-flash` |
 | `ENTITY_MODEL_BUDGET_USD` | сколько может потратить один запуск шага, по умолчанию `2`; что не спросили — спросит следующий запуск |
@@ -70,17 +65,8 @@ TOGETHER_API_KEY=
 TOGETHER_MODEL=
 TOGETHER_TIMEOUT_SECONDS=30
 
-QDRANT_URL=http://127.0.0.1:6333
-PERSON_QDRANT_COLLECTION=persons_semantic
-EVENT_QDRANT_COLLECTION=events_semantic
-EMBEDDING_MODEL_ID=intfloat/multilingual-e5-base
 EMBEDDING_DEVICE=auto
-RERANKER_MODEL_ID=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
-RERANKER_DEVICE=auto
-SEMANTIC_RERANK=0
-SEMANTIC_CANDIDATE_POOL_SIZE=100
-# calibrated for EMBEDDING_MODEL_ID=intfloat/multilingual-e5-base
-SEMANTIC_DENSE_MIN_SCORE=0.80
+EMBEDDING_BATCH_SIZE=32
 
 # Entity Resolution v2 (calibrated on tests/fixtures/er_v2_corpus.json)
 ER_CANDIDATE_LIMIT=30
@@ -89,7 +75,7 @@ ER_REVIEW_MIN_SCORE=0.40
 ER_MIN_MARGIN=0.10
 ```
 
-`TOGETHER_*` нужны только для natural-language запросов; без них `ask` и `POST /research/query` завершаются ошибкой конфигурации, остальной pipeline работает. Semantic-переменные нужны только для запросов с `semantic_query` и команд `rebuild-semantic-index`/`semantic-search`; модели требуют `uv sync --group semantic` ([Semantic-Retrieval](Semantic-Retrieval.md)).
+`TOGETHER_*` нужны только AI-review решений ER; без них решения, требующие проверки, идут человеку. Модель отсева мусора требует `uv sync --group semantic` ([Junk Screen](Junk-Screen.md)).
 
 Если `.env` загружается через shell:
 
@@ -101,23 +87,13 @@ set +a
 
 `set -a` нужен, чтобы переменные из `.env` экспортировались в окружение дочернего Python-процесса.
 
-Переменные `QDRANT_COLLECTION` и `QDRANT_EVALUATION_COLLECTION` (старый chunk-поиск, [ADR 0002](../adr/0002-drop-dense-hybrid-search.md)) не используются; коллекция `article_chunks_dense` не нужна.
-
 ## Инфраструктура
 
 ```bash
 docker compose up -d
 ```
 
-Поднимает только PostgreSQL (порт `5433` на хосте) — всё, что нужно structured research.
-
-Qdrant — опциональный сервис под profile `semantic` для semantic entity retrieval ([ADR 0011](../adr/0011-semantic-hybrid-entity-retrieval.md)):
-
-```bash
-docker compose --profile semantic up -d
-uv sync --group semantic
-uv run python src/main.py rebuild-semantic-index --entity all
-```
+Поднимает только PostgreSQL (порт `5433` на хосте).
 
 Automated monitoring ([Monitoring](Monitoring.md), ADR 0013) — profile `monitoring` (Dagster webserver на `127.0.0.1:3000`, daemon, отдельная БД `DAGSTER_PG_DB`); перед запуском применить миграции:
 
@@ -126,13 +102,13 @@ uv run alembic upgrade head
 docker compose --profile monitoring up -d --build
 ```
 
-Переменные: `MONITORING_ENABLED_SOURCES`, `MONITORING_CRON`, `MONITORING_DISCOVERY_LIMIT`, `MONITORING_STALE_RUN_AFTER_MINUTES`, `DAGSTER_PG_DB`, `MONITORING_QDRANT_URL` (см. `.env.example`).
+Переменные: `MONITORING_ENABLED_SOURCES`, `MONITORING_CRON`, `MONITORING_DISCOVERY_LIMIT`, `MONITORING_STALE_RUN_AFTER_MINUTES`, `DAGSTER_PG_DB` (см. `.env.example`).
 
 ### Production-like запуск
 
 Пошаговый выпуск на этой машине (GPU-образ, builder, миграции, проверка, уборка места) — [Rebuild-Image](Rebuild-Image.md).
 
-[ADR 0014](../adr/0014-production-deployment.md): один образ `court-monitor:local` для API, Dagster и миграций; профиль `production` = PostgreSQL + Qdrant + API + Dagster. Миграции — отдельный явный шаг, API и Dagster их не применяют:
+[ADR 0014](../adr/0014-production-deployment.md): один образ `court-monitor:local` для API, Dagster и миграций; профиль `production` = PostgreSQL + API + Dagster. Миграции — отдельный явный шаг, API и Dagster их не применяют:
 
 ```bash
 docker compose --profile production build
@@ -144,15 +120,14 @@ curl -s http://127.0.0.1:8001/health/live    # процесс отвечает
 curl -s http://127.0.0.1:8001/health/ready   # 503 unavailable: БД недоступна или схема не на head
 ```
 
-`/health/ready` возвращает `ready`, `degraded` (HTTP 200: Qdrant недоступен, Together не настроен, stale monitoring run) или `unavailable` (HTTP 503). Healthcheck контейнера API проверяет только `/health/live`.
+`/health/ready` возвращает `ready`, `degraded` (HTTP 200: stale monitoring run) или `unavailable` (HTTP 503). Healthcheck контейнера API проверяет только `/health/live`.
 
 | Переменная | Использование |
 |---|---|
-| `API_QDRANT_URL` | Qdrant для API внутри compose (`http://qdrant:6333`); пусто — semantic research не настроен |
 | `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` | пул на процесс (API worker, Dagster run), по умолчанию `5`, `10` |
 | `DATABASE_POOL_TIMEOUT`, `DATABASE_CONNECT_TIMEOUT` | ожидание соединения из пула и подключения к PostgreSQL, секунды, `30`, `10` |
 
-Все порты опубликованы только на `127.0.0.1` (PostgreSQL `5433`, Qdrant `6333`, API `8001`, Dagster `3000`). У API нет аутентификации и rate limiting — наружу только через reverse proxy с ними.
+Все порты опубликованы только на `127.0.0.1` (PostgreSQL `5433`, API `8001`, Dagster `3000`). У API нет аутентификации и rate limiting — наружу только через reverse proxy с ними.
 
 ## Тесты и CI
 
@@ -175,41 +150,13 @@ env -u DATABASE_URL uv run pytest
 
 URL соответствует значениям из `.env.example`; при других учётных данных подставьте свои. База `court_monitor_test` должна существовать (например, `docker compose exec postgres createdb -U court_monitor court_monitor_test`). Сокращение `TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test"` работает только для URL без query-параметров (`?sslmode=…` будет отброшен).
 
-Live-тест Together AI не запускается без явного opt-in:
-
-```bash
-TOGETHER_LIVE_TESTS=1 uv run pytest -m live_together
-```
-
-Qdrant integration (реальный сервис) и реальные модели — тоже opt-in:
-
-```bash
-docker compose --profile semantic up -d qdrant
-QDRANT_TEST_URL=http://127.0.0.1:6333 TEST_DATABASE_URL=... env -u DATABASE_URL uv run pytest -m qdrant
-
-uv sync --group semantic
-SEMANTIC_MODEL_TESTS=1 uv run pytest -m semantic_models
-```
-
-Unit-тесты semantic retrieval используют `QdrantClient(":memory:")` и фейковые embedder/reranker: без Docker, GPU и скачивания моделей.
-
-GitHub Actions (`.github/workflows/ci.yml`): `quality` (ruff, format, mypy), `tests` (pytest без БД), `integration` (PostgreSQL 18 и Qdrant v1.19.0 services, `alembic upgrade head`, pytest с `TEST_DATABASE_URL` и `QDRANT_TEST_URL`). Группа `semantic` в CI не ставится, модели не скачиваются, Together AI не вызывается.
+GitHub Actions (`.github/workflows/ci.yml`): `quality` (ruff, format, mypy), `tests` (pytest без БД), `integration` (PostgreSQL 18 service, `alembic upgrade head`, pytest с `TEST_DATABASE_URL`). Группа `semantic` в CI не ставится, модели не скачиваются, Together AI не вызывается.
 
 ## Миграции
 
 ```bash
 alembic upgrade head
 ```
-
-## Search
-
-```bash
-uv run python src/main.py search \
-  "реабилитация нацизма" \
-  --limit 5
-```
-
-Опции `--backend dense/hybrid/reranked-hybrid` больше нет — поиск только lexical.
 
 ## Discover and ingest
 
@@ -227,21 +174,6 @@ uv run python src/main.py ingest https://ovd.info/express-news/2026/09/01/some-a
 ```
 
 ## Evaluation
-
-```bash
-uv run python src/main.py evaluate-search \
-  --output-path reports/postgres_lexical_baseline.json
-```
-
-Для evaluation рекомендуется отдельная PostgreSQL database, например:
-
-```bash
-DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/court_monitor_test" \
-uv run python src/main.py evaluate-search \
-  --output-path reports/postgres_lexical_baseline.json
-```
-
-Evaluation загружает фиксированный test corpus в PostgreSQL.
 
 Real-world validation использует отдельный manifest/golden dataset/cache и disposable database:
 

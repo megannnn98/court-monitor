@@ -27,7 +27,7 @@ start
 :PersonIdentityInput (full_name, matching_key, surface, mention, article);
 :PersonNameNormalizer → NameVariant[];
 :pg_advisory_xact_lock по identity-блокам;
-:CompositeCandidateGenerator\nexact matching_key (0/1/все тёзки) + alias key + pg_trgm [+ semantic];
+:CompositeCandidateGenerator\nexact matching_key (0/1/все тёзки) + alias key + pg_trgm;
 :FeatureExtractor (по компонентам ФИО, конфликты, exact_matching_key);
 :RuleBasedScorer → resolution_score;
 :DecisionPolicy (пороги, top1−top2, конфликты, инициалы, тёзки);
@@ -50,7 +50,7 @@ stop
 |---|---|
 | `models.py` | `PersonIdentityInput`, `NormalizedPersonName`/`NameVariant`, `PersonResolutionCandidate`, `PersonResolutionFeatures`, `PersonResolutionScore`, `PersonResolutionDecision`, enum'ы действий и причин |
 | `normalizer.py` | `PersonNameNormalizer`: регистр, `ё→е`, точки/пунктуация, инициалы, все допустимые порядки ФИО; суффиксы — только подсказки |
-| `candidates.py` | `ExactKeyCandidateGenerator` (все active Person с ключом имени `exact_key` или alias `alias`, по id), `TrigramCandidateGenerator` (pg_trgm), `SemanticCandidateGenerator`, `CompositeCandidateGenerator` |
+| `candidates.py` | `ExactKeyCandidateGenerator` (все active Person с ключом имени `exact_key` или alias `alias`, по id), `TrigramCandidateGenerator` (pg_trgm), `CompositeCandidateGenerator` |
 | `features.py` | `PersonResolutionFeatureExtractor`: выравнивание вариантов, `exact/typo/initial_compatible/missing/mismatch`, конфликты (RapidFuzz Levenshtein) |
 | `scoring.py` | `PersonResolutionScorer`: rule-based `resolution_score` (не вероятность), конфликт ограничивает score 0.25, точная полная форма ≥ 0.85 |
 | `decision.py` | `PersonResolutionDecisionPolicy`, `ResolutionThresholds` |
@@ -59,22 +59,21 @@ stop
 | `review.py` | `PersonResolutionReviewService`: сравнение для ревьюера и действия |
 | `evaluation.py`, `cli.py`, `factory.py` | evaluation, CLI, сборка зависимостей |
 
-Интеграция: `ExtractionResolutionService.resolve_extraction_run()` — extraction → normalization → lock → кандидаты → decision. Exact fast path и `RuleBasedPersonResolver` удалены. `ResearchService` ER не делает: research читает уже canonical entities.
+Интеграция: `ExtractionResolutionService.resolve_extraction_run()` — extraction → normalization → lock → кандидаты → decision. Exact fast path и `RuleBasedPersonResolver` удалены.
 
 ## Решения
 
 | Ситуация | Действие |
 |---|---|
 | полное ФИО или известный alias, единственный сильный кандидат, margin > минимума (в том числе единственная Person с тем же `matching_key`) | AUTO_LINK |
-| несколько active Person с тем же `matching_key` (тёзки или дубли) | REVIEW (`multiple_exact_name_matches`), при любых score; ни id, ни semantic не выбирают |
+| несколько active Person с тем же `matching_key` (тёзки или дубли) | REVIEW (`multiple_exact_name_matches`), при любых score; id не выбирает |
 | переставленное ФИО из 3 частей (0.90) | AUTO_LINK |
 | переставленное ФИО из 2 частей, опечатка, нет отчества, инициалы, одна фамилия | REVIEW |
 | несколько правдоподобных кандидатов / два сильных (возможные дубли Person, или `known_distinct_persons` после keep_separate) / малый margin | REVIEW |
 | конфликт (другое отчество или имя, несовместимый инициал) | не plausible → CREATE_NEW |
 | нет кандидатов или все слабые | CREATE_NEW |
-| semantic включён, но недоступен, и есть кандидат с той же фамилией без конфликта | REVIEW вместо CREATE_NEW |
 
-Причины (`reasons`): `strong_unique_match`, `no_candidate`, `no_plausible_candidate`, `multiple_plausible_candidates`, `possible_duplicate_persons`, `multiple_exact_name_matches`, `known_distinct_persons`, `incomplete_name`, `initials_only`, `conflicting_identity_data`, `low_decision_margin`, `medium_confidence_match`, `semantic_source_unavailable`; `exact_matching_key` — только в старых решениях удалённого fast path.
+Причины (`reasons`): `strong_unique_match`, `no_candidate`, `no_plausible_candidate`, `multiple_plausible_candidates`, `possible_duplicate_persons`, `multiple_exact_name_matches`, `known_distinct_persons`, `incomplete_name`, `initials_only`, `conflicting_identity_data`, `low_decision_margin`, `medium_confidence_match`; `semantic_source_unavailable` и `exact_matching_key` — только в старых решениях (semantic-кандидаты и fast path удалены).
 
 Точная полная форма (то же имя или alias, без инициалов, не одно слово) получает score ≥ 0.85 при любом прочтении ролей: суффикс может прочитать «Дмитрий Шостакович» как имя + отчество, а у имени из 4+ слов прочтений нет.
 
@@ -148,7 +147,7 @@ API: `GET /person-resolution/reviews`, `GET /person-resolution/reviews/{decision
 | `merge_persons` | `merge_persons_in_session(source → target)` + `PersonMergeRecord`, связать mention с target |
 | `keep_separate` | связать с `person_id` и записать `distinct_from_person_id = source_person_id` (обязателен): дальше эта пара — `known_distinct_persons`, а не `possible_duplicate_persons`; новые упоминания всё равно REVIEW |
 
-Ревьюер видит структурированное сравнение (детерминированная диагностика, не LLM-рассуждение): компоненты ФИО, порядок, alias, trigram/semantic similarity, конфликты, правила score, источник статьи.
+Ревьюер видит структурированное сравнение (детерминированная диагностика, не LLM-рассуждение): компоненты ФИО, порядок, alias, trigram similarity, конфликты, правила score, источник статьи.
 
 ## AI review (ADR 0020)
 
@@ -325,7 +324,7 @@ Unique-индекса по `matching_key` больше нет (тёзки), по
 ## Evaluation
 
 ```bash
-EVALUATION_DATABASE_URL=postgresql+psycopg://...court_monitor_eval uv run python src/main.py evaluate-er [--sweep] [--semantic]
+EVALUATION_DATABASE_URL=postgresql+psycopg://...court_monitor_eval uv run python src/main.py evaluate-er [--sweep]
 ```
 
 Корпус `tests/fixtures/er_v2_corpus.json`: 36 persons, 59 кейсов — 38 positive, 12 hard negatives, 8 ambiguous (в том числе две active тёзки: точное и переставленное ФИО, одна создана ревьюером), 1 indistinguishable (единственная Person с этим ФИО, но другой человек — считается отдельно как `indistinguishable_namesake_links`, не как false link); имена проходят extraction-нормализатор с обеих сторон. Результаты (2026-09-16, defaults):
@@ -334,8 +333,7 @@ EVALUATION_DATABASE_URL=postgresql+psycopg://...court_monitor_eval uv run python
 |---|---|---|---|
 | exact (ключ имени + alias) | 0.42 | 0.42 | 0.42 |
 | trigram | 0.82 | 1.00 | 1.00 |
-| semantic (E5, без порога) | 0.92 | 1.00 | 1.00 |
-| combined | 0.92 / 0.97 с semantic | 1.00 | 1.00 |
+| combined | 0.92 | 1.00 | 1.00 |
 
 | метрика | значение |
 |---|---|
@@ -346,7 +344,7 @@ EVALUATION_DATABASE_URL=postgresql+psycopg://...court_monitor_eval uv run python
 | review rate | 0.43 |
 | лишние review / пропущенные review | 1 (`Роман Карпенков` ≈ `Карпенко`) / 0 |
 
-Sweep: 0.85 — минимальный `ER_AUTO_LINK_MIN_SCORE` без ложных связей (при 0.80 «Илья Петрович Иванов» → «Илья Иванов»); 0.40 — максимальный `ER_REVIEW_MIN_SCORE` без пропущенных связей (при 0.50 «А. В. Новикова» становится новой Person). `ER_MIN_MARGIN` этим корпусом не различается. Semantic кандидаты не изменили ни одного решения и recall@5 — выключены по умолчанию.
+Sweep: 0.85 — минимальный `ER_AUTO_LINK_MIN_SCORE` без ложных связей (при 0.80 «Илья Петрович Иванов» → «Илья Иванов»); 0.40 — максимальный `ER_REVIEW_MIN_SCORE` без пропущенных связей (при 0.50 «А. В. Новикова» становится новой Person). `ER_MIN_MARGIN` этим корпусом не различается. Semantic-кандидаты (E5) не изменили ни одного решения и recall@5 и удалены вместе с векторным индексом.
 
 ## Конфигурация
 
@@ -356,12 +354,6 @@ Sweep: 0.85 — минимальный `ER_AUTO_LINK_MIN_SCORE` без ложн�
 | `ER_AUTO_LINK_MIN_SCORE` | `0.85` |
 | `ER_REVIEW_MIN_SCORE` | `0.40` |
 | `ER_MIN_MARGIN` | `0.10` |
-| `ER_SEMANTIC_CANDIDATES` | выключен; при `1` нужен `QDRANT_URL` (иначе warning и работа без semantic) |
-| `ER_SEMANTIC_CANDIDATE_MIN_SCORE` | не задан (без порога, ограничено `ER_CANDIDATE_LIMIT`); только для генерации кандидатов |
-
-## Semantic index после link/create
-
-Link/create меняют semantic document Person (aliases, события). Индекс обновляется вручную: `rebuild-semantic-index --entity person --incremental` переиндексирует изменённые по `content_hash` документы. Автоматическое обновление — этап 6.
 
 ## Ограничения
 

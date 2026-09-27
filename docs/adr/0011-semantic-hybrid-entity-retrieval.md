@@ -5,6 +5,8 @@
 Accepted. Partially supersedes [ADR 0002](0002-drop-dense-hybrid-search.md):
 dense/hybrid retrieval returns, but on canonical entities, not on article chunks.
 
+**Removed** 2026-09-27 with the vector search (`chore/slim-to-two-scenarios`). The tables it wrote (`semantic_documents` and those of ADR 0018) stay in the schema, unused.
+
 ## Context
 
 Structured research (ADR 0008–0010) answers exact criteria: person id, name,

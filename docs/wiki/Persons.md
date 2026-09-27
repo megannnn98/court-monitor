@@ -21,8 +21,7 @@ auto/create decisions. Если review есть, открыть `/ui/person-reso
 
 ## Что происходит внутри
 
-ER v2 строит кандидатов по exact `matching_key`, alias, pg_trgm и optional
-semantic search; затем считает features/score и принимает одно из решений:
+ER v2 строит кандидатов по exact `matching_key`, alias и pg_trgm; затем считает features/score и принимает одно из решений:
 
 - `AUTO_LINK` — связать mention с existing Person;
 - `CREATE_NEW` — создать новую Person;
