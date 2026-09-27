@@ -18,22 +18,29 @@
 
 ## Last verified
 
-2026-09-26, branch `feat/investigator-ui`, commit `6258f87` (then merged into `main`).
+2026-09-27, branch `chore/slim-to-two-scenarios` (from `main` `8c361e1`): the product cut
+down to its two workflows — publications to new criminal cases checked against
+Rosfinmonitoring, and unnamed figurants identified by hand.
 
 | Check | Command | Result |
 |---|---|---|
-| Ruff | `uv run ruff check .` | all checks passed |
-| mypy | `uv run mypy src` | no issues, 327 files |
-| Tests, PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` | 2 230 passed, 33 skipped |
-| Migrations | `alembic upgrade head` on `court_monitor_test` and on the working database (after a dump) | ok, up to `c9d0e1f2a4b5` |
-| Image | `docker compose -f compose.yaml -f compose.gpu.yaml --profile production build api`, API recreated | healthy; every console page answers on the working data |
+| Ruff | `uv run ruff check src tests migrations`, `ruff format --check` | all checks passed, 423 files formatted |
+| mypy | `MYPYPATH=src:tests uv run mypy --strict src tests` | 19 errors in 9 test files, the same 19 as on `main` `8c361e1` |
+| Tests, PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` | 1 524 passed, 21 skipped |
+| Tests, no services | `uv run pytest` | 1 015 passed, 530 skipped |
+| Migrations | `alembic upgrade head` on an empty database; `alembic current` on a copy of the working database | head `f2a4b5c6d7e8` on both; no migration added or changed |
+| Dagster | `dagster definitions validate -m monitoring.dagster.definitions` | validation successful |
+| Image | `docker build .` (no GPU groups, separate tag, then removed) | built, 1.28 GB; `api`, `cli.app`, Dagster definitions import |
+| API on a copy of the working data | uvicorn from the branch; every GET route, detail pages by ids from the list pages | all 200 (or 303 redirects); `/health/ready` `ready` |
+| Workflow 1 on the copy | `monitor --source ovd-info/sota-vision/tg-mediazzzona`; `purge-junk` with `JUNK_SCREEN=1`; steps 3–5 | runs `completed`, 2 new posts ingested; the screen loaded e5 on CUDA, kept the held article and deleted what a person had marked junk; with the model unloadable it stopped with `JunkScreenError` before deleting anything |
+| Workflow 2 on the copy | `find-unnamed`; «Это он» (`POST /ui/unnamed/resolve`); step 3 again | 113 unnamed; the decision stored (`rf_entry`, manual) and linked to the person by step 3 |
 
-The 33 skipped tests need a service or a model: person-NER model 21
-(`PERSON_NER_MODEL_TESTS=1`), Qdrant 4 (`QDRANT_TEST_URL`), Together AI 4
-(`TOGETHER_LIVE_TESTS=1` / `LIVE_LLM_TESTS=1`), embedding model 3
-(`SEMANTIC_MODEL_TESTS=1`), `sentence_transformers` not installed 1.
+The 21 skipped tests need the person-NER model (`PERSON_NER_MODEL_TESTS=1`). The model
+steps ran without API keys: answers came from the cache, nothing was asked or paid.
 
-Not run: CI on GitHub; a visual check in a dark theme.
+Not run: CI on GitHub; the GPU image (`compose.gpu.yaml`) build and a deployment; the
+steps that call OpenRouter or Together AI with a key; downloading a new Rosfinmonitoring
+list.
 
 ## Previous verification
 
