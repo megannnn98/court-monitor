@@ -38,9 +38,6 @@ dev = [
     "ruff>=0.16.3",
     "types-openpyxl>=3.1.5.20260827",
 ]
-mcp = [
-    "mcp>=2.2.0",
-]
 semantic = [
     "sentence-transformers>=5.0",
 ]
@@ -56,9 +53,8 @@ ner = [
 ]
 
 [tool.uv]
-# Development installs the MCP adapter too (type checks and tests cover it);
-# deployment images use --no-default-groups, so API, CLI and Dagster never need it.
-default-groups = ["dev", "mcp"]
+# Deployment images use --no-default-groups, so API, CLI and Dagster never need dev tools.
+default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
