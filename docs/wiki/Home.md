@@ -46,6 +46,7 @@ Status](Implementation-Status.md).
 - [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: обзор, «Результат», досье человека, люди, безымянные, публикации, очередь, управление
 - [Pipeline](Pipeline.md) — пять шагов от публикации до «Результата», модель и расходы, старый путь через Person
 - [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
+- [Junk Screen](Junk-Screen.md) — отсев мусора с проверкой: статьи, где извлечение пропустило дело, удерживаются, а не удаляются
 - [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности
 - [Evaluation](Evaluation.md) — оценка качества поиска, baseline-отчёты
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline

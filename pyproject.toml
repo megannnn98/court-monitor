@@ -85,6 +85,11 @@ module = [
     "transformers.*",
     "gliner2",
     "gliner2.*",
+    # The junk screen's measurements (`evaluation.junk_screen`) come with the group.
+    "numpy",
+    "numpy.*",
+    "sklearn",
+    "sklearn.*",
 ]
 ignore_missing_imports = true
 

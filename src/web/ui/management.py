@@ -357,7 +357,7 @@ def _source_title(source: str, names: dict[str, str]) -> str:
 
 _PURGE_PROGRESS = re.compile(
     r"event=junk_purge_progress articles=(\d+) total=(\d+) persons=(\d+) reviews=(\d+)"
-    r"(?: outdated=(\d+))?"
+    r"(?: outdated=(\d+))?(?: held=(\d+))?"
 )
 
 
@@ -366,8 +366,8 @@ def _purge_card(run: OperationRun) -> str:
     in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
     found = _PURGE_PROGRESS.findall(run.stderr)
     # The last progress line holds the running totals; none yet before the first batch.
-    articles, total, persons, reviews, outdated = (
-        int(value or 0) for value in (found[-1] if found else ("0",) * 5)
+    articles, total, persons, reviews, outdated, held = (
+        int(value or 0) for value in (found[-1] if found else ("0",) * 6)
     )
     progress = (
         f'<div class="progress-box"><progress class="overall" value="{articles}" '
@@ -384,6 +384,13 @@ def _purge_card(run: OperationRun) -> str:
             _badge(f"Из них до рабочей даты: {outdated}", ""),
             _badge(f"Людей удалено: {persons}", "succeeded"),
             _badge(f"Записей проверки удалено: {reviews}", ""),
+            *(
+                [
+                    f'<a href="/ui/junk-holds">{_badge(f"Оставлено на проверку: {held}", "pending")}</a>'
+                ]
+                if held
+                else []
+            ),
         )
     )
     overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])

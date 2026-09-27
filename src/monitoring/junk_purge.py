@@ -13,6 +13,11 @@ what is counted as loaded is only what the work covers.
 
 Batches of their own transactions: a stopped purge keeps what it removed and leaves a
 consistent database; the next purge goes on from there.
+
+With an embedding screen (`monitoring.junk_screen`, off by default) a junk article that
+reads like a criminal case is held back instead (`junk_screen_holds`), for a person to
+look at. A held article is never purged, screen on or off, until a person calls it junk;
+a screen that fails stops the purge before its batch is deleted.
 """
 
 from __future__ import annotations
@@ -24,8 +29,11 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 
 from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from db.orm_models import JunkScreenHoldRecord
+from monitoring.junk_screen import HELD, ArticleScreen, reason
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
 from semantic_retrieval.models import RetrievalEntityType
 
@@ -38,7 +46,7 @@ BATCH_SIZE = 500
 EXPIRED_CONTENT_TYPE = "application/x-court-monitor-expired"
 
 # Articles whose latest successful extraction found no criminal-case event. An article
-# never extracted successfully is not judged.
+# never extracted successfully is not judged; one held for a person is not either.
 _JUNK_ARTICLES = text(
     """
     SELECT a.id
@@ -51,6 +59,9 @@ _JUNK_ARTICLES = text(
     WHERE NOT EXISTS (
         SELECT 1 FROM extracted_events e
         WHERE e.extraction_run_id = latest.id AND e.event_type IN :criminal
+    )
+      AND NOT EXISTS (
+        SELECT 1 FROM junk_screen_holds h WHERE h.article_id = a.id AND h.status = :held
     )
     ORDER BY a.id
     LIMIT :limit
@@ -86,6 +97,8 @@ class JunkPurgeResult:
     reviews: int = 0
     # Of `articles`, those before the working date.
     outdated: int = 0
+    # Held back by the screen in this purge, not deleted.
+    held: int = 0
 
 
 class JunkPurge:
@@ -96,6 +109,7 @@ class JunkPurge:
         batch_size: int = BATCH_SIZE,
         on_progress: Callable[[JunkPurgeResult], None] = lambda _result: None,
         since: datetime | None = None,
+        screen: ArticleScreen | None = None,
     ) -> None:
         if batch_size < 1:
             raise ValueError("batch_size must be greater than zero")
@@ -103,6 +117,7 @@ class JunkPurge:
         self._session_factory = session_factory
         self._batch_size = batch_size
         self._on_progress = on_progress
+        self._screen = screen
 
     def count(self) -> int:
         """How many articles go now: before the working date, or junk."""
@@ -129,9 +144,13 @@ class JunkPurge:
                 article_ids = self._junk_articles(session, limit=self._batch_size)
                 if not article_ids:
                     break
-                persons = self._purge_articles(session, article_ids)
-                result.articles += len(article_ids)
-                result.persons += self._purge_orphans(session, persons)
+                held = self._hold(session, article_ids)
+                result.held += len(held)
+                article_ids = [article_id for article_id in article_ids if article_id not in held]
+                if article_ids:
+                    persons = self._purge_articles(session, article_ids)
+                    result.articles += len(article_ids)
+                    result.persons += self._purge_orphans(session, persons)
             self._on_progress(result)
         with self._session_factory.begin() as session:
             result.reviews = self._purge_orphan_reviews(session)
@@ -146,9 +165,60 @@ class JunkPurge:
     def _junk_articles(self, session: Session, *, limit: int | None) -> list[int]:
         return list(
             session.scalars(
-                _JUNK_ARTICLES, {"criminal": list(CRIMINAL_EVENT_TYPES), "limit": limit}
+                _JUNK_ARTICLES,
+                {"criminal": list(CRIMINAL_EVENT_TYPES), "limit": limit, "held": HELD},
             ).all()
         )
+
+    def _hold(self, session: Session, article_ids: Sequence[int]) -> set[int]:
+        """The batch's articles the screen holds back, recorded in the batch's
+        transaction. A screen failure raises: the batch is neither held nor deleted. An
+        article a person already called junk is not judged again."""
+        if self._screen is None:
+            return set()
+        rows = session.execute(
+            text(
+                """
+                SELECT a.id, a.title, a.text FROM parsed_articles a
+                WHERE a.id IN :ids
+                  AND NOT EXISTS (SELECT 1 FROM junk_screen_holds h WHERE h.article_id = a.id)
+                """
+            ).bindparams(bindparam("ids", expanding=True)),
+            {"ids": list(article_ids)},
+        ).all()
+        scores = self._screen.scores([(row.title or "", row.text or "") for row in rows])
+        cutoff = self._screen.cutoff
+        held = [
+            {
+                "article_id": row.id,
+                "status": HELD,
+                "score": score,
+                "cutoff": cutoff,
+                "screen": self._screen.name,
+                "reason": reason(score, cutoff),
+            }
+            for row, score in zip(rows, scores, strict=True)
+            if score >= cutoff
+        ]
+        if not held:
+            return set()
+        # Only the rows written count as held: an article already held or called junk by
+        # a person is not held again, so it cannot stay out of every purge by mistake.
+        inserted = set(
+            session.scalars(
+                pg_insert(JunkScreenHoldRecord)
+                .values(held)
+                .on_conflict_do_nothing(index_elements=["article_id"])
+                .returning(JunkScreenHoldRecord.article_id)
+            ).all()
+        )
+        if inserted:
+            logger.info(
+                "event=junk_screen_held count=%d article_ids=%s",
+                len(inserted),
+                ",".join(str(article_id) for article_id in sorted(inserted)),
+            )
+        return inserted
 
     def _purge_articles(
         self, session: Session, article_ids: Sequence[int], *, content_type: str | None = None

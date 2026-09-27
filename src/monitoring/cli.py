@@ -26,6 +26,7 @@ from entities.rf_check import EntityRfCheck, RfCheckResult
 from entities.roles import FigurantFinder, role_classifier_from_env
 from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
+from monitoring.junk_screen import screen_from_env
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
 from observability import configure_logging
@@ -594,16 +595,22 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
 
     def progress(result: JunkPurgeResult) -> None:
         logger.info(
-            "event=junk_purge_progress articles=%d total=%d persons=%d reviews=%d outdated=%d",
+            "event=junk_purge_progress articles=%d total=%d persons=%d reviews=%d outdated=%d "
+            "held=%d",
             result.articles,
             total,
             result.persons,
             result.reviews,
             result.outdated,
+            result.held,
         )
 
     since = since_from_env()
-    purge = JunkPurge(session_factory, on_progress=progress, since=since)
+    # On, the screen is loaded and tried here: broken, it stops the purge before any delete.
+    screen = screen_from_env()
+    if screen is not None:
+        logger.info("event=junk_screen_on screen=%s cutoff=%.4f", screen.name, screen.cutoff)
+    purge = JunkPurge(session_factory, on_progress=progress, since=since, screen=screen)
     total = purge.count()
     logger.info("event=junk_purge_started total=%d since=%s", total, since.date() if since else "-")
     result = purge.run()
@@ -611,6 +618,7 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
         {
             "articles": result.articles,
             "outdated": result.outdated,
+            "held": result.held,
             "persons": result.persons,
             "reviews": result.reviews,
         }

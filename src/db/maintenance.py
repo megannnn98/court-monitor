@@ -6,6 +6,7 @@ from sqlalchemy import Engine, text
 
 # Every table research, extraction and semantic retrieval write to.
 DISPOSABLE_TABLES = (
+    "junk_screen_holds",
     "entity_news_answers",
     "entity_group_news",
     "entity_group_unnamed_mentions",

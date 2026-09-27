@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
+import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import (
+    JunkScreenHoldRecord,
     ParsedArticleRecord,
     PersecutionClassificationRecord,
     PersonRecord,
@@ -17,12 +21,15 @@ from db.orm_models import (
     SemanticDocumentRecord,
     SourceDocument,
 )
+from monitoring import cli
+from monitoring.junk_holds import hold_again, mark_junk, reextract
 from monitoring.junk_purge import (
     EXPIRED_CONTENT_TYPE,
     JunkPurge,
     JunkPurgeResult,
     since_from_env,
 )
+from monitoring.junk_screen import HELD, JunkScreenError
 
 
 def _semantic(session: Session, entity_type: str, entity_id: int) -> None:
@@ -221,3 +228,153 @@ def test_without_a_working_date_nothing_goes_for_its_age(
 def test_the_working_date_comes_from_the_environment() -> None:
     assert since_from_env({"PIPELINE_SINCE": "2026-09-20"}) == datetime(2026, 9, 20, tzinfo=UTC)
     assert since_from_env({}) is None
+
+
+class Screen:
+    """A stand-in screen: an article titled «Выставка» reads like a case."""
+
+    name = "test-screen"
+    cutoff = 0.5
+
+    def __init__(self) -> None:
+        self.judged: list[str] = []
+
+    def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:
+        self.judged += [title for title, _body in articles]
+        return [0.9 if title == "Выставка" else 0.1 for title, _body in articles]
+
+
+class BrokenScreen(Screen):
+    def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:
+        raise JunkScreenError("the model went away")
+
+
+def _articles(session_factory: sessionmaker[Session]) -> set[int]:
+    with session_factory() as session:
+        return set(session.scalars(select(ParsedArticleRecord.id)).all())
+
+
+def _holds(session_factory: sessionmaker[Session]) -> dict[int, str]:
+    with session_factory() as session:
+        return dict(
+            session.execute(
+                select(JunkScreenHoldRecord.article_id, JunkScreenHoldRecord.status)
+            ).all()
+        )
+
+
+def test_the_screen_holds_what_reads_like_a_case_and_never_judges_it_again(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    screen = Screen()
+
+    first = JunkPurge(session_factory, screen=screen).run()
+    again = Screen()
+    second = JunkPurge(session_factory, screen=again).run()
+    without = JunkPurge(session_factory).run()
+
+    # The exhibition is held, the fine goes; the held one is judged once, and neither a
+    # second purge nor one without the screen deletes it.
+    assert (first.articles, first.held) == (1, 1)
+    assert ids["junk"] in _articles(session_factory)
+    assert ids["fine"] not in _articles(session_factory)
+    assert sorted(screen.judged) == ["Выставка", "Штраф"]
+    assert again.judged == [] and (second.articles, second.held) == (0, 0)
+    assert without.articles == 0
+    assert _holds(session_factory) == {ids["junk"]: HELD}
+    assert JunkPurge(session_factory, screen=Screen()).count() == 0
+    with session_factory() as session:
+        hold = session.get_one(JunkScreenHoldRecord, ids["junk"])
+    assert (hold.score, hold.cutoff, hold.screen) == (0.9, 0.5, "test-screen")
+    assert "не доказательство" in hold.reason
+
+
+def test_a_screen_that_fails_deletes_nothing(session_factory: sessionmaker[Session]) -> None:
+    ids = _seed(session_factory)
+
+    with pytest.raises(JunkScreenError):
+        JunkPurge(session_factory, screen=BrokenScreen()).run()
+
+    # The batch the screen could not judge stays whole.
+    assert {ids["junk"], ids["fine"]} <= _articles(session_factory)
+    assert _holds(session_factory) == {}
+
+
+def test_what_a_person_calls_junk_goes_with_the_next_purge_unjudged(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    JunkPurge(session_factory, screen=Screen()).run()
+    with session_factory.begin() as session:
+        assert mark_junk(session, ids["junk"])
+        assert hold_again(session, ids["junk"])
+        assert mark_junk(session, ids["junk"])
+    screen = Screen()
+
+    result = JunkPurge(session_factory, screen=screen).run()
+
+    assert screen.judged == [] and result.articles == 1
+    assert ids["junk"] not in _articles(session_factory)
+    assert _holds(session_factory) == {}
+
+
+def test_a_held_article_before_the_working_date_still_goes(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    since = datetime(2026, 9, 20, tzinfo=UTC)
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE parsed_articles SET published_at = :at"), {"at": since})
+    JunkPurge(session_factory, since=since, screen=Screen()).run()
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE parsed_articles SET published_at = :at WHERE id = :id"),
+            {"at": since - timedelta(days=1), "id": ids["junk"]},
+        )
+
+    result = JunkPurge(session_factory, since=since, screen=Screen()).run()
+
+    assert (result.articles, result.outdated) == (1, 1)
+    assert ids["junk"] not in _articles(session_factory)
+    assert _holds(session_factory) == {}
+
+
+def test_extracting_a_held_article_again_releases_it_once_an_event_is_found(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    JunkPurge(session_factory, screen=Screen()).run()
+
+    unchanged = reextract(session_factory, ids["junk"])
+    same_again = reextract(session_factory, ids["junk"])
+    # The extraction fixed (here: the text says it plainly), the article goes back to work.
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE parsed_articles SET text = :text WHERE id = :id"),
+            {"text": "Суд арестовал Олега Орлова по делу о фейках.", "id": ids["junk"]},
+        )
+    fixed = reextract(session_factory, ids["junk"])
+
+    assert not unchanged.released and "не нашло уголовного события" in unchanged.note
+    assert not same_again.released and "повторять нечего" in same_again.note
+    assert fixed.released and "arrest" in fixed.note
+    assert _holds(session_factory) == {}
+    # Released, it is no junk any more: a purge keeps it.
+    JunkPurge(session_factory).run()
+    assert ids["junk"] in _articles(session_factory)
+
+
+def test_the_purge_command_with_a_broken_screen_stops_before_deleting(
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    ids = _seed(session_factory)
+    monkeypatch.setenv("JUNK_SCREEN", "1")
+    monkeypatch.setenv("JUNK_SCREEN_MODEL", str(tmp_path / "missing.json"))
+
+    with pytest.raises(JunkScreenError):
+        cli._purge_junk(session_factory)
+
+    assert {ids["junk"], ids["fine"], ids["criminal"]} <= _articles(session_factory)

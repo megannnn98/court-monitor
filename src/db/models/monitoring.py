@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -168,3 +169,30 @@ class MonitoringFindingRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class JunkScreenHoldRecord(Base):
+    """An article the junk purge would delete (no criminal-case event extracted) that the
+    embedding screen held back for a person to look at (`monitoring.junk_screen`).
+
+    `held`: kept out of every purge until a person decides; `junk`: a person said it is
+    junk, the next purge deletes it (and this row with it). Released articles lose the row:
+    a new extraction found their event.
+    """
+
+    __tablename__ = "junk_screen_holds"
+
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="held")
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    cutoff: Mapped[float] = mapped_column(Float, nullable=False)
+    screen: Mapped[str] = mapped_column(String(100), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    # What a person or a new extraction said last.
+    note: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
