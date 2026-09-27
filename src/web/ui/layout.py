@@ -165,7 +165,9 @@ def _page(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#241b3f">
   <title>{escape(title)}</title>
+  <link rel="manifest" href="/static/manifest.webmanifest">
   <link rel="stylesheet" href="/static/local-ui.css?v={_CSS_VERSION}">
   <script>document.documentElement.classList.add("js")</script>
 </head>

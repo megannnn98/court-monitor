@@ -8,6 +8,17 @@ from web.ui.entities import _collect_bar
 from web.ui.pipeline import PipelineState, deepseek_confirmation, stepper
 
 
+def test_load_warns_only_when_the_browser_reports_a_cellular_connection() -> None:
+    page = stepper(PipelineState("load"), 74)
+
+    assert 'id="step-load"' in page
+    assert 'onclick="return confirmMobileTraffic()"' in page
+    assert 'connection.type !== "cellular"' in page
+    assert "0,5 МБ" in page
+    assert "2,3 МБ" in page
+    assert "около 120 МБ" in page
+
+
 def test_deepseek_confirmation_is_empty_without_paid_deepseek(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -58,6 +58,14 @@ _DEEPSEEK_CONFIRM = {
     "political": "Шаг «Отобрать политические дела» использует платный DeepSeek через "
     "OpenRouter и может сделать несколько платных запросов. Продолжить?",
 }
+# Read-only measurement on 2026-09-27: all 74 listing pages used 0.43 MB on the
+# wire; listing plus one current article per source used 2.25 MB. About 120 MB is
+# a deliberately rounded backlog estimate for the UI limit of 50 per source.
+_MOBILE_TRAFFIC_WARNING = (
+    "Сейчас используется мобильная сеть. Контрольный замер: список 74 источников — "
+    "около 0,5 МБ, по одной новой публикации с каждого — около 2,3 МБ. После долгого "
+    "перерыва ориентир — около 120 МБ. Запустить загрузку?"
+)
 _LIVE = (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
 
 
@@ -152,9 +160,12 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
             )
         elif stage == state.current:
             needs_sources = stage in _WITH_SOURCES
-            confirm = (
-                f" onclick=\"return confirm('{_CONFIRM[stage]}')\"" if stage in _CONFIRM else ""
-            )
+            if stage == "load":
+                confirm = ' onclick="return confirmMobileTraffic()"'
+            else:
+                confirm = (
+                    f" onclick=\"return confirm('{_CONFIRM[stage]}')\"" if stage in _CONFIRM else ""
+                )
             warning = deepseek_confirmation(stage)
             if warning:
                 confirm = f" onclick=\"return confirm('{escape(warning, quote=True)}')\""
@@ -180,8 +191,19 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
         running = f"Идёт шаг {current + 1}: {escape(TITLES[state.current])}."
     else:
         running = f"Идёт {escape(_title_of(state.live).lower())}."
+    mobile_warning = ""
+    if state.current == "load" and state.live is None:
+        warning = escape(_MOBILE_TRAFFIC_WARNING, quote=True)
+        mobile_warning = f"""<script>
+function confirmMobileTraffic() {{
+  const connection = navigator.connection || navigator.mozConnection ||
+    navigator.webkitConnection;
+  if (!connection || connection.type !== "cellular") return true;
+  return window.confirm("{warning}");
+}}
+</script>"""
     return (
-        f'<div class="pipeline">{arrows.join(steps)}</div>'
+        mobile_warning + f'<div class="pipeline">{arrows.join(steps)}</div>'
         f'<p class="muted pipeline-note">{running} После шага {len(STAGES)} круг начинается '
         "заново.</p>"
     )

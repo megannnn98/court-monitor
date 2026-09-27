@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Следователь">
+  <rect width="512" height="512" rx="96" fill="#241b3f"/>
+  <circle cx="218" cy="210" r="112" fill="#f5f1e8"/>
+  <circle cx="218" cy="210" r="82" fill="#241b3f"/>
+  <path d="M294 292 408 406" fill="none" stroke="#f5f1e8" stroke-linecap="round" stroke-width="44"/>
+  <path d="M174 174h88M174 210h70M174 246h48" fill="none" stroke="#f5f1e8" stroke-linecap="round" stroke-width="18"/>
+  <circle cx="356" cy="116" r="30" fill="#d95757"/>
+</svg>
