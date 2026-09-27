@@ -179,6 +179,6 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 До консоли «Следователь» результатом были карточки Person и список кандидатов:
 `extract-entities` → `resolve-people` → `classify-persecution` →
 `match-rosfinmonitoring` → `list-candidates`. Этот путь остаётся в коде и CLI
-(его использует Telegram-бот), но консоль работает с сущностями шагов 3–5. См.
+(его использует мониторинг), но консоль работает с сущностями шагов 3–5. См.
 [Persons](Persons.md), [Entity Resolution](Entity-Resolution.md),
 [Persecution Classification](Persecution-Classification.md).

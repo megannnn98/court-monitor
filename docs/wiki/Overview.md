@@ -39,7 +39,7 @@ uv run python src/main.py monitoring-status
 title court-monitor: publication -> candidate
 
 actor Operator
-rectangle "CLI / Web UI / Telegram bot" as Entry
+rectangle "CLI / Web UI" as Entry
 component "Discovery" as Discovery
 component "Fetch + parse" as Parse
 component "Extraction" as Extraction

@@ -1,7 +1,7 @@
 """Monitoring findings: persisted, deduplicated actionable results (ADR 0013).
 
 Which persons satisfy a criterion is decided by `CandidateQueryService` — the
-same query `list-candidates`, the API and research use — never by SQL here.
+same query `list-candidates` and the API use — never by SQL here.
 This module only remembers when and in which run a person first/last matched.
 """
 

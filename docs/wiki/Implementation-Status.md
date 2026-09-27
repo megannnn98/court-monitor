@@ -80,7 +80,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
 | Entities (console) | `src/entities/` | the five-step pipeline of the console: people from mentions, roles, and the final Rosfinmonitoring check plus political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
 | Unnamed figurants | `src/entities/unnamed.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
-| Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by the Telegram bot — [Pipeline](Pipeline.md) |
+| Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by monitoring findings — [Pipeline](Pipeline.md) |
 | Research | `src/research/` | deterministic research in one read-only REPEATABLE READ snapshot, LangGraph workflow, reports — [Research](Research.md), [Research-Workflow](Research-Workflow.md), [Research-Reports](Research-Reports.md) |
 | Semantic retrieval | `src/semantic_retrieval/` | candidate ids from Qdrant (default) or pgvector (`SEMANTIC_VECTOR_BACKEND`, [ADR 0018](../adr/0018-pgvector-vector-store.md)), facts from PostgreSQL — [Semantic-Retrieval](Semantic-Retrieval.md) |
 | Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings — [Monitoring](Monitoring.md) |
