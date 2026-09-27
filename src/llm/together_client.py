@@ -15,7 +15,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from research.workflow.llm import (
+from llm.structured import (
     LlmAuthenticationError,
     LlmConfigurationError,
     LlmInvalidResponseError,

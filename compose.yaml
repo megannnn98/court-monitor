@@ -1,9 +1,8 @@
 # Profiles (ADR 0014):
 #   (none)      PostgreSQL only — development and tests
-#   semantic    + Qdrant (derived semantic index)
 #   monitoring  + Dagster webserver and daemon
 #   api         + FastAPI (uvicorn)
-#   production  everything above: postgres, qdrant, api, dagster
+#   production  everything above: postgres, api, dagster
 #   migrate     one-shot `alembic upgrade head` (run explicitly, never by the API)
 #
 # Production-like start:
@@ -38,31 +37,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # Optional semantic entity retrieval (ADR 0011): candidate index only,
-  # PostgreSQL stays the source of truth. docker compose --profile semantic up -d
-  qdrant:
-    image: qdrant/qdrant:v1.19.0
-    restart: unless-stopped
-    profiles:
-      - semantic
-      - production
-
-    ports:
-      - "127.0.0.1:6333:6333"
-
-    volumes:
-      - qdrant_data:/qdrant/storage
-
-    healthcheck:
-      # The image has no curl/wget; bash can open the HTTP port directly.
-      test:
-        - CMD-SHELL
-        - bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && printf "GET /readyz HTTP/1.0\r\n\r\n" >&3 && grep -q "200 OK" <&3'
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 10s
-
   # Explicit schema migration step (never run by API workers).
   migrate:
     build: .
@@ -91,9 +65,6 @@ services:
       - "127.0.0.1:8001:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      QDRANT_URL: ${API_QDRANT_URL:-}
-      # qdrant (default) or pgvector (ADR 0018); switching needs a full rebuild.
-      SEMANTIC_VECTOR_BACKEND: ${SEMANTIC_VECTOR_BACKEND:-}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       TOGETHER_MODEL: ${TOGETHER_MODEL:-}
       TOGETHER_TIMEOUT_SECONDS: ${TOGETHER_TIMEOUT_SECONDS:-30}
@@ -187,10 +158,6 @@ services:
       DAGSTER_PG_USERNAME: ${POSTGRES_USER}
       DAGSTER_PG_PASSWORD: ${POSTGRES_PASSWORD}
       DAGSTER_PG_DB: ${DAGSTER_PG_DB:-court_monitor_dagster}
-      # Empty: semantic stage reports not_configured. With --profile semantic and an
-      # image built with INSTALL_SEMANTIC=1, set MONITORING_QDRANT_URL=http://qdrant:6333.
-      QDRANT_URL: ${MONITORING_QDRANT_URL:-}
-      SEMANTIC_VECTOR_BACKEND: ${SEMANTIC_VECTOR_BACKEND:-}
       MONITORING_ENABLED_SOURCES: ${MONITORING_ENABLED_SOURCES:-}
       MONITORING_CRON: ${MONITORING_CRON:-0 * * * *}
       MONITORING_DISCOVERY_LIMIT: ${MONITORING_DISCOVERY_LIMIT:-50}
@@ -269,4 +236,3 @@ services:
 
 volumes:
   postgres_data:
-  qdrant_data:

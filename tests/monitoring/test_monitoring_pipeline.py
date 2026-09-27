@@ -17,21 +17,17 @@ from support.monitoring_fixtures import (
     FakeUpstream,
     build_service,
     import_rf_snapshot,
-    semantic_indexer,
     table_counts,
 )
 from support.person_resolution_fixtures import seed_person
-from support.semantic_fakes import UnavailableStore
 
 from db.orm_models import (
-    ArticleExtractionRunRecord,
     EntityMentionRecord,
     MonitoringFindingRecord,
     PersecutionClassificationRecord,
     PersonRecord,
     PersonResolutionDecisionRecord,
     RosfinMatchRecord,
-    SemanticDocumentRecord,
 )
 from monitoring.findings import ENBV_CRITERIA_VERSION, NO_RF_SNAPSHOT, POLITICAL_NOT_IN_RF
 from monitoring.models import (
@@ -62,7 +58,6 @@ DOMAIN_TABLES = (
     "review_records",
     "persecution_classifications",
     "rosfin_matches",
-    "semantic_documents",
     "monitoring_findings",
 )
 
@@ -82,11 +77,7 @@ def test_repeated_run_with_same_upstream_creates_no_duplicates(
     import_rf_snapshot(session_factory, [("Петр Петров", "03.03.1970")])
     upstream = FakeUpstream()
     upstream.publish("sidorov", SIDOROV)
-    service = build_service(
-        session_factory,
-        {"ovd-info": upstream},
-        create_semantic_indexer=lambda: semantic_indexer(session_factory),
-    )
+    service = build_service(session_factory, {"ovd-info": upstream})
 
     first = service.run_source("ovd-info")
     counts_after_first = table_counts(session_factory, *DOMAIN_TABLES)
@@ -102,7 +93,6 @@ def test_repeated_run_with_same_upstream_creates_no_duplicates(
     assert first.events_created == 1
     assert first.classifications_created == 1
     assert first.rf_matches_created == 1
-    assert first.semantic_entities_indexed >= 2
     assert first.findings_created == 1
     assert counts_after_first["parsed_articles"] == 1
     assert counts_after_first["persons"] == 1
@@ -119,7 +109,6 @@ def test_repeated_run_with_same_upstream_creates_no_duplicates(
     assert second.articles_extracted == 0
     assert second.persons_created == second.persons_linked == 0
     assert second.classifications_created == second.rf_matches_created == 0
-    assert second.semantic_entities_indexed == 0
     assert second.findings_created == 0
     assert table_counts(session_factory, *DOMAIN_TABLES) == counts_after_first
     assert upstream.fetches == ["sidorov"]
@@ -201,67 +190,6 @@ def test_extraction_failure_of_one_article_does_not_stop_others(
     again = service.run_source("ovd-info")
     assert again.status is MonitoringRunStatus.COMPLETED
     assert again.error_count == 0
-
-
-def test_qdrant_outage_keeps_postgres_work_and_semantic_retry_needs_no_reingestion(
-    session_factory: sessionmaker[Session],
-) -> None:
-    import_rf_snapshot(session_factory, [("Петр Петров", "03.03.1970")])
-    upstream = FakeUpstream()
-    upstream.publish("sidorov", SIDOROV)
-    outage = build_service(
-        session_factory,
-        {"ovd-info": upstream},
-        create_semantic_indexer=lambda: semantic_indexer(session_factory, UnavailableStore()),
-    )
-
-    failed = outage.run_source("ovd-info")
-
-    assert failed.status is MonitoringRunStatus.COMPLETED_WITH_ERRORS
-    assert failed.stage_metrics["semantic_indexing"]["status"] == "failed"
-    assert failed.stage_metrics["semantic_indexing"]["failure_kind"] == "retryable"
-    assert failed.semantic_entities_indexed == 0
-    assert failed.findings_created == 1
-    domain = table_counts(
-        session_factory,
-        "parsed_articles",
-        "persons",
-        "persecution_classifications",
-        "rosfin_matches",
-    )
-    assert domain == {
-        "parsed_articles": 1,
-        "persons": 1,
-        "persecution_classifications": 1,
-        "rosfin_matches": 1,
-    }
-    with session_factory() as session:
-        runs_before = session.scalars(select(ArticleExtractionRunRecord.id)).all()
-
-    recovered = build_service(
-        session_factory,
-        {"ovd-info": upstream},
-        create_semantic_indexer=lambda: semantic_indexer(session_factory),
-    )
-    retry = recovered.run_derived()
-
-    assert retry.status is MonitoringRunStatus.COMPLETED
-    assert retry.trigger_type is MonitoringTrigger.DERIVED
-    assert retry.source is None
-    assert retry.documents_discovered == 0
-    assert retry.semantic_entities_indexed == 2
-    assert retry.classifications_created == 0
-    assert upstream.fetches == ["sidorov"]
-    assert upstream.discoveries == 1
-    with session_factory() as session:
-        assert session.scalars(select(ArticleExtractionRunRecord.id)).all() == runs_before
-        indexed = session.scalars(
-            select(SemanticDocumentRecord.indexed_at).where(
-                SemanticDocumentRecord.indexed_at.is_not(None)
-            )
-        ).all()
-    assert len(indexed) == 2
-    assert table_counts(session_factory, *domain) == domain
 
 
 def test_same_source_cannot_start_while_running(session_factory: sessionmaker[Session]) -> None:
@@ -384,11 +312,7 @@ def test_same_name_in_new_evidence_waits_for_review_then_reclassifies_and_create
     import_rf_snapshot(session_factory, [("Иван Иванов", "01.01.1980")])
     upstream = FakeUpstream()
     upstream.publish("petrov-hooligan", PETROV)
-    service = build_service(
-        session_factory,
-        {"ovd-info": upstream},
-        create_semantic_indexer=lambda: semantic_indexer(session_factory),
-    )
+    service = build_service(session_factory, {"ovd-info": upstream})
     first = service.run_source("ovd-info")
     petrov = _person_id(session_factory, "Петров")
 
@@ -495,11 +419,7 @@ def test_person_created_by_review_is_processed_without_reingestion(
     seed_person(session_factory, "Сергей Сидоров")
     upstream = FakeUpstream()
     upstream.publish("sidorov", SIDOROV)
-    service = build_service(
-        session_factory,
-        {"ovd-info": upstream},
-        create_semantic_indexer=lambda: semantic_indexer(session_factory),
-    )
+    service = build_service(session_factory, {"ovd-info": upstream})
     service.run_source("ovd-info")
     with session_factory.begin() as session:
         decision_id = session.scalar(
@@ -532,12 +452,6 @@ def test_person_created_by_review_is_processed_without_reingestion(
         assert session.scalar(
             select(RosfinMatchRecord.status).where(RosfinMatchRecord.person_id == new_person_id)
         ) == ("not_matched")
-        assert session.scalar(
-            select(SemanticDocumentRecord.indexed_at).where(
-                SemanticDocumentRecord.entity_type == "person",
-                SemanticDocumentRecord.entity_id == new_person_id,
-            )
-        )
         finding_person_ids = session.scalars(select(MonitoringFindingRecord.person_id)).all()
     assert new_person_id in finding_person_ids
 

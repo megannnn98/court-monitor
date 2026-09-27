@@ -15,15 +15,7 @@ import logging
 
 from pydantic import ValidationError
 
-from persons.resolution.ai_review import (
-    ENTITY_REVIEW_PROMPT_VERSION,
-    ENTITY_REVIEW_RESPONSE_SCHEMA,
-    ENTITY_REVIEW_SYSTEM_PROMPT,
-    EntityReviewError,
-    EntityReviewRequest,
-    EntityReviewResult,
-)
-from research.workflow.llm import (
+from llm.structured import (
     LlmAuthenticationError,
     LlmError,
     LlmRateLimitError,
@@ -31,6 +23,14 @@ from research.workflow.llm import (
     LlmTimeoutError,
     LlmUnavailableError,
     StructuredLlmClient,
+)
+from persons.resolution.ai_review import (
+    ENTITY_REVIEW_PROMPT_VERSION,
+    ENTITY_REVIEW_RESPONSE_SCHEMA,
+    ENTITY_REVIEW_SYSTEM_PROMPT,
+    EntityReviewError,
+    EntityReviewRequest,
+    EntityReviewResult,
 )
 
 logger = logging.getLogger("person_resolution")

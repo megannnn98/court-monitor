@@ -13,12 +13,10 @@ dependencies = [
     "dagster-webserver>=1.13.22",
     "fastapi>=0.115.0",
     "httpx[socks]>=0.28.0",
-    "langgraph>=1.2.11",
     "openpyxl>=3.1.5",
     "psycopg[binary]>=3.2",
     "pydantic>=2.11.0",
     "pymorphy3>=2.0.6",
-    "qdrant-client>=1.15",
     "rapidfuzz>=3.14",
     "reportlab>=4.0",
     "selectolax>=0.3.29",
@@ -59,9 +57,6 @@ default-groups = ["dev"]
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
 markers = [
-    "live_together: calls the real Together AI API; opt-in via TOGETHER_LIVE_TESTS=1 or LIVE_LLM_TESTS=1",
-    "qdrant: needs a running Qdrant service; opt-in via QDRANT_TEST_URL",
-    "semantic_models: loads real embedding/reranker models; opt-in via SEMANTIC_MODEL_TESTS=1",
     "person_ner_model: downloads and runs the person NER model; opt-in via PERSON_NER_MODEL_TESTS=1",
 ]
 

@@ -36,7 +36,6 @@ from persons.resolution.service import ResolutionPlan
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ER_CORPUS_PATH = REPO_ROOT / "tests" / "fixtures" / "er_v2_corpus.json"
-ER_EVALUATION_COLLECTIONS = ("eval_er_persons_semantic", "eval_er_events_semantic")
 
 
 def add_person_resolution_arguments(subparsers: Any) -> None:
@@ -95,12 +94,6 @@ def add_person_resolution_arguments(subparsers: Any) -> None:
     )
     evaluate.add_argument("--corpus-path", type=Path, default=DEFAULT_ER_CORPUS_PATH)
     evaluate.add_argument("--sweep", action="store_true", help="Sweep decision thresholds")
-    evaluate.add_argument(
-        "--semantic",
-        action="store_true",
-        help="Also evaluate the semantic candidate generator (loads the embedding model)",
-    )
-    evaluate.add_argument("--qdrant-url", default=":memory:")
     evaluate.add_argument("--output-path", type=Path, default=None)
 
 
@@ -212,39 +205,12 @@ def run_evaluate_er(args: argparse.Namespace) -> None:
     require_disposable_database(engine)
     truncate_disposable_tables(engine)
     session_factory = create_session_factory(engine)
-    env_config = CandidateConfig.from_env(os.environ)
-    config = CandidateConfig(
-        candidate_limit=env_config.candidate_limit,
-        semantic_enabled=args.semantic,
-        semantic_min_score=env_config.semantic_min_score,
-    )
-    retriever = None
-    index_semantic = None
-    if args.semantic:
-        from semantic_retrieval.factory import SemanticRetrievalConfig, create_semantic_components
-        from semantic_retrieval.models import RetrievalBackend, RetrievalEntityType
-
-        components = create_semantic_components(
-            session_factory,
-            SemanticRetrievalConfig(
-                qdrant_url=args.qdrant_url,
-                person_collection=ER_EVALUATION_COLLECTIONS[0],
-                event_collection=ER_EVALUATION_COLLECTIONS[1],
-            ),
-            with_reranker=False,
-        )
-        retriever = components.retriever(RetrievalBackend.DENSE)
-
-        def index_semantic() -> None:
-            components.indexer().rebuild(RetrievalEntityType.PERSON)
-
+    config = CandidateConfig.from_env(os.environ)
     run = run_er_evaluation(
         session_factory,
         load_er_corpus(args.corpus_path),
         thresholds=ResolutionThresholds.from_env(os.environ),
         config=config,
-        semantic_retriever=retriever,
-        index_semantic=index_semantic,
         sweep=args.sweep,
     )
     print(format_er_evaluation(run))

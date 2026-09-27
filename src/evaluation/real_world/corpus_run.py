@@ -3,7 +3,7 @@
     disposable database (truncated) → evaluation RF snapshot (optional)
     → for each temporal period: publish its articles to the replay sources
       → MonitoringService.run_source per source (ingest, extract, ER v2,
-        classification, RF matching, semantic indexing, findings)
+        classification, RF matching, findings)
 
 The pipeline code is the product's; only the web and the clock of the
 evidence settle interval are replaced.
@@ -41,7 +41,6 @@ from monitoring.models import MonitoringRunView, MonitoringSettings
 from monitoring.service import MonitoringService
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from semantic_retrieval.indexer import SemanticIndexer
 from sources.source_registry import SOURCES, SourceDefinition
 
 RF_SNAPSHOT_DATE = datetime(2026, 9, 1, tzinfo=UTC)
@@ -100,7 +99,6 @@ class CorpusRunner:
     engine: Engine
     manifest: CorpusManifest
     cache: RawCorpusCache
-    create_semantic_indexer: Callable[[], SemanticIndexer] | None = None
     definitions: Mapping[str, SourceDefinition] = field(default_factory=lambda: dict(SOURCES))
     service_wrapper: Callable[[MonitoringService], MonitoringService] | None = None
     upstream: ReplayUpstream = field(init=False)
@@ -129,8 +127,6 @@ class CorpusRunner:
             env={},
             sources=replay_sources(self.upstream, self.definitions),
             create_fetcher=UnusedReplayFetcher,
-            create_semantic_indexer=self.create_semantic_indexer,
-            use_env_semantic_indexer=False,
             # Periods follow each other within seconds; waiting would only delay derived work.
             evidence_settle_interval=timedelta(0),
         )

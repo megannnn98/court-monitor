@@ -1,5 +1,5 @@
 {
-  "policy_version": "real-world-policy-v1.1",
+  "policy_version": "real-world-policy-v1.2",
   "min_verified_articles": 100,
   "min_verified_articles_per_split": 20,
   "hard_gates": {
@@ -7,9 +7,6 @@
     "namesake_different_person_auto_link": 0,
     "false_rf_not_matched": 0,
     "cross_person_persecution_attribution": 0,
-    "contradicted_report_claims": 0,
-    "unsupported_rf_absence_claims": 0,
-    "dangerous_silent_reinterpretation": 0,
     "duplicate_monitoring_findings": 0,
     "rerun_duplicates": 0,
     "no_snapshot_absence_findings": 0,
@@ -28,11 +25,7 @@
     "political_precision": 0.95,
     "political_recall": 0.85,
     "candidate_precision": 0.95,
-    "candidate_recall": 0.8,
-    "candidate_with_evidence_rate": 1.0,
-    "relevant_evidence_rate": 0.95,
-    "semantic_recall_at_5": 0.85,
-    "supported_report_claims_rate": 0.98
+    "candidate_recall": 0.8
   },
   "advisory_targets": {
     "max_manual_reviews_per_100_articles": 20

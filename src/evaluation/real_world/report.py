@@ -49,21 +49,6 @@ _GATE_TOPICS: dict[str, tuple[ErrorComponent, str, str]] = {
         "political evidence about one person is attributed to another",
         "inspect evidence windows in multi-person sentences and articles",
     ),
-    "contradicted_report_claims": (
-        ErrorComponent.REPORT,
-        "research reports state facts the sources contradict",
-        "trace each contradicted claim to the component that produced the wrong fact",
-    ),
-    "unsupported_rf_absence_claims": (
-        ErrorComponent.REPORT,
-        "reports word an unconfirmed Rosfinmonitoring status as absence",
-        "audit status wording for non-NOT_MATCHED statuses",
-    ),
-    "dangerous_silent_reinterpretation": (
-        ErrorComponent.RESEARCH_INTAKE,
-        "ambiguous or unsupported requests are executed without clarification",
-        "collect the reinterpreted queries and require clarification for them",
-    ),
     "duplicate_monitoring_findings": (
         ErrorComponent.MONITORING,
         "repeated monitoring creates duplicate findings",
@@ -148,26 +133,6 @@ _GATE_TOPICS: dict[str, tuple[ErrorComponent, str, str]] = {
         ErrorComponent.PERSECUTION,
         "expected main candidates are missing from the candidate query",
         "trace each missed candidate to extraction, ER, classification or RF",
-    ),
-    "candidate_with_evidence_rate": (
-        ErrorComponent.REPORT,
-        "candidates are returned without evidence",
-        "find why the evidence of these persons is not linked",
-    ),
-    "relevant_evidence_rate": (
-        ErrorComponent.REPORT,
-        "candidate evidence spans are not about the candidate",
-        "inspect irrelevant evidence spans by source article",
-    ),
-    "semantic_recall_at_5": (
-        ErrorComponent.RETRIEVAL,
-        "semantic queries miss relevant persons/events in the top 5",
-        "analyse missed queries: document representation vs query wording",
-    ),
-    "supported_report_claims_rate": (
-        ErrorComponent.REPORT,
-        "report claims are not fully supported by annotated evidence",
-        "classify unsupported and partial claims by claim type",
     ),
 }
 
@@ -313,8 +278,6 @@ def render_markdown(report: RealWorldValidationReport) -> str:
             ],
             ["evaluated articles / persons", f"{d.evaluated_articles} / {d.evaluated_persons}"],
             ["namesake cases", d.namesake_cases],
-            ["retrieval queries", d.retrieval_queries],
-            ["research queries", d.research_queries],
             ["corpus manifest hash", p.corpus_manifest_hash or "—"],
             ["golden dataset hash", p.golden_dataset_hash],
         ],
@@ -324,8 +287,7 @@ def render_markdown(report: RealWorldValidationReport) -> str:
     lines += ["## Pipeline", ""]
     lines.append(
         "real sources → discovery → ingestion → extraction → Person/Event → ER v2 → persecution "
-        "classification → Rosfinmonitoring matching → semantic indexing → CandidateQuery → "
-        "monitoring findings → research workflow → ResearchReport."
+        "classification → Rosfinmonitoring matching → CandidateQuery → monitoring findings."
     )
     lines.append("")
     lines += _table(["component", "version"], sorted(p.component_versions.items()))
@@ -334,7 +296,7 @@ def render_markdown(report: RealWorldValidationReport) -> str:
         (
             f"git commit `{p.git_commit}`, split `{p.split}` (verified only: {p.verified_only}), "
             f"policy `{p.policy_version}` ({p.policy_hash[:12]}), RF snapshot `{p.rf_snapshot_id}` "
-            f"({(p.rf_snapshot_hash or '—')[:12]}), embedding model `{p.embedding_model_id or '—'}`, "
+            f"({(p.rf_snapshot_hash or '—')[:12]}), "
             f"generated {p.timestamp.isoformat()}."
         ),
         "",
@@ -446,90 +408,6 @@ def render_markdown(report: RealWorldValidationReport) -> str:
     lines += ["## Candidate Query", ""]
     lines += _metrics("CandidateQueryService", c.candidates)
     lines += ["", *_metrics("Active monitoring findings", c.findings), ""]
-    ev = c.evidence
-    lines.append(
-        f"Evidence: {ev.candidates_checked} candidates checked, with evidence {_fmt(ev.with_evidence_rate)}, "
-        f"relevant {_fmt(ev.relevant_evidence_rate)}, supports classification {_fmt(ev.supports_classification_rate)}, "
-        f"traceable {_fmt(ev.traceable_rate)}, offsets valid {_fmt(ev.offset_valid_rate)} ({ev.evidence_spans} spans)"
-    )
-    lines.append("")
-
-    t = report.retrieval
-    lines += ["## Semantic Retrieval", ""]
-    lines.append(
-        f"Status {t.status.value}"
-        + (f" ({t.not_run_reason})" if t.not_run_reason else "")
-        + f"; model `{t.embedding_model_id or '—'}`; {t.queries} queries ({t.person_queries} person, {t.event_queries} event)"
-    )
-    if t.backends:
-        lines.append("")
-        lines += _table(
-            ["backend", "cases", "Recall@5", "Recall@10", "MRR", "nDCG@5"],
-            [
-                [k, b.cases, b.recall_at_5, b.recall_at_10, b.mrr, b.ndcg_at_5]
-                for k, b in t.backends.items()
-            ],
-        )
-    lines.append("")
-
-    if t.query_error_categories:
-        lines += [
-            "",
-            "Query-level causes: "
-            + ", ".join(f"{k}={v}" for k, v in t.query_error_categories.items()),
-        ]
-        lines.append("")
-        lines += _table(
-            ["query", "type", "lexical", "dense", "hybrid", "cause"],
-            [
-                [
-                    d.query_id,
-                    d.entity_type,
-                    d.ranks.get("lexical"),
-                    d.ranks.get("dense"),
-                    d.ranks.get("hybrid"),
-                    d.category,
-                ]
-                for d in t.query_diagnostics
-            ],
-        )
-    lines.append("")
-
-    q = report.research
-    lines += ["## Research Reports", ""]
-    lines.append(
-        f"{q.queries} queries {q.by_class}; workflow completed {q.workflow_completed}, clarification "
-        f"{q.workflow_clarification}, failed {q.workflow_failed}"
-    )
-    lines.append(
-        f"Intake: {q.intake_status.value}"
-        + (f" ({q.intake_not_run_reason})" if q.intake_not_run_reason else "")
-        + f"; correct {q.intake_correct}; clarification {q.intake_clarification_given}/{q.intake_clarification_expected}; "
-        f"silent reinterpretation {q.dangerous_silent_reinterpretation}"
-    )
-    lines += ["", *_metrics("Persons", q.persons)]
-    lines.append("")
-    lines.append(
-        "Claims: "
-        + ", ".join(f"{k}={v}" for k, v in q.claims.items())
-        + f" ({q.contradicted_claims_unique} distinct contradicted facts)"
-        + f"; supported rate {_fmt(q.supported_claims_rate)}; required missing {q.required_claims_missing}; "
-        f"forbidden present {q.forbidden_claims_present}"
-    )
-    lines.append("")
-    lines.append("Dangerous claim kinds: " + ", ".join(f"{k}={v}" for k, v in q.dangerous.items()))
-    lines.append("")
-    lines.append(
-        "Claim failure causes (occurrences / distinct facts): "
-        + (
-            ", ".join(
-                f"{k}={v}/{q.claim_failure_categories_unique.get(k, 0)}"
-                for k, v in q.claim_failure_categories.items()
-            )
-            or "none"
-        )
-    )
-    lines.append("")
 
     m = report.monitoring
     lines += ["## Monitoring E2E", ""]
@@ -550,7 +428,6 @@ def render_markdown(report: RealWorldValidationReport) -> str:
                 "new classifications",
                 "new RF",
                 "new findings",
-                "semantic indexed",
                 "rerun new rows",
                 "seconds",
             ],
@@ -566,7 +443,6 @@ def render_markdown(report: RealWorldValidationReport) -> str:
                     pr.new.get("classifications"),
                     pr.new.get("rf_results"),
                     pr.new.get("findings"),
-                    pr.new.get("semantic_indexed"),
                     sum(pr.rerun_new.values()) if pr.rerun_new else "not run",
                     pr.duration_seconds,
                 ]

@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from qdrant_client import QdrantClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -23,19 +22,10 @@ from monitoring.models import MonitoringSettings
 from monitoring.service import MonitoringService
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from semantic_retrieval.document_store import SqlAlchemySemanticDocumentRepository
-from semantic_retrieval.documents import (
-    EventSemanticDocumentBuilder,
-    PersonSemanticDocumentBuilder,
-)
-from semantic_retrieval.indexer import SemanticIndexer
-from semantic_retrieval.models import RetrievalEntityType
-from semantic_retrieval.vector_store import QdrantVectorStore, VectorStore
 from sources.ingestion_errors import NoTextError, ParseError
 from sources.models import ParsedArticle, RawDocument, SourceReference
 from sources.source_adapter import DocumentFetcher, SourceAdapter
 from sources.source_registry import SourceDefinition
-from support.semantic_fakes import HashingEmbedder
 
 SIDOROV = (
     "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге. "
@@ -155,7 +145,6 @@ def build_service(
     session_factory: sessionmaker[Session],
     upstreams: dict[str, FakeUpstream],
     *,
-    create_semantic_indexer: Callable[[], SemanticIndexer] | None = None,
     discovery_limit: int = 10,
     # Tests run stages seconds apart; the production settle interval is covered separately.
     evidence_settle_interval: timedelta = timedelta(0),
@@ -171,8 +160,6 @@ def build_service(
         env={},
         sources={name: fake_source(name, upstream) for name, upstream in upstreams.items()},
         create_fetcher=UnusedFetcher,
-        create_semantic_indexer=create_semantic_indexer,
-        use_env_semantic_indexer=False,
         evidence_settle_interval=evidence_settle_interval,
         extraction_pipeline=ExtractionPipeline(
             extractors=[MalformedAwareExtractor()],
@@ -180,25 +167,6 @@ def build_service(
             event_extractor=RuleBasedEventExtractor(),
             persistence=SqlAlchemyExtractionPersistence(session_factory),
         ),
-    )
-
-
-def semantic_indexer(
-    session_factory: sessionmaker[Session], store: VectorStore | None = None
-) -> SemanticIndexer:
-    """Real builders and PostgreSQL documents; in-process Qdrant (or the given store)."""
-    return SemanticIndexer(
-        builders={
-            RetrievalEntityType.PERSON: PersonSemanticDocumentBuilder(session_factory),
-            RetrievalEntityType.EVENT: EventSemanticDocumentBuilder(session_factory),
-        },
-        repository=SqlAlchemySemanticDocumentRepository(session_factory),
-        embedder=HashingEmbedder(),
-        store=store or QdrantVectorStore(QdrantClient(":memory:")),
-        collections={
-            RetrievalEntityType.PERSON: "persons_monitoring_test",
-            RetrievalEntityType.EVENT: "events_monitoring_test",
-        },
     )
 
 

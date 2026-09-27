@@ -13,7 +13,6 @@ import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-from semantic_retrieval.models import IndexModelMismatchError, RetrievalUnavailableError
 from sources.ingestion_errors import PersistenceError, TransientDiscoveryError, TransientFetchError
 from sources.source_registry import SOURCES
 
@@ -56,6 +55,7 @@ class MonitoringStage(StrEnum):
     AI_ENTITY_REVIEW = "ai_entity_review"
     CLASSIFICATION = "classification"
     RF_MATCHING = "rf_matching"
+    # No longer run (the vector index is gone); kept so older run items still load.
     SEMANTIC_INDEXING = "semantic_indexing"
     FINDINGS = "findings"
 
@@ -90,15 +90,12 @@ def classify_failure(error: BaseException) -> FailureKind:
     ER REVIEW, missing RF snapshots and invalid content are domain outcomes and
     never reach this function as retryable errors.
     """
-    if isinstance(error, IndexModelMismatchError):
-        return FailureKind.NON_RETRYABLE
     retryable = (
         TransientFetchError,
         TransientDiscoveryError,
         PersistenceError,
         OperationalError,
         httpx.TransportError,
-        RetrievalUnavailableError,
         ConnectionError,
         TimeoutError,
     )

@@ -1,6 +1,6 @@
 """Dagster resources: the composition root's `MonitoringService`, built lazily per run process.
 
-Nothing secret is Dagster config: DATABASE_URL, QDRANT_URL and the rest come from
+Nothing secret is Dagster config: DATABASE_URL and the rest come from
 the environment, so the Dagster UI never shows them.
 """
 

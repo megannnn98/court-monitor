@@ -1,6 +1,6 @@
 """Candidate generation for ER v2: recall-oriented, bounded, never a decision.
 
-Every generator narrows inside PostgreSQL or Qdrant and returns at most `limit`
+Every generator narrows inside PostgreSQL and returns at most `limit`
 persons; the Person table is never scanned in Python.
 """
 
@@ -25,9 +25,6 @@ from persons.resolution.models import (
     SemanticSourceStatus,
 )
 from persons.resolution.normalizer import PersonNameNormalizer
-from semantic_retrieval.models import RetrievalEntityType, RetrievalError, RetrievalQuery
-from semantic_retrieval.relevance import dense_similarity
-from semantic_retrieval.retrievers import EntityRetriever
 
 logger = logging.getLogger("person_resolution")
 
@@ -57,9 +54,6 @@ class PersonCandidateGenerator(Protocol):
 @dataclass(frozen=True)
 class CandidateConfig:
     candidate_limit: int = DEFAULT_CANDIDATE_LIMIT
-    semantic_enabled: bool = False
-    # Candidate generation only; never an identity threshold (ADR 0012).
-    semantic_min_score: float | None = None
 
     def __post_init__(self) -> None:
         # At least two: the policy can only see namesakes (two persons with the
@@ -68,23 +62,14 @@ class CandidateConfig:
             raise ValueError(
                 f"ER_CANDIDATE_LIMIT must be between {MIN_CANDIDATE_LIMIT} and {MAX_CANDIDATE_LIMIT}"
             )
-        if self.semantic_min_score is not None and not -1.0 <= self.semantic_min_score <= 1.0:
-            raise ValueError("ER_SEMANTIC_CANDIDATE_MIN_SCORE must be within [-1, 1]")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> CandidateConfig:
         try:
             limit = int(env.get("ER_CANDIDATE_LIMIT") or DEFAULT_CANDIDATE_LIMIT)
-            raw_min = env.get("ER_SEMANTIC_CANDIDATE_MIN_SCORE")
-            min_score = float(raw_min) if raw_min else None
         except ValueError as exc:
             raise ValueError(f"invalid ER candidate configuration: {exc}") from exc
-        return cls(
-            candidate_limit=limit,
-            semantic_enabled=(env.get("ER_SEMANTIC_CANDIDATES") or "").strip().lower()
-            in {"1", "true", "yes", "on"},
-            semantic_min_score=min_score,
-        )
+        return cls(candidate_limit=limit)
 
 
 def load_candidates(
@@ -250,44 +235,6 @@ class TrigramCandidateGenerator:
                     candidate.model_copy(update={"trigram_similarity": round(float(row.score), 4)})
                 )
         return candidates
-
-
-class SemanticCandidateGenerator:
-    """Dense Person-document neighbours of the incoming name (optional, ADR 0012).
-
-    Uses its own ER threshold, not the research relevance threshold. A hit only
-    adds a candidate to compare; its similarity is never identity evidence.
-    """
-
-    source = CandidateSource.SEMANTIC
-
-    def __init__(self, retriever: EntityRetriever, *, min_score: float | None = None) -> None:
-        self._retriever = retriever
-        self._min_score = min_score
-
-    def generate(
-        self, identity: PersonIdentityInput, *, limit: int, session: Session
-    ) -> list[PersonResolutionCandidate]:
-        try:
-            result = self._retriever.retrieve(
-                RetrievalQuery(
-                    text=identity.name, entity_type=RetrievalEntityType.PERSON, limit=limit
-                )
-            )
-        except RetrievalError as exc:
-            raise CandidateSourceUnavailableError(str(exc)) from exc
-        scores = {
-            hit.entity_id: similarity
-            for hit in result.hits
-            if (similarity := dense_similarity(hit)) is not None
-            and (self._min_score is None or similarity >= self._min_score)
-        }
-        loaded = load_candidates(session, list(scores), self.source)
-        return [
-            loaded[person_id].model_copy(update={"semantic_similarity": round(score, 4)})
-            for person_id, score in scores.items()
-            if person_id in loaded
-        ]
 
 
 @dataclass(frozen=True)

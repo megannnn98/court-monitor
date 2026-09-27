@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-FINAL_EVALUATION_DATASET_VERSION = "final-eval-v1"
+FINAL_EVALUATION_DATASET_VERSION = "final-eval-v2"
 DEFAULT_CORPUS_PATH = (
     Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "final_evaluation" / "corpus.json"
 )
@@ -67,15 +66,6 @@ class FinalRunExpectation(_Strict):
     findings_created: int | None = None
 
 
-class FinalResearchCheck(_Strict):
-    query: str
-    # What request intake is expected to produce (a fake LLM returns it).
-    request: dict[str, Any]
-    expected_identities: list[str]
-    # Articles the report must cite for the returned persons.
-    expected_evidence_articles: list[str] = Field(default_factory=list)
-
-
 class FinalCase(_Strict):
     id: str
     categories: list[str]
@@ -89,9 +79,7 @@ class FinalCase(_Strict):
     expected_extraction: dict[str, list[str]] = Field(default_factory=dict)
     identities: dict[str, FinalIdentity] = Field(default_factory=dict)
     run_expectations: list[FinalRunExpectation] = Field(default_factory=list)
-    research: list[FinalResearchCheck] = Field(default_factory=list)
     review_required: bool | None = None
-    requires_semantic_models: bool = False
     # A documented limitation this case demonstrates; it is still scored and
     # reported. Only the dangerous kinds listed in `known_limitation_kinds` are
     # excluded from the hard safety gates — any other dangerous error still fails.
@@ -121,10 +109,6 @@ class FinalCase(_Strict):
                 0 <= identity.seed_index < len(self.seed_persons)
             ):
                 raise ValueError(f"{self.id}/{key}: seed_index out of range")
-        for check in self.research:
-            unknown_keys = set(check.expected_identities) - set(self.identities)
-            if unknown_keys:
-                raise ValueError(f"{self.id}: research expects unknown {sorted(unknown_keys)}")
         return self
 
     @property

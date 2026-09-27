@@ -12,7 +12,7 @@ inside the false-link count of distinguishable cases.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from itertools import product
 from pathlib import Path
 from typing import Literal
@@ -29,9 +29,9 @@ from persons.resolution.candidates import (
     CompositeCandidateGenerator,
     ExactKeyCandidateGenerator,
     PersonCandidateGenerator,
-    SemanticCandidateGenerator,
     TrigramCandidateGenerator,
 )
+from persons.resolution.corpus import CorpusPerson, EntityRetrievalCorpus, seed_corpus
 from persons.resolution.decision import PersonResolutionDecisionPolicy, ResolutionThresholds
 from persons.resolution.models import (
     PersonIdentityInput,
@@ -39,8 +39,6 @@ from persons.resolution.models import (
     ScoredPersonCandidate,
 )
 from persons.resolution.service import PersonResolutionEngine
-from semantic_retrieval.evaluation import CorpusPerson, EntityRetrievalCorpus, seed_corpus
-from semantic_retrieval.retrievers import EntityRetriever
 
 A = PersonResolutionAction
 RECALL_KS = (1, 5, 10)
@@ -98,7 +96,7 @@ def pipeline_identity(surface: str) -> PersonIdentityInput:
 
 
 def seed_er_corpus(session_factory: sessionmaker[Session], corpus: ErCorpus) -> dict[str, int]:
-    """Seed persons (with events for semantic documents) as the pipeline stores them."""
+    """Seed persons (with their events) as the pipeline stores them."""
     ids = seed_corpus(session_factory, EntityRetrievalCorpus(persons=corpus.persons)).persons
     with session_factory.begin() as session:
         for person in corpus.persons:
@@ -198,7 +196,7 @@ def decision_metrics(outcomes: Sequence[CaseOutcome]) -> DecisionMetrics:
 # --- runs ------------------------------------------------------------------
 
 
-GeneratorSet = Literal["exact", "trigram", "semantic", "combined"]
+GeneratorSet = Literal["exact", "trigram", "combined"]
 
 
 class GeneratorRecall(BaseModel):
@@ -218,7 +216,6 @@ class ThresholdRow(BaseModel):
 class ErEvaluationRun(BaseModel):
     thresholds: ResolutionThresholds
     candidate_limit: int
-    semantic_enabled: bool
     decision: DecisionMetrics
     generators: list[GeneratorRecall]
     outcomes: list[CaseOutcome]
@@ -375,32 +372,21 @@ def run_er_evaluation(
     *,
     thresholds: ResolutionThresholds | None = None,
     config: CandidateConfig | None = None,
-    semantic_retriever: EntityRetriever | None = None,
-    index_semantic: Callable[[], None] | None = None,
     sweep: bool = False,
 ) -> ErEvaluationRun:
     """Seed the corpus into an empty disposable database and evaluate ER v2."""
     thresholds = thresholds or ResolutionThresholds()
     config = config or CandidateConfig()
     ids = seed_er_corpus(session_factory, corpus)
-    if index_semantic is not None:
-        index_semantic()
-    semantic: list[PersonCandidateGenerator] = (
-        [SemanticCandidateGenerator(semantic_retriever, min_score=config.semantic_min_score)]
-        if semantic_retriever is not None
-        else []
-    )
     lexical: list[PersonCandidateGenerator] = [
         ExactKeyCandidateGenerator(),
         TrigramCandidateGenerator(),
     ]
-    use_semantic = config.semantic_enabled and bool(semantic)
-    generators = lexical + (semantic if use_semantic else [])
     outcomes = evaluate_cases(
         session_factory,
         corpus.cases,
         ids,
-        generators=generators,
+        generators=lexical,
         policy=PersonResolutionDecisionPolicy(thresholds),
         config=config,
     )
@@ -423,24 +409,13 @@ def run_er_evaluation(
             limit=limit,
         ),
     ]
-    if semantic:
-        recall.append(
-            generator_recall(
-                session_factory,
-                corpus.cases,
-                ids,
-                name="semantic",
-                generators=semantic,
-                limit=limit,
-            )
-        )
     recall.append(
         generator_recall(
             session_factory,
             corpus.cases,
             ids,
             name="combined",
-            generators=lexical + semantic,
+            generators=lexical,
             limit=limit,
         )
     )
@@ -448,7 +423,6 @@ def run_er_evaluation(
     return ErEvaluationRun(
         thresholds=thresholds,
         candidate_limit=limit,
-        semantic_enabled=use_semantic,
         decision=decision_metrics(outcomes),
         generators=recall,
         outcomes=outcomes,
@@ -476,7 +450,7 @@ def format_er_evaluation(run: ErEvaluationRun) -> str:
         "",
         (
             f"## Decisions (auto-link >= {t.auto_link_min_score}, review >= {t.review_min_score}, "
-            f"margin > {t.min_margin}, semantic {'on' if run.semantic_enabled else 'off'})"
+            f"margin > {t.min_margin})"
         ),
         "",
         (

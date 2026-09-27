@@ -58,7 +58,6 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         detail = client.get(f"/persons/{person_id}/detail")
         ui_person = client.get(f"/ui/persons/{person_id}")
         article = client.get(f"/articles/{article_id}")
-        search = client.get("/search/articles", params={"query": "пикет"})
         # The seeded news is dated 2024: no period filter.
         # The seeded news is a fine without a criminal-code charge: an administrative case,
         # hidden by default (48c4851), so the page is asked for administrative cases too.
@@ -76,7 +75,6 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     # The card's heading writes the name surname first, as the tables do.
     assert "<title>Иванов Иван</title>" in ui_person.text
     assert article.json()["text"].startswith("Иван Иванов участвовал")
-    assert [hit["article_id"] for hit in search.json()] == [article_id]
     assert candidates_page.status_code == 200
     assert "<th>№</th>" in candidates_page.text
     assert "<td>1</td>" in candidates_page.text

@@ -16,25 +16,17 @@ from extraction.extractors import RuleBasedEntityExtractor
 from extraction.normalizers import RuleBasedMentionNormalizer
 from persecution.classifier import RuleBasedPersecutionClassifier
 from persons.resolution.service import RESOLVER_VERSION
-from research.reports.models import RESEARCH_REPORT_VERSION
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from semantic_retrieval.documents import (
-    EVENT_REPRESENTATION_VERSION,
-    PERSON_REPRESENTATION_VERSION,
-)
 
 # Hard safety gates: a false statement about a real person is never acceptable.
 MAX_FALSE_PERSON_LINKS = 0
 MAX_FALSE_RF_NOT_MATCHED = 0
-MAX_UNSUPPORTED_REPORT_CLAIMS = 0
 MAX_FALSE_ACTIONABLE_CANDIDATES = 0
 # Quality floors, deliberately below the current baseline (synthetic corpus):
 # they catch regressions without pretending the rules are perfect.
 # Baseline final-eval-v1: actionable precision 1.0, candidate recall 0.60,
-# persecution accuracy 0.55, extraction person F1 0.86, research precision 1.0,
-# fully correct cases 0.41.
+# persecution accuracy 0.55, extraction person F1 0.86, fully correct cases 0.41.
 MIN_ACTIONABLE_CANDIDATE_PRECISION = 0.9
-MIN_RESEARCH_PRECISION = 0.9
 MIN_CANDIDATE_RECALL = 0.5
 MIN_PERSECUTION_ACCURACY = 0.5
 MIN_EXTRACTION_PERSON_F1 = 0.8
@@ -48,7 +40,6 @@ KNOWN_SYSTEM_LIMITATIONS = [
         "The extraction normalizer mangles some female names and captures titles "
         "(e.g. «Судья Мария»); surname-only mentions are not extracted."
     ),
-    "Semantic retrieval cases need real embedding models and are skipped in the baseline.",
     "Synthetic corpus: metrics measure regressions and safety, not real-world accuracy.",
 ]
 
@@ -68,10 +59,6 @@ def component_versions() -> dict[str, str]:
             f"{RuleBasedRosfinmonitoringMatcher.matcher_name}"
             f"@{RuleBasedRosfinmonitoringMatcher.matcher_version}"
         ),
-        "semantic_representation": (
-            f"person@{PERSON_REPRESENTATION_VERSION},event@{EVENT_REPRESENTATION_VERSION}"
-        ),
-        "research_report": RESEARCH_REPORT_VERSION,
     }
 
 
@@ -101,13 +88,10 @@ def build_report(
     extraction = Counts()
     candidates = Counts()
     actionable = Counts()
-    research = Counts()
     for case in evaluated:
         extraction.merge(case.extraction)
         candidates.merge(case.candidates)
         actionable.merge(case.actionable)
-        for outcome in case.research:
-            research.merge(outcome.counts)
 
     auto_links = sum(case.er.auto_links for case in evaluated)
     auto_links_correct = sum(case.er.auto_links_correct for case in evaluated)
@@ -118,7 +102,6 @@ def build_report(
         political.add(expected="political" in accepted, actual=actual == "political")
     rf_pairs = [pair for case in evaluated for pair in case.rf]
     rf_correct = sum(1 for expected, actual in rf_pairs if expected == actual)
-    claims = sum(outcome.claims for case in evaluated for outcome in case.research)
     fully_correct = sum(1 for case in evaluated if case.fully_correct)
     review_cases = sum(1 for case in evaluated if case.review_required)
 
@@ -140,8 +123,6 @@ def build_report(
         "candidates": candidates.summary(),
         "actionable_candidates": actionable.summary(),
         "actionable_candidate_precision": actionable.precision,
-        "research": research.summary(),
-        "report_claims": claims,
         "review_rate": _rate(review_cases, len(evaluated)),
         "fully_correct_case_rate": fully_correct_case_rate,
     }
@@ -166,12 +147,6 @@ def build_report(
             gated_by_kind["false_rf_not_matched"] <= MAX_FALSE_RF_NOT_MATCHED,
         ),
         gate(
-            "unsupported_report_claims",
-            gated_by_kind["unsupported_report_claim"],
-            f"<= {MAX_UNSUPPORTED_REPORT_CLAIMS}",
-            gated_by_kind["unsupported_report_claim"] <= MAX_UNSUPPORTED_REPORT_CLAIMS,
-        ),
-        gate(
             "false_actionable_candidates",
             gated_by_kind["false_actionable_candidate"],
             f"<= {MAX_FALSE_ACTIONABLE_CANDIDATES}",
@@ -182,12 +157,6 @@ def build_report(
             actionable.precision,
             f">= {MIN_ACTIONABLE_CANDIDATE_PRECISION}",
             at_least(actionable.precision, MIN_ACTIONABLE_CANDIDATE_PRECISION),
-        ),
-        gate(
-            "research_precision",
-            research.precision,
-            f">= {MIN_RESEARCH_PRECISION}",
-            at_least(research.precision, MIN_RESEARCH_PRECISION),
         ),
         gate(
             "candidate_recall",
@@ -244,7 +213,6 @@ def build_report(
                     "false_political_classification",
                     "false_rf_not_matched",
                     "false_actionable_candidate",
-                    "unsupported_report_claim",
                 )
             },
             "gated_counts": dict(gated_by_kind),
@@ -256,9 +224,6 @@ def build_report(
         review_outcomes={
             "cases_requiring_review": review_cases,
             "pending_er_reviews": metrics["er_pending_reviews"],
-            "reports_requiring_review": sum(
-                1 for case in evaluated for outcome in case.research if outcome.review_required
-            ),
         },
         known_limitations=[
             {"case_id": case.case_id, "limitation": case.known_limitation}

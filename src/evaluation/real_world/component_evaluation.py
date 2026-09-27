@@ -22,14 +22,12 @@ from evaluation.real_world.golden import (
     GoldenDataset,
     GoldenPerson,
     RosfinExpectedStatus,
-    TextSpan,
 )
 from evaluation.real_world.metrics import Span, confusion_matrix, match_spans, rate
 from evaluation.real_world.results import (
     CandidateSection,
     EntityResolutionSection,
     ErrorComponent,
-    EvidenceSection,
     ExtractionSection,
     Failure,
     PersecutionSection,
@@ -38,9 +36,6 @@ from evaluation.real_world.results import (
     Severity,
 )
 from persecution.models import PersecutionClassificationStatus
-from research.models import MAX_RESEARCH_LIMIT, ResearchRequest
-from research.service import ResearchService
-from research.unit_of_work import SqlAlchemyResearchUnitOfWork
 
 POLITICAL = PersecutionClassificationStatus.POLITICAL.value
 NON_POLITICAL = PersecutionClassificationStatus.NON_POLITICAL.value
@@ -567,7 +562,6 @@ def evaluate_candidates(
     }
     candidates = Counts()
     findings = Counts()
-    checked: list[tuple[GoldenPerson, int]] = []
     for person in dataset.persons:
         if person.candidate is None:
             continue
@@ -579,8 +573,6 @@ def evaluate_candidates(
         findings.add(expected=expected, actual=finding)
         articles = _articles_of(dataset, person.golden_person_id)
         article = articles[0] if articles else None
-        if actual and person_id is not None:
-            checked.append((person, person_id))
         if actual != expected:
             failures.append(
                 _failure(
@@ -611,105 +603,6 @@ def evaluate_candidates(
         snapshot_id=dataset.version.rf_snapshot_id,
         candidates=candidates.summary(),
         findings=findings.summary(),
-        evidence=evaluate_evidence(dataset, state, session_factory, snapshot_id, checked, failures),
-    )
-
-
-def _covers(spans: Sequence[TextSpan], start: int, end: int) -> bool:
-    return any(span.overlaps(start, end) for span in spans)
-
-
-def evaluate_evidence(
-    dataset: GoldenDataset,
-    state: PipelineState,
-    session_factory: sessionmaker[Session],
-    snapshot_id: int,
-    checked: Sequence[tuple[GoldenPerson, int]],
-    failures: list[Failure],
-) -> EvidenceSection:
-    """Evidence the research layer returns for each actual main candidate."""
-    service = ResearchService(
-        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
-    )
-    articles_by_id = state.article_by_id()
-    golden_by_key = {article.key: article for article in dataset.articles}
-    with_evidence = spans_total = relevant = relevant_total = supports = 0
-    traceable = offset_valid = 0
-    for person, person_id in checked:
-        response = service.execute(
-            ResearchRequest.model_validate(
-                {
-                    "object_type": "person",
-                    "criteria": {"person_id": person_id, "snapshot_id": snapshot_id},
-                    "limit": MAX_RESEARCH_LIMIT,
-                }
-            )
-        )
-        results = response.results
-        evidence = results[0].evidence if results else []
-        sources = {source.article_id for source in results[0].sources} if results else set()
-        with_evidence += bool(evidence)
-        if not evidence:
-            failures.append(
-                _failure(
-                    ErrorComponent.REPORT,
-                    Severity.S1,
-                    "candidate_without_evidence",
-                    "main candidate has no evidence span",
-                    golden_person_id=person.golden_person_id,
-                )
-            )
-        persecution_spans = [
-            ref.span for ref in (person.persecution.evidence if person.persecution else [])
-        ]
-        for item in evidence:
-            spans_total += 1
-            db_article = articles_by_id.get(item.article_id)
-            traceable += item.article_id in sources and db_article is not None
-            if (
-                db_article is not None
-                and db_article.text[item.start_offset : item.end_offset] == item.text
-            ):
-                offset_valid += 1
-            golden_article = golden_by_key.get(db_article.key) if db_article else None
-            if golden_article is None:
-                continue
-            relevant_total += 1
-            own = [
-                m for m in golden_article.mentions if m.golden_person_id == person.golden_person_id
-            ]
-            own_events = [
-                e.evidence for e in golden_article.events if person.golden_person_id in e.person_ids
-            ]
-            others = [
-                m for m in golden_article.mentions if m.golden_person_id != person.golden_person_id
-            ]
-            is_own = _covers([*own, *own_events], item.start_offset, item.end_offset)
-            relevant += is_own
-            supports += _covers(
-                [*own_events, *[r for r in persecution_spans]], item.start_offset, item.end_offset
-            )
-            if not is_own and _covers(others, item.start_offset, item.end_offset):
-                failures.append(
-                    _failure(
-                        ErrorComponent.REPORT,
-                        Severity.S0,
-                        "cross_person_evidence",
-                        f"evidence {item.text[:120]!r} is about another person",
-                        article=golden_article,
-                        golden_person_id=person.golden_person_id,
-                        evidence=item.text[:200],
-                        dangerous_kind=DangerousKind.CROSS_PERSON_EVIDENCE,
-                    )
-                )
-    return EvidenceSection(
-        candidates_checked=len(checked),
-        with_evidence_rate=rate(with_evidence, len(checked)),
-        relevant_evidence_rate=rate(relevant, relevant_total),
-        supports_classification_rate=rate(supports, relevant_total),
-        traceable_rate=rate(traceable, spans_total),
-        offset_valid_rate=rate(offset_valid, spans_total),
-        evidence_spans=spans_total,
     )
 
 

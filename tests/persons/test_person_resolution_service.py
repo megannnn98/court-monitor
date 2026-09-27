@@ -10,7 +10,6 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions, seed_person
-from support.semantic_fakes import StaticRetriever
 
 from db.orm_models import (
     ArticleExtractionRunRecord,
@@ -26,7 +25,6 @@ from db.orm_models import (
 from extraction.resolution_service import ExtractionResolutionService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
-    CandidateConfig,
     CandidateGenerationResult,
     CompositeCandidateGenerator,
 )
@@ -39,7 +37,6 @@ from persons.resolution.service import (
     PersonResolutionEngine,
     PersonResolutionService,
 )
-from semantic_retrieval.models import RetrievalBackend, RetrievalUnavailableError
 
 A = PersonResolutionAction
 
@@ -129,27 +126,6 @@ def test_reordered_name_of_two_namesakes_goes_to_review(
     _, action, linked = _resolve(session_factory, "Иванов Алексей Сергеевич")
 
     assert (action, linked) == (A.REVIEW, None)
-
-
-def test_semantic_similarity_does_not_break_a_namesake_tie(
-    session_factory: sessionmaker[Session],
-) -> None:
-    first, second = (seed_person(session_factory, "Алексей Сергеевич Иванов") for _ in range(2))
-    retriever = StaticRetriever(
-        RetrievalBackend.HYBRID, [second, first], dense_scores={second: 0.99, first: 0.1}
-    )
-    service = _service(
-        session_factory, {"ER_SEMANTIC_CANDIDATES": "1"}, semantic_retriever=retriever
-    )
-
-    mention_id, action, linked = _resolve(session_factory, "Алексей Сергеевич Иванов", service)
-
-    assert (action, linked) == (A.REVIEW, None)
-    scores = {
-        c["candidate"]["person_id"]: c["score"]["resolution_score"]
-        for c in _decision(session_factory, mention_id).candidates
-    }
-    assert scores[first] == scores[second]
 
 
 def test_exact_candidate_with_a_weaker_competitor_auto_links(
@@ -320,38 +296,6 @@ def test_typo_match_neither_links_nor_promotes_the_typo_to_an_alias(
     assert _count(session_factory, PersonAliasRecord) == 0
 
 
-def test_semantic_similarity_trap_does_not_link_different_names(
-    session_factory: sessionmaker[Session],
-) -> None:
-    # Same kind of political story, different people: dense similarity is high.
-    activist = seed_person(session_factory, "Иван Иванов")
-    retriever = StaticRetriever(RetrievalBackend.HYBRID, [activist], dense_scores={activist: 0.97})
-    service = _service(
-        session_factory, {"ER_SEMANTIC_CANDIDATES": "1"}, semantic_retriever=retriever
-    )
-
-    mention_id, action, linked = _resolve(session_factory, "Пётр Сидоров", service)
-
-    assert action is A.CREATE_NEW
-    assert linked != activist
-    candidate = _decision(session_factory, mention_id).candidates[0]
-    assert candidate["candidate"]["sources"] == ["semantic"]
-    assert candidate["features"]["semantic_similarity"] == 0.97
-
-
-def test_semantic_outage_keeps_lexical_resolution_working(
-    session_factory: sessionmaker[Session],
-) -> None:
-    person = seed_person(session_factory, "Иван Иванович Иванов")
-    broken = StaticRetriever(RetrievalBackend.DENSE, error=RetrievalUnavailableError("down"))
-    service = _service(session_factory, {"ER_SEMANTIC_CANDIDATES": "1"}, semantic_retriever=broken)
-
-    mention_id, action, linked = _resolve(session_factory, "Иванов Иван Иванович", service)
-
-    assert (action, linked) == (A.AUTO_LINK, person)
-    assert _decision(session_factory, mention_id).semantic_source == "unavailable"
-
-
 def test_similar_existing_persons_are_reviewed_not_merged(
     session_factory: sessionmaker[Session],
 ) -> None:
@@ -384,7 +328,7 @@ class _SlowGenerator(CompositeCandidateGenerator):
 def _slow_service(persistence: SqlAlchemyPersonPersistence) -> PersonResolutionService:
     engine = PersonResolutionEngine(
         persistence=persistence,
-        generator=_SlowGenerator(build_generators(CandidateConfig())),
+        generator=_SlowGenerator(build_generators()),
         policy=PersonResolutionDecisionPolicy(ResolutionThresholds()),
     )
     return PersonResolutionService(engine=engine, persistence=persistence)

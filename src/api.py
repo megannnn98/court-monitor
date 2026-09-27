@@ -7,24 +7,18 @@ override.
 
 from web.app import app
 from web.dependencies import (
-    _get_research_graph,
     _get_session_factory,
     get_db,
     get_operation_registry,
     get_published_name_keys,
     get_readiness_checker,
-    get_research_query_graph,
-    get_research_service,
 )
 
 __all__ = [
-    "_get_research_graph",
     "_get_session_factory",
     "app",
     "get_db",
     "get_operation_registry",
     "get_published_name_keys",
     "get_readiness_checker",
-    "get_research_query_graph",
-    "get_research_service",
 ]

@@ -35,7 +35,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.orm_models import JunkScreenHoldRecord
 from monitoring.junk_screen import HELD, ArticleScreen, reason
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
-from semantic_retrieval.models import RetrievalEntityType
 
 logger = logging.getLogger("monitoring")
 
@@ -243,19 +242,6 @@ class JunkPurge:
                 ids,
             ).all()
         )
-        # The semantic index keeps events by id, without a foreign key.
-        session.execute(
-            text(
-                """
-                DELETE FROM semantic_documents
-                WHERE entity_type = :event AND entity_id IN (
-                    SELECT e.id FROM extracted_events e
-                    JOIN article_extraction_runs r ON r.id = e.extraction_run_id
-                    WHERE r.article_id IN :ids)
-                """
-            ).bindparams(bindparam("ids", expanding=True)),
-            {**ids, "event": RetrievalEntityType.EVENT.value},
-        )
         documents = list(
             session.scalars(
                 text(
@@ -293,12 +279,6 @@ class JunkPurge:
         )
         if not orphans:
             return 0
-        session.execute(
-            text(
-                "DELETE FROM semantic_documents WHERE entity_type = :person AND entity_id IN :ids"
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": orphans, "person": RetrievalEntityType.PERSON.value},
-        )
         session.execute(
             text("DELETE FROM persons WHERE id IN :ids").bindparams(
                 bindparam("ids", expanding=True)

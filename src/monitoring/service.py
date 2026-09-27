@@ -31,7 +31,6 @@ from monitoring.findings import NO_RF_SNAPSHOT, MonitoringFindingService
 from monitoring.locks import advisory_lock
 from monitoring.models import (
     DERIVED_SCOPE,
-    FailureKind,
     MonitoringRunAbortedError,
     MonitoringRunStatus,
     MonitoringRunView,
@@ -48,8 +47,6 @@ from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from semantic_retrieval.indexer import DEFAULT_BATCH_SIZE, SemanticIndexer
-from semantic_retrieval.models import RetrievalEntityType
 from sources.ingestion_errors import NoTextError
 from sources.models import ParsedArticle, SourceReference
 from sources.source_adapter import DiscoversUntilKnown, DocumentFetcher
@@ -58,7 +55,6 @@ from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 logger = logging.getLogger("monitoring")
 
-SEMANTIC_NOT_CONFIGURED = "not_configured"
 ENTITY_REVIEW_NOT_CONFIGURED = "not_configured"
 # A run waiting for a derived-stage lock refreshes its heartbeat at least this often.
 MAX_LOCK_WAIT_HEARTBEAT_SECONDS = 60.0
@@ -149,12 +145,9 @@ class MonitoringDependencies:
     rf_persistence: RosfinMatchPersistence
     snapshot_lookup: SqlAlchemyRosfinmonitoringSnapshotLookup
     findings: MonitoringFindingService
-    # None: semantic retrieval not configured (no QDRANT_URL); the stage is skipped.
-    create_semantic_indexer: Callable[[], SemanticIndexer] | None = None
     # None: no AI reviewer configured (ENTITY_REVIEW_PROVIDER=none); the stage is skipped
     # and pending ER decisions go straight to a human, as before (ADR 0020).
     entity_review: AutomatedEntityReviewService | None = None
-    semantic_batch_size: int = DEFAULT_BATCH_SIZE
 
 
 class MonitoringService:
@@ -162,7 +155,6 @@ class MonitoringService:
         self._deps = dependencies
         self._settings = settings
         self._repository = dependencies.repository
-        self._semantic_indexer: SemanticIndexer | None = None
 
     @property
     def settings(self) -> MonitoringSettings:
@@ -292,7 +284,7 @@ class MonitoringService:
             logging.ERROR if status is MonitoringRunStatus.FAILED else logging.INFO,
             "event=%s run_id=%s source=%s status=%s duration_s=%s discovered=%d ingested=%d skipped=%d "
             "failed=%d persons_created=%d persons_linked=%d reviews=%d classified=%d "
-            "rf_matched=%d semantic_indexed=%d findings_created=%d errors=%d",
+            "rf_matched=%d findings_created=%d errors=%d",
             event,
             run.id,
             run.source,
@@ -307,7 +299,6 @@ class MonitoringService:
             run.person_reviews_created,
             run.classifications_created,
             run.rf_matches_created,
-            run.semantic_entities_indexed,
             run.findings_created,
             run.error_count,
         )
@@ -396,7 +387,7 @@ class MonitoringService:
     def run_derived(
         self, *, trigger: MonitoringTrigger = MonitoringTrigger.DERIVED
     ) -> MonitoringRunView:
-        """Classification, RF matching, semantic indexing and findings without any web access."""
+        """Classification, RF matching and findings without any web access."""
         handle = self.start_derived_run(trigger=trigger)
         try:
             self._run_derived_stages(handle)
@@ -418,7 +409,6 @@ class MonitoringService:
         self.review_entities(handle)
         self.classify(handle)
         snapshot_id = self.match_rosfinmonitoring(handle)
-        self.index_semantic(handle)
         self.evaluate_findings(handle, snapshot_id=snapshot_id)
 
     # -- source stages ---------------------------------------------------------------------
@@ -783,85 +773,6 @@ class MonitoringService:
                 statuses=dict(statuses),
             )
         return snapshot.snapshot_id
-
-    def _indexer(self) -> SemanticIndexer | None:
-        if self._deps.create_semantic_indexer is None:
-            return None
-        if self._semantic_indexer is None:
-            self._semantic_indexer = self._deps.create_semantic_indexer()
-        return self._semantic_indexer
-
-    def index_semantic(self, handle: RunHandle) -> StageResult:
-        """Incremental: only stale persons/events. Qdrant is a derived index: an outage is
-        recorded as a retryable item failure and PostgreSQL work stays committed; the
-        next run (or `monitor-derived`) picks the still-stale entities up again."""
-        embedded = unchanged = deleted = 0
-        with (
-            self._derived_lock(handle, "semantic_indexing"),
-            self._stage(handle, MonitoringStage.SEMANTIC_INDEXING) as metrics,
-        ):
-            try:
-                indexer = self._indexer()
-            except Exception as exc:  # noqa: BLE001 - misconfiguration must not fail the run
-                kind = self._repository.record_failure(
-                    handle.run_id,
-                    stage=MonitoringStage.SEMANTIC_INDEXING,
-                    entity_type="semantic_index",
-                    error=exc,
-                )
-                metrics.update(status="failed", failure_kind=kind.value)
-                return StageResult(
-                    failed=1, metrics={"status": "failed", "failure_kind": kind.value}
-                )
-            if indexer is None:
-                metrics.update(status=SEMANTIC_NOT_CONFIGURED)
-                return StageResult(metrics={"status": SEMANTIC_NOT_CONFIGURED})
-            work = {
-                RetrievalEntityType.PERSON: self._deps.work.persons_pending_semantic_index(),
-                RetrievalEntityType.EVENT: self._deps.work.events_pending_semantic_index(),
-            }
-            metrics.update({f"pending_{kind.value}s": len(ids) for kind, ids in work.items()})
-            failure: FailureKind | None = None
-            size = self._deps.semantic_batch_size
-            for entity_type, entity_ids in work.items():
-                for start in range(0, len(entity_ids), size):
-                    batch = entity_ids[start : start + size]
-                    self._repository.heartbeat(handle.run_id)
-                    try:
-                        stats = indexer.index_entities(entity_type, batch)
-                    except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
-                        failure = self._repository.record_failure(
-                            handle.run_id,
-                            stage=MonitoringStage.SEMANTIC_INDEXING,
-                            entity_type=entity_type.value,
-                            external_ref=f"batch:{batch[0]}-{batch[-1]}",
-                            error=exc,
-                        )
-                        break
-                    embedded += stats.embedded
-                    unchanged += stats.unchanged
-                    deleted += stats.deleted
-                    self._repository.add_counters(
-                        handle.run_id, {"semantic_entities_indexed": stats.embedded}
-                    )
-                if failure is not None:
-                    # The index is most likely unavailable; later batches would fail the same way.
-                    break
-            status = "failed" if failure is not None else "indexed"
-            metrics.update(
-                status=status,
-                failure_kind=None if failure is None else failure.value,
-                embedded=embedded,
-                unchanged=unchanged,
-                deleted=deleted,
-            )
-        return StageResult(
-            processed=embedded + unchanged,
-            created=embedded,
-            skipped=unchanged,
-            failed=0 if failure is None else 1,
-            metrics={"status": status, "failure_kind": None if failure is None else failure.value},
-        )
 
     def evaluate_findings(self, handle: RunHandle, *, snapshot_id: int | None) -> StageResult:
         with (

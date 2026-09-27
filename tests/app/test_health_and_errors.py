@@ -10,9 +10,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from api import app, get_readiness_checker, get_research_service
+from api import app, get_db, get_readiness_checker
 from health import ReadinessChecker, expected_schema_revision
-from research.service import ResearchService
 
 
 @pytest.fixture
@@ -25,18 +24,10 @@ def _checker(
     session_factory: sessionmaker[Session] | None,
     *,
     revision: str | None = None,
-    qdrant_down: bool = False,
-    qdrant_configured: bool = True,
 ) -> ReadinessChecker:
-    def probe() -> None:
-        if qdrant_down:
-            raise ConnectionError("connection refused to http://secret-host:6333")
-
     return ReadinessChecker(
         session_factory,
         expected_revision=revision or expected_schema_revision(),
-        semantic_probe=probe if qdrant_configured else None,
-        together_configured=False,
         stale_run_after=timedelta(minutes=120),
     )
 
@@ -60,24 +51,7 @@ def test_ready_when_database_is_at_head(
     assert body["status"] == "ready"
     assert body["components"]["database"]["status"] == "ok"
     assert body["components"]["schema"] == {"status": "ok", "detail": expected_schema_revision()}
-    assert body["components"]["natural_language_research"]["status"] == "not_configured"
     assert body["components"]["monitoring"]["status"] == "ok"
-
-
-def test_qdrant_outage_is_degraded_not_unavailable(
-    client: TestClient, session_factory: sessionmaker[Session]
-) -> None:
-    app.dependency_overrides[get_readiness_checker] = lambda: _checker(
-        session_factory, qdrant_down=True
-    )
-
-    response = client.get("/health/ready")
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "degraded"
-    assert body["components"]["semantic_retrieval"]["status"] == "unavailable"
-    assert "secret-host" not in response.text
 
 
 def test_schema_behind_head_is_unavailable(
@@ -96,9 +70,7 @@ def test_schema_behind_head_is_unavailable(
 
 
 def test_missing_database_is_unavailable(client: TestClient) -> None:
-    app.dependency_overrides[get_readiness_checker] = lambda: _checker(
-        None, qdrant_configured=False
-    )
+    app.dependency_overrides[get_readiness_checker] = lambda: _checker(None)
 
     response = client.get("/health/ready")
 
@@ -117,9 +89,7 @@ def test_stale_monitoring_run_is_degraded(
                 "now() - interval '5 hours', now() - interval '5 hours')"
             )
         )
-    app.dependency_overrides[get_readiness_checker] = lambda: _checker(
-        session_factory, qdrant_configured=False
-    )
+    app.dependency_overrides[get_readiness_checker] = lambda: _checker(session_factory)
 
     body = client.get("/health/ready").json()
 
@@ -144,14 +114,12 @@ def test_untrusted_request_id_is_replaced(client: TestClient, header: str) -> No
 
 
 def test_unhandled_error_returns_error_model_without_traceback(client: TestClient) -> None:
-    def broken() -> ResearchService:
+    def broken() -> Session:
         raise RuntimeError("boom at /home/app/secret.py line 12")
 
-    app.dependency_overrides[get_research_service] = broken
+    app.dependency_overrides[get_db] = broken
 
-    response = client.post(
-        "/research", json={"object_type": "person"}, headers={"X-Request-ID": "req-1"}
-    )
+    response = client.get("/persons", headers={"X-Request-ID": "req-1"})
 
     assert response.status_code == 500
     assert response.json() == {
@@ -172,62 +140,9 @@ def test_openapi_lists_main_endpoints(client: TestClient) -> None:
     for path in (
         "/health/live",
         "/health/ready",
-        "/research",
-        "/research/query",
         "/candidates",
         "/monitoring/runs",
         "/monitoring/findings",
         "/person-resolution/reviews",
     ):
         assert path in paths
-
-
-def test_pgvector_semantic_retrieval_is_ready_without_qdrant(
-    client: TestClient, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """With SEMANTIC_VECTOR_BACKEND=pgvector the index lives in PostgreSQL: readiness
-    probes it there instead of reporting semantic retrieval as not configured."""
-    monkeypatch.setenv("SEMANTIC_VECTOR_BACKEND", "pgvector")
-    monkeypatch.delenv("QDRANT_URL", raising=False)
-    monkeypatch.setattr("web.dependencies._get_session_factory", lambda: session_factory)
-
-    response = client.get("/health/ready")
-
-    assert response.status_code == 200
-    assert response.json()["components"]["semantic_retrieval"] == {
-        "status": "ok",
-        "detail": "pgvector",
-    }
-
-
-def test_pgvector_without_its_tables_is_unavailable(
-    client: TestClient, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A database whose migration did not add pgvector's tables cannot serve the index."""
-    monkeypatch.setenv("SEMANTIC_VECTOR_BACKEND", "pgvector")
-    monkeypatch.delenv("QDRANT_URL", raising=False)
-    monkeypatch.setattr("web.dependencies._get_session_factory", lambda: session_factory)
-    monkeypatch.setattr(
-        "semantic_retrieval.pgvector_store.PgVectorStore.count",
-        lambda self, name: session_factory().execute(text("SELECT * FROM missing_table")),
-    )
-
-    response = client.get("/health/ready")
-
-    semantic = response.json()["components"]["semantic_retrieval"]
-    assert semantic["status"] == "unavailable"
-    assert "ProgrammingError" in semantic["detail"]
-
-
-def test_semantic_retrieval_not_configured_names_both_backends(
-    client: TestClient, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("SEMANTIC_VECTOR_BACKEND", raising=False)
-    monkeypatch.delenv("QDRANT_URL", raising=False)
-    monkeypatch.setattr("web.dependencies._get_session_factory", lambda: session_factory)
-
-    response = client.get("/health/ready")
-
-    semantic = response.json()["components"]["semantic_retrieval"]
-    assert semantic["status"] == "not_configured"
-    assert "SEMANTIC_VECTOR_BACKEND=pgvector" in semantic["detail"]

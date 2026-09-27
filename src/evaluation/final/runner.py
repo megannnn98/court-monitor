@@ -5,9 +5,6 @@ Per case, on a disposable database that is truncated first:
     Rosfinmonitoring snapshot + pre-existing persons (fixtures)
     → fixture source → MonitoringService.run_source (ingest, extract, ER v2,
       classification, RF matching, findings) — once per planned run
-    → LangGraph research workflow with a fixture request parser (the LLM is
-      replaced; everything after intake is the production code)
-    → ResearchReport → provenance verification
 
 No Internet, no Together AI, no embedding model in the deterministic baseline.
 """
@@ -20,8 +17,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from sqlalchemy import Engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import Engine, func, select
+from sqlalchemy.orm import Session
 
 from application import build_monitoring_service
 from candidates.models import RosfinmonitoringStatus
@@ -44,32 +41,31 @@ from evaluation.final.corpus import (
     FinalCase,
     FinalCorpus,
     FinalIdentity,
-    FinalResearchCheck,
     is_gated,
 )
-from evaluation.final.models import CaseResult, Counts, FalsePositive, ResearchOutcome
+from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
 from extraction.normalizers import RuleBasedMentionNormalizer
 from monitoring.models import MonitoringSettings
+from persecution.models import PersecutionClassificationStatus
 from persecution.queries import latest_persecution_classification_ids
 from persons.persistence import SqlAlchemyPersonPersistence
-from research.models import MAX_RESEARCH_LIMIT, ResearchRequest
-from research.planning.planner import ResearchPlanner
-from research.reports.provenance import verify_report_provenance
-from research.service import ResearchService
-from research.unit_of_work import SqlAlchemyResearchUnitOfWork
-from research.workflow.graph import build_research_graph, run_research_query
-from research.workflow.intake import PreparedRequestParser
-from research.workflow.models import WorkflowStatus
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from sources.source_registry import SOURCES
 
 logger = logging.getLogger("evaluation")
 
 PENDING_REVIEW = "pending_review"
 POLITICAL = "political"
+_PERSECUTION_REVIEW = (
+    PersecutionClassificationStatus.UNCERTAIN.value,
+    PersecutionClassificationStatus.NEEDS_REVIEW.value,
+)
+_RF_REVIEW = (
+    RosfinmonitoringStatus.AMBIGUOUS.value,
+    RosfinmonitoringStatus.NEEDS_REVIEW.value,
+    RosfinmonitoringStatus.INSUFFICIENT_DATA.value,
+)
 
 
 @dataclass
@@ -102,13 +98,6 @@ class FinalEvaluationRunner:
         return results
 
     def run_case(self, case: FinalCase) -> CaseResult:
-        if case.requires_semantic_models:
-            return CaseResult(
-                case_id=case.id,
-                categories=case.categories,
-                skipped_reason="requires real embedding models (not part of the baseline)",
-                known_limitation=case.known_limitation,
-            )
         truncate_disposable_tables(self._engine)
         session_factory = self._session_factory
         result = CaseResult(
@@ -124,7 +113,6 @@ class FinalEvaluationRunner:
             env={},
             sources={"ovd-info": fixture_source(upstream)},
             create_fetcher=UnusedFetcher,
-            use_env_semantic_indexer=False,
             # Runs follow each other within seconds; the settle interval would
             # only add idempotent recomputation.
             evidence_settle_interval=timedelta(0),
@@ -152,14 +140,9 @@ class FinalEvaluationRunner:
             self._score_extraction(case, state, result)
             person_by_identity = self._score_identities(case, state, result)
             self._score_derived(session, case, snapshot_id, person_by_identity, result)
-        self._score_research(case, person_by_identity, snapshot_id, result)
 
         pending = sum(1 for _, status in state.decisions.values() if status == PENDING_REVIEW)
-        result.review_required = (
-            pending > 0
-            or any(research.review_required for research in result.research)
-            or self._any_person_requires_review(snapshot_id)
-        )
+        result.review_required = pending > 0 or self._any_person_requires_review(snapshot_id)
         if case.review_required is not None:
             result.check(
                 "review_required",
@@ -169,16 +152,25 @@ class FinalEvaluationRunner:
         return result
 
     def _any_person_requires_review(self, snapshot_id: int | None) -> bool:
-        """The domain review policy (research warnings) over every person of the case."""
-        criteria: dict[str, object] = {} if snapshot_id is None else {"snapshot_id": snapshot_id}
-        response = ResearchService(
-            unit_of_work=SqlAlchemyResearchUnitOfWork(self._session_factory),
-        ).execute(
-            ResearchRequest.model_validate(
-                {"object_type": "person", "criteria": criteria, "limit": MAX_RESEARCH_LIMIT}
+        """A classification or a Rosfinmonitoring match of the case left for a person to settle."""
+        with self._session_factory() as session:
+            unsettled = session.scalar(
+                select(func.count(PersecutionClassificationRecord.id)).where(
+                    PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
+                    PersecutionClassificationRecord.status.in_(_PERSECUTION_REVIEW),
+                )
             )
-        )
-        return any(result.review_required for result in response.results)
+            if snapshot_id is not None:
+                unsettled = (unsettled or 0) + (
+                    session.scalar(
+                        select(func.count(RosfinMatchRecord.id)).where(
+                            RosfinMatchRecord.snapshot_id == snapshot_id,
+                            RosfinMatchRecord.status.in_(_RF_REVIEW),
+                        )
+                    )
+                    or 0
+                )
+        return bool(unsettled)
 
     # -- fixtures ---------------------------------------------------------------------------
 
@@ -464,107 +456,6 @@ class FinalEvaluationRunner:
                             gated=is_gated(case, "false_actionable_candidate"),
                         )
                     )
-
-    def _score_research(
-        self,
-        case: FinalCase,
-        person_by_identity: dict[str, int | None],
-        snapshot_id: int | None,
-        result: CaseResult,
-    ) -> None:
-        identity_by_person = {
-            person: key for key, person in person_by_identity.items() if person is not None
-        }
-        session_factory = self._session_factory
-        for index, check in enumerate(case.research):
-            outcome = self._run_research(session_factory, check)
-            returned = outcome.person_ids
-            expected = set(check.expected_identities)
-            actual_keys = {
-                identity_by_person.get(person, f"person:{person}") for person in returned
-            }
-            outcome.counts.tp = len(expected & actual_keys)
-            outcome.counts.fp = len(actual_keys - expected)
-            outcome.counts.fn = len(expected - actual_keys)
-            result.check(
-                f"research[{index}].status",
-                outcome.status == WorkflowStatus.COMPLETED.value,
-                f"workflow {outcome.status}: {outcome.error}",
-            )
-            result.check(
-                f"research[{index}].persons",
-                actual_keys == expected,
-                f"expected {sorted(expected)}, got {sorted(actual_keys)}",
-            )
-            result.check(
-                f"research[{index}].provenance",
-                not outcome.provenance_problems,
-                "; ".join(outcome.provenance_problems),
-            )
-            missing_evidence = sorted(
-                set(check.expected_evidence_articles) - outcome.cited_articles
-            )
-            result.check(
-                f"research[{index}].evidence",
-                not missing_evidence,
-                f"report does not cite {missing_evidence}",
-            )
-            for problem in outcome.provenance_problems:
-                result.false_positives.append(
-                    FalsePositive(
-                        kind="unsupported_report_claim",
-                        case_id=case.id,
-                        identity=None,
-                        detail=problem,
-                        gated=is_gated(case, "unsupported_report_claim"),
-                    )
-                )
-            result.research.append(outcome)
-
-    @staticmethod
-    def _run_research(
-        session_factory: sessionmaker[Session], check: FinalResearchCheck
-    ) -> ResearchOutcome:
-        graph = build_research_graph(
-            request_parser=PreparedRequestParser(check.request),
-            research_service=ResearchService(
-                unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
-            ),
-            snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
-            planner=ResearchPlanner(SOURCES),
-        )
-        query_result = run_research_query(graph, check.query)
-        outcome = ResearchOutcome(
-            query=check.query,
-            status=query_result.status.value,
-            error=None if query_result.error is None else query_result.error.code.value,
-            person_ids=[r.person.id for r in query_result.results if r.person.id is not None],
-        )
-        report = query_result.report
-        if report is None:
-            return outcome
-        outcome.report_status = report.status.value
-        outcome.review_required = report.review_required
-        outcome.claims = sum(len(item.claims) for item in report.items)
-        with session_factory() as session:
-            problems = verify_report_provenance(session, report, query_result.results)
-            cited_article_ids = {
-                citation.article_id
-                for item in report.items
-                for claim in item.claims
-                for citation in claim.citations
-            }
-            outcome.cited_articles = set(
-                session.scalars(
-                    select(SourceDocument.external_id)
-                    .join(ParsedArticleRecord, ParsedArticleRecord.document_id == SourceDocument.id)
-                    .where(ParsedArticleRecord.id.in_(cited_article_ids))
-                ).all()
-            )
-        outcome.provenance_problems = [
-            f"person {p.person_id} {p.claim_type or 'item'}: {p.problem}" for p in problems
-        ]
-        return outcome
 
 
 def run_final_evaluation(engine: Engine, corpus: FinalCorpus) -> Sequence[CaseResult]:

@@ -1,5 +1,5 @@
 {
-  "dataset_version": "final-eval-v1",
+  "dataset_version": "final-eval-v2",
   "cases": [
     {
       "id": "clear_positive_antiwar_detention",
@@ -47,25 +47,6 @@
           "er_review": false
         }
       },
-      "research": [
-        {
-          "query": "Найди политически преследуемых, которых нет в Росфинмониторинге",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "persecution_status": "political",
-              "rosfinmonitoring_status": "not_matched"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "sidorov"
-          ],
-          "expected_evidence_articles": [
-            "a1"
-          ]
-        }
-      ],
       "review_required": false
     },
     {
@@ -109,20 +90,6 @@
           "er_review": false
         }
       },
-      "research": [
-        {
-          "query": "Политические без РФМ",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "persecution_status": "political",
-              "rosfinmonitoring_status": "not_matched"
-            },
-            "limit": 50
-          },
-          "expected_identities": []
-        }
-      ],
       "review_required": false
     },
     {
@@ -435,20 +402,6 @@
           "seed_index": 1
         }
       },
-      "research": [
-        {
-          "query": "Политические без РФМ",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "persecution_status": "political",
-              "rosfinmonitoring_status": "not_matched"
-            },
-            "limit": 50
-          },
-          "expected_identities": []
-        }
-      ],
       "review_required": true
     },
     {
@@ -571,26 +524,7 @@
           "rf_status": "not_matched",
           "candidate": true
         }
-      },
-      "research": [
-        {
-          "query": "Найди Морозова",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "name": "Морозов"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "morozov"
-          ],
-          "expected_evidence_articles": [
-            "a1",
-            "a2"
-          ]
-        }
-      ]
+      }
     },
     {
       "id": "initials_same_person",
@@ -693,22 +627,7 @@
           "rf_status": "not_matched",
           "candidate": true
         }
-      },
-      "research": [
-        {
-          "query": "Покажи задержанных журналистов",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "name": "Новикова"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "novikova"
-          ]
-        }
-      ]
+      }
     },
     {
       "id": "female_in_rf_matched",
@@ -820,24 +739,7 @@
           "rf_status": "not_matched",
           "candidate": true
         }
-      },
-      "research": [
-        {
-          "query": "Политические без РФМ",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "persecution_status": "political",
-              "rosfinmonitoring_status": "not_matched"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "zaitsev",
-            "komarov"
-          ]
-        }
-      ]
+      }
     },
     {
       "id": "multiple_persons_mixed_context",
@@ -1085,42 +987,7 @@
           "rf_status": "not_matched",
           "candidate": true
         }
-      },
-      "research": [
-        {
-          "query": "Найди Мельникова",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "name": "Мельников"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "melnikov"
-          ],
-          "expected_evidence_articles": [
-            "a1",
-            "a2",
-            "a3"
-          ]
-        },
-        {
-          "query": "Кого арестовывали",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "event_types": [
-                "arrest"
-              ]
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "melnikov"
-          ]
-        }
-      ]
+      }
     },
     {
       "id": "person_several_events_one_article",
@@ -1254,20 +1121,6 @@
           "candidate": false
         }
       },
-      "research": [
-        {
-          "query": "Политические без РФМ",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "persecution_status": "political",
-              "rosfinmonitoring_status": "not_matched"
-            },
-            "limit": 50
-          },
-          "expected_identities": []
-        }
-      ],
       "review_required": true
     },
     {
@@ -1571,139 +1424,7 @@
           "rf_status": "not_matched",
           "candidate": false
         }
-      },
-      "research": [
-        {
-          "query": "Найди Сидорова",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "name": "Сидоров"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "sidorov"
-          ],
-          "expected_evidence_articles": [
-            "a1"
-          ]
-        },
-        {
-          "query": "Найди Петрова",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "name": "Петров"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "petrov"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "semantic_only_discoverable_query",
-      "categories": [
-        "semantic_only_query"
-      ],
-      "description": "Запрос другими словами, чем текст статьи.",
-      "articles": [
-        {
-          "external_id": "a1",
-          "title": "Дискредитация армии",
-          "text": "Суд оштрафовал Ольгу Смирнову за антивоенные надписи на ценниках в супермаркете."
-        }
-      ],
-      "rf_snapshot": [
-        [
-          "Петр Петров",
-          "03.03.1970"
-        ],
-        [
-          "Олег Соловьев",
-          "11.11.1981"
-        ]
-      ],
-      "identities": {
-        "smirnova": {
-          "mentions": [
-            {
-              "article": "a1",
-              "surface": "Ольгу Смирнову"
-            }
-          ],
-          "persecution": [
-            "political"
-          ]
-        }
-      },
-      "research": [
-        {
-          "query": "преследование за высказывания против военных действий",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "semantic_query": "преследование за высказывания против военных действий"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "smirnova"
-          ]
-        }
-      ],
-      "requires_semantic_models": true
-    },
-    {
-      "id": "irrelevant_semantic_query",
-      "categories": [
-        "irrelevant_semantic_query"
-      ],
-      "description": "Нерелевантный запрос не должен находить людей.",
-      "articles": [
-        {
-          "external_id": "a1",
-          "title": "Задержание",
-          "text": "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге в Москве."
-        }
-      ],
-      "rf_snapshot": [
-        [
-          "Петр Петров",
-          "03.03.1970"
-        ],
-        [
-          "Олег Соловьев",
-          "11.11.1981"
-        ]
-      ],
-      "identities": {
-        "sidorov": {
-          "mentions": [
-            {
-              "article": "a1",
-              "surface": "Сергей Сидоров"
-            }
-          ]
-        }
-      },
-      "research": [
-        {
-          "query": "рецепт борща со сметаной",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "semantic_query": "рецепт борща со сметаной"
-            },
-            "limit": 50
-          },
-          "expected_identities": []
-        }
-      ],
-      "requires_semantic_models": true
+      }
     },
     {
       "id": "religious_persecution",
@@ -2174,27 +1895,7 @@
           "rf_status": "not_matched",
           "candidate": true
         }
-      },
-      "research": [
-        {
-          "query": "Кого арестовали",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "event_types": [
-                "arrest"
-              ]
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "kuznetsov"
-          ],
-          "expected_evidence_articles": [
-            "a1"
-          ]
-        }
-      ]
+      }
     },
     {
       "id": "single_existing_namesake_auto_link",
@@ -2307,25 +2008,7 @@
           "rf_status": "not_matched",
           "candidate": true
         }
-      },
-      "research": [
-        {
-          "query": "Найди Зайцева",
-          "request": {
-            "object_type": "person",
-            "criteria": {
-              "name": "Зайцев"
-            },
-            "limit": 50
-          },
-          "expected_identities": [
-            "zaitsev"
-          ],
-          "expected_evidence_articles": [
-            "a1"
-          ]
-        }
-      ]
+      }
     },
     {
       "id": "negative_admin_traffic",

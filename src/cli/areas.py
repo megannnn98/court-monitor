@@ -1,8 +1,8 @@
-"""Areas whose commands are defined and run by their own `cli` module: semantic retrieval,
-person-resolution review, monitoring and the evaluations.
+"""Areas whose commands are defined and run by their own `cli` module: person-resolution
+review, monitoring and the evaluations.
 
-The evaluations with a disposable database (`evaluate-retrieval`, `evaluate-er`,
-`evaluate-final`, the real-world commands) get handlers that never touch the context,
+The evaluations with a disposable database (`evaluate-er`, `evaluate-final`,
+the real-world commands) get handlers that never touch the context,
 so they can never reach the database in DATABASE_URL.
 """
 
@@ -20,20 +20,6 @@ from persons.resolution.cli import (
     run_evaluate_er,
     run_person_resolution_command,
 )
-from semantic_retrieval.cli import (
-    add_semantic_arguments,
-    run_evaluate_retrieval,
-    run_semantic_command,
-)
-
-
-def register_semantic(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    register_group(
-        subparsers,
-        add_semantic_arguments,
-        _semantic,
-        overrides={"evaluate-retrieval": _evaluate_retrieval},
-    )
 
 
 def register_person_resolution(
@@ -56,10 +42,6 @@ def register_evaluation(subparsers: argparse._SubParsersAction[argparse.Argument
     register_group(subparsers, add_real_world_arguments, _real_world)
 
 
-def _semantic(args: argparse.Namespace, context: CliContext) -> None:
-    run_semantic_command(args, context.session_factory)
-
-
 def _person_resolution(args: argparse.Namespace, context: CliContext) -> None:
     run_person_resolution_command(
         args, context.session_factory, entity_review=context.settings.entity_review
@@ -68,10 +50,6 @@ def _person_resolution(args: argparse.Namespace, context: CliContext) -> None:
 
 def _monitoring(args: argparse.Namespace, context: CliContext) -> None:
     run_monitoring_command(args, context.session_factory)
-
-
-def _evaluate_retrieval(args: argparse.Namespace, context: CliContext) -> None:
-    run_evaluate_retrieval(args)
 
 
 def _evaluate_er(args: argparse.Namespace, context: CliContext) -> None:

@@ -85,7 +85,6 @@ def test_ovd_info_listing_to_persons_without_internet(
         sources={OVD_INFO.name: OVD_INFO},
         create_http_client=lambda: httpx.AsyncClient(transport=transport),
         create_fetcher=lambda: MockServerFetcher(transport),
-        use_env_semantic_indexer=False,
     )
 
     first = service.run_source("ovd-info")

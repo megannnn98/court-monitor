@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from pydantic import BaseModel
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -10,7 +13,13 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from research.workflow.models import RosfinmonitoringSnapshotSummary
+
+
+class RosfinmonitoringSnapshotSummary(BaseModel):
+    snapshot_id: int
+    snapshot_date: datetime
+    entry_count: int
+    match_count: int
 
 
 class SqlAlchemyRosfinmonitoringSnapshotLookup:

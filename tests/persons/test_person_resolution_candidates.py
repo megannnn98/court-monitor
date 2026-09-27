@@ -1,11 +1,10 @@
-"""ER v2 candidate generation on PostgreSQL (pg_trgm) and a fake semantic retriever."""
+"""ER v2 candidate generation on PostgreSQL (pg_trgm)."""
 
 from __future__ import annotations
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import matching_key, seed_person
-from support.semantic_fakes import StaticRetriever
 
 from db.orm_models import PersonRecord
 from persons.models import PersonStatus
@@ -13,7 +12,6 @@ from persons.resolution.candidates import (
     CandidateConfig,
     CompositeCandidateGenerator,
     ExactKeyCandidateGenerator,
-    SemanticCandidateGenerator,
     TrigramCandidateGenerator,
 )
 from persons.resolution.models import (
@@ -21,7 +19,6 @@ from persons.resolution.models import (
     PersonIdentityInput,
     SemanticSourceStatus,
 )
-from semantic_retrieval.models import RetrievalBackend, RetrievalUnavailableError
 
 
 def _identity(name: str) -> PersonIdentityInput:
@@ -124,62 +121,19 @@ def test_candidate_limit_and_deterministic_order(session_factory: sessionmaker[S
     assert scores == sorted(scores, reverse=True)
 
 
-def test_semantic_candidates_use_their_own_threshold(
-    session_factory: sessionmaker[Session],
-) -> None:
-    close = seed_person(session_factory, "Иван Иванов")
-    far = seed_person(session_factory, "Пётр Сидоров")
-    retriever = StaticRetriever(
-        RetrievalBackend.HYBRID, [close, far], dense_scores={close: 0.9, far: 0.5}
-    )
-
-    with session_factory() as session:
-        found = SemanticCandidateGenerator(retriever, min_score=0.6).generate(
-            _identity("Иван Иванов"), limit=10, session=session
-        )
-
-    assert _ids(found) == [close]
-    assert found[0].semantic_similarity == 0.9
-    assert found[0].sources == [CandidateSource.SEMANTIC]
-
-
-def test_composite_merges_sources_and_reports_semantic_status(
-    session_factory: sessionmaker[Session],
-) -> None:
-    person = seed_person(session_factory, "Иван Иванов")
-    semantic = SemanticCandidateGenerator(
-        StaticRetriever(RetrievalBackend.HYBRID, [person], dense_scores={person: 0.8})
-    )
+def test_composite_merges_sources_by_person(session_factory: sessionmaker[Session]) -> None:
+    seed_person(session_factory, "Иван Иванов")
     composite = CompositeCandidateGenerator(
-        [ExactKeyCandidateGenerator(), TrigramCandidateGenerator(), semantic]
+        [ExactKeyCandidateGenerator(), TrigramCandidateGenerator()]
     )
 
     with session_factory() as session:
         result = composite.generate(_identity("Иван Иванов"), limit=10, session=session)
 
     (candidate,) = result.candidates
-    assert set(candidate.sources) == {
-        CandidateSource.EXACT_KEY,
-        CandidateSource.TRIGRAM,
-        CandidateSource.SEMANTIC,
-    }
-    assert candidate.semantic_similarity == 0.8
+    assert set(candidate.sources) == {CandidateSource.EXACT_KEY, CandidateSource.TRIGRAM}
     assert candidate.trigram_similarity == 1.0
-    assert result.semantic_source is SemanticSourceStatus.OK
-
-
-def test_semantic_outage_keeps_lexical_candidates(session_factory: sessionmaker[Session]) -> None:
-    person = seed_person(session_factory, "Иван Иванов")
-    broken = SemanticCandidateGenerator(
-        StaticRetriever(RetrievalBackend.DENSE, error=RetrievalUnavailableError("down"))
-    )
-    composite = CompositeCandidateGenerator([TrigramCandidateGenerator(), broken])
-
-    with session_factory() as session:
-        result = composite.generate(_identity("Иван Иванов"), limit=10, session=session)
-
-    assert _ids(result.candidates) == [person]
-    assert result.semantic_source is SemanticSourceStatus.UNAVAILABLE
+    assert result.semantic_source is SemanticSourceStatus.DISABLED
 
 
 def test_candidate_limit_below_two_is_rejected() -> None:

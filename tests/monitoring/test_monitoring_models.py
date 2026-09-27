@@ -14,7 +14,6 @@ from monitoring.models import (
     MonitoringSettings,
     classify_failure,
 )
-from semantic_retrieval.models import IndexModelMismatchError, RetrievalUnavailableError
 from sources.ingestion_errors import (
     ParseError,
     PermanentDiscoveryError,
@@ -80,8 +79,6 @@ def test_settings_reject_invalid_values(env: dict[str, str]) -> None:
         (PersistenceError("db"), FailureKind.RETRYABLE),
         (OperationalError("select 1", {}, Exception("connection refused")), FailureKind.RETRYABLE),
         (httpx.ConnectTimeout("timeout"), FailureKind.RETRYABLE),
-        (RetrievalUnavailableError("qdrant down"), FailureKind.RETRYABLE),
-        (IndexModelMismatchError("other model"), FailureKind.NON_RETRYABLE),
         (PermanentFetchError("HTTP 404"), FailureKind.NON_RETRYABLE),
         (PermanentDiscoveryError("HTTP 403"), FailureKind.NON_RETRYABLE),
         (ParseError("no title"), FailureKind.NON_RETRYABLE),

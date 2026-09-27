@@ -55,7 +55,6 @@ services:
     deploy: *gpu-device
     environment:
       <<: *person-ner-environment
-      QDRANT_URL: ${MONITORING_QDRANT_URL:-http://qdrant:6333}
     volumes:
       - hf_cache:/opt/hf_cache
 

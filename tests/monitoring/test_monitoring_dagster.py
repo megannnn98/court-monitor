@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import dagster as dg
 import pytest
-from qdrant_client import QdrantClient
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
-from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service, semantic_indexer
+from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
 from monitoring.dagster.definitions import build_definitions
 from monitoring.dagster.jobs import MONITORING_DERIVED_JOB, MONITORING_JOB, SOURCE_TAG
-from monitoring.models import MonitoringRunStatus, MonitoringSettings, MonitoringTrigger
+from monitoring.models import (
+    MonitoringRunStatus,
+    MonitoringSettings,
+    MonitoringStage,
+    MonitoringTrigger,
+)
 from monitoring.service import RunHandle, StageResult
-from semantic_retrieval.models import RetrievalUnavailableError
-from semantic_retrieval.vector_store import QdrantVectorStore, VectorStore
 from sources.source_registry import SOURCES
 
 EXPECTED_PARENTS = {
@@ -27,8 +27,7 @@ EXPECTED_PARENTS = {
     "ai_entity_review": {"person_resolution"},
     "persecution_classification": {"ai_entity_review"},
     "rosfinmonitoring_matching": {"persecution_classification"},
-    "semantic_indexing": {"rosfinmonitoring_matching"},
-    "monitoring_summary": {"semantic_indexing"},
+    "monitoring_summary": {"rosfinmonitoring_matching"},
 }
 
 
@@ -127,45 +126,35 @@ def test_stage_failure_fails_the_monitoring_run_and_the_dagster_run(
     assert run.error_message == "ConnectionError: listing unreachable"
 
 
-class FlakyStore:
-    """In-process Qdrant that is unavailable for the first `failures` collection checks."""
-
-    def __init__(self, failures: int) -> None:
-        self.failures = failures
-        self._store = QdrantVectorStore(QdrantClient(":memory:"))
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._store, name)
-
-    def ensure_collection(self, name: str, vector_size: int) -> None:
-        if self.failures > 0:
-            self.failures -= 1
-            raise RetrievalUnavailableError("Qdrant unavailable during ensure_collection")
-        self._store.ensure_collection(name, vector_size)
-
-
-def test_derived_job_retries_retryable_semantic_failures(
-    session_factory: sessionmaker[Session],
+def test_derived_job_retries_retryable_item_failures(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A derived run that finishes with a retryable item failure is retried."""
     upstream = FakeUpstream()
     upstream.publish("sidorov", SIDOROV)
-    store = FlakyStore(failures=1)
-    service = build_service(
-        session_factory,
-        {"ovd-info": upstream},
-        create_semantic_indexer=lambda: semantic_indexer(session_factory, cast(VectorStore, store)),
-    )
-    service.run_source("ovd-info")  # its semantic stage consumes the single failure
-    store.failures = 1
+    service = build_service(session_factory, {"ovd-info": upstream})
+    service.run_source("ovd-info")
+    original = service.classify
+    calls: list[int] = []
+
+    def flaky(handle: RunHandle) -> StageResult:
+        calls.append(1)
+        if len(calls) == 1:
+            service.repository.record_failure(
+                handle.run_id,
+                stage=MonitoringStage.CLASSIFICATION,
+                entity_type="person",
+                error=OperationalError("SELECT 1", {}, Exception("server closed the connection")),
+            )
+        return original(handle)
+
+    monkeypatch.setattr(service, "classify", flaky)
     defs = build_definitions(service.settings, monitoring=service, derived_retry_delay_seconds=0)
 
     result = defs.resolve_job_def(MONITORING_DERIVED_JOB).execute_in_process()
 
     assert result.success
-    retries = [
-        event for event in result.all_events if event.event_type_value == "STEP_UP_FOR_RETRY"
-    ]
-    assert len(retries) == 1
+    assert _retries(result) == 1
     derived = [
         run
         for run in reversed(service.repository.list_runs())
@@ -175,7 +164,6 @@ def test_derived_job_retries_retryable_semantic_failures(
         MonitoringRunStatus.COMPLETED_WITH_ERRORS,
         MonitoringRunStatus.COMPLETED,
     ]
-    assert derived[1].semantic_entities_indexed == 2
     assert upstream.discoveries == 1
 
 

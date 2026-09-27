@@ -5,7 +5,6 @@ Order (one disposable database):
     namesake benchmark (existing ER evaluation on its own seeded persons)
     → temporal corpus run T0..T3 (with repeated runs in --full)
     → component metrics against the selected golden split
-    → retrieval benchmark → research benchmark
     → --full: DB invariants, workload, performance, manual review continuation,
       then failure-injection scenarios on fresh databases
     → safety gates → JSON + Markdown report
@@ -14,13 +13,10 @@ Order (one disposable database):
 from __future__ import annotations
 
 import logging
-import os
 from collections import Counter
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -53,25 +49,20 @@ from evaluation.real_world.models import (
     TemporalPeriod,
 )
 from evaluation.real_world.monitoring_simulation import (
-    TokenHashEmbedder,
     crash_recovery,
     finding_periods,
     manual_review_continuation,
     no_rf_snapshot,
     performance,
     postgres_interruption,
-    qdrant_outage,
     review_workload,
     rf_review_findings,
     run_temporal_simulation,
-    semantic_indexer_factory,
     source_failures,
-    together_failure,
 )
 from evaluation.real_world.namesake import NamesakeCorpus, evaluate_namesakes
 from evaluation.real_world.policy import EvaluationPolicy
 from evaluation.real_world.report import failure_summary, recommended_next_work
-from evaluation.real_world.research_eval import ResearchQueryCase, evaluate_research
 from evaluation.real_world.results import (
     DatasetSummary,
     Failure,
@@ -79,35 +70,18 @@ from evaluation.real_world.results import (
     PerformanceSection,
     Provenance,
     RealWorldValidationReport,
-    RetrievalSection,
     SectionStatus,
     SplitCounts,
 )
-from evaluation.real_world.retrieval_eval import RealRetrievalQuery, evaluate_retrieval
 from evaluation.real_world.safety import (
     GateInputs,
     RealWorldSafetyGateEvaluator,
     overall_status,
     workload_total,
 )
-from evaluation.real_world.state_snapshot import check_invariants, table_counts
-from research.workflow.intake import ResearchRequestParser
-from semantic_retrieval.document_store import (
-    PostgresLexicalEntityRetriever,
-    SqlAlchemySemanticDocumentRepository,
-)
-from semantic_retrieval.factory import SemanticComponents, create_vector_store
-from semantic_retrieval.indexer import SemanticIndexer
-from semantic_retrieval.models import RetrievalBackend, RetrievalEntityType, RetrievalError
-from semantic_retrieval.retrievers import EntityRetriever
+from evaluation.real_world.state_snapshot import check_invariants
 
 logger = logging.getLogger("evaluation.real_world")
-
-REAL_WORLD_COLLECTIONS = {
-    RetrievalEntityType.PERSON: "eval_real_world_persons",
-    RetrievalEntityType.EVENT: "eval_real_world_events",
-}
-IN_MEMORY_QDRANT = ":memory:"
 
 STATIC_LIMITATIONS = [
     "Golden annotations are DRAFT until a human verifies them; DRAFT metrics are preliminary.",
@@ -132,10 +106,6 @@ class EvaluationOptions:
     split: GoldenSplit | None
     verified_only: bool
     full: bool
-    semantic_model: bool
-    qdrant_url: str | None
-    llm_parser: ResearchRequestParser | None = None
-    llm_not_run_reason: str | None = None
 
 
 @dataclass
@@ -148,8 +118,6 @@ class EvaluationInputs:
     policy_hash: str
     rf_snapshot: RfSnapshotFile
     namesakes: NamesakeCorpus | None
-    retrieval_queries: list[RealRetrievalQuery] = field(default_factory=list)
-    research_queries: list[ResearchQueryCase] = field(default_factory=list)
 
 
 class EvaluationDataError(ValueError):
@@ -167,109 +135,6 @@ def validate_inputs(inputs: EvaluationInputs, texts: dict[str, str]) -> None:
         )
     if problems:
         raise EvaluationDataError("\n".join(problems))
-
-
-@dataclass
-class SemanticSetup:
-    create_indexer: Callable[[], SemanticIndexer]
-    retrievers: Callable[[], dict[RetrievalBackend, EntityRetriever]]
-    embedding_model_id: str | None
-    not_run_reason: str | None
-    available: bool
-    # Extra build_research_graph arguments for semantic plans (production wiring).
-    research_graph_extras: Callable[[], dict[str, Any]] = dict
-
-
-def semantic_setup(
-    session_factory: sessionmaker[Session], options: EvaluationOptions
-) -> SemanticSetup:
-    lexical = PostgresLexicalEntityRetriever(session_factory)
-    if not options.semantic_model:
-        # Documents (and the lexical backend) still work with a token-hash index in memory.
-        return SemanticSetup(
-            create_indexer=semantic_indexer_factory(
-                session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-            ),
-            retrievers=lambda: {RetrievalBackend.LEXICAL: lexical},
-            embedding_model_id=None,
-            not_run_reason="real embedding model not requested (--semantic-model)",
-            available=False,
-        )
-    if options.qdrant_url is None:
-        return SemanticSetup(
-            create_indexer=semantic_indexer_factory(
-                session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-            ),
-            retrievers=lambda: {RetrievalBackend.LEXICAL: lexical},
-            embedding_model_id=None,
-            not_run_reason="no Qdrant URL (--qdrant-url or QDRANT_TEST_URL)",
-            available=False,
-        )
-    try:
-        import sentence_transformers  # noqa: F401
-    except ImportError:
-        return SemanticSetup(
-            create_indexer=semantic_indexer_factory(
-                session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-            ),
-            retrievers=lambda: {RetrievalBackend.LEXICAL: lexical},
-            embedding_model_id=None,
-            not_run_reason="sentence-transformers not installed (uv sync --group semantic)",
-            available=False,
-        )
-    from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder
-
-    embedder = SentenceTransformerEmbedder(EmbeddingConfig.from_env())
-    store = create_vector_store(options.qdrant_url)
-    components = SemanticComponents(
-        session_factory=session_factory,
-        store=store,
-        embedder=embedder,
-        collections=REAL_WORLD_COLLECTIONS,
-    )
-    try:
-        for collection in REAL_WORLD_COLLECTIONS.values():
-            store.recreate_collection(collection, embedder.dimension)
-    except RetrievalError as exc:
-        # Model or Qdrant unavailable (e.g. CUDA memory taken by another process):
-        # infrastructure, reported as NOT_RUN, never a retrieval quality result.
-        return SemanticSetup(
-            create_indexer=semantic_indexer_factory(
-                session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-            ),
-            retrievers=lambda: {RetrievalBackend.LEXICAL: lexical},
-            embedding_model_id=None,
-            not_run_reason=f"semantic retrieval unavailable: {exc}",
-            available=False,
-        )
-    return SemanticSetup(
-        create_indexer=components.indexer,
-        retrievers=lambda: {
-            RetrievalBackend.LEXICAL: lexical,
-            RetrievalBackend.DENSE: components.retriever(RetrievalBackend.DENSE),
-            RetrievalBackend.HYBRID: components.retriever(RetrievalBackend.HYBRID),
-        },
-        embedding_model_id=embedder.model_id,
-        not_run_reason=None,
-        available=True,
-        research_graph_extras=lambda: {
-            "candidate_retriever": components.retriever(RetrievalBackend.HYBRID),
-            "relevance_policy": components.relevance_policy(),
-        },
-    )
-
-
-def semantic_index_problem(counts: Mapping[str, int]) -> str | None:
-    """Why semantic retrieval cannot be measured on this run, if it cannot."""
-    documents, indexed = counts.get("semantic_documents", 0), counts.get("semantic_indexed", 0)
-    if documents == 0:
-        return "semantic index is empty"
-    if indexed < documents:
-        return (
-            f"semantic index incomplete: {indexed}/{documents} entities indexed "
-            "(see monitoring_run_items)"
-        )
-    return None
 
 
 def dataset_summary(inputs: EvaluationInputs, selected: GoldenDataset) -> DatasetSummary:
@@ -305,8 +170,6 @@ def dataset_summary(inputs: EvaluationInputs, selected: GoldenDataset) -> Datase
         evaluated_articles=len(selected.articles),
         evaluated_persons=len(selected.persons),
         namesake_cases=len(inputs.namesakes.cases) if inputs.namesakes else 0,
-        retrieval_queries=len(inputs.retrieval_queries),
-        research_queries=len(inputs.research_queries),
     )
 
 
@@ -331,9 +194,6 @@ def run_evaluation(
 
     # 2. Corpus run.
     runner = CorpusRunner(engine=engine, manifest=inputs.manifest, cache=inputs.cache)
-    semantic = semantic_setup(runner.session_factory, options)
-    runner.create_semantic_indexer = semantic.create_indexer
-    runner.rebuild_service()
     temporal = run_temporal_simulation(runner, inputs.rf_snapshot, rerun=options.full)
     snapshot_id = runner.snapshot_id
     session_factory = runner.session_factory
@@ -363,40 +223,6 @@ def run_evaluation(
         if f.kind == "false_person_link" and (f.golden_person_id, f.kind) not in split_link_keys
     )
 
-    retrieval_queries = [q for q in inputs.retrieval_queries if _in_split(options.split, q.split)]
-    retrievers = semantic.retrievers()
-    retrieval_not_run = semantic.not_run_reason
-    index_problem = semantic_index_problem(table_counts(engine)) if semantic.available else None
-    if index_problem is not None:
-        # Infrastructure, not retrieval quality: no ranking over a missing index.
-        retrievers = {}
-        retrieval_not_run = index_problem
-    retrieval: RetrievalSection = evaluate_retrieval(
-        queries=retrieval_queries,
-        dataset=identity_scope,
-        state=state,
-        identity=identity,
-        retrievers=retrievers,
-        embedding_model_id=semantic.embedding_model_id,
-        not_run_reason=retrieval_not_run,
-        failures=failures,
-        document_texts=SqlAlchemySemanticDocumentRepository(session_factory).get_texts,
-    )
-    research_queries = [q for q in inputs.research_queries if _in_split(options.split, q.split)]
-    research = evaluate_research(
-        cases=research_queries,
-        dataset=identity_scope,
-        state=state,
-        identity=identity,
-        session_factory=session_factory,
-        snapshot_id=snapshot_id,
-        failures=failures,
-        llm_parser=options.llm_parser,
-        llm_not_run_reason=options.llm_not_run_reason,
-        semantic_available=semantic.available and index_problem is None,
-        graph_extras=semantic.research_graph_extras,
-    )
-
     # 4. Monitoring E2E.
     article_count = len(inputs.manifest.articles)
     monitoring = MonitoringSection(
@@ -414,8 +240,7 @@ def run_evaluation(
     perf: PerformanceSection = performance(engine, temporal, article_count)
     monitoring.scenarios.append(rf_review_findings(session_factory, snapshot_id))
     if options.full:
-        monitoring.scenarios.append(manual_review_continuation(runner, has_semantic=True))
-        monitoring.scenarios.append(together_failure(runner))
+        monitoring.scenarios.append(manual_review_continuation(runner))
         periods = articles_by_period(inputs.manifest)
         baseline = periods[TemporalPeriod.T2]
         increment = periods[TemporalPeriod.T3]
@@ -425,24 +250,6 @@ def run_evaluation(
                 inputs.rf_snapshot,
                 baseline,
                 increment,
-                semantic=lambda: semantic_indexer_factory(
-                    session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-                ),
-            )
-        )
-        restore_url = options.qdrant_url or IN_MEMORY_QDRANT
-        monitoring.scenarios.append(
-            qdrant_outage(
-                runner,
-                inputs.rf_snapshot,
-                increment,
-                semantic_indexer_factory(
-                    session_factory,
-                    restore_url,
-                    {k: f"{v}_outage" for k, v in REAL_WORLD_COLLECTIONS.items()},
-                    TokenHashEmbedder(),
-                ),
-                REAL_WORLD_COLLECTIONS,
             )
         )
         monitoring.scenarios.append(source_failures(runner, inputs.rf_snapshot, increment))
@@ -455,8 +262,6 @@ def run_evaluation(
             entity_resolution=entity_resolution,
             persecution=persecution,
             candidate_query=candidates,
-            retrieval=retrieval,
-            research=research,
             monitoring=monitoring,
             failures=failures,
             review_workload_per_100=workload_total(monitoring.review_workload),
@@ -494,7 +299,6 @@ def run_evaluation(
             golden_dataset_hash=golden.content_hash(),
             rf_snapshot_id=inputs.rf_snapshot.snapshot_id,
             rf_snapshot_hash=inputs.rf_snapshot.content_hash,
-            embedding_model_id=semantic.embedding_model_id,
             extractor_version=versions["extractor"],
             classifier_version=versions["persecution_classifier"],
             matcher_version=versions["rosfinmonitoring_matcher"],
@@ -518,8 +322,6 @@ def run_evaluation(
         persecution=persecution,
         rosfinmonitoring=rosfin,
         candidate_query=candidates,
-        retrieval=retrieval,
-        research=research,
         monitoring=monitoring,
         performance=perf,
         safety_gates=gates,
@@ -576,7 +378,3 @@ def default_rf_snapshot(golden: GoldenDataset) -> RfSnapshotFile:
         snapshot_id=golden.version.rf_snapshot_id,
         path=REPOSITORY_ROOT / golden.version.rf_snapshot_path,
     )
-
-
-def qdrant_url_from_env() -> str | None:
-    return os.environ.get("QDRANT_TEST_URL") or None

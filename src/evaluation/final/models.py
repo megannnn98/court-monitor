@@ -73,19 +73,6 @@ class FalsePositive(BaseModel):
     gated: bool = True
 
 
-class ResearchOutcome(BaseModel):
-    query: str
-    status: str
-    error: str | None = None
-    person_ids: list[int] = Field(default_factory=list)
-    report_status: str | None = None
-    review_required: bool = False
-    claims: int = 0
-    provenance_problems: list[str] = Field(default_factory=list)
-    cited_articles: set[str] = Field(default_factory=set)
-    counts: Counts = Field(default_factory=Counts)
-
-
 class CheckResult(BaseModel):
     name: str
     passed: bool
@@ -105,7 +92,6 @@ class CaseResult(BaseModel):
     rf: list[tuple[str, str | None]] = Field(default_factory=list)
     candidates: Counts = Field(default_factory=Counts)
     actionable: Counts = Field(default_factory=Counts)
-    research: list[ResearchOutcome] = Field(default_factory=list)
     review_required: bool = False
     false_positives: list[FalsePositive] = Field(default_factory=list)
 

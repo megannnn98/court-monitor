@@ -12,6 +12,15 @@ from typing import Any
 import pytest
 
 from llm.entity_reviewer import LlmEntityMatchReviewer, review_user_message
+from llm.structured import (
+    LlmAuthenticationError,
+    LlmInvalidResponseError,
+    LlmRateLimitError,
+    LlmTimeoutError,
+    LlmUnavailableError,
+    LlmUsage,
+    StructuredLlmResult,
+)
 from persons.resolution.ai_review import (
     ENTITY_REVIEW_SYSTEM_PROMPT,
     CandidateReviewContext,
@@ -20,15 +29,6 @@ from persons.resolution.ai_review import (
     EntityReviewRequest,
     EvidenceExcerpt,
     MentionReviewContext,
-)
-from research.workflow.llm import (
-    LlmAuthenticationError,
-    LlmInvalidResponseError,
-    LlmRateLimitError,
-    LlmTimeoutError,
-    LlmUnavailableError,
-    LlmUsage,
-    StructuredLlmResult,
 )
 
 VALID_ANSWER = {

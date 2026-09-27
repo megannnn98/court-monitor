@@ -30,7 +30,6 @@ def _service(session_factory: sessionmaker[Session], entity_review: object | Non
         settings=MonitoringSettings(enabled_sources=("ovd-info",), discovery_limit=7),
         env={},
         sources={OVD_INFO.name: OVD_INFO},
-        use_env_semantic_indexer=False,
         entity_review=entity_review,  # type: ignore[arg-type]
     )
 

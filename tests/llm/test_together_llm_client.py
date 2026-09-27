@@ -9,8 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from llm.together_client import TogetherConfig, TogetherStructuredLlmClient
-from research.workflow.llm import (
+from llm.structured import (
     LlmAuthenticationError,
     LlmConfigurationError,
     LlmError,
@@ -20,6 +19,7 @@ from research.workflow.llm import (
     LlmTimeoutError,
     LlmUnavailableError,
 )
+from llm.together_client import TogetherConfig, TogetherStructuredLlmClient
 
 CONFIG = TogetherConfig(api_key="secret-key-123", model="some/model", timeout_seconds=5)
 SCHEMA = {"type": "object", "properties": {"request": {"type": ["object", "null"]}}}

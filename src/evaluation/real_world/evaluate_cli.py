@@ -18,7 +18,6 @@ from evaluation.real_world.evaluator import (
     EvaluationInputs,
     EvaluationOptions,
     default_rf_snapshot,
-    qdrant_url_from_env,
     run_evaluation,
     validate_inputs,
 )
@@ -33,8 +32,6 @@ from evaluation.real_world.namesake import load_namesakes
 from evaluation.real_world.policy import DEFAULT_POLICY_PATH, load_policy
 from evaluation.real_world.replay import CorpusCacheMissError
 from evaluation.real_world.report import write_reports
-from evaluation.real_world.research_eval import load_research_queries
-from evaluation.real_world.retrieval_eval import load_retrieval_queries
 from observability import configure_logging
 
 
@@ -49,17 +46,6 @@ def add_evaluate_arguments(subparsers: Any) -> None:
         help="Also repeated runs, failure injection and the manual review scenario",
     )
     evaluate.add_argument("--verified-only", action="store_true")
-    evaluate.add_argument(
-        "--semantic-model",
-        action="store_true",
-        help="Use the project's embedding model with Qdrant for the semantic benchmark",
-    )
-    evaluate.add_argument("--qdrant-url", default=None, help="default QDRANT_TEST_URL")
-    evaluate.add_argument(
-        "--llm-intake",
-        action="store_true",
-        help="Evaluate natural-language intake with Together AI (needs TOGETHER_API_KEY)",
-    )
     evaluate.add_argument("--database-url", default=None, help="default EVALUATION_DATABASE_URL")
     evaluate.add_argument("--golden-dir", type=Path, default=DEFAULT_GOLDEN_DIR)
     evaluate.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
@@ -93,35 +79,16 @@ def run_evaluate_command(args: argparse.Namespace) -> None:
             policy_hash=policy_hash,
             rf_snapshot=default_rf_snapshot(golden),
             namesakes=load_namesakes(),
-            retrieval_queries=load_retrieval_queries(),
-            research_queries=load_research_queries(),
         )
         validate_inputs(inputs, corpus_texts(cache, manifest))
     except (EvaluationDataError, CorpusCacheMissError, ValueError, OSError) as exc:
         print(f"evaluation data error: {exc}")
         raise SystemExit(EXIT_INFRASTRUCTURE_ERROR) from None
 
-    llm_parser = None
-    llm_reason: str | None = "natural-language intake not requested (--llm-intake)"
-    if args.llm_intake:
-        try:
-            from llm.together_client import TogetherConfig, TogetherStructuredLlmClient
-            from research.workflow.intake import LlmResearchRequestParser
-
-            llm_parser = LlmResearchRequestParser(
-                TogetherStructuredLlmClient(TogetherConfig.from_env())
-            )
-            llm_reason = None
-        except Exception as exc:  # noqa: BLE001 - configuration problem is reported as NOT_RUN
-            llm_reason = f"Together AI not configured: {exc}"
     options = EvaluationOptions(
         split=None if args.split == "all" else GoldenSplit(args.split),
         verified_only=args.verified_only,
         full=args.full,
-        semantic_model=args.semantic_model,
-        qdrant_url=args.qdrant_url or qdrant_url_from_env(),
-        llm_parser=llm_parser,
-        llm_not_run_reason=llm_reason,
     )
     engine = create_database_engine(database_url)
     try:

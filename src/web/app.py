@@ -22,10 +22,8 @@ from web.routers import (
     monitoring,
     operations,
     persons,
-    research,
     reviews,
     rosfinmonitoring,
-    search,
 )
 from web.ui import candidates as ui_candidates
 from web.ui import disputes as ui_disputes
@@ -80,9 +78,7 @@ app.middleware("http")(request_context)
 for module in (
     persons,
     articles,
-    search,
     candidates,
-    research,
     rosfinmonitoring,
     reviews,
     ui_persons,

@@ -141,7 +141,7 @@ def add_monitoring_arguments(subparsers: Any) -> None:
 
     subparsers.add_parser(
         "monitor-derived",
-        help="Re-run classification, RF matching, semantic indexing and findings (no web access)",
+        help="Re-run classification, RF matching and findings (no web access)",
     )
 
     subparsers.add_parser(

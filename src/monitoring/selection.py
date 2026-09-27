@@ -4,8 +4,7 @@ No stage trusts the IDs a previous stage handed over in memory: after a crash
 (or any at-least-once re-execution) the next run selects exactly the work that
 is still missing, and finished work is not selected again.
 
-A person's derived results (classification, Rosfinmonitoring match, semantic
-document) are stale when that person's evidence changed after the result was
+A person's derived results (classification, Rosfinmonitoring match) are stale when that person's evidence changed after the result was
 written. Evidence change is the newest of: person created/updated, event
 linked, alias added, ER decision recorded or reviewed for the person.
 
@@ -23,13 +22,12 @@ from collections.abc import Sequence
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import Select, Subquery, and_, exists, func, not_, or_, select, union, union_all
+from sqlalchemy import Select, Subquery, and_, exists, func, not_, or_, select, union_all
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
-    ExtractedEventRecord,
     ParsedArticleRecord,
     PersecutionClassificationRecord,
     PersonAliasRecord,
@@ -37,7 +35,6 @@ from db.orm_models import (
     PersonRecord,
     PersonResolutionDecisionRecord,
     RosfinMatchRecord,
-    SemanticDocumentRecord,
     Source,
     SourceDocument,
 )
@@ -45,13 +42,12 @@ from extraction.models import ExtractionRunStatus
 from extraction.pipeline import ExtractionVersions
 from persons.models import PersonStatus
 from persons.resolution.service import RESOLVER_VERSION
-from semantic_retrieval.models import RetrievalEntityType
 
 # Longer than any ER / review transaction plus clock skew between hosts.
 EVIDENCE_SETTLE_INTERVAL = timedelta(minutes=10)
 
 
-def _person_change_stamps(*, include_derived: bool, settle: timedelta) -> Subquery:
+def _person_change_stamps(*, settle: timedelta) -> Subquery:
     """(person_id, changed_at): newest evidence change per person, plus the settle interval."""
     decision = PersonResolutionDecisionRecord
     parts: list[Select[Any]] = [
@@ -68,15 +64,6 @@ def _person_change_stamps(*, include_derived: bool, settle: timedelta) -> Subque
             decision.selected_person_id.is_not(None), decision.reviewed_at.is_not(None)
         ),
     ]
-    if include_derived:
-        # The person semantic document also renders classification and RF data.
-        parts.append(
-            select(
-                PersecutionClassificationRecord.person_id,
-                PersecutionClassificationRecord.classified_at,
-            )
-        )
-        parts.append(select(RosfinMatchRecord.person_id, RosfinMatchRecord.matched_at))
     stamps = union_all(*parts).subquery()
     return (
         select(
@@ -174,7 +161,7 @@ class SqlAlchemyMonitoringWorkQueries:
     def persons_pending_classification(
         self, *, classifier_name: str, classifier_version: str
     ) -> list[int]:
-        changed = _person_change_stamps(include_derived=False, settle=self._settle)
+        changed = _person_change_stamps(settle=self._settle)
         classification = PersecutionClassificationRecord
         query = (
             select(PersonRecord.id)
@@ -205,7 +192,7 @@ class SqlAlchemyMonitoringWorkQueries:
         """Active persons without a match for the snapshot, with a match older than their
         evidence, or with a match produced by another matcher (version) — including rows
         written before the version was recorded (NULL)."""
-        changed = _person_change_stamps(include_derived=False, settle=self._settle)
+        changed = _person_change_stamps(settle=self._settle)
         query = (
             select(PersonRecord.id)
             .join(changed, changed.c.person_id == PersonRecord.id)
@@ -229,77 +216,3 @@ class SqlAlchemyMonitoringWorkQueries:
         )
         with self._session_factory() as session:
             return list(session.scalars(query).all())
-
-    def persons_pending_semantic_index(self) -> list[int]:
-        """Active persons with a missing/unindexed/outdated document, and documents of
-        persons that are gone or no longer active (the indexer deletes those)."""
-        changed = _person_change_stamps(include_derived=True, settle=self._settle)
-        document = SemanticDocumentRecord
-        is_person_document = and_(
-            document.entity_type == RetrievalEntityType.PERSON.value,
-            document.entity_id == PersonRecord.id,
-        )
-        stale_active = (
-            select(PersonRecord.id)
-            .join(changed, changed.c.person_id == PersonRecord.id)
-            .outerjoin(document, is_person_document)
-            .where(
-                PersonRecord.status == PersonStatus.ACTIVE.value,
-                or_(
-                    document.id.is_(None),
-                    document.indexed_at.is_(None),
-                    document.updated_at < changed.c.changed_at,
-                ),
-            )
-        )
-        inactive_indexed = (
-            select(PersonRecord.id)
-            .join(document, is_person_document)
-            .where(PersonRecord.status != PersonStatus.ACTIVE.value)
-        )
-        orphaned = select(document.entity_id).where(
-            document.entity_type == RetrievalEntityType.PERSON.value,
-            not_(exists().where(PersonRecord.id == document.entity_id)),
-        )
-        combined = union(stale_active, inactive_indexed, orphaned).subquery()
-        with self._session_factory() as session:
-            return sorted(session.scalars(select(combined.c[0])).all())
-
-    def events_pending_semantic_index(self) -> list[int]:
-        links = (
-            select(
-                PersonEventLinkRecord.event_id,
-                (func.max(PersonEventLinkRecord.created_at) + self._settle).label("changed_at"),
-            )
-            .group_by(PersonEventLinkRecord.event_id)
-            .subquery()
-        )
-        document = SemanticDocumentRecord
-        stale = (
-            select(ExtractedEventRecord.id)
-            .outerjoin(
-                document,
-                and_(
-                    document.entity_type == RetrievalEntityType.EVENT.value,
-                    document.entity_id == ExtractedEventRecord.id,
-                ),
-            )
-            .outerjoin(links, links.c.event_id == ExtractedEventRecord.id)
-            .where(
-                or_(
-                    document.id.is_(None),
-                    document.indexed_at.is_(None),
-                    and_(
-                        links.c.changed_at.is_not(None),
-                        document.updated_at < links.c.changed_at,
-                    ),
-                )
-            )
-        )
-        orphaned = select(document.entity_id).where(
-            document.entity_type == RetrievalEntityType.EVENT.value,
-            not_(exists().where(ExtractedEventRecord.id == document.entity_id)),
-        )
-        combined = union(stale, orphaned).subquery()
-        with self._session_factory() as session:
-            return sorted(session.scalars(select(combined.c[0])).all())

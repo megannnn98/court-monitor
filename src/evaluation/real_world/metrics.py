@@ -1,8 +1,7 @@
 """Metric primitives for real-world validation.
 
 Precision/recall/F1 reuse the final evaluation's `Counts` (None for a zero
-denominator); ranking metrics reuse `semantic_retrieval.metrics`. Nothing here
-touches the database.
+denominator). Nothing here touches the database.
 """
 
 from __future__ import annotations

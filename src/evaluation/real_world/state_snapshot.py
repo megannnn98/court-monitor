@@ -26,7 +26,6 @@ LOGICAL_TABLES = (
     "classifications",
     "rf_results",
     "findings",
-    "semantic_documents",
 )
 
 
@@ -140,23 +139,6 @@ def logical_snapshot(engine: Engine) -> dict[str, list[str]]:
             "SELECT person_id, finding_type, criteria_version, status, active FROM monitoring_findings",
         )
     ]
-    event_articles = {
-        eid: f"{articles.get(article_id, article_id)}@{start}-{end}"
-        for eid, article_id, start, end in _rows(
-            engine,
-            "SELECT e.id, r.article_id, e.start_offset, e.end_offset FROM extracted_events e "
-            "JOIN article_extraction_runs r ON r.id = e.extraction_run_id",
-        )
-    }
-    snapshot["semantic_documents"] = [
-        f"{entity_type}|{person_key(entity_id) if entity_type == 'person' else event_articles.get(entity_id, entity_id)}"
-        f"|{version}|{content_hash}|indexed={indexed is not None}"
-        for entity_type, entity_id, version, content_hash, indexed in _rows(
-            engine,
-            "SELECT entity_type, entity_id, representation_version, content_hash, indexed_at "
-            "FROM semantic_documents",
-        )
-    ]
     return {table: sorted(rows) for table, rows in snapshot.items()}
 
 
@@ -208,7 +190,6 @@ def table_counts(engine: Engine) -> dict[str, int]:
         "classifications": "persecution_classifications",
         "rf_results": "rosfin_matches",
         "findings": "monitoring_findings",
-        "semantic_documents": "semantic_documents",
     }
     counts: dict[str, int] = {}
     with engine.connect() as connection:
@@ -221,11 +202,6 @@ def table_counts(engine: Engine) -> dict[str, int]:
                 text(
                     "SELECT count(*) FROM person_resolution_decisions WHERE status = 'pending_review'"
                 )
-            ).scalar_one()
-        )
-        counts["semantic_indexed"] = int(
-            connection.execute(
-                text("SELECT count(*) FROM semantic_documents WHERE indexed_at IS NOT NULL")
             ).scalar_one()
         )
         counts["active_findings"] = int(

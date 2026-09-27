@@ -25,7 +25,6 @@ from evaluation.real_world.metrics import Span, confusion_matrix, match_spans, p
 from evaluation.real_world.models import sha256_text
 from evaluation.real_world.policy import DEFAULT_POLICY_PATH, load_policy
 from evaluation.real_world.report import recommended_next_work, render_markdown, write_reports
-from evaluation.real_world.research_eval import _substitute
 from evaluation.real_world.results import (
     CandidateSection,
     DatasetSummary,
@@ -42,8 +41,6 @@ from evaluation.real_world.results import (
     PersecutionSection,
     Provenance,
     RealWorldValidationReport,
-    ResearchSection,
-    RetrievalSection,
     RosfinSection,
     SectionStatus,
     Severity,
@@ -316,8 +313,6 @@ def _inputs(failures: list[Failure], **sections: Any) -> GateInputs:
         "entity_resolution": EntityResolutionSection(status=SectionStatus.RUN),
         "persecution": PersecutionSection(status=SectionStatus.RUN),
         "candidate_query": CandidateSection(status=SectionStatus.NOT_RUN),
-        "retrieval": RetrievalSection(status=SectionStatus.NOT_RUN),
-        "research": ResearchSection(status=SectionStatus.NOT_RUN),
         "monitoring": MonitoringSection(status=SectionStatus.NOT_RUN),
     }
     defaults.update(sections)
@@ -344,8 +339,8 @@ def test_hard_gate_fails_on_one_gated_error_and_not_run_is_never_pass() -> None:
         )
     }
     assert gates["false_person_auto_link"].status is GateStatus.FAIL
-    assert gates["contradicted_report_claims"].status is GateStatus.NOT_RUN
-    assert gates["semantic_recall_at_5"].status is GateStatus.NOT_RUN
+    assert gates["duplicate_monitoring_findings"].status is GateStatus.NOT_RUN
+    assert gates["candidate_precision"].status is GateStatus.NOT_RUN
     assert gates["false_person_auto_link"].kind is GateKind.HARD
 
     excused = {
@@ -406,7 +401,6 @@ def _report(failures: list[Failure]) -> RealWorldValidationReport:
             golden_dataset_hash="g",
             rf_snapshot_id="rf",
             rf_snapshot_hash="h",
-            embedding_model_id=None,
             extractor_version="e",
             classifier_version="c",
             matcher_version="m",
@@ -436,16 +430,12 @@ def _report(failures: list[Failure]) -> RealWorldValidationReport:
             evaluated_articles=1,
             evaluated_persons=2,
             namesake_cases=0,
-            retrieval_queries=0,
-            research_queries=0,
         ),
         extraction=ExtractionSection(status=SectionStatus.NOT_RUN),
         entity_resolution=EntityResolutionSection(status=SectionStatus.RUN),
         persecution=PersecutionSection(status=SectionStatus.RUN),
         rosfinmonitoring=RosfinSection(status=SectionStatus.NOT_RUN),
         candidate_query=CandidateSection(status=SectionStatus.NOT_RUN),
-        retrieval=RetrievalSection(status=SectionStatus.NOT_RUN, not_run_reason="no model"),
-        research=ResearchSection(status=SectionStatus.NOT_RUN),
         monitoring=MonitoringSection(status=SectionStatus.NOT_RUN),
         performance=PerformanceSection(status=SectionStatus.NOT_RUN),
         safety_gates=gates,
@@ -470,8 +460,6 @@ def test_report_generation_has_every_section_and_ranks_hard_gates_first(tmp_path
         "Persecution",
         "Rosfinmonitoring",
         "Candidate Query",
-        "Semantic Retrieval",
-        "Research Reports",
         "Monitoring E2E",
         "Failure Injection",
         "Performance",
@@ -494,7 +482,7 @@ def test_report_generation_has_every_section_and_ranks_hard_gates_first(tmp_path
     assert md_path.read_text() == markdown
 
 
-# -- state comparison, request substitution ------------------------------------------------
+# -- state comparison ------------------------------------------------
 
 
 def test_state_comparison_ignores_order_and_counts_duplicates() -> None:
@@ -504,20 +492,6 @@ def test_state_comparison_ignores_order_and_counts_duplicates() -> None:
     assert [(d.table, d.only_in_first, d.only_in_second) for d in diffs] == [("findings", 0, 1)]
     assert duplicate_counts(second)["findings"] == 1
     assert compare_snapshots(first, second, ignore=frozenset({"findings"})) == []
-
-
-def test_request_snapshot_placeholder_is_removed_without_a_snapshot() -> None:
-    request = {
-        "object_type": "person",
-        "criteria": {
-            "persecution_status": "political",
-            "rosfinmonitoring_status": "not_matched",
-            "snapshot_id": "$SNAPSHOT",
-        },
-    }
-    assert _substitute(request, 7)["criteria"]["snapshot_id"] == 7
-    # Without a snapshot the RF criterion is dropped, never executed as "absent".
-    assert _substitute(request, None)["criteria"] == {"persecution_status": "political"}
 
 
 def test_candidate_ids_are_read_from_stored_scored_candidates() -> None:
@@ -537,80 +511,8 @@ def test_candidate_ids_are_read_from_stored_scored_candidates() -> None:
     assert stored_candidate_person_ids(None) == ()
 
 
-def test_persecution_claims_contradict_only_the_opposite_definite_status() -> None:
-    from evaluation.real_world.component_evaluation import IdentityMap
-    from evaluation.real_world.research_eval import ClaimJudge
-    from evaluation.real_world.results import ClaimSupport
-    from persecution.models import PersecutionClassificationStatus
-    from research.reports.models import (
-        ResearchClaim,
-        ResearchClaimBasis,
-        ResearchClaimType,
-        ResearchReportItem,
-    )
-
-    dataset = golden()
-    identity = IdentityMap(golden_of_person={1: {"gp-petrov"}, 2: {"gp-sidorova"}})
-    judge = ClaimJudge(dataset, state(), identity)
-    claim = ResearchClaim(
-        claim_type=ResearchClaimType.PERSECUTION_CLASSIFICATION,
-        basis=ResearchClaimBasis.SOURCE_DOCUMENTS,
-        text="x",
-    )
-
-    def support(person_id: int, status: str) -> ClaimSupport:
-        item = ResearchReportItem.model_validate(
-            {"person_id": person_id, "canonical_name": "x", "persecution_status": status}
-        )
-        return judge.judge(item, claim)[0]
-
-    assert support(1, "non_political") is ClaimSupport.CONTRADICTED  # annotated political
-    assert support(2, "political") is ClaimSupport.CONTRADICTED  # annotated non_political
-    assert support(2, "needs_review") is ClaimSupport.PARTIALLY_SUPPORTED
-    assert support(1, "political") is ClaimSupport.PARTIALLY_SUPPORTED  # right, but no citation
-
-    undecided = dataset.model_copy(
-        update={
-            "persons": [
-                dataset.persons[0].model_copy(
-                    update={
-                        "persecution": dataset.persons[0].persecution.model_copy(  # type: ignore[union-attr]
-                            update={"expected_status": PersecutionClassificationStatus.UNCERTAIN}
-                        )
-                    }
-                ),
-                dataset.persons[1],
-            ]
-        }
-    )
-    assert (
-        ClaimJudge(undecided, state(), identity).judge(
-            ResearchReportItem.model_validate(
-                {"person_id": 1, "canonical_name": "x", "persecution_status": "non_political"}
-            ),
-            claim,
-        )[0]
-        is ClaimSupport.UNSUPPORTED
-    )
-
-
-def test_incomplete_semantic_index_is_not_run_not_a_quality_result() -> None:
-    """Real run: E5 hit CUDA OutOfMemoryError, nothing was indexed, and dense
-    Recall@5 = 0.0 was reported as a retrieval quality failure."""
-    from evaluation.real_world.evaluator import semantic_index_problem
-
-    assert semantic_index_problem({"semantic_documents": 700, "semantic_indexed": 0}) == (
-        "semantic index incomplete: 0/700 entities indexed (see monitoring_run_items)"
-    )
-    assert semantic_index_problem({"semantic_documents": 0, "semantic_indexed": 0}) == (
-        "semantic index is empty"
-    )
-    assert semantic_index_problem({"semantic_documents": 700, "semantic_indexed": 700}) is None
-
-
 def test_report_false_not_matched_is_counted_once() -> None:
-    """A contradicted RF claim is both an itemized failure and a research dangerous count;
-    the gate summed both and reported 2 for one false statement."""
+    """One false NOT_MATCHED statement is one gate count, however it was itemized."""
     policy, _ = load_policy(DEFAULT_POLICY_PATH)
     claim_failure = Failure(
         component=ErrorComponent.REPORT,
@@ -619,14 +521,8 @@ def test_report_false_not_matched_is_counted_once() -> None:
         detail="rs-17: rosfinmonitoring_status: listed",
         dangerous_kind=DangerousKind.FALSE_RF_NOT_MATCHED,
     )
-    research = ResearchSection(
-        status=SectionStatus.RUN, dangerous={DangerousKind.FALSE_RF_NOT_MATCHED.value: 1}
-    )
     gates = {
-        g.name: g
-        for g in RealWorldSafetyGateEvaluator(policy).evaluate(
-            _inputs([claim_failure], research=research)
-        )
+        g.name: g for g in RealWorldSafetyGateEvaluator(policy).evaluate(_inputs([claim_failure]))
     }
     assert gates["false_rf_not_matched"].value == 1
 
@@ -667,47 +563,6 @@ def test_dangerous_failure_gate_is_enforced_even_if_the_policy_omits_it() -> Non
     assert gates["gated_dangerous_failures"].status is GateStatus.FAIL
 
 
-@pytest.mark.parametrize(
-    ("status", "snapshot_id", "summary"),
-    [
-        (None, None, "RF: Не найден в перечне Росфинмониторинга."),
-        ("needs_review", 1, "Итог: не найден в перечне; сопоставление выполнено."),
-        ("not_matched", None, "Не найден в перечне Росфинмониторинга."),
-    ],
-)
-def test_absence_wording_without_a_confirmed_not_matched_is_unsupported(
-    status: str | None, snapshot_id: int | None, summary: str
-) -> None:
-    """External review: absence was detected only at the start of the summary."""
-    from evaluation.real_world.component_evaluation import IdentityMap
-    from evaluation.real_world.research_eval import ClaimJudge
-    from evaluation.real_world.results import ClaimSupport
-    from research.reports.models import (
-        ResearchClaim,
-        ResearchClaimBasis,
-        ResearchClaimType,
-        ResearchReportItem,
-    )
-
-    judge = ClaimJudge(golden(), state(), IdentityMap())
-    item = ResearchReportItem.model_validate(
-        {
-            "person_id": 99,  # outside the golden dataset: absence is still judged
-            "canonical_name": "x",
-            "rosfinmonitoring_status": status,
-            "snapshot_id": snapshot_id,
-            "rosfinmonitoring_summary": summary,
-        }
-    )
-    claim = ResearchClaim(
-        claim_type=ResearchClaimType.ROSFINMONITORING_STATUS,
-        basis=ResearchClaimBasis.ROSFINMONITORING_SNAPSHOT,
-        text=summary,
-    )
-    support, kind, _ = judge.judge(item, claim)
-    assert (support, kind) == (ClaimSupport.UNSUPPORTED, DangerousKind.UNSUPPORTED_ABSENCE_CLAIM)
-
-
 def test_same_as_is_transitive_for_identity_mapping() -> None:
     """External review: A same_as B and B same_as C left A and C unrelated, so one
     canonical person holding A and C was reported as a false link."""
@@ -723,88 +578,6 @@ def test_same_as_is_transitive_for_identity_mapping() -> None:
     components = same_as_components(persons)
     assert components["a"] == components["b"] == components["c"]
     assert components["d"] != components["a"]
-
-
-def test_unloadable_embedding_model_makes_semantic_retrieval_not_run(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Real run: CUDA was taken by another process, loading E5 raised EmbeddingError and
-    evaluate-real-world crashed with a traceback instead of reporting NOT_RUN."""
-    from sqlalchemy.orm import sessionmaker
-
-    from evaluation.real_world.evaluator import EvaluationOptions, semantic_setup
-    from semantic_retrieval.embeddings import SentenceTransformerEmbedder
-    from semantic_retrieval.models import EmbeddingError
-
-    def unavailable(self: SentenceTransformerEmbedder) -> int:
-        raise EmbeddingError("Cannot load embedding model intfloat/multilingual-e5-base")
-
-    monkeypatch.setattr(SentenceTransformerEmbedder, "dimension", property(unavailable))
-    pytest.importorskip("sentence_transformers")
-    setup = semantic_setup(
-        sessionmaker(),
-        EvaluationOptions(
-            split=None, verified_only=False, full=False, semantic_model=True, qdrant_url=":memory:"
-        ),
-    )
-    assert not setup.available
-    assert setup.not_run_reason is not None
-    assert "Cannot load embedding model" in setup.not_run_reason
-
-
-def test_claim_failures_are_attributed_to_upstream_state_or_report_builder() -> None:
-    """ResearchReport diagnostics: a wrong persecution claim that repeats the stored
-    classification is an upstream error; one that differs from it is the report layer."""
-    from evaluation.real_world.research_eval import claim_failure_category
-    from research.reports.models import (
-        ResearchClaim,
-        ResearchClaimBasis,
-        ResearchClaimType,
-        ResearchReportItem,
-    )
-
-    pipeline = state()  # person 1 stored as political
-    claim = ResearchClaim(
-        claim_type=ResearchClaimType.PERSECUTION_CLASSIFICATION,
-        basis=ResearchClaimBasis.SOURCE_DOCUMENTS,
-        text="x",
-    )
-
-    def item(status: str) -> ResearchReportItem:
-        return ResearchReportItem.model_validate(
-            {"person_id": 1, "canonical_name": "x", "persecution_status": status}
-        )
-
-    assert claim_failure_category(item("political"), claim, "", pipeline) == (
-        "upstream_persecution_state"
-    )
-    assert claim_failure_category(item("non_political"), claim, "", pipeline) == (
-        "report_builder_persecution"
-    )
-    rf = ResearchClaim(
-        claim_type=ResearchClaimType.ROSFINMONITORING_STATUS,
-        basis=ResearchClaimBasis.ROSFINMONITORING_SNAPSHOT,
-        text="x",
-    )
-    rf_item = ResearchReportItem.model_validate(
-        {"person_id": 1, "canonical_name": "x", "rosfinmonitoring_status": "not_matched"}
-    )
-    assert claim_failure_category(rf_item, rf, "", pipeline) == "upstream_rf_state"
-    event = ResearchClaim(
-        claim_type=ResearchClaimType.EVENT, basis=ResearchClaimBasis.SOURCE_DOCUMENTS, text="x"
-    )
-    assert (
-        claim_failure_category(
-            item("political"), event, "the annotated event is about other persons", pipeline
-        )
-        == "person_event_association"
-    )
-    assert (
-        claim_failure_category(
-            item("political"), event, "no annotated release event at this span", pipeline
-        )
-        == "event_extraction_or_annotation_granularity"
-    )
 
 
 def test_rerun_with_zero_new_rows_passes_the_rerun_gate() -> None:
@@ -846,20 +619,3 @@ def test_rerun_with_zero_new_rows_passes_the_rerun_gate() -> None:
         for g in RealWorldSafetyGateEvaluator(policy).evaluate(_inputs([], monitoring=not_repeated))
     }
     assert gates["rerun_duplicates"].status is GateStatus.NOT_RUN
-
-
-@pytest.mark.parametrize(
-    ("ranks", "category"),
-    [
-        ({"lexical": None, "dense": 2, "hybrid": 7}, "dense_top5_pushed_out_by_hybrid"),
-        ({"lexical": 1, "dense": 9, "hybrid": 3}, "lexical_rescues_dense"),
-        ({"lexical": 8, "dense": 3, "hybrid": 5}, "lexical_worsens_dense_rank"),
-        ({"lexical": None, "dense": None, "hybrid": None}, "relevant_absent_from_candidates"),
-        ({"lexical": 12, "dense": 14, "hybrid": 11}, "relevant_ranked_below_top5"),
-        ({"lexical": 1, "dense": 1, "hybrid": 1}, "found_in_top5"),
-    ],
-)
-def test_retrieval_query_error_category(ranks: dict[str, int | None], category: str) -> None:
-    from evaluation.real_world.retrieval_eval import retrieval_error_category
-
-    assert retrieval_error_category(ranks) == category

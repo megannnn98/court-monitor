@@ -1,7 +1,7 @@
 """Startup validation of the whole application configuration (ADR 0014).
 
 Every subsystem keeps its own typed settings (`DatabasePoolSettings`,
-`MonitoringSettings`, `SemanticRetrievalConfig`, ER `CandidateConfig` /
+`MonitoringSettings`, ER `CandidateConfig` /
 `ResolutionThresholds`, `TogetherConfig`). This module only loads all of them
 at once, so a bad value fails the process start — API lifespan, CLI, Dagster
 code location — with every problem listed, instead of a stack trace on the
@@ -18,15 +18,11 @@ from typing import Any, TypeVar
 from sqlalchemy.engine import make_url
 
 from db.database import DatabasePoolSettings, validate_database_url
+from llm.structured import LlmConfigurationError
 from monitoring.models import MonitoringSettings
 from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.candidates import CandidateConfig
 from persons.resolution.decision import ResolutionThresholds
-from research.workflow.llm import LlmConfigurationError
-from semantic_retrieval.embeddings import EmbeddingConfig
-from semantic_retrieval.factory import SemanticRetrievalConfig
-from semantic_retrieval.models import SemanticConfigurationError
-from semantic_retrieval.relevance import resolve_dense_min_score
 from sources.telegram.source_adapter import telegram_history_days
 
 T = TypeVar("T")
@@ -43,7 +39,7 @@ class ApplicationConfigurationError(ValueError):
 
 @dataclass(frozen=True)
 class TogetherSettings:
-    """Together AI is optional: only natural-language research needs it."""
+    """Together AI is optional: only the AI review of ER decisions uses it."""
 
     configured: bool
     model: str | None
@@ -58,10 +54,6 @@ class ApplicationSettings:
     # How far back Telegram channel discovery goes (TELEGRAM_HISTORY_DAYS): validated and
     # logged here, used by source_registry.TELEGRAM_SOURCES, which reads it on import.
     telegram_history_days: int
-    semantic: SemanticRetrievalConfig
-    # Only when semantic retrieval is configured.
-    embedding: EmbeddingConfig | None
-    dense_min_score: float | None
     er_candidates: CandidateConfig
     er_thresholds: ResolutionThresholds
     # AI review of pending ER decisions (ADR 0020); disabled by default.
@@ -78,7 +70,7 @@ class ApplicationSettings:
         def load(loader: Callable[[], T]) -> T | None:
             try:
                 return loader()
-            except (ValueError, LlmConfigurationError, SemanticConfigurationError) as exc:
+            except (ValueError, LlmConfigurationError) as exc:
                 problems.append(str(exc))
                 return None
 
@@ -91,24 +83,15 @@ class ApplicationSettings:
         pool = load(lambda: DatabasePoolSettings.from_env(env))
         monitoring = load(lambda: MonitoringSettings.from_env(env))
         history_days = load(lambda: telegram_history_days(env))
-        semantic = load(lambda: SemanticRetrievalConfig.from_env(env))
         er_candidates = load(lambda: CandidateConfig.from_env(env))
         er_thresholds = load(lambda: ResolutionThresholds.from_env(env))
         entity_review = load(lambda: EntityReviewSettings.from_env(env))
-
-        embedding: EmbeddingConfig | None = None
-        dense_min_score: float | None = None
-        if semantic is not None and semantic.enabled:
-            embedding = load(lambda: EmbeddingConfig.from_env(env))
-            if embedding is not None:
-                model_id = embedding.model_id
-                dense_min_score = load(lambda: resolve_dense_min_score(env, model_id))
 
         together = load(lambda: _together_settings(env))
 
         if problems:
             raise ApplicationConfigurationError(problems)
-        assert pool is not None and monitoring is not None and semantic is not None
+        assert pool is not None and monitoring is not None
         assert history_days is not None
         assert er_candidates is not None and er_thresholds is not None and together is not None
         assert entity_review is not None
@@ -117,9 +100,6 @@ class ApplicationSettings:
             database_pool=pool,
             monitoring=monitoring,
             telegram_history_days=history_days,
-            semantic=semantic,
-            embedding=embedding,
-            dense_min_score=dense_min_score,
             er_candidates=er_candidates,
             er_thresholds=er_thresholds,
             entity_review=entity_review,
@@ -144,14 +124,6 @@ class ApplicationSettings:
                     self.monitoring.stale_run_after.total_seconds() // 60
                 ),
                 "telegram_history_days": self.telegram_history_days,
-            },
-            "semantic": {
-                "configured": self.semantic.enabled,
-                "vector_backend": self.semantic.vector_backend,
-                "qdrant_url": self.semantic.qdrant_url,
-                "embedding_model_id": None if self.embedding is None else self.embedding.model_id,
-                "dense_min_score": self.dense_min_score,
-                "rerank": self.semantic.rerank,
             },
             "entity_resolution": {
                 "candidate_limit": self.er_candidates.candidate_limit,

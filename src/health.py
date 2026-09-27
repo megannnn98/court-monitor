@@ -5,9 +5,8 @@ truth needs — PostgreSQL reachable and its schema at the Alembic head this cod
 was written for — and reports optional/derived dependencies separately:
 
 - `unavailable` (HTTP 503): database down or schema not at head; nothing works.
-- `degraded` (HTTP 200): structured research works, but a configured optional
-  dependency (Qdrant) is down or monitoring has a stale run.
-- `ready` (HTTP 200): everything configured is reachable.
+- `degraded` (HTTP 200): the product works, but monitoring has a stale run.
+- `ready` (HTTP 200): everything is reachable.
 
 Details never contain connection strings or exception messages (only types).
 """
@@ -15,7 +14,6 @@ Details never contain connection strings or exception messages (only types).
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from datetime import timedelta
 from enum import StrEnum
 from functools import lru_cache
@@ -81,27 +79,15 @@ class ReadinessChecker:
         session_factory: sessionmaker[Session] | None,
         *,
         expected_revision: str,
-        semantic_probe: Callable[[], str | None] | None,
-        together_configured: bool,
         stale_run_after: timedelta,
     ) -> None:
         self._session_factory = session_factory
         self._expected_revision = expected_revision
-        # Probes the configured vector store (Qdrant or pgvector); returns an OK detail.
-        self._semantic_probe = semantic_probe
-        self._together_configured = together_configured
         self._stale_run_after = stale_run_after
 
     def check(self) -> ReadinessReport:
         components: dict[str, ComponentHealth] = {}
         components.update(self._database())
-        components["semantic_retrieval"] = self._semantic()
-        components["natural_language_research"] = ComponentHealth(
-            status=ComponentStatus.OK
-            if self._together_configured
-            else ComponentStatus.NOT_CONFIGURED,
-            detail=None if self._together_configured else "TOGETHER_API_KEY/TOGETHER_MODEL not set",
-        )
         if components["database"].status is ComponentStatus.OK:
             components["monitoring"] = self._monitoring()
 
@@ -158,22 +144,6 @@ class ReadinessChecker:
             return False
         return True
 
-    def _semantic(self) -> ComponentHealth:
-        if self._semantic_probe is None:
-            return ComponentHealth(
-                status=ComponentStatus.NOT_CONFIGURED,
-                detail="neither QDRANT_URL nor SEMANTIC_VECTOR_BACKEND=pgvector is set",
-            )
-        try:
-            detail = self._semantic_probe()
-        except Exception as exc:  # noqa: BLE001 - derived index: degraded, not down
-            logger.warning("event=readiness_semantic_failed error_kind=%s", type(exc).__name__)
-            return ComponentHealth(
-                status=ComponentStatus.UNAVAILABLE,
-                detail=f"{type(exc).__name__}: structured research still works",
-            )
-        return ComponentHealth(status=ComponentStatus.OK, detail=detail)
-
     def _monitoring(self) -> ComponentHealth:
         assert self._session_factory is not None
         try:
@@ -192,16 +162,3 @@ class ReadinessChecker:
                 detail=f"{stale} stale running monitoring run(s); the next run aborts them",
             )
         return ComponentHealth(status=ComponentStatus.OK)
-
-
-def qdrant_probe(qdrant_url: str, *, timeout_seconds: int = 2) -> Callable[[], None]:
-    def probe() -> None:
-        from qdrant_client import QdrantClient
-
-        client = QdrantClient(url=qdrant_url, timeout=timeout_seconds, check_compatibility=False)
-        try:
-            client.get_collections()
-        finally:
-            client.close()
-
-    return probe

@@ -13,23 +13,18 @@ from cli import (
     ingestion,
     persecution,
     persons,
-    research,
     rosfinmonitoring,
-    search,
 )
 from cli.context import CliContext
 
 # In the order the commands were registered before the split: it is the order of `--help`.
 _REGISTRATIONS = (
     ingestion.register,
-    search.register,
     extraction.register,
     persons.register,
     rosfinmonitoring.register,
     persecution.register,
     candidates.register,
-    research.register,
-    areas.register_semantic,
     areas.register_person_resolution,
     areas.register_monitoring,
     areas.register_evaluation,
@@ -38,7 +33,9 @@ _REGISTRATIONS = (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    argument_parser = argparse.ArgumentParser(description="Ingest and search OVD-Info articles")
+    argument_parser = argparse.ArgumentParser(
+        description="Ingest OVD-Info articles and find criminal cases"
+    )
     subparsers = argument_parser.add_subparsers(
         dest="command",
         required=True,

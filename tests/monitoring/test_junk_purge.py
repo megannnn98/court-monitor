@@ -18,7 +18,6 @@ from db.orm_models import (
     PersecutionClassificationRecord,
     PersonRecord,
     ReviewRecordModel,
-    SemanticDocumentRecord,
     SourceDocument,
 )
 from monitoring import cli
@@ -30,18 +29,6 @@ from monitoring.junk_purge import (
     since_from_env,
 )
 from monitoring.junk_screen import HELD, JunkScreenError
-
-
-def _semantic(session: Session, entity_type: str, entity_id: int) -> None:
-    session.add(
-        SemanticDocumentRecord(
-            entity_type=entity_type,
-            entity_id=entity_id,
-            representation_version=1,
-            content_hash=f"{entity_type}-{entity_id}",
-            text="текст",
-        )
-    )
 
 
 def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:
@@ -76,7 +63,6 @@ def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:
         seed.mention(run, "Мария Свидетелева", person_id=witness)
         seed.mention(run, "Олег Орлов", person_id=only_in_junk)
         seed.classification(only_in_junk, "political", 0.9)
-        _semantic(session, "person", only_in_junk)
 
         fine, run = seed.article(
             source, external_id="fine", title="Штраф", text="Суд оштрафовал Анну Смирнову."
@@ -84,7 +70,6 @@ def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:
         fine_event = seed.event(
             run, "Суд оштрафовал", event_type="fine", event_date=None, links=[(fined, "subject")]
         )
-        _semantic(session, "event", fine_event)
 
         # Its extraction failed: nothing to judge it by, it stays.
         unjudged, run = seed.article(
@@ -156,7 +141,6 @@ def test_junk_articles_go_with_their_extraction_and_leave_a_tombstone(
         assert (
             session.scalar(select(func.count()).select_from(PersecutionClassificationRecord)) == 0
         )
-        assert session.scalar(select(func.count()).select_from(SemanticDocumentRecord)) == 0
         assert list(session.scalars(select(ReviewRecordModel.subject_type)).all()) == [
             "rosfinmonitoring_match"
         ]

@@ -21,15 +21,6 @@ from monitoring.models import (
 from operator_console import (
     OperationRegistry,
 )
-from research.service import (
-    ResearchService,
-)
-from research.unit_of_work import SqlAlchemyResearchUnitOfWork
-from research.workflow.graph import ResearchGraph
-from research.workflow.llm import LlmConfigurationError
-from research.workflow_factory import create_research_graph
-from semantic_retrieval.factory import SemanticRetrievalConfig, semantic_readiness_probe
-from semantic_retrieval.models import SemanticConfigurationError
 
 logger = logging.getLogger("api")
 
@@ -65,32 +56,6 @@ def get_db() -> Iterator[Session]:
             session.close()
 
 
-# Research endpoints
-def get_research_service() -> ResearchService:
-    """Build the research service over the shared session factory."""
-    try:
-        session_factory = _get_session_factory()
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-    return ResearchService(
-        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
-    )
-
-
-@lru_cache(maxsize=1)
-def _get_research_graph() -> ResearchGraph:
-    return create_research_graph(_get_session_factory())
-
-
-def get_research_query_graph() -> ResearchGraph:
-    """Build (once) the LangGraph research workflow."""
-    try:
-        return _get_research_graph()
-    except (RuntimeError, LlmConfigurationError, SemanticConfigurationError) as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
 def get_operation_registry(db: Session = Depends(get_db)) -> OperationRegistry:  # noqa: B008
     """Runs live in PostgreSQL, so a registry holds no state of its own: one per request,
     on the engine of the request's session (an overridden `get_db` included)."""
@@ -114,13 +79,8 @@ def get_readiness_checker() -> ReadinessChecker:
         session_factory: sessionmaker[Session] | None = _get_session_factory()
     except RuntimeError:
         session_factory = None
-    semantic = SemanticRetrievalConfig.from_env()
     return ReadinessChecker(
         session_factory,
         expected_revision=expected_schema_revision(),
-        semantic_probe=semantic_readiness_probe(semantic, session_factory),
-        together_configured=bool(
-            os.getenv("TOGETHER_API_KEY", "").strip() and os.getenv("TOGETHER_MODEL", "").strip()
-        ),
         stale_run_after=MonitoringSettings.from_env().stale_run_after,
     )

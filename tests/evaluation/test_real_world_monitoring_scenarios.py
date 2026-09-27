@@ -17,7 +17,6 @@ from sqlalchemy import Engine
 from db.maintenance import truncate_disposable_tables
 from evaluation.real_world.corpus_cache import CacheEntryStatus, RawCorpusCache, article_entry
 from evaluation.real_world.corpus_run import CorpusRunner, RfSnapshotFile, articles_by_period
-from evaluation.real_world.evaluator import IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
 from evaluation.real_world.models import (
     CorpusManifest,
     ManifestArticle,
@@ -26,17 +25,13 @@ from evaluation.real_world.models import (
     sha256_text,
 )
 from evaluation.real_world.monitoring_simulation import (
-    TokenHashEmbedder,
     crash_recovery,
     manual_review_continuation,
     no_rf_snapshot,
     postgres_interruption,
-    qdrant_outage,
     rf_review_findings,
     run_temporal_simulation,
-    semantic_indexer_factory,
     source_failures,
-    together_failure,
 )
 from evaluation.real_world.results import GateStatus
 from evaluation.real_world.state_snapshot import check_invariants
@@ -140,24 +135,15 @@ def rf_snapshot(tmp_path: Path) -> RfSnapshotFile:
     return RfSnapshotFile(snapshot_id="rf-test", path=path)
 
 
-def _memory_indexer(runner: CorpusRunner) -> None:
-    runner.create_semantic_indexer = semantic_indexer_factory(
-        runner.session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-    )
-    runner.rebuild_service()
-
-
 def test_temporal_simulation_rerun_adds_nothing_and_keeps_invariants(
     runner: CorpusRunner, rf_snapshot: RfSnapshotFile
 ) -> None:
-    _memory_indexer(runner)
     outcome = run_temporal_simulation(runner, rf_snapshot, rerun=True)
 
     assert [p.period for p in outcome.periods] == ["T0", "T1", "T2", "T3"]
     assert [p.new["source_documents"] for p in outcome.periods] == [7, 1, 1, 1]
     assert all(status == "completed" for p in outcome.periods for status in p.run_status.values())
     assert sum(outcome.rerun_duplicates.values()) == 0, outcome.rerun_duplicates
-    assert outcome.periods[0].new["semantic_indexed"] > 0
     assert set(check_invariants(runner.engine).values()) == {0}
     assert rf_review_findings(runner.session_factory, runner.snapshot_id).status is GateStatus.PASS
 
@@ -171,9 +157,6 @@ def test_crash_after_each_stage_recovers_the_uninterrupted_state(
         rf_snapshot,
         periods[TemporalPeriod.T0],
         [*periods[TemporalPeriod.T1], *periods[TemporalPeriod.T2]],
-        semantic=lambda: semantic_indexer_factory(
-            runner.session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-        ),
     )
     assert {r.name: r.status for r in results} == {
         f"crash_after_{stage}": GateStatus.PASS
@@ -182,24 +165,8 @@ def test_crash_after_each_stage_recovers_the_uninterrupted_state(
             "extraction",
             "entity_resolution",
             "classification",
-            "semantic_indexing",
         )
     }, [r.detail for r in results]
-
-
-def test_qdrant_outage_keeps_domain_state_and_derived_retry_repairs_index(
-    runner: CorpusRunner, rf_snapshot: RfSnapshotFile
-) -> None:
-    result = qdrant_outage(
-        runner,
-        rf_snapshot,
-        articles_by_period(runner.manifest)[TemporalPeriod.T0],
-        semantic_indexer_factory(
-            runner.session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS, TokenHashEmbedder()
-        ),
-        REAL_WORLD_COLLECTIONS,
-    )
-    assert result.status is GateStatus.PASS, result.detail
 
 
 def test_source_and_database_failures_stay_isolated(
@@ -212,21 +179,16 @@ def test_source_and_database_failures_stay_isolated(
     assert database.status is GateStatus.PASS, database.detail
 
 
-def test_together_failure_and_missing_rf_snapshot(runner: CorpusRunner) -> None:
+def test_missing_rf_snapshot_makes_no_findings(runner: CorpusRunner) -> None:
     missing = no_rf_snapshot(runner)
     assert missing.status is GateStatus.PASS, missing.detail
-    assert isinstance(missing.metrics["political_persons"], int)
-    assert missing.metrics["political_persons"] > 0
-    together = together_failure(runner)
-    assert together.status is GateStatus.PASS, together.detail
 
 
 def test_manual_review_decision_continues_through_derived_processing(
     runner: CorpusRunner, rf_snapshot: RfSnapshotFile
 ) -> None:
-    _memory_indexer(runner)
     run_temporal_simulation(runner, rf_snapshot, rerun=False)
-    result = manual_review_continuation(runner, has_semantic=True)
+    result = manual_review_continuation(runner)
     assert result.status is GateStatus.PASS, result.detail
 
 
@@ -285,9 +247,6 @@ def test_crash_is_injected_into_the_source_that_processes_the_increment(
             rf_snapshot,
             periods[TemporalPeriod.T0],
             [*periods[TemporalPeriod.T1], *periods[TemporalPeriod.T2]],
-            semantic=lambda: semantic_indexer_factory(
-                runner.session_factory, IN_MEMORY_QDRANT, REAL_WORLD_COLLECTIONS
-            ),
         )
     finally:
         truncate_disposable_tables(test_engine)

@@ -37,8 +37,6 @@ from persons.resolution.factory import build_person_resolution_service
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from semantic_retrieval.factory import SemanticRetrievalConfig, create_semantic_components
-from semantic_retrieval.indexer import SemanticIndexer
 from settings import ApplicationSettings
 from sources.retrying_fetcher import RetryingDocumentFetcher
 from sources.source_adapter import DocumentFetcher
@@ -59,23 +57,6 @@ def default_fetcher() -> DocumentFetcher:
     return RetryingDocumentFetcher(WebsiteAdapter(), max_attempts=3, base_delay_seconds=0.5)
 
 
-def semantic_indexer_factory(
-    session_factory: sessionmaker[Session], env: Mapping[str, str] | None = None
-) -> Callable[[], SemanticIndexer] | None:
-    """None when semantic retrieval is not configured; otherwise a lazy factory (no model
-    load, no connection yet)."""
-    config = SemanticRetrievalConfig.from_env(env)
-    if not config.enabled:
-        return None
-
-    def create() -> SemanticIndexer:
-        return create_semantic_components(
-            session_factory, config, env, with_reranker=False
-        ).indexer()
-
-    return create
-
-
 def build_monitoring_service(
     session_factory: sessionmaker[Session],
     *,
@@ -84,8 +65,6 @@ def build_monitoring_service(
     sources: Mapping[str, SourceDefinition] = SOURCES,
     create_http_client: Callable[[], httpx.AsyncClient] = default_http_client,
     create_fetcher: Callable[[], DocumentFetcher] = default_fetcher,
-    create_semantic_indexer: Callable[[], SemanticIndexer] | None = None,
-    use_env_semantic_indexer: bool = True,
     # None: built from the environment; ENTITY_REVIEW_PROVIDER=none leaves it unset and
     # every pending ER decision goes to a human (ADR 0020).
     entity_review: AutomatedEntityReviewService | None = None,
@@ -95,8 +74,6 @@ def build_monitoring_service(
 ) -> MonitoringService:
     engine = session_factory.kw["bind"]
     person_persistence = SqlAlchemyPersonPersistence(session_factory)
-    if create_semantic_indexer is None and use_env_semantic_indexer:
-        create_semantic_indexer = semantic_indexer_factory(session_factory, env)
     if entity_review is None:
         entity_review = build_entity_review_service(
             session_factory, EntityReviewSettings.from_env(env)
@@ -139,7 +116,6 @@ def build_monitoring_service(
         rf_persistence=RosfinMatchPersistence(session_factory),
         snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
         findings=MonitoringFindingService(session_factory, query_provider=query_provider),
-        create_semantic_indexer=create_semantic_indexer,
         entity_review=entity_review,
     )
     return MonitoringService(dependencies, settings)

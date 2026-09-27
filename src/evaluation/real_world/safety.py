@@ -26,8 +26,6 @@ from evaluation.real_world.results import (
     MonitoringSection,
     OverallStatus,
     PersecutionSection,
-    ResearchSection,
-    RetrievalSection,
     ScenarioResult,
     SectionStatus,
 )
@@ -59,8 +57,6 @@ class GateInputs:
     entity_resolution: EntityResolutionSection
     persecution: PersecutionSection
     candidate_query: CandidateSection
-    retrieval: RetrievalSection
-    research: ResearchSection
     monitoring: MonitoringSection
     failures: Sequence[Failure]
     review_workload_per_100: float | None
@@ -78,7 +74,6 @@ class RealWorldSafetyGateEvaluator:
     def _hard_values(self, inputs: GateInputs) -> dict[str, tuple[Metric, str | None]]:
         failures = inputs.failures
         er = inputs.entity_resolution
-        research = inputs.research
         monitoring = inputs.monitoring
         scenarios = {scenario.name: scenario for scenario in monitoring.scenarios}
 
@@ -115,19 +110,6 @@ class RealWorldSafetyGateEvaluator:
                 inputs.persecution.status,
                 gated_count(failures, kind="cross_person_political_attribution"),
                 "persecution not evaluated",
-            ),
-            "contradicted_report_claims": section_value(
-                research.status, research.contradicted_claims, "research benchmark not run"
-            ),
-            "unsupported_rf_absence_claims": section_value(
-                research.status,
-                research.unsupported_rf_absence_claims,
-                "research benchmark not run",
-            ),
-            "dangerous_silent_reinterpretation": section_value(
-                research.intake_status,
-                research.dangerous_silent_reinterpretation,
-                research.intake_not_run_reason or "intake not run",
             ),
             "duplicate_monitoring_findings": (
                 (
@@ -215,10 +197,6 @@ class RealWorldSafetyGateEvaluator:
             "political_recall": persecution.political.get("recall"),
             "candidate_precision": candidates.candidates.get("precision"),
             "candidate_recall": candidates.candidates.get("recall"),
-            "candidate_with_evidence_rate": candidates.evidence.with_evidence_rate,
-            "relevant_evidence_rate": candidates.evidence.relevant_evidence_rate,
-            "semantic_recall_at_5": inputs.retrieval.semantic_recall_at_5,
-            "supported_report_claims_rate": inputs.research.supported_claims_rate,
         }
 
     def _quality(self, inputs: GateInputs) -> list[GateOutcome]:

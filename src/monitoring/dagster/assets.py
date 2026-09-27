@@ -208,29 +208,19 @@ def rosfinmonitoring_matching(
     )
 
 
-@dg.asset(group_name=GROUP, description="Incremental semantic index update (derived index).")
-def semantic_indexing(
-    rosfinmonitoring_matching: RfStep, monitoring: dg.ResourceParam[MonitoringService]
-) -> dg.Output[RfStep]:
-    handle = rosfinmonitoring_matching.handle
-    if handle is None:
-        return _skipped_output(rosfinmonitoring_matching)
-    # A Qdrant outage is recorded on the run by the stage and does not raise.
-    result = _guard(monitoring, handle, lambda: monitoring.index_semantic(handle))
-    return dg.Output(rosfinmonitoring_matching, metadata=_stage_metadata(handle, result))
-
-
 @dg.asset(group_name=GROUP, description="Evaluate findings and finish the monitoring run.")
 def monitoring_summary(
-    semantic_indexing: RfStep, monitoring: dg.ResourceParam[MonitoringService]
+    rosfinmonitoring_matching: RfStep, monitoring: dg.ResourceParam[MonitoringService]
 ) -> dg.MaterializeResult[None]:
-    handle = semantic_indexing.handle
+    handle = rosfinmonitoring_matching.handle
     if handle is None:
         return dg.MaterializeResult(metadata={"skipped": "source already being monitored"})
     _guard(
         monitoring,
         handle,
-        lambda: monitoring.evaluate_findings(handle, snapshot_id=semantic_indexing.snapshot_id),
+        lambda: monitoring.evaluate_findings(
+            handle, snapshot_id=rosfinmonitoring_matching.snapshot_id
+        ),
     )
     run = monitoring.finish(handle)
     return dg.MaterializeResult(
@@ -248,7 +238,6 @@ def monitoring_summary(
             "person_reviews_created": run.person_reviews_created,
             "classifications_created": run.classifications_created,
             "rf_matches_created": run.rf_matches_created,
-            "semantic_entities_indexed": run.semantic_entities_indexed,
             "findings_created": run.findings_created,
             "error_count": run.error_count,
             "stage_metrics": dg.MetadataValue.json(run.stage_metrics),
@@ -264,6 +253,5 @@ MONITORING_ASSETS = [
     ai_entity_review,
     persecution_classification,
     rosfinmonitoring_matching,
-    semantic_indexing,
     monitoring_summary,
 ]

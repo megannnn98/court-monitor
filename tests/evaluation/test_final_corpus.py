@@ -30,9 +30,6 @@ REQUIRED_CATEGORIES = {
     "rf_insufficient_data",
     "no_rf_snapshot",
     "er_review",
-    "semantic_only_query",
-    "lexically_obvious_query",
-    "irrelevant_semantic_query",
     "duplicate_source_article",
     "repeated_monitoring_run",
     "new_article_second_run",
@@ -53,7 +50,6 @@ def test_every_case_checks_something() -> None:
         checks = (
             case.expected_extraction
             or case.identities
-            or case.research
             or case.run_expectations
             or case.review_required is not None
         )

@@ -97,7 +97,6 @@ class Provenance(_Model):
     golden_dataset_hash: str
     rf_snapshot_id: str
     rf_snapshot_hash: str | None
-    embedding_model_id: str | None
     extractor_version: str
     classifier_version: str
     matcher_version: str
@@ -133,8 +132,6 @@ class DatasetSummary(_Model):
     evaluated_articles: int
     evaluated_persons: int
     namesake_cases: int
-    retrieval_queries: int
-    research_queries: int
 
 
 class ExtractionSection(_Model):
@@ -201,91 +198,11 @@ class RosfinSection(_Model):
     review_instead_of_expected: int = 0
 
 
-class EvidenceSection(_Model):
-    candidates_checked: int = 0
-    with_evidence_rate: float | None = None
-    relevant_evidence_rate: float | None = None
-    supports_classification_rate: float | None = None
-    traceable_rate: float | None = None
-    offset_valid_rate: float | None = None
-    evidence_spans: int = 0
-
-
 class CandidateSection(_Model):
     status: SectionStatus
     snapshot_id: str | None = None
     candidates: dict[str, Metric] = Field(default_factory=dict)
     findings: dict[str, Metric] = Field(default_factory=dict)
-    evidence: EvidenceSection = Field(default_factory=EvidenceSection)
-
-
-class BackendRetrieval(_Model):
-    cases: int
-    recall_at_5: float
-    recall_at_10: float
-    mrr: float
-    ndcg_at_5: float
-
-
-class RetrievalQueryDiagnostic(_Model):
-    query_id: str
-    query: str
-    entity_type: str
-    semantic_only: bool
-    # Backend -> 1-based rank of the best relevant entity in the top 20, None if absent.
-    ranks: dict[str, int | None]
-    category: str
-    relevant_documents: list[str] = Field(default_factory=list)
-
-
-class RetrievalSection(_Model):
-    status: SectionStatus
-    not_run_reason: str | None = None
-    embedding_model_id: str | None = None
-    queries: int = 0
-    person_queries: int = 0
-    event_queries: int = 0
-    backends: dict[str, BackendRetrieval] = Field(default_factory=dict)
-    semantic_recall_at_5: float | None = None
-    query_error_categories: dict[str, int] = Field(default_factory=dict)
-    query_diagnostics: list[RetrievalQueryDiagnostic] = Field(default_factory=list)
-
-
-class ClaimSupport(StrEnum):
-    SUPPORTED = "SUPPORTED"
-    PARTIALLY_SUPPORTED = "PARTIALLY_SUPPORTED"
-    UNSUPPORTED = "UNSUPPORTED"
-    CONTRADICTED = "CONTRADICTED"
-    # The claim is about a person or article the golden dataset does not cover.
-    NOT_EVALUATED = "NOT_EVALUATED"
-
-
-class ResearchSection(_Model):
-    status: SectionStatus
-    queries: int = 0
-    by_class: dict[str, int] = Field(default_factory=dict)
-    intake_status: SectionStatus = SectionStatus.NOT_RUN
-    intake_not_run_reason: str | None = None
-    intake_correct: int = 0
-    intake_clarification_expected: int = 0
-    intake_clarification_given: int = 0
-    dangerous_silent_reinterpretation: int = 0
-    workflow_completed: int = 0
-    workflow_clarification: int = 0
-    workflow_failed: int = 0
-    persons: dict[str, Metric] = Field(default_factory=dict)
-    claims: dict[str, int] = Field(default_factory=dict)
-    supported_claims_rate: float | None = None
-    contradicted_claims: int = 0
-    # Distinct (person, claim type, value) behind the contradicted claim occurrences.
-    contradicted_claims_unique: int = 0
-    # SUPPORT:category -> count (occurrences / distinct person facts); see claim_failure_category.
-    claim_failure_categories: dict[str, int] = Field(default_factory=dict)
-    claim_failure_categories_unique: dict[str, int] = Field(default_factory=dict)
-    unsupported_rf_absence_claims: int = 0
-    required_claims_missing: int = 0
-    forbidden_claims_present: int = 0
-    dangerous: dict[str, int] = Field(default_factory=dict)
 
 
 class ScenarioResult(_Model):
@@ -349,8 +266,6 @@ class RealWorldValidationReport(_Model):
     persecution: PersecutionSection
     rosfinmonitoring: RosfinSection
     candidate_query: CandidateSection
-    retrieval: RetrievalSection
-    research: ResearchSection
     monitoring: MonitoringSection
     performance: PerformanceSection
     safety_gates: list[GateOutcome]

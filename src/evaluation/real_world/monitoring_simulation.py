@@ -2,10 +2,8 @@
 
     temporal simulation   T0 baseline → monitor T1 → T2 → T3, each run repeated
     crash recovery        failure after a stage, restart, compare with a clean run
-    Qdrant outage         domain state persists, a derived run repairs the index
     source failures       timeout / HTTP 500 / malformed document stay isolated
     PostgreSQL failure    one article's bounded transaction fails, others commit
-    Together AI failure   structured workflow failure, domain state unchanged
     no RF snapshot        nothing is reported as confirmed absence
     RF review statuses    never a main finding
     manual review         reviewer decision → derived processing, no re-ingestion
@@ -16,13 +14,11 @@ the final state that component evaluation reads.
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import math
 import re
 import time
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -57,18 +53,6 @@ from evaluation.real_world.state_snapshot import (
 from monitoring.service import MonitoringService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
-from research.models import ResearchRequest
-from research.planning.planner import ResearchPlanner
-from research.service import ResearchService
-from research.unit_of_work import SqlAlchemyResearchUnitOfWork
-from research.workflow.graph import build_research_graph, run_research_query
-from research.workflow.llm import LlmUnavailableError
-from research.workflow.models import ResearchIntake, WorkflowStatus
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from semantic_retrieval.factory import SemanticComponents, create_vector_store
-from semantic_retrieval.indexer import SemanticIndexer
-from semantic_retrieval.models import RetrievalEntityType
-from sources.source_registry import SOURCES
 
 logger = logging.getLogger("evaluation.real_world")
 
@@ -85,65 +69,18 @@ RERUN_TABLES = (
     "classifications",
     "rf_results",
     "findings",
-    "semantic_documents",
 )
 CRASH_STAGES = {
     "ingestion": "ingest",
     "extraction": "extract",
     "entity_resolution": "resolve",
     "classification": "classify",
-    "semantic_indexing": "index_semantic",
 }
-UNREACHABLE_QDRANT_URL = "http://127.0.0.1:9"
 _WORD = re.compile(r"\w+")
 
 
 class InjectedCrash(RuntimeError):
     """Controlled failure injected after a completed stage."""
-
-
-@dataclass(frozen=True)
-class TokenHashEmbedder:
-    """Deterministic bag-of-words vectors for infrastructure scenarios only.
-
-    Never used for retrieval quality: the semantic benchmark uses the project's
-    embedding model or reports NOT_RUN.
-    """
-
-    dimension: int = 64
-    model_id: str = "evaluation-token-hash"
-
-    def _vector(self, value: str) -> list[float]:
-        vector = [0.0] * self.dimension
-        for word in _WORD.findall(value.lower()):
-            vector[int(hashlib.sha256(word.encode()).hexdigest(), 16) % self.dimension] += 1.0
-        norm = math.sqrt(sum(v * v for v in vector)) or 1.0
-        return [v / norm for v in vector]
-
-    def embed_query(self, text: str) -> list[float]:
-        return self._vector(text)
-
-    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        return [self._vector(t) for t in texts]
-
-
-def semantic_indexer_factory(
-    session_factory: sessionmaker[Session],
-    qdrant_url: str,
-    collections: Mapping[RetrievalEntityType, str],
-    embedder: Any | None = None,
-) -> Callable[[], SemanticIndexer]:
-    store = create_vector_store(qdrant_url)
-
-    def create() -> SemanticIndexer:
-        return SemanticComponents(
-            session_factory=session_factory,
-            store=store,
-            embedder=embedder or TokenHashEmbedder(),
-            collections=collections,
-        ).indexer()
-
-    return create
 
 
 @dataclass
@@ -190,7 +127,6 @@ def run_temporal_simulation(
                     for name in (
                         *RERUN_TABLES,
                         "pending_person_reviews",
-                        "semantic_indexed",
                         "active_findings",
                     )
                 },
@@ -327,7 +263,6 @@ CRASH_STAGE_WORK = {
     "extraction": ("extraction", "extracted"),
     "entity_resolution": ("resolution", "extraction_runs"),
     "classification": ("classification", "pending"),
-    "semantic_indexing": ("semantic_indexing", "embedded"),
 }
 
 
@@ -356,32 +291,21 @@ def crash_recovery(
     rf_snapshot: RfSnapshotFile | None,
     baseline: Sequence[ManifestArticle],
     increment: Sequence[ManifestArticle],
-    semantic: Callable[[], Callable[[], SemanticIndexer]] | None,
 ) -> list[ScenarioResult]:
     """Uninterrupted reference vs. crash-after-stage + restart + rerun, per stage."""
 
-    def prepare(factory: Callable[[], SemanticIndexer] | None) -> None:
-        runner.create_semantic_indexer = factory
+    def prepare() -> None:
         runner.rebuild_service()
         runner.reset(rf_snapshot)
         runner.run_period("baseline", baseline)
 
     increment_sources = frozenset(article.source for article in increment)
-    prepare(semantic() if semantic else None)
+    prepare()
     runner.run_period("increment", increment)
     reference = logical_snapshot(runner.engine)
     results = []
     for stage, method in CRASH_STAGES.items():
-        if stage == "semantic_indexing" and semantic is None:
-            results.append(
-                ScenarioResult(
-                    name=f"crash_after_{stage}",
-                    status=GateStatus.NOT_RUN,
-                    detail="semantic index not configured",
-                )
-            )
-            continue
-        prepare(semantic() if semantic else None)
+        prepare()
         _inject_after(runner.service, method, increment_sources)
         crashed = runner.run_period("increment-crash", increment)
         runner.rebuild_service()  # restart: a new process without the fault
@@ -423,81 +347,8 @@ def crash_recovery(
                 },
             )
         )
-    runner.create_semantic_indexer = None
     runner.rebuild_service()
     return results
-
-
-def qdrant_outage(
-    runner: CorpusRunner,
-    rf_snapshot: RfSnapshotFile | None,
-    articles: Sequence[ManifestArticle],
-    restored: Callable[[], SemanticIndexer] | None,
-    collections: Mapping[RetrievalEntityType, str],
-) -> ScenarioResult:
-    if restored is None:
-        return ScenarioResult(
-            name="qdrant_outage",
-            status=GateStatus.NOT_RUN,
-            detail="no reachable Qdrant for the recovery step",
-        )
-    runner.create_semantic_indexer = semantic_indexer_factory(
-        runner.session_factory, UNREACHABLE_QDRANT_URL, collections
-    )
-    runner.rebuild_service()
-    runner.reset(rf_snapshot)
-    outage = runner.run_period("outage", articles)
-    counts = table_counts(runner.engine)
-    fetches = len(runner.upstream.fetch_log)
-    statuses = {view.status.value for view in outage.runs}
-    domain_ok = (
-        counts["mentions"] > 0 and counts["classifications"] > 0 and counts["semantic_indexed"] == 0
-    )
-    with runner.engine.connect() as connection:
-        retryable = int(
-            connection.execute(
-                text(
-                    "SELECT count(*) FROM monitoring_run_items WHERE stage = 'semantic_indexing' "
-                    "AND failure_kind = 'retryable'"
-                )
-            ).scalar_one()
-        )
-    runner.create_semantic_indexer = restored
-    runner.rebuild_service()
-    repair = runner.run_derived()
-    after = table_counts(runner.engine)
-    repaired = (
-        after["semantic_documents"] > 0 and after["semantic_indexed"] == after["semantic_documents"]
-    )
-    no_reingestion = (
-        after["source_documents"] == counts["source_documents"]
-        and len(runner.upstream.fetch_log) == fetches
-    )
-    passed = (
-        statuses == {"completed_with_errors"}
-        and domain_ok
-        and retryable > 0
-        and repaired
-        and no_reingestion
-    )
-    runner.create_semantic_indexer = None
-    runner.rebuild_service()
-    return ScenarioResult(
-        name="qdrant_outage",
-        status=GateStatus.PASS if passed else GateStatus.FAIL,
-        detail=(
-            f"outage runs {sorted(statuses)}, domain rows kept={domain_ok}, retryable items={retryable}; "
-            f"derived retry {repair.status.value}: indexed {after['semantic_indexed']}/{after['semantic_documents']}, "
-            f"re-ingestion={not no_reingestion}"
-        ),
-        metrics={
-            "outage_mentions": counts["mentions"],
-            "outage_classifications": counts["classifications"],
-            "retryable_items": retryable,
-            "indexed_after_retry": after["semantic_indexed"],
-            "semantic_documents": after["semantic_documents"],
-        },
-    )
 
 
 def source_failures(
@@ -603,74 +454,25 @@ def postgres_interruption(
     )
 
 
-class _UnavailableParser:
-    def parse(self, text: str) -> ResearchIntake:
-        raise LlmUnavailableError("injected: Together AI unavailable")
-
-
-def together_failure(runner: CorpusRunner) -> ScenarioResult:
-    before = logical_snapshot(runner.engine)
-    session_factory = runner.session_factory
-    graph = build_research_graph(
-        request_parser=_UnavailableParser(),
-        research_service=ResearchService(
-            unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
-        ),
-        snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
-        planner=ResearchPlanner(SOURCES),
-    )
-    result = run_research_query(graph, "Найди политически преследуемых, которых нет в перечне")
-    diffs = compare_snapshots(before, logical_snapshot(runner.engine))
-    code = result.error.code.value if result.error else None
-    passed = result.status is WorkflowStatus.FAILED and code == "llm_unavailable" and not diffs
-    return ScenarioResult(
-        name="together_ai_failure",
-        status=GateStatus.PASS if passed else GateStatus.FAIL,
-        detail=f"workflow {result.status.value} ({code}); domain state changed: {bool(diffs)}",
-        metrics={"error_code": code or "", "changed_tables": len(diffs)},
-    )
-
-
 def no_rf_snapshot(runner: CorpusRunner) -> ScenarioResult:
     runner.rebuild_service()
     outcome = run_temporal_simulation(runner, None, rerun=False)
-    session_factory = runner.session_factory
     with runner.engine.connect() as connection:
         findings = int(
             connection.execute(text("SELECT count(*) FROM monitoring_findings")).scalar_one()
         )
         matches = int(connection.execute(text("SELECT count(*) FROM rosfin_matches")).scalar_one())
-    response = ResearchService(
-        unit_of_work=SqlAlchemyResearchUnitOfWork(session_factory),
-    ).execute(
-        ResearchRequest.model_validate(
-            {
-                "object_type": "person",
-                "criteria": {"persecution_status": "political"},
-                "limit": 1000,
-            }
-        )
-    )
-    absence = sum(
-        1
-        for r in response.results
-        if r.rosfinmonitoring is not None and str(r.rosfinmonitoring.status) == "not_matched"
-    )
-    passed = findings == 0 and matches == 0 and absence == 0
+    # Without RF results no person can be stated absent from the list.
+    passed = findings == 0 and matches == 0
     return ScenarioResult(
         name="no_rf_snapshot",
         status=GateStatus.PASS if passed else GateStatus.FAIL,
-        detail=f"{len(outcome.periods)} periods without a snapshot: findings={findings}, rf matches={matches}, absence statements={absence}",
-        metrics={
-            "findings": findings,
-            "rf_matches": matches,
-            "absence_statements": absence,
-            "political_persons": len(response.results),
-        },
+        detail=f"{len(outcome.periods)} periods without a snapshot: findings={findings}, rf matches={matches}",
+        metrics={"findings": findings, "rf_matches": matches},
     )
 
 
-def manual_review_continuation(runner: CorpusRunner, has_semantic: bool) -> ScenarioResult:
+def manual_review_continuation(runner: CorpusRunner) -> ScenarioResult:
     """Take a pending ER review from the current state, decide it, run derived processing."""
     session_factory = runner.session_factory
     reviews = PersonResolutionReviewService(SqlAlchemyPersonPersistence(session_factory))
@@ -701,9 +503,6 @@ def manual_review_continuation(runner: CorpusRunner, has_semantic: bool) -> Scen
 
         classified = one("SELECT count(*) FROM persecution_classifications WHERE person_id = :p")
         matched = one("SELECT count(*) FROM rosfin_matches WHERE person_id = :p")
-        indexed = one(
-            "SELECT count(*) FROM semantic_documents WHERE entity_type = 'person' AND entity_id = :p AND indexed_at IS NOT NULL"
-        )
         linked = one("SELECT count(*) FROM entity_mentions WHERE person_id = :p")
     after = table_counts(runner.engine)
     no_reingestion = (
@@ -716,7 +515,6 @@ def manual_review_continuation(runner: CorpusRunner, has_semantic: bool) -> Scen
         linked > 0
         and classified > 0
         and (matched > 0 or not has_snapshot)
-        and (indexed > 0 or not has_semantic)
         and no_reingestion
         and derived.status.value != "failed"
     )
@@ -726,12 +524,11 @@ def manual_review_continuation(runner: CorpusRunner, has_semantic: bool) -> Scen
         detail=(
             f"decision {review.decision_id} ({review.incoming_name!r}) → create_new_person; derived run "
             f"{derived.status.value}: linked={linked}, classified={classified}, rf={matched}, "
-            f"indexed={indexed if has_semantic else 'n/a'}, re-ingestion={not no_reingestion}"
+            f"re-ingestion={not no_reingestion}"
         ),
         metrics={
             "linked_mentions": linked,
             "classifications": classified,
             "rf_matches": matched,
-            "indexed": indexed,
         },
     )
