@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -32,6 +33,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
+from phone_runtime import operation_wake_lock
 from sources.source_registry import SOURCES, SourceKind
 
 logger = logging.getLogger("operator_console")
@@ -186,6 +188,7 @@ class Heartbeat(Protocol):
 ProcessRunner = Callable[[list[str], Heartbeat], ProcessResult]
 # Hands the run's work to something that executes it outside the HTTP request.
 Executor = Callable[[Callable[[], None]], None]
+OperationContext = Callable[[], AbstractContextManager[None]]
 
 
 def _thread_executor(work: Callable[[], None]) -> None:
@@ -261,12 +264,14 @@ class OperationRegistry:
         *,
         executor: Executor = _thread_executor,
         process_runner: ProcessRunner = _run_process,
+        operation_context: OperationContext = operation_wake_lock,
         stale_after: timedelta = STALE_AFTER,
         worker_id: str | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._executor = executor
         self._process_runner = process_runner
+        self._operation_context = operation_context
         self._stale_after = stale_after
         self._worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
 
@@ -412,10 +417,11 @@ class OperationRegistry:
         if not self._claim(run_id):
             return
         try:
-            result = self._process_runner(
-                self._command(run_id),
-                lambda stdout="", stderr="": self._heartbeat(run_id, stdout, stderr),
-            )
+            with self._operation_context():
+                result = self._process_runner(
+                    self._command(run_id),
+                    lambda stdout="", stderr="": self._heartbeat(run_id, stdout, stderr),
+                )
         except BaseException as exc:  # noqa: BLE001 - recorded for operator inspection
             self._finish_or_log(
                 run_id,

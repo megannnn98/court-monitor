@@ -1,0 +1,16 @@
+# Site and five-step pipeline only. Keep GPU models, Dagster, the bot and PDF export out.
+alembic>=1.19.1
+anthropic>=1.8.0
+fastapi>=0.115.0
+httpx[socks]>=0.28.0
+langgraph>=1.2.11
+markdown-it-py>=4.0
+openpyxl>=3.1.5
+psycopg>=3.2
+pydantic>=2.11.0
+pymorphy3>=2.0.6
+qdrant-client>=1.15
+rapidfuzz>=3.14
+selectolax>=0.3.29
+sqlalchemy>=2.0,<3.0
+uvicorn>=0.32.0
