@@ -177,9 +177,9 @@ Extractor сохраняет `surface_text`. Normalizer не раскрывае�
 
 | Компонент | Версия |
 |---|---|
-| `RuleBasedEntityExtractor` | 1.5.0 (с распознавателем — 2.3.0) |
+| `RuleBasedEntityExtractor` | 1.5.0 |
 | `RuleBasedMentionNormalizer` | 1.5.0 |
-| `RuleBasedEventExtractor` | 1.8.0 |
+| `RuleBasedEventExtractor` | 1.9.0 |
 
 ## Таблицы
 

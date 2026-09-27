@@ -118,14 +118,14 @@ docker builder du --builder default | tail -1                    # скольк�
 
 - `Dockerfile` — образ API/Dagster/migrate.
 - `compose.yaml` — базовые сервисы и production profile.
-- `compose.gpu.yaml` — зависимости отсева мусора и NER, GPU.
+- `compose.gpu.yaml` — зависимости отсева мусора, GPU.
 - `migrations/` — Alembic шаг `migrate`.
 - `src/health.py`, `src/web/routers/health.py` — readiness/liveness.
 
 ## Ограничения и типичные ошибки
 
 - Не пропускать `migrate`: API сам миграции не применяет.
-- Не собирать GPU-выпуск без `compose.gpu.yaml`, если нужны отсев мусора или NER.
+- Не собирать GPU-выпуск без `compose.gpu.yaml`, если нужен отсев мусора.
 - Проверять свободное место до сборки: зависимости CUDA и старые слои занимают
   много места.
 - Откат к старому коду не всегда значит downgrade БД; downgrade только если
