@@ -286,7 +286,7 @@ def run(models: Sequence[str]) -> dict[str, Any]:
     results.append(outcome("legal_words", "-", None, [a.legal_words for a in part], part))
     errors: dict[str, Any] = {}
     for model_id in models:
-        from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder
+        from monitoring.embedder import EmbeddingConfig, SentenceTransformerEmbedder
 
         embedder = SentenceTransformerEmbedder(EmbeddingConfig(model_id=model_id))
         embedded = Embedded(embedder.embed_documents, articles)
@@ -362,7 +362,7 @@ def export(model_id: str) -> dict[str, Any]:
     part, with the cutoff chosen there out of fold — the one the validation measured."""
     from sklearn.linear_model import LogisticRegression
 
-    from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder
+    from monitoring.embedder import EmbeddingConfig, SentenceTransformerEmbedder
 
     articles = load()
     calibration = [i for i, a in enumerate(articles) if a.published_at < SPLIT_AT]

@@ -25,8 +25,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from semantic_retrieval.embeddings import EmbeddingConfig, SentenceTransformerEmbedder, TextEmbedder
-from semantic_retrieval.models import SemanticConfigurationError
+from monitoring.embedder import (
+    EmbeddingConfig,
+    EmbeddingConfigurationError,
+    SentenceTransformerEmbedder,
+    TextEmbedder,
+)
 
 DEFAULT_MODEL_PATH = Path(__file__).with_name("junk_screen_model.json")
 HELD = "held"
@@ -127,15 +131,10 @@ def screen_from_env(env: Mapping[str, str] | None = None) -> EmbeddingScreen | N
         return None
     model = ScreenModel.load(Path(env.get("JUNK_SCREEN_MODEL") or DEFAULT_MODEL_PATH))
     try:
-        config = EmbeddingConfig.from_env(env)
-    except (ValueError, SemanticConfigurationError) as exc:
+        config = EmbeddingConfig.from_env(model.model_id, env)
+    except EmbeddingConfigurationError as exc:
         raise JunkScreenError(f"The junk screen's embedding settings: {exc}") from exc
-    screen = EmbeddingScreen(
-        model,
-        SentenceTransformerEmbedder(
-            EmbeddingConfig(model.model_id, config.device, config.batch_size)
-        ),
-    )
+    screen = EmbeddingScreen(model, SentenceTransformerEmbedder(config))
     screen.scores([("Проверка", "Проверка модели отсева перед очисткой.")])
     return screen
 

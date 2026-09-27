@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
 from monitoring import junk_screen
+from monitoring.embedder import EmbeddingConfig, document_prefix
 from monitoring.junk_screen import (
     DEFAULT_MODEL_PATH,
     EmbeddingScreen,
@@ -100,16 +102,60 @@ def test_turned_on_the_screen_is_loaded_and_tried_before_the_purge(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     made: list[FakeEmbedder] = []
+    configs: list[EmbeddingConfig] = []
 
-    def embedder(config: object) -> FakeEmbedder:
+    def embedder(config: EmbeddingConfig) -> FakeEmbedder:
+        configs.append(config)
         made.append(FakeEmbedder())
         return made[-1]
 
     monkeypatch.setattr(junk_screen, "SentenceTransformerEmbedder", embedder)
 
-    screen = screen_from_env({"JUNK_SCREEN": "1", "JUNK_SCREEN_MODEL": str(_model(tmp_path))})
+    screen = screen_from_env(
+        {
+            "JUNK_SCREEN": "1",
+            "JUNK_SCREEN_MODEL": str(_model(tmp_path)),
+            "EMBEDDING_MODEL_ID": "other/model",
+            "EMBEDDING_DEVICE": "cpu",
+            "EMBEDDING_BATCH_SIZE": "4",
+        }
+    )
 
     assert screen is not None and len(made[0].texts) == 1
+    # The model is the one the screen was fitted on, whatever EMBEDDING_MODEL_ID says.
+    assert configs == [EmbeddingConfig("fake", "cpu", 4)]
+
+
+def test_bad_embedding_settings_fail_the_screen(tmp_path: Path) -> None:
+    with pytest.raises(JunkScreenError):
+        screen_from_env(
+            {
+                "JUNK_SCREEN": "1",
+                "JUNK_SCREEN_MODEL": str(_model(tmp_path)),
+                "EMBEDDING_DEVICE": "tpu",
+            }
+        )
+
+
+def test_an_embedding_model_that_does_not_load_fails_the_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real embedder, with sentence-transformers missing: the purge must not start."""
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+
+    with pytest.raises(JunkScreenError):
+        screen_from_env(
+            {
+                "JUNK_SCREEN": "1",
+                "JUNK_SCREEN_MODEL": str(_model(tmp_path)),
+                "EMBEDDING_DEVICE": "cpu",
+            }
+        )
+
+
+def test_e5_documents_get_the_passage_prefix() -> None:
+    assert document_prefix("intfloat/multilingual-e5-base") == "passage: "
+    assert document_prefix("BAAI/bge-m3") == ""
 
 
 def test_turned_on_and_broken_the_screen_fails(
