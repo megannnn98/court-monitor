@@ -80,13 +80,19 @@ _VERB_TRIGGERS: tuple[tuple[EventType, str], ...] = (
     (EventType.DETENTION, _W + r"(?:задерж(?:ал|али|ала|ало|ивали|ан|ана|аны|ано)(?![а-яё]))"),
     (
         EventType.ARREST,
-        _W + r"(?:арестова\w*|(?:заключ|взя|помести)\w*\s+под\s+страж\w*)",
+        _W + r"(?:арестова\w*|(?:заключ|взя|помести)\w*\s+под\s+страж\w*|"
+        # «отправили в СИЗО», «оказался в СИЗО», «помещён в следственный изолятор» — but
+        # «отправили письма в СИЗО» is support, «направил запрос в СИЗО» a request.
+        r"(?:отправ(?:ил|ля|лен)\w*|помести\w*|помещ[её]н\w*|оказал\w*)\s+"
+        r"(?:(?!письм|открытк|посылк|передач|запрос|жалоб|ходатайств|деньг)[а-яё-]+\s+){0,3}"
+        r"в\s+(?:сизо|следственн\w+\s+изолятор))",
     ),
     (
         EventType.CHARGE,
         # Plural or passive only: «X обвинил военных», «обвинял власти» is X accusing others.
         _W + r"(?:обвинили|обвиня(?:ли|ют|ется|ются)(?![а-яё])|"
-        r"обвинен(?:а|ы|о)?(?![а-яё])|предъяв\w*\s+обвинени\w*|стал\w*\s+обвиняем\w*)",
+        r"обвинен(?:а|ы|о)?(?![а-яё])|предъяв\w*\s+(?:(?:ему|ей|им|их)\s+)?обвинени\w*|"
+        r"стал\w*\s+обвиняем\w*)",
         # «обвиняемые» alone is a noun for the people, as «задержанные» is.
     ),
     # «осудил войну» is condemning; a court sentence reads «осудили», «осужден».
@@ -172,7 +178,8 @@ class RuleBasedEventExtractor:
     # event's target.
     # 1.8.0: the person a crime was aimed at («подготовке убийства … Вадима Волченко») is
     # not the event's target.
-    extractor_version = "1.8.0"
+    # 1.9.0: «отправили (оказался) в СИЗО» is an arrest; «предъявило ему обвинение» a charge.
+    extractor_version = "1.9.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()

@@ -230,6 +230,20 @@ def test_event_keywords_match_whole_words_and_case_needs_an_opening_verb() -> No
     assert _event_types("На блогера завели дело о фейках.") == ["case_opened"]
 
 
+def test_sent_to_pre_trial_detention_is_an_arrest_and_a_charge_to_him_a_charge() -> None:
+    """Real case: «Кавказский узел», a 15-year-old of Rostov-on-Don — «оказался в СИЗО, а
+    следствие предъявило ему обвинения в диверсии»: the purge deleted it, no event found."""
+    assert _event_types("Суд отправил подростка в СИЗО.") == ["arrest"]
+    assert _event_types("Активистку отправили в следственный изолятор.") == ["arrest"]
+    assert _event_types("Блогер помещен в СИЗО до 20 ноября.") == ["arrest"]
+    assert _event_types("Следствие предъявило ему обвинения в диверсии и госизмене.") == ["charge"]
+    assert _event_types("Следствие предъявило ей обвинение.") == ["charge"]
+    # Letters, parcels and requests sent to a detention centre are no arrest.
+    assert _event_types("Друзья отправили письма в СИЗО.") == []
+    assert _event_types("Волонтёры отправили ему посылку в СИЗО.") == []
+    assert _event_types("Судья, который рассматривает его дело, направил запрос в СИЗО.") == []
+
+
 def test_negated_event_verb_is_not_an_event() -> None:
     assert _event_types("Силовики его до сих пор не отпустили.") == []
 
