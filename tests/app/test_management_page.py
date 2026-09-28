@@ -52,7 +52,7 @@ def test_the_home_page_has_no_source_list_step_one_loads_them_all(
     assert "<title>Журнал запусков</title>" in response.text
     assert "<h1>Журнал запусков</h1>" in response.text
     # The journal is a reference page; «Обзор» remains home until the cycle lands.
-    assert '<a class="active" href="/ui/management" aria-current="page"><svg class="icon"' in (
+    assert '<a class="active" href="/ui/runs" aria-current="page"><svg class="icon"' in (
         response.text
     )
     assert 'name="sources"' not in response.text and "source-table" not in response.text
@@ -208,7 +208,7 @@ def test_the_latest_manual_runs_are_listed_with_their_status(
 
     run_id = registry.runs_of("monitor")[0].id
     assert "Последние ручные запуски" in page
-    assert f'<tr class="current"><td><a href="/ui/management?run_id={run_id}">#{run_id}</a>' in page
+    assert f'<tr class="current"><td><a href="/ui/runs?run_id={run_id}">#{run_id}</a>' in page
     assert '<span class="badge pending">В очереди</span>' in page
 
 
@@ -502,7 +502,7 @@ def test_while_a_load_runs_its_button_stops_it(session_factory: sessionmaker[Ses
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in busy
     assert "■ Остановить: Подгрузить статьи" in busy
     assert 'id="step-' not in busy  # nothing else can be pressed
-    assert stopped.headers["location"] == f"/ui/management?run_id={run_id}"
+    assert stopped.headers["location"] == f"/ui/runs?run_id={run_id}"
     assert registry.get(run_id).status is OperationRunStatus.INTERRUPTED
     # A stopped load is repeated.
     assert 'id="step-load" class="step current' in after
@@ -766,9 +766,7 @@ def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[S
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
 
-    listed = [
-        int(run_id) for run_id in re.findall(r'<a href="/ui/management\?run_id=(\d+)">#', page)
-    ]
+    listed = [int(run_id) for run_id in re.findall(r'<a href="/ui/runs\?run_id=(\d+)">#', page)]
     # Five runs: the four latest, newest first.
     assert listed == ids[:0:-1]
 
@@ -878,4 +876,4 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
     errors = page[page.index('id="source-errors"') :]
     assert "tg-broblsud" in errors and "ValueError: Post text not found" in errors
     assert "Источников с ошибками загрузки за неделю: 1" in home
-    assert 'href="/ui/management#source-errors"' in home
+    assert 'href="/ui/runs#source-errors"' in home

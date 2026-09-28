@@ -302,7 +302,7 @@ def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
     return (
         '<div class="run-bar"><button type="button" disabled '
         f'title="{escape(refusal, quote=True)}">3. Собрать сущности</button>'
-        f'<span class="muted">{escape(refusal)} <a href="/ui/management">Управление</a>.'
+        f'<span class="muted">{escape(refusal)} <a href="/ui/runs">Журнал запусков</a>.'
         f"{last}</span></div>"
     )
 
@@ -477,7 +477,7 @@ def ui_entities(
         ""
         if roles_known
         else '<p class="warning">Фигуранты ещё не определены — шаг 4 в '
-        '<a href="/ui/management">«Управлении»</a>; пока показаны все.</p>'
+        '<a href="/ui/runs">«Журнале запусков»</a>; пока показаны все.</p>'
     )
     found_by = f" по статье УК {escape(article)}" if article else ""
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0

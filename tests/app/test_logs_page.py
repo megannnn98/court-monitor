@@ -107,7 +107,7 @@ def test_stop_returns_to_management_by_default_and_unknown_runs_are_404(
         unknown = client.post("/ui/management/runs/999999/stop", follow_redirects=False)
         unknown_log = client.get("/ui/logs?run_id=999999")
 
-    assert stopped.headers["location"] == f"/ui/management?run_id={run.id}"
+    assert stopped.headers["location"] == f"/ui/runs?run_id={run.id}"
     assert (unknown.status_code, unknown_log.status_code) == (404, 404)
 
 

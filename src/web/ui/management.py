@@ -203,7 +203,7 @@ def _history(runs: Sequence[OperationRun], current: OperationRun | None) -> str:
         return ""
     rows = "".join(
         f'<tr class="{"current" if current is not None and run.id == current.id else ""}">'
-        f'<td><a href="/ui/management?run_id={run.id}">#{run.id}</a></td>'
+        f'<td><a href="/ui/runs?run_id={run.id}">#{run.id}</a></td>'
         f"<td>{_MODE_TITLES[run.parameters.mode]}</td>"
         f"<td>{escape(_local_time(run.created_at))}</td>"
         f"<td>{_badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])}</td>"
@@ -913,7 +913,13 @@ def _recent_runs(registry: OperationRegistry) -> list[OperationRun]:
     ][:HISTORY_SIZE]
 
 
-@router.get("/ui/management", response_class=HTMLResponse)
+@router.get("/ui/management", response_class=RedirectResponse)
+def legacy_management(request: Request) -> RedirectResponse:
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(f"/ui/runs{query}", status_code=303)
+
+
+@router.get("/ui/runs", response_class=HTMLResponse)
 def ui_management(
     run_id: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
@@ -1055,9 +1061,7 @@ async def _start(
 
 def _started_at(request: Request, run_id: int) -> str:
     return (
-        "/ui/cycle"
-        if request.query_params.get("back") == "cycle"
-        else f"/ui/management?run_id={run_id}"
+        "/ui/cycle" if request.query_params.get("back") == "cycle" else f"/ui/runs?run_id={run_id}"
     )
 
 
@@ -1081,7 +1085,7 @@ async def stop_management_run(
 ) -> RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
     back = {"logs": "/ui/logs", "entities": "/ui/entities", "cycle": "/ui/cycle"}.get(
-        (form.get("back") or [""])[0], "/ui/management"
+        (form.get("back") or [""])[0], "/ui/runs"
     )
     try:
         registry.stop(run_id)

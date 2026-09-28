@@ -124,7 +124,12 @@ def _review(
     action: str | None = None,
 ) -> str:
     kind = "info" if informational else ("warning" if count else "review")
-    action = action or ("Открыть" if informational else ("Проверить" if count else "Открыть"))
+    if action is not None:
+        action = f"{action} ({count})" if count else action
+    elif informational or not count:
+        action = "Открыть"
+    else:
+        action = f"Разобрать ({count})"
     return f"""<section class="cycle-station review-station {kind}">
   <div class="cycle-rail" aria-hidden="true">↓</div>
   <div><h2>{escape(title)} <span class="count">{count}</span></h2>
@@ -145,7 +150,7 @@ def _stations(
             _step(state, "load", latest.get("load"), work),
             _review(
                 "Сбои извлечения",
-                "/ui/management#source-errors",
+                "/ui/runs#source-errors",
                 failures,
                 "Справочно: ошибки отдельных источников не блокируют цикл.",
                 informational=True,
@@ -158,11 +163,11 @@ def _stations(
                 "Проверить удержанные публикации до следующей очистки.",
             ),
             _step(state, "entities", latest.get("entities"), work),
-            _review("Пары", "/ui/disputes", work.pairs, "Решить спорные совпадения людей."),
+            _review("Пары", "/ui/pairs", work.pairs, "Решить спорные совпадения людей."),
             _step(state, "figurants", latest.get("figurants"), work),
             _review(
                 "Роль",
-                "/ui/queue#roles",
+                "/ui/roles",
                 work.unclear_roles,
                 "Проверить неясные роли в деле.",
                 action="Проверить",
@@ -170,7 +175,7 @@ def _stations(
             _step(state, "political", latest.get("political"), work),
             _review(
                 "Политичность",
-                "/ui/queue#verdicts",
+                "/ui/politics-review",
                 work.unclear_verdicts,
                 "Проверить дела с неясной политичностью.",
                 action="Проверить",
@@ -198,6 +203,7 @@ def ui_cycle(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse:
     runs = registry.runs_of("monitor", limit=50)
+    work = workload(db)
     result_count = (
         db.scalar(
             select(func.count())
@@ -206,11 +212,12 @@ def ui_cycle(
         )
         or 0
     )
-    body = f'<form method="post" class="cycle">{_stations(current_state(registry), _latest_by_stage(runs), workload(db), recent_source_errors(db), result_count)}</form>'
+    body = f'<form method="post" class="cycle">{_stations(current_state(registry), _latest_by_stage(runs), work, recent_source_errors(db), result_count)}</form>'
     return _page(
         "Рабочий цикл",
         body,
         active="cycle",
         instruction="Шаги обработки и места проверки идут сверху вниз; запускается только текущий шаг.",
         db=db,
+        work=work,
     )

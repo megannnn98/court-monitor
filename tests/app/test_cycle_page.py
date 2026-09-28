@@ -8,12 +8,13 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
 from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, JunkScreenHoldRecord
-from operator_console import OperationRegistry
+from operator_console import OperationParameters, OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 
@@ -88,7 +89,7 @@ def test_cycle_shows_steps_and_review_stations_in_work_order(
     assert 'formaction="/ui/management/run?back=cycle"' in response.text
     assert 'id="step-purge"' not in response.text
     assert 'href="/ui/junk-holds"' in response.text
-    assert 'href="/ui/disputes"' in response.text
+    assert 'href="/ui/pairs"' in response.text
     assert 'href="/ui/unnamed"' in response.text
     assert "source-table" not in response.text
     assert 'id="source-errors"' not in response.text
@@ -148,6 +149,7 @@ def test_unfinished_previous_review_warns_and_requires_confirmation(
 
     assert "Проверить отсев: 1." in page
     assert 'class="cycle-station review-station warning"' in page
+    assert ">Разобрать (1)</a>" in page
     assert "Предыдущая проверка «Отсев» не завершена: 1" in page
     assert 'id="step-entities"' in page
 
@@ -184,5 +186,27 @@ def test_unclear_role_warns_but_does_not_replace_the_next_pipeline_step(
         page = client.get("/ui/cycle").text
 
     assert "<strong>Дальше:</strong> Шаг 5: отобрать политические дела." in page
+    assert ">Проверить (1)</a>" in page
     assert "Предыдущая проверка «Роль» не завершена: 1" in page
     assert 'id="step-political"' in page
+
+
+def test_common_next_action_does_not_wait_for_a_stale_run(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    run = registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE operator_operation_runs SET created_at = now() - interval '10 minutes' "
+                "WHERE id = :id"
+            ),
+            {"id": run.id},
+        )
+
+    with _client(session_factory, registry) as client:
+        overview = client.get("/ui/overview").text
+
+    assert "<strong>Дальше:</strong> Шаг 1: подгрузить статьи." in overview
+    assert "Дождитесь завершения" not in overview

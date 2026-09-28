@@ -107,7 +107,7 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
 
     with _client(session_factory) as client:
         page = client.get("/ui/unnamed").text
-        queue = client.get("/ui/queue").text
+        cycle = client.get("/ui/cycle").text
 
     assert "17 лет · мужчина · Тюмень · задержание · ст. 205" in page
     # Scraped text is escaped; the sentence leads to its publication.
@@ -117,8 +117,8 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
     assert "17 лет на 25.11.2024; мужчина; родился: Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ" in page
     assert "в перечне с 01.12.2024 или раньше" in page
     assert "Не разобраны (1)" in page and '<span class="badge pending">не разобран</span>' in page
-    # The queue counts it, and leads here.
-    assert '<a class="chip" href="/ui/unnamed">Безымянные: 1</a>' in queue
+    # The cycle counts it, and leads here.
+    assert 'Безымянные <span class="count">1</span>' in cycle
 
 
 def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Session]) -> None:
@@ -180,18 +180,18 @@ def test_no_rf_match_stays_open_and_insufficient_closes(
         )
         no_rf = client.get("/ui/unnamed", params={"status": "no_rf"}).text
         still_open = client.get("/ui/unnamed").text
-        queue = client.get("/ui/queue").text
+        cycle = client.get("/ui/cycle").text
         client.post(
             "/ui/unnamed/resolve",
             data={"figurant": "k" * 64, "resolution": "insufficient"},
         )
-        closed = client.get("/ui/queue").text
+        closed = client.get("/ui/cycle").text
 
     assert "Нет записи РФМ (1)" in no_rf
     assert '<span class="badge">подходящей записи РФМ нет</span>' in no_rf
     assert "Не разобраны (1)" in still_open
-    assert '<a class="chip" href="/ui/unnamed">Безымянные: 1</a>' in queue
-    assert '<a class="chip" href="/ui/unnamed">Безымянные: 0</a>' in closed
+    assert 'Безымянные <span class="count">1</span>' in cycle
+    assert 'Безымянные <span class="count">0</span>' in closed
 
 
 def test_the_overview_shows_the_open_unnamed_with_their_candidates(

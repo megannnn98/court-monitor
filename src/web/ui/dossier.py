@@ -471,7 +471,7 @@ def _header(dossier: Dossier) -> str:
     )
     rf_label, rf_badge = rf_status(dossier.rf)
     disputes = (
-        f'<a class="badge pending" href="/ui/queue?{urlencode({"key": entity.key})}">'
+        f'<a class="badge pending" href="/ui/pairs?{urlencode({"key": entity.key})}">'
         f"нерешённых спорных пар: {len(dossier.disputes)}</a>"
         if dossier.disputes
         else _badge("спорных пар нет")
@@ -510,7 +510,7 @@ def _header(dossier: Dossier) -> str:
     }</button>
     </form>
     <p class="muted">Ручные решения сохраняются и применяются при каждой пересборке. Спорные пары —
-    в <a href="/ui/queue">«Очереди»</a>.</p>
+    на странице <a href="/ui/pairs">«Пары»</a>.</p>
   </details>
 </section>"""
 

@@ -130,17 +130,17 @@ def ui_overview(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     decisions = work.pairs + work.unclear_roles + work.unclear_verdicts
     queue = (
         f"""<p class="queue-line">Нужно ваше решение:
-  <a href="/ui/queue#pairs">спорных совпадений — {work.pairs}</a> ·
-  <a href="/ui/queue#roles">неясных ролей — {work.unclear_roles}</a> ·
-  <a href="/ui/queue#verdicts">неясной политичности — {work.unclear_verdicts}</a>
-  <a class="button-link" href="/ui/queue">Разобрать</a></p>"""
+  <a href="/ui/pairs">спорных совпадений — {work.pairs}</a> ·
+  <a href="/ui/roles">неясных ролей — {work.unclear_roles}</a> ·
+  <a href="/ui/politics-review">неясной политичности — {work.unclear_verdicts}</a>
+  <a class="button-link" href="/ui/cycle">К циклу</a></p>"""
         if decisions
         else '<p class="queue-line muted">Решений оператора не ждёт ничего.</p>'
     )
     failed = recent_source_errors(db)
     errors = (
         f'<p class="warning">Источников с ошибками загрузки за неделю: {failed} — '
-        '<a href="/ui/management#source-errors">Управление</a>.</p>'
+        '<a href="/ui/runs#source-errors">Журнал запусков</a>.</p>'
         if failed
         else ""
     )

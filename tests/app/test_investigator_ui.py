@@ -485,53 +485,46 @@ def test_a_decided_pair_is_kept_and_the_next_one_is_shown(
     _pairs(session_factory)
 
     with _client(session_factory) as client:
-        first = client.get("/ui/queue").text
+        first = client.get("/ui/pairs").text
         decided = client.post(
             "/ui/disputes/decide",
             data={
                 "key_a": "олег орлов",
                 "key_b": "олег петрович орлов",
                 "decision": "different",
-                "back": "queue",
+                "back": "pairs",
             },
             follow_redirects=False,
         )
         after = client.get(decided.headers["location"]).text
 
-    assert "Пара 1 из 2" in first and "Орлов Олег Петрович" in first
-    assert "Почему предложена:" in first and "Почему не слита автоматически:" in first
-    assert decided.status_code == 303 and decided.headers["location"].startswith("/ui/queue")
-    assert "Пара 1 из 1" in after and "Смирнова Анна Ивановна" in after
-    assert "Орлов" not in after.split('id="pairs"')[1].split("</section>")[0]
+    assert "Нерешённых пар: 2" in first and "Орлов Олег Петрович" in first
+    assert decided.status_code == 303 and decided.headers["location"] == "/ui/pairs"
+    assert "Нерешённых пар: 1" in after and "Смирнова Анна Ивановна" in after
+    assert "Орлов" not in after
     with session_factory() as session:
         record = session.get(EntityPairDecisionRecord, ("олег орлов", "олег петрович орлов"))
         assert record is not None and (record.decision, record.source) == ("different", "manual")
 
 
-def test_a_postponed_pair_steps_aside_for_this_visit(
+def test_the_old_queue_keeps_its_filter_when_redirecting(
     session_factory: sessionmaker[Session],
 ) -> None:
-    _pairs(session_factory)
-    orlov = "олег орлов|олег петрович орлов"
-    smirnova = "анна ивановна смирнова|анна смирнова"
-
     with _client(session_factory) as client:
-        first = client.get("/ui/queue").text
-        next_one = client.get("/ui/queue", params={"skip": orlov}).text
-        none_left = client.get("/ui/queue", params=[("skip", orlov), ("skip", smirnova)]).text
+        legacy = client.get("/ui/queue?kind=similar", follow_redirects=False)
 
-    postpone = re.search(r'href="(/ui/queue\?skip=[^"]+)#pairs">Отложить', first)
-    assert postpone is not None and "skip=" in postpone.group(1)
-    assert "Смирнова Анна Ивановна" in next_one and "Пара 2 из 2" in next_one
-    assert "Все 2 пар отложены" in none_left
-    with session_factory() as session:
-        assert session.scalar(text("SELECT count(*) FROM entity_pair_decisions")) == 0
+    assert (legacy.status_code, legacy.headers["location"]) == (
+        303,
+        "/ui/pairs?kind=similar",
+    )
 
 
 def test_empty_states_say_so(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         overview = client.get("/ui/overview").text
-        queue = client.get("/ui/queue").text
+        pairs = client.get("/ui/pairs").text
+        roles = client.get("/ui/roles").text
+        politics = client.get("/ui/politics-review").text
         publications = client.get("/ui/publications").text
         investigations = client.get("/ui/investigations").text
     _case(session_factory)
@@ -541,8 +534,9 @@ def test_empty_states_say_so(session_factory: sessionmaker[Session]) -> None:
     assert "Новых дел нет." in overview and "Приговоров нет." in overview
     assert "Неопознанных нет." in overview and "Решений оператора не ждёт ничего." in overview
     assert "ошибками загрузки" not in overview
-    assert "Спорных пар нет." in queue and "Неясных ролей нет." in queue
-    assert "Неясных дел нет." in queue and "Сбоев нет." in queue
+    assert "Спорных пар нет." in pairs
+    assert "Неясная роль в деле: открытых случаев нет." in roles
+    assert "Неясная политичность: открытых случаев нет." in politics
     assert "Ничего не найдено." in publications
     assert "Никого не найдено." in investigations
     assert "Нет событий, где этот человек назван участником" in witness
@@ -611,6 +605,7 @@ def test_the_old_addresses_still_answer(session_factory: sessionmaker[Session]) 
                 "/ui/investigations",
                 "/ui/publications",
                 "/ui/queue",
+                "/ui/pairs",
             )
         }
 
@@ -628,7 +623,7 @@ def test_the_interface_speaks_russian(session_factory: sessionmaker[Session]) ->
                 f"/ui/investigations/{quote(MOOR)}",
                 "/ui/entities",
                 "/ui/publications",
-                "/ui/queue",
+                "/ui/pairs",
             )
         }
 
@@ -637,8 +632,8 @@ def test_the_interface_speaks_russian(session_factory: sessionmaker[Session]) ->
         for english in ("Persons", "ER pending", "run:", "Dashboard", "Search", "Timeline"):
             assert english not in visible, (path, english)
         assert '<html lang="ru">' in page
-    assert 'href="/ui/queue">Разобрать</a>' not in pages["/ui/overview"]  # the queue is empty
-    assert "Спорные совпадения людей" in pages["/ui/queue"]
+    assert 'href="/ui/cycle">К циклу</a>' not in pages["/ui/overview"]  # no work is open
+    assert "Спорные совпадения людей" in pages["/ui/pairs"]
 
 
 def test_every_pair_decision_can_be_reset(session_factory: sessionmaker[Session]) -> None:
@@ -655,17 +650,17 @@ def test_every_pair_decision_can_be_reset(session_factory: sessionmaker[Session]
             )
 
     with _client(session_factory) as client:
-        before = client.get("/ui/queue").text
-        reset = client.post("/ui/queue/reset-decisions", follow_redirects=False)
+        before = client.get("/ui/pairs").text
+        reset = client.post("/ui/pairs/reset-decisions", follow_redirects=False)
         after = client.get(reset.headers["location"]).text
 
     # Asked first, with what goes; the button only when there is something to forget.
     assert "Сбросить все решения по парам" in before
     assert "Сохранено решений: 2 (вручную: 1," in before and "Спорных пар нет." in before
     assert "return confirm(" in before and "Это необратимо." in before
-    assert reset.status_code == 303 and reset.headers["location"] == "/ui/queue?reset=2#pairs"
+    assert reset.status_code == 303 and reset.headers["location"] == "/ui/pairs?reset=2"
     assert "Решения по парам сброшены: 2." in after
     # Both pairs are disputed again; nothing is left to reset.
-    assert "Пара 1 из 2" in after and "Сохранённых решений по парам нет." in after
+    assert "Нерешённых пар: 2" in after and "Сохранённых решений по парам нет." in after
     with session_factory() as session:
         assert session.scalar(text("SELECT count(*) FROM entity_pair_decisions")) == 0

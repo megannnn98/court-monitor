@@ -72,8 +72,8 @@ def test_the_pairs_are_listed_side_by_side_and_filtered_by_kind(
     _entities(session_factory, *PEOPLE)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/disputes").text
-        similar = client.get("/ui/disputes", params={"kind": "similar"}).text
+        page = client.get("/ui/pairs").text
+        similar = client.get("/ui/pairs", params={"kind": "similar"}).text
 
     # The pair review is reached from its station in the work cycle, not a menu item.
     assert 'href="/ui/queue" aria-current="page"' not in page
@@ -110,7 +110,7 @@ def test_one_person_merges_and_different_people_leave_the_list(
         page = client.get("/ui/disputes").text
         broken = client.post("/ui/disputes/decide", data={"key_a": "лида мониава"})
 
-    assert same.status_code == 303 and same.headers["location"] == "/ui/disputes?kind=all&page=1"
+    assert same.status_code == 303 and same.headers["location"] == "/ui/pairs?kind=all&page=1"
     assert "Спорных пар нет." in page
     assert broken.status_code == 400
     with session_factory() as session:

@@ -89,14 +89,14 @@ def funnel(db: Session) -> Funnel:
         db.scalar(_CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}) or 0
     )
     stages = [
-        Stage("1", "Публикаций скачано", documents, "", "/ui/management"),
+        Stage("1", "Публикаций скачано", documents, "", "/ui/runs"),
         Stage(
             "2",
             "С уголовным делом",
             criminal_publications,
             f"отсеяно {_n(documents - criminal_publications)} без уголовного дела "
             "(штрафы, прочие новости)",
-            "/ui/management",
+            "/ui/runs",
         ),
         Stage(
             "3",
@@ -158,5 +158,5 @@ def funnel_line(whole: Funnel) -> str:
     parts = " → ".join(f"{_n(stage.count)} {escape(stage.label.lower())}" for stage in whole.stages)
     return (
         f'<p class="muted funnel-line">Воронка за всё время ({escape(whole.period)}): {parts}. '
-        '<a href="/ui/management">Подробнее</a></p>'
+        '<a href="/ui/runs">Подробнее</a></p>'
     )

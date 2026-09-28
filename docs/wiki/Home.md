@@ -21,8 +21,8 @@ Status](Implementation-Status.md).
 1. Запустить проект локально: [Getting Started](Getting-Started.md).
 2. Понять общий поток данных: [Overview](Overview.md).
 3. Разобрать автоматическую докачку и статусы: [Monitoring](Monitoring.md).
-4. Работать в консоли «Следователь»: [Local Web UI](Local-Web-UI.md); пять
-   шагов обработки — [Pipeline](Pipeline.md).
+4. Работать в консоли «Следователь»: [Local Web UI](Local-Web-UI.md); домашняя
+   страница ведёт по пяти шагам и проверкам рабочего цикла — [Pipeline](Pipeline.md).
 5. Проверять качество: [Real-World Validation](RealWorldValidation.md).
 
 ## Карта страниц
@@ -36,7 +36,7 @@ Status](Implementation-Status.md).
 - [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
-- [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: обзор, «Результат», досье человека, люди, безымянные, публикации, очередь, управление
+- [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: рабочий цикл, «Результат», обзор, досье, отдельные проверки и журнал запусков
 - [Pipeline](Pipeline.md) — пять шагов от публикации до «Результата», модель и расходы, старый путь через Person
 - [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
 - [Junk Screen](Junk-Screen.md) — отсев мусора с проверкой: статьи, где извлечение пропустило дело, удерживаются, а не удаляются

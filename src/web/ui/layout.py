@@ -29,8 +29,8 @@ _CSS_VERSION = hashlib.sha256(
 ).hexdigest()[:12]
 
 
-def _status_counts(db: Session) -> dict[str, object]:
-    work = workload(db)
+def _status_counts(db: Session, work: Workload | None = None) -> dict[str, object]:
+    work = work or workload(db)
     latest_run = db.scalars(
         select(MonitoringRunRecord).order_by(MonitoringRunRecord.started_at.desc()).limit(1)
     ).first()
@@ -119,7 +119,7 @@ _REFERENCE = (
     ("entities", "Люди", "/ui/entities"),
     ("publications", "Публикации", "/ui/publications"),
     ("officials", "Должностные лица", "/ui/officials"),
-    ("management", "Журнал запусков", "/ui/management"),
+    ("management", "Журнал запусков", "/ui/runs"),
     ("logs", "Логи", "/ui/logs"),
     ("wiki", "Вики", "/ui/wiki"),
 )
@@ -157,9 +157,10 @@ def _page(
     active: str,
     instruction: str,
     db: Session,
+    work: Workload | None = None,
     warning: str | None = None,
 ) -> HTMLResponse:
-    counts = _status_counts(db)
+    counts = _status_counts(db, work)
     next_action = live_next_action(db, cast(Workload, counts["work"]))
     warning_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     return HTMLResponse(

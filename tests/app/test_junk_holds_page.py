@@ -69,13 +69,13 @@ def test_the_held_articles_are_listed_with_why_and_the_queue_counts_them(
 
     with _client(session_factory) as client:
         page = client.get("/ui/junk-holds").text
-        queue = client.get("/ui/queue").text
+        cycle = client.get("/ui/cycle").text
 
     assert "<title>Отсев: на проверке</title>" in page
     assert f'href="/ui/articles/{article}">Главные новости &lt;b&gt;дня&lt;/b&gt;</a>' in page
     assert "оценка 0.81 (порог 0.52)" in page and "не доказательство уголовного дела" in page
     assert "На проверке (1)" in page and "Извлечь заново" in page
-    assert '<a class="chip" href="/ui/junk-holds">Отсев на проверке: 1</a>' in queue
+    assert 'Отсев <span class="count">1</span>' in cycle
 
 
 def test_junk_and_back_again(session_factory: sessionmaker[Session]) -> None:

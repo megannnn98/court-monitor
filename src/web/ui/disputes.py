@@ -4,6 +4,7 @@ the pair off the list."""
 
 from __future__ import annotations
 
+import json
 from html import escape
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode
@@ -24,6 +25,7 @@ from entities.disputes import (
     Pair,
     decide,
     decided_pairs,
+    decision_counts,
     find_pairs,
 )
 from entities.grouping import split_key
@@ -77,10 +79,18 @@ def _side(
     )
 
 
-@router.get("/ui/disputes", response_class=HTMLResponse)
+@router.get("/ui/disputes", response_class=RedirectResponse)
+def legacy_disputes(request: Request) -> RedirectResponse:
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(f"/ui/pairs{query}", status_code=303)
+
+
+@router.get("/ui/pairs", response_class=HTMLResponse)
 def ui_disputes(
     kind: str = Query(default="all", pattern="^(all|patronymic|similar|region)$"),
     page: int = Query(default=1, ge=1),
+    reset: int | None = Query(default=None, ge=0),
+    key: str = Query(default="", max_length=300),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     refs = [
@@ -95,6 +105,8 @@ def ui_disputes(
         ).all()
     ]
     pairs = find_pairs(refs, decided_pairs(db))
+    if key:
+        pairs.sort(key=lambda pair: key not in pair.keys)
     counts = {key: sum(pair.kind == key for pair in pairs) for key in (PATRONYMIC, SIMILAR, REGION)}
     notes = _why_not_merged(db, pairs)
     shown = [pair for pair in pairs if kind == "all" or pair.kind == kind]
@@ -111,19 +123,45 @@ def ui_disputes(
     )
     chips = " ".join(
         f'<a class="chip{" active" if key == kind else ""}" '
-        f'href="/ui/disputes?{urlencode({"kind": key})}">{label}'
+        f'href="/ui/pairs?{urlencode({"kind": key})}">{label}'
         f"{f' ({counts[key]})' if key in counts else f' ({len(pairs)})'}</a>"
         for key, label in _KINDS.items()
     )
     pages = (len(shown) + PAGE_SIZE - 1) // PAGE_SIZE
-    pages_html = pager("/ui/disputes", {"kind": kind}, page, pages)
-    body = f"""<p class="chips">{chips}</p>
+    pages_html = pager("/ui/pairs", {"kind": kind}, page, pages)
+    decided = decision_counts(db)
+    total_decided = sum(decided.values())
+    confirm = (
+        f"Удалить все решения по спорным парам ({total_decided}, из них вручную "
+        f"{decided.get('manual', 0)})? Пары «Разные люди» вернутся сразу, слитые люди "
+        "разделятся при следующей сборке сущностей. Это необратимо."
+    )
+    reset_form = (
+        f"""<form method="post" action="/ui/pairs/reset-decisions" class="reset-form"
+    onsubmit="return confirm({escape(json.dumps(confirm, ensure_ascii=False), quote=True)})">
+    <button type="submit" class="danger">Сбросить все решения по парам</button>
+    <span class="muted">Сохранено решений: {total_decided} (вручную: {decided.get("manual", 0)},
+    по перечню: {decided.get("rf", 0)}, по региону: {decided.get("region", 0)}).</span>
+  </form>"""
+        if total_decided
+        else '<p class="muted">Сохранённых решений по парам нет.</p>'
+    )
+    reset_notice = (
+        f'<p class="warning" role="status">Решения по парам сброшены: {reset}.</p>'
+        if reset is not None
+        else ""
+    )
+    body = f"""<p><a href="/ui/cycle">Назад к циклу</a></p>
+<h2>Спорные совпадения людей</h2>
+<p class="chips">{chips}</p>
 <p class="muted">Нерешённых пар: {len(shown)}. «Один человек» сливает две сущности сразу и при
 каждой следующей сборке; «Разные люди» убирает пару из списка.</p>
+{reset_notice}
+{reset_form}
 {sections or '<p class="muted">Спорных пар нет.</p>'}
 {pages_html}"""
     return _page(
-        "Спорные случаи",
+        "Пары",
         body,
         active="disputes",
         instruction=(
@@ -221,13 +259,11 @@ async def decide_dispute(
         raise HTTPException(status_code=400, detail="Неполное решение")
     decide(db, key_a, key_b, decision)
     db.commit()
-    if form.get("back") == "queue":
-        # The queue shows the next pair; the ones put off stay put off.
-        skip = urlencode([("skip", item) for item in fields.get("skip", [])])
-        return RedirectResponse(f"/ui/queue?{skip}#pairs", status_code=303)
+    if form.get("back") in {"queue", "pairs"}:
+        return RedirectResponse("/ui/pairs", status_code=303)
     kind = form.get("kind") if form.get("kind") in _KINDS else "all"
     page = str(form.get("page", "1"))
     return RedirectResponse(
-        f"/ui/disputes?{urlencode({'kind': kind, 'page': page if page.isdigit() else '1'})}",
+        f"/ui/pairs?{urlencode({'kind': kind, 'page': page if page.isdigit() else '1'})}",
         status_code=303,
     )
