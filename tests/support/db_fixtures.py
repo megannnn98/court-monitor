@@ -1,4 +1,4 @@
-"""Database seeding helpers for research layer tests."""
+"""Database seeding helpers for domain tests."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from db.orm_models import (
 FIXED_TIME = datetime(2024, 1, 1, tzinfo=UTC)
 
 
-class ResearchSeeder:
+class DatabaseSeeder:
     def __init__(self, session: Session) -> None:
         self.session = session
         self._texts: dict[int, str] = {}

@@ -66,13 +66,13 @@ class CorpusPerson(BaseModel):
     events: list[CorpusEvent] = Field(default_factory=list)
 
 
-class EntityRetrievalCorpus(BaseModel):
+class ErEvaluationCorpus(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     persons: list[CorpusPerson]
 
     @model_validator(mode="after")
-    def validate_unique_keys(self) -> EntityRetrievalCorpus:
+    def validate_unique_keys(self) -> ErEvaluationCorpus:
         keys = [person.key for person in self.persons] + [
             event.key for person in self.persons for event in person.events
         ]
@@ -86,7 +86,7 @@ class CorpusIds(BaseModel):
     events: dict[str, int]
 
 
-def seed_corpus(session_factory: sessionmaker[Session], corpus: EntityRetrievalCorpus) -> CorpusIds:
+def seed_corpus(session_factory: sessionmaker[Session], corpus: ErEvaluationCorpus) -> CorpusIds:
     """Insert the corpus as persons/articles/events/classifications. Needs empty tables."""
     person_ids: dict[str, int] = {}
     event_ids: dict[str, int] = {}

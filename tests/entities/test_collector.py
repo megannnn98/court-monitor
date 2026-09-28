@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     EntityGroupChargeRecord,
@@ -30,7 +30,7 @@ from entities.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
 
 
 def _person(
-    session: Session, seed: ResearchSeeder, run: int, surface: str, first: str | None, last: str
+    session: Session, seed: DatabaseSeeder, run: int, surface: str, first: str | None, last: str
 ) -> int:
     mention_id = seed.mention(run, surface, person_id=None)
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
@@ -43,7 +43,7 @@ def _person(
 
 def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         _, arrest = seed.article(
             source,
@@ -137,7 +137,7 @@ class FakeNormalizer:
 
 def _seed_declined_and_nominative(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         for external_id, text_, surface, first, last in (
             ("a", "Суд арестовал Александра Моора.", "Александра Моора", "Александра", "Моора"),
@@ -215,7 +215,7 @@ def test_a_registry_card_gives_its_region_and_keeps_its_namesake_apart(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("memopzk", "https://memopzk.example.test")
         card = (
             "Бондаренко Николай Викторович.\nРегион: Луганская область.\n"
@@ -288,7 +288,7 @@ def test_a_single_nominative_form_is_named_without_the_model(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         text_ = "Суд арестовал. Анна Олеговна Смирнова не признала вину."
         _, run = seed.article(source, external_id="a", title="a", text=text_)
@@ -318,7 +318,7 @@ def test_a_relative_is_no_entity_and_a_swapped_name_is_one(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         _, run = seed.article(
             source,
@@ -348,7 +348,7 @@ def test_a_pseudonym_in_brackets_after_a_name_is_that_person(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         _, run = seed.article(
             source,
@@ -396,7 +396,7 @@ def _seed_unnamed(
     existing_key: str | None = None,
 ) -> None:
     with session_factory.begin() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source(
             f"unnamed-news-{resolution}",
             f"https://unnamed-{resolution}.example.test",

@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from api import app, get_db
 from db.orm_models import RosfinmonitoringSnapshotRecord
@@ -109,7 +109,7 @@ def test_the_candidates_the_wiki_and_their_exports_are_served(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        snapshot_id = ResearchSeeder(session).snapshot()
+        snapshot_id = DatabaseSeeder(session).snapshot()
         session.commit()
 
     with _client(session_factory) as client:
@@ -134,7 +134,7 @@ def test_the_json_api_behind_the_removed_pages_stays(
 ) -> None:
     """Only user interfaces went away: the API they called is still registered."""
     with session_factory() as session:
-        snapshot_id = ResearchSeeder(session).snapshot()
+        snapshot_id = DatabaseSeeder(session).snapshot()
         session.commit()
 
     with _client(session_factory) as client:
@@ -152,11 +152,11 @@ def test_the_json_api_behind_the_removed_pages_stays(
     assert statuses == dict.fromkeys(statuses, 200)
 
 
-def test_the_page_and_the_bot_open_on_the_newest_snapshot(
+def test_the_page_opens_on_the_newest_snapshot(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         older = seed.snapshot("older-hash")
         newer = seed.snapshot("newer-hash")
         session.get_one(RosfinmonitoringSnapshotRecord, older).snapshot_date = datetime(

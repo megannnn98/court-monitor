@@ -12,7 +12,7 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 from sqlalchemy import event, text
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     EntityGroupPoliticsRecord,
@@ -50,7 +50,7 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
 
 
 def _person(
-    session: Session, seed: ResearchSeeder, run: int, surface: str, first: str, last: str
+    session: Session, seed: DatabaseSeeder, run: int, surface: str, first: str, last: str
 ) -> int:
     mention_id = seed.mention(run, surface, person_id=None)
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
@@ -61,7 +61,7 @@ def _person(
     return mention_id
 
 
-def _law(session: Session, seed: ResearchSeeder, run: int, surface: str, article: str) -> int:
+def _law(session: Session, seed: DatabaseSeeder, run: int, surface: str, article: str) -> int:
     mention_id = seed.mention(run, surface, person_id=None, entity_type="legal_reference")
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
         "code": "УК РФ",
@@ -77,7 +77,7 @@ def _case(session_factory: sessionmaker[Session], *, extra: int = 0) -> None:
     publications, a court, an article of the Code, a witness; `extra` more publications,
     each with a person of its own and an event on a day of its own."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("ОВД-Инфо", "https://ovd.info")
         _, run = seed.article(
             source,
@@ -145,7 +145,7 @@ def _more(
     day of its own; then the entities rebuilt and judged again (a rebuild drops the role
     and the verdict, as step 3 does)."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = (
             seed.source(source_name, f"https://{quote(source_name)}.example.test") if extra else 0
         )
@@ -201,7 +201,7 @@ def _more(
 
 def _listed(session_factory: sessionmaker[Session], level: str) -> None:
     with session_factory.begin() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         entry = seed.entry(seed.snapshot(), "МООР АЛЕКСАНДР ПЕТРОВИЧ")
         group = session.scalar(text("SELECT id FROM entity_groups WHERE key = :key"), {"key": MOOR})
         session.add(EntityGroupRfMatchRecord(group_id=group, entry_id=entry, level=level))

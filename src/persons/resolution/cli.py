@@ -115,10 +115,7 @@ def format_plan(plan: ResolutionPlan) -> str:
     counts = ", ".join(
         f"{source.value} {count}" for source, count in plan.generation.counts.items()
     )
-    lines.append(
-        f"Candidates: {len(plan.generation.candidates)} ({counts}); "
-        f"semantic source: {plan.generation.semantic_source.value}"
-    )
+    lines.append(f"Candidates: {len(plan.generation.candidates)} ({counts})")
     for candidate in decision.candidates:
         lines.extend(_format_candidate(candidate))
     reasons = ", ".join(reason.value for reason in decision.reasons)
@@ -131,9 +128,6 @@ def format_plan(plan: ResolutionPlan) -> str:
 
 def _format_candidate(scored: ScoredPersonCandidate) -> list[str]:
     candidate, features = scored.candidate, scored.features
-    semantic = (
-        "n/a" if candidate.semantic_similarity is None else f"{candidate.semantic_similarity:.2f}"
-    )
     return [
         "",
         (
@@ -149,7 +143,7 @@ def _format_candidate(scored: ScoredPersonCandidate) -> list[str]:
         ),
         (
             f"    order: {'different' if features.order_differs else 'same'}"
-            f"   alias: {'yes' if features.exact_alias else 'no'}   semantic: {semantic}"
+            f"   alias: {'yes' if features.exact_alias else 'no'}"
         ),
         "    conflicts: "
         + (", ".join(conflict.value for conflict in features.conflicts) or "none"),
@@ -167,14 +161,11 @@ def format_review(view: ResolutionReviewView) -> str:
             f"Source: {view.source.source_name or '-'} {view.source.url or ''} "
             f"{view.source.title or ''}"
         ).rstrip(),
-        f"Reasons: {', '.join(view.reasons)}   semantic source: {view.semantic_source}",
+        f"Reasons: {', '.join(view.reasons)}",
     ]
+    if view.semantic_source != "disabled":
+        lines.append(f"Legacy semantic source: {view.semantic_source}")
     for candidate in view.candidates:
-        semantic = (
-            "n/a"
-            if candidate.semantic_similarity is None
-            else f"{candidate.semantic_similarity:.2f}"
-        )
         lines += [
             "",
             (
@@ -187,7 +178,7 @@ def format_review(view: ResolutionReviewView) -> str:
             ),
             (
                 f"    order: {'different' if candidate.order_differs else 'same'}"
-                f"   alias: {'yes' if candidate.exact_alias else 'no'}   semantic: {semantic}"
+                f"   alias: {'yes' if candidate.exact_alias else 'no'}"
             ),
             f"    conflicts: {', '.join(candidate.conflicts) or 'none'}",
         ]

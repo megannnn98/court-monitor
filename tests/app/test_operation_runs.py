@@ -342,8 +342,8 @@ def _client(
 def test_another_api_worker_reads_the_stored_run(
     session_factory: sessionmaker[Session], test_engine: Engine
 ) -> None:
-    """The JSON API outlives the operations page: a run started elsewhere (the bot's
-    `/update`, the CLI) is served from the database by a worker that never saw it start."""
+    """The JSON API outlives the operations page: a run started elsewhere through
+    `/update` or the CLI is served from the database by a worker that never saw it start."""
     executor, queued = _deferred()
     accepting = _registry(session_factory, executor=executor)
     run = accepting.start("discover-and-ingest", OperationParameters(source="ovd-info", limit=3))

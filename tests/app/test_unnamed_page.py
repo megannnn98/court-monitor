@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
@@ -42,7 +42,7 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
 
 def _seed(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         article, _ = seed.article(
             source,

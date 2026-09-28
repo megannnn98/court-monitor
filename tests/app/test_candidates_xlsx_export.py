@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from api import app, get_db
 from db.orm_models import SourceDocument
@@ -54,7 +54,7 @@ def _export(client: TestClient, snapshot_id: int, **params: Any) -> httpx2.Respo
 
 
 def _seed_candidate(
-    seed: ResearchSeeder,
+    seed: DatabaseSeeder,
     snapshot_id: int,
     name: str,
     *,
@@ -74,7 +74,7 @@ def _seed_candidate(
 
 
 def _seed_news(
-    seed: ResearchSeeder,
+    seed: DatabaseSeeder,
     person_id: int,
     name: str,
     external_id: str,
@@ -113,7 +113,7 @@ def test_export_returns_downloadable_xlsx_with_candidate_row(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         person_id = _seed_candidate(seed, snapshot_id, "Иван Иванов")
         session.commit()
@@ -158,7 +158,7 @@ def test_new_cases_and_sentences_come_first_then_the_newest(
 ) -> None:
     """Customer request: new cases and sentences are the priority; the rest follows."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         day = timedelta(days=1)
         _seed_candidate(seed, snapshot_id, "Анна Обыскова", event_type="search")
@@ -190,7 +190,7 @@ def test_new_cases_and_sentences_come_first_then_the_newest(
 
 def test_export_applies_active_filters(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         other_snapshot_id = seed.snapshot("other-snapshot-hash")
         strong = _seed_candidate(seed, snapshot_id, "Иван Иванов", confidence=0.95)
@@ -211,7 +211,7 @@ def test_export_applies_active_filters(session_factory: sessionmaker[Session]) -
 def test_old_news_is_left_out_by_the_period(session_factory: sessionmaker[Session]) -> None:
     """Customer finding: news from 2025 filled the end of the table."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         _seed_candidate(seed, snapshot_id, "Иван Свежий")
         _seed_candidate(
@@ -230,7 +230,7 @@ def test_old_news_is_left_out_by_the_period(session_factory: sessionmaker[Sessio
 def test_the_default_period_is_the_last_45_days(session_factory: sessionmaker[Session]) -> None:
     today = datetime.now(ZoneInfo("Europe/Moscow"))
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         _seed_candidate(seed, snapshot_id, "Иван Свежий", published_at=today - timedelta(days=40))
         _seed_candidate(seed, snapshot_id, "Петр Старый", published_at=today - timedelta(days=50))
@@ -253,7 +253,7 @@ def test_administrative_cases_are_left_out_unless_asked_for(
 ) -> None:
     """Customer finding: «включает административки, их не надо» (ovdinfolive/42587)."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         _seed_candidate(
             seed,
@@ -286,7 +286,7 @@ def test_export_contains_all_candidates_not_only_the_page_limit(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         names = ["Первый Кандидат", "Второй Кандидат", "Третий Кандидат"]
         for name in names:
@@ -306,7 +306,7 @@ def test_export_without_candidates_has_only_header(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        snapshot_id = ResearchSeeder(session).snapshot()
+        snapshot_id = DatabaseSeeder(session).snapshot()
         session.commit()
 
     with _client(session_factory) as client:
@@ -329,7 +329,7 @@ def test_candidates_page_links_export_with_active_filters(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        snapshot_id = ResearchSeeder(session).snapshot()
+        snapshot_id = DatabaseSeeder(session).snapshot()
         session.commit()
 
     with _client(session_factory) as client:
@@ -355,7 +355,7 @@ def test_export_writes_formula_like_name_as_text(
 ) -> None:
     name = '=HYPERLINK("https://evil.test","Иван")'
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         _seed_candidate(seed, snapshot_id, name)
         session.commit()
@@ -374,7 +374,7 @@ def test_link_points_to_the_article_of_the_latest_event(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         person_id = _seed_candidate(seed, snapshot_id, "Иван Иванов")
         _seed_news(seed, person_id, "Иван Иванов", "later-news", datetime(2026, 9, 10, tzinfo=UTC))
@@ -399,7 +399,7 @@ def test_link_without_events_points_to_the_article_that_mentions_the_person(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         person_id = seed.person("Иван Иванов")
         seed.classification(person_id, "political", 0.9)
@@ -426,7 +426,7 @@ def test_link_without_events_points_to_the_article_that_mentions_the_person(
 
 def test_only_a_web_link_is_clickable(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         snapshot_id = seed.snapshot()
         person_id = _seed_candidate(seed, snapshot_id, "Иван Иванов")
         document = session.scalars(
@@ -448,7 +448,7 @@ def test_the_candidates_page_offers_only_the_excel_export(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        snapshot_id = ResearchSeeder(session).snapshot()
+        snapshot_id = DatabaseSeeder(session).snapshot()
         session.commit()
 
     with _client(session_factory) as client:
@@ -465,7 +465,7 @@ def test_an_unparsable_period_is_rejected_by_every_export(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        snapshot_id = ResearchSeeder(session).snapshot()
+        snapshot_id = DatabaseSeeder(session).snapshot()
         session.commit()
 
     params: dict[str, str | int] = {"snapshot_id": snapshot_id, "date_from": "01.08.2026"}

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from api import app, get_db
 from web.wiki import _wiki_markdown_to_html
@@ -31,7 +31,7 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source_id = seed.source("test-source", "https://source.test")
         article_id, run_id = seed.article(
             source_id,

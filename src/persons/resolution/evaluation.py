@@ -22,6 +22,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import PersonAliasRecord, PersonRecord
+from evaluation.person_resolution.corpus import CorpusPerson, ErEvaluationCorpus, seed_corpus
 from extraction.normalizers import RuleBasedMentionNormalizer
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
@@ -31,7 +32,6 @@ from persons.resolution.candidates import (
     PersonCandidateGenerator,
     TrigramCandidateGenerator,
 )
-from persons.resolution.corpus import CorpusPerson, EntityRetrievalCorpus, seed_corpus
 from persons.resolution.decision import PersonResolutionDecisionPolicy, ResolutionThresholds
 from persons.resolution.models import (
     PersonIdentityInput,
@@ -97,7 +97,7 @@ def pipeline_identity(surface: str) -> PersonIdentityInput:
 
 def seed_er_corpus(session_factory: sessionmaker[Session], corpus: ErCorpus) -> dict[str, int]:
     """Seed persons (with their events) as the pipeline stores them."""
-    ids = seed_corpus(session_factory, EntityRetrievalCorpus(persons=corpus.persons)).persons
+    ids = seed_corpus(session_factory, ErEvaluationCorpus(persons=corpus.persons)).persons
     with session_factory.begin() as session:
         for person in corpus.persons:
             stored = pipeline_identity(person.canonical_name)

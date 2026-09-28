@@ -22,7 +22,6 @@ from persons.resolution.models import (
     CandidateSource,
     PersonIdentityInput,
     PersonResolutionCandidate,
-    SemanticSourceStatus,
 )
 from persons.resolution.normalizer import PersonNameNormalizer
 
@@ -37,10 +36,6 @@ MAX_ALIASES_PER_CANDIDATE = 20
 TRIGRAM_NAME_MIN_SIMILARITY = 0.3
 TRIGRAM_TOKEN_MIN_WORD_SIMILARITY = 0.5
 MIN_BLOCK_TOKEN_LENGTH = 3
-
-
-class CandidateSourceUnavailableError(RuntimeError):
-    """An optional candidate source could not answer (e.g. Qdrant is down)."""
 
 
 class PersonCandidateGenerator(Protocol):
@@ -240,15 +235,13 @@ class TrigramCandidateGenerator:
 @dataclass(frozen=True)
 class CandidateGenerationResult:
     candidates: list[PersonResolutionCandidate]
-    semantic_source: SemanticSourceStatus
     counts: dict[CandidateSource, int] = field(default_factory=dict)
 
 
-def _order_key(candidate: PersonResolutionCandidate) -> tuple[int, float, float, int]:
+def _order_key(candidate: PersonResolutionCandidate) -> tuple[int, float, int]:
     return (
         0 if {CandidateSource.EXACT_KEY, CandidateSource.ALIAS} & set(candidate.sources) else 1,
         -(candidate.trigram_similarity or 0.0),
-        -(candidate.semantic_similarity or 0.0),
         candidate.person_id,
     )
 
@@ -264,26 +257,13 @@ class CompositeCandidateGenerator:
     ) -> CandidateGenerationResult:
         merged: dict[int, PersonResolutionCandidate] = {}
         counts: dict[CandidateSource, int] = {}
-        semantic = SemanticSourceStatus.DISABLED
         for generator in self._generators:
-            try:
-                found = generator.generate(identity, limit=limit, session=session)
-            except CandidateSourceUnavailableError as exc:
-                logger.warning(
-                    "er_candidate_source_unavailable source=%s error=%s",
-                    generator.source.value,
-                    exc,
-                )
-                if generator.source is CandidateSource.SEMANTIC:
-                    semantic = SemanticSourceStatus.UNAVAILABLE
-                continue
-            if generator.source is CandidateSource.SEMANTIC:
-                semantic = SemanticSourceStatus.OK
+            found = generator.generate(identity, limit=limit, session=session)
             counts[generator.source] = len(found)
             for candidate in found:
                 merged[candidate.person_id] = _merge(merged.get(candidate.person_id), candidate)
         candidates = sorted(merged.values(), key=_order_key)[:limit]
-        return CandidateGenerationResult(candidates, semantic, counts)
+        return CandidateGenerationResult(candidates, counts)
 
 
 def _merge(
@@ -295,7 +275,6 @@ def _merge(
         update={
             "sources": sorted({*existing.sources, *new.sources}),
             "trigram_similarity": _max(existing.trigram_similarity, new.trigram_similarity),
-            "semantic_similarity": _max(existing.semantic_similarity, new.semantic_similarity),
         }
     )
 

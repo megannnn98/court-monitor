@@ -12,7 +12,7 @@ from collections.abc import Sequence
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     EntityMentionRecord,
@@ -84,7 +84,7 @@ def _pending_decision(
     scores: Sequence[float] = (0.8,),
 ) -> tuple[int, list[int], int]:
     """A decision as ER v2 stores it for review: one mention, its candidate persons."""
-    seed = ResearchSeeder(session)
+    seed = DatabaseSeeder(session)
     source_id = seed.source("ovd-info", "https://ovdinfo.example.test")
     text = f"Суд арестовал {mention_name} по делу о пикете."
     _, run_id = seed.article(source_id, external_id="news-1", title="Задержание", text=text)
@@ -461,7 +461,7 @@ def test_one_failing_decision_does_not_stop_the_batch(
         first_id, _, _ = _pending_decision(session)
         session.commit()
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source_id = seed.source("sota", "https://sota.example.test")
         text = "Суд арестовал Петра Петрова."
         _, run_id = seed.article(source_id, external_id="news-2", title="Суд", text=text)

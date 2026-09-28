@@ -25,7 +25,6 @@ def test_final_evaluation_passes_safety_gates_and_quality_floors(
         "false_person_link",
         "false_rf_not_matched",
         "false_actionable_candidate",
-        "unsupported_report_claim",
     ):
         assert counts.get(dangerous, 0) == 0, dangerous
     assert report.cases_evaluated >= 40

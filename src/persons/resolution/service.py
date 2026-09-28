@@ -131,11 +131,10 @@ class PersonResolutionEngine:
             identity, limit=self._config.candidate_limit, session=session
         )
         logger.info(
-            "er_candidates_generated mention_id=%s count=%d sources=%s semantic=%s",
+            "er_candidates_generated mention_id=%s count=%d sources=%s",
             identity.mention_id,
             len(generation.candidates),
             {source.value: count for source, count in generation.counts.items()},
-            generation.semantic_source.value,
         )
         in_article = persons_mentioned_in_article(
             session, identity.article_id, exclude_mention_id=identity.mention_id
@@ -166,7 +165,6 @@ class PersonResolutionEngine:
         decision = self._policy.decide(
             identity,
             scored,
-            semantic_source=generation.semantic_source,
             distinct_pairs=known_distinct_pairs(session, [c.person_id for c in scored]),
         )
         if PersonResolutionReason.MULTIPLE_EXACT_NAME_MATCHES in decision.reasons:
@@ -524,7 +522,8 @@ class PersonResolutionService:
                     "normalized": plan.name.model_dump(mode="json"),
                 },
                 candidates=[candidate.model_dump(mode="json") for candidate in decision.candidates],
-                semantic_source=plan.generation.semantic_source.value,
+                # Legacy non-null column retained so historical semantic decisions remain readable.
+                semantic_source="disabled",
                 created_at=datetime.now(UTC),
             )
             .on_conflict_do_nothing(constraint="uq_person_resolution_decisions_mention_version")

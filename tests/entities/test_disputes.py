@@ -6,7 +6,7 @@ from collections import Counter
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     EntityGroupMentionRecord,
@@ -91,7 +91,7 @@ RANAV = "игорь александрович ранав · чукотский 
 
 def _person(
     session: Session,
-    seed: ResearchSeeder,
+    seed: DatabaseSeeder,
     run: int,
     surface: str,
     first: str,
@@ -109,7 +109,7 @@ def _person(
 
 def _seed(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         card = "Ранав Игорь Александрович.\nРегион: Чукотский автономный округ.\nОсужден."
         _, run = seed.article(source, external_id="card", title="Ранав", text=card)

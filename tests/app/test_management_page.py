@@ -11,8 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
+from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
-from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import OperatorOperationRunRecord
 from monitoring.models import MonitoringStage, MonitoringTrigger
@@ -512,7 +512,7 @@ def test_while_a_resolution_runs_its_button_stops_it(
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
     finish_steps(session_factory, registry, "load", "purge", "entities")
 
-    # A resolution has no button, but one started before (or by the bot) can be stopped.
+    # A resolution has no button, but a legacy run started elsewhere can be stopped.
     run_id = _live(session_factory, registry, "resolve")
 
     with _client(session_factory, registry) as client:
@@ -735,7 +735,7 @@ def test_step_six_finds_the_political_cases_from_management(
 
 def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[Session]) -> None:
     with session_factory.begin() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         ovd = seed.source("ОВД-Инфо", "https://ovd.info")
         for day, external_id in (
             (datetime(2025, 3, 4, tzinfo=UTC), "old"),

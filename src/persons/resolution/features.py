@@ -154,5 +154,4 @@ class PersonResolutionFeatureExtractor:
             incomplete_name=incoming.is_incomplete
             or (alignment.incoming is not None and given is None),
             conflicts=alignment.conflicts,
-            semantic_similarity=candidate.semantic_similarity,
         )

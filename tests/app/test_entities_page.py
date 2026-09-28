@@ -12,8 +12,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
+from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
-from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityMentionRecord
 from entities.collector import EntityCollector
@@ -44,7 +44,7 @@ def _client(
 
 
 def _person(
-    session: Session, seed: ResearchSeeder, run: int, surface: str, first: str, last: str
+    session: Session, seed: DatabaseSeeder, run: int, surface: str, first: str, last: str
 ) -> int:
     mention_id = seed.mention(run, surface, person_id=None)
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
@@ -57,7 +57,7 @@ def _person(
 
 def _collected(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         _, run = seed.article(
             source,
@@ -250,7 +250,7 @@ def test_initials_sort_by_the_name_as_shown(session_factory: sessionmaker[Sessio
     ]
 
 
-def _law(session: Session, seed: ResearchSeeder, run: int, surface: str, article: str) -> int:
+def _law(session: Session, seed: DatabaseSeeder, run: int, surface: str, article: str) -> int:
     mention_id = seed.mention(run, surface, person_id=None, entity_type="legal_reference")
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
         "code": "УК РФ",
@@ -264,7 +264,7 @@ def _law(session: Session, seed: ResearchSeeder, run: int, surface: str, article
 def _charged(session_factory: sessionmaker[Session]) -> None:
     """Моор is charged alone under 205.2; Иванов and Петров share 207.3 and 20.3.1."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         text_ = "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ."
         _, run = seed.article(source, external_id="moor", title="Арест Моора", text=text_)

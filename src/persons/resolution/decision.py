@@ -13,13 +13,10 @@ Rules (ADR 0012), in order:
    → AUTO_LINK;
    otherwise REVIEW with every reason that blocked it;
 4. top plausible below the auto-link minimum → REVIEW (MEDIUM_CONFIDENCE_MATCH);
-5. nothing plausible → CREATE_NEW, unless the semantic source was unavailable
-   and a non-conflicting candidate shares the surname: then linking vs creating
-   stays open without it → REVIEW.
+5. nothing plausible → CREATE_NEW.
 0. a surname alone (no given name, no initials) whose only same-surname candidate is
    already mentioned in the same article → AUTO_LINK (SAME_ARTICLE_SURNAME_REFERENCE);
    two such persons in the article (father and son) fall through to the rules below.
-Semantic similarity never enters these rules except through (5).
 """
 
 from __future__ import annotations
@@ -34,7 +31,6 @@ from persons.resolution.models import (
     PersonResolutionDecision,
     PersonResolutionReason,
     ScoredPersonCandidate,
-    SemanticSourceStatus,
 )
 
 R = PersonResolutionReason
@@ -88,7 +84,6 @@ class PersonResolutionDecisionPolicy:
         identity: PersonIdentityInput,
         candidates: Sequence[ScoredPersonCandidate],
         *,
-        semantic_source: SemanticSourceStatus = SemanticSourceStatus.DISABLED,
         distinct_pairs: Collection[frozenset[int]] = (),
     ) -> PersonResolutionDecision:
         """`distinct_pairs`: person pairs a reviewer declared different people (KEEP_SEPARATE)."""
@@ -107,7 +102,6 @@ class PersonResolutionDecisionPolicy:
                 candidates=ranked,
                 reasons=reasons,
                 decision_margin=margin,
-                semantic_source=semantic_source,
             )
 
         # A single name token (a surname repeated in the text) is a reference, not an
@@ -153,14 +147,6 @@ class PersonResolutionDecisionPolicy:
             reasons = [R.NO_PLAUSIBLE_CANDIDATE]
             if any(c.is_conflicting for c in ranked):
                 reasons.append(R.CONFLICTING_IDENTITY_DATA)
-            if semantic_source is SemanticSourceStatus.UNAVAILABLE and any(
-                not c.is_conflicting
-                and c.features.surname in (ComponentMatch.EXACT, ComponentMatch.TYPO)
-                for c in ranked
-            ):
-                return decision(
-                    PersonResolutionAction.REVIEW, [*reasons, R.SEMANTIC_SOURCE_UNAVAILABLE]
-                )
             if single_token:
                 return decision(PersonResolutionAction.REVIEW, [*reasons, R.INCOMPLETE_NAME])
             return decision(PersonResolutionAction.CREATE_NEW, reasons)

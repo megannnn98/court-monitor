@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     EntityGroupNewsRecord,
@@ -21,7 +21,7 @@ from entities.news import SYSTEM_PROMPT, NewsAnswer, NewsFinder, NewsItem, NewsR
 
 
 def _person(
-    session: Session, seed: ResearchSeeder, run: int, surface: str, first: str, last: str
+    session: Session, seed: DatabaseSeeder, run: int, surface: str, first: str, last: str
 ) -> None:
     mention = seed.mention(run, surface, person_id=None)
     session.get_one(EntityMentionRecord, mention).normalized_data = {
@@ -35,7 +35,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
     """Моор: arrested in 2023, his arrest extended now. Петров: sentenced now. Сидоров:
     a common criminal — no verdict «political», never asked."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         for external_id, day, text_, surface, first, last in (
             (

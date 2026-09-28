@@ -17,7 +17,6 @@ from persons.resolution.candidates import (
 from persons.resolution.models import (
     CandidateSource,
     PersonIdentityInput,
-    SemanticSourceStatus,
 )
 
 
@@ -133,7 +132,7 @@ def test_composite_merges_sources_by_person(session_factory: sessionmaker[Sessio
     (candidate,) = result.candidates
     assert set(candidate.sources) == {CandidateSource.EXACT_KEY, CandidateSource.TRIGRAM}
     assert candidate.trigram_similarity == 1.0
-    assert result.semantic_source is SemanticSourceStatus.DISABLED
+    assert not hasattr(result, "semantic_source")
 
 
 def test_candidate_limit_below_two_is_rejected() -> None:

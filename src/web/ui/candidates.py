@@ -42,7 +42,7 @@ def ui_candidates(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
-    # The newest snapshot, chosen as the Telegram bot chooses it.
+    # Open on the newest imported snapshot unless the user selected another one.
     selected_snapshot_id = snapshot_id or latest_snapshot_id(db)
     if selected_snapshot_id is None:
         return _page(

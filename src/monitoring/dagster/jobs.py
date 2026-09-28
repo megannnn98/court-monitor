@@ -10,7 +10,7 @@ a full rerun is safe because every stage re-selects its work from PostgreSQL.
 `monitoring_derived_job` re-runs classification, RF matching
 and findings without web access. It is the only place with a Dagster retry
 policy: the source layer already retries HTTP, and a retryable failure of the
-derived stages (e.g. Qdrant unavailable) is safe to repeat because every stage
+derived stages (for example, a temporary database failure) is safe to repeat because every stage
 selects only still-stale work.
 """
 

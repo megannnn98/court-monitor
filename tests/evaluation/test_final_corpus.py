@@ -101,6 +101,10 @@ def test_known_limitation_without_declared_kinds_excuses_nothing() -> None:
     [
         {"known_limitation_kinds": ["false_person_link"]},
         {"known_limitation": "A documented limitation text.", "known_limitation_kinds": ["typo"]},
+        {
+            "known_limitation": "The removed research report had an unsupported claim.",
+            "known_limitation_kinds": ["unsupported_report_claim"],
+        },
     ],
 )
 def test_excused_kinds_need_a_limitation_and_a_known_kind(overrides: dict[str, object]) -> None:

@@ -39,10 +39,6 @@ class _CandidateRow(NamedTuple):
     news: _CandidateNews | None
 
 
-# The public name of a row for the other consumers of the selection (the Telegram bot).
-CandidateRow = _CandidateRow
-
-
 # The categories of the customer's table, by the event the row links to.
 _CANDIDATE_CATEGORIES = {
     "case_opened": "Возбуждено дело",
@@ -212,11 +208,7 @@ def _has_criminal_events(
 
 
 def latest_snapshot_id(db: Session) -> int | None:
-    """The Rosfinmonitoring snapshot the candidates page opens on: the newest one.
-
-    The Telegram bot uses the same choice, so a person is a candidate in both or in
-    neither.
-    """
+    """The newest Rosfinmonitoring snapshot shown on the candidates page."""
     return db.scalar(
         select(RosfinmonitoringSnapshotRecord.id)
         .order_by(
@@ -274,7 +266,7 @@ def select_candidate_rows(
 
     When *event_date_filter* is True (default), candidates whose latest event is before
     *period_start* are excluded — old cases mentioned in fresh articles are filtered out.
-    *period_end* (inclusive news day, the bot's «по») excludes later news; the web page
+    *period_end* is an inclusive news day and excludes later news; the web page
     has no end and passes none.
     Raises ``ValueError`` for an unknown snapshot.
     When *criminal_only* is True, only candidates whose most recent event is not a

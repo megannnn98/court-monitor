@@ -1,7 +1,7 @@
 """The manual pipeline: five steps in a cycle, one button that can be pressed at a time.
 
 1. load → 2. purge → 3. entities → 4. figurants → 5. political + Rosfinmonitoring → back to 1. Person resolution has no button for now
-(the user's call); a resolution run, from before or from the bot's /update, ends a
+(the user's call); a legacy resolution run started outside this UI ends a
 cycle. The step that may run now comes from the latest monitor run alone:
 - a live run is the current step (its button stops it);
 - a run stopped or lost (interrupted) is repeated;
@@ -68,7 +68,7 @@ class PipelineState:
 
 
 def _stage_of(run: OperationRun) -> str:
-    """The run's step; a resolution (mode "resolve", or the bot's full cycle) is none."""
+    """The run's step; a legacy resolution run (mode ``resolve``) has none."""
     mode = run.parameters.mode
     # `rosfin` was a standalone step before the five-step cycle. Keep old runs visible;
     # after one, the new cycle continues with figurants.

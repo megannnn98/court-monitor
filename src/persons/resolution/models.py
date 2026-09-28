@@ -105,7 +105,6 @@ class CandidateSource(StrEnum):
     EXACT_KEY = "exact_key"
     ALIAS = "alias"
     TRIGRAM = "trigram"
-    SEMANTIC = "semantic"
 
 
 class PersonResolutionCandidate(BaseModel):
@@ -117,8 +116,6 @@ class PersonResolutionCandidate(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     sources: list[CandidateSource] = Field(default_factory=list)
     trigram_similarity: float | None = None
-    # Dense cosine of the Person document; diagnostics only, never identity evidence.
-    semantic_similarity: float | None = None
 
 
 class ComponentMatch(StrEnum):
@@ -158,7 +155,6 @@ class PersonResolutionFeatures(BaseModel):
     initials_only: bool
     incomplete_name: bool
     conflicts: list[IdentityConflict] = Field(default_factory=list)
-    semantic_similarity: float | None = None
     # The candidate already holds a mention of the incoming mention's article
     # (within-article coreference): the only context that corroborates a name.
     same_article_mention: bool = False
@@ -231,13 +227,6 @@ class PersonResolutionReason(StrEnum):
     CONFLICTING_IDENTITY_DATA = "conflicting_identity_data"
     LOW_DECISION_MARGIN = "low_decision_margin"
     MEDIUM_CONFIDENCE_MATCH = "medium_confidence_match"
-    SEMANTIC_SOURCE_UNAVAILABLE = "semantic_source_unavailable"
-
-
-class SemanticSourceStatus(StrEnum):
-    DISABLED = "disabled"
-    OK = "ok"
-    UNAVAILABLE = "unavailable"
 
 
 class PersonResolutionDecision(BaseModel):
@@ -247,4 +236,3 @@ class PersonResolutionDecision(BaseModel):
     reasons: list[PersonResolutionReason] = Field(default_factory=list)
     # top1 - top2 over plausible candidates; None with fewer than one.
     decision_margin: float | None = None
-    semantic_source: SemanticSourceStatus = SemanticSourceStatus.DISABLED

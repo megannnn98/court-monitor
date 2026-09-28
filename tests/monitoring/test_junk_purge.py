@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
+from support.db_fixtures import DatabaseSeeder
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
-from support.research_db_fixtures import ResearchSeeder
 
 from db.orm_models import (
     JunkScreenHoldRecord,
@@ -33,7 +33,7 @@ from monitoring.junk_screen import HELD, JunkScreenError
 
 def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         kept = seed.person("Иван Иванов")
         only_in_junk = seed.person("Олег Орлов")

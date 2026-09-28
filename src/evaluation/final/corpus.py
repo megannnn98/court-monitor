@@ -19,7 +19,6 @@ DANGEROUS_KINDS = frozenset(
         "false_political_classification",
         "false_rf_not_matched",
         "false_actionable_candidate",
-        "unsupported_report_claim",
     }
 )
 

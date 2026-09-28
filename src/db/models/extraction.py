@@ -84,7 +84,7 @@ class EntityMentionRecord(Base):
 
 class ExtractedEventRecord(Base):
     __tablename__ = "extracted_events"
-    # From an event back to its article: the person → event → article path of the bot.
+    # From an event back to its article for person-event views and exports.
     __table_args__ = (Index("ix_extracted_events_extraction_run_id", "extraction_run_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)

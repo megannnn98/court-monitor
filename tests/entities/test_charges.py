@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupChargeRecord, EntityGroupRecord, EntityMentionRecord
 from entities.collector import EntityCollector
 
 
-def _person(session: Session, seed: ResearchSeeder, run: int, surface: str, name: str) -> int:
+def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name: str) -> int:
     first, last = name.split()
     mention_id = seed.mention(run, surface, person_id=None)
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
@@ -23,7 +23,7 @@ def _person(session: Session, seed: ResearchSeeder, run: int, surface: str, name
 
 def _law(
     session: Session,
-    seed: ResearchSeeder,
+    seed: DatabaseSeeder,
     run: int,
     surface: str,
     code: str,
@@ -42,7 +42,7 @@ def _law(
 
 def _seed(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         text = (
             "Суд арестовал Ивана Петрова по ч. 2 ст. 205.2 УК РФ, по той же ч. 2 ст. 205.2 "

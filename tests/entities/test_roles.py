@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, EntityMentionRecord
 from entities.collector import EntityCollector
@@ -27,7 +27,7 @@ RF_PAGE = """<!doctype html><html>
 </html>""".encode()
 
 
-def _person(session: Session, seed: ResearchSeeder, run: int, surface: str, name: str) -> int:
+def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name: str) -> int:
     first, last = name.split()
     mention_id = seed.mention(run, surface, person_id=None)
     session.get_one(EntityMentionRecord, mention_id).normalized_data = {
@@ -42,7 +42,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
     """Петров: charged by an article (the rules). Беда and Сирош: a sentence the rules
     cannot read. Орлов: on the Rosfinmonitoring list, looked at all the same."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         text_ = "Суд арестовал Ивана Петрова по ч. 2 ст. 205.2 УК РФ."
         _, run = seed.article(source, external_id="petrov", title="Арест", text=text_)
@@ -235,7 +235,7 @@ def _seed_officials(session_factory: sessionmaker[Session], *, titles: bool = Tr
     """Бастрыкин: named by his title, and the only target of a hate-speech case against a
     man who insulted him. Минакова: a judge by title. Иванов: charged, no title."""
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         title = "главу СК " if titles else ""
         text_ = (

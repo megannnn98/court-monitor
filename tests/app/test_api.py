@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from api import _get_session_factory, app, get_db
 
@@ -92,7 +92,7 @@ def test_person_persecution_returns_latest_classification(
     stale = ("political", 0.9, "1.0.0", datetime(2024, 1, 1, tzinfo=UTC))
     latest = ("non_political", 0.95, "2.0.0", datetime(2024, 6, 1, tzinfo=UTC))
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         person_id = seed.person("Иван Иванов")
         # Insertion order must not decide the answer (an unordered read
         # usually follows it).
@@ -119,7 +119,7 @@ def test_person_persecution_is_null_without_classification(
     session_factory: sessionmaker[Session], db_client: TestClient
 ) -> None:
     with session_factory() as session:
-        person_id = ResearchSeeder(session).person("Иван Иванов")
+        person_id = DatabaseSeeder(session).person("Иван Иванов")
         session.commit()
 
     response = db_client.get(f"/persons/{person_id}/persecution")

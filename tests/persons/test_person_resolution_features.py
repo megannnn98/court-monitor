@@ -10,15 +10,12 @@ from persons.resolution.models import (
 extractor = PersonResolutionFeatureExtractor()
 
 
-def _candidate(
-    name: str, *, aliases: list[str] | None = None, semantic: float | None = None
-) -> PersonResolutionCandidate:
+def _candidate(name: str, *, aliases: list[str] | None = None) -> PersonResolutionCandidate:
     return PersonResolutionCandidate(
         person_id=1,
         canonical_name=name,
         matching_key="".join(name.lower().split()),
         aliases=aliases or [],
-        semantic_similarity=semantic,
     )
 
 
@@ -131,10 +128,10 @@ def test_surname_only_is_incomplete_without_given_name_match() -> None:
     assert features.given_name is ComponentMatch.MISSING
 
 
-def test_semantic_similarity_is_carried_as_diagnostics() -> None:
-    features = _features("Пётр Сидоров", _candidate("Иван Иванов", semantic=0.91))
+def test_feature_contract_has_no_removed_semantic_state() -> None:
+    features = _features("Пётр Сидоров", _candidate("Иван Иванов"))
 
-    assert features.semantic_similarity == 0.91
+    assert "semantic_similarity" not in features.model_dump()
     assert features.conflicts
 
 

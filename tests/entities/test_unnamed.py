@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
@@ -86,7 +86,7 @@ class FakeReader:
 
 def _seed(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         for external_id, text_ in (("tyumen", TYUMEN), ("victim", VICTIM), ("named", NAMED)):
             _, run = seed.article(
@@ -273,7 +273,7 @@ def test_a_case_of_common_crime_only_is_no_unnamed_figurant(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         for external_id, text_ in (
             ("tyumen", TYUMEN),

@@ -26,8 +26,7 @@ class RosfinmonitoringStatus(StrEnum):
 
 
 # Product definition of "politically persecuted": a POLITICAL classification
-# at or above this confidence. Shared by the candidate query and the research
-# layer so both agree on who counts.
+# at or above this confidence.
 DEFAULT_MIN_PERSECUTION_CONFIDENCE = 0.7
 
 _MATCH_RECORD_STATUS_TO_RF_STATUS: dict[str, RosfinmonitoringStatus] = {

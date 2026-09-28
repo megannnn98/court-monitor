@@ -12,7 +12,6 @@ from persons.resolution.models import (
     PersonResolutionDecision,
     PersonResolutionReason,
     ScoredPersonCandidate,
-    SemanticSourceStatus,
 )
 from persons.resolution.scoring import PersonResolutionScorer
 
@@ -30,14 +29,12 @@ def _scored(
     *,
     person_id: int = 1,
     aliases: list[str] | None = None,
-    semantic: float | None = None,
 ) -> ScoredPersonCandidate:
     candidate = PersonResolutionCandidate(
         person_id=person_id,
         canonical_name=name,
         matching_key=f"key-{person_id}",
         aliases=aliases or [],
-        semantic_similarity=semantic,
     )
     features = extractor.extract(PersonIdentityInput(name=incoming), candidate)
     return ScoredPersonCandidate(
@@ -48,10 +45,9 @@ def _scored(
 def _decide(
     incoming: str,
     *names: str,
-    semantic: SemanticSourceStatus = SemanticSourceStatus.DISABLED,
 ) -> PersonResolutionDecision:
     candidates = [_scored(incoming, name, person_id=i) for i, name in enumerate(names, 1)]
-    return policy.decide(PersonIdentityInput(name=incoming), candidates, semantic_source=semantic)
+    return policy.decide(PersonIdentityInput(name=incoming), candidates)
 
 
 # --- scoring ---------------------------------------------------------------
@@ -80,13 +76,6 @@ def test_conflict_caps_the_score_instead_of_averaging() -> None:
 
     assert scored.resolution_score <= 0.25
     assert "conflict_cap" in scored.score.rules
-
-
-def test_semantic_similarity_never_raises_the_score() -> None:
-    plain = _scored("Пётр Сидоров", "Иван Иванов")
-    semantic = _scored("Пётр Сидоров", "Иван Иванов", semantic=0.99)
-
-    assert plain.resolution_score == semantic.resolution_score
 
 
 # --- decision --------------------------------------------------------------
@@ -171,50 +160,10 @@ def test_single_initials_candidate_still_reviews() -> None:
     assert R.INITIALS_ONLY in decision.reasons
 
 
-def test_semantic_similarity_trap_does_not_auto_link() -> None:
-    candidate = _scored("Пётр Сидоров", "Иван Иванов", semantic=0.97)
-    decision = policy.decide(PersonIdentityInput(name="Пётр Сидоров"), [candidate])
+def test_decision_contract_has_no_removed_semantic_state() -> None:
+    decision = _decide("Иван Иванов")
 
-    assert decision.action is not A.AUTO_LINK
-
-
-def test_semantic_outage_keeps_a_safe_auto_link() -> None:
-    decision = _decide(
-        "Иван Иванович Иванов",
-        "Иван Иванович Иванов",
-        semantic=SemanticSourceStatus.UNAVAILABLE,
-    )
-
-    assert decision.action is A.AUTO_LINK
-
-
-def test_semantic_outage_reviews_instead_of_create_new_when_ambiguous() -> None:
-    # A same-surname candidate without conflict: only a surname in common.
-    decision = _decide("Иванов", "Иван Иванов", semantic=SemanticSourceStatus.UNAVAILABLE)
-    with_semantic = _decide("Пётр Сидоров", semantic=SemanticSourceStatus.UNAVAILABLE)
-
-    assert decision.action is A.REVIEW
-    # Nothing in common with any candidate: creating a person stays safe.
-    assert with_semantic.action is A.CREATE_NEW
-
-
-def test_semantic_outage_with_weak_surname_overlap_reviews() -> None:
-    weak_policy = PersonResolutionDecisionPolicy(
-        ResolutionThresholds(auto_link_min_score=0.85, review_min_score=0.6, min_margin=0.1)
-    )
-    candidates = [_scored("Иванов", "Иван Иванов")]
-    outage = weak_policy.decide(
-        PersonIdentityInput(name="Иванов"),
-        candidates,
-        semantic_source=SemanticSourceStatus.UNAVAILABLE,
-    )
-    healthy = weak_policy.decide(PersonIdentityInput(name="Иванов"), candidates)
-
-    # A surname alone never creates a person (real-world validation v1).
-    assert healthy.action is A.REVIEW
-    assert R.INCOMPLETE_NAME in healthy.reasons
-    assert outage.action is A.REVIEW
-    assert R.SEMANTIC_SOURCE_UNAVAILABLE in outage.reasons
+    assert "semantic_source" not in decision.model_dump()
 
 
 def test_candidates_are_reported_in_score_order() -> None:

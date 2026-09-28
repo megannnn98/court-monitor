@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from operator_console import OperationParameters, OperationRegistry
 
-_WITH_SOURCES = ("load", "resolve")  # resolve: runs from before, or the bot
+_WITH_SOURCES = ("load", "resolve")  # resolve: legacy runs started outside the current UI
 
 
 def finish_steps(

@@ -6,7 +6,7 @@ from collections import Counter
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.research_db_fixtures import ResearchSeeder
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupRecord, EntityMentionRecord
 from entities.collector import EntityCollector
@@ -53,7 +53,7 @@ def test_a_name_written_surname_first_is_turned() -> None:
 
 def test_a_correction_survives_a_rebuild(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        seed = ResearchSeeder(session)
+        seed = DatabaseSeeder(session)
         source = seed.source("news", "https://news.example.test")
         _, run = seed.article(
             source, external_id="a", title="a", text="Суд оштрафовал Лиду Мониаву."

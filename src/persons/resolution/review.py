@@ -88,7 +88,6 @@ class ReviewCandidate(BaseModel):
     order_differs: bool
     exact_alias: bool
     trigram_similarity: float | None
-    semantic_similarity: float | None
     conflicts: list[str]
     score_rules: list[str]
 
@@ -151,7 +150,6 @@ def _view_candidate(raw: dict[str, Any], status: str | None) -> ReviewCandidate:
         order_differs=features["order_differs"],
         exact_alias=features["exact_alias"],
         trigram_similarity=candidate["trigram_similarity"],
-        semantic_similarity=candidate["semantic_similarity"],
         conflicts=features["conflicts"],
         score_rules=score["rules"],
     )

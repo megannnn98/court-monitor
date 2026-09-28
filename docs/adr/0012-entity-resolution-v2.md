@@ -23,7 +23,7 @@ A mention is resolved in separate, individually testable steps
 ```text
 mention → PersonIdentityInput → PersonNameNormalizer
        → identity-block advisory lock
-       → candidate generation (exact matching_key, alias key, pg_trgm, optional semantic)
+       → candidate generation (exact matching_key, alias key, pg_trgm)
        → PersonResolutionFeatureExtractor → PersonResolutionScorer
        → PersonResolutionDecisionPolicy → AUTO_LINK | REVIEW | CREATE_NEW
 ```
@@ -55,8 +55,7 @@ and a false link is worse than a review.
 - One exact candidate without conflicts still auto-links (score 1.0, margin
   over any weaker competitor). Two or more active persons with the incoming key
   add `multiple_exact_name_matches`, which blocks AUTO_LINK whatever the scores:
-  namesakes are never picked by id, by candidate order or by semantic similarity
-  (which adds nothing to the score). No structured context (court, region)
+  namesakes are never picked by id or by candidate order. No structured context (court, region)
   exists to tell namesakes apart, so they go to review.
 - An exact complete form (the same name or known alias, no initials, not a
   single token) scores at least 0.85 whatever role reading wins: suffix hints
@@ -97,15 +96,9 @@ tokens are not parsed (compared as a whole only).
 - `TrigramCandidateGenerator`: pg_trgm GIN indexes on `persons.normalized_name`
   and `person_aliases.normalized_text`; whole-name `%` or per-token `<%`
   (the surname block that catches reordering, initials, single-token typos).
-- `SemanticCandidateGenerator` (opt-in, `ER_SEMANTIC_CANDIDATES=1`): dense Person
-  neighbours of the name with its own `ER_SEMANTIC_CANDIDATE_MIN_SCORE`. The
-  research relevance threshold and `DenseSimilarityRelevancePolicy` are not
-  used: research relevance and identity are different questions.
-
 `CompositeCandidateGenerator` merges by person, orders deterministically and
 keeps `ER_CANDIDATE_LIMIT` (default 30). Nothing scans the Person table in
-Python. An unavailable semantic source is reported (`semantic_source =
-unavailable`) and lexical generation continues.
+Python.
 
 ### Features and conflicts
 
@@ -114,7 +107,7 @@ per-component match (`exact`, `typo` — Levenshtein within 1 edit when the long
 letters, 2 for 10+, via RapidFuzz; `initial_compatible`; `missing`;
 `mismatch`), similarities, `order_differs` over shared roles, `exact_name`,
 `exact_alias`, `exact_matching_key` (a feature, never a decision), `initials_only`, `incomplete_name`,
-`semantic_similarity` (diagnostic) and explicit conflicts
+and explicit conflicts
 (`surname_mismatch`, `given_name_mismatch`, `patronymic_mismatch`). The
 alignment ranks by matches and reading plausibility, not by "fewest conflicts":
 an implausible reading must not hide a conflict. There is no birth date
@@ -130,12 +123,12 @@ surname exact 0.45 / typo 0.30; given name exact 0.30 / typo 0.20 / initial
 0.08; patronymic exact 0.20 / typo 0.12 / initial 0.05 / missing 0.05; exact
 form +0.05; different order −0.05; an exact complete form scores at least
 0.85 (amendment). Any conflict caps the score at 0.25 instead of averaging it
-away. Semantic similarity adds nothing. Evidence tiers:
+away. Evidence tiers:
 
 - strong — exact full name or known alias (1.0; 0.85 for a two-part alias);
 - medium — reordered full name (0.90), 2-part reordered (0.75), a typo in one
   component (≤ 0.80), missing patronymic (0.80);
-- weak — initials (≤ 0.58), surname alone (0.50), semantic similarity.
+- weak — initials (≤ 0.58), surname alone (0.50).
 
 ### Decision policy
 
@@ -150,11 +143,7 @@ away. Semantic similarity adds nothing. Evidence tiers:
    initials-only nor incomplete. Otherwise REVIEW with every blocking reason.
 4. Top plausible below the auto-link minimum → REVIEW (`medium_confidence_match`).
 5. Nothing plausible → CREATE_NEW (`no_plausible_candidate`,
-   `conflicting_identity_data` when conflicts were the reason). Exception: the
-   semantic source was enabled but unavailable and a non-conflicting candidate
-   shares the surname — linking vs creating stays open without it → REVIEW
-   (`semantic_source_unavailable`). A safe AUTO_LINK or a clear CREATE_NEW
-   proceeds during an outage.
+   `conflicting_identity_data` when conflicts were the reason).
 
 A conflicting identity (different full patronymic or given name) is treated as
 a different person: CREATE_NEW, never AUTO_LINK.
@@ -165,14 +154,15 @@ a different person: CREATE_NEW, never AUTO_LINK.
 records `person_resolution_decisions` (unique per mention and resolver version):
 method (`er_v2`; `exact_matching_key` only on decisions of the removed fast path), action, status (`applied`,
 `pending_review`, `reviewed`), score, margin, reason codes, identity, candidate
-and feature snapshot, semantic source status, `resolver_version = er-v2`,
+and feature snapshot, legacy semantic source status (`disabled` for new decisions),
+`resolver_version = er-v2`,
 timestamps.
 
 - AUTO_LINK links the mention. `AliasPromotionPolicy` adds the surface form as
   an alias only for clean full forms (no initials, typos or incomplete names).
 - CREATE_NEW creates the Person (and its first alias) under the identity-block lock.
-- REVIEW leaves `entity_mentions.person_id` NULL (already nullable; research,
-  classification and person-event links only use linked mentions) and creates a
+- REVIEW leaves `entity_mentions.person_id` NULL (already nullable; classification
+  and person-event links only use linked mentions) and creates a
   pending `review_records` row (`subject_type = person_resolution`). No
   placeholder Person.
 

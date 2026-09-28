@@ -6,8 +6,8 @@ a calibrated probability that two names belong to one person.
 Evidence strength (ADR 0012):
 - strong: exact full name / exact known alias (surname + given name + patronymic);
 - medium: reordered full name, a minor typo in one component;
-- weak: surname alone, initials, semantic similarity — weak evidence alone stays
-  below any sensible auto-link threshold, and semantic similarity adds nothing.
+- weak: surname alone and initials — weak evidence alone stays below any sensible
+  auto-link threshold.
 A conflicting component caps the score instead of being averaged away.
 """
 
