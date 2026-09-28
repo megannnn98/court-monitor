@@ -42,6 +42,16 @@ router = APIRouter()
 
 PAGE_SIZE = 100
 LINKS = 3
+# Roundup posts («Главное за день», «Еженедельный дайджест») name many people in one
+# breath and say nothing about any one of them: an operator scanning «Публикации» for
+# what a person is accused of should see a substantive source first, not a digest.
+_DIGEST_MARKERS = (
+    "главное за",
+    "главные новости",
+    "дайджест",
+    "итоги дня",
+    "итоги недели",
+)
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
@@ -60,9 +70,11 @@ NEWS_FILTERS = {
 _PUBLICATIONS = text(
     f"""
     WITH {person_evidence_cte()}
-    SELECT DISTINCT group_id, article_id AS id, title, published_at, canonical_url
-    FROM person_evidence
-    WHERE group_id = ANY(:groups)
+    SELECT DISTINCT pe.group_id, pe.article_id AS id, pe.title, pe.published_at,
+           pe.canonical_url, pe.source, d.relevant
+    FROM person_evidence pe
+    LEFT JOIN article_digest_answers d ON d.article_id = pe.article_id
+    WHERE pe.group_id = ANY(:groups)
     """
 )
 
@@ -101,8 +113,8 @@ class ListRow:
     news_reason: str = ""
     memorial: str | None = None
     first_published: datetime | None = None
-    # (title, url, published) of the latest publications.
-    links: list[tuple[str, str, datetime | None]] = field(default_factory=list)
+    # (title, url, published, source) of the latest publications.
+    links: list[tuple[str, str, datetime | None, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -280,19 +292,34 @@ def _details(
         rows[group_id].articles = articles
     for group_id, category in db.execute(MEMORIAL_CATEGORIES, {"groups": ids}).all():
         rows[group_id].memorial = category
-    publications: dict[int, list[tuple[str, str, datetime | None]]] = {}
-    for group_id, _id, title, published_at, url in db.execute(
+    # (title, url, published, source, relevant): relevant is None for an article the
+    # model has not classified yet — falls back to the title keywords below (they only
+    # catch the digest case, not «иноагент»/pickets, but that is still no worse than
+    # showing everything unfiltered).
+    publications: dict[int, list[tuple[str, str, datetime | None, str, bool | None]]] = {}
+    for group_id, _id, title, published_at, url, source, relevant in db.execute(
         _PUBLICATIONS, {"groups": ids, "context": 0}
     ).all():
-        publications.setdefault(group_id, []).append((title, url, published_at))
+        publications.setdefault(group_id, []).append((title, url, published_at, source, relevant))
     oldest = datetime.min.replace(tzinfo=UTC)
     for group_id, found_publications in publications.items():
-        dates = [published for _, _, published in found_publications if published is not None]
+        dates = [item[2] for item in found_publications if item[2] is not None]
         rows[group_id].first_published = min(dates) if dates else None
+        links = [item[:4] for item in found_publications]
+        substantive = [
+            item[:4]
+            for item in found_publications
+            if (item[4] if item[4] is not None else not _is_digest(item[0]))
+        ]
         rows[group_id].links = sorted(
-            found_publications, key=lambda item: item[2] or oldest, reverse=True
+            substantive or links, key=lambda item: item[2] or oldest, reverse=True
         )[:LINKS]
     return [rows[entity.id] for entity, _ in found]
+
+
+def _is_digest(title: str) -> bool:
+    lowered = title.lower()
+    return any(marker in lowered for marker in _DIGEST_MARKERS)
 
 
 def _article_text(articles: list[tuple[str, bool]]) -> str:
@@ -325,9 +352,10 @@ def _html_row(position: int, row: ListRow) -> str:
         f"<b>{escape(article)}</b>" if article in POLITICAL_ARTICLES else escape(article)
         for article, _ in row.articles
     )
-    links = "<br>".join(
-        f'<a href="{escape(url, quote=True)}">{escape(title[:80])}</a>'
-        for title, url, _ in row.links
+    links = "".join(
+        f'<div class="pub-link"><span class="muted">{escape(source)}:</span> '
+        f'<a href="{escape(url, quote=True)}">{escape(title[:80])}</a></div>'
+        for title, url, _, source in row.links
         if url.startswith(("http://", "https://"))
     )
     listed = (
@@ -484,7 +512,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
     )
     for position, row in enumerate(rows, start=1):
         link = next(
-            (url for _, url, _ in row.links if url.startswith(("http://", "https://"))), None
+            (url for _, url, _, _ in row.links if url.startswith(("http://", "https://"))), None
         )
         values: list[Any] = [
             position,
@@ -498,7 +526,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             if row.entity.last_published_at
             else None,
             rf_text(row) or None,
-            "\n".join(url for _, url, _ in row.links) or None,
+            "\n".join(url for _, url, _, _ in row.links) or None,
             KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
         ]
         sheet.append(values)

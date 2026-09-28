@@ -65,12 +65,14 @@ from db.models.semantic import (
     SemanticVectorRecord,
 )
 from db.models.sources import (
+    ArticleDigestAnswerRecord,
     ParsedArticleRecord,
     Source,
     SourceDocument,
 )
 
 __all__ = [
+    "ArticleDigestAnswerRecord",
     "ArticleExtractionRunRecord",
     "Base",
     "EntityGroupChargeRecord",

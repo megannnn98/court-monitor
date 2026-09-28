@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
 from entities.collector import EntityCollector
+from entities.digest import DigestFinder, digest_classifier_from_env, figurant_titles
 from entities.news import NewsFinder, NewsResult, news_reader_from_env
 from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
@@ -347,6 +348,18 @@ def run_monitoring_command(
             classifier=politics,
             on_stage=lambda stage: logger.info("event=entity_politics_stage stage=%s", stage),
         ).run()
+        # Roundup posts («Главное за день») among the figurants' sources: classified once
+        # per article, so «Публикации» on /ui/political can skip them.
+        digest = digest_classifier_from_env()
+        if digest is None:
+            logger.warning("event=article_digest_no_model: OPENROUTER_API_KEY is not set")
+        with session_factory() as session:
+            titles = figurant_titles(session)
+        found_digest = DigestFinder(
+            session_factory,
+            classifier=digest,
+            on_stage=lambda stage: logger.info("event=article_digest_stage stage=%s", stage),
+        ).run(titles)
         # What each political case's latest news is: the new cases and the sentences first.
         news = _find_news(session_factory)
         # The final step ends with unnamed figurants: their cases are read the same way.
@@ -356,6 +369,9 @@ def run_monitoring_command(
                 **_rf_totals(rf_checked),
                 "rf_error": rf_error,
                 **dataclasses.asdict(found_political),
+                "digest_asked_now": found_digest.asked_now,
+                "digest_cached": found_digest.cached,
+                "digest_cost_usd": found_digest.cost_usd,
                 "news_new_case": news.new_case,
                 "news_sentence": news.sentence,
                 "news_ongoing": news.ongoing,

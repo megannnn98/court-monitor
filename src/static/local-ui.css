@@ -871,6 +871,16 @@ pre.log {
   }
 }
 
+/* One publication link per block: source name beside it, enough gap between rows to
+   tell them apart and click the right one when a cell holds several. */
+.pub-link {
+  display: block;
+}
+
+.pub-link + .pub-link {
+  margin-top: 6px;
+}
+
 /* «Статьи УК» on an entity card: one folded article per line. */
 .charges { list-style: none; padding-left: 0; }
 .charges li { margin: 0.4em 0; }

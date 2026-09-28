@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     Computed,
     DateTime,
     ForeignKey,
@@ -82,4 +83,21 @@ class ParsedArticleRecord(Base):
         ),
         nullable=False,
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ArticleDigestAnswerRecord(Base):
+    """A model's verdict on whether an article's title substantively describes a
+    person's own case (an arrest, a sentence, a new charge), not a roundup of several
+    people, a foreign-agent/undesirable listing, a support rally, or the like: cached by
+    article id, asked once regardless of how many figurants' evidence points to it."""
+
+    __tablename__ = "article_digest_answers"
+
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), primary_key=True
+    )
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    relevant: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
