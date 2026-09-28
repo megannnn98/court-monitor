@@ -141,7 +141,7 @@ def _nav(active: str, counts: dict[str, object]) -> str:
 
     main = [link(*_SECTIONS[0], counts["queue"])]
     # What the whole pipeline is for: apart, right under the overview, with its count.
-    main.append(link("political", "Результат", "/ui/political", counts["result"], "result"))
+    main.append(link("political", "Результат", "/ui/political", counts["result"]))
     main.extend(link(*item) for item in _SECTIONS[1:])
     reference = "".join(link(*item) for item in _REFERENCE)
     return (

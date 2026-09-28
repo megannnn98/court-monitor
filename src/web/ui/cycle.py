@@ -130,9 +130,10 @@ def _review(
         action = "Открыть"
     else:
         action = f"Разобрать ({count})"
+    count_label = "всего" if informational else "к проверке"
     return f"""<section class="cycle-station review-station {kind}">
   <div class="cycle-rail" aria-hidden="true">↓</div>
-  <div><h2>{escape(title)} <span class="count">{count}</span></h2>
+  <div><h2>{escape(title)} <span class="count">{count_label}: {count}</span></h2>
   <p>{escape(note)}</p></div>
   <div class="station-action"><a class="button-link" href="{href}">{action}</a></div>
 </section>"""
@@ -212,7 +213,17 @@ def ui_cycle(
         )
         or 0
     )
-    body = f'<form method="post" class="cycle">{_stations(current_state(registry), _latest_by_stage(runs), work, recent_source_errors(db), result_count)}</form>'
+    state = current_state(registry)
+    refresh = (
+        "<script>setTimeout(() => window.location.reload(), 5000);</script>"
+        if state.live is not None
+        else ""
+    )
+    body = (
+        f'<form method="post" class="cycle">'
+        f"{_stations(state, _latest_by_stage(runs), work, recent_source_errors(db), result_count)}"
+        f"</form>{refresh}"
+    )
     return _page(
         "Рабочий цикл",
         body,

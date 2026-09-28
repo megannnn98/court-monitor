@@ -636,8 +636,7 @@ pre {
   }
 
   nav a,
-  nav a.home,
-  nav a.result {
+  nav a.home {
     flex: none;
     margin: 0;
     padding: 7px 9px;
@@ -1015,19 +1014,6 @@ label.dates input[type="date"] {
   min-height: 0;
 }
 
-/* «Результат»: what the pipeline is for, right under the home page. */
-nav a.result {
-  margin-bottom: 6px;
-  color: #fff;
-  font-weight: 600;
-  background: #166348;
-}
-
-nav a.result.active,
-nav a.result:hover {
-  background: #1c7a58;
-}
-
 .nav-count {
   margin-left: auto;
   padding: 1px 8px;
@@ -1099,10 +1085,6 @@ nav a.result:hover {
 }
 
 @media (max-width: 860px) {
-  nav a.result {
-    margin-bottom: 0;
-  }
-
   .funnel-bar {
     white-space: normal;
   }

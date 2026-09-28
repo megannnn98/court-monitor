@@ -75,7 +75,7 @@ def test_the_held_articles_are_listed_with_why_and_the_queue_counts_them(
     assert f'href="/ui/articles/{article}">Главные новости &lt;b&gt;дня&lt;/b&gt;</a>' in page
     assert "оценка 0.81 (порог 0.52)" in page and "не доказательство уголовного дела" in page
     assert "На проверке (1)" in page and "Извлечь заново" in page
-    assert 'Отсев <span class="count">1</span>' in cycle
+    assert 'Отсев <span class="count">к проверке: 1</span>' in cycle
 
 
 def test_junk_and_back_again(session_factory: sessionmaker[Session]) -> None:
