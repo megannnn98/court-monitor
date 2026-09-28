@@ -60,7 +60,16 @@ def _last_result(run: OperationRun | None) -> str:
     )
 
 
-def _step(state: PipelineState, stage: str, run: OperationRun | None) -> str:
+def _pending_review(stage: str, work: Workload) -> tuple[str, int] | None:
+    pending = {
+        "entities": ("Отсев", work.junk_holds),
+        "figurants": ("Пары", work.pairs),
+        "political": ("Роль", work.unclear_roles),
+    }.get(stage)
+    return pending if pending is not None and pending[1] else None
+
+
+def _step(state: PipelineState, stage: str, run: OperationRun | None, work: Workload) -> str:
     index = STAGES.index(stage)
     current = STAGES.index(state.current)
     if stage == state.current and state.live is not None:
@@ -73,7 +82,15 @@ def _step(state: PipelineState, stage: str, run: OperationRun | None) -> str:
         )
     elif stage == state.current:
         status, status_label = "ready", "можно запускать"
-        confirmation = step_confirmation(stage)
+        confirmations = [step_confirmation(stage)]
+        pending = _pending_review(stage, work)
+        if pending is not None:
+            title, count = pending
+            confirmations.insert(
+                0,
+                f"Предыдущая проверка «{title}» не завершена: {count}. Всё равно запустить шаг?",
+            )
+        confirmation = " ".join(item for item in confirmations if item)
         onclick = (
             f" onclick=\"return confirm('{escape(confirmation, quote=True)}')\""
             if confirmation
@@ -106,7 +123,7 @@ def _review(
     informational: bool = False,
     action: str | None = None,
 ) -> str:
-    kind = "info" if informational else "review"
+    kind = "info" if informational else ("warning" if count else "review")
     action = action or ("Открыть" if informational else ("Проверить" if count else "Открыть"))
     return f"""<section class="cycle-station review-station {kind}">
   <div class="cycle-rail" aria-hidden="true">↓</div>
@@ -125,7 +142,7 @@ def _stations(
 ) -> str:
     return "".join(
         (
-            _step(state, "load", latest.get("load")),
+            _step(state, "load", latest.get("load"), work),
             _review(
                 "Сбои извлечения",
                 "/ui/management#source-errors",
@@ -133,16 +150,16 @@ def _stations(
                 "Справочно: ошибки отдельных источников не блокируют цикл.",
                 informational=True,
             ),
-            _step(state, "purge", latest.get("purge")),
+            _step(state, "purge", latest.get("purge"), work),
             _review(
                 "Отсев",
                 "/ui/junk-holds",
                 work.junk_holds,
                 "Проверить удержанные публикации до следующей очистки.",
             ),
-            _step(state, "entities", latest.get("entities")),
+            _step(state, "entities", latest.get("entities"), work),
             _review("Пары", "/ui/disputes", work.pairs, "Решить спорные совпадения людей."),
-            _step(state, "figurants", latest.get("figurants")),
+            _step(state, "figurants", latest.get("figurants"), work),
             _review(
                 "Роль",
                 "/ui/queue#roles",
@@ -150,7 +167,7 @@ def _stations(
                 "Проверить неясные роли в деле.",
                 action="Проверить",
             ),
-            _step(state, "political", latest.get("political")),
+            _step(state, "political", latest.get("political"), work),
             _review(
                 "Политичность",
                 "/ui/queue#verdicts",
@@ -195,6 +212,5 @@ def ui_cycle(
         body,
         active="cycle",
         instruction="Шаги обработки и места проверки идут сверху вниз; запускается только текущий шаг.",
-        next_action="Запустите подсвеченный шаг или откройте ближайшую проверку с ненулевым счётчиком.",
         db=db,
     )

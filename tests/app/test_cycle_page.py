@@ -10,8 +10,9 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
+from support.pipeline_runs import finish_steps
 
-from db.orm_models import JunkScreenHoldRecord
+from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, JunkScreenHoldRecord
 from operator_console import OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -32,6 +33,30 @@ def _client(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_operation_registry, None)
+
+
+def _held(session_factory: sessionmaker[Session]) -> None:
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("cycle-test", "https://example.test")
+        article_id, _run = seed.article(
+            source,
+            external_id="cycle",
+            title="Cycle",
+            text="Text",
+            published_at=datetime(2026, 9, 28, tzinfo=UTC),
+        )
+        session.add(
+            JunkScreenHoldRecord(
+                article_id=article_id,
+                status="held",
+                score=0.8,
+                cutoff=0.7,
+                screen="test",
+                reason="check",
+            )
+        )
+        session.commit()
 
 
 def test_cycle_shows_steps_and_review_stations_in_work_order(
@@ -72,27 +97,7 @@ def test_cycle_shows_steps_and_review_stations_in_work_order(
 def test_cycle_menu_count_includes_junk_held_for_a_decision(
     session_factory: sessionmaker[Session],
 ) -> None:
-    with session_factory() as session:
-        seed = DatabaseSeeder(session)
-        source = seed.source("cycle-test", "https://example.test")
-        article_id, _run = seed.article(
-            source,
-            external_id="cycle",
-            title="Cycle",
-            text="Text",
-            published_at=datetime(2026, 9, 28, tzinfo=UTC),
-        )
-        session.add(
-            JunkScreenHoldRecord(
-                article_id=article_id,
-                status="held",
-                score=0.8,
-                cutoff=0.7,
-                screen="test",
-                reason="check",
-            )
-        )
-        session.commit()
+    _held(session_factory)
 
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
     with _client(session_factory, registry) as client:
@@ -114,3 +119,70 @@ def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
     assert (started.status_code, started.headers["location"]) == (303, "/ui/cycle")
     assert 'class="cycle-station step-station running"' in page.text
     assert 'name="back" value="cycle"' in page.text
+
+
+def test_every_page_names_the_same_live_next_station(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load")
+
+    with _client(session_factory, registry) as client:
+        cycle = client.get("/ui/cycle").text
+        overview = client.get("/ui/overview").text
+
+    next_action = "Шаг 2: очистить от мусора."
+    assert f"<strong>Дальше:</strong> {next_action}" in cycle
+    assert f"<strong>Дальше:</strong> {next_action}" in overview
+
+
+def test_unfinished_previous_review_warns_and_requires_confirmation(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _held(session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge")
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/cycle").text
+
+    assert "Проверить отсев: 1." in page
+    assert 'class="cycle-station review-station warning"' in page
+    assert "Предыдущая проверка «Отсев» не завершена: 1" in page
+    assert 'id="step-entities"' in page
+
+
+def test_unclear_role_warns_but_does_not_replace_the_next_pipeline_step(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        group = EntityGroupRecord(
+            key="cycle-person",
+            name="Иван Иванов",
+            variants=[],
+            mention_count=1,
+            article_count=1,
+            event_types={},
+        )
+        session.add(group)
+        session.flush()
+        session.add(
+            EntityGroupRoleRecord(
+                group_id=group.id,
+                role="unclear",
+                kind=None,
+                method="model",
+                reason="Недостаточно данных.",
+                quote="",
+            )
+        )
+        session.commit()
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/cycle").text
+
+    assert "<strong>Дальше:</strong> Шаг 5: отобрать политические дела." in page
+    assert "Предыдущая проверка «Роль» не завершена: 1" in page
+    assert 'id="step-political"' in page

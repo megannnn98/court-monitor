@@ -3,6 +3,7 @@
 import hashlib
 from html import escape
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlencode
 
 from fastapi import APIRouter
@@ -16,7 +17,8 @@ from db.orm_models import (
     MonitoringRunRecord,
     ParsedArticleRecord,
 )
-from web.ui.workload import workload
+from web.ui.work_cycle import live_next_action
+from web.ui.workload import Workload, workload
 
 router = APIRouter()
 
@@ -28,13 +30,15 @@ _CSS_VERSION = hashlib.sha256(
 
 
 def _status_counts(db: Session) -> dict[str, object]:
+    work = workload(db)
     latest_run = db.scalars(
         select(MonitoringRunRecord).order_by(MonitoringRunRecord.started_at.desc()).limit(1)
     ).first()
     return {
         "articles": db.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0,
         "people": db.scalar(select(func.count()).select_from(EntityGroupRecord)) or 0,
-        "queue": workload(db).total,
+        "queue": work.total,
+        "work": work,
         "latest_run": _run_status_label(latest_run.status if latest_run is not None else None),
         "result": db.scalar(
             select(func.count())
@@ -152,11 +156,11 @@ def _page(
     *,
     active: str,
     instruction: str,
-    next_action: str,
     db: Session,
     warning: str | None = None,
 ) -> HTMLResponse:
     counts = _status_counts(db)
+    next_action = live_next_action(db, cast(Workload, counts["work"]))
     warning_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     return HTMLResponse(
         f"""<!doctype html>

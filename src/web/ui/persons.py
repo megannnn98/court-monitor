@@ -60,7 +60,6 @@ def ui_get_person(
 </table>""",
         active="candidates",
         instruction="Карточка Person показывает только проверяемые факты с переходом к source span.",
-        next_action="Откройте статью в строке события и проверьте подсвеченный evidence span.",
         db=db,
     )
 
@@ -110,6 +109,5 @@ def ui_get_article(
 <article>{rendered}</article>""",
         active="publications",
         instruction="Полный текст публикации — первоисточник доказательств.",
-        next_action="Проверьте подсвеченный фрагмент; откройте досье упомянутого человека.",
         db=db,
     )

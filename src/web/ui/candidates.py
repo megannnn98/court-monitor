@@ -50,7 +50,6 @@ def ui_candidates(
             '<p class="muted">Snapshot Росфинмониторинга ещё не загружен.</p>',
             active="candidates",
             instruction="Здесь люди с политической классификацией и подтверждённым отсутствием в выбранном snapshot РФМ.",
-            next_action="Импортируйте snapshot Росфинмониторинга через CLI, затем вернитесь сюда.",
             db=db,
             warning="Без snapshot нельзя отличить подтверждённое отсутствие от отсутствия проверки.",
         )
@@ -119,7 +118,6 @@ def ui_candidates(
 <table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Дата новости</th><th>Категория</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
         active="candidates",
         instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",
-        next_action="Откройте Person, проверьте события и evidence spans в исходных статьях.",
         db=db,
     )
 

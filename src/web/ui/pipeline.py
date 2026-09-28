@@ -83,21 +83,28 @@ def _title_of(run: OperationRun) -> str:
 def pipeline_state(latest: OperationRun | None) -> PipelineState:
     if latest is None:
         return PipelineState(current=STAGES[0])
-    if latest.parameters.mode == "rosfin":
-        return PipelineState(current="figurants", live=latest if latest.status in _LIVE else None)
-    stage = _stage_of(latest)
+    current = pipeline_current(latest.parameters.mode, latest.status)
+    live = latest if latest.status in _LIVE else None
+    return PipelineState(current=current, live=live)
+
+
+def pipeline_current(mode: str | None, status: OperationRunStatus | None) -> str:
+    """Current step from persisted run fields, usable without an operation registry."""
+    if mode is None or mode not in (*STAGES, "rosfin", "resolve"):
+        return STAGES[0]
+    if mode == "rosfin":
+        return "figurants"
+    stage = mode if mode in STAGES else "resolve"
     if stage not in STAGES:
-        # A resolution ends the cycle; while it runs, its stop button stands on step 1.
-        live = latest if latest.status in _LIVE else None
-        return PipelineState(current=STAGES[0], live=live)
-    if latest.status in _LIVE:
-        return PipelineState(current=stage, live=latest)
-    repeat = latest.status is OperationRunStatus.INTERRUPTED or (
-        latest.status is OperationRunStatus.FAILED and stage not in _WITH_SOURCES
+        return STAGES[0]
+    if status in _LIVE:
+        return stage
+    repeat = status is OperationRunStatus.INTERRUPTED or (
+        status is OperationRunStatus.FAILED and stage not in _WITH_SOURCES
     )
     if repeat:
-        return PipelineState(current=stage)
-    return PipelineState(current=STAGES[(STAGES.index(stage) + 1) % len(STAGES)])
+        return stage
+    return STAGES[(STAGES.index(stage) + 1) % len(STAGES)]
 
 
 def current_state(registry: OperationRegistry) -> PipelineState:

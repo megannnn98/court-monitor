@@ -151,6 +151,5 @@ def ui_publications(
         body,
         active="publications",
         instruction="Публикации с уголовными делами: источник, люди и события каждой.",
-        next_action="Откройте публикацию — полный текст; человека — его досье.",
         db=db,
     )

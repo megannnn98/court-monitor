@@ -914,7 +914,6 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
         body,
         active="investigations",
         instruction="Досье: кто это, что и когда произошло, на каких публикациях основан вывод.",
-        next_action="Проверьте решение системы по цитатам; спорное — исправьте или отправьте в «Очередь».",
         db=db,
     )
 
@@ -979,7 +978,6 @@ def ui_investigations(
         body,
         active="investigations",
         instruction="Найдите человека и откройте его досье.",
-        next_action="Досье покажет решение системы, хронологию, связи и доказательства.",
         db=db,
     )
 

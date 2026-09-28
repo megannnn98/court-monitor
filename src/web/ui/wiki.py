@@ -37,7 +37,6 @@ def ui_wiki_index(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
         f'{_WIKI_PDF_BUTTON}<ul class="wiki-index">{pages}</ul>',
         active="wiki",
         instruction="Wiki — справочник по проекту, pipeline и операторской консоли.",
-        next_action="Откройте страницу, которая нужна для текущей операции.",
         db=db,
     )
 
@@ -53,6 +52,5 @@ def ui_wiki_page(slug: str, db: Session = Depends(get_db)) -> HTMLResponse:  # n
         button + _wiki_markdown_to_html(page.read_text(encoding="utf-8")),
         active="wiki",
         instruction="Wiki — справочная страница проекта.",
-        next_action="Вернитесь в Operator console через навигацию слева.",
         db=db,
     )
