@@ -130,6 +130,16 @@ def deepseek_confirmation(stage: str) -> str:
     return _DEEPSEEK_CONFIRM.get(stage, "")
 
 
+def step_action(stage: str) -> str:
+    """The existing POST endpoint for one pipeline step."""
+    return _ACTIONS[stage]
+
+
+def step_confirmation(stage: str) -> str:
+    """The applicable destructive or paid-provider confirmation."""
+    return deepseek_confirmation(stage) or _CONFIRM.get(stage, "")
+
+
 def stepper(state: PipelineState, checked_count: int, *, back: str = "management") -> str:
     """The six buttons joined by arrows; only the current one can be pressed.
 

@@ -71,8 +71,9 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         "Вики",
     ]
     assert links == [
-        ("/ui/overview", "Обзор"),
+        ("/ui/cycle", "Рабочий цикл"),
         ("/ui/political", "Результат"),
+        ("/ui/overview", "Обзор"),
         ("/ui/investigations", "Расследование"),
         ("/ui/entities", "Люди"),
         ("/ui/publications", "Публикации"),
@@ -102,9 +103,9 @@ def test_the_site_opens_on_its_home_page(session_factory: sessionmaker[Session])
         site = client.get("/", follow_redirects=False)
         page = client.get("/ui/entities").text
 
-    assert (console.status_code, console.headers["location"]) == (303, "/ui/overview")
-    assert (site.status_code, site.headers["location"]) == (303, "/ui/overview")
-    assert '<a class="brand" href="/ui/overview">court-monitor</a>' in page
+    assert (console.status_code, console.headers["location"]) == (303, "/ui/cycle")
+    assert (site.status_code, site.headers["location"]) == (303, "/ui/cycle")
+    assert '<a class="brand" href="/ui/cycle">court-monitor</a>' in page
 
 
 def test_the_candidates_the_wiki_and_their_exports_are_served(

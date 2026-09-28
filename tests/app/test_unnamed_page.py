@@ -97,7 +97,7 @@ def test_nobody_yet_says_where_they_come_from(session_factory: sessionmaker[Sess
     assert "<title>Безымянные</title>" in page
     assert "Безымянных фигурантов пока нет: их находит шаг 5" in page
     assert '<span>Безымянные</span><span class="nav-count">' not in page
-    assert 'href="/ui/unnamed" aria-current="page"' in page
+    assert 'href="/ui/unnamed" aria-current="page"' not in page
 
 
 def test_a_card_shows_the_text_what_it_tells_and_the_candidates(

@@ -26,6 +26,7 @@ from web.routers import (
     rosfinmonitoring,
 )
 from web.ui import candidates as ui_candidates
+from web.ui import cycle as ui_cycle
 from web.ui import disputes as ui_disputes
 from web.ui import dossier as ui_dossier
 from web.ui import entities as ui_entities
@@ -84,6 +85,7 @@ for module in (
     ui_persons,
     ui_wiki,
     ui_candidates,
+    ui_cycle,
     ui_management,
     ui_logs,
     ui_overview,

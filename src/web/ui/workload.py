@@ -41,10 +41,13 @@ class Workload:
     unclear_verdicts: int
     # Unnamed figurants with no identification yet; no_rf_match stays open.
     unnamed: int = 0
+    junk_holds: int = 0
 
     @property
     def total(self) -> int:
-        return self.pairs + self.unclear_roles + self.unclear_verdicts + self.unnamed
+        return (
+            self.pairs + self.unclear_roles + self.unclear_verdicts + self.unnamed + self.junk_holds
+        )
 
 
 _OPEN_UNNAMED = text(
@@ -75,4 +78,5 @@ def workload(db: Session) -> Workload:
         unclear_roles or 0,
         unclear_verdicts or 0,
         db.scalar(_OPEN_UNNAMED) or 0,
+        db.scalar(text("SELECT count(*) FROM junk_screen_holds WHERE status = 'held'")) or 0,
     )

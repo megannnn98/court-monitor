@@ -948,38 +948,42 @@ async def start_management_run(
 
 @router.post("/ui/management/purge", response_model=None)
 def start_management_purge(
+    request: Request,
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 2: delete the articles without a criminal case; the whole database."""
-    return _start_whole_database(db, registry, "purge")
+    return _start_whole_database(request, db, registry, "purge")
 
 
 @router.post("/ui/management/political", response_model=None)
 def start_management_political(
+    request: Request,
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 5: tell persecution from crime and check Rosfinmonitoring."""
-    return _start_whole_database(db, registry, "political")
+    return _start_whole_database(request, db, registry, "political")
 
 
 @router.post("/ui/management/figurants", response_model=None)
 def start_management_figurants(
+    request: Request,
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 4: tell who a case is opened against among the entities."""
-    return _start_whole_database(db, registry, "figurants")
+    return _start_whole_database(request, db, registry, "figurants")
 
 
 @router.post("/ui/management/entities", response_model=None)
 def start_management_entities(
+    request: Request,
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 3: rebuild the person entities; the whole database."""
-    return _start_whole_database(db, registry, "entities")
+    return _start_whole_database(request, db, registry, "entities")
 
 
 def _refused(
@@ -995,6 +999,7 @@ def _refused(
 
 
 def _start_whole_database(
+    request: Request,
     db: Session,
     registry: OperationRegistry,
     mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
@@ -1007,7 +1012,7 @@ def _start_whole_database(
     except OperationConflictError:
         # Another worker started a run between the check and the start.
         return _refused(db, registry, "Идёт другой запуск.", 409)
-    return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
+    return RedirectResponse(_started_at(request, run.id), status_code=303)
 
 
 async def _start(
@@ -1046,7 +1051,15 @@ async def _start(
         )
     except OperationConflictError:
         return _refused(db, registry, "Идёт другой запуск.", 409)
-    return RedirectResponse(f"/ui/management?run_id={run.id}", status_code=303)
+    return RedirectResponse(_started_at(request, run.id), status_code=303)
+
+
+def _started_at(request: Request, run_id: int) -> str:
+    return (
+        "/ui/cycle"
+        if request.query_params.get("back") == "cycle"
+        else f"/ui/management?run_id={run_id}"
+    )
 
 
 def _parse_date_field(
@@ -1068,7 +1081,7 @@ async def stop_management_run(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    back = {"logs": "/ui/logs", "entities": "/ui/entities"}.get(
+    back = {"logs": "/ui/logs", "entities": "/ui/entities", "cycle": "/ui/cycle"}.get(
         (form.get("back") or [""])[0], "/ui/management"
     )
     try:

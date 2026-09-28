@@ -58,11 +58,12 @@ def _run_status_label(status: object | None) -> str:
 
 
 # The home page: what is found and what waits for the operator.
-HOME = "/ui/overview"
+HOME = "/ui/cycle"
 
 # Menu icons: Lucide's (lucide.dev, ISC), inline so the page needs no file; they take the
 # text's colour.
 _ICONS = {
+    "cycle": '<path d="M20 7h-4V3"/><path d="M20 3a9 9 0 1 0 2 9"/><path d="m4 17 4 4v-4"/>',
     "overview": '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
     '<polyline points="9 22 9 12 15 12 15 22"/>',
     "investigations": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
@@ -105,7 +106,10 @@ def _icon(name: str) -> str:
 
 # The menu: current result stays close to the home page; investigation material and
 # operation history are reference pages, not steps in the operator's work queue.
-_SECTIONS = (("overview", "Обзор", HOME),)
+_SECTIONS = (
+    ("cycle", "Рабочий цикл", HOME),
+    ("overview", "Обзор", "/ui/overview"),
+)
 _REFERENCE = (
     ("investigations", "Расследование", "/ui/investigations"),
     ("entities", "Люди", "/ui/entities"),
@@ -131,9 +135,10 @@ def _nav(active: str, counts: dict[str, object]) -> str:
             f"<span>{escape(label)}</span>{badge}</a>"
         )
 
-    main = [link(*_SECTIONS[0])]
+    main = [link(*_SECTIONS[0], counts["queue"])]
     # What the whole pipeline is for: apart, right under the overview, with its count.
     main.append(link("political", "Результат", "/ui/political", counts["result"], "result"))
+    main.extend(link(*item) for item in _SECTIONS[1:])
     reference = "".join(link(*item) for item in _REFERENCE)
     return (
         "".join(main)

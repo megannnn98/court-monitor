@@ -804,6 +804,74 @@ pre.log {
   margin: 4px 0 0;
 }
 
+/* One vertical operator route: pipeline steps and review gates share a rhythm, while
+   their state remains legible without relying on colour alone. */
+.cycle {
+  display: grid;
+  gap: 8px;
+  max-width: 900px;
+}
+
+.cycle-station {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.cycle-station h2,
+.cycle-station p {
+  margin: 0;
+}
+
+.cycle-station p + p {
+  margin-top: 4px;
+}
+
+.cycle-number,
+.cycle-rail {
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.step-station.ready {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(30, 95, 143, 0.16);
+}
+
+.step-station.done,
+.step-station.waiting {
+  background: var(--surface-muted);
+}
+
+.station-state {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.station-action {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  .cycle-station {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .cycle-station .station-action {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 /* «Статьи УК» on an entity card: one folded article per line. */
 .charges { list-style: none; padding-left: 0; }
 .charges li { margin: 0.4em 0; }
