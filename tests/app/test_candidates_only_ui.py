@@ -54,15 +54,19 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
     nav = re.search(r'<nav id="main-nav" aria-label="Разделы">(.*?)</nav>', page.text, re.DOTALL)
     assert nav is not None
     links = re.findall(r'href="([^"]+)"[^>]*><svg[^>]*>.*?</svg><span>([^<]+)</span>', nav.group(1))
-    # The person and the evidence first; «Результат» apart, with its count; «Кандидаты»
-    # hidden; the pipeline under «Система» at the bottom.
+    # Until the cycle becomes the home page, the overview stays first. Operational
+    # queues disappear from the menu; reference pages stay grouped at the bottom.
     assert '<span>Результат</span><span class="nav-count">0</span>' in nav.group(1)
-    assert '<span>Очередь</span><span class="nav-count">0</span>' in nav.group(1)
+    assert "Очередь" not in nav.group(1)
+    assert "Безымянные" not in nav.group(1)
     bottom = re.search(r'<div class="nav-bottom">(.*)</div>', nav.group(1), re.DOTALL)
-    assert bottom is not None and '<div class="nav-group">Система</div>' in bottom.group(1)
+    assert bottom is not None and '<div class="nav-group">Справочно</div>' in bottom.group(1)
     assert re.findall(r"<span>([^<]+)</span>", bottom.group(1)) == [
-        "Управление",
+        "Расследование",
+        "Люди",
+        "Публикации",
         "Должностные лица",
+        "Журнал запусков",
         "Логи",
         "Вики",
     ]
@@ -71,11 +75,9 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         ("/ui/political", "Результат"),
         ("/ui/investigations", "Расследование"),
         ("/ui/entities", "Люди"),
-        ("/ui/unnamed", "Безымянные"),
         ("/ui/publications", "Публикации"),
-        ("/ui/queue", "Очередь"),
-        ("/ui/management", "Управление"),
         ("/ui/officials", "Должностные лица"),
+        ("/ui/management", "Журнал запусков"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),
     ]

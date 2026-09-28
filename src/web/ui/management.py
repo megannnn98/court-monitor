@@ -890,7 +890,7 @@ def _management_page(
 {_history(history, run)}
 {_source_errors(db)}"""
     page = _page(
-        "Управление",
+        "Журнал запусков",
         body,
         active="management",
         instruction=(

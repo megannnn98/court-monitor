@@ -103,18 +103,15 @@ def _icon(name: str) -> str:
     )
 
 
-# The menu: the person and the evidence first; the pipeline under «Система».
-_SECTIONS = (
-    ("overview", "Обзор", HOME),
+# The menu: current result stays close to the home page; investigation material and
+# operation history are reference pages, not steps in the operator's work queue.
+_SECTIONS = (("overview", "Обзор", HOME),)
+_REFERENCE = (
     ("investigations", "Расследование", "/ui/investigations"),
     ("entities", "Люди", "/ui/entities"),
-    ("unnamed", "Безымянные", "/ui/unnamed"),
     ("publications", "Публикации", "/ui/publications"),
-    ("queue", "Очередь", "/ui/queue"),
-)
-_SYSTEM = (
-    ("management", "Управление", "/ui/management"),
     ("officials", "Должностные лица", "/ui/officials"),
+    ("management", "Журнал запусков", "/ui/management"),
     ("logs", "Логи", "/ui/logs"),
     ("wiki", "Вики", "/ui/wiki"),
 )
@@ -137,12 +134,10 @@ def _nav(active: str, counts: dict[str, object]) -> str:
     main = [link(*_SECTIONS[0])]
     # What the whole pipeline is for: apart, right under the overview, with its count.
     main.append(link("political", "Результат", "/ui/political", counts["result"], "result"))
-    for key, label, href in _SECTIONS[1:]:
-        main.append(link(key, label, href, counts["queue"] if key == "queue" else None))
-    system = "".join(link(*item) for item in _SYSTEM)
+    reference = "".join(link(*item) for item in _REFERENCE)
     return (
         "".join(main)
-        + f'<div class="nav-bottom"><div class="nav-group">Система</div>{system}</div>'
+        + f'<div class="nav-bottom"><div class="nav-group">Справочно</div>{reference}</div>'
     )
 
 

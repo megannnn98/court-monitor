@@ -49,7 +49,9 @@ def test_the_home_page_has_no_source_list_step_one_loads_them_all(
         response = client.get("/ui/management")
 
     assert response.status_code == 200
-    # «Управление» is under «Система» now; «Обзор» is the home page.
+    assert "<title>Журнал запусков</title>" in response.text
+    assert "<h1>Журнал запусков</h1>" in response.text
+    # The journal is a reference page; «Обзор» remains home until the cycle lands.
     assert '<a class="active" href="/ui/management" aria-current="page"><svg class="icon"' in (
         response.text
     )
