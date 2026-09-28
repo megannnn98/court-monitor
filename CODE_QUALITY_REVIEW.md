@@ -32,6 +32,36 @@
 - `mypy --strict src tests`: 19 ошибок в 9 тестовых файлах; это существующий baseline,
   не затрагивающий изменённый production contract.
 
+## Follow-up независимого ревью
+
+Независимое ревью commit `1020d16` подтвердило runtime-исправления и нашло четыре
+остаточных документационных расхождения: нижние секции ADR 0012, semantic stage в ADR
+0013, устаревший CLI-пример в wiki и vocabulary в `src/db/maintenance.py`. Они исправлены
+отдельным follow-up patch: удалённые механизмы сохранены только как явно исторический или
+legacy-контекст.
+
+Ревью также выявило, что исходный full pytest запускался без `TEST_DATABASE_URL`, поэтому
+509 PostgreSQL-тестов были пропущены. Для закрытия этого пробела добавлен regression test,
+который читает исторические snapshots с `semantic_source = ok/unavailable` и непустым
+`semantic_similarity`, не возвращает удалённое поле в новом review contract и явно
+маркирует legacy source в CLI.
+
+Проверки follow-up patch:
+
+- чистая временная PostgreSQL `court_monitor_test` на `127.0.0.1:5434`;
+- `alembic upgrade head`: passed;
+- `tests/persons/test_person_resolution_review.py`: `14 passed`;
+- полный PostgreSQL suite: `1465 passed`;
+- Ruff check: passed;
+- Ruff format check: 375 files already formatted;
+- `git diff --check`: passed;
+- `mypy --strict src tests`: тот же подтверждённый baseline — 19 ошибок в 9 тестовых
+  файлах; follow-up новых ошибок не добавил.
+
+Финальное статическое ревью follow-up diff новых findings не выявило. Все оставшиеся
+semantic-упоминания в затронутых актуальных документах относятся только к явно
+обозначенной historical/legacy compatibility.
+
 ## Границы проверки
 
 Выполнено только статическое ревью: Git diff, CodeGraph, трассировка callers и поиск

@@ -2,14 +2,16 @@
 
 ## Status
 
-Accepted, 2026-09-14. Builds on ADR 0004–0012; changes no domain decision.
+Accepted, 2026-09-14. Amended 2026-09-27 when semantic indexing and the research
+API were removed; the compatibility enum and legacy database tables remain.
+Builds on ADR 0004–0012; changes no domain decision.
 
 ## Context
 
 Every part of the pipeline exists as a service and a CLI command (sources,
 extraction, ER v2, persecution classification, Rosfinmonitoring matching,
-semantic indexing, candidate query), but it only runs when a person types the
-commands in the right order. The product question — "did a new person appear
+candidate query), but it only runs when a person types the commands in the
+right order. The product question — "did a new person appear
 who is politically persecuted and absent from the Rosfinmonitoring list?" —
 needs the pipeline to run on a schedule, repeatably and observably, without a
 human operator and without duplicating or losing domain data when a run is
@@ -28,12 +30,12 @@ Dagster schedule / manual CLI
         ▼
 MonitoringService (src/monitoring/service.py)      ← same code for CLI and Dagster
   discover → ingest → extract → resolve (ER v2)    ← source stages, per source
-  classify → RF match → semantic index → findings  ← derived stages, global
+  classify → RF match → findings                   ← derived stages, global
         │
         ▼
 existing services: SourceAdapter, IngestionPipeline, ExtractionPipeline,
 ExtractionResolutionService, PersecutionClassificationService,
-RuleBasedRosfinmonitoringMatcher, SemanticIndexer, CandidateQueryService
+RuleBasedRosfinmonitoringMatcher, CandidateQueryService
 ```
 
 Dagster (`src/monitoring/dagster/`) is a thin shell: one asset per stage, each
@@ -70,7 +72,6 @@ selects the work that is still missing from PostgreSQL
 | resolution | succeeded runs with an unlinked person mention lacking an ER v2 decision |
 | classification | active persons without a classification for the current classifier version, or whose evidence changed after it |
 | RF matching | active persons without a match for the latest imported snapshot, or whose evidence changed after it |
-| semantic indexing | persons/events with a missing, unindexed or outdated semantic document; documents of vanished/inactive entities |
 
 "Evidence changed" is the newest of: person created/updated, event linked,
 alias added, ER decision recorded or reviewed for the person. So a person
@@ -140,9 +141,9 @@ or a run, so one failure never rolls back hours of work.
 
 `classify_failure` decides retryability by exception type only:
 transient fetch/discovery errors, persistence and connection errors, and
-`RetrievalUnavailableError` are `retryable`; everything else (parse errors,
-permanent HTTP errors, an embedding-model mismatch, extraction validation
-failures) is `non_retryable`.
+other explicitly classified transient failures are `retryable`; everything
+else (parse errors, permanent HTTP errors and extraction validation failures)
+is `non_retryable`.
 
 - An item failure is recorded and the stage continues → `completed_with_errors`.
 - A stage-level failure (e.g. discovery after the source layer's own retries)
@@ -160,19 +161,18 @@ failures) is `non_retryable`.
   `dagster.Failure(allow_retries=False)`. Retrying is safe because every stage
   re-selects only still-stale work.
 
-### Qdrant is a derived index
+### Historical semantic indexing
 
-Semantic indexing runs after all PostgreSQL stages. If Qdrant is unavailable,
-the stage records a retryable item failure and stops; the run ends
-`completed_with_errors` and nothing in PostgreSQL is rolled back. The documents
-stay unindexed and are selected again by the next run or by
-`monitor-derived` / `monitoring_derived_job`. Without `QDRANT_URL` the stage
-reports `not_configured`.
+Before 2026-09-27, monitoring refreshed a Qdrant semantic index after the
+PostgreSQL stages. That runtime was removed. `MonitoringStage.SEMANTIC_INDEXING`
+and the semantic database tables remain compatibility-only for historical run
+records and already-applied migrations; new runs do not schedule this stage.
 
 ### Rosfinmonitoring
 
 Matching always uses the latest imported snapshot
-(`SqlAlchemyRosfinmonitoringSnapshotLookup`, same semantics as research). No
+(`SqlAlchemyRosfinmonitoringSnapshotLookup`, the same latest-snapshot rule used
+by candidate queries). No
 snapshot → no matching, no `not_matched` row, findings evaluation skipped with
 `no_rf_snapshot`. Monitoring does not download RF lists.
 
@@ -194,7 +194,7 @@ never reported as absent.
   nothing is deleted. A criterion change is a new `criteria_version`.
 - Provenance: `persecution_classification_id`, `rosfin_match_id`,
   `snapshot_id`, runs; evidence and source documents are reachable through the
-  person (research API).
+  person dossier and application API.
 - Lifecycle column `status` (`open`/`acknowledged`/`resolved`) exists; this stage
   only creates `open` findings. External notifications are out of scope.
 

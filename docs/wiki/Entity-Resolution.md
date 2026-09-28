@@ -83,7 +83,7 @@ stop
 $ uv run python src/main.py resolve-person "Иванов Иван Иванович"
   candidate #1: Иван Иванович Иванов   resolution_score 0.90   sources trigram
     surname: exact   given name: exact   patronymic: exact
-    order: different   alias: no   semantic: n/a
+    order: different   alias: no
     conflicts: none
   candidate #2: Иван Петрович Иванов   resolution_score 0.25
     patronymic: mismatch   conflicts: patronymic_mismatch

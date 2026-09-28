@@ -1,10 +1,10 @@
-"""Guarded helpers for disposable databases (tests, retrieval evaluation)."""
+"""Guarded helpers for disposable test and evaluation databases."""
 
 from __future__ import annotations
 
 from sqlalchemy import Engine, text
 
-# Every table research, extraction and semantic retrieval write to.
+# Tables written by current domains plus retained legacy-schema tables.
 DISPOSABLE_TABLES = (
     "junk_screen_holds",
     "entity_news_answers",

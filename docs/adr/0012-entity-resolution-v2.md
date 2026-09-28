@@ -3,17 +3,20 @@
 ## Status
 
 Accepted; amended 2026-09-16 ("matching_key is a candidate lookup key, not an
-identity key", below). Supersedes ADR 0005; extends ADR 0004 (canonical Person
-model).
+identity key", below) and 2026-09-27 (semantic candidates removed with the
+vector runtime; historical measurements are labelled below). Supersedes ADR
+0005; extends ADR 0004 (canonical Person model).
 
 ## Context
 
 ADR 0005 resolves a person mention only when its normalized name produces the
 identical `matching_key`. Reordered names ("Иванов Иван" / "Иван Иванов"),
 initials, known aliases and small typos create duplicate canonical persons.
-Semantic retrieval (ADR 0011) can find similar persons, but a similar person is
-not the same person: a false link attaches someone's detentions and sentences
-to another human being, which is far worse than an extra human review.
+At the time of the original decision, semantic retrieval (ADR 0011) could find
+similar persons. It was removed on 2026-09-27, but its safety lesson remains: a
+similar person is not the same person. A false link attaches someone's
+detentions and sentences to another human being, which is far worse than an
+extra human review.
 
 ## Decision
 
@@ -55,8 +58,8 @@ and a false link is worse than a review.
 - One exact candidate without conflicts still auto-links (score 1.0, margin
   over any weaker competitor). Two or more active persons with the incoming key
   add `multiple_exact_name_matches`, which blocks AUTO_LINK whatever the scores:
-  namesakes are never picked by id or by candidate order. No structured context (court, region)
-  exists to tell namesakes apart, so they go to review.
+  namesakes are never picked by id or by candidate order. No structured
+  context (court, region) exists to tell namesakes apart, so they go to review.
 - An exact complete form (the same name or known alias, no initials, not a
   single token) scores at least 0.85 whatever role reading wins: suffix hints
   may read "Дмитрий Шостакович" as given name + patronymic, and a name of four
@@ -193,7 +196,8 @@ namesake.
 reordered, case, whitespace, `ё`, declension, alias, typos, initials, foreign
 and suffix-trap surnames, missing patronymic, a 4-token name, an exact name with
 a weaker competitor), 12 hard negatives (same surname, same initial, same
-first/last with a different patronymic, similar spelling, a semantic trap), 8
+first/last with a different patronymic, similar spelling, and one case retained
+from the historical semantic-trap evaluation), 8
 ambiguous cases (initials with several namesakes, two Ivan Ivanovs, surname
 only, duplicate persons with a typo, two active namesakes with an exact and a
 reordered name, one of them reviewer-created) and 1 indistinguishable case (the
@@ -210,8 +214,11 @@ unnecessary and missed reviews, plus a threshold sweep.
 |---|---|---|---|
 | exact (name + alias key) | 0.42 | 0.42 | 0.42 |
 | trigram | 0.82 | 1.00 | 1.00 |
-| semantic (E5, no threshold) | 0.92 | 1.00 | 1.00 |
-| combined | 0.92 (0.97 with semantic) | 1.00 | 1.00 |
+| combined (exact + trigram) | 0.92 | 1.00 | 1.00 |
+
+Historical measurement before the 2026-09-27 removal: semantic candidates
+(E5, no threshold) reached 0.92 / 1.00 / 1.00; adding them to the combined set
+raised recall@1 from 0.92 to 0.97. They changed no decision and no recall@5.
 
 Decisions at the defaults (after the amendment, 2026-09-16): auto-link precision
 1.00, recall 0.58, false links 0 (none on the namesake cases), 1
@@ -220,8 +227,7 @@ unnecessary review (a similar-spelling negative), 0 missed reviews. Sweep: `ER_A
 lowest value without a false link (0.80 auto-links "Илья Петрович Иванов" to
 "Илья Иванов"); `ER_REVIEW_MIN_SCORE = 0.40` is the highest without a missed
 link (0.50 creates a new person for "А. В. Новикова"). `ER_MIN_MARGIN = 0.10` is
-not discriminated by this corpus. Semantic candidates changed no decision and
-no recall@5, so they stay opt-in.
+not discriminated by this corpus.
 
 ## Consequences
 
@@ -231,10 +237,8 @@ no recall@5, so they stay opt-in.
 - The review queue grows (43% of corpus cases); that is the chosen price for
   zero false links. Every further mention of a name shared by several active
   persons is reviewed.
-- Semantic similarity can surface a candidate but can never link one.
-- Linking/creating a Person changes its semantic document; the index is
-  refreshed by the manual `rebuild-semantic-index --incremental` (content hash),
-  automatic refresh is left to monitoring.
+- Historical semantic-candidate and vector-index consequences no longer apply;
+  that runtime and `rebuild-semantic-index` were removed on 2026-09-27.
 
 ## Known limitations
 

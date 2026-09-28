@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
+from copy import deepcopy
 from typing import Any
 
 import pytest
@@ -22,6 +23,7 @@ from db.orm_models import (
     ReviewRecordModel,
 )
 from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.cli import format_review
 from persons.resolution.factory import build_person_resolution_service
 from persons.resolution.review import (
     PersonResolutionReviewService,
@@ -87,6 +89,31 @@ def test_review_view_shows_structured_comparison_and_source(
     assert by_id[ivan].conflicts == []
     assert by_id[ivan].person_status == "active"
     assert by_id[ivan].score_rules
+
+
+@pytest.mark.parametrize("semantic_source", ["ok", "unavailable"])
+def test_review_reads_legacy_semantic_snapshot(
+    session_factory: sessionmaker[Session], semantic_source: str
+) -> None:
+    seed_person(session_factory, "Иван Иванов")
+    seed_person(session_factory, "Илья Иванов")
+    decision_id, _ = _pending(session_factory, "И. Иванов")
+
+    with session_factory.begin() as session:
+        record = session.get_one(PersonResolutionDecisionRecord, decision_id)
+        candidates = deepcopy(record.candidates)
+        for snapshot in candidates:
+            snapshot["candidate"]["semantic_similarity"] = 0.91
+            snapshot["features"]["semantic_similarity"] = 0.91
+        record.candidates = candidates
+        record.semantic_source = semantic_source
+
+    with session_factory() as session:
+        view = _reviews(session_factory).get(session, decision_id)
+
+    assert view.semantic_source == semantic_source
+    assert all(not hasattr(candidate, "semantic_similarity") for candidate in view.candidates)
+    assert f"Legacy semantic source: {semantic_source}" in format_review(view)
 
 
 def test_link_to_person_applies_once_and_links_events(
