@@ -248,6 +248,23 @@ def test_negated_event_verb_is_not_an_event() -> None:
     assert _event_types("Силовики его до сих пор не отпустили.") == []
 
 
+def test_a_refused_case_opening_is_no_case() -> None:
+    """Real case: Mash, a teacher of Nizhnevartovsk paid 912k — «Ранее в возбуждении дела
+    о понуждении … тоже отказали»: a case_opened kept a civil story from the purge."""
+    assert (
+        _event_types(
+            "Ранее в возбуждении дела о понуждении к действиям сексуального характера тоже "
+            "отказали — состава преступления не нашли."
+        )
+        == []
+    )
+    assert _event_types("Следователь отказал в возбуждении уголовного дела.") == []
+    assert _event_types("Полиции отказано в возбуждении дела.") == []
+    assert _event_types("СК отказался возбуждать дело.") == []
+    # Another event of the same sentence still counts.
+    assert _event_types("В возбуждении дела отказали, но его задержали.") == ["detention"]
+
+
 def test_verb_trigger_wins_over_a_noun_mention_of_another_event() -> None:
     """Real cases: «после оглашения приговора его освободили» was a sentence event."""
     assert _event_types("После оглашения приговора его освободили в зале суда.") == ["release"]

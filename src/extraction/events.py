@@ -130,6 +130,13 @@ _DOCUMENT_BEFORE = re.compile(
     r"(?:[а-яё-]+\s+){0,3}$"
 )
 _NEGATION_BEFORE = re.compile(r"(?<![а-яё])не\s+(?:[а-яё]+\s+)?$")
+# «отказал в возбуждении дела», «отказался возбуждать», «в возбуждении дела … отказали»:
+# a refusal to open a case — there is none. Checked on the whole sentence, so the noun
+# trigger «уголовного дела» of the same wording does not count either.
+_REFUSED_CASE_OPENING = re.compile(
+    r"(?<![а-яё])отказ\w*\s+(?:[а-яё]+\s+){0,2}(?:в\s+)?возбу[дж]|"
+    r"(?<![а-яё])в\s+возбу[дж]\w*\s+(?:[а-яё-]+\s+){0,8}отказ"
+)
 # «до ареста», «после первого ареста», «согласно второму приговору»: a reference to
 # another event.
 _TEMPORAL_REFERENCE_BEFORE = re.compile(
@@ -179,7 +186,8 @@ class RuleBasedEventExtractor:
     # 1.8.0: the person a crime was aimed at («подготовке убийства … Вадима Волченко») is
     # not the event's target.
     # 1.9.0: «отправили (оказался) в СИЗО» is an arrest; «предъявило ему обвинение» a charge.
-    extractor_version = "1.9.0"
+    # 1.10.0: «отказал в возбуждении дела», «в возбуждении … отказали» open no case.
+    extractor_version = "1.10.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -231,9 +239,12 @@ class RuleBasedEventExtractor:
 
     def _trigger(self, lowered_sentence: str) -> tuple[EventType, str, int] | None:
         """The earliest non-negated verb trigger, else the earliest noun trigger, with its start."""
+        refused_opening = _REFUSED_CASE_OPENING.search(lowered_sentence) is not None
         for triggers in (_VERB_TRIGGERS, _NOUN_TRIGGERS):
             found: list[tuple[int, EventType, str]] = []
             for event_type, pattern in triggers:
+                if event_type is EventType.CASE_OPENED and refused_opening:
+                    continue
                 for match in re.finditer(pattern, lowered_sentence):
                     prefix = lowered_sentence[: match.start()]
                     if _NEGATION_BEFORE.search(prefix):
