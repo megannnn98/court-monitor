@@ -69,6 +69,7 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         "Журнал запусков",
         "Логи",
         "Вики",
+        "О системе",
     ]
     assert links == [
         ("/ui/cycle", "Работа"),
@@ -81,6 +82,7 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         ("/ui/runs", "Журнал запусков"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),
+        ("/ui/about", "О системе"),
     ]
     # The phone: a menu button with a label, the page reachable past the menu.
     assert 'class="nav-toggle" aria-label="Меню"' in page.text

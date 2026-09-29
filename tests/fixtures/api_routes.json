@@ -24,6 +24,7 @@
  "GET /rosfinmonitoring/snapshots/{snapshot_id}",
  "GET /rosfinmonitoring/snapshots/{snapshot_id}/entries",
  "GET /ui",
+ "GET /ui/about",
  "GET /ui/articles/{article_id}",
  "GET /ui/candidates",
  "GET /ui/candidates/export.xlsx",

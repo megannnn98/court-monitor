@@ -43,5 +43,14 @@ COPY docs/wiki ./docs/wiki
 COPY alembic.ini ./
 COPY docker/dagster/dagster.yaml docker/dagster/workspace.yaml /opt/dagster/dagster_home/
 
+# What this image was built from, for «О системе» (web.build_info). The image carries no
+# .git, so the commit is stamped at build time: `docker build --build-arg
+# BUILD_COMMIT=$(git rev-parse --short HEAD) .`. Without the args the page says
+# «неизвестно», which is the honest answer for a working copy.
+ARG BUILD_COMMIT=""
+ARG BUILD_TIME=""
+ENV BUILD_COMMIT=$BUILD_COMMIT \
+    BUILD_TIME=$BUILD_TIME
+
 EXPOSE 8000
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

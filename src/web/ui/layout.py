@@ -95,6 +95,9 @@ _ICONS = {
     '<path d="M16 17H8"/>',
     "wiki": '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>'
     '<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    "about": '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="16"/>'
+    '<line x1="12" x2="12" y1="12" y2="12"/>'
+    '<line x1="12" x2="12.01" y1="8" y2="8"/>',
     "menu": '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/>'
     '<line x1="4" x2="20" y1="18" y2="18"/>',
 }
@@ -118,6 +121,7 @@ _REFERENCE = (
     ("management", "Журнал запусков", "/ui/runs"),
     ("logs", "Логи", "/ui/logs"),
     ("wiki", "Вики", "/ui/wiki"),
+    ("about", "О системе", "/ui/about"),
 )
 # Pages that belong to a main workflow item without an item of their own.
 _ACTIVE_ALIASES = {
