@@ -50,6 +50,63 @@ class Workload:
         )
 
 
+@dataclass(frozen=True)
+class OperatorTask:
+    """One manual queue, ready for the operator dashboard to present."""
+
+    key: str
+    title: str
+    count: int
+    href: str
+    description: str
+
+
+def operator_tasks(work: Workload) -> tuple[OperatorTask, ...]:
+    """Manual queues in the one order the operator work cycle uses."""
+    return (
+        OperatorTask(
+            "junk_holds",
+            "Публикации на проверке",
+            work.junk_holds,
+            "/ui/junk-holds",
+            "Проверьте, относятся ли удержанные публикации к отслеживаемым делам.",
+        ),
+        OperatorTask(
+            "pairs",
+            "Совпадения людей",
+            work.pairs,
+            "/ui/pairs",
+            "Решите, относятся ли две записи к одному человеку.",
+        ),
+        OperatorTask(
+            "roles",
+            "Неясные роли",
+            work.unclear_roles,
+            "/ui/roles",
+            "Проверьте роль человека в деле по досье и источникам.",
+        ),
+        OperatorTask(
+            "politics",
+            "Проверка политичности",
+            work.unclear_verdicts,
+            "/ui/politics-review",
+            "Проверьте, относится ли дело к политически мотивированным.",
+        ),
+        OperatorTask(
+            "unnamed",
+            "Безымянные фигуранты",
+            work.unnamed,
+            "/ui/unnamed",
+            "Установите человека, которого публикация не называет.",
+        ),
+    )
+
+
+def next_operator_task(work: Workload) -> OperatorTask | None:
+    """Highest-priority non-empty operator queue in work-cycle order."""
+    return next((task for task in operator_tasks(work) if task.count), None)
+
+
 _OPEN_UNNAMED = text(
     """
     SELECT count(*) FROM unnamed_figurants f

@@ -117,8 +117,9 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
     assert "17 лет на 25.11.2024; мужчина; родился: Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ" in page
     assert "в перечне с 01.12.2024 или раньше" in page
     assert "Не разобраны (1)" in page and '<span class="badge pending">не разобран</span>' in page
-    # The cycle counts it, and leads here.
-    assert 'Безымянные <span class="count">к проверке: 1</span>' in cycle
+    # The dashboard counts it and leads here.
+    assert 'data-primary-task="unnamed"' in cycle
+    assert "Безымянные фигуранты: 1" in cycle
 
 
 def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Session]) -> None:
@@ -190,8 +191,8 @@ def test_no_rf_match_stays_open_and_insufficient_closes(
     assert "Нет записи РФМ (1)" in no_rf
     assert '<span class="badge">подходящей записи РФМ нет</span>' in no_rf
     assert "Не разобраны (1)" in still_open
-    assert 'Безымянные <span class="count">к проверке: 1</span>' in cycle
-    assert 'Безымянные <span class="count">к проверке: 0</span>' in closed
+    assert 'data-primary-task="unnamed"' in cycle
+    assert "Сейчас ничего проверять не нужно" in closed
 
 
 def test_the_overview_shows_the_open_unnamed_with_their_candidates(

@@ -803,71 +803,149 @@ pre.log {
   margin: 4px 0 0;
 }
 
-/* One vertical operator route: pipeline steps and review gates share a rhythm, while
-   their state remains legible without relying on colour alone. */
-.cycle {
+/* Dashboard: one action first, remaining queues and automation below it. */
+.operator-dashboard {
   display: grid;
-  gap: 8px;
+  gap: 16px;
   max-width: 900px;
 }
 
-.cycle-station {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
+.operator-attention,
+.next-tasks,
+.processing-status {
+  padding: 18px;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
-.cycle-station h2,
-.cycle-station p {
+.operator-attention {
+  border-left: 4px solid var(--accent);
+}
+
+.operator-attention h2,
+.operator-attention p,
+.next-tasks h2,
+.processing-status h2,
+.processing-status p {
   margin: 0;
 }
 
-.cycle-station p + p {
+.operator-attention h2 + p,
+.processing-status h2 + p {
   margin-top: 4px;
 }
 
-.cycle-number,
-.cycle-rail {
+.section-kicker {
   color: var(--muted);
-  font-size: 20px;
+  font-size: 11px;
   font-weight: 700;
-  text-align: center;
-}
-
-.step-station.ready {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(30, 95, 143, 0.16);
-}
-
-.step-station.done,
-.step-station.waiting {
-  background: var(--surface-muted);
-}
-
-.station-state {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.station-action {
-  justify-self: end;
+.primary-action {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 9px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: #fff;
+  background: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primary-action:hover {
+  border-color: var(--accent-strong);
+  color: #fff;
+  background: var(--accent-strong);
+}
+
+.next-tasks {
+  display: grid;
+  gap: 2px;
+}
+
+.next-tasks h2 {
+  margin-bottom: 6px;
+}
+
+.next-tasks a {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.next-tasks a:last-child {
+  border-bottom: 0;
+}
+
+.next-tasks a:hover span {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.next-tasks strong {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.processing-status {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+}
+
+.processing-status ol {
+  display: grid;
+  gap: 5px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.processing-status li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.processing-status li span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.processing-status li.done span {
+  color: var(--success);
+}
+
+.processing-status li.running span,
+.processing-status li.ready span {
+  color: var(--accent);
+}
+
+.processing-status li small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pipeline-current {
+  display: flex;
+  justify-content: flex-start;
 }
 
 @media (max-width: 640px) {
-  .cycle-station {
-    grid-template-columns: 32px minmax(0, 1fr);
-  }
-
-  .cycle-station .station-action {
-    grid-column: 2;
-    justify-self: start;
+  .operator-attention,
+  .next-tasks,
+  .processing-status {
+    padding: 14px;
   }
 }
 
@@ -1293,11 +1371,19 @@ ul.warnings {
   color: var(--warning);
 }
 
-.dossier-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+.graph-details {
+  margin: 0 0 16px;
+}
+
+.graph-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.graph-details[open] summary {
+  margin-bottom: 10px;
+  color: var(--text);
 }
 
 ol.timeline {
@@ -1474,7 +1560,6 @@ article.evidence p {
 }
 
 @media (max-width: 1100px) {
-  .dossier-columns,
   .dossier-head {
     grid-template-columns: minmax(0, 1fr);
   }

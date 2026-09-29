@@ -259,6 +259,7 @@ def test_a_dossier_opens_and_an_unknown_person_is_not_found(
     assert "<title>Моор Александр</title>" in page.text
     for section in ("Решение системы", "Статьи УК", "Хронология", "Связи", "Доказательства"):
         assert section in page.text
+    assert '<details class="graph-details" id="links"><summary>Граф связей</summary>' in page.text
     assert "<dt>Публикаций</dt><dd>3 · упоминаний: 3</dd>" in page.text
     assert "<dt>Первая публикация</dt><dd>01.09.2026</dd>" in page.text
     assert missing.status_code == 404
@@ -398,7 +399,7 @@ def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(
     assert dossier is not None
     nodes, total = graph_nodes(dossier)
 
-    links = page[page.index('id="links"') : page.index('id="evidence"')]
+    links = page[page.index('<details class="graph-details"') :]
     # A court of an event, an article of a charge, a person of a shared publication.
     assert "Ленинский суд" in links and "ст. 205.2" in links and "Иванов Иван" in links
     # Every kind has its share; together no more than the limit.

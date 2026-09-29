@@ -1,4 +1,4 @@
-"""The operator's work cycle: existing steps and review stations in one order."""
+"""Task-centric operator dashboard over the existing pipeline and review queues."""
 
 from __future__ import annotations
 
@@ -6,196 +6,121 @@ from html import escape
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupPoliticsRecord
-from operator_console import OperationRegistry, OperationRun, OperationRunStatus
+from operator_console import OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page
-from web.ui.management import recent_source_errors
 from web.ui.pipeline import (
-    HINTS,
     STAGES,
     PipelineState,
     current_state,
     step_action,
     step_confirmation,
 )
-from web.ui.workload import Workload, workload
+from web.ui.workload import OperatorTask, Workload, next_operator_task, operator_tasks, workload
 
 router = APIRouter()
 
-_LABELS = {
-    "load": "Подгрузить",
-    "purge": "Очистить",
-    "entities": "Сущности",
-    "figurants": "Фигуранты",
-    "political": "Политические дела",
-}
-_STATUS = {
-    OperationRunStatus.PENDING: "ждёт запуска",
-    OperationRunStatus.RUNNING: "выполняется",
-    OperationRunStatus.SUCCEEDED: "завершён",
-    OperationRunStatus.FAILED: "ошибка",
-    OperationRunStatus.INTERRUPTED: "остановлен",
+_PROCESSING_LABELS = {
+    "load": "Публикации загружены",
+    "purge": "Публикации проверены",
+    "entities": "Люди определены",
+    "figurants": "Фигуранты определены",
+    "political": "Проверка политичности завершена",
 }
 
 
-def _latest_by_stage(runs: list[OperationRun]) -> dict[str, OperationRun]:
-    result: dict[str, OperationRun] = {}
-    for run in runs:
-        stage = run.parameters.mode
-        if stage in STAGES and stage not in result:
-            result[stage] = run
-    return result
+def _attention(task: OperatorTask | None, state: PipelineState) -> str:
+    if task is not None:
+        return f"""<section class="operator-attention" data-primary-task="{task.key}">
+  <p class="section-kicker">Требует вашего внимания</p>
+  <h2>{escape(task.title)}: {task.count}</h2>
+  <p>{escape(task.description)}</p>
+  <a class="primary-action" href="{task.href}">Начать проверку</a>
+</section>"""
+    if state.live is not None:
+        return """<section class="operator-attention processing-attention">
+  <p class="section-kicker">Состояние системы</p>
+  <h2>Идёт автоматическая обработка</h2>
+  <p>Результаты появятся после завершения текущего шага.</p>
+</section>"""
+    return """<section class="operator-attention">
+  <p class="section-kicker">Требует вашего внимания</p>
+  <h2>Сейчас ничего проверять не нужно</h2>
+  <p>Автоматическая обработка завершена или ожидает следующего запуска.</p>
+</section>"""
 
 
-def _last_result(run: OperationRun | None) -> str:
-    if run is None:
-        return "Ещё не запускался."
-    moment = run.finished_at or run.started_at or run.created_at
-    return (
-        f"Последний запуск #{run.id}: {_STATUS[run.status]}, {moment.astimezone():%d.%m.%Y %H:%M}."
+def _next_tasks(work: Workload, current: OperatorTask | None) -> str:
+    tasks = [task for task in operator_tasks(work) if task.count and task != current]
+    if not tasks:
+        return ""
+    rows = "".join(
+        f'<a href="{task.href}"><span>{escape(task.title)}</span><strong>{task.count}</strong></a>'
+        for task in tasks
     )
+    return f"""<section class="next-tasks" aria-labelledby="next-tasks-title">
+  <h2 id="next-tasks-title">Далее</h2>
+  {rows}
+</section>"""
 
 
-def _pending_review(stage: str, work: Workload) -> tuple[str, int] | None:
-    pending = {
-        "entities": ("Отсев", work.junk_holds),
-        "figurants": ("Пары", work.pairs),
-        "political": ("Роль", work.unclear_roles),
-    }.get(stage)
-    return pending if pending is not None and pending[1] else None
-
-
-def _step(state: PipelineState, stage: str, run: OperationRun | None, work: Workload) -> str:
-    index = STAGES.index(stage)
-    current = STAGES.index(state.current)
-    if stage == state.current and state.live is not None:
-        status, status_label = "running", "выполняется"
-        control = (
+def _pipeline_control(state: PipelineState, work: Workload) -> str:
+    if state.live is not None:
+        return (
             f'<button class="danger" type="submit" formaction="/ui/management/runs/{state.live.id}/stop" '
             'name="back" value="cycle" '
             "onclick=\"return confirm('Остановить запуск? Уже сделанное останется.')\">"
             "Остановить</button>"
         )
-    elif stage == state.current:
-        status, status_label = "ready", "можно запускать"
-        confirmations = [step_confirmation(stage)]
-        pending = _pending_review(stage, work)
-        if pending is not None:
-            title, count = pending
-            confirmations.insert(
-                0,
-                f"Предыдущая проверка «{title}» не завершена: {count}. Всё равно запустить шаг?",
-            )
-        confirmation = " ".join(item for item in confirmations if item)
-        onclick = (
-            f" onclick=\"return confirm('{escape(confirmation, quote=True)}')\""
-            if confirmation
-            else ""
+    task = next_operator_task(work)
+    confirmation = " ".join(
+        item
+        for item in (
+            (
+                f"Проверка «{task.title}» не завершена: {task.count}. Всё равно запустить шаг?"
+                if task is not None
+                else ""
+            ),
+            step_confirmation(state.current),
         )
-        control = (
-            f'<button id="step-{stage}" type="submit" '
-            f'formaction="{step_action(stage)}?back=cycle"{onclick}>Запустить</button>'
-        )
-    else:
-        done = index < current
-        status, status_label = ("done", "готово") if done else ("waiting", "ожидает")
-        control = '<button type="button" disabled>Готово</button>' if done else ""
-    return f"""<section class="cycle-station step-station {status}">
-  <div class="cycle-number">{index + 1}</div>
-  <div><h2>{index + 1}. {escape(_LABELS[stage])}</h2>
-  <p class="station-state">{status_label}</p>
-  <p>{escape(HINTS[stage])}.</p>
-  <p class="muted">{escape(_last_result(run))}</p></div>
-  <div class="station-action">{control}</div>
-</section>"""
-
-
-def _review(
-    title: str,
-    href: str,
-    count: int,
-    note: str,
-    *,
-    informational: bool = False,
-    action: str | None = None,
-) -> str:
-    kind = "info" if informational else ("warning" if count else "review")
-    if action is not None:
-        action = f"{action} ({count})" if count else action
-    elif informational or not count:
-        action = "Открыть"
-    else:
-        action = f"Разобрать ({count})"
-    count_label = "всего" if informational else "к проверке"
-    return f"""<section class="cycle-station review-station {kind}">
-  <div class="cycle-rail" aria-hidden="true">↓</div>
-  <div><h2>{escape(title)} <span class="count">{count_label}: {count}</span></h2>
-  <p>{escape(note)}</p></div>
-  <div class="station-action"><a class="button-link" href="{href}">{action}</a></div>
-</section>"""
-
-
-def _stations(
-    state: PipelineState,
-    latest: dict[str, OperationRun],
-    work: Workload,
-    failures: int,
-    result_count: int,
-) -> str:
-    return "".join(
-        (
-            _step(state, "load", latest.get("load"), work),
-            _review(
-                "Сбои извлечения",
-                "/ui/runs#source-errors",
-                failures,
-                "Справочно: ошибки отдельных источников не блокируют цикл.",
-                informational=True,
-            ),
-            _step(state, "purge", latest.get("purge"), work),
-            _review(
-                "Отсев",
-                "/ui/junk-holds",
-                work.junk_holds,
-                "Проверить удержанные публикации до следующей очистки.",
-            ),
-            _step(state, "entities", latest.get("entities"), work),
-            _review("Пары", "/ui/pairs", work.pairs, "Решить спорные совпадения людей."),
-            _step(state, "figurants", latest.get("figurants"), work),
-            _review(
-                "Роль",
-                "/ui/roles",
-                work.unclear_roles,
-                "Проверить неясные роли в деле.",
-                action="Проверить",
-            ),
-            _step(state, "political", latest.get("political"), work),
-            _review(
-                "Политичность",
-                "/ui/politics-review",
-                work.unclear_verdicts,
-                "Проверить дела с неясной политичностью.",
-                action="Проверить",
-            ),
-            _review(
-                "Безымянные",
-                "/ui/unnamed",
-                work.unnamed,
-                "Установить фигурантов, которых публикация не называет.",
-            ),
-            _review(
-                "Результат",
-                "/ui/political",
-                result_count,
-                "Посмотреть итоговый список после завершения цикла.",
-                informational=True,
-            ),
-        )
+        if item
     )
+    onclick = (
+        f" onclick=\"return confirm('{escape(confirmation, quote=True)}')\"" if confirmation else ""
+    )
+    return (
+        f'<button id="step-{state.current}" class="secondary" type="submit" '
+        f'formaction="{step_action(state.current)}?back=cycle"{onclick}>Запустить следующий шаг</button>'
+    )
+
+
+def _processing(state: PipelineState, work: Workload) -> str:
+    current_index = STAGES.index(state.current)
+    rows = []
+    for index, stage in enumerate(STAGES):
+        if index < current_index:
+            marker, css, status = "✓", "done", "готово"
+        elif index == current_index:
+            marker = "●" if state.live is not None else "○"
+            css, status = (
+                ("running", "выполняется")
+                if state.live is not None
+                else ("ready", "ожидает запуска")
+            )
+        else:
+            marker, css, status = "○", "waiting", "ожидает"
+        rows.append(
+            f'<li class="{css}"><span aria-hidden="true">{marker}</span>'
+            f"{escape(_PROCESSING_LABELS[stage])}<small>{status}</small></li>"
+        )
+    return f"""<section class="processing-status" aria-labelledby="processing-title">
+  <div><h2 id="processing-title">Обработка данных</h2>
+  <p class="muted">Автоматические шаги. Ручная проверка показана выше.</p></div>
+  <ol>{"".join(rows)}</ol>
+  <div class="pipeline-current {"running" if state.live is not None else "ready"}">{_pipeline_control(state, work)}</div>
+</section>"""
 
 
 @router.get("/ui/cycle", response_class=HTMLResponse)
@@ -203,32 +128,20 @@ def ui_cycle(
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse:
-    runs = registry.runs_of("monitor", limit=50)
     work = workload(db)
-    result_count = (
-        db.scalar(
-            select(func.count())
-            .select_from(EntityGroupPoliticsRecord)
-            .where(EntityGroupPoliticsRecord.verdict == "political")
-        )
-        or 0
-    )
     state = current_state(registry)
     refresh = (
         "<script>setTimeout(() => window.location.reload(), 5000);</script>"
         if state.live is not None
         else ""
     )
-    body = (
-        f'<form method="post" class="cycle">'
-        f"{_stations(state, _latest_by_stage(runs), work, recent_source_errors(db), result_count)}"
-        f"</form>{refresh}"
-    )
+    task = next_operator_task(work)
+    body = f'<form method="post" class="operator-dashboard">{_attention(task, state)}{_next_tasks(work, task)}{_processing(state, work)}</form>{refresh}'
     return _page(
-        "Рабочий цикл",
+        "Работа",
         body,
         active="cycle",
-        instruction="Шаги обработки и места проверки идут сверху вниз; запускается только текущий шаг.",
+        instruction="Сначала выполните одну показанную проверку; состояние автоматической обработки ниже.",
         db=db,
         work=work,
     )

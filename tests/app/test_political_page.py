@@ -119,7 +119,7 @@ def test_the_list_is_the_political_the_period_tells_new_from_old(
         ).text
 
     assert "<title>Результат</title>" in page
-    assert '<span>Результат</span><span class="nav-count">2</span>' in page
+    assert '<span>Результаты</span><span class="nav-count">2</span>' in page
     # The funnel, in one line, down to the result.
     assert "2 политические дела — результат" in page
     assert "Воронка за всё время (публикаций пока нет):" in page

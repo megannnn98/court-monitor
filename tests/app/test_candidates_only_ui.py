@@ -54,9 +54,9 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
     nav = re.search(r'<nav id="main-nav" aria-label="Разделы">(.*?)</nav>', page.text, re.DOTALL)
     assert nav is not None
     links = re.findall(r'href="([^"]+)"[^>]*><svg[^>]*>.*?</svg><span>([^<]+)</span>', nav.group(1))
-    # Until the cycle becomes the home page, the overview stays first. Operational
-    # queues disappear from the menu; reference pages stay grouped at the bottom.
-    assert '<span>Результат</span><span class="nav-count">0</span>' in nav.group(1)
+    # Work comes first; results and search are the other primary paths. Operational
+    # queues stay inside Work, while reference pages remain grouped at the bottom.
+    assert '<span>Результаты</span><span class="nav-count">0</span>' in nav.group(1)
     assert "Очередь" not in nav.group(1)
     assert "Безымянные" not in nav.group(1)
     bottom = re.search(r'<div class="nav-bottom">(.*)</div>', nav.group(1), re.DOTALL)
@@ -71,9 +71,9 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         "Вики",
     ]
     assert links == [
-        ("/ui/cycle", "Рабочий цикл"),
-        ("/ui/political", "Результат"),
-        ("/ui/overview", "Обзор"),
+        ("/ui/cycle", "Работа"),
+        ("/ui/political", "Результаты"),
+        ("/ui/investigations", "Поиск"),
         ("/ui/investigations", "Расследование"),
         ("/ui/entities", "Люди"),
         ("/ui/publications", "Публикации"),

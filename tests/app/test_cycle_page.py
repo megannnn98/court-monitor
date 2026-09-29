@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -60,7 +59,7 @@ def _held(session_factory: sessionmaker[Session]) -> None:
         session.commit()
 
 
-def test_cycle_shows_steps_and_review_stations_in_work_order(
+def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
@@ -69,28 +68,16 @@ def test_cycle_shows_steps_and_review_stations_in_work_order(
         response = client.get("/ui/cycle")
 
     assert response.status_code == 200
-    expected = [
-        "1. Подгрузить",
-        "Сбои извлечения",
-        "2. Очистить",
-        "Отсев",
-        "3. Сущности",
-        "Пары",
-        "4. Фигуранты",
-        "Роль",
-        "5. Политические дела",
-        "Политичность",
-        "Безымянные",
-        "Результат",
-    ]
-    cycle = response.text[response.text.index('<form method="post" class="cycle">') :]
-    assert [heading.strip() for heading in re.findall(r"<h2>([^<]+)", cycle)] == expected
+    assert "<h1>Работа</h1>" in response.text
+    assert "Сейчас ничего проверять не нужно" in response.text
+    assert "Обработка данных" in response.text
     assert 'id="step-load"' in response.text
     assert 'formaction="/ui/management/run?back=cycle"' in response.text
     assert 'id="step-purge"' not in response.text
-    assert 'href="/ui/junk-holds"' in response.text
-    assert 'href="/ui/pairs"' in response.text
-    assert 'href="/ui/unnamed"' in response.text
+    assert 'href="/ui/political"><svg' in response.text
+    assert "<span>Работа</span>" in response.text
+    assert "<span>Результаты</span>" in response.text
+    assert "<span>Поиск</span>" in response.text
     assert "source-table" not in response.text
     assert 'id="source-errors"' not in response.text
 
@@ -104,8 +91,11 @@ def test_cycle_menu_count_includes_junk_held_for_a_decision(
     with _client(session_factory, registry) as client:
         page = client.get("/ui/cycle").text
 
-    assert '<span>Рабочий цикл</span><span class="nav-count">1</span>' in page
-    assert 'href="/ui/junk-holds"' in page and "Отсев" in page
+    assert '<span>Работа</span><span class="nav-count">1</span>' in page
+    assert 'data-primary-task="junk_holds"' in page
+    assert "Публикации на проверке" in page
+    assert 'href="/ui/junk-holds"' in page
+    assert ">Начать проверку</a>" in page
 
 
 def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
@@ -118,7 +108,7 @@ def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
         page = client.get("/ui/cycle")
 
     assert (started.status_code, started.headers["location"]) == (303, "/ui/cycle")
-    assert 'class="cycle-station step-station running"' in page.text
+    assert 'class="pipeline-current running"' in page.text
     assert 'name="back" value="cycle"' in page.text
 
 
@@ -137,7 +127,7 @@ def test_every_page_names_the_same_live_next_station(
     assert f"<strong>Дальше:</strong> {next_action}" in overview
 
 
-def test_unfinished_previous_review_warns_and_requires_confirmation(
+def test_cycle_makes_the_highest_priority_review_the_only_primary_action(
     session_factory: sessionmaker[Session],
 ) -> None:
     _held(session_factory)
@@ -147,14 +137,13 @@ def test_unfinished_previous_review_warns_and_requires_confirmation(
     with _client(session_factory, registry) as client:
         page = client.get("/ui/cycle").text
 
-    assert "Проверить отсев: 1." in page
-    assert 'class="cycle-station review-station warning"' in page
-    assert ">Разобрать (1)</a>" in page
-    assert "Предыдущая проверка «Отсев» не завершена: 1" in page
+    assert 'data-primary-task="junk_holds"' in page
+    assert page.count('class="primary-action"') == 1
+    assert "Проверьте, относятся ли удержанные публикации" in page
     assert 'id="step-entities"' in page
 
 
-def test_unclear_role_warns_but_does_not_replace_the_next_pipeline_step(
+def test_cycle_shows_unclear_roles_after_higher_priority_queues_are_empty(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory() as session:
@@ -185,10 +174,24 @@ def test_unclear_role_warns_but_does_not_replace_the_next_pipeline_step(
     with _client(session_factory, registry) as client:
         page = client.get("/ui/cycle").text
 
-    assert "<strong>Дальше:</strong> Шаг 5: отобрать политические дела." in page
-    assert ">Проверить (1)</a>" in page
-    assert "Предыдущая проверка «Роль» не завершена: 1" in page
+    assert 'data-primary-task="roles"' in page
+    assert "Неясные роли" in page
+    assert 'href="/ui/roles"' in page
     assert 'id="step-political"' in page
+
+
+def test_cycle_describes_an_active_automatic_run_without_an_operator_cta(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/cycle").text
+
+    assert 'class="pipeline-current running"' in page
+    assert "Идёт автоматическая обработка" in page
+    assert 'class="primary-action"' not in page
 
 
 def test_common_next_action_does_not_wait_for_a_stale_run(

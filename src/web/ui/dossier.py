@@ -899,16 +899,16 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
 <div class="page-toc" role="navigation" aria-label="Разделы досье">
   <a href="#decision-title">Решение</a> <a href="#charges">Статьи УК</a>
   <a href="#timeline">Хронология</a>
-  <a href="#links">Связи</a> <a href="#evidence">Доказательства</a>
+  <a href="#evidence">Доказательства</a> <a href="#links">Граф связей</a>
 </div>
 {_header(dossier)}
 {_decision(dossier)}
 {_charges(dossier)}
-<div class="dossier-columns">
 {_timeline(dossier)}
+{_evidence(dossier)}
+<details class="graph-details" id="links"><summary>Граф связей</summary>
 {_graph(dossier)}
-</div>
-{_evidence(dossier)}"""
+</details>"""
     return _page(
         display_name(dossier.entity.name),
         body,

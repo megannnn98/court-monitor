@@ -110,10 +110,6 @@ def _icon(name: str) -> str:
 
 # The menu: current result stays close to the home page; investigation material and
 # operation history are reference pages, not steps in the operator's work queue.
-_SECTIONS = (
-    ("cycle", "Рабочий цикл", HOME),
-    ("overview", "Обзор", "/ui/overview"),
-)
 _REFERENCE = (
     ("investigations", "Расследование", "/ui/investigations"),
     ("entities", "Люди", "/ui/entities"),
@@ -123,8 +119,16 @@ _REFERENCE = (
     ("logs", "Логи", "/ui/logs"),
     ("wiki", "Вики", "/ui/wiki"),
 )
-# Pages that belong to a section without an item of their own.
-_ACTIVE_ALIASES = {"disputes": "queue"}
+# Pages that belong to a main workflow item without an item of their own.
+_ACTIVE_ALIASES = {
+    "disputes": "cycle",
+    "junk_holds": "cycle",
+    "queue": "cycle",
+    "roles": "cycle",
+    "politics-review": "cycle",
+    "unnamed": "cycle",
+    "overview": "cycle",
+}
 
 
 def _nav(active: str, counts: dict[str, object]) -> str:
@@ -139,10 +143,11 @@ def _nav(active: str, counts: dict[str, object]) -> str:
             f"<span>{escape(label)}</span>{badge}</a>"
         )
 
-    main = [link(*_SECTIONS[0], counts["queue"])]
-    # What the whole pipeline is for: apart, right under the overview, with its count.
-    main.append(link("political", "Результат", "/ui/political", counts["result"]))
-    main.extend(link(*item) for item in _SECTIONS[1:])
+    main = [
+        link("cycle", "Работа", HOME, counts["queue"]),
+        link("political", "Результаты", "/ui/political", counts["result"]),
+        link("investigations", "Поиск", "/ui/investigations"),
+    ]
     reference = "".join(link(*item) for item in _REFERENCE)
     return (
         "".join(main)
