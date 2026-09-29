@@ -17,6 +17,8 @@ DISPOSABLE_TABLES = (
     "entity_name_normalizations",
     "entity_name_overrides",
     "entity_official_marks",
+    "entity_role_decisions",
+    "entity_politics_decisions",
     "entity_politics_answers",
     "entity_group_politics",
     "entity_pair_decisions",

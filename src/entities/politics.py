@@ -19,15 +19,21 @@ import os
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, text
+from sqlalchemy import delete, insert, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import EntityGroupPoliticsRecord, EntityPoliticsAnswerRecord
+from db.orm_models import (
+    EntityGroupPoliticsRecord,
+    EntityGroupRecord,
+    EntityPoliticsAnswerRecord,
+    EntityPoliticsDecisionRecord,
+)
 from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.disputes import KeyIndex
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -136,6 +142,53 @@ class PoliticsClassifier(Protocol):
 
 def verdict_of(answer: str) -> str:
     return {"political": POLITICAL, "criminal": CRIMINAL}.get(answer, UNCLEAR)
+
+
+# The verdicts a person may name on «Неясная политичность»: «unclear» is never decided.
+MANUAL = "manual"
+
+
+def politics_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
+    """A person's verdict decisions per today's entity ids; a decision on an older key
+    holds for the entity it meant (`KeyIndex`).
+
+    A record written under today's own key wins over one that only matches by surname
+    stem: both can resolve to the same entity, and without this the winner is whichever
+    row the unordered read happened to return last.
+    """
+    index = KeyIndex(keys.values())
+    by_key = {key: group_id for group_id, key in keys.items()}
+    exact: dict[int, str] = {}
+    by_stem: dict[int, str] = {}
+    for record in session.scalars(select(EntityPoliticsDecisionRecord)):
+        today = index.today(record.key)
+        if today is None:
+            continue
+        if today == record.key:
+            exact[by_key[today]] = record.verdict
+        else:
+            by_stem[by_key[today]] = record.verdict
+    return {**by_stem, **exact}
+
+
+def decide_politics(session: Session, entity: EntityGroupRecord, verdict: str) -> None:
+    """A person's word on the case's politics, applied at once and kept for every rebuild.
+    `entities.politics.PoliticsFinder` writes it again over step 5's own verdict."""
+    if verdict not in (POLITICAL, CRIMINAL):
+        raise ValueError(f"unknown verdict: {verdict}")
+    record = session.get(EntityPoliticsDecisionRecord, entity.key)
+    if record is None:
+        session.add(EntityPoliticsDecisionRecord(key=entity.key, verdict=verdict))
+    else:
+        record.verdict = verdict
+    current = session.get(EntityGroupPoliticsRecord, entity.id)
+    if current is None:
+        current = EntityGroupPoliticsRecord(
+            group_id=entity.id, verdict="", method="", reason="", quote=""
+        )
+        session.add(current)
+    current.verdict, current.method = verdict, MANUAL
+    current.reason = "решено оператором вручную"
 
 
 def matched_answers(
@@ -283,6 +336,10 @@ class PoliticsResult:
     # By the «Мемориал» category alone; common-crime articles alone: no model asked.
     political_memorial: int = 0
     criminal_rules: int = 0
+    # Verdicts a person decided by hand: its own field, so a decision over an article
+    # that carries a political charge stops being counted as a rule's political case.
+    political_manual: int = 0
+    criminal_manual: int = 0
     # Left unasked: the run's budget was spent; the next run asks them.
     unasked: int = 0
     cost_usd: float = 0.0
@@ -361,6 +418,7 @@ class PoliticsFinder:
                 ).all()
             }
             rest = [row for row in figurants if row.id not in political]
+            decisions = politics_decisions(session, {row.id: row.key for row in figurants})
             memorial: dict[int, str | None] = {
                 group_id: category
                 for group_id, category in session.execute(
@@ -454,6 +512,13 @@ class PoliticsFinder:
                 }
             )
 
+        # A person's word last: it overrides the rules and the model.
+        for entry in rows:
+            decided = decisions.get(cast(int, entry["group_id"]))
+            if decided is None:
+                continue
+            entry["verdict"], entry["method"] = decided, MANUAL
+            entry["reason"] = "решено оператором вручную"
         self._on_stage("writing")
         with self._session_factory.begin() as session:
             session.execute(delete(EntityGroupPoliticsRecord))
@@ -464,11 +529,18 @@ class PoliticsFinder:
         verdicts = Counter((str(row["verdict"]), str(row["method"])) for row in rows)
         result = PoliticsResult(
             figurants=len(figurants),
-            political_rules=len(political),
+            # Over the final rows, not the pre-override charge map: a person who calls an
+            # article with a political charge an ordinary case must stop being counted as
+            # the rules' political case, or one entity lands in two counters at once.
+            # The article rule alone. The «Мемориал» category has its own counter, and
+            # counting it here too put one entity into two numbers of the same summary.
+            political_rules=verdicts[(POLITICAL, "article")],
             political_memorial=verdicts[(POLITICAL, "memorial")],
             political_model=verdicts[(POLITICAL, "model")],
             criminal=sum(count for (verdict, _), count in verdicts.items() if verdict == CRIMINAL),
             criminal_rules=verdicts[(CRIMINAL, "article")],
+            political_manual=verdicts[(POLITICAL, MANUAL)],
+            criminal_manual=verdicts[(CRIMINAL, MANUAL)],
             unclear=sum(count for (verdict, _), count in verdicts.items() if verdict == UNCLEAR),
             asked_now=found.asked,
             cached=found.cached,

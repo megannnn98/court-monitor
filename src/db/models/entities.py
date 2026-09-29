@@ -222,6 +222,36 @@ class EntityOfficialMarkRecord(Base):
     )
 
 
+class EntityRoleDecisionRecord(Base):
+    """A person's word on an entity's role in a case (figurant, possible, mentioned):
+    it overrides step 4 and survives every rebuild, as a name correction does."""
+
+    __tablename__ = "entity_role_decisions"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    # figurant, possible or mentioned; «unclear» is never decided, only left to be redone.
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    # onupdate as well as server_default: re-deciding must move the moment, so that a
+    # record's own timestamp says which of two rows is the later word.
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EntityPoliticsDecisionRecord(Base):
+    """A person's word on whether an entity's case is political: it overrides step 5 and
+    survives every rebuild, as a name correction does."""
+
+    __tablename__ = "entity_politics_decisions"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    # political or criminal; «unclear» is never decided, only left to be redone.
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class EntityNameOverrideRecord(Base):
     """A person's correction of an entity's name («Лидия Мониава», not «Лида»): it
     wins over the rules and the model, and survives every rebuild."""

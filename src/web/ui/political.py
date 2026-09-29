@@ -330,9 +330,28 @@ def _regions_text(entity: EntityGroupRecord) -> str:
     return ", ".join(str(region) for region, _ in entity.regions)
 
 
+# Who said so. A person who decides a verdict by hand is not the model, and telling the
+# operator their own decision came from the model costs them the reason to trust it.
+_BASIS_LABELS = {
+    "article": "статья УК",
+    "manual": "решено вручную",
+    "memorial": "правило: реестр «Мемориала»",
+    "model": "модель",
+}
+
+
+# What `decide_politics` writes as the reason. The label already says this, so printing
+# it after a colon reads as «решено вручную: решено оператором вручную».
+_MANUAL_REASON = "решено оператором вручную"
+
+
 def _basis(row: ListRow) -> str:
-    method = "статья УК" if row.politics.method == "article" else "модель"
-    return f"{method}: {row.politics.reason}"
+    """Who decided the verdict, and why — the two never say the same thing twice."""
+    label = _BASIS_LABELS.get(row.politics.method, "модель")
+    reason = row.politics.reason
+    if reason in ("", _MANUAL_REASON):
+        return label
+    return f"{label}: {reason}"
 
 
 def _news_mark(row: ListRow) -> str:

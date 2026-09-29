@@ -21,15 +21,23 @@ import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, text
+from sqlalchemy import delete, insert, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import EntityGroupRoleRecord, EntityRoleAnswerRecord
+from db.orm_models import (
+    EntityGroupPoliticsRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityOfficialMarkRecord,
+    EntityRoleAnswerRecord,
+    EntityRoleDecisionRecord,
+)
 from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.disputes import KeyIndex
 from entities.evidence import person_evidence_cte
 from entities.llm import (
     OPENROUTER_MODEL,
@@ -112,6 +120,75 @@ def role_of(kind: str) -> str:
     if kind == "unknown":
         return UNCLEAR
     return MENTIONED
+
+
+# The roles a person may name on «Неясная роль»: «unclear» is never decided.
+ROLES: tuple[str, ...] = (FIGURANT, POSSIBLE, MENTIONED)
+MANUAL = "manual"
+
+
+def role_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
+    """A person's role decisions per today's entity ids; a decision on an older key holds
+    for the entity it meant (`KeyIndex`).
+
+    A record written under today's own key wins over one that only matches by surname
+    stem: both can resolve to the same entity, and without this the winner is whichever
+    row the unordered read happened to return last.
+    """
+    index = KeyIndex(keys.values())
+    by_key = {key: group_id for group_id, key in keys.items()}
+    exact: dict[int, str] = {}
+    by_stem: dict[int, str] = {}
+    for record in session.scalars(select(EntityRoleDecisionRecord)):
+        today = index.today(record.key)
+        if today is None:
+            continue
+        if today == record.key:
+            exact[by_key[today]] = record.role
+        else:
+            by_stem[by_key[today]] = record.role
+    return {**by_stem, **exact}
+
+
+def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
+    """A person's word on the entity's role, applied at once and kept for every rebuild.
+    `entities.roles.FigurantFinder` writes it again over whatever step 4 finds.
+
+    An official mark is more specific than a role decided on a review page, and the
+    rebuild honours it (`FigurantFinder.run`). So this honours it too, rather than
+    writing a role the next run would silently take back.
+    """
+    if role not in ROLES:
+        raise ValueError(f"unknown role: {role}")
+    record = session.get(EntityRoleDecisionRecord, entity.key)
+    if record is None:
+        session.add(EntityRoleDecisionRecord(key=entity.key, role=role))
+    else:
+        record.role = role
+    current = session.get(EntityGroupRoleRecord, entity.id)
+    mark = session.get(EntityOfficialMarkRecord, entity.key)
+    if mark is not None and mark.official:
+        # The mark is the more specific word, and the rebuild writes it as «official».
+        # Writing the same thing here keeps the immediate row and the rebuilt row equal —
+        # method, kind and reason — otherwise the operator watches their word change, and
+        # a `kind` left empty drops the entity off «Должностные лица» until step 4 runs.
+        role, method, reason = MENTIONED, "official", "должностное лицо — отмечен вручную"
+        kind = (
+            current.kind if current is not None and current.kind in OFFICIAL_KINDS else "official"
+        )
+    else:
+        method, reason, kind = MANUAL, "решено оператором вручную", None
+    if current is None:
+        current = EntityGroupRoleRecord(group_id=entity.id, role="", method="", reason="", quote="")
+        session.add(current)
+    current.role, current.kind, current.method = role, kind, method
+    current.reason = reason
+    if role != FIGURANT:
+        # No longer a figurant: the verdict that put it on «Результат» goes with it, as
+        # `entities.officials.mark_official` does.
+        session.execute(
+            delete(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == entity.id)
+        )
 
 
 SYSTEM_PROMPT = """Ты определяешь роль человека в уголовном деле по цитатам из \
@@ -342,6 +419,9 @@ class FigurantResult:
     asked_now: int
     cached: int
     failures: int
+    # Figurants a person decided by hand. Its own field, not folded into the model's:
+    # a count that mixes the two hides both the person's work and the model's accuracy.
+    figurant_manual: int = 0
     # Left unasked: the run's budget was spent; the next run asks them.
     unasked: int = 0
     cost_usd: float = 0.0
@@ -392,6 +472,7 @@ class FigurantFinder:
             ids = [row.id for row in entities]
             titles = titled_entities(session, ids)
             marks = official_marks(session, {row.id: row.key for row in entities})
+            decisions = role_decisions(session, {row.id: row.key for row in entities})
             quotes: dict[int, list[str]] = {}
             for group_id, quote in session.execute(
                 _QUOTES, {"groups": ids, "context": QUOTE_CONTEXT, "quotes": QUOTES}
@@ -522,6 +603,15 @@ class FigurantFinder:
                 }
             )
 
+        # A person's word last: it overrides the rules, the model and the title, unless
+        # the same person marked the entity an official (that mark is the more specific).
+        for entry in rows:
+            group_id = cast(int, entry["group_id"])
+            decided = decisions.get(group_id)
+            if decided is None or marks.get(group_id) is True:
+                continue
+            entry["role"], entry["kind"], entry["method"] = decided, None, MANUAL
+            entry["reason"] = "решено оператором вручную"
         self._on_stage("writing")
         with self._session_factory.begin() as session:
             session.execute(delete(EntityGroupRoleRecord))
@@ -529,11 +619,17 @@ class FigurantFinder:
                 session.execute(insert(EntityGroupRoleRecord), rows[start : start + INSERT_CHUNK])
         roles = [str(row["role"]) for row in rows]
         by_model = sum(row["role"] == FIGURANT and row["method"] == "model" for row in rows)
+        # Counted over the final rows, after a person's word was written over the rules,
+        # the model and the title. Counting `officials` before the override would leave an
+        # entity both an official (by title) and whatever the person decided.
         result = FigurantResult(
             entities=len(entities),
             figurant_rules=sum(row["method"] in ("article", "operator") for row in rows),
             figurant_model=by_model,
-            officials=len(officials),
+            figurant_manual=sum(
+                row["role"] == FIGURANT and row["method"] == MANUAL for row in rows
+            ),
+            officials=sum(row["method"] == "official" for row in rows),
             possible=roles.count(POSSIBLE),
             mentioned=roles.count(MENTIONED),
             unclear=roles.count(UNCLEAR),

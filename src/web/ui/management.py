@@ -569,6 +569,7 @@ def _figurants_card(run: OperationRun) -> str:
     labels = (
         ("figurant_rules", "Фигуранты по статье УК без ответа модели", "succeeded"),
         ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
+        ("figurant_manual", "Фигуранты по решению оператора", "succeeded"),
         ("officials", "Должностные лица", ""),
         ("possible", "Задержаны, обысканы или административное дело", "pending"),
         ("mentioned", "Только упомянуты", ""),
@@ -665,7 +666,9 @@ def _political_card(run: OperationRun) -> str:
         ("political_rules", "Политические по статье УК", "succeeded"),
         ("political_model", "Политические по ответу модели", "succeeded"),
         ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
+        ("political_manual", "Политические по решению оператора", "succeeded"),
         ("criminal_rules", "Уголовные по статье (без модели)", ""),
+        ("criminal_manual", "Уголовные по решению оператора", ""),
         ("criminal", "Уголовные", ""),
         ("unclear", "Не ясно", ""),
         ("failures", "Модель не ответила", "failed"),

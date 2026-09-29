@@ -17,10 +17,12 @@ from db.orm_models import (
 )
 from entities.collector import EntityCollector
 from entities.politics import (
+    POLITICAL,
     PoliticsAnswer,
     PoliticsClassifierError,
     PoliticsFinder,
     PoliticsItem,
+    decide_politics,
     matched_answers,
     verdict_of,
 )
@@ -275,6 +277,25 @@ def test_the_rules_settle_common_crime_and_the_memorial_s_sure_categories(
         "Олег Иванович Орлов": ("political", "model"),
     }
     assert (result.political_memorial, result.criminal_rules, result.criminal) == (1, 1, 1)
+    # «Политические по статье УК» must mean the article rule alone. Counting the
+    # «Мемориал» category in both `political_rules` and `political_memorial` put one
+    # entity into two counters of the same run summary.
+    assert result.political_rules == 1, (
+        f"political_rules={result.political_rules} but only Иван Петров carries a "
+        f"political article; the «Мемориал» category has its own counter "
+        f"({result.political_memorial})"
+    )
+    accounted = (
+        result.political_rules
+        + result.political_memorial
+        + result.political_model
+        + result.political_manual
+        + result.criminal
+        + result.unclear
+    )
+    assert accounted == result.figurants, (
+        f"{result.figurants} figurants but {accounted} counted across the verdicts"
+    )
 
 
 def test_hooliganism_is_no_common_crime_for_the_rules(
@@ -291,3 +312,22 @@ def test_hooliganism_is_no_common_crime_for_the_rules(
     PoliticsFinder(session_factory, classifier=classifier).run()
 
     assert "Александр Беда" in [item.name for item in classifier.asked]
+
+
+def test_a_person_s_word_on_politics_survives_the_next_run(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«Неясная политичность» and a person's decision on it: step 5 rewrites the
+    verdicts, so the decision is kept by the key and written again over the next run."""
+    _seed(session_factory)
+    PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+    with session_factory.begin() as session:
+        beda = session.scalar(
+            select(EntityGroupRecord).where(EntityGroupRecord.name == "Александр Беда")
+        )
+        assert beda is not None
+        decide_politics(session, beda, POLITICAL)
+
+    PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+
+    assert _verdicts(session_factory)["Александр Беда"] == ("political", "manual")

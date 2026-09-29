@@ -1,19 +1,26 @@
-"""Focused review pages for unclear roles and political classifications."""
+"""Focused review pages for unclear roles and political classifications.
+
+Both read what steps 4 and 5 were unsure about and let the operator settle it: the
+decision is applied at once and kept by the entity key, so the next rebuild of step 4 or
+step 5 writes it again (`entities.roles`, `entities.politics`).
+"""
 
 from __future__ import annotations
 
 import logging
 from html import escape
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
 from entities.disputes import reset_decisions
+from entities.politics import CRIMINAL, POLITICAL, decide_politics
 from entities.politics import UNCLEAR as UNCLEAR_VERDICT
+from entities.roles import FIGURANT, MENTIONED, POSSIBLE, decide_role
 from entities.roles import UNCLEAR as UNCLEAR_ROLE
 from web.dependencies import get_db
 from web.ui.entities import display_name
@@ -23,19 +30,41 @@ router = APIRouter()
 logger = logging.getLogger("entities")
 
 LIST_LIMIT = 100
+_SECONDARY = ' class="secondary"'
 
 
-def _entity_rows(rows: list[tuple[str, str, str]], empty: str) -> str:
+def _decide_form(action: str, key: str, field: str, choices: tuple[tuple[str, str], ...]) -> str:
+    """One row's decision: a button per choice, the first one primary."""
+    buttons = "".join(
+        f'<button name="{field}" value="{escape(value, quote=True)}" type="submit"'
+        f"{_SECONDARY if index else ''}>{escape(label)}</button>"
+        for index, (value, label) in enumerate(choices)
+    )
+    return (
+        f'<form method="post" action="{action}" class="decide-bar">'
+        f'<input type="hidden" name="key" value="{escape(key, quote=True)}">'
+        f"{buttons}</form>"
+    )
+
+
+def _entity_rows(
+    rows: list[tuple[str, str, str]],
+    empty: str,
+    action: str,
+    field: str,
+    choices: tuple[tuple[str, str], ...],
+) -> str:
     if not rows:
         return f'<p class="empty">{empty}</p>'
     body = "".join(
         f'<tr><td><a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a></td>'
-        f"<td>{escape(reason)}</td></tr>"
+        f"<td>{escape(reason)}</td>"
+        f"<td>{_decide_form(action, key, field, choices)}</td></tr>"
         for key, name, reason in rows
     )
     return (
         '<table><thead><tr><th scope="col">Человек</th><th scope="col">Почему не решено</th>'
-        f"</tr></thead><tbody>{body}</tbody></table>"
+        f'<th scope="col">Решение</th></tr></thead><tbody>{body}</tbody></table>'
     )
 
 
@@ -44,12 +73,15 @@ def _review_page(
     explanation: str,
     rows: list[tuple[str, str, str]],
     db: Session,
+    action: str,
+    field: str,
+    choices: tuple[tuple[str, str], ...],
 ) -> HTMLResponse:
     body = f"""<p><a href="/ui/cycle">Назад к циклу</a></p>
 <section class="band">
   <h2>{escape(title)}</h2>
   <p class="muted">{escape(explanation)}</p>
-  {_entity_rows(rows, f"{title}: открытых случаев нет.")}
+  {_entity_rows(rows, f"{title}: открытых случаев нет.", action, field, choices)}
 </section>"""
     return _page(
         title,
@@ -58,6 +90,17 @@ def _review_page(
         instruction="Проверка результата модели по досье и исходным цитатам.",
         db=db,
     )
+
+
+ROLE_CHOICES: tuple[tuple[str, str], ...] = (
+    (FIGURANT, "Фигурант"),
+    (POSSIBLE, "Задержан или обыскан"),
+    (MENTIONED, "Только упомянут"),
+)
+VERDICT_CHOICES: tuple[tuple[str, str], ...] = (
+    (POLITICAL, "Политическое"),
+    (CRIMINAL, "Обычное уголовное"),
+)
 
 
 @router.get("/ui/roles", response_class=HTMLResponse)
@@ -74,9 +117,14 @@ def ui_roles(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     ]
     return _review_page(
         "Неясная роль в деле",
-        "Шаг 4 не понял, заведено ли на человека дело. Ручного решения пока нет: откройте досье и проверьте цитаты.",
+        "Шаг 4 не понял, заведено ли на человека дело. Проверьте цитаты в досье и решите: "
+        "фигурант, задержан или обыскан, либо только упомянут. Решение сохраняется и "
+        "применяется при каждой пересборке.",
         rows,
         db,
+        "/ui/roles/decide",
+        "role",
+        ROLE_CHOICES,
     )
 
 
@@ -101,10 +149,58 @@ def ui_politics_review(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: 
     ]
     return _review_page(
         "Неясная политичность",
-        "Шаг 5 не смог отнести дело ни к политическим, ни к обычным уголовным. Ручного решения пока нет.",
+        "Шаг 5 не смог отнести дело ни к политическим, ни к обычным уголовным. Решите по "
+        "досье и исходным публикациям. Решение сохраняется и применяется при каждой "
+        "пересборке.",
         rows,
         db,
+        "/ui/politics-review/decide",
+        "verdict",
+        VERDICT_CHOICES,
     )
+
+
+def _entity_by_key(db: Session, key: str) -> EntityGroupRecord:
+    if not key:
+        raise HTTPException(status_code=400, detail="Не указан человек")
+    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Сущность не найдена")
+    return entity
+
+
+@router.post("/ui/roles/decide", response_model=None)
+async def decide_entity_role(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """A person's word on an entity's role: applied at once and kept for every rebuild."""
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    entity = _entity_by_key(db, (form.get("key") or [""])[0])
+    try:
+        decide_role(db, entity, (form.get("role") or [""])[0])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Неизвестная роль") from exc
+    db.commit()
+    logger.info("event=entity_role_decided key=%s", entity.key)
+    return RedirectResponse("/ui/roles", status_code=303)
+
+
+@router.post("/ui/politics-review/decide", response_model=None)
+async def decide_entity_politics(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """A person's word on a case's politics: applied at once and kept for every rebuild."""
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    entity = _entity_by_key(db, (form.get("key") or [""])[0])
+    try:
+        decide_politics(db, entity, (form.get("verdict") or [""])[0])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Неизвестный вердикт") from exc
+    db.commit()
+    logger.info("event=entity_politics_decided key=%s", entity.key)
+    return RedirectResponse("/ui/politics-review", status_code=303)
 
 
 @router.get("/ui/queue", response_class=RedirectResponse)

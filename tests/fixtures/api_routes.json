@@ -66,7 +66,9 @@
  "POST /ui/management/run",
  "POST /ui/management/runs/{run_id}/stop",
  "POST /ui/pairs/reset-decisions",
+ "POST /ui/politics-review/decide",
  "POST /ui/queue/reset-decisions",
+ "POST /ui/roles/decide",
  "POST /ui/unnamed/clear",
  "POST /ui/unnamed/reject",
  "POST /ui/unnamed/resolve"

@@ -13,10 +13,12 @@ from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, EntityMentio
 from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
 from entities.roles import (
+    FIGURANT,
     FigurantFinder,
     RoleAnswer,
     RoleClassifierError,
     RoleItem,
+    decide_role,
     matched_answers,
     role_of,
 )
@@ -445,3 +447,27 @@ def test_another_model_is_compared_on_what_the_steps_answered(
     assert report["agreement"] == 0.75
     assert report["confusion"]["mentioned → figurant"] == 1
     assert report["disagreements"][0]["name"] == "Фёдор Сирош"
+
+
+def test_a_person_s_word_on_a_role_survives_the_next_run(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«Неясная роль» and a person's decision on it: step 4 rewrites the roles, so the
+    decision is kept by the key and written again over the model's next answer."""
+    _seed(session_factory)
+    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    with session_factory.begin() as session:
+        sirosh = session.scalar(
+            select(EntityGroupRecord).where(EntityGroupRecord.name == "Фёдор Сирош")
+        )
+        assert sirosh is not None
+        decide_role(session, sirosh, FIGURANT)
+
+    again = FakeClassifier(KINDS)
+    FigurantFinder(session_factory, classifier=again).run()
+
+    # The model is not asked again because the answer is cached under the same input hash,
+    # not because the person decided anything. The decision is what wins over the model's
+    # answer on the way into the table; the two are separate mechanisms.
+    assert again.asked == [], "cached answer, not a decision: see the comment"
+    assert _roles(session_factory)["Фёдор Сирош"] == ("figurant", None, "manual")
