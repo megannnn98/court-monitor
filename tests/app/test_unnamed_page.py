@@ -122,6 +122,27 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
     assert "Безымянные фигуранты: 1" in cycle
 
 
+def test_an_rf_entry_finds_its_unnamed_candidate_without_deciding(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        search = client.get("/ui/unnamed", params={"rf_q": "пуртов"}).text
+        reverse = client.get(
+            "/ui/unnamed",
+            params={
+                "rf_q": "пуртов",
+                "rf_key": "пуртов егор владимирович|2007-02-17",
+            },
+        ).text
+
+    assert "ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ" in search
+    assert "Подходящие безымянные публикации (1)" in reverse
+    assert "В Тюмени задержан 17-летний житель" in reverse
+    assert "опознан:" not in reverse
+
+
 def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Session]) -> None:
     _seed(session_factory)
 

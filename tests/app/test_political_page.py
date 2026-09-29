@@ -21,6 +21,7 @@ from db.orm_models import (
 )
 from web.app import app
 from web.dependencies import get_db
+from web.ui.political import ListRow, political_xlsx
 
 
 @contextmanager
@@ -153,6 +154,7 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
     rows = list(sheet.iter_rows(values_only=True))
     assert rows[0][:3] == ("№", "Фамилия Имя", "Регион")
     assert rows[0][8] == "Перечень РФМ"
+    assert rows[0][9:13] == ("Источник 1", "Источник 2", "Источник 3", "Свежая новость")
     assert [(row[1], row[2], row[8]) for row in rows[1:]] == [
         (
             "Смирнова Анна",
@@ -161,6 +163,49 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
         ),
         ("Иванов Иван", None, "возможно тёзка: ИВАНОВ ИВАН ИВАНОВИЧ"),
     ]
+
+
+def test_the_excel_makes_each_source_a_separate_link() -> None:
+    entity = EntityGroupRecord(
+        key="анна смирнова",
+        name="Анна Смирнова",
+        variants=[],
+        mention_count=1,
+        article_count=1,
+        event_types={},
+        regions=[],
+    )
+    politics = EntityGroupPoliticsRecord(
+        group_id=1,
+        verdict="political",
+        method="model",
+        reason="основание",
+        quote="цитата",
+    )
+    workbook = load_workbook(
+        BytesIO(
+            political_xlsx(
+                [
+                    ListRow(
+                        entity,
+                        politics,
+                        False,
+                        links=[
+                            ("Первый источник", "https://first.example.test", None, "Первый"),
+                            ("Второй источник", "https://second.example.test", None, "Второй"),
+                        ],
+                    )
+                ]
+            )
+        )
+    )
+    sheet = workbook.active
+    assert sheet is not None
+    assert sheet.cell(row=2, column=10).value == "Первый: Первый источник"
+    assert sheet.cell(row=2, column=10).hyperlink.target == "https://first.example.test"
+    assert sheet.cell(row=2, column=11).value == "Второй: Второй источник"
+    assert sheet.cell(row=2, column=11).hyperlink.target == "https://second.example.test"
+    assert sheet.cell(row=2, column=12).value is None
 
 
 def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Session]) -> None:

@@ -17,7 +17,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord, UnnamedFigurantRecord
+from db.orm_models import (
+    EntityGroupRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+    UnnamedFigurantRecord,
+)
 from entities.unnamed import (
     DIFFERENT,
     EVENT_LABELS,
@@ -29,6 +34,7 @@ from entities.unnamed import (
     SAME,
     SUPPLIED_NAME,
     Candidates,
+    candidate_key,
     candidates,
     clear_resolution,
     decide,
@@ -40,6 +46,7 @@ from web.ui.layout import _page, pager
 router = APIRouter()
 
 PAGE_SIZE = 20
+RF_SEARCH_LIMIT = 10
 _STATUSES = {
     "open": "Не разобраны",
     "found": "Опознаны",
@@ -55,6 +62,50 @@ _WORDS = text(
     FROM unnamed_identity_resolutions
     """
 )
+
+
+def _rf_key(entry: RosfinmonitoringEntryRecord) -> str | None:
+    if entry.birth_date is None:
+        return None
+    return candidate_key(entry.normalized_name, entry.birth_date.date())
+
+
+def _rf_search(db: Session, query: str) -> list[RosfinmonitoringEntryRecord]:
+    value = query.strip()
+    if not value:
+        return []
+    snapshot_id = db.scalar(
+        select(RosfinmonitoringSnapshotRecord.id)
+        .order_by(
+            RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
+            RosfinmonitoringSnapshotRecord.id.desc(),
+        )
+        .limit(1)
+    )
+    if snapshot_id is None:
+        return []
+    return list(
+        db.scalars(
+            select(RosfinmonitoringEntryRecord)
+            .where(
+                RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
+                RosfinmonitoringEntryRecord.normalized_name.ilike(f"%{value}%"),
+            )
+            .order_by(RosfinmonitoringEntryRecord.full_name)
+            .limit(RF_SEARCH_LIMIT)
+        )
+    )
+
+
+def _reverse_matches(
+    db: Session, figurants: list[UnnamedFigurantRecord], rf_key: str
+) -> list[UnnamedFigurantRecord]:
+    """Unresolved figurants whose existing candidate lookup includes this RF entry."""
+    return [
+        figurant
+        for figurant in figurants
+        if any(candidate.key == rf_key for candidate in candidates(db, figurant).shown)
+    ]
 
 
 def _day(moment: datetime | None) -> str:
@@ -280,6 +331,8 @@ def ui_unnamed(
     status: str = Query(default="open", pattern="^(open|found|no_rf|insufficient|all)$"),
     page: int = Query(default=1, ge=1),
     person_q: str = Query(default="", max_length=100),
+    rf_q: str = Query(default="", max_length=100),
+    rf_key: str = Query(default="", max_length=600),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     words = {
@@ -336,13 +389,62 @@ def ui_unnamed(
         if person_q.strip()
         else []
     )
+    rf_entries = _rf_search(db, rf_q)
+    rf_keys = {key for entry in rf_entries if (key := _rf_key(entry)) is not None}
+    selected_rf_key = rf_key if rf_key in rf_keys else ""
+    reverse = (
+        _reverse_matches(db, [item for item in figurants if state(item) == "open"], selected_rf_key)
+        if selected_rf_key
+        else []
+    )
+    rf_rows = []
+    for entry in rf_entries:
+        entry_key = _rf_key(entry)
+        name = escape(entry.full_name)
+        birth = (
+            entry.birth_date.strftime("%d.%m.%Y")
+            if entry.birth_date
+            else "дата рождения неизвестна"
+        )
+        if entry_key is None:
+            rf_rows.append(f"<li>{name} · {birth}</li>")
+            continue
+        params = {
+            "status": status,
+            "page": page,
+            "person_q": person_q.strip(),
+            "rf_q": rf_q.strip(),
+            "rf_key": entry_key,
+        }
+        rf_rows.append(
+            f'<li><a href="/ui/unnamed?{escape(urlencode(params), quote=True)}">{name}</a> · {birth}</li>'
+        )
+    rf_results = (
+        f'<section class="band"><h2>Записи РФМ</h2><ul class="news-list">{"".join(rf_rows)}</ul></section>'
+        if rf_rows
+        else '<p class="muted">В актуальном снимке РФМ совпадений нет.</p>'
+        if rf_q.strip()
+        else ""
+    )
+    reverse_rows = "".join(
+        f'<li><a href="/ui/unnamed?{escape(urlencode({"status": "open", "rf_q": rf_q.strip()}), quote=True)}#u-{quote(item.key)}">'
+        f'{escape(item.quote)}</a> <span class="why">{_facts(item)}</span></li>'
+        for item in reverse
+    )
+    reverse_results = (
+        f"""<section class="band"><h2>Подходящие безымянные публикации ({len(reverse)})</h2>
+<p class="muted">Кандидаты по тем же правилам возраста, пола, инициалов и места; решение не принято.</p>
+<ul class="news-list">{reverse_rows}</ul></section>"""
+        if selected_rf_key
+        else ""
+    )
     back = urlencode({"status": status, "page": page, "person_q": person_q.strip()})
     cards = "".join(
         _card(item, candidates(db, item), words.get(item.key), people, back) for item in on_page
     )
     chips = " ".join(
         f'<a class="chip{" active" if key == status else ""}" '
-        f'href="/ui/unnamed?{urlencode({"status": key, "person_q": person_q.strip()})}">{label} ({counts[key]})</a>'
+        f'href="/ui/unnamed?{urlencode({"status": key, "person_q": person_q.strip(), "rf_q": rf_q.strip(), "rf_key": rf_key})}">{label} ({counts[key]})</a>'
         for key, label in _STATUSES.items()
     )
     empty = (
@@ -358,9 +460,18 @@ def ui_unnamed(
     placeholder="Имя существующего человека">
   <button type="submit" class="secondary">Найти</button>
 </form>"""
+    rf_search = f"""<form method="get" class="toolbar" role="search">
+  <input type="hidden" name="status" value="{escape(status, quote=True)}">
+  <input type="search" name="rf_q" value="{escape(rf_q, quote=True)}"
+    placeholder="Имя из перечня РФМ">
+  <button type="submit" class="secondary">Найти в РФМ</button>
+</form>"""
     body = f"""<p><a href="/ui/cycle">Назад к циклу</a></p>
 <p class="chips">{chips}</p>
 {search}
+{rf_search}
+{rf_results}
+{reverse_results}
 <p class="muted">Люди, которых публикации не называют («17-летний житель Тюмени»), и кто из
 перечня Росфинмониторинга может быть ими: того возраста на дату новости (или на год старше —
 событие бывает раньше новости), того пола и буквы фамилии; сначала — родившиеся в названном
@@ -368,7 +479,7 @@ def ui_unnamed(
 только с первого сохранённого снимка.</p>
 <p class="muted">Опознанный человек попадёт в результат после следующих шагов 3–5.</p>
 {cards or empty}
-{pager("/ui/unnamed", {"status": status, "person_q": person_q.strip()}, page, pages)}"""
+{pager("/ui/unnamed", {"status": status, "person_q": person_q.strip(), "rf_q": rf_q.strip(), "rf_key": rf_key}, page, pages)}"""
     return _page(
         "Безымянные",
         body,

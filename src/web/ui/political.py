@@ -506,14 +506,16 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             "Первая новость",
             "Последняя новость",
             "Перечень РФМ",
-            "Публикации",
+            *(f"Источник {number}" for number in range(1, LINKS + 1)),
             "Свежая новость",
         ]
     )
     for position, row in enumerate(rows, start=1):
-        link = next(
-            (url for _, url, _, _ in row.links if url.startswith(("http://", "https://"))), None
-        )
+        sources = [
+            (title, url, source)
+            for title, url, _, source in row.links
+            if url.startswith(("http://", "https://"))
+        ][:LINKS]
         values: list[Any] = [
             position,
             display_name(row.entity.name),
@@ -526,19 +528,20 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             if row.entity.last_published_at
             else None,
             rf_text(row) or None,
-            "\n".join(url for _, url, _, _ in row.links) or None,
+            *(f"{source}: {title[:80]}" for title, _, source in sources),
+            *(None for _ in range(LINKS - len(sources))),
             KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
         ]
         sheet.append(values)
         line = position + 1
-        # Names, reasons and URLs come from scraped sources: never let «=» become a formula.
-        for column in (2, 3, 4, 5, 6, 10):
+        # Names, reasons and source titles come from scraped sources: never let «=» become a formula.
+        for column in (2, 3, 4, 5, 6, *range(10, 10 + LINKS)):
             if sheet.cell(row=line, column=column).value is not None:
                 sheet.cell(row=line, column=column).data_type = "s"
         for column in (7, 8):
             sheet.cell(row=line, column=column).number_format = "DD.MM.YYYY"
-        if link is not None:
-            sheet.cell(row=line, column=10).hyperlink = link
+        for column, (_, url, _) in enumerate(sources, start=10):
+            sheet.cell(row=line, column=column).hyperlink = url
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
