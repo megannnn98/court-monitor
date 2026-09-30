@@ -154,8 +154,8 @@ def sync_known_persons(session: Session, records: Sequence[AirtableRecord]) -> T
     return result
 
 
-def sync_excluded_persons(session: Session, records: Sequence[AirtableRecord]) -> TableSyncResult:
-    """Upsert the people who must never become target figurants."""
+def sync_officials(session: Session, records: Sequence[AirtableRecord]) -> TableSyncResult:
+    """Upsert the officials, and anyone else who must never become a target figurant."""
     result = TableSyncResult(received=len(records))
     existing = {
         str(row.external_id): row
@@ -169,7 +169,7 @@ def sync_excluded_persons(session: Session, records: Sequence[AirtableRecord]) -
         full_name = record.text(*_NAME_FIELDS)
         if not full_name:
             result.errors += 1
-            logger.warning("event=airtable_excluded_person_without_name record=%s", record.id)
+            logger.warning("event=airtable_official_without_name record=%s", record.id)
             continue
         normalized, _ = person_name(full_name)
         values: dict[str, Any] = {

@@ -34,7 +34,7 @@ _ENV = {
     "AIRTABLE_SOURCES_TABLE": "Sources",
     "AIRTABLE_RFM_PERSONS_TABLE": "RFM",
     "AIRTABLE_KNOWN_PERSONS_TABLE": "Known",
-    "AIRTABLE_EXCLUDED_PERSONS_TABLE": "Excluded",
+    "AIRTABLE_OFFICIALS_TABLE": "Excluded",
 }
 
 
@@ -134,7 +134,7 @@ class TestSuccessfulSync:
         airtable.tables["Excluded"] = [
             _person("recB", "Ольга Минакова", active=False, reason="уволена")
         ]
-        result = service.sync().tables["excluded_persons"]
+        result = service.sync().tables["officials"]
         assert result.updated == 1
         # Deactivated, never deleted: the row is the operator's own.
         rows = _rows(session_factory, ExcludedPersonRecord)
@@ -405,7 +405,7 @@ class TestPartialFailure:
         assert report.status == "partial"
         assert report.tables["sources"].status == TableStatus.ERROR
         assert "Sources" in (report.tables["sources"].error or "")
-        for table in ("rfm_persons", "known_persons", "excluded_persons"):
+        for table in ("rfm_persons", "known_persons", "officials"):
             assert report.tables[table].status == TableStatus.SUCCESS
             assert report.tables[table].created == 1
 

@@ -93,7 +93,7 @@ _KEY_COLUMN = {
     "sources": ("base_url", "Base URL", "url", "URL", "Ссылка", "Адрес"),
     "rfm_persons": ("full_name", "Full name", "Name", "ФИО", "Имя", "Фамилия Имя"),
     "known_persons": ("full_name", "Full name", "Name", "ФИО", "Имя", "Фамилия Имя"),
-    "excluded_persons": ("full_name", "Full name", "Name", "ФИО", "Имя", "Фамилия Имя"),
+    "officials": ("full_name", "Full name", "Name", "ФИО", "Имя", "Фамилия Имя", "Должность"),
 }
 
 

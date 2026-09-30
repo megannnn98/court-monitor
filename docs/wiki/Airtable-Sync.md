@@ -13,7 +13,7 @@ AirtableSyncService            порядок, логирование, поли�
  ├── sync_sources()            → sources            (имя и активность существующих)
  ├── sync_rfm_persons()        → rosfinmonitoring_entries (снимок airtable://rfm_persons)
  ├── sync_known_persons()      → airtable_known_persons
- └── sync_excluded_persons()   → excluded_persons
+ └── sync_officials()           → excluded_persons (список «Должностные лица»)
        ↓
 PostgreSQL
 ```
@@ -37,7 +37,7 @@ AIRTABLE_BASE_ID=
 AIRTABLE_SOURCES_TABLE=
 AIRTABLE_RFM_PERSONS_TABLE=
 AIRTABLE_KNOWN_PERSONS_TABLE=
-AIRTABLE_EXCLUDED_PERSONS_TABLE=
+AIRTABLE_OFFICIALS_TABLE=
 AIRTABLE_TIMEOUT_SECONDS=120   # необязательно
 ```
 
@@ -77,7 +77,7 @@ AIRTABLE_IMPORT_DIR=/import   # необязательно: по умолчан�
 просмотра, Airtable всё равно можно выгрузить: открыть таблицу по ссылке и нажать
 **Download CSV**. Файл кладётся в `airtable-import/` (в контейнере это `/import`,
 примонтированная папка) под именем списка: `sources.csv`, `rfm_persons.csv`,
-`known_persons.csv`, `excluded_persons.csv`. Дальше — та же кнопка и тот же отчёт.
+`known_persons.csv`, `officials.csv`. Дальше — та же кнопка и тот же отчёт.
 
 Два правила, которые делают небрежную выгрузку безобидной:
 
@@ -235,10 +235,20 @@ Airtable и перезаписываются целиком на каждом з
 | `active` | `active` |
 | id записи | `external_id` |
 
+Список называется «Должностные лица» и лежит рядом с источниками и перечнем РФМ, а не
+отдельной страницей: человека помечают или снимают на его карточке в «Людях»
+(`/ui/entities/{key}/official`), а здесь — сам список, из которого он берётся.
+
+Таблица в базе называется `excluded_persons`: список стал «Должностными лицами» уже
+после того, как был заведён. Переименование таблицы отложено — в дереве лежит
+незакоммиченная работа другой сессии, а забрать её в коммит нельзя. Имя таблицы дело
+внутреннее: на странице, в файле `officials.csv` и в переменной
+`AIRTABLE_OFFICIALS_TABLE` везде «Должностные лица».
+
 Отдельная таблица, а не `persons`: `persons` — вывод entity resolution и
 перестраивается целиком, а этот список написан руками.
 
-### excluded_persons
+### officials — Должностные лица
 
 | Airtable | PostgreSQL |
 |---|---|
@@ -302,7 +312,7 @@ Airtable и перезаписываются целиком на каждом з
     "rfm_persons":     {"created": 4, "updated": 1, "unchanged": 14926, "errors": 0, "error": null},
     "known_persons":   {"created": 0, "updated": 0, "unchanged": 0, "errors": 1,
                         "error": "Airtable answered 403 for table 'Known'"},
-    "excluded_persons":{"created": 2, "updated": 0, "unchanged": 8, "errors": 0, "error": null}
+    "officials":{"created": 2, "updated": 0, "unchanged": 8, "errors": 0, "error": null}
   }
 }
 ```
@@ -312,7 +322,7 @@ Airtable и перезаписываются целиком на каждом з
 ## Логи
 
 ```text
-event=airtable_sync started tables=sources,rfm_persons,known_persons,excluded_persons
+event=airtable_sync started tables=sources,rfm_persons,known_persons,officials
 event=airtable_sync_table table=sources received=16 created=0 updated=12 unchanged=4 errors=0
 event=airtable_sync_table_failed table=known_persons error=Airtable answered 403 for table 'Known'
 event=airtable_sync_finished status=partial duration_ms=2140

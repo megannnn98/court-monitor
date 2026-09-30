@@ -150,10 +150,10 @@ def _key_candidates(name: str) -> list[str]:
     return candidates
 
 
-def excluded_entity_ids(
+def official_entity_ids(
     session: Session, keys: Mapping[int, str]
 ) -> dict[int, ExcludedPersonRecord]:
-    """The active exclusions that name exactly one entity today, per entity id.
+    """The active officials the list names, for the exactly one entity each matches, per entity id.
 
     A row that names no entity of this database is left out: it may be a person the
     articles have not mentioned yet, which is nothing to act on. A row that names
@@ -172,7 +172,7 @@ def excluded_entity_ids(
         }
         if len(resolved) > 1:
             logger.warning(
-                "event=excluded_person_ambiguous person=%s entities=%d",
+                "event=official_list_ambiguous person=%s entities=%d",
                 record.full_name,
                 len(resolved),
             )

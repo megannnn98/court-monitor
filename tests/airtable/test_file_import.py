@@ -82,8 +82,8 @@ class TestReading:
 
     def test_a_bad_checkbox_is_inactive_not_active(self, tmp_path: Path) -> None:
         """Reading a misspelling as active would silently un-exclude a person."""
-        _write(tmp_path, "excluded_persons", "ФИО,active\nИван Иванов,возможно\n")
-        record = FileTableClient(ImportSettings(tmp_path)).list_records("excluded_persons")[0]
+        _write(tmp_path, "officials", "ФИО,active\nИван Иванов,возможно\n")
+        record = FileTableClient(ImportSettings(tmp_path)).list_records("officials")[0]
         assert record.flag("active") is False
 
     def test_a_bom_and_spaces_do_not_hide_a_column(self, tmp_path: Path) -> None:
@@ -163,10 +163,10 @@ class TestReading:
 
     def test_two_lists_never_share_an_id_for_one_name(self, tmp_path: Path) -> None:
         _write(tmp_path, "known_persons", "ФИО\nИван Иванов\n")
-        _write(tmp_path, "excluded_persons", "ФИО\nИван Иванов\n")
+        _write(tmp_path, "officials", "ФИО\nИван Иванов\n")
         client = FileTableClient(ImportSettings(tmp_path))
         known = client.list_records("known_persons")[0]
-        excluded = client.list_records("excluded_persons")[0]
+        excluded = client.list_records("officials")[0]
         # Same person, two lists: the ids must not collide, or the two tables would
         # claim each other's rows.
         assert known.id != excluded.id
@@ -204,7 +204,7 @@ class TestSync:
 
         assert report.mode == MODE_FILES
         assert report.tables["known_persons"].created == 1
-        for name in ("sources", "rfm_persons", "excluded_persons"):
+        for name in ("sources", "rfm_persons", "officials"):
             assert report.tables[name].status == TableStatus.SKIPPED
         assert report.status == "success"
         with session_factory() as session:
@@ -215,10 +215,10 @@ class TestSync:
     def test_a_second_import_of_the_same_file_changes_nothing(
         self, session_factory: sessionmaker[Session], tmp_path: Path
     ) -> None:
-        _write(tmp_path, "excluded_persons", "ФИО,Категория\nОльга Минакова,judge\n")
+        _write(tmp_path, "officials", "ФИО,Категория\nОльга Минакова,judge\n")
         service = _service(session_factory, tmp_path)
-        assert service.sync().tables["excluded_persons"].created == 1
-        again = service.sync().tables["excluded_persons"]
+        assert service.sync().tables["officials"].created == 1
+        again = service.sync().tables["officials"]
         assert (again.created, again.updated, again.unchanged) == (0, 0, 1)
         with session_factory() as session:
             assert len(list(session.scalars(select(ExcludedPersonRecord)))) == 1
@@ -259,10 +259,10 @@ class TestSync:
         self, session_factory: sessionmaker[Session], tmp_path: Path
     ) -> None:
         _write(tmp_path, "known_persons", "ФИО\nИван Иванов\n")
-        _write(tmp_path, "excluded_persons", "ФИО\n")
+        _write(tmp_path, "officials", "ФИО\n")
         report = _service(session_factory, tmp_path).sync()
         assert report.tables["known_persons"].created == 1
-        assert report.tables["excluded_persons"].status == TableStatus.ERROR
+        assert report.tables["officials"].status == TableStatus.ERROR
         # One list in, one list refused: the good one is still reported.
         assert report.status == "partial"
 

@@ -344,7 +344,7 @@ def test_the_rosfinmonitoring_status_is_shown_as_it_is(
 ) -> None:
     _case(session_factory)
     with _client(session_factory) as client:
-        clear = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        unchecked = client.get(f"/ui/investigations/{quote(MOOR)}").text
     _listed(session_factory, "name")
     with _client(session_factory) as client:
         maybe = client.get(f"/ui/investigations/{quote(MOOR)}").text
@@ -353,11 +353,18 @@ def test_the_rosfinmonitoring_status_is_shown_as_it_is(
     with _client(session_factory) as client:
         listed = client.get(f"/ui/investigations/{quote(MOOR)}").text
 
-    assert "не найден в перечне" in clear
-    assert "возможно в перечне (тёзка без отчества)" in maybe and "МООР АЛЕКСАНДР ПЕТРОВИЧ" in maybe
+    # Nobody ran a check: the page says nothing rather than «not on the list».
+    assert "РФМ" not in unchecked.split("<h2", 1)[0]
+    assert maybe.count("Возможно в РФМ с") == 1 and "МООР АЛЕКСАНДР ПЕТРОВИЧ" in maybe
     assert "может быть тёзка" in maybe
-    # On the list: who the person is, not a mark against them.
-    assert '<span class="badge ">в перечне Росфинмониторинга</span>' in listed
+    # The tag is said once, beside the name; the block below spells the dates out.
+    assert "<dt>Статус</dt><dd>возможно находится в перечне РФМ</dd>" in maybe
+    assert "<dt>Первая известная дата</dt>" in maybe
+    # The list names no date of inclusion, so even the certain match stays «возможно»,
+    # dated from the day we first saw the person in a downloaded list.
+    assert re.search(
+        r'<span class="badge pending"[^>]*>Возможно в РФМ с \d{2}\.\d{2}\.\d{4}</span>', listed
+    )
 
 
 def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
@@ -599,7 +606,7 @@ def test_the_old_addresses_still_answer(session_factory: sessionmaker[Session]) 
                 f"/ui/entities/{quote(MOOR)}",
                 "/ui/disputes",
                 "/ui/political",
-                "/ui/officials",
+                "/ui/airtable",
                 "/ui/logs",
                 "/ui/wiki",
                 "/ui/overview",

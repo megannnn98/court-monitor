@@ -374,14 +374,17 @@ def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidde
         card = client.get(f"/ui/entities/{MOOR}").text
 
     # The list confirms who a person is: shown by default, hidden only on request.
-    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", page)
+    # The page gives no date of inclusion, so the tag says «возможно» and dates itself
+    # from the day we first saw the person in a downloaded list.
+    listed = r"Моор Александр Петрович</a>[\s\S]*?>Возможно в РФМ с \d{2}\.\d{2}\.\d{4}</span>"
+    assert re.search(listed, page)
     assert "Найдено: 2." in page
     assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in page
     assert "Скрыть тех, кто в перечне РФМ (1)" in page
     # A name without a patronymic may be a namesake: shown, marked.
-    assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
+    assert re.search(r"Иванов Иван</a>[\s\S]*?>Возможно в РФМ с ", page)
     assert "Найдено: 2." in everyone
-    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", everyone)
+    assert re.search(listed, everyone)
     assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in everyone
     # The second box, off by default, hides the maybe-namesakes too; Моор is on the list
     # for certain, so his patronymic-less namesake entry does not count him again.
@@ -391,7 +394,7 @@ def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidde
     assert "Найдено: 0." in both
     assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
     assert '<input id="box-rf" type="checkbox" name="rf" value="hide" checked' in ticked
-    assert "<h3>Росфинмониторинг</h3>" in card and "в перечне Росфинмониторинга" in card
+    assert "<h3>Росфинмониторинг</h3>" in card and ">Возможно в РФМ с " in card
     assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card
 
 
@@ -453,9 +456,21 @@ def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Se
     assert "<dt>Регион</dt><dd>Луганская область</dd>" in card
 
 
-def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
+def _mark_of(session_factory: sessionmaker[Session]) -> bool | None:
+    """Whether Moor is marked an official right now, read while the client is still up."""
+    with session_factory() as session:
+        return session.scalar(
+            text("SELECT official FROM entity_official_marks WHERE key = 'александр моор'")
+        )
+
+
+def test_an_official_is_marked_on_the_card_and_unmarked_there(
     session_factory: sessionmaker[Session],
 ) -> None:
+    """Marking a person an official, and taking it back, happens on their card.
+
+    The officials are a reference list on «Справочники», not a page of their own, so
+    what this checks is the mark itself and its effect, not where it is listed."""
     _collected(session_factory)
     FigurantFinder(session_factory, classifier=_Roles()).run()
     with session_factory.begin() as session:
@@ -473,27 +488,35 @@ def test_an_official_is_marked_on_the_card_and_unmarked_on_the_officials_page(
         marked = client.post(
             f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
         )
-        officials = client.get("/ui/officials").text
+        card_after_mark = client.get(f"/ui/entities/{MOOR}").text
+        official_after_mark = _mark_of(session_factory)
         unmarked = client.post(
             f"/ui/entities/{MOOR}/official",
             data={"official": "no", "back": "officials"},
             follow_redirects=False,
         )
-        after = client.get("/ui/officials").text
+        card_after_unmark = client.get(f"/ui/entities/{MOOR}").text
+        official_after_unmark = _mark_of(session_factory)
         missing = client.post("/ui/entities/никто/official", data={"official": "yes"})
 
     assert '<button type="submit" class="secondary">Это должностное лицо</button>' in card
     assert marked.status_code == 303
     assert marked.headers["location"] == f"/ui/investigations/{MOOR}"
-    assert "<span>Должностные лица</span></a>" in officials
-    assert "Найдено: 1." in officials and "Моор Александр" in officials
+    # The card now offers to take it back, and says why he is an official.
+    assert '<button type="submit" class="secondary">Не должностное лицо</button>' in card_after_mark
+    assert "должностное лицо — отмечен вручную" in card_after_mark
+    assert official_after_mark is True
     # An official leaves «Список» at once.
     assert "Моор Александр" in listed
     with session_factory() as session:
         assert session.scalar(text("SELECT count(*) FROM entity_group_politics")) == 0
-    assert "должностное лицо — отмечен вручную" in officials
-    assert unmarked.headers["location"] == "/ui/officials"
-    assert "Найдено: 0." in after
+    # Taking it back puts the card as it was, and the mark is cleared: the row stays,
+    # it no longer says he is an official.
+    assert unmarked.status_code == 303
+    assert official_after_unmark is False
+    assert '<button type="submit" class="secondary">Это должностное лицо</button>' in (
+        card_after_unmark
+    )
     assert missing.status_code == 404
 
 

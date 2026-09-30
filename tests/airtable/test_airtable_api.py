@@ -55,8 +55,8 @@ class TestEndpoint:
         body = response.json()
         assert body["status"] == "success"
         assert sorted(body["tables"]) == [
-            "excluded_persons",
             "known_persons",
+            "officials",
             "rfm_persons",
             "sources",
         ]
@@ -79,8 +79,8 @@ class TestEndpoint:
         client.post(SYNC_URL)
         second = client.post(SYNC_URL).json()
 
-        assert second["tables"]["excluded_persons"]["created"] == 0
-        assert second["tables"]["excluded_persons"]["unchanged"] == 1
+        assert second["tables"]["officials"]["created"] == 0
+        assert second["tables"]["officials"]["unchanged"] == 1
 
     def test_a_failing_table_is_named_and_the_rest_still_report(
         self, client: TestClient, airtable: FakeAirtable
@@ -95,8 +95,8 @@ class TestEndpoint:
         body = response.json()
         assert body["status"] == "partial"
         assert "Known" in body["tables"]["known_persons"]["error"]
-        assert body["tables"]["excluded_persons"]["created"] == 1
-        assert body["tables"]["excluded_persons"]["error"] is None
+        assert body["tables"]["officials"]["created"] == 1
+        assert body["tables"]["officials"]["error"] is None
 
     def test_an_unconfigured_airtable_is_a_readable_error(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -182,13 +182,13 @@ class TestPage:
             "Источники",
             "Росфинмониторинг",
             "Найденные люди",
-            "Исключения",
+            "Должностные лица",
         ]
         assert config["order"] == [
             "sources",
             "rfm_persons",
             "known_persons",
-            "excluded_persons",
+            "officials",
         ]
         # The token is not on the page in any form.
         assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in page
@@ -210,7 +210,7 @@ class TestPage:
 
         page = client.get("/ui/airtable")
 
-        for label in ("Источники", "Росфинмониторинг", "Найденные люди", "Исключения"):
+        for label in ("Источники", "Росфинмониторинг", "Найденные люди", "Должностные лица"):
             assert label in page.text
 
     def test_the_button_is_in_the_navigation(

@@ -118,7 +118,6 @@ _REFERENCE = (
     ("investigations", "Расследование", "/ui/investigations"),
     ("entities", "Люди", "/ui/entities"),
     ("publications", "Публикации", "/ui/publications"),
-    ("officials", "Должностные лица", "/ui/officials"),
     ("airtable", "Справочники", "/ui/airtable"),
     ("management", "Журнал запусков", "/ui/runs"),
     ("logs", "Логи", "/ui/logs"),

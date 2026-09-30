@@ -51,7 +51,7 @@ from entities.llm import (
 )
 from entities.officials import (
     OFFICIAL_KINDS,
-    excluded_entity_ids,
+    official_entity_ids,
     official_marks,
     titled_entities,
 )
@@ -477,7 +477,7 @@ class FigurantFinder:
             ids = [row.id for row in entities]
             titles = titled_entities(session, ids)
             marks = official_marks(session, {row.id: row.key for row in entities})
-            excluded = excluded_entity_ids(session, {row.id: row.key for row in entities})
+            excluded = official_entity_ids(session, {row.id: row.key for row in entities})
             decisions = role_decisions(session, {row.id: row.key for row in entities})
             quotes: dict[int, list[str]] = {}
             for group_id, quote in session.execute(

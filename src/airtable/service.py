@@ -188,7 +188,7 @@ _SYNC_BY_TABLE: dict[str, Callable[[Session, Sequence[AirtableRecord]], TableSyn
     "sources": repository.sync_sources,
     "rfm_persons": repository.sync_rfm_persons,
     "known_persons": repository.sync_known_persons,
-    "excluded_persons": repository.sync_excluded_persons,
+    "officials": repository.sync_officials,
 }
 
 
@@ -225,7 +225,7 @@ def build_sync_source(
             "sources": settings.sources_table,
             "rfm_persons": settings.rfm_persons_table,
             "known_persons": settings.known_persons_table,
-            "excluded_persons": settings.excluded_persons_table,
+            "officials": settings.officials_table,
         },
     )
 

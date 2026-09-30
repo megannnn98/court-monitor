@@ -6,13 +6,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 # The four tables, in the order the operator reads them.
-TABLES = ("sources", "rfm_persons", "known_persons", "excluded_persons")
+TABLES = ("sources", "rfm_persons", "known_persons", "officials")
 
 TABLE_LABELS = {
     "sources": "Источники",
     "rfm_persons": "Росфинмониторинг",
     "known_persons": "Найденные люди",
-    "excluded_persons": "Исключения",
+    "officials": "Должностные лица",
 }
 
 

@@ -28,7 +28,7 @@ class AirtableSettings:
     sources_table: str
     rfm_persons_table: str
     known_persons_table: str
-    excluded_persons_table: str
+    officials_table: str
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
 
     @classmethod
@@ -48,7 +48,7 @@ class AirtableSettings:
             sources_table=(env["AIRTABLE_SOURCES_TABLE"] or "").strip(),
             rfm_persons_table=(env["AIRTABLE_RFM_PERSONS_TABLE"] or "").strip(),
             known_persons_table=(env["AIRTABLE_KNOWN_PERSONS_TABLE"] or "").strip(),
-            excluded_persons_table=(env["AIRTABLE_EXCLUDED_PERSONS_TABLE"] or "").strip(),
+            officials_table=(env["AIRTABLE_OFFICIALS_TABLE"] or "").strip(),
             timeout_seconds=timeout,
         )
 
@@ -68,7 +68,7 @@ class AirtableSettings:
             "sources_table": self.sources_table,
             "rfm_persons_table": self.rfm_persons_table,
             "known_persons_table": self.known_persons_table,
-            "excluded_persons_table": self.excluded_persons_table,
+            "officials_table": self.officials_table,
             "timeout_seconds": self.timeout_seconds,
         }
 
@@ -79,7 +79,7 @@ _REQUIRED = (
     "AIRTABLE_SOURCES_TABLE",
     "AIRTABLE_RFM_PERSONS_TABLE",
     "AIRTABLE_KNOWN_PERSONS_TABLE",
-    "AIRTABLE_EXCLUDED_PERSONS_TABLE",
+    "AIRTABLE_OFFICIALS_TABLE",
 )
 
 

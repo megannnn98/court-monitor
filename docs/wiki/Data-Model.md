@@ -187,7 +187,7 @@ PostgreSQL — рабочее хранилище ([Airtable Sync](Airtable-Sync.
 | Таблица | Кто пишет | Что хранит |
 |---|---|---|
 | `airtable_known_persons` | оператор, через sync | уже найденные и проверенные люди: `external_id`, `full_name`, `normalized_name`, `matching_key`, `active` |
-| `excluded_persons` | оператор, через sync | люди, которых нельзя создавать фигурантами (чиновники, защитники): `external_id`, `full_name`, `normalized_name`, `category`, `reason`, `active`; шаг 4 читает активные |
+| `excluded_persons` (список «Должностные лица») | оператор, через sync | должностные лица и все, кого нельзя создавать фигурантами (защитники, свидетели): `external_id`, `full_name`, `normalized_name`, `category`, `reason`, `active`; шаг 4 читает активные |
 | `sources.external_id`, `sources.active` | оператор, через sync | связь строки источника с записью Airtable и флаг активности; сами источники заданы кодом |
 
 У всех трёх `external_id` — уникальный индекс: он однозначно связывает строку

@@ -1,4 +1,4 @@
-"""The exclusion list in step 4: a name a person wrote down is never a target."""
+"""The officials list in step 4: a name a person wrote down is never a target."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from airtable.client import AirtableRecord
 from db.orm_models import ExcludedPersonRecord
-from entities.officials import excluded_entity_ids
+from entities.officials import official_entity_ids
 
 
-def _exclude(session: Session, name: str, **fields: object) -> ExcludedPersonRecord:
+def _official(session: Session, name: str, **fields: object) -> ExcludedPersonRecord:
     record = ExcludedPersonRecord(
         external_id=str(fields.get("external_id", f"rec-{name}")),
         full_name=name,
@@ -26,63 +26,63 @@ def test_an_exclusion_finds_the_entity_whatever_order_the_name_is_written(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as session:
-        _exclude(session, "Минакова Ольга Викторовна")
+        _official(session, "Минакова Ольга Викторовна")
 
     # An entity key reads the given name first; the list a person keeps writes the
     # surname first. Both must find the same person.
     keys = {1: "ольга минакова"}
     with session_factory() as session:
-        assert set(excluded_entity_ids(session, keys)) == {1}
+        assert set(official_entity_ids(session, keys)) == {1}
 
 
 def test_a_name_in_the_case_of_the_key_is_found(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as session:
-        _exclude(session, "Иванов Иван Иванович")
+        _official(session, "Иванов Иван Иванович")
 
     keys = {7: "иван иванович иванов"}
     with session_factory() as session:
-        assert set(excluded_entity_ids(session, keys)) == {7}
+        assert set(official_entity_ids(session, keys)) == {7}
 
 
 def test_a_deactivated_exclusion_stops_matching(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as session:
-        _exclude(session, "Минакова Ольга Викторовна", active=False)
+        _official(session, "Минакова Ольга Викторовна", active=False)
 
     with session_factory() as session:
-        assert excluded_entity_ids(session, {1: "ольга минакова"}) == {}
+        assert official_entity_ids(session, {1: "ольга минакова"}) == {}
 
 
 def test_a_person_nobody_mentions_is_simply_left_out(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as session:
-        _exclude(session, "Неизвестный Человек")
+        _official(session, "Неизвестный Человек")
 
     with session_factory() as session:
-        assert excluded_entity_ids(session, {1: "ольга минакова"}) == {}
+        assert official_entity_ids(session, {1: "ольга минакова"}) == {}
 
 
 def test_a_shorter_key_still_resolves_through_the_stem(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as session:
-        _exclude(session, "Дудь Елена Фёдоровна")
+        _official(session, "Дудь Елена Фёдоровна")
 
     # The key carries the surname's stem, as the rules cut it: «Дудь» → «дуд».
     keys = {3: "елена федоровна дуд"}
     with session_factory() as session:
-        assert set(excluded_entity_ids(session, keys)) == {3}
+        assert set(official_entity_ids(session, keys)) == {3}
 
 
 def test_the_category_and_reason_come_through(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as session:
-        _exclude(
+        _official(
             session,
             "Александр Бастрыкин",
             category="police",
@@ -90,13 +90,13 @@ def test_the_category_and_reason_come_through(
         )
 
     with session_factory() as session:
-        found = excluded_entity_ids(session, {1: "александр бастрыкин"})[1]
+        found = official_entity_ids(session, {1: "александр бастрыкин"})[1]
     assert (found.category, found.reason) == ("police", "глава СК")
 
 
 def test_the_exclusion_list_is_empty_by_default(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
-        assert excluded_entity_ids(session, {1: "ольга минакова"}) == {}
+        assert official_entity_ids(session, {1: "ольга минакова"}) == {}
 
 
 def test_a_name_that_could_be_two_people_excludes_neither(
@@ -105,11 +105,11 @@ def test_a_name_that_could_be_two_people_excludes_neither(
     """Two entities whose keys the same words could stand for. Guessing which one the
     operator meant is worse than not excluding either, so the row is left out."""
     with session_factory.begin() as session:
-        _exclude(session, "Иванов Иван")
+        _official(session, "Иванов Иван")
 
     keys = {1: "иванов иван", 2: "иван иванов"}
     with session_factory() as session:
-        assert excluded_entity_ids(session, keys) == {}
+        assert official_entity_ids(session, keys) == {}
 
 
 def test_a_bare_surname_never_excludes_anybody(
@@ -117,20 +117,20 @@ def test_a_bare_surname_never_excludes_anybody(
 ) -> None:
     """«Иванов» is half the city: a single word is never matched on."""
     with session_factory.begin() as session:
-        _exclude(session, "Иванов")
+        _official(session, "Иванов")
 
     keys = {1: "иван иванов", 2: "ольга иванова"}
     with session_factory() as session:
-        assert excluded_entity_ids(session, keys) == {}
+        assert official_entity_ids(session, keys) == {}
 
 
 def test_a_sync_is_what_fills_the_list(session_factory: sessionmaker[Session]) -> None:
     """The list is written by the sync, so its rows carry an Airtable record id."""
-    from airtable.repository import sync_excluded_persons
+    from airtable.repository import sync_officials
 
     records = [AirtableRecord("recA", {"full_name": "Минакова Ольга Викторовна"})]
     with session_factory.begin() as session:
-        result = sync_excluded_persons(session, records)
+        result = sync_officials(session, records)
     assert result.created == 1
     with session_factory() as session:
         row = session.query(ExcludedPersonRecord).one()

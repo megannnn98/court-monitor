@@ -78,8 +78,8 @@ def _inventory(db: Session) -> list[tuple[str, str, int]]:
             _row_count(db, AirtableKnownPersonRecord),
         ),
         (
-            "excluded_persons",
-            TABLE_LABELS["excluded_persons"],
+            "officials",
+            TABLE_LABELS["officials"],
             _row_count(db, ExcludedPersonRecord, ExcludedPersonRecord.active.is_(True)),
         ),
     ]

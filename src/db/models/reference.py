@@ -44,10 +44,16 @@ class AirtableKnownPersonRecord(Base):
 
 
 class ExcludedPersonRecord(Base):
-    """A person who must never become a target figurant: an official, a lawyer, a judge.
+    """An official, and anyone else who must never become a target figurant.
 
     Step 4 reads the active rows and treats such a person as named in a case, never as
     the one it is opened against.
+
+    The list is called «Должностные лица» everywhere a person sees it — on
+    «Справочники», in `officials.csv`, in `AIRTABLE_OFFICIALS_TABLE`. The table kept the
+    name it was created under: renaming it needs a migration, and the working tree holds
+    another session's uncommitted work in the very files that carry the table name, which
+    a commit here would have swept in. So the name is stale on purpose, not forgotten.
     """
 
     __tablename__ = "excluded_persons"
