@@ -19,6 +19,7 @@ DISPOSABLE_TABLES = (
     "entity_official_marks",
     "excluded_persons",
     "airtable_known_persons",
+    "criminal_articles",
     "entity_role_decisions",
     "entity_politics_decisions",
     "entity_politics_answers",

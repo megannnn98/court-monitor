@@ -57,6 +57,7 @@ from db.models.persons import (
 )
 from db.models.reference import (
     AirtableKnownPersonRecord,
+    CriminalArticleRecord,
     ExcludedPersonRecord,
 )
 from db.models.rosfinmonitoring import (
@@ -82,6 +83,7 @@ __all__ = [
     "ArticleDigestAnswerRecord",
     "ArticleExtractionRunRecord",
     "Base",
+    "CriminalArticleRecord",
     "EntityGroupChargeRecord",
     "EntityGroupMentionRecord",
     "EntityGroupNewsRecord",
