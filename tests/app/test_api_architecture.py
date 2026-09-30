@@ -30,6 +30,7 @@ ROUTES_BEFORE_SPLIT = json.loads((ROOT / "tests/fixtures/api_routes.json").read_
 ROUTES_AFTER_SPLIT = [
     "GET /api/admin/airtable/configured",
     "POST /api/admin/airtable/sync",
+    "POST /api/admin/rosfinmonitoring/import",
     "GET /ui/airtable",
     "POST /ui/airtable/sync",
 ]

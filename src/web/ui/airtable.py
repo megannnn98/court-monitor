@@ -39,12 +39,14 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
     Source,
 )
+from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page
 
 router = APIRouter()
 
 SYNC_URL = "/api/admin/airtable/sync"
+IMPORT_URL = "/api/admin/rosfinmonitoring/import"
 
 # Shown in place of the Airtable table name when records come from a file.
 _FILE_COLUMN = "Файл"
@@ -102,6 +104,19 @@ def _rfm_count(db: Session) -> int:
     )
 
 
+def _official_html(db: Session) -> str:
+    """Which published list the database is working against right now."""
+    session_factory = session_factory_for(db)
+    summary = SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory).latest_imported_snapshot()
+    if summary is None:
+        return '<p class="warning">Перечень ещё не загружен: сверить людей с ним не с чем.</p>'
+    return (
+        f'<p class="muted">Снимок #{summary.snapshot_id} от '
+        f"{summary.snapshot_date.astimezone().strftime('%d.%m.%Y %H:%M')}, "
+        f"записей {summary.entry_count:,}, сверено {summary.match_count:,}.</p>"
+    )
+
+
 @router.get("/ui/airtable", response_class=HTMLResponse)
 def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     try:
@@ -126,6 +141,7 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
         "" if configured else f'<p class="warning">Синхронизация недоступна: {escape(reason)}</p>'
     )
     mode_note = f'<p class="muted">{escape(_MODE_NOTES[source.mode])}</p>' if source else ""
+    official_html = _official_html(db)
     missing = ""
     if source is not None and source.mode == MODE_FILES:
         absent = [TABLE_LABELS[name] for name in TABLES if name not in present]
@@ -149,6 +165,21 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
   <p id="sync-status" class="muted" role="status" aria-live="polite">синхронизация ещё не выполнялась</p>
   <div id="sync-result"></div>
 </section>
+<section class="band" aria-labelledby="official-title">
+  <h2 id="official-title">Перечень Росфинмониторинга</h2>
+  {official_html}
+  <p class="muted">Обычно список скачивается сам на шаге 5. Когда сайт недоступен,
+  сохраните страницу перечня и загрузите файл здесь — он станет новым снимком.
+  Тот же файл дважды ничего не меняет: список опознаётся по содержимому.</p>
+  <p class="muted">После загрузки нужно <strong>сверить с РФМ</strong> заново: у нового
+  снимка нет результатов сверки, и «Кандидаты» до этого покажут пустоту. Это делает шаг 5
+  на странице <a href="/ui/runs">«Журнал запусков»</a>.</p>
+  <p><label>Файл перечня (.html, .xml, .json, .csv)
+    <input id="official-file" type="file" accept=".html,.htm,.xml,.json,.csv"
+      data-url="{IMPORT_URL}"></label>
+    <button id="import-button" type="button">Загрузить перечень</button></p>
+  <p id="import-status" class="muted" role="status" aria-live="polite"></p>
+</section>
 <section class="band" aria-labelledby="stock-title">
   <h2 id="stock-title">Что сейчас в базе</h2>
   <table><thead><tr><th>Справочник</th><th>Записей</th>
@@ -166,7 +197,7 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
         instruction=(
             "Источники, перечень Росфинмониторинга, найденные люди и список исключений "
             "ведутся в Airtable. Кнопка переносит их в PostgreSQL; дальше система работает "
-            "только с базой."
+            "только с базой. Официальный перечень РФМ — отдельный раздел ниже."
         ),
         db=db,
     )

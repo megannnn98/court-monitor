@@ -3,6 +3,25 @@
 from pydantic import BaseModel
 
 
+class RosfinmonitoringImportResponse(BaseModel):
+    """What importing a published-list file did.
+
+    `status` is `imported` (a new snapshot), `unchanged` (the file is the list already
+    in the database, so nothing was written) or `error` (the file is not a list, or
+    nothing was parsed out of it).
+    """
+
+    status: str
+    snapshot_id: int | None = None
+    snapshot_date: str | None = None
+    entries: int = 0
+    source_url: str
+    detail: str | None = None
+    # A new snapshot has no match rows yet, so the candidate query would find nothing
+    # until the RF stage runs. The operator is told rather than left to notice.
+    rematch_required: bool = False
+
+
 class AirtableTableSyncResponse(BaseModel):
     """One list's outcome. `error` is set only when that list itself failed, so the
     other three still report what they did; `status` is `skipped` when the operator

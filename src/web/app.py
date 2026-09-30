@@ -25,6 +25,7 @@ from web.routers import (
     persons,
     reviews,
     rosfinmonitoring,
+    rosfinmonitoring_import,
 )
 from web.ui import about as ui_about
 from web.ui import airtable as ui_airtable
@@ -104,6 +105,7 @@ for module in (
     ui_about,
     ui_airtable,
     airtable,
+    rosfinmonitoring_import,
     operations,
     monitoring,
     health,
