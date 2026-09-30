@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.airtable_fakes import CONFIGURED_ENV, FakeAirtable
+from support.airtable_fakes import CONFIGURED_ENV, FakeAirtable, fake_source
 
 from airtable.client import AirtableError, AirtableRecord
-from airtable.config import AirtableSettings
 from airtable.service import AirtableSyncService
 from api import app, get_db
 from db.orm_models import AirtableKnownPersonRecord, ExcludedPersonRecord
@@ -39,7 +39,9 @@ def airtable(monkeypatch: pytest.MonkeyPatch) -> FakeAirtable:
     for name, value in CONFIGURED_ENV.items():
         monkeypatch.setenv(name, value)
     fake = FakeAirtable({})
-    monkeypatch.setattr(AirtableSyncService, "_new_client", lambda _self: fake)
+    # The endpoint builds the client itself from the configuration, so this is the seam:
+    # the constructor every sync goes through.
+    monkeypatch.setattr("airtable.service.HttpAirtableClient", lambda _settings: fake)
     return fake
 
 
@@ -64,6 +66,7 @@ class TestEndpoint:
             "unchanged": 0,
             "errors": 0,
             "received": 1,
+            "status": "success",
             "error": None,
         }
         assert body["started_at"] and body["finished_at"]
@@ -127,9 +130,9 @@ class TestEndpoint:
     ) -> None:
         assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in client.post(SYNC_URL).text
 
-    def test_the_configured_probe_reports_only_a_flag(self, client: TestClient) -> None:
+    def test_the_configured_probe_reports_the_mode_not_the_token(self, client: TestClient) -> None:
         body = client.get("/api/admin/airtable/configured").json()
-        assert set(body) == {"configured"}
+        assert set(body) == {"configured", "mode", "detail"}
         assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in str(body)
 
 
@@ -145,16 +148,17 @@ class TestPage:
         assert SYNC_URL in page.text
 
     def test_the_button_is_absent_and_the_reason_shown_when_unconfigured(
-        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         for name in CONFIGURED_ENV:
             monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv("AIRTABLE_IMPORT_DIR", str(tmp_path))
 
         page = client.get("/ui/airtable")
 
         assert "Синхронизировать Airtable" in page.text
         assert 'id="sync-button"' not in page.text
-        assert "Airtable не настроен" in page.text
+        assert "Синхронизация недоступна" in page.text
         assert "AIRTABLE_TOKEN" in page.text
 
     def test_the_config_the_script_reads_is_valid_json(
@@ -251,9 +255,7 @@ def test_the_lists_are_readable_afterwards(
     airtable.tables["Known"] = [AirtableRecord("recK1", {"full_name": "Иван Иванов"})]
     airtable.tables["Excluded"] = [AirtableRecord("recE1", {"full_name": "Ольга Минакова"})]
 
-    service = AirtableSyncService(
-        session_factory, AirtableSettings.from_env(CONFIGURED_ENV), client=airtable
-    )
+    service = AirtableSyncService(session_factory, fake_source(airtable))
     service.sync()
 
     with session_factory() as session:

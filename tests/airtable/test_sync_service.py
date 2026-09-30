@@ -9,10 +9,10 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
+from support.airtable_fakes import fake_source
 from support.db_fixtures import DatabaseSeeder
 
 from airtable.client import AirtableError, AirtableRecord
-from airtable.config import AirtableSettings
 from airtable.models import TABLES, TableStatus
 from airtable.repository import RFM_SOURCE_URL
 from airtable.service import (
@@ -67,8 +67,7 @@ def _service(
 ) -> AirtableSyncService:
     return AirtableSyncService(
         session_factory,
-        AirtableSettings.from_env(_ENV),
-        client=client,
+        fake_source(client),
         **({"lock": lock} if lock is not None else {}),  # type: ignore[arg-type]
     )
 
@@ -440,5 +439,7 @@ class TestMissingConfiguration:
     ) -> None:
         # Nothing in the service reads the environment on import or on construction of
         # the ordinary pipeline: a sync is built only when it is asked for.
+        from airtable.config import AirtableSettings
+
         assert AirtableSettings.is_configured({}) is False
         assert _rows(session_factory, Source) == []

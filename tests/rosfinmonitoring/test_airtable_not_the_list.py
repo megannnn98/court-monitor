@@ -16,11 +16,10 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.airtable_fakes import CONFIGURED_ENV, FakeAirtable
+from support.airtable_fakes import FakeAirtable, fake_source
 from support.person_resolution_fixtures import seed_person
 
 from airtable.client import AirtableRecord
-from airtable.config import AirtableSettings
 from airtable.models import TABLES
 from airtable.service import AirtableSyncService
 from candidates.models import DEFAULT_MIN_PERSECUTION_CONFIDENCE, RosfinmonitoringStatus
@@ -90,9 +89,7 @@ def _classify(session_factory: sessionmaker[Session], person_id: int) -> None:
 
 
 def _service(session_factory: sessionmaker[Session], fake: FakeAirtable) -> AirtableSyncService:
-    return AirtableSyncService(
-        session_factory, AirtableSettings.from_env(CONFIGURED_ENV), client=fake
-    )
+    return AirtableSyncService(session_factory, fake_source(fake))
 
 
 class TestTheSnapshotTheProductsQueryUses:
@@ -159,15 +156,13 @@ class TestTheSnapshotTheProductsQueryUses:
         person = seed_person(session_factory, PERSON)
         _classify(session_factory, person)
         _absent_officially(session_factory, person, official)
-        service = _service(
-            session_factory,
-            FakeAirtable({"RFM": [AirtableRecord("recA", {"full_name": PERSON})]}),
-        )
+        fake = FakeAirtable({"RFM": [AirtableRecord("recA", {"full_name": PERSON})]})
+        service = _service(session_factory, fake)
         service.sync()
         assert CandidateQueryService(session_factory).get_candidates(official).candidates == []
 
         # The operator deleted the row in Airtable and pressed the button again.
-        service._client.tables["RFM"] = []  # type: ignore[union-attr]
+        fake.tables["RFM"] = []
         service.sync()
 
         result = CandidateQueryService(session_factory).get_candidates(official)

@@ -4,21 +4,25 @@ from pydantic import BaseModel
 
 
 class AirtableTableSyncResponse(BaseModel):
-    """One table's outcome. `error` is set only when the table itself failed, so the
-    other three still report what they did."""
+    """One list's outcome. `error` is set only when that list itself failed, so the
+    other three still report what they did; `status` is `skipped` when the operator
+    exported no file for it, which leaves the list alone rather than emptying it."""
 
     created: int
     updated: int
     unchanged: int
     errors: int
     received: int = 0
+    status: str = "success"
     error: str | None = None
 
 
 class AirtableSyncResponse(BaseModel):
-    """The whole sync: success, partial (some table failed) or failed."""
+    """The whole sync: success, partial (some list failed) or failed. `mode` says
+    whether the records came from the Airtable API or from exported files."""
 
     status: str
+    mode: str = "api"
     started_at: str
     finished_at: str | None = None
     duration_seconds: float = 0.0

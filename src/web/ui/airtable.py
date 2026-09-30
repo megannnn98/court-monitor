@@ -4,6 +4,10 @@ Airtable is where the lists are written; PostgreSQL is what the pipeline reads. 
 button runs one sync and shows what each of the four lists did, without leaving the
 page — and says plainly which list failed, so one broken table does not read as
 «nothing happened».
+
+Records arrive one of two ways, and the page says which before the button is pressed:
+through the Airtable API, or from CSVs the operator exported and dropped into
+`airtable-import/` (for a base that is only readable in a browser).
 """
 
 from __future__ import annotations
@@ -17,10 +21,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from airtable.config import AirtableConfigurationError, AirtableSettings
+from airtable.config import AirtableConfigurationError
+from airtable.files import FileTableClient, ImportSettings
 from airtable.models import TABLE_LABELS, TABLES
 from airtable.repository import RFM_SOURCE_URL
-from airtable.service import AirtableSyncAlreadyRunningError, AirtableSyncService
+from airtable.service import (
+    MODE_API,
+    MODE_FILES,
+    AirtableSyncAlreadyRunningError,
+    build_sync_service,
+    build_sync_source,
+)
 from db.orm_models import (
     AirtableKnownPersonRecord,
     ExcludedPersonRecord,
@@ -35,6 +46,17 @@ router = APIRouter()
 
 SYNC_URL = "/api/admin/airtable/sync"
 
+# Shown in place of the Airtable table name when records come from a file.
+_FILE_COLUMN = "Файл"
+_MODE_NOTES = {
+    MODE_API: "Список читается из Airtable по API — кнопка сама забирает свежие данные.",
+    MODE_FILES: (
+        "Список читается из файлов: выгрузите таблицу из Airtable и положите CSV в "
+        "папку airtable-import/ (в контейнере — /import). Списка, для которого файла нет, "
+        "как не было: она пропускается."
+    ),
+}
+
 
 def _row_count(db: Session, model: type[Any], *conditions: Any) -> int:
     query = select(func.count()).select_from(model)
@@ -44,33 +66,21 @@ def _row_count(db: Session, model: type[Any], *conditions: Any) -> int:
 
 
 def _inventory(db: Session) -> list[tuple[str, str, int]]:
-    """(table, label, rows in PostgreSQL) for the four lists."""
+    """(list, label, rows in PostgreSQL) for the four lists."""
     return [
-        (
-            "sources",
-            TABLE_LABELS["sources"],
-            _row_count(db, Source, Source.active.is_(True)),
-        ),
+        ("sources", TABLE_LABELS["sources"], _row_count(db, Source, Source.active.is_(True))),
         ("rfm_persons", TABLE_LABELS["rfm_persons"], _rfm_count(db)),
-        ("known_persons", TABLE_LABELS["known_persons"], _row_count(db, AirtableKnownPersonRecord)),
+        (
+            "known_persons",
+            TABLE_LABELS["known_persons"],
+            _row_count(db, AirtableKnownPersonRecord),
+        ),
         (
             "excluded_persons",
             TABLE_LABELS["excluded_persons"],
             _row_count(db, ExcludedPersonRecord, ExcludedPersonRecord.active.is_(True)),
         ),
     ]
-
-
-def _table_names(settings: AirtableSettings | None) -> dict[str, str]:
-    """The Airtable table each list is read from, so the page names the real base."""
-    if settings is None:
-        return {}
-    return {
-        "sources": settings.sources_table,
-        "rfm_persons": settings.rfm_persons_table,
-        "known_persons": settings.known_persons_table,
-        "excluded_persons": settings.excluded_persons_table,
-    }
 
 
 def _rfm_count(db: Session) -> int:
@@ -92,50 +102,58 @@ def _rfm_count(db: Session) -> int:
     )
 
 
-def _last_sync() -> str:
-    return "синхронизация ещё не выполнялась"
-
-
 @router.get("/ui/airtable", response_class=HTMLResponse)
 def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
-    settings: AirtableSettings | None
     try:
-        settings = AirtableSettings.from_env()
+        source = build_sync_source()
         configured, reason = True, ""
     except AirtableConfigurationError as exc:
-        settings, configured, reason = None, False, str(exc)
-    names = _table_names(settings)
+        source, configured, reason = None, False, str(exc)
+    present = FileTableClient(ImportSettings.from_env()).present() if configured else {}
+    names = _source_names(source, present)
     rows = "".join(
         f"<tr><td>{escape(label)}</td>"
         f'<td class="num">{count}</td>'
-        f"<td>{escape(names.get(table) or '—')}</td></tr>"
-        for table, label, count in _inventory(db)
+        f"<td>{escape(names.get(name) or '—')}</td></tr>"
+        for name, label, count in _inventory(db)
     )
     button = (
         '<button id="sync-button" type="button">Синхронизировать Airtable</button>'
         if configured
         else '<button type="button" disabled>Синхронизировать Airtable</button>'
     )
-    notice = "" if configured else f'<p class="warning">Airtable не настроен: {escape(reason)}</p>'
-    # The page hands the script its endpoint and the table order; no secret is among it.
+    notice = (
+        "" if configured else f'<p class="warning">Синхронизация недоступна: {escape(reason)}</p>'
+    )
+    mode_note = f'<p class="muted">{escape(_MODE_NOTES[source.mode])}</p>' if source else ""
+    missing = ""
+    if source is not None and source.mode == MODE_FILES:
+        absent = [TABLE_LABELS[name] for name in TABLES if name not in present]
+        if absent:
+            missing = (
+                '<p class="muted">Файла нет — список останется как был: '
+                f"{escape(', '.join(absent))}.</p>"
+            )
+    # The page hands the script its endpoint and the list order; no secret is among it.
     # A `application/json` block is read as text, so it is not HTML-escaped — only the
     # one sequence that could close the tag early is neutralised.
     config_json = json.dumps(
         {"url": SYNC_URL, "labels": TABLE_LABELS, "order": list(TABLES)}, ensure_ascii=False
     ).replace("<", "\\u003c")
-    body = f"""{notice}
+    body = f"""{notice}{mode_note}{missing}
 <section class="band" aria-labelledby="sync-title">
   <h2 id="sync-title">Синхронизация справочников</h2>
   <p class="muted">Airtable — внешняя админка, PostgreSQL — рабочее хранилище. Кнопка
   переносит четыре справочника в базу; обработка статей к Airtable не обращается.</p>
   {button}
-  <p id="sync-status" class="muted" role="status" aria-live="polite">{escape(_last_sync())}</p>
+  <p id="sync-status" class="muted" role="status" aria-live="polite">синхронизация ещё не выполнялась</p>
   <div id="sync-result"></div>
 </section>
 <section class="band" aria-labelledby="stock-title">
   <h2 id="stock-title">Что сейчас в базе</h2>
-  <table><thead><tr><th>Справочник</th><th>Записей</th><th>Таблица Airtable</th></tr></thead>
-  <tbody>{rows}</tbody></table>
+  <table><thead><tr><th>Справочник</th><th>Записей</th>
+  <th>{"Файл" if source is not None and source.mode == MODE_FILES else "Таблица Airtable"}</th>
+  </tr></thead><tbody>{rows}</tbody></table>
 </section>
 <script type="application/json" id="airtable-sync-config">
 {config_json}
@@ -147,22 +165,32 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
         active="airtable",
         instruction=(
             "Источники, перечень Росфинмониторинга, найденные люди и список исключений "
-            "ведятся в Airtable. Кнопка переносит их в PostgreSQL; дальше система работает "
+            "ведутся в Airtable. Кнопка переносит их в PostgreSQL; дальше система работает "
             "только с базой."
         ),
         db=db,
     )
 
 
+def _source_names(source: Any, present: dict[str, Any]) -> dict[str, str]:
+    """What each list is read from, as the page should name it: the Airtable table in API
+    mode, the file that was found in file mode."""
+    if source is None:
+        return {}
+    if source.mode == MODE_API:
+        return {name: source.table_for(name) for name in TABLES}
+    return {name: path.name for name, path in present.items()}
+
+
 @router.post("/ui/airtable/sync", response_model=None)
 def sync_from_ui(db: Session = Depends(get_db)) -> RedirectResponse:  # noqa: B008
     """The button without JavaScript: run the sync, come back to the page."""
     try:
-        settings = AirtableSettings.from_env()
+        service = build_sync_service(session_factory_for(db))
     except AirtableConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     try:
-        report = AirtableSyncService(session_factory_for(db), settings).sync()
+        report = service.sync()
     except AirtableSyncAlreadyRunningError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return RedirectResponse(f"/ui/airtable?status={report.status}", status_code=303)

@@ -104,6 +104,13 @@ services:
       # One sync of the Rosfinmonitoring list is ~140 pages of 100 records, against
       # Airtable's limit of 5 requests a second.
       AIRTABLE_TIMEOUT_SECONDS: ${AIRTABLE_TIMEOUT_SECONDS:-120}
+      # Where the operator drops the CSVs exported from Airtable when the base is only
+      # readable in a browser (file import mode, docs/wiki/Airtable-Sync.md). A directory
+      # in the repository, bind-mounted: without a mount the container would look at an
+      # empty path and the operator's files would never be seen.
+      AIRTABLE_IMPORT_DIR: ${AIRTABLE_IMPORT_DIR:-/import}
+    volumes:
+      - ./airtable-import:/import
     command:
       - uvicorn
       - api:app

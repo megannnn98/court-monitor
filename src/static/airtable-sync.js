@@ -37,7 +37,10 @@
   }
 
   function paint(report) {
-    status.textContent = "Последняя синхронизация: " + stamp(report.started_at);
+    status.textContent =
+      "Последняя синхронизация: " +
+      stamp(report.started_at) +
+      (report.mode === "files" ? " (из файлов)" : "");
 
     const table = document.createElement("table");
     const head = table.createTHead().insertRow();
@@ -47,19 +50,25 @@
     const body = table.createTBody();
     for (const name of order) {
       const item = report.tables[name] || {};
-      const failed = Boolean(item.error);
+      const failed = item.status === "error" || Boolean(item.error);
+      const skipped = item.status === "skipped";
       const row = body.insertRow();
       cell(row, labels[name] || name);
       cell(row, String(item.created ?? 0), "num");
       cell(row, String(item.updated ?? 0), "num");
       cell(row, String(item.unchanged ?? 0), "num");
-      cell(row, failed ? "ошибка" : "успешно", failed ? "error-text" : "");
-      if (failed) {
-        // Which table failed, said plainly: one error must not read as "nothing happened".
+      cell(
+        row,
+        failed ? "ошибка" : skipped ? "нет файла" : "успешно",
+        failed ? "error-text" : ""
+      );
+      if (failed || skipped) {
+        // Which list went wrong, said plainly: one error must not read as "nothing
+        // happened", and a list nobody exported must not look like an empty one.
         const detail = row.insertCell();
         detail.className = "error-text";
         detail.colSpan = 2;
-        detail.textContent = item.error;
+        detail.textContent = item.error || "";
       }
     }
 

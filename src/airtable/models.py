@@ -19,6 +19,9 @@ TABLE_LABELS = {
 class TableStatus:
     SUCCESS = "success"
     ERROR = "error"
+    # The operator exported no file for this list. Not a failure and not an empty list:
+    # the table is left as it was, which is what an untouched list should do.
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -39,19 +42,30 @@ class TableSyncResult:
     def failed(self) -> bool:
         return self.status == TableStatus.ERROR
 
+    @property
+    def skipped(self) -> bool:
+        return self.status == TableStatus.SKIPPED
+
 
 @dataclass
 class SyncReport:
     """All four tables. `status` is `partial` when at least one table failed and at
-    least one did not, so that one broken table never hides the other three."""
+    least one did not, so that one broken table never hides the other three.
+
+    A skipped table (no exported file) is neither a success nor a failure: it counts
+    towards neither, because leaving a list alone is the right outcome, not a problem.
+    """
 
     started_at: datetime
+    # Where the records came from: "api" or "files". The operator needs to know which
+    # run happened, since the two modes are configured completely differently.
+    mode: str = "api"
     tables: dict[str, TableSyncResult] = field(default_factory=dict)
     finished_at: datetime | None = None
 
     @property
     def status(self) -> str:
-        results = list(self.tables.values())
+        results = [result for result in self.tables.values() if not result.skipped]
         if not results or all(result.failed for result in results):
             return "failed"
         if any(result.failed for result in results):

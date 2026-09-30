@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import Engine
@@ -19,7 +20,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from airtable import repository
 from airtable.client import AirtableClient, AirtableError, AirtableRecord, HttpAirtableClient
-from airtable.config import AirtableSettings
+from airtable.config import AirtableConfigurationError, AirtableSettings
+from airtable.files import FileTableClient, ImportSettings
 from airtable.models import TABLES, SyncReport, TableStatus, TableSyncResult
 from db.locks import try_advisory_lock
 
@@ -27,7 +29,9 @@ __all__ = [
     "AirtableSyncAlreadyRunningError",
     "AirtableSyncService",
     "SyncReport",
+    "SyncSource",
     "build_sync_service",
+    "build_sync_source",
 ]
 
 logger = logging.getLogger("airtable")
@@ -35,9 +39,29 @@ logger = logging.getLogger("airtable")
 # The lock key: one sync at a time, across every worker of every process.
 LOCK_KEY = "airtable:sync"
 
+MODE_API = "api"
+MODE_FILES = "files"
+
 
 class AirtableSyncAlreadyRunningError(RuntimeError):
     """Another worker holds the sync lock; the API answers 409."""
+
+
+@dataclass(frozen=True)
+class SyncSource:
+    """Where the four lists come from, and under what name each is addressed.
+
+    One object, so the sync itself cannot tell the two modes apart: it asks for a list by
+    its own name and gets records back, whether those came from the Airtable API or from
+    a file the operator exported.
+    """
+
+    mode: str
+    client: AirtableClient
+    tables: Mapping[str, str]
+
+    def table_for(self, name: str) -> str:
+        return self.tables[name]
 
 
 class AirtableSyncService:
@@ -46,24 +70,16 @@ class AirtableSyncService:
     def __init__(
         self,
         session_factory: sessionmaker[Session],
-        settings: AirtableSettings,
+        source: SyncSource,
         *,
-        client: AirtableClient | None = None,
         lock: Callable[[], AbstractContextManager[bool]] | None = None,
     ) -> None:
         self._session_factory = session_factory
-        self._settings = settings
-        # A client given here is the caller's (a fake in tests, a shared one in
-        # production); otherwise one is built per sync and closed with it.
-        self._client = client
+        self._source = source
         # A lock given here is the caller's (tests pass one that always refuses, to
         # exercise the conflict without a second connection); otherwise an advisory
         # lock on the session factory's engine.
         self._lock = lock
-
-    def _new_client(self) -> AirtableClient:
-        """The client a sync reads through. A seam: a test replaces this one method."""
-        return HttpAirtableClient(self._settings)
 
     def sync(self) -> SyncReport:
         """Sync every table, or raise `AirtableSyncAlreadyRunningError`."""
@@ -84,15 +100,18 @@ class AirtableSyncService:
 
     def _sync_all(self) -> SyncReport:
         started_at = datetime.now(UTC)
-        report = SyncReport(started_at=started_at)
-        logger.info("event=airtable_sync started tables=%s", ",".join(TABLES))
-        # A client we built is ours to close; one we were handed is the caller's.
-        owned = self._client is None
-        client = self._client or self._new_client()
+        report = SyncReport(started_at=started_at, mode=self._source.mode)
+        logger.info(
+            "event=airtable_sync started mode=%s tables=%s", self._source.mode, ",".join(TABLES)
+        )
+        # A client the source built is ours to close; one we were handed is not.
+        owned = not isinstance(self._source.client, FileTableClient)
+        client = self._source.client
         try:
             for table in TABLES:
                 report.tables[table] = self._sync_one(client, table)
-            if not report.tables["rfm_persons"].failed:
+            rfm = report.tables["rfm_persons"]
+            if rfm.status == TableStatus.SUCCESS:
                 self._refresh_probable_matches()
         finally:
             if owned:
@@ -101,7 +120,8 @@ class AirtableSyncService:
                     close()
             report.finished_at = datetime.now(UTC)
         logger.info(
-            "event=airtable_sync_finished status=%s duration_ms=%d",
+            "event=airtable_sync_finished mode=%s status=%s duration_ms=%d",
+            self._source.mode,
             report.status,
             int(report.duration_seconds * 1000),
         )
@@ -133,10 +153,14 @@ class AirtableSyncService:
         logger.info("event=airtable_sync_probable_refreshed probable=%d", probable)
 
     def _sync_one(self, client: AirtableClient, table: str) -> TableSyncResult:
-        """One table. An Airtable failure is this table's failure, not the sync's."""
+        """One table. A failure to read it is that table's failure, not the sync's, and a
+        list with no file is skipped rather than read as an empty one."""
         sync = _SYNC_BY_TABLE[table]
         try:
-            records = client.list_records(self._table_for(table))
+            records = client.list_records(self._source.table_for(table))
+        except FileNotFoundError as exc:
+            logger.info("event=airtable_sync_table_skipped table=%s file=%s", table, exc)
+            return TableSyncResult(status=TableStatus.SKIPPED, error=f"файл не выгружен: {exc}")
         except AirtableError as exc:
             logger.warning("event=airtable_sync_table_failed table=%s error=%s", table, exc)
             return TableSyncResult(status=TableStatus.ERROR, error=str(exc), errors=1)
@@ -159,14 +183,6 @@ class AirtableSyncService:
         )
         return result
 
-    def _table_for(self, table: str) -> str:
-        return {
-            "sources": self._settings.sources_table,
-            "rfm_persons": self._settings.rfm_persons_table,
-            "known_persons": self._settings.known_persons_table,
-            "excluded_persons": self._settings.excluded_persons_table,
-        }[table]
-
 
 _SYNC_BY_TABLE: dict[str, Callable[[Session, Sequence[AirtableRecord]], TableSyncResult]] = {
     "sources": repository.sync_sources,
@@ -176,15 +192,50 @@ _SYNC_BY_TABLE: dict[str, Callable[[Session, Sequence[AirtableRecord]], TableSyn
 }
 
 
+def build_sync_source(
+    env: Mapping[str, str] | None = None,
+    client: AirtableClient | None = None,
+) -> SyncSource:
+    """The source to sync from, preferring the API when it is configured.
+
+    The API is the better path — it is automatic and carries each record's id — so it
+    wins whenever the six settings are present. Exported files are the fallback for a
+    base that is only readable in a browser.
+
+    Raises `AirtableConfigurationError` when neither is available; the caller turns that
+    into a readable answer instead of a stack trace.
+    """
+    env = os.environ if env is None else env
+    try:
+        settings = AirtableSettings.from_env(env)
+    except AirtableConfigurationError:
+        import_files = FileTableClient(ImportSettings.from_env(env))
+        if not import_files.present():
+            raise
+        logger.info("event=airtable_sync_mode mode=files dir=%s", import_files.directory)
+        return SyncSource(
+            mode=MODE_FILES,
+            client=import_files,
+            tables=dict(zip(TABLES, TABLES, strict=True)),
+        )
+    return SyncSource(
+        mode=MODE_API,
+        client=client or HttpAirtableClient(settings),
+        tables={
+            "sources": settings.sources_table,
+            "rfm_persons": settings.rfm_persons_table,
+            "known_persons": settings.known_persons_table,
+            "excluded_persons": settings.excluded_persons_table,
+        },
+    )
+
+
 def build_sync_service(
     session_factory: sessionmaker[Session],
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
+    *,
+    client: AirtableClient | None = None,
 ) -> AirtableSyncService:
-    """A service with the configuration from the environment.
-
-    Raises `AirtableConfigurationError` when Airtable is not set up; the caller turns
-    that into a readable answer instead of a stack trace.
-    """
-    return AirtableSyncService(
-        session_factory, AirtableSettings.from_env(os.environ if env is None else env)
-    )
+    """A service with the configuration from the environment, in whichever mode it is
+    set up. Raises `AirtableConfigurationError` when neither mode is available."""
+    return AirtableSyncService(session_factory, build_sync_source(env, client=client))

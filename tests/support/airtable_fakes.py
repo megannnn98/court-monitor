@@ -10,12 +10,14 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from airtable.client import AirtableError, AirtableRecord
-from airtable.config import AirtableSettings
-from airtable.service import AirtableSyncService
+from airtable.files import FileTableClient, ImportSettings
+from airtable.models import TABLES
+from airtable.service import MODE_FILES, AirtableSyncService, SyncSource
 
 CONFIGURED_ENV = {
     "AIRTABLE_TOKEN": "secret-token",
@@ -60,6 +62,34 @@ def configure_airtable(env: dict[str, str] | None = None) -> Iterator[None]:
                 os.environ[name] = saved
 
 
+# The Airtable tables of the fake, named as the configuration names them. A source built
+# here addresses them the way production does, so a fake keyed on "Known" still answers.
+FAKE_TABLES = {
+    "sources": CONFIGURED_ENV["AIRTABLE_SOURCES_TABLE"],
+    "rfm_persons": CONFIGURED_ENV["AIRTABLE_RFM_PERSONS_TABLE"],
+    "known_persons": CONFIGURED_ENV["AIRTABLE_KNOWN_PERSONS_TABLE"],
+    "excluded_persons": CONFIGURED_ENV["AIRTABLE_EXCLUDED_PERSONS_TABLE"],
+}
+
+
+def fake_source(fake: FakeAirtable, mode: str = "api") -> SyncSource:
+    """A `SyncSource` reading `fake`, so a test builds the service the way the app does."""
+    return SyncSource(mode=mode, client=fake, tables=FAKE_TABLES)
+
+
+def file_source(directory: Path) -> SyncSource:
+    """A `SyncSource` reading exported CSVs from `directory`.
+
+    In file mode each list is addressed by the file's own stem, which is why this is not
+    `fake_source` with a different client: the names a source answers to are the mode's.
+    """
+    return SyncSource(
+        mode=MODE_FILES,
+        client=FileTableClient(ImportSettings(directory)),
+        tables={name: name for name in TABLES},
+    )
+
+
 def install_fake_airtable(
     session_factory: sessionmaker[Session],
     fake: FakeAirtable,
@@ -67,12 +97,9 @@ def install_fake_airtable(
     env: dict[str, str] | None = None,
 ) -> AirtableSyncService:
     """A service that reads `fake` and writes through `session_factory`."""
-    service = AirtableSyncService(
-        session_factory, AirtableSettings.from_env(env or CONFIGURED_ENV), client=fake
-    )
     for name, value in (env or CONFIGURED_ENV).items():
         os.environ.setdefault(name, value)
-    return service
+    return AirtableSyncService(session_factory, fake_source(fake))
 
 
 def no_lock() -> Iterator[bool]:

@@ -1,0 +1,2 @@
+# The exported CSVs are the operator's data, not source code: never committed.
+*.csv
