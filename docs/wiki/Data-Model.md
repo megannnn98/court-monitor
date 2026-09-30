@@ -178,6 +178,21 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 | `unnamed_identity_resolutions` | оператор | опознание безымянного по ключу фигуранта: запись РФМ, существующий человек, имя вручную, нет записи РФМ, недостаточно данных |
 | `unnamed_decisions` | оператор | отрицания конкретных кандидатов РФМ (`different`) по ключу фигуранта и «ФИО|дата рождения» |
 
+## Справочники из Airtable
+
+Написаны руками, а не выведены из статей; Airtable — только место редактирования,
+PostgreSQL — рабочее хранилище ([Airtable Sync](Airtable-Sync.md), миграция
+`b1c2d3e4f5a6_airtable_reference_lists.py`).
+
+| Таблица | Кто пишет | Что хранит |
+|---|---|---|
+| `airtable_known_persons` | оператор, через sync | уже найденные и проверенные люди: `external_id`, `full_name`, `normalized_name`, `matching_key`, `active` |
+| `excluded_persons` | оператор, через sync | люди, которых нельзя создавать фигурантами (чиновники, защитники): `external_id`, `full_name`, `normalized_name`, `category`, `reason`, `active`; шаг 4 читает активные |
+| `sources.external_id`, `sources.active` | оператор, через sync | связь строки источника с записью Airtable и флаг активности; сами источники заданы кодом |
+
+У всех трёх `external_id` — уникальный индекс: он однозначно связывает строку
+PostgreSQL с записью Airtable и делает повторный запуск идемпотентным.
+
 Миграции: от `x8y9z0a1b2c3_entity_groups.py` до
 `e1f2a4b5c6d7_unnamed_identity_resolutions.py`.
 

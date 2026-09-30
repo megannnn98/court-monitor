@@ -25,6 +25,13 @@ class Source(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     base_url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False)
+    # The Airtable record this row was last matched to, once a sync has named it. NULL
+    # for a source the operator never listed; the row stays, since the code registry
+    # and the articles are what make a source exist.
+    external_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    # Cleared by a sync when the source is no longer worth loading. Nothing deletes the
+    # row or its articles.
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -9,7 +9,12 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, EntityMentionRecord
+from db.orm_models import (
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityMentionRecord,
+    ExcludedPersonRecord,
+)
 from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
 from entities.roles import (
@@ -302,6 +307,56 @@ def test_officials_are_named_in_cases_never_their_figurants(
         "Иван Иванов": ("figurant", "accused", "model"),
     }
     assert result.officials == 2
+
+
+def test_a_name_on_the_exclusion_list_is_never_a_target_figurant(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The list a person keeps in Airtable: Иванов is charged, and on the list, so the
+    model is never asked and he cannot become a figurant."""
+    _seed_officials(session_factory, titles=False)
+    with session_factory.begin() as session:
+        session.add(
+            ExcludedPersonRecord(
+                external_id="rec1",
+                full_name="Иванов Иван Иванович",
+                normalized_name="Иванов Иван Иванович",
+                category="lawyer",
+                reason="защитник",
+                active=True,
+            )
+        )
+    classifier = FakeClassifier({"Александр Бастрыкин": "official", "Иван Иванов": "accused"})
+
+    result = FigurantFinder(session_factory, classifier=classifier).run()
+
+    assert [item.name for item in classifier.asked] == ["Александр Бастрыкин"]
+    # `lawyer` is not one of the model's official kinds, so the entity falls back to
+    # the general one; either way he is named in the case, not charged by it.
+    assert _roles(session_factory)["Иван Иванов"] == ("mentioned", "official", "official")
+    assert result.officials == 2
+
+
+def test_a_deactivated_exclusion_goes_back_to_the_model(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed_officials(session_factory, titles=False)
+    with session_factory.begin() as session:
+        session.add(
+            ExcludedPersonRecord(
+                external_id="rec1",
+                full_name="Иванов Иван Иванович",
+                normalized_name="Иванов Иван Иванович",
+                category="judge",
+                reason=None,
+                active=False,
+            )
+        )
+    classifier = FakeClassifier({"Иван Иванов": "accused", "Александр Бастрыкин": "official"})
+
+    FigurantFinder(session_factory, classifier=classifier).run()
+
+    assert _roles(session_factory)["Иван Иванов"] == ("figurant", "accused", "model")
 
 
 def test_the_model_overrules_the_rules_charge_that_names_the_wrong_person(

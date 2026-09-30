@@ -46,6 +46,7 @@ from persecution.classification_service import PersecutionClassificationService
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from rosfinmonitoring.probable import AirtableProvisionalMatcher
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from sources.ingestion_errors import NoTextError
 from sources.models import ParsedArticle, SourceReference
@@ -145,6 +146,10 @@ class MonitoringDependencies:
     rf_persistence: RosfinMatchPersistence
     snapshot_lookup: SqlAlchemyRosfinmonitoringSnapshotLookup
     findings: MonitoringFindingService
+    # Marks names the operator's Airtable list has and the published one does not as
+    # probable matches, after the official pass. Optional so a deployment can leave it
+    # out; the official verdicts never depend on it.
+    probable_matcher: AirtableProvisionalMatcher | None = None
     # None: no AI reviewer configured (ENTITY_REVIEW_PROVIDER=none); the stage is skipped
     # and pending ER decisions go straight to a human, as before (ADR 0020).
     entity_review: AutomatedEntityReviewService | None = None
@@ -772,7 +777,26 @@ class MonitoringService:
                 failed=failed,
                 statuses=dict(statuses),
             )
+            # Names the operator's Airtable list has and the published one does not:
+            # probable, never confirmed, and never grounds for a candidate. Runs after
+            # the official matches so it can only soften a `not_matched`.
+            self._apply_probable_matches(snapshot.snapshot_id, metrics)
         return snapshot.snapshot_id
+
+    def _apply_probable_matches(self, official_snapshot_id: int, metrics: object) -> None:
+        """Mark the Airtable-only names as probable; a failure here leaves the official
+        verdicts exactly as they were."""
+        provisional = self._deps.probable_matcher
+        if provisional is None:
+            return
+        try:
+            probable = provisional.apply(official_snapshot_id)
+        except Exception as exc:  # noqa: BLE001 - an extra signal must not fail the stage
+            logger.warning("event=rf_airtable_probable_failed error=%s", exc)
+            return
+        update = getattr(metrics, "update", None)
+        if update is not None:
+            update(probable_matches=probable)
 
     def evaluate_findings(self, handle: RunHandle, *, snapshot_id: int | None) -> StageResult:
         with (

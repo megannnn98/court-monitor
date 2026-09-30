@@ -1,0 +1,237 @@
+# Airtable Sync
+
+Airtable — внешняя админка для справочников, которые человек ведёт руками. PostgreSQL —
+рабочее хранилище Court Monitor. Кнопка «Синхронизировать Airtable» переносит четыре
+списка в базу; всё остальное работает только с базой.
+
+## Граница
+
+```text
+консоль «Справочники» (/ui/airtable)
+  ↓ POST /api/admin/airtable/sync
+AirtableSyncService            порядок, логирование, политика ошибок
+ ├── sync_sources()            → sources            (имя и активность существующих)
+ ├── sync_rfm_persons()        → rosfinmonitoring_entries (снимок airtable://rfm_persons)
+ ├── sync_known_persons()      → airtable_known_persons
+ └── sync_excluded_persons()   → excluded_persons
+       ↓
+PostgreSQL
+```
+
+Обычный pipeline — ingestion, extraction, entity resolution, сверка с РФМ — к Airtable
+не обращается ни разу. Недоступный Airtable стоит одного нажатия на кнопку, а не
+рабочего цикла.
+
+## Настройка
+
+Шесть переменных окружения, все сразу (`.env`, [Setup](Setup.md)):
+
+```bash
+AIRTABLE_TOKEN=
+AIRTABLE_BASE_ID=
+AIRTABLE_SOURCES_TABLE=
+AIRTABLE_RFM_PERSONS_TABLE=
+AIRTABLE_KNOWN_PERSONS_TABLE=
+AIRTABLE_EXCLUDED_PERSONS_TABLE=
+AIRTABLE_TIMEOUT_SECONDS=120   # необязательно
+```
+
+Токен живёт только в окружении процесса: он не попадает в код, в базу, в ответ API и
+в логи. `GET /api/admin/airtable/configured` сообщает только наличие настройки.
+
+Если хотя бы одна переменная пуста, кнопка на странице не появляется, а вместо неё
+показано, чего не хватает; `POST /api/admin/airtable/sync` отвечает `503` с тем же
+текстом.
+
+## Соответствие Airtable → PostgreSQL
+
+Колонки называются как в базе; `sync` ищет каждое поле по списку правдоподобных имён
+(английские и русские), см. `airtable/repository.py`.
+
+### sources
+
+| Airtable | PostgreSQL | Примечание |
+|---|---|---|
+| `base_url` | `sources.base_url` | ключ сопоставления; слеш и регистр не важны |
+| `name` | `sources.name` | пустое имя не стирает прежнее |
+| `active` | `sources.active` | чекбокс, по умолчанию `true` |
+| id записи | `sources.external_id` | |
+
+**Источники в Court Monitor заданы кодом** (`sources/source_registry.py`,
+`sources/telegram/channels.csv`), а строки в `sources` появляются лениво, при первой
+загрузке статьи. Поэтому sync **не создаёт** источники: запись, чей `base_url` база не
+знает, только попадает в лог (`event=airtable_source_not_in_registry`). Строка без
+адаптера загрузить нечем — это была бы ложь в списке. Новый источник по-прежнему
+добавляется в реестр кода.
+
+### rfm_persons
+
+| Airtable | PostgreSQL | Примечание |
+|---|---|---|
+| `full_name` | `entries.full_name` | вместе с `birth_date` — уникальная пара снимка |
+| `birth_date` | `entries.birth_date` | `ДД.ММ.ГГГГ`, `ГГГГ-ММ-ДД` и ещё два формата |
+| `active` | `entries.status` | `active` / `removed` |
+| `birth_place`, `snils`, `inn`, `reason` | одноимённые | |
+| id записи | `entries.raw_data["airtable_record_id"]` | |
+
+Записи пишутся в **собственный снимок** `rosfinmonitoring_snapshots` с
+`source_url = "airtable://rfm_persons"` и переиспользуются при следующих запусках.
+
+**Этот снимок не является перечнем.** Скачанный с fedsfm.ru список остаётся
+единственным источником ответа на «кто в перечне». Это охраняется в трёх местах, и
+каждое закрыто отдельно:
+
+- `SqlAlchemyRosfinmonitoringSnapshotLookup.latest_imported_snapshot()` исключает
+  снимок Airtable, поэтому он не станет «текущим перечнем», как бы поздно ни был
+  синхронизирован;
+- `latest_snapshot_id()` (страница «Кандидаты») исключает его же, поэтому он не
+  выбирается по умолчанию и не предлагается в списке снимков;
+- `CandidateQueryService.get_candidates()` **отказывается** работать со снимком
+  Airtable, даже если его id передали явно (например, в API): у такого снимка нет
+  официальных строк `not_matched`, и человек выглядел бы подтверждённо отсутствующим
+  в перечне, которого государство не публиковало.
+
+Имя, которое есть только в списке Airtable, — это **вероятное** совпадение
+(`matched_probable`), а не подтверждённое. Шаг 4 считает его «возможно в перечне»
+(`NAME`), но никогда `FULL`, поэтому оно не сливает тёзок; в кандидаты такой человек
+не попадает (см. ниже). Имя, которое есть в обоих списках, сохраняет подтверждённое
+совпадение официального.
+
+Запись, удалённая из Airtable, **удаляется из этого снимка**: снимок — копия списка
+в его текущем виде, и оставшееся в нём имя продолжало бы считаться находящимся в
+перечне. Остальные справочники так не ведут себя: там запись принадлежит оператору.
+
+## Вероятные совпадения
+
+`rosfinmonitoring.probable.AirtableProvisionalMatcher` запускается после
+официальной сверки (`MonitoringDependencies.probable_matcher`) и делает ровно
+одно: берёт тех, кого официальный список оставил без совпадения, и проверяет их по
+списку Airtable.
+
+| Совпадение по официальному списку | По списку Airtable | Итог |
+|---|---|---|
+| `matched` | — | `matched` — подтверждено |
+| `not_matched` | `matched` | `matched_probable` — вероятно; не кандидат |
+| `not_matched` | нет | `not_matched` — подтверждённое отсутствие |
+
+`matched_probable` не входит в `DEFAULT_INCLUDED_RF_STATUSES`, поэтому такой человек
+не попадает в кандидаты по умолчанию: «вероятно в перечне» — это не подтверждённое
+отсутствие. Запросить их явно можно, и тогда в статусе видно, почему человек
+исключён. Строки вероятных совпадений хранятся в `rosfin_matches` против снимка
+Airtable и перезаписываются целиком на каждом запуске: ушедшее из списка имя
+перестаёт быть вероятным, а не остаётся им навсегда.
+
+**Вероятные совпадения пересчитываются сразу после синхронизации**, а не только на
+следующем шаге pipeline: ручная кнопка — это и есть граница свежести для справочника.
+Без этого удалённое из Airtable имя продолжало бы исключать человека из кандидатов, а
+добавленное — оставляло бы его ложным кандидатом до следующего run. Пересчёт читает
+только PostgreSQL и никогда не ходит в Airtable; его ошибка логируется и не превращает
+успешную синхронизацию в неудачную. Если таблица `rfm_persons` не прочиталась,
+предыдущее состояние вероятных совпадений сохраняется — синхронизация, не получившая
+данных, не должна затирать то, что было.
+
+Правило самой сверки (`RuleBasedRosfinmonitoringMatcher`) не тронуто: Airtable не
+появляется в нём ни одной веткой.
+
+### known_persons
+
+| Airtable | PostgreSQL |
+|---|---|
+| `full_name` | `airtable_known_persons.full_name` |
+| — | `normalized_name`, `matching_key` — считаются тем же правилом, что и для `persons` |
+| `active` | `active` |
+| id записи | `external_id` |
+
+Отдельная таблица, а не `persons`: `persons` — вывод entity resolution и
+перестраивается целиком, а этот список написан руками.
+
+### excluded_persons
+
+| Airtable | PostgreSQL |
+|---|---|
+| `full_name` | `excluded_persons.full_name`, `normalized_name` |
+| `category` | `category` (judge / prosecutor / police / official / lawyer / other) |
+| `reason` | `reason` |
+| `active` | `active` |
+| id записи | `external_id` |
+
+Активные строки читает шаг 4 (`entities/roles.py` `FigurantFinder`): такой человек
+считается **названным в деле, а не фигурантом** — модель о нём не спрашивается, и в
+«Результат» он не попадает.
+
+Сопоставление идёт по ключу сущности (`entities/officials.py` `excluded_entity_ids`)
+и переживает и порядок слов («Иванов Иван Иванович» / «иван иванов»), и основу
+фамилии. При этом оно **строгое**:
+
+- сопоставляются только подмножества из двух и трёх слов; одна фамилия никогда не
+  исключает сущность — «Иванов» это полгорода, и угадывать, кого имели в виду, нельзя;
+- если одна запись списка подходит нескольким сущностям, она **не применяется ни к
+  одной**: исключить не того хуже, чем не исключить вовсе (в лог уходит
+  `event=excluded_person_ambiguous`).
+
+Запись, которая не называет ни одной сущности базы, просто не действует: возможно,
+человека упомянули в статьях, которых ещё нет.
+
+## Идемпотентность
+
+Строки сопоставляются по `external_id` (для источников — по `base_url`); тот же набор
+записей даёт тот же результат:
+
+```json
+{"created": 0, "updated": 0, "unchanged": 14931}
+```
+
+Запись, **удалённая из Airtable, не удаляется из базы**: список ведёт человек, и он
+сам его убирает. Чтобы выключить запись, снимите чекбокс `active` — строка останется с
+`active = false`.
+
+## Один sync за раз
+
+Защита серверная: `pg_try_advisory_lock` по ключу `airtable:sync`
+(`db/locks.py`). Второй вызов получает `409`:
+
+```json
+{"detail": "Airtable synchronization is already running"}
+```
+
+`disabled` на кнопке — вежливость, а не защита; она всё равно включится обратно, когда
+первый sync закончится.
+
+## Частичная ошибка
+
+Упавшая таблица не отменяет остальные и не прячет их результат:
+
+```json
+{
+  "status": "partial",
+  "tables": {
+    "sources":         {"created": 0, "updated": 12, "unchanged": 4, "errors": 0, "error": null},
+    "rfm_persons":     {"created": 4, "updated": 1, "unchanged": 14926, "errors": 0, "error": null},
+    "known_persons":   {"created": 0, "updated": 0, "unchanged": 0, "errors": 1,
+                        "error": "Airtable answered 403 for table 'Known'"},
+    "excluded_persons":{"created": 2, "updated": 0, "unchanged": 8, "errors": 0, "error": null}
+  }
+}
+```
+
+`status`: `success`, `partial` (упала часть) или `failed` (упали все).
+
+## Логи
+
+```text
+event=airtable_sync started tables=sources,rfm_persons,known_persons,excluded_persons
+event=airtable_sync_table table=sources received=16 created=0 updated=12 unchanged=4 errors=0
+event=airtable_sync_table_failed table=known_persons error=Airtable answered 403 for table 'Known'
+event=airtable_sync_finished status=partial duration_ms=2140
+```
+
+`AIRTABLE_TOKEN` в логи не пишется: он уходит только в заголовок `Authorization`.
+
+## API
+
+| Метод | Путь | Ответ |
+|---|---|---|
+| `POST` | `/api/admin/airtable/sync` | результат по всем четырём таблицам; `409` при параллельном запуске, `503` без настройки |
+| `GET` | `/api/admin/airtable/configured` | `{"configured": true}` |
+| `POST` | `/ui/airtable/sync` | та же синхронизация без JavaScript, затем `303` на `/ui/airtable?status=…` |
+| `GET` | `/ui/airtable` | страница с кнопкой |

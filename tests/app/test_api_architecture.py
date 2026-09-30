@@ -24,6 +24,16 @@ from api import app
 ROOT = Path(__file__).parents[2]
 SRC = ROOT / "src"
 ROUTES_BEFORE_SPLIT = json.loads((ROOT / "tests/fixtures/api_routes.json").read_text())
+# Routes added after that snapshot was taken. The fixture stays a record of what
+# `api.py` looked like before the split; these are the deliberate additions since, and
+# the test below is an equality, so a route added or removed without saying so fails.
+ROUTES_AFTER_SPLIT = [
+    "GET /api/admin/airtable/configured",
+    "POST /api/admin/airtable/sync",
+    "GET /ui/airtable",
+    "POST /ui/airtable/sync",
+]
+ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.
 ENGINE_FACTORIES = {
     "create_database_engine",
@@ -50,7 +60,10 @@ def _method_paths() -> list[str]:
 
 
 def test_every_route_of_the_monolith_still_exists() -> None:
-    assert sorted(_method_paths()) == sorted(ROUTES_BEFORE_SPLIT)
+    """Exactly the pre-split routes plus the ones added since, named in
+    `ROUTES_AFTER_SPLIT`: a route that disappeared, was renamed or appeared unnoticed
+    fails here."""
+    assert sorted(_method_paths()) == ALL_ROUTES
 
 
 def test_no_method_and_path_is_served_twice() -> None:

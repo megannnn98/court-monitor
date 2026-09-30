@@ -55,6 +55,10 @@ from db.models.persons import (
     PersonResolutionDecisionRecord,
     ReviewRecordModel,
 )
+from db.models.reference import (
+    AirtableKnownPersonRecord,
+    ExcludedPersonRecord,
+)
 from db.models.rosfinmonitoring import (
     RosfinMatchRecord,
     RosfinmonitoringEntryRecord,
@@ -74,6 +78,7 @@ from db.models.sources import (
 )
 
 __all__ = [
+    "AirtableKnownPersonRecord",
     "ArticleDigestAnswerRecord",
     "ArticleExtractionRunRecord",
     "Base",
@@ -96,6 +101,7 @@ __all__ = [
     "EntityRoleAnswerRecord",
     "EntityRoleDecisionRecord",
     "EventEntityMentionRecord",
+    "ExcludedPersonRecord",
     "ExtractedEventRecord",
     "JunkScreenHoldRecord",
     "MonitoringFindingRecord",

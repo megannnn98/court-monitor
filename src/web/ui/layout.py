@@ -83,6 +83,7 @@ _ICONS = {
     "political": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/>'
     '<line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/>'
     '<line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+    "airtable": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
     "management": '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/>'
     '<line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/>'
     '<line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/>'
@@ -118,6 +119,7 @@ _REFERENCE = (
     ("entities", "Люди", "/ui/entities"),
     ("publications", "Публикации", "/ui/publications"),
     ("officials", "Должностные лица", "/ui/officials"),
+    ("airtable", "Справочники", "/ui/airtable"),
     ("management", "Журнал запусков", "/ui/runs"),
     ("logs", "Логи", "/ui/logs"),
     ("wiki", "Вики", "/ui/wiki"),

@@ -22,6 +22,9 @@ class RosfinmonitoringStatus(StrEnum):
     AMBIGUOUS = "ambiguous"
     NEEDS_REVIEW = "needs_review"
     INSUFFICIENT_DATA = "insufficient_data"
+    # In the operator's Airtable list but not in the published one: probably in the
+    # перечень, not confirmed, and so not grounds for calling the person a candidate.
+    MATCHED_PROBABLE = "matched_probable"
     NO_MATCH_RECORD = "no_match_record"
 
 
@@ -35,6 +38,7 @@ _MATCH_RECORD_STATUS_TO_RF_STATUS: dict[str, RosfinmonitoringStatus] = {
     "ambiguous": RosfinmonitoringStatus.AMBIGUOUS,
     "needs_review": RosfinmonitoringStatus.NEEDS_REVIEW,
     "insufficient_data": RosfinmonitoringStatus.INSUFFICIENT_DATA,
+    "matched_probable": RosfinmonitoringStatus.MATCHED_PROBABLE,
 }
 
 

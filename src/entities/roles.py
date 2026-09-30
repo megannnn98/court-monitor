@@ -49,7 +49,12 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.officials import OFFICIAL_KINDS, official_marks, titled_entities
+from entities.officials import (
+    OFFICIAL_KINDS,
+    excluded_entity_ids,
+    official_marks,
+    titled_entities,
+)
 
 logger = logging.getLogger("entities")
 
@@ -472,6 +477,7 @@ class FigurantFinder:
             ids = [row.id for row in entities]
             titles = titled_entities(session, ids)
             marks = official_marks(session, {row.id: row.key for row in entities})
+            excluded = excluded_entity_ids(session, {row.id: row.key for row in entities})
             decisions = role_decisions(session, {row.id: row.key for row in entities})
             quotes: dict[int, list[str]] = {}
             for group_id, quote in session.execute(
@@ -479,16 +485,26 @@ class FigurantFinder:
             ).all():
                 quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
         # An official is named in cases, never their figurant: no need to ask.
-        # A person's mark first, either way; then a title before the name in the texts.
+        # A person's mark first, either way; then a name they wrote on the exclusion
+        # list; then a title before the name in the texts.
         officials = {row.id for row in entities if marks.get(row.id, row.id in titles)}
         rows: list[dict[str, object]] = []
         for row in entities:
-            if row.id not in officials:
+            excluded_row = excluded.get(row.id)
+            if row.id not in officials and excluded_row is None:
                 continue
             kind, title = titles.get(row.id, ("official", ""))
-            reason = (
-                "отмечен вручную" if marks.get(row.id) else f"в текстах: «{title}» перед именем"
-            )
+            if excluded_row is not None:
+                # A name a person wrote down outranks the model in both directions:
+                # an excluded person is named in the case, not its subject.
+                kind = excluded_row.category if excluded_row.category in OFFICIAL_KINDS else kind
+                reason = f"в списке исключений: {excluded_row.full_name}"
+                if excluded_row.reason:
+                    reason = f"{reason} ({excluded_row.reason})"
+            elif marks.get(row.id):
+                reason = "отмечен вручную"
+            else:
+                reason = f"в текстах: «{title}» перед именем"
             rows.append(
                 {
                     "group_id": row.id,
@@ -499,6 +515,7 @@ class FigurantFinder:
                     "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
                 }
             )
+            officials.add(row.id)
         # A surname alone names nobody for certain («Алексеев»): no figurant.
         surname_only = {
             row.id for row in entities if row.id not in officials and len(row.name.split()) < 2

@@ -123,24 +123,20 @@ class EntityRfCheck:
 
     def run(self) -> RfCheckResult:
         download_error, new_snapshot = self._refresh_list()
-        latest = SqlAlchemyRosfinmonitoringSnapshotLookup(
-            self._session_factory
-        ).latest_imported_snapshot()
+        lookup = SqlAlchemyRosfinmonitoringSnapshotLookup(self._session_factory)
+        latest = lookup.latest_imported_snapshot()
         if latest is None:
             logger.warning("event=entities_rf_check_no_snapshot error=%s", download_error)
             return RfCheckResult(None, None, 0, download_error, new_snapshot, 0, 0, 0)
+        # The operator's Airtable list, consulted for probabilities only: a name it has
+        # and the published list does not is «possible», never FULL, so it can neither
+        # count as confirmed nor merge a pair of namesakes.
+        airtable = lookup.airtable_snapshot()
 
         self._on_stage("matching")
         with self._session_factory() as session:
-            by_name: dict[tuple[str, str], list[tuple[int, str | None]]] = defaultdict(list)
-            for entry_id, normalized_name in session.execute(
-                select(
-                    RosfinmonitoringEntryRecord.id, RosfinmonitoringEntryRecord.normalized_name
-                ).where(RosfinmonitoringEntryRecord.snapshot_id == latest.snapshot_id)
-            ).all():
-                if (parts := _entry_parts(normalized_name)) is not None:
-                    given, surname, patronymic = parts
-                    by_name[given, surname].append((entry_id, patronymic))
+            by_name = self._by_name(session, latest.snapshot_id)
+            probable = self._by_name(session, airtable.snapshot_id) if airtable is not None else {}
             groups = session.execute(select(EntityGroupRecord.id, EntityGroupRecord.name)).all()
         rows: list[dict[str, object]] = []
         levels: dict[int, str] = {}
@@ -155,6 +151,16 @@ class EntityRfCheck:
                 rows.append({"group_id": group_id, "entry_id": entry_id, "level": level})
                 if levels.get(group_id) != FULL:
                     levels[group_id] = level
+            # Only a name the published list does not have is a probable match; where
+            # both lists have it, the official FULL above already stands.
+            if levels.get(group_id) is not None and levels[group_id] != FULL:
+                continue
+            for entry_id, entry_patronymic in probable.get((given, surname), []):
+                if match_level(patronymic, entry_patronymic) is None:
+                    continue
+                if group_id not in levels:
+                    rows.append({"group_id": group_id, "entry_id": entry_id, "level": NAME})
+                    levels[group_id] = NAME
 
         self._on_stage("writing")
         with self._session_factory.begin() as session:
@@ -191,6 +197,26 @@ class EntityRfCheck:
             result.download_error,
         )
         return result
+
+    @staticmethod
+    def _by_name(
+        session: Session, snapshot_id: int
+    ) -> dict[tuple[str, str], list[tuple[int, str | None]]]:
+        """(given, surname) → [(entry id, patronymic)] of one snapshot's entries.
+
+        Two snapshots are read the same way; they are kept apart because a hit in one is
+        a confirmed match and a hit in the other only a probable one.
+        """
+        by_name: dict[tuple[str, str], list[tuple[int, str | None]]] = defaultdict(list)
+        for entry_id, normalized_name in session.execute(
+            select(
+                RosfinmonitoringEntryRecord.id, RosfinmonitoringEntryRecord.normalized_name
+            ).where(RosfinmonitoringEntryRecord.snapshot_id == snapshot_id)
+        ).all():
+            if (parts := _entry_parts(normalized_name)) is not None:
+                given, surname, patronymic = parts
+                by_name[given, surname].append((entry_id, patronymic))
+        return by_name
 
     def _refresh_list(self) -> tuple[str | None, bool]:
         """(why the fresh list could not be had, whether it became a new snapshot).

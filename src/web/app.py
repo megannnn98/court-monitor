@@ -16,6 +16,7 @@ from observability import configure_logging
 from settings import ApplicationConfigurationError, ApplicationSettings
 from web.middleware import request_context
 from web.routers import (
+    airtable,
     articles,
     candidates,
     health,
@@ -26,6 +27,7 @@ from web.routers import (
     rosfinmonitoring,
 )
 from web.ui import about as ui_about
+from web.ui import airtable as ui_airtable
 from web.ui import candidates as ui_candidates
 from web.ui import cycle as ui_cycle
 from web.ui import disputes as ui_disputes
@@ -100,6 +102,8 @@ for module in (
     ui_political,
     ui_officials,
     ui_about,
+    ui_airtable,
+    airtable,
     operations,
     monitoring,
     health,

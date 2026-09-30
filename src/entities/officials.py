@@ -1,21 +1,25 @@
 """Officials among the entities: judges, prosecutors, investigators, governors, ministers.
 
 An official is named in a case, never its figurant: «глава СК Александр Бастрыкин» in a
-sentence about a man who insulted him is not charged with anything. Three sources, the
+sentence about a man who insulted him is not charged with anything. Four sources, the
 first that speaks wins:
 
 1. a person's mark (`EntityOfficialMarkRecord`), either way;
-2. the texts: a title right before the name («судья Ольга Минакова», «главе СК
+2. the exclusion list (`ExcludedPersonRecord`), synced from Airtable: the people a
+   person wrote down as never being a target;
+3. the texts: a title right before the name («судья Ольга Минакова», «главе СК
    Александру Бастрыкину») in at least two mentions or half of them — once among many
    is the title of someone beside («критик главы региона Ростислав Мурзагулов»);
    «бывший судья» is no title;
-3. the model's role of step 4 (judge, prosecutor, police, official).
+4. the model's role of step 4 (judge, prosecutor, police, official).
 
 Deputies are no officials here: opposition deputies are among the persecuted.
 """
 
 from __future__ import annotations
 
+import itertools
+import logging
 import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -28,8 +32,12 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityOfficialMarkRecord,
+    ExcludedPersonRecord,
 )
 from entities.disputes import KeyIndex
+from entities.grouping import _fold
+
+logger = logging.getLogger("entities")
 
 # The model's roles that are officials.
 OFFICIAL_KINDS = frozenset({"judge", "prosecutor", "police", "official"})
@@ -117,6 +125,61 @@ def titled(contexts: Iterable[tuple[int, str]]) -> dict[int, tuple[str, str]]:
 def titled_entities(session: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str]]:
     rows = session.execute(_CONTEXTS, {"groups": list(group_ids), "context": TITLE_CONTEXT})
     return titled((int(group_id), str(context or "")) for group_id, context in rows)
+
+
+def _key_candidates(name: str) -> list[str]:
+    """Every spelling of `name` that could be an entity key, folded.
+
+    An entity key reads the given name first («иван иванов»), while a list a person
+    keeps by hand usually writes the surname first and adds what the articles did not
+    («Иванов Иван Иванович»). Rather than guess which word is which, or which of them
+    the entity carries, every order of every subset of two or three words is offered to
+    the key index, which knows today's keys and the stems of yesterday's.
+
+    Single words are deliberately not offered: a bare surname names half the city, and
+    excluding whichever entity happens to carry it would be a guess. A list entry that
+    means a bare surname is written for the person the articles name in full.
+    """
+    words = _fold(name).split()[:3]
+    candidates: list[str] = []
+    for count in range(len(words), 1, -1):
+        for combination in itertools.permutations(words, count):
+            candidate = " ".join(combination)
+            if candidate not in candidates:
+                candidates.append(candidate)
+    return candidates
+
+
+def excluded_entity_ids(
+    session: Session, keys: Mapping[int, str]
+) -> dict[int, ExcludedPersonRecord]:
+    """The active exclusions that name exactly one entity today, per entity id.
+
+    A row that names no entity of this database is left out: it may be a person the
+    articles have not mentioned yet, which is nothing to act on. A row that names
+    several — two people whose keys the same words could stand for — is left out too:
+    excluding the wrong one of two is worse than excluding neither.
+    """
+    active = list(session.scalars(select(ExcludedPersonRecord).where(ExcludedPersonRecord.active)))
+    index = KeyIndex(keys.values())
+    by_key = {key: group_id for group_id, key in keys.items()}
+    found: dict[int, ExcludedPersonRecord] = {}
+    for record in active:
+        resolved = {
+            by_key[today]
+            for today in (index.today(candidate) for candidate in _key_candidates(record.full_name))
+            if today is not None
+        }
+        if len(resolved) > 1:
+            logger.warning(
+                "event=excluded_person_ambiguous person=%s entities=%d",
+                record.full_name,
+                len(resolved),
+            )
+            continue
+        if resolved:
+            found[resolved.pop()] = record
+    return found
 
 
 def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]:

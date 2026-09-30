@@ -8,6 +8,11 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# The snapshot an operator syncs from Airtable. It is an ordinary snapshot, but it is
+# not the list: a name that is in this snapshot alone is a probable match, never a
+# confirmed one (see `rosfinmonitoring.probable`).
+AIRTABLE_SNAPSHOT_SOURCE_URL = "airtable://rfm_persons"
+
 
 class RosfinmonitoringEntryStatus(StrEnum):
     ACTIVE = "active"

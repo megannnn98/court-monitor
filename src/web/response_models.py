@@ -3,6 +3,28 @@
 from pydantic import BaseModel
 
 
+class AirtableTableSyncResponse(BaseModel):
+    """One table's outcome. `error` is set only when the table itself failed, so the
+    other three still report what they did."""
+
+    created: int
+    updated: int
+    unchanged: int
+    errors: int
+    received: int = 0
+    error: str | None = None
+
+
+class AirtableSyncResponse(BaseModel):
+    """The whole sync: success, partial (some table failed) or failed."""
+
+    status: str
+    started_at: str
+    finished_at: str | None = None
+    duration_seconds: float = 0.0
+    tables: dict[str, AirtableTableSyncResponse]
+
+
 # Pydantic models for API responses
 class PersonResponse(BaseModel):
     """Person response model."""

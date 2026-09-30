@@ -17,6 +17,8 @@ DISPOSABLE_TABLES = (
     "entity_name_normalizations",
     "entity_name_overrides",
     "entity_official_marks",
+    "excluded_persons",
+    "airtable_known_persons",
     "entity_role_decisions",
     "entity_politics_decisions",
     "entity_politics_answers",

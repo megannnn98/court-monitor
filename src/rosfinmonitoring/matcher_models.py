@@ -18,6 +18,11 @@ class RosfinMatchStatus(StrEnum):
     # whether they're actually absent, so this must not be reported as
     # NOT_MATCHED.
     INSUFFICIENT_DATA = "insufficient_data"
+    # The name is in the Airtable-sourced list but not in the official one. An
+    # operator curates that list, so the name is very likely in the перечень — but
+    # the state does not publish it, so this is a probability, never a confirmation,
+    # and never grounds for calling a person absent from the list.
+    MATCHED_PROBABLE = "matched_probable"
 
 
 class RosfinCandidateEntry(BaseModel):

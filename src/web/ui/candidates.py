@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from rosfinmonitoring.models import AIRTABLE_SNAPSHOT_SOURCE_URL
 from web.candidate_rows import (
     _CANDIDATE_CATEGORIES,
     _candidate_filters,
@@ -42,7 +43,10 @@ def ui_candidates(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
-    # Open on the newest imported snapshot unless the user selected another one.
+    # The Airtable list is not offered here: this page asks who is absent from the
+    # published перечень, and that list cannot answer it ([Airtable Sync]).
+    snapshots = [item for item in snapshots if item.source_url != AIRTABLE_SNAPSHOT_SOURCE_URL]
+    # Open on the newest official snapshot unless the user selected another one.
     selected_snapshot_id = snapshot_id or latest_snapshot_id(db)
     if selected_snapshot_id is None:
         return _page(

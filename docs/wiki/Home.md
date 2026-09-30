@@ -41,6 +41,7 @@ Status](Implementation-Status.md).
 - [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
 - [Junk Screen](Junk-Screen.md) — отсев мусора с проверкой: статьи, где извлечение пропустило дело, удерживаются, а не удаляются
 - [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности
+- [Airtable Sync](Airtable-Sync.md) — ручная синхронизация справочников из Airtable: кнопка, `POST /api/admin/airtable/sync`, соответствие полей, идемпотентность
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
 - [Rebuild-Image](Rebuild-Image.md) — пересборка образа и выпуск: команды, миграции, проверка, уборка места, откат
