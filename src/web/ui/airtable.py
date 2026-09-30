@@ -28,6 +28,7 @@ from airtable.repository import RFM_SOURCE_URL
 from airtable.service import (
     MODE_API,
     MODE_FILES,
+    MODE_SHARE,
     AirtableSyncAlreadyRunningError,
     build_sync_service,
     build_sync_source,
@@ -54,6 +55,11 @@ IMPORT_URL = "/api/admin/rosfinmonitoring/import"
 _FILE_COLUMN = "Файл"
 _MODE_NOTES = {
     MODE_API: "Список читается из Airtable по API — кнопка сама забирает свежие данные.",
+    MODE_SHARE: (
+        "Список читается по публичным ссылкам Airtable: кнопка сама забирает свежие "
+        "данные, без токена и без выгрузки вручную. Списка, для которого ссылки нет, "
+        "как не было: он пропускается."
+    ),
     MODE_FILES: (
         "Список читается из файлов: выгрузите таблицу из Airtable и положите CSV в "
         "папку airtable-import/ (в контейнере — /import). Списка, для которого файла нет, "
@@ -198,7 +204,7 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
 <section class="band" aria-labelledby="stock-title">
   <h2 id="stock-title">Что сейчас в базе</h2>
   <table><thead><tr><th>Справочник</th><th>Записей</th>
-  <th>{"Файл" if source is not None and source.mode == MODE_FILES else "Таблица Airtable"}</th>
+  <th>{_source_column_title(source)}</th>
   </tr></thead><tbody>{rows}</tbody></table>
 </section>
 <script type="application/json" id="airtable-sync-config">
@@ -218,6 +224,15 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     )
 
 
+def _source_column_title(source: Any) -> str:
+    """What the third column should be called, given where the lists are read from."""
+    if source is not None and source.mode == MODE_FILES:
+        return "Файл"
+    if source is not None and source.mode == MODE_SHARE:
+        return "Публичная ссылка"
+    return "Таблица Airtable"
+
+
 def _source_names(source: Any, present: dict[str, Any]) -> dict[str, str]:
     """What each list is read from, as the page should name it: the Airtable table in API
     mode, the file that was found in file mode."""
@@ -225,6 +240,9 @@ def _source_names(source: Any, present: dict[str, Any]) -> dict[str, str]:
         return {}
     if source.mode == MODE_API:
         return {name: source.table_for(name) for name in TABLES}
+    if source.mode == MODE_SHARE:
+        links = getattr(source.client, "links", {})
+        return {name: link for name, link in links.items()}
     return {name: path.name for name, path in present.items()}
 
 

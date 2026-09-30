@@ -270,3 +270,33 @@ def test_the_lists_are_readable_afterwards(
     with session_factory() as session:
         assert session.scalars(select(AirtableKnownPersonRecord)).all()
         assert session.scalars(select(ExcludedPersonRecord)).all()
+
+
+class TestShareLinksMode:
+    """The page in the mode the operator actually runs it: public links, no token.
+
+    The API mode was covered and this one was not, and the page answered 500 in it —
+    it had a note for every mode except the one that matters.
+    """
+
+    def test_the_page_is_served_in_share_mode(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AIRTABLE_TOKEN", "")
+        monkeypatch.setenv("AIRTABLE_SHARE_URL_RFM", "https://airtable.com/appA/shrB")
+
+        page = client.get("/ui/airtable")
+
+        assert page.status_code == 200
+        assert "Публичная ссылка" in page.text
+
+    def test_the_page_says_how_the_lists_are_read(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AIRTABLE_TOKEN", "")
+        monkeypatch.setenv("AIRTABLE_SHARE_URL_RFM", "https://airtable.com/appA/shrB")
+
+        page = client.get("/ui/airtable").text
+
+        assert "без токена и без выгрузки вручную" in page
+        assert "https://airtable.com/appA/shrB" in page
