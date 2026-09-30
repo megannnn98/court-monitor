@@ -16,3 +16,7 @@ article.html
 
 # Semantic Retrieval v2 raw ranked runs (5.4 MB, rebuilt by `retrieval rank` on the stand)
 /reports/semantic_retrieval_v2/runs/
+
+# Дампы базы: снимки и резервные копии, которые не должны попасть в репозиторий.
+# 15 МБ дампы одного списка — не то, что хранят в git.
+backups/
