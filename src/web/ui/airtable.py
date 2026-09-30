@@ -16,7 +16,7 @@ import json
 from html import escape
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -35,15 +35,19 @@ from db.orm_models import (
     ExcludedPersonRecord,
     Source,
 )
+from operator_console import (
+    OperationConflictError,
+    OperationParameters,
+    OperationRegistry,
+)
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from web.dependencies import get_db, session_factory_for
+from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _page
 from web.ui.officials_list import REFERENCE_URL as OFFICIALS_URL
 
 router = APIRouter()
 
 SYNC_URL = "/api/admin/airtable/sync"
-IMPORT_URL = "/api/admin/rosfinmonitoring/import"
 
 # Shown in place of the Airtable table name when records come from a file.
 _FILE_COLUMN = "Файл"
@@ -163,17 +167,15 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
 <section class="band" aria-labelledby="official-title">
   <h2 id="official-title">Официальный перечень РФМ (fedsfm.ru)</h2>
   {official_html}
-  <p class="muted">Обычно список скачивается сам на шаге 5. Когда сайт недоступен,
-  сохраните страницу перечня и загрузите файл здесь — он станет новым снимком.
-  Тот же файл дважды ничего не меняет: список опознаётся по содержимому.</p>
-  <p class="muted">После загрузки нужно <strong>сверить с РФМ</strong> заново: у нового
-  снимка нет результатов сверки, и «Кандидаты» до этого покажут пустоту. Это делает шаг 5
-  на странице <a href="/ui/runs">«Журнал запусков»</a>.</p>
-  <p><label>Файл перечня (.html, .xml, .json, .csv)
-    <input id="official-file" type="file" accept=".html,.htm,.xml,.json,.csv"
-      data-url="{IMPORT_URL}"></label>
-    <button id="import-button" type="button">Загрузить перечень</button></p>
-  <p id="import-status" class="muted" role="status" aria-live="polite"></p>
+  <p>Перечень публикует fedsfm.ru, и система берёт его оттуда сама. Кнопка скачивает
+  опубликованный список, <strong>создаёт новый снимок только если перечень
+  изменился</strong> (список опознаётся по содержимому, поэтому повторное нажатие
+  ничего не создаёт) и пересверяет людей с перечнем заново — у нового снимка нет
+  результатов сверки, и «Кандидаты» до неё показывали бы пустоту.</p>
+  <p><form method="post" action="/ui/airtable/rosfin"><button type="submit">Обновить перечень и сверить с РФМ</button></form></p>
+  <p class="muted">Скачивание и сверка идут в фоне, поэтому после нажатия вы
+  попадёте на карточку запуска: <a href="/ui/runs">«Журнал запусков»</a>. То же
+  делает и CLI-команда <code>check-entities-rosfin</code>.</p>
 </section>
 <section class="band" aria-labelledby="stock-title">
   <h2 id="stock-title">Что сейчас в базе</h2>
@@ -233,3 +235,43 @@ def sync_from_ui(db: Session = Depends(get_db)) -> RedirectResponse:  # noqa: B0
     except AirtableSyncAlreadyRunningError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return RedirectResponse(f"/ui/airtable?status={report.status}", status_code=303)
+
+
+@router.post("/ui/airtable/rosfin", response_model=None)
+def start_rosfin(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse | RedirectResponse:
+    """Refresh the published Rosfinmonitoring list and re-check every entity against it.
+
+    The button starts the operation that already exists — `check-entities-rosfin`, the
+    same one step 5 runs and the CLI exposes — rather than downloading anything here. Two
+    reasons, and both are the point of this route: the download takes longer than an HTTP
+    request may last, and a second downloader here would be a second thing to keep
+    working, a second thing to be wrong about what counts as the published list, and a
+    second set of answers about the 403 and the maintenance page.
+
+    **Why the order check is not applied here.** `_start_whole_database` asks
+    `out_of_turn` first, which requires that the step be the pipeline's next one. That
+    works for the five numbered stages but not for `rosfin`: `pipeline_current` answers
+    from the stage list, and `rosfin` is not in it — it reports `figurants` for a run of
+    this mode. So through that helper `rosfin` is refused with 409 every time, before any
+    start is attempted, and a button calling it would never work.
+
+    What actually keeps a second run from starting is the registry itself: at most one
+    live run per operation, enforced in the database, and `start` says so rather than
+    queueing. That is the guarantee this route needs — two runs would fight over the
+    snapshot — and it is the one that survives a restart or a second API process. So the
+    conflict is handled here and the order is not: the published list is checked on demand
+    whenever the operator asks, not because the step before it happened to run.
+    """
+    from web.ui.management import _OPERATION, _refused, _started_at
+
+    try:
+        run = registry.start(_OPERATION, OperationParameters(mode="rosfin"))
+    except OperationConflictError:
+        # Something is running. The management page says so, with the run, rather than
+        # this route inventing a second wording of the same refusal.
+        return _refused(db, registry, "Идёт другой запуск.", 409)
+    return RedirectResponse(_started_at(request, run.id), status_code=303)

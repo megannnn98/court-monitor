@@ -9,9 +9,6 @@
   const syncStatus = document.getElementById("sync-status");
   const syncResult = document.getElementById("sync-result");
   const syncConfig = document.getElementById("airtable-sync-config");
-  const importButton = document.getElementById("import-button");
-  const importFile = document.getElementById("official-file");
-  const importStatus = document.getElementById("import-status");
 
   function cell(row, text, cls) {
     const td = document.createElement("td");
@@ -116,55 +113,4 @@
     });
   }
 
-  // ---- the published list ---------------------------------------------------
-  if (importButton && importFile) {
-    const url = importFile.dataset.url;
-
-    importButton.addEventListener("click", async () => {
-      const file = importFile.files[0];
-      if (!file) {
-        note(importStatus, "Сначала выберите файл.", "warning");
-        return;
-      }
-      importButton.disabled = true;
-      importStatus.textContent = "Загружаю…";
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {"Content-Type": "application/octet-stream"},
-          body: file,
-        });
-        const report = await response.json();
-        if (!response.ok) {
-          note(importStatus, report.detail || "Ошибка " + response.status, "warning");
-          return;
-        }
-        if (report.status === "unchanged") {
-          note(importStatus, "Перечень не изменился — снимок прежний.", "muted");
-        } else if (report.status === "imported") {
-          // A new snapshot has no match rows yet, so «Кандидаты» would find nothing
-          // until the RF stage runs. Said here, where the button was pressed, rather
-          // than left for the operator to discover on an empty page.
-          note(
-            importStatus,
-            "Готово: снимок #" +
-              report.snapshot_id +
-              " от " +
-              new Date(report.snapshot_date).toLocaleString("ru-RU") +
-              ", записей " +
-              report.entries.toLocaleString("ru-RU") +
-              ". Теперь сверьте людей с новым перечнем — запустите шаг «сверить с РФМ» " +
-              "на странице «Журнал запусков», иначе «Кандидаты» покажут пустоту.",
-            "muted"
-          );
-        } else {
-          note(importStatus, report.detail || "Файл не распознан как перечень.", "warning");
-        }
-      } catch (error) {
-        note(importStatus, String(error), "warning");
-      } finally {
-        importButton.disabled = false;
-      }
-    });
-  }
 })();

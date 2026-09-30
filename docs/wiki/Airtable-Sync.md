@@ -186,7 +186,6 @@ AIRTABLE_TOKEN=   # оставьте пустым: без прав он всё �
 | список | ключ | таблица |
 |---|---|---|
 | Источники | `sources` | `sources`; по `base_url`, обновляются только `name` и `active`, новых строк не заводится |
-| Росфинмониторинг | `rfm_persons` | `rosfinmonitoring_entries` под своим снимком, `source_url = airtable://rfm_persons` |
 | Найденные люди | `known_persons` | `airtable_known_persons` |
 | Должностные лица | `officials` | `excluded_persons`; правятся в консоли, из Airtable не читаются |
 | Статьи | `articles` | `criminal_articles` |
