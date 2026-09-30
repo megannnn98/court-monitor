@@ -49,6 +49,23 @@ MINIMUM_SHARE_OF_PREVIOUS = 0.25
 MINIMUM_ROWS_TO_TRUST = 100
 
 
+class UntrustedExport(Exception):
+    """The export cannot be believed, so the list is left exactly as it was.
+
+    Raised from inside the writing transaction on purpose: the session rolls back, and
+    the rows this export did bring are written and withdrawn together. Half-applying an
+    export we have just called untrustworthy is worse than not applying it.
+
+    Carries its reason in Russian because it goes straight to the operator.
+    """
+
+    def __init__(self, reason: str, *, received: int, kept: int) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.received = received
+        self.kept = kept
+
+
 class IncompleteDownload(Exception):
     """The download is not a complete copy, so the list it would replace must stand.
 
@@ -74,6 +91,11 @@ def removal_is_safe(new_rows: int, previous_rows: int) -> tuple[bool, str]:
     `previous_rows` is how many rows the list held after the last successful sync, so a
     collapse is measured against what we ourselves last wrote, not against a guess.
     """
+    if not previous_rows:
+        # Nothing to protect: the list has never been filled, so any size is simply the
+        # size it is. Without this a list of a dozen people could never be created at
+        # all, which is a guard against deletion standing in the way of a first write.
+        return True, ""
     if new_rows < MINIMUM_ROWS_TO_TRUST:
         return False, (
             f"выгрузка пришла с {new_rows} строками — это меньше, чем бывает у списка "

@@ -18,6 +18,7 @@ from airtable.client import AirtableRecord
 from airtable.links import ShareTableClient
 from airtable.replace import (
     MINIMUM_ROWS_TO_TRUST,
+    UntrustedExport,
     download_looks_complete,
     removal_is_safe,
 )
@@ -36,6 +37,12 @@ def _names(session_factory: sessionmaker[Session]) -> list[str]:
 
 
 def _sync(session_factory: sessionmaker[Session], people: list[tuple[str, str]]) -> None:
+    """Write the list, and refuse the whole export if it is not believable.
+
+    The refusal is an exception on purpose — it is what a refused export looks like from
+    inside the transaction — so a test that does not expect one is asserting the happy
+    path, and a test that wants one wraps this call in `pytest.raises`.
+    """
     from airtable.repository import sync_known_persons
 
     records = [
@@ -97,10 +104,30 @@ def test_nothing_is_removed_when_the_export_is_too_small_to_believe(
     """The accident this exists to prevent: a link that answers with a fragment, or a
     view that was narrowed by accident, and a list emptied on the strength of it."""
     _sync(session_factory, _many(1200))
+    before = _names(session_factory)
 
-    _sync(session_factory, _many(10))
+    with pytest.raises(UntrustedExport):
+        _sync(session_factory, _many(10))
 
-    assert len(_names(session_factory)) == 1200
+    assert _names(session_factory) == before
+
+
+def test_nothing_is_written_either_when_the_export_is_too_small(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The refusal takes the writes with it.
+
+    An export we have just called untrustworthy is not a smaller list, it is not the
+    list. Writing the ten rows it did manage to return would leave the table holding the
+    old list *and* those ten — half of an export we said we could not believe.
+    """
+    _sync(session_factory, _many(1200))
+    before = _names(session_factory)
+
+    with pytest.raises(UntrustedExport):
+        _sync(session_factory, [("Новый Человек", "01.01.1990"), ("Ещё Один", "02.02.1990")])
+
+    assert _names(session_factory) == before
 
 
 def test_a_small_list_cannot_be_emptied_through_the_button(
@@ -115,11 +142,12 @@ def test_a_small_list_cannot_be_emptied_through_the_button(
     so the refusal is visible rather than silent.
     """
     _sync(session_factory, [("Иван Иванов", "01.01.1980"), ("Ольга Минакова", "02.02.1980")])
-    assert len(_names(session_factory)) == 2
+    before = _names(session_factory)
 
-    _sync(session_factory, [])
+    with pytest.raises(UntrustedExport, match="минимум 100"):
+        _sync(session_factory, [])
 
-    assert len(_names(session_factory)) == 2
+    assert _names(session_factory) == before
 
 
 def test_the_removal_and_the_write_are_one_piece_of_work(
@@ -192,6 +220,17 @@ def test_a_tiny_export_is_refused_however_it_compares() -> None:
 
     assert not safe
     assert str(MINIMUM_ROWS_TO_TRUST) in reason
+
+
+def test_a_list_that_has_never_been_filled_may_be_any_size() -> None:
+    """A guard against deletion must not stand in the way of a first write.
+
+    With nothing in the table there is nothing to lose, so a list of a dozen people is
+    simply a list of a dozen people. The floor bites only when there is a list to protect.
+    """
+    safe, reason = removal_is_safe(2, 0)
+
+    assert safe and reason == ""
 
 
 def test_articles_are_replaced_the_same_way(session_factory: sessionmaker[Session]) -> None:

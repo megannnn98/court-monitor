@@ -34,6 +34,7 @@ from airtable.models import (
     TableStatus,
     TableSyncResult,
 )
+from airtable.replace import UntrustedExport
 from db.locks import try_advisory_lock
 
 __all__ = [
@@ -169,6 +170,18 @@ class AirtableSyncService:
         try:
             with self._session_factory.begin() as session:
                 result = sync(session, records, replace=True) if accepts else sync(session, records)
+        except UntrustedExport as exc:
+            # The list is a copy of an Airtable view, and this export is not believable
+            # enough to replace it. The transaction has already rolled back, so the list
+            # is exactly as it was; the operator is told why nothing changed.
+            logger.warning(
+                "event=airtable_sync_export_untrusted table=%s reason=%s", table, exc.reason
+            )
+            return TableSyncResult(
+                received=exc.received,
+                status=TableStatus.SKIPPED,
+                removed_blocked=exc.reason,
+            )
         except Exception as exc:
             session_error = f"{type(exc).__name__}: {exc}"
             logger.exception("event=airtable_sync_table_failed table=%s", table)

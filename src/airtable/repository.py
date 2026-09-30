@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
-from airtable.replace import drop_vanished, removal_is_safe
+from airtable.replace import UntrustedExport, drop_vanished, removal_is_safe
 from db.orm_models import (
     AirtableKnownPersonRecord,
     ExcludedPersonRecord,
@@ -126,6 +126,14 @@ def sync_known_persons(
     `airtable.replace`.
     """
     result = TableSyncResult(received=len(records))
+    # Counted before anything is written. `session.add` is flushed by the next query, so
+    # counting afterwards would include the rows this very run has just added, and «what
+    # the list held before» would silently mean «what it holds now».
+    previous_rows = 0
+    if replace:
+        previous_rows = int(
+            session.scalar(select(func.count()).select_from(AirtableKnownPersonRecord)) or 0
+        )
     existing = {
         str(row.external_id): row
         for row in session.scalars(
@@ -157,7 +165,7 @@ def sync_known_persons(
             _write(row, values)
             result.updated += 1
     if replace:
-        _replace_whole(session, AirtableKnownPersonRecord, records, result)
+        _replace_whole(session, AirtableKnownPersonRecord, records, result, previous_rows)
     session.commit()
     return result
 
@@ -167,22 +175,21 @@ def _replace_whole(
     model: type[Any],
     records: Sequence[AirtableRecord],
     result: TableSyncResult,
+    previous_rows: int,
 ) -> None:
-    """Drop what the export no longer holds, or say why the list was left as it was.
+    """Drop what the export no longer holds, or refuse the whole export.
 
-    A refusal is not a failure of the sync: the rows that were read are already written,
-    and what is refused is only the removal. The report says so, because a list that
-    silently kept ghosts is worse than one that says it kept them.
+    The check runs first, before anything is written, and a refusal takes the writes with
+    it. An export too small to believe is not a smaller version of the list — it is not
+    the list at all, and writing the handful of rows it did bring would leave the table
+    holding both: the old list plus whatever the broken link happened to return. The
+    promise is that the list stands whole, so it stands whole, and the report says why
+    nothing changed.
     """
     keep = {record.id for record in records}
-    previous = int(session.scalar(select(func.count()).select_from(model)) or 0)
-    safe, reason = removal_is_safe(len(keep), previous)
+    safe, reason = removal_is_safe(len(keep), previous_rows)
     if not safe:
-        logger.warning(
-            "event=airtable_replace_refused table=%s reason=%s", model.__tablename__, reason
-        )
-        result.removed_blocked = reason
-        return
+        raise UntrustedExport(reason, received=len(keep), kept=previous_rows)
     result.removed = drop_vanished(session, model, keep)
 
 

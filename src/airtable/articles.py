@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
-from airtable.replace import drop_vanished, removal_is_safe
+from airtable.replace import UntrustedExport, drop_vanished, removal_is_safe
 from airtable.repository import _same, _write
 from db.orm_models import CriminalArticleRecord
 
@@ -79,6 +79,13 @@ def sync_articles(
     people list; see `airtable.replace`.
     """
     result = TableSyncResult(received=len(records))
+    # Counted before anything is written: `session.add` is flushed by the next query, so
+    # counting afterwards would include the rows this run has just added.
+    previous_rows = 0
+    if replace:
+        previous_rows = int(
+            session.scalar(select(func.count()).select_from(CriminalArticleRecord)) or 0
+        )
     existing = {
         str(row.external_id): row
         for row in session.scalars(
@@ -122,14 +129,11 @@ def sync_articles(
             for record in records
             if record.text(*_NAME_FIELDS) and article_key(record.text(*_NAME_FIELDS))
         }
-        previous = int(session.scalar(select(func.count()).select_from(CriminalArticleRecord)) or 0)
-        safe, reason = removal_is_safe(len(keep), previous)
-        if safe:
-            result.removed = drop_vanished(session, CriminalArticleRecord, keep)
-        else:
-            logger.warning(
-                "event=airtable_replace_refused table=criminal_articles reason=%s", reason
-            )
-            result.removed_blocked = reason
+        # The same rule as the people list: an export too small to believe is not a
+        # smaller list, and the rows it did bring are not written either.
+        safe, reason = removal_is_safe(len(keep), previous_rows)
+        if not safe:
+            raise UntrustedExport(reason, received=len(keep), kept=previous_rows)
+        result.removed = drop_vanished(session, CriminalArticleRecord, keep)
     session.commit()
     return result
