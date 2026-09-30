@@ -219,3 +219,27 @@ def test_spelling_variants_of_one_name_match(session_factory: sessionmaker[Sessi
     result = EntityRfCheck(session_factory, download=lambda: _page(listed)).run()
 
     assert result.full == 2
+
+
+def test_a_download_failure_of_our_own_also_leaves_the_last_snapshot_in_use(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The site answering 403, or serving a page that is not the list, is a failure of
+    the same kind as the site being down.
+
+    It was not: the downloader raised its own error while this still caught
+    `httpx.HTTPError`, so the exception passed through and the stage died instead of
+    falling back to the last snapshot — which is the whole promise of the function.
+    """
+    from rosfinmonitoring.download import RosfinmonitoringDownloadError
+
+    _entities(session_factory, *PEOPLE)
+    EntityRfCheck(session_factory, download=_page).run()
+
+    def refused() -> bytes:
+        raise RosfinmonitoringDownloadError("fedsfm.ru вернул 403")
+
+    result = EntityRfCheck(session_factory, download=refused).run()
+
+    assert result.download_error == "RosfinmonitoringDownloadError: fedsfm.ru вернул 403"
+    assert (result.new_snapshot, result.full) == (False, 1)

@@ -63,12 +63,6 @@ _INTRO = (
 )
 
 
-def _session_of(db: Session):
-    from web.dependencies import session_factory_for
-
-    return session_factory_for(db)
-
-
 def _listing(db: Session) -> tuple[list[tuple[ExcludedPersonRecord, str, str]], int]:
     """The rows of the list, with the name each one has actually landed on.
 

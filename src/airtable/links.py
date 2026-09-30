@@ -29,6 +29,18 @@ logger = logging.getLogger("airtable")
 # The environment variable naming the public link of each list. Sources live in a
 # *different* base from the rest — that is how the base is set up, and it was found by
 # reading the lists rather than assumed.
+# What makes a row the row it is, per list. Without this the identity would be the
+# row's number in the export, and one person inserted in the middle of a list of 13 765
+# would rename every id after it — the sync would then rewrite the whole tail and report
+# fourteen thousand updates for a list nobody had touched.
+IDENTITY_FIELDS = {
+    "sources": ("Ссылка", "Ссылка на источник", "base_url", "url", "URL"),
+    "rfm_persons": ("Преследуемый", "ФИО", "Дата рождения", "full_name", "birth_date"),
+    "known_persons": ("Преследуемый", "ФИО", "Дата рождения", "full_name", "birth_date"),
+    "articles": ("Полная статья", "Статья", "article", "full_article"),
+    "officials": ("ФИО", "full_name"),
+}
+
 SHARE_URL_ENV = {
     "sources": "AIRTABLE_SHARE_URL_SOURCES",
     "rfm_persons": "AIRTABLE_SHARE_URL_RFM",
@@ -73,7 +85,12 @@ class ShareTableClient:
             raise FileNotFoundError(f"для списка {table} ссылка не настроена")
         from airtable.share import read_records
 
-        records = read_records(link, session=self._session)
+        records = read_records(
+            link,
+            session=self._session,
+            table=table,
+            identity=IDENTITY_FIELDS.get(table, ()),
+        )
         if not records:
             # An empty read here would be a list emptied. The reader raises rather than
             # returning nothing, so reaching this means the view genuinely has no rows —

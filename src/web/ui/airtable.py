@@ -23,12 +23,9 @@ from sqlalchemy.orm import Session
 
 from airtable.config import AirtableConfigurationError
 from airtable.files import FileTableClient, ImportSettings
-from airtable.models import TABLE_LABELS, TABLES
+from airtable.models import MODE_API, MODE_FILES, MODE_SHARE, TABLE_LABELS, TABLES
 from airtable.repository import RFM_SOURCE_URL
 from airtable.service import (
-    MODE_API,
-    MODE_FILES,
-    MODE_SHARE,
     AirtableSyncAlreadyRunningError,
     build_sync_service,
     build_sync_source,

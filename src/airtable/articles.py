@@ -21,7 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from airtable.client import AirtableRecord
-from airtable.repository import TableSyncResult, _same, _write
+from airtable.models import TableSyncResult
+from airtable.repository import _same, _write
 from db.orm_models import CriminalArticleRecord
 
 logger = logging.getLogger("airtable")

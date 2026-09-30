@@ -34,11 +34,11 @@ that is one extra request and makes an expired signature impossible to trip over
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import logging
 import re
-from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -55,6 +55,13 @@ IMPERSONATE = "chrome146"
 # a version marker, not a credential, and a stale value costs nothing.
 CODE_VERSION = "cf32083c89c00ebe303ad7d79334a82e1c86f2a7"
 
+# The share page is a small HTML document and answers at once. The CSV behind it is
+# not: the persons list is 54 MB, and a link that gives it away in two minutes is simply
+# a slow link, not a broken one. A download cut off half way through used to fail the
+# whole sync of one list.
+PAGE_TIMEOUT = 30
+DOWNLOAD_TIMEOUT = 600
+
 # Where the page keeps what the visitor may do.
 _INIT_DATA = "window.initData = "
 _SHARE_URL = re.compile(r"https://airtable\.com/(app[A-Za-z0-9]+)/(shr[A-Za-z0-9]+)")
@@ -64,6 +71,34 @@ def share_url_of(link: str) -> tuple[str, str] | None:
     """The `(application id, share id)` a public link names, or None if it names neither."""
     found = _SHARE_URL.search(link.strip())
     return (found.group(1), found.group(2)) if found else None
+
+
+def content_id(table: str, fields: dict[str, str], identity: tuple[str, ...]) -> str:
+    """A record's identity, taken from what it says rather than from where it stands.
+
+    A CSV export has no Airtable record id, and the obvious substitute — the row's
+    number — is not an identity. Insert one person in the middle of a list of 13 765 and
+    every id after that point names somebody else: the sync would rewrite the whole tail
+    and report 14 000 updates for a list nobody touched. That is not a rare event either;
+    this list is edited by hand, all the time.
+
+    So the id is a hash of the identifying fields, and of nothing else. Only those: a hash
+    of the whole row would make an edited case title look like a different person, and
+    the same man would then sit in the list twice.
+
+    Two rows of one person share an id here, and that is expected rather than a problem:
+    this list carries one row per *case*, so a man charged three times is written three
+    times. The reader keeps the first and says how many it merged — one row per person is
+    what the list means, and the alternative is a table that fails on data that is merely
+    redundant.
+    """
+    parts = [table]
+    for column in identity:
+        value = fields.get(column)
+        if isinstance(value, str) and value.strip():
+            parts.append(f"{column}={value.strip().lower().replace('ё', 'е')}")
+    digest = hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:32]
+    return f"share:{table}:{digest}"
 
 
 @dataclass(frozen=True)
@@ -86,8 +121,8 @@ def read_page(share_url: str, *, session: Any = None) -> SharePage:
 
     http = session or requests.Session(impersonate=IMPERSONATE)
     try:
-        response = http.get(share_url, timeout=REQUEST_TIMEOUT)
-    except Exception as exc:  # a transport failure reads the same here, whichever kind it was
+        response = http.get(share_url, timeout=PAGE_TIMEOUT)
+    except Exception as exc:  # a transport failure reads the same here, whichever it was
         raise AirtableError(f"страница {share_url} не открылась: {exc}") from exc
     if response.status_code != 200:
         raise AirtableError(f"страница {share_url} вернула {response.status_code}")
@@ -123,10 +158,13 @@ def _init_data(page: str) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-REQUEST_TIMEOUT = 120
-
-
-def read_records(share_url: str, *, session: Any = None) -> list[AirtableRecord]:
+def read_records(
+    share_url: str,
+    *,
+    session: Any = None,
+    table: str = "list",
+    identity: tuple[str, ...] = (),
+) -> list[AirtableRecord]:
     """Every row of a public share view, as records the sync already understands.
 
     The rows come as CSV, so the `AirtableRecord`s are built with the same column names
@@ -137,7 +175,6 @@ def read_records(share_url: str, *, session: Any = None) -> list[AirtableRecord]
 
     http = session or requests.Session(impersonate=IMPERSONATE)
     page = read_page(share_url, session=http)
-    policy = page.access_policy
     application_id = page.application_id
     if not application_id:
         parts = share_url_of(share_url)
@@ -157,13 +194,13 @@ def read_records(share_url: str, *, session: Any = None) -> list[AirtableRecord]
     }
     params = {
         "requestId": "req" + "0" * 12,
-        "accessPolicy": policy,
+        "accessPolicy": page.access_policy,
         "stringifiedObjectParams": json.dumps({"includeBlanks": False}, separators=(",", ":")),
     }
     url = f"https://airtable.com/v0.3/view/{page.view_id}/downloadCsv"
     try:
-        response = http.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
-    except Exception as exc:  # a transport failure reads the same here, whichever kind it was
+        response = http.get(url, params=params, headers=headers, timeout=DOWNLOAD_TIMEOUT)
+    except Exception as exc:  # a transport failure reads the same here, whichever it was
         raise AirtableError(f"выгрузка по ссылке не удалась: {exc}") from exc
     if response.status_code != 200:
         raise AirtableError(f"выгрузка вернула {response.status_code}")
@@ -175,10 +212,12 @@ def read_records(share_url: str, *, session: Any = None) -> list[AirtableRecord]
             "Airtable вернул не CSV, а страницу приложения: право на чтение не "
             f"применилось (тип {content_type or 'неизвестен'})"
         )
-    return _records_from_csv(response.content)
+    return _records_from_csv(response.content, table=table, identity=identity)
 
 
-def _records_from_csv(payload: bytes) -> list[AirtableRecord]:
+def _records_from_csv(
+    payload: bytes, *, table: str, identity: tuple[str, ...]
+) -> list[AirtableRecord]:
     """Rows of a CSV export as records.
 
     Airtable marks the export with a BOM, which would otherwise become part of the first
@@ -191,20 +230,21 @@ def _records_from_csv(payload: bytes) -> list[AirtableRecord]:
     except StopIteration:
         return []
     records = []
-    for number, row in enumerate(reader, start=1):
+    seen: set[str] = set()
+    repeated = 0
+    for row in reader:
         if not any(cell.strip() for cell in row):
             continue
         fields = {
             name.strip(): value for name, value in zip(header, row, strict=False) if name.strip()
         }
-        # A share view has no Airtable record id, and a CSV export does not carry one.
-        # The name is the identity, which is how a hand-exported file was matched too.
-        records.append(AirtableRecord(f"share:{number}", fields))
-    logger.info("event=airtable_share_read rows=%d", len(records))
+        record_id = content_id(table, fields, identity)
+        if record_id in seen:
+            repeated += 1
+            continue
+        seen.add(record_id)
+        records.append(AirtableRecord(record_id, fields))
+    logger.info(
+        "event=airtable_share_read rows=%d identical_rows_skipped=%d", len(records), repeated
+    )
     return records
-
-
-def iter_share_rows(share_url: str) -> Iterator[dict[str, str]]:
-    """The raw rows of a share view, for a list that is not one of the four."""
-    for record in read_records(share_url):
-        yield dict(record.fields)

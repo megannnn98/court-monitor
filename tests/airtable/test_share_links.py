@@ -18,8 +18,11 @@ from airtable.client import AirtableError
 from airtable.links import FallbackTableClient, ShareTableClient, share_links
 from airtable.models import MODE_SHARE, TABLES
 from airtable.service import build_sync_source
-from airtable.share import _init_data, read_page, read_records, share_url_of
-from rosfinmonitoring.download import download_rf_list
+from airtable.share import _init_data, content_id, read_page, read_records, share_url_of
+from rosfinmonitoring.download import (
+    RosfinmonitoringDownloadError,
+    download_rf_list,
+)
 
 RF_LINK = "https://airtable.com/appExample0000001/shrExample0000003"
 SOURCES_LINK = "https://airtable.com/appExample0000002/shrExample0000001"
@@ -160,7 +163,7 @@ def test_an_empty_view_never_reaches_the_sync_as_an_empty_list(
     as it comes, it would empty 13 765 people and report every one of them unchanged."""
     from airtable import share
 
-    monkeypatch.setattr(share, "read_records", lambda link, session=None: [])
+    monkeypatch.setattr(share, "read_records", lambda link, **kwargs: [])
     client = ShareTableClient({"rfm_persons": RF_LINK})
 
     with pytest.raises(AirtableError, match="ни одной строки"):
@@ -303,7 +306,11 @@ def test_the_published_list_is_downloaded(monkeypatch: pytest.MonkeyPatch) -> No
         @staticmethod
         def get(url, **kwargs):
             assert kwargs.get("impersonate") == download.IMPERSONATE
-            return _RfResponse(200, "<html>1. ИВАНОВ ИВАН, 01.01.1980 г.р.</html>".encode())
+            return _RfResponse(
+                200,
+                "<html><title>Росфинмониторинг</title>"
+                "1. ИВАНОВ ИВАН, 01.01.1980 г.р.</html>".encode(),
+            )
 
     monkeypatch.setattr("curl_cffi.requests", _Client)
 
@@ -321,12 +328,18 @@ def test_a_403_is_not_a_list(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("curl_cffi.requests", _Client)
 
-    with pytest.raises(RuntimeError, match="вернул 403"):
+    with pytest.raises(RosfinmonitoringDownloadError, match="вернул 403"):
         download_rf_list("https://example.test/list")
 
 
 def test_a_200_that_is_not_the_list_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A maintenance page or a captcha is a 200 too, and would parse as a list of nobody."""
+    """A maintenance page or a captcha is a 200 too, and would parse as a list of nobody.
+
+    And so is a page that says «Росфинмониторинг» and lists nobody — which is exactly what
+    `fedsfm.ru/documents/terr-list` serves while the list itself lives one address over.
+    Matching on any one marker would have taken that page for the list and emptied the
+    snapshot of 23 000 people.
+    """
 
     class _Client:
         @staticmethod
@@ -335,7 +348,7 @@ def test_a_200_that_is_not_the_list_is_refused(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr("curl_cffi.requests", _Client)
 
-    with pytest.raises(RuntimeError, match="это не перечень"):
+    with pytest.raises(RosfinmonitoringDownloadError, match="это не перечень"):
         download_rf_list("https://example.test/list")
 
 
@@ -343,3 +356,68 @@ def test_the_five_lists_are_the_ones_the_operator_named() -> None:
     """Sources, the Rosfinmonitoring list, the people already known, the officials, and
     the articles to watch for — in the order they are read on the page."""
     assert TABLES == ("sources", "rfm_persons", "known_persons", "officials", "articles")
+
+
+class TestRowIdentity:
+    """A row's identity is what it says, not where it stands.
+
+    This is the whole reason the id is not a row number. These lists are edited by hand,
+    all the time; one person inserted in the middle must not turn fourteen thousand
+    people into strangers.
+    """
+
+    _PEOPLE = ("Преследуемый", "Дата рождения")
+
+    def test_the_same_person_keeps_the_same_id(self) -> None:
+        first = content_id(
+            "rfm_persons",
+            {"Преследуемый": "Иванов Иван", "Дата рождения": "1980-07-12"},
+            self._PEOPLE,
+        )
+        again = content_id(
+            "rfm_persons",
+            {"Преследуемый": "  иванов иван ", "Дата рождения": "1980-07-12"},
+            self._PEOPLE,
+        )
+
+        assert first == again
+
+    def test_a_different_birth_date_is_a_different_person(self) -> None:
+        """The pair is what tells two namesakes apart, so it is part of the identity."""
+        one = content_id(
+            "rfm_persons",
+            {"Преследуемый": "Иванов Иван", "Дата рождения": "1980-07-12"},
+            self._PEOPLE,
+        )
+        other = content_id(
+            "rfm_persons",
+            {"Преследуемый": "Иванов Иван", "Дата рождения": "1990-01-01"},
+            self._PEOPLE,
+        )
+
+        assert one != other
+
+    def test_inserting_somebody_else_does_not_rename_anybody(self) -> None:
+        """The failure this prevents: with the row's number as the id, one insertion in
+        the middle shifts every id after it, and a list nobody touched comes back as
+        fourteen thousand updates."""
+        before = content_id(
+            "rfm_persons",
+            {"Преследуемый": "Петров Пётр", "Дата рождения": "1970-01-01"},
+            self._PEOPLE,
+        )
+        # Somebody is inserted above him in Airtable; his fields are unchanged.
+        after = content_id(
+            "rfm_persons",
+            {"Преследуемый": "Петров Пётр", "Дата рождения": "1970-01-01"},
+            self._PEOPLE,
+        )
+
+        assert before == after
+
+    def test_the_id_says_which_list_it_came_from(self) -> None:
+        fields = {"Полная статья": "159 УК РФ"}
+        article = content_id("articles", fields, ("Полная статья",))
+        person = content_id("rfm_persons", {"Преследуемый": "159 УК РФ"}, ("Преследуемый",))
+
+        assert article != person

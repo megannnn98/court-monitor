@@ -10,9 +10,8 @@ from sqlalchemy.orm import Session
 
 from airtable.config import AirtableConfigurationError
 from airtable.files import FileTableClient, ImportSettings
-from airtable.models import SyncReport
+from airtable.models import MODE_FILES, SyncReport
 from airtable.service import (
-    MODE_FILES,
     AirtableSyncAlreadyRunningError,
     build_sync_service,
     build_sync_source,

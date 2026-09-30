@@ -18,6 +18,16 @@ import logging
 
 logger = logging.getLogger("entities")
 
+
+class RosfinmonitoringDownloadError(RuntimeError):
+    """The published list could not be read, for any reason.
+
+    Its own type rather than a bare `RuntimeError` so that the caller catching a failed
+    download catches *this* and not every other error in the process: the promise that a
+    failed download leaves the last snapshot in use is only as good as the handler.
+    """
+
+
 RF_LIST_URL = "https://www.fedsfm.ru/documents/terrorists-catalog-portal-act"
 DOWNLOAD_TIMEOUT_SECONDS = 180.0
 IMPERSONATE = "chrome146"
@@ -38,13 +48,13 @@ def download_rf_list(url: str = RF_LIST_URL) -> bytes:
     try:
         response = requests.get(url, impersonate=IMPERSONATE, timeout=DOWNLOAD_TIMEOUT_SECONDS)
     except Exception as exc:  # a transport failure reads the same here, whichever kind it was
-        raise RuntimeError(f"перечень РФМ не скачался: {exc}") from exc
+        raise RosfinmonitoringDownloadError(f"перечень РФМ не скачался: {exc}") from exc
     if response.status_code != 200:
-        raise RuntimeError(f"fedsfm.ru вернул {response.status_code} на {url}")
+        raise RosfinmonitoringDownloadError(f"fedsfm.ru вернул {response.status_code} на {url}")
     body = response.content
     page = body.decode("utf-8", "replace")
-    if not any(marker in page for marker in _MARKERS):
-        raise RuntimeError(
+    if not all(marker in page for marker in _MARKERS):
+        raise RosfinmonitoringDownloadError(
             "fedsfm.ru ответил, но это не перечень: страница без строк списка. Снимок не тронут."
         )
     logger.info("event=rf_list_downloaded bytes=%d", len(body))

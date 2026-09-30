@@ -30,7 +30,11 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
 from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
-from rosfinmonitoring.download import RF_LIST_URL, download_rf_list
+from rosfinmonitoring.download import (
+    RF_LIST_URL,
+    RosfinmonitoringDownloadError,
+    download_rf_list,
+)
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
@@ -209,7 +213,7 @@ class EntityRfCheck:
         self._on_stage("downloading")
         try:
             content = self._download()
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, RosfinmonitoringDownloadError) as exc:
             logger.warning("event=rf_list_download_failed error=%s", exc)
             return f"{type(exc).__name__}: {exc}", False
         persistence = RosfinmonitoringPersistence(self._session_factory)
