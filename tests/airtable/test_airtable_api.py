@@ -68,6 +68,9 @@ class TestEndpoint:
             "received": 1,
             "status": "success",
             "error": None,
+            # Said out loud, because a list that quietly lost rows is one nobody trusts.
+            "removed": 0,
+            "removed_blocked": None,
         }
         assert body["started_at"] and body["finished_at"]
 
