@@ -34,6 +34,12 @@ class AirtableTableSyncResponse(BaseModel):
     received: int = 0
     status: str = "success"
     error: str | None = None
+    # Rows the list no longer has, removed: it is a copy of an Airtable view, and this is
+    # how many. Said out loud because a list that quietly shrank is one nobody trusts.
+    removed: int = 0
+    # Why nothing was removed, when the export was not believable enough to act on. The
+    # operator needs this more than the count: it is the case where the button declined.
+    removed_blocked: str | None = None
 
 
 class AirtableSyncResponse(BaseModel):

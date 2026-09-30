@@ -64,6 +64,16 @@
         cell(row, String(item.updated ?? 0), "num");
         cell(row, String(item.unchanged ?? 0), "num");
         cell(row, failed ? "ошибка" : skipped ? "нет файла" : "успешно", failed ? "error-text" : "");
+        if (item.removed || item.removed_blocked) {
+          // The list is a copy of an Airtable view, so rows that left the view leave the
+          // copy. Said here, because a list that quietly shrank is one nobody trusts —
+          // and a refused removal matters even more than a performed one.
+          const note = row.insertCell();
+          note.className = item.removed_blocked ? "error-text" : "muted";
+          note.colSpan = 2;
+          note.textContent = item.removed_blocked
+            || `удалено строк, которых больше нет в представлении: ${item.removed}`;
+        }
         if (failed || skipped) {
           // Which list went wrong, said plainly: one error must not read as "nothing
           // happened", and a list nobody exported must not look like an empty one.

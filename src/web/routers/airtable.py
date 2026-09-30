@@ -38,6 +38,8 @@ def _response(report: SyncReport) -> AirtableSyncResponse:
                 received=result.received,
                 status=result.status,
                 error=result.error,
+                removed=result.removed,
+                removed_blocked=result.removed_blocked,
             )
             for name, result in report.tables.items()
         },
