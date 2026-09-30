@@ -30,33 +30,18 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
 from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
+from rosfinmonitoring.download import RF_LIST_URL, download_rf_list
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from rosfinmonitoring.membership import record_check
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 
 logger = logging.getLogger("entities")
 
-RF_LIST_URL = "https://www.fedsfm.ru/documents/terrorists-catalog-portal-act"
-DOWNLOAD_TIMEOUT_SECONDS = 180.0
 INSERT_CHUNK = 5_000
 FULL = "full"
 NAME = "name"
-
-
-def download_rf_list() -> bytes:
-    """The whole list page. fedsfm.ru's certificate is issued by the Russian state CA,
-    absent from the usual trust store: certificate checking is off for this one request
-    (the user's choice), so a tampered list on the way would go unnoticed."""
-    response = httpx.get(
-        RF_LIST_URL,
-        timeout=DOWNLOAD_TIMEOUT_SECONDS,
-        follow_redirects=True,
-        verify=False,
-        headers={"User-Agent": "Mozilla/5.0 (court-monitor)"},
-    )
-    response.raise_for_status()
-    return response.content
 
 
 @dataclass(frozen=True)
@@ -172,6 +157,16 @@ class EntityRfCheck:
             self._on_stage("merging")
             merged = merge_clear_pairs(session, listed_level=FULL)
         full = sum(level == FULL for level in levels.values())
+        # Left behind on purpose: the matches are rewritten whole, so this is the only
+        # thing that lets the pages say «не найден в перечне» instead of «неизвестно».
+        with self._session_factory.begin() as session:
+            record_check(
+                session,
+                latest.snapshot_id,
+                entities=len(groups),
+                listed=full,
+                maybe_listed=len(levels) - full,
+            )
         result = RfCheckResult(
             snapshot_id=latest.snapshot_id,
             snapshot_date=latest.snapshot_date,

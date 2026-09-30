@@ -22,7 +22,16 @@ from airtable import repository
 from airtable.client import AirtableClient, AirtableError, AirtableRecord, HttpAirtableClient
 from airtable.config import AirtableConfigurationError, AirtableSettings
 from airtable.files import FileTableClient, ImportSettings
-from airtable.models import TABLES, SyncReport, TableStatus, TableSyncResult
+from airtable.links import FallbackTableClient, ShareTableClient, share_links
+from airtable.models import (
+    MODE_API,
+    MODE_FILES,
+    MODE_SHARE,
+    TABLES,
+    SyncReport,
+    TableStatus,
+    TableSyncResult,
+)
 from db.locks import try_advisory_lock
 
 __all__ = [
@@ -38,9 +47,6 @@ logger = logging.getLogger("airtable")
 
 # The lock key: one sync at a time, across every worker of every process.
 LOCK_KEY = "airtable:sync"
-
-MODE_API = "api"
-MODE_FILES = "files"
 
 
 class AirtableSyncAlreadyRunningError(RuntimeError):
@@ -196,19 +202,30 @@ def build_sync_source(
     env: Mapping[str, str] | None = None,
     client: AirtableClient | None = None,
 ) -> SyncSource:
-    """The source to sync from, preferring the API when it is configured.
+    """The source to sync from: the API if it is configured, else public share links, else
+    exported files.
 
     The API is the better path — it is automatic and carries each record's id — so it
-    wins whenever the six settings are present. Exported files are the fallback for a
-    base that is only readable in a browser.
+    wins whenever the six settings are present. Share links come next: they also need no
+    one at the keyboard, and they work for a base that is only readable in a browser,
+    which is the case that forced the file mode into existence. Files are the last
+    resort, because a file means the operator exported it by hand.
 
-    Raises `AirtableConfigurationError` when neither is available; the caller turns that
+    Raises `AirtableConfigurationError` when none is available; the caller turns that
     into a readable answer instead of a stack trace.
     """
     env = os.environ if env is None else env
     try:
         settings = AirtableSettings.from_env(env)
     except AirtableConfigurationError:
+        links = share_links(env)
+        if links:
+            logger.info("event=airtable_sync_mode mode=share lists=%d", len(links))
+            return SyncSource(
+                mode=MODE_SHARE,
+                client=client or ShareTableClient(links),
+                tables={name: name for name in links},
+            )
         import_files = FileTableClient(ImportSettings.from_env(env))
         if not import_files.present():
             raise
@@ -218,15 +235,18 @@ def build_sync_source(
             client=import_files,
             tables=dict(zip(TABLES, TABLES, strict=True)),
         )
+    api_tables = {
+        "sources": settings.sources_table,
+        "rfm_persons": settings.rfm_persons_table,
+        "known_persons": settings.known_persons_table,
+        "officials": settings.officials_table,
+    }
     return SyncSource(
         mode=MODE_API,
-        client=client or HttpAirtableClient(settings),
-        tables={
-            "sources": settings.sources_table,
-            "rfm_persons": settings.rfm_persons_table,
-            "known_persons": settings.known_persons_table,
-            "officials": settings.officials_table,
-        },
+        client=FallbackTableClient(
+            client or HttpAirtableClient(settings), share_links(env), api_tables
+        ),
+        tables=api_tables,
     )
 
 

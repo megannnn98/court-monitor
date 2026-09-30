@@ -16,6 +16,14 @@ TABLE_LABELS = {
 }
 
 
+# Where a list is read from. The order of preference is API, then share links, then
+# exported files: the API carries each record's id, a share link needs nobody to export
+# anything, and a file needs the operator every time.
+MODE_API = "api"
+MODE_SHARE = "share"
+MODE_FILES = "files"
+
+
 class TableStatus:
     SUCCESS = "success"
     ERROR = "error"
