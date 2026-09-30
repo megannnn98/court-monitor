@@ -32,7 +32,6 @@ from db.orm_models import (
 from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
 from rosfinmonitoring.download import RF_LIST_URL, download_rf_list
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.membership import record_check
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -157,16 +156,6 @@ class EntityRfCheck:
             self._on_stage("merging")
             merged = merge_clear_pairs(session, listed_level=FULL)
         full = sum(level == FULL for level in levels.values())
-        # Left behind on purpose: the matches are rewritten whole, so this is the only
-        # thing that lets the pages say «не найден в перечне» instead of «неизвестно».
-        with self._session_factory.begin() as session:
-            record_check(
-                session,
-                latest.snapshot_id,
-                entities=len(groups),
-                listed=full,
-                maybe_listed=len(levels) - full,
-            )
         result = RfCheckResult(
             snapshot_id=latest.snapshot_id,
             snapshot_date=latest.snapshot_date,
