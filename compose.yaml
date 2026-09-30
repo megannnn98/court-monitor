@@ -90,6 +90,20 @@ services:
       ER_AUTO_LINK_MIN_SCORE: ${ER_AUTO_LINK_MIN_SCORE:-0.85}
       ER_REVIEW_MIN_SCORE: ${ER_REVIEW_MIN_SCORE:-0.40}
       ER_MIN_MARGIN: ${ER_MIN_MARGIN:-0.10}
+      # Airtable as the editing surface for the reference lists
+      # (docs/wiki/Airtable-Sync.md). All six are required together and blank by
+      # default: without them the «Справочники» page says so instead of failing, and
+      # the rest of the pipeline never asks Airtable for anything. Only the API needs
+      # them — a sync is a manual button there.
+      AIRTABLE_TOKEN: ${AIRTABLE_TOKEN:-}
+      AIRTABLE_BASE_ID: ${AIRTABLE_BASE_ID:-}
+      AIRTABLE_SOURCES_TABLE: ${AIRTABLE_SOURCES_TABLE:-}
+      AIRTABLE_RFM_PERSONS_TABLE: ${AIRTABLE_RFM_PERSONS_TABLE:-}
+      AIRTABLE_KNOWN_PERSONS_TABLE: ${AIRTABLE_KNOWN_PERSONS_TABLE:-}
+      AIRTABLE_EXCLUDED_PERSONS_TABLE: ${AIRTABLE_EXCLUDED_PERSONS_TABLE:-}
+      # One sync of the Rosfinmonitoring list is ~140 pages of 100 records, against
+      # Airtable's limit of 5 requests a second.
+      AIRTABLE_TIMEOUT_SECONDS: ${AIRTABLE_TIMEOUT_SECONDS:-120}
     command:
       - uvicorn
       - api:app
