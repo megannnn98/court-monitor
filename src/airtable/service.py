@@ -67,6 +67,16 @@ class SyncSource:
     client: AirtableClient
     tables: Mapping[str, str]
 
+    def has(self, name: str) -> bool:
+        """Whether this source has anywhere to read the list from.
+
+        Not every source carries every list. The officials are kept in the database by
+        hand and have no Airtable table at all, and a public link is configured only for
+        the lists somebody made a view of. A list with no source is skipped, the same way
+        a list with no exported file is — never read as an empty one.
+        """
+        return name in self.tables
+
     def table_for(self, name: str) -> str:
         return self.tables[name]
 
@@ -163,6 +173,11 @@ class AirtableSyncService:
         """One table. A failure to read it is that table's failure, not the sync's, and a
         list with no file is skipped rather than read as an empty one."""
         sync = _SYNC_BY_TABLE[table]
+        if not self._source.has(table):
+            logger.info("event=airtable_sync_table_skipped table=%s reason=no_source", table)
+            return TableSyncResult(
+                status=TableStatus.SKIPPED, error="источник не настроен: список ведётся в базе"
+            )
         try:
             records = client.list_records(self._source.table_for(table))
         except FileNotFoundError as exc:

@@ -13,11 +13,12 @@ from support.airtable_fakes import fake_source
 from support.db_fixtures import DatabaseSeeder
 
 from airtable.client import AirtableError, AirtableRecord
-from airtable.models import TABLES, TableStatus
+from airtable.models import MODE_SHARE, TABLES, TableStatus
 from airtable.repository import RFM_SOURCE_URL
 from airtable.service import (
     AirtableSyncAlreadyRunningError,
     AirtableSyncService,
+    SyncSource,
     build_sync_service,
 )
 from db.orm_models import (
@@ -471,3 +472,25 @@ class TestMissingConfiguration:
 
         assert AirtableSettings.is_configured({}) is False
         assert _rows(session_factory, Source) == []
+
+
+class TestAListWithoutASource:
+    """Not every list is read from Airtable.
+
+    The officials are kept in the database by hand, and a public link is configured only
+    for the lists somebody made a view of. A list with nowhere to be read from is
+    skipped — reading it as an empty one is how a list of 13 765 people disappears.
+    """
+
+    def test_a_list_with_no_source_is_skipped_not_read_as_empty(
+        self, session_factory: sessionmaker[Session]
+    ) -> None:
+        fake = FakeAirtable({"Sources": [AirtableRecord("rec1", {"base_url": "https://a.test"})]})
+        source = SyncSource(mode=MODE_SHARE, client=fake, tables={"sources": "sources"})
+        report = AirtableSyncService(session_factory, source).sync()
+
+        assert report.status == "success"
+        assert report.tables["officials"].status == TableStatus.SKIPPED
+        assert report.tables["officials"].error == "источник не настроен: список ведётся в базе"
+        # And it was never asked of the reader, so nothing was emptied on the way.
+        assert "officials" not in fake.requested
