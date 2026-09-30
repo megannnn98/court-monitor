@@ -34,6 +34,7 @@ SHARE_URL_ENV = {
     "rfm_persons": "AIRTABLE_SHARE_URL_RFM",
     "known_persons": "AIRTABLE_SHARE_URL_KNOWN",
     "officials": "AIRTABLE_SHARE_URL_OFFICIALS",
+    "articles": "AIRTABLE_SHARE_URL_ARTICLES",
 }
 
 

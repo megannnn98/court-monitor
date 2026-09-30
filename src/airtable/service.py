@@ -19,6 +19,7 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from airtable import repository
+from airtable.articles import sync_articles
 from airtable.client import AirtableClient, AirtableError, AirtableRecord, HttpAirtableClient
 from airtable.config import AirtableConfigurationError, AirtableSettings
 from airtable.files import FileTableClient, ImportSettings
@@ -195,6 +196,7 @@ _SYNC_BY_TABLE: dict[str, Callable[[Session, Sequence[AirtableRecord]], TableSyn
     "rfm_persons": repository.sync_rfm_persons,
     "known_persons": repository.sync_known_persons,
     "officials": repository.sync_officials,
+    "articles": sync_articles,
 }
 
 
@@ -240,6 +242,7 @@ def build_sync_source(
         "rfm_persons": settings.rfm_persons_table,
         "known_persons": settings.known_persons_table,
         "officials": settings.officials_table,
+        "articles": settings.articles_table,
     }
     return SyncSource(
         mode=MODE_API,

@@ -38,6 +38,7 @@ from web.ui import junk_holds as ui_junk_holds
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import officials as ui_officials
+from web.ui import officials_list as ui_officials_list
 from web.ui import overview as ui_overview
 from web.ui import persons as ui_persons
 from web.ui import political as ui_political
@@ -104,6 +105,7 @@ for module in (
     ui_officials,
     ui_about,
     ui_airtable,
+    ui_officials_list,
     airtable,
     rosfinmonitoring_import,
     operations,

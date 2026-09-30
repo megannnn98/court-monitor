@@ -92,10 +92,10 @@ class TestSuccessfulSync:
         for result in report.tables.values():
             assert (result.created, result.updated, result.unchanged) == (0, 0, 0)
 
-    def test_all_four_tables_are_read(self, session_factory: sessionmaker[Session]) -> None:
+    def test_all_five_tables_are_read(self, session_factory: sessionmaker[Session]) -> None:
         airtable = FakeAirtable({})
         _service(session_factory, airtable).sync()
-        assert airtable.requested == ["Sources", "RFM", "Known", "Excluded"]
+        assert airtable.requested == ["Sources", "RFM", "Known", "Excluded", "Articles"]
 
     def test_a_person_is_created_once_and_then_stays_unchanged(
         self, session_factory: sessionmaker[Session]

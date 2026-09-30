@@ -34,6 +34,7 @@ from airtable.service import (
 )
 from db.orm_models import (
     AirtableKnownPersonRecord,
+    CriminalArticleRecord,
     ExcludedPersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
@@ -42,6 +43,7 @@ from db.orm_models import (
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page
+from web.ui.officials_list import REFERENCE_URL as OFFICIALS_URL
 
 router = APIRouter()
 
@@ -81,6 +83,11 @@ def _inventory(db: Session) -> list[tuple[str, str, int]]:
             "officials",
             TABLE_LABELS["officials"],
             _row_count(db, ExcludedPersonRecord, ExcludedPersonRecord.active.is_(True)),
+        ),
+        (
+            "articles",
+            TABLE_LABELS["articles"],
+            _row_count(db, CriminalArticleRecord, CriminalArticleRecord.active.is_(True)),
         ),
     ]
 
@@ -127,9 +134,17 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     present = FileTableClient(ImportSettings.from_env()).present() if configured else {}
     names = _source_names(source, present)
     rows = "".join(
-        f"<tr><td>{escape(label)}</td>"
-        f'<td class="num">{count}</td>'
-        f"<td>{escape(names.get(name) or '—')}</td></tr>"
+        "<tr>"
+        # The officials list is the one edited here rather than read from Airtable, so
+        # its name is a link to it rather than a label.
+        + (
+            f'<td><a href="{OFFICIALS_URL}">{escape(label)}</a></td>'
+            if name == "officials"
+            else f"<td>{escape(label)}</td>"
+        )
+        + f'<td class="num">{count}</td>'
+        + f"<td>{escape(names.get(name) or '—')}</td>"
+        + "</tr>"
         for name, label, count in _inventory(db)
     )
     button = (

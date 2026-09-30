@@ -43,6 +43,37 @@ class AirtableKnownPersonRecord(Base):
     )
 
 
+class CriminalArticleRecord(Base):
+    """A criminal article worth watching: «статьи, которые нас интересуют».
+
+    A list of numbers, not of people, and it is kept apart from `parsed_articles`, which
+    holds the articles the pipeline has already parsed out of a text. This one is what
+    the operator decided to look for, before anything was found.
+
+    A list of its own rather than a column on `sources`: the list is about what is
+    charged, not about where it was published, and the two change for different reasons
+    and by different hands.
+    """
+
+    __tablename__ = "criminal_articles"
+    __table_args__ = (Index("ix_criminal_articles_article_key", "article_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # The Airtable record id: the one stable link between the two systems.
+    external_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    # «Статья 159 УК РФ» as written in the list, kept for the person to read.
+    article_text: Mapped[str] = mapped_column(String(512), nullable=False)
+    # The same folded to digits alone, so «159» finds «ст. 159» and «159 УК РФ».
+    article_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class ExcludedPersonRecord(Base):
     """An official, and anyone else who must never become a target figurant.
 

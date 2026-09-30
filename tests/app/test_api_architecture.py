@@ -33,6 +33,10 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/admin/rosfinmonitoring/import",
     "GET /ui/airtable",
     "POST /ui/airtable/sync",
+    "GET /ui/airtable/officials",
+    "GET /ui/airtable/officials.csv",
+    "POST /ui/airtable/officials/add",
+    "POST /ui/airtable/officials/deactivate",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

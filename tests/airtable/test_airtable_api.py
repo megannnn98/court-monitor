@@ -55,6 +55,7 @@ class TestEndpoint:
         body = response.json()
         assert body["status"] == "success"
         assert sorted(body["tables"]) == [
+            "articles",
             "known_persons",
             "officials",
             "rfm_persons",
@@ -183,12 +184,14 @@ class TestPage:
             "Росфинмониторинг",
             "Найденные люди",
             "Должностные лица",
+            "Статьи",
         ]
         assert config["order"] == [
             "sources",
             "rfm_persons",
             "known_persons",
             "officials",
+            "articles",
         ]
         # The token is not on the page in any form.
         assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in page
@@ -202,7 +205,7 @@ class TestPage:
                 continue
             assert table in page.text
 
-    def test_the_page_lists_all_four_reference_lists(
+    def test_the_page_lists_every_reference_list(
         self, client: TestClient, airtable: FakeAirtable
     ) -> None:
         airtable.tables["Known"] = [AirtableRecord("recK1", {"full_name": "Иван Иванов"})]
@@ -210,7 +213,13 @@ class TestPage:
 
         page = client.get("/ui/airtable")
 
-        for label in ("Источники", "Росфинмониторинг", "Найденные люди", "Должностные лица"):
+        for label in (
+            "Источники",
+            "Росфинмониторинг",
+            "Найденные люди",
+            "Должностные лица",
+            "Статьи",
+        ):
             assert label in page.text
 
     def test_the_button_is_in_the_navigation(

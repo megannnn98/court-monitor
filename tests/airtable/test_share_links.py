@@ -339,5 +339,7 @@ def test_a_200_that_is_not_the_list_is_refused(monkeypatch: pytest.MonkeyPatch) 
         download_rf_list("https://example.test/list")
 
 
-def test_all_four_lists_are_still_the_four() -> None:
-    assert TABLES == ("sources", "rfm_persons", "known_persons", "officials")
+def test_the_five_lists_are_the_ones_the_operator_named() -> None:
+    """Sources, the Rosfinmonitoring list, the people already known, the officials, and
+    the articles to watch for — in the order they are read on the page."""
+    assert TABLES == ("sources", "rfm_persons", "known_persons", "officials", "articles")
