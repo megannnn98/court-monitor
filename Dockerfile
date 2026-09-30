@@ -18,6 +18,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends fonts-dejavu-core plantuml \
     && apt-get clean
 
+# The published Rosfinmonitoring list is served under a certificate from a Russian
+# authority that is in nobody's default trust store, so `download_rf_list()` cannot
+# verify it. The root and the intermediate it needs are pinned in `docker/certs` with
+# their fingerprints and expiry — see the README there. TLS verification stays on: this
+# list decides who the system reports as being on the published перечень, and accepting
+# it unchecked would mean accepting anything served in its place.
+COPY docker/certs/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 # Semantic indexing needs sentence-transformers (large); opt in with
 # `docker compose build --build-arg INSTALL_SEMANTIC=1`. compose.gpu.yaml sets it.
 ARG INSTALL_SEMANTIC=0
