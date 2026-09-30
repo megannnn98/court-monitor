@@ -39,9 +39,29 @@ RFM_SOURCE_URL = AIRTABLE_SNAPSHOT_SOURCE_URL
 
 # Airtable columns are named by whoever made the base, so each field is looked up under
 # the names it plausibly carries. The first non-empty one wins.
-_NAME_FIELDS = ("full_name", "Full name", "Name", "ФИО", "Имя", "Фамилия Имя")
+# The column a person's name lives in, under the names hand-kept lists give it. A base
+# that tracks cases per person calls it «Преследуемый».
+_NAME_FIELDS = (
+    "full_name",
+    "Full name",
+    "Name",
+    "ФИО",
+    "Имя",
+    "Фамилия Имя",
+    "Преследуемый",
+)
 _BIRTH_DATE_FIELDS = ("birth_date", "Birth date", "Дата рождения")
-_ACTIVE_FIELDS = ("active", "Active", "Активен", "Включён")
+# The `active` flag, under the names a hand-kept list actually gives it. Airtable's own
+# membership column is accepted too, so a list exported straight from a base that tracks
+# Rosfinmonitoring membership needs no renaming.
+_ACTIVE_FIELDS = (
+    "active",
+    "Active",
+    "Активен",
+    "Включён",
+    "✦Росфинмониторинг",
+    "Росфинмониторинг",
+)
 _BASE_URL_FIELDS = ("base_url", "Base URL", "url", "URL", "Ссылка", "Адрес")
 
 _normalizer = RuleBasedMentionNormalizer()
@@ -212,19 +232,25 @@ def sync_rfm_persons(session: Session, records: Sequence[AirtableRecord]) -> Tab
             )
         )
     }
+    listed = _listed_records(records)
     written: set[tuple[str, datetime | None]] = set()
-    for record in records:
+    for record in listed:
         full_name = record.text(*_NAME_FIELDS)
         if not full_name:
             result.errors += 1
             logger.warning("event=airtable_rfm_person_without_name record=%s", record.id)
             continue
+        if not record.flag(*_ACTIVE_FIELDS, default=True):
+            # Not in the list, so not an entry. It is not written as `removed` either:
+            # the matcher has no notion of "was in the list and left", so such a row
+            # would keep matching and go on counting as in the перечень.
+            continue
         birth_date = _parse_date(record.text(*_BIRTH_DATE_FIELDS))
         key = (full_name, birth_date)
         if key in written:
-            # The table makes this pair unique within a snapshot, so a second Airtable
-            # record for the same person is reported, not inserted.
-            logger.warning("event=airtable_rfm_person_duplicate full_name=%s", full_name)
+            # The table makes this pair unique within a snapshot. One person in several
+            # cases is the normal shape of a list exported from a base of cases, so this
+            # is counted rather than reported per name.
             result.unchanged += 1
             continue
         written.add(key)
@@ -256,6 +282,12 @@ def sync_rfm_persons(session: Session, records: Sequence[AirtableRecord]) -> Tab
 
     snapshot.entry_count = len(written)
     snapshot.fetched_at = now
+    if result.unchanged:
+        logger.info(
+            "event=airtable_rfm_person_repeated_cases entries=%d repeated_rows=%d",
+            len(written),
+            result.unchanged,
+        )
     snapshot.content_hash = _rfm_content_hash(records)
     _drop_vanished(session, existing, written)
     session.commit()
@@ -278,6 +310,47 @@ def _drop_vanished(
     session.execute(
         delete(RosfinmonitoringEntryRecord).where(RosfinmonitoringEntryRecord.id.in_(stale))
     )
+
+
+def _listed_records(records: Sequence[AirtableRecord]) -> list[AirtableRecord]:
+    """The records that name someone in the list, one per person.
+
+    A list exported from a base that tracks cases per person carries the same person
+    several times, and a person whose birth date is filled in one case and left blank in
+    another arrives as two entries under one name — the second, dateless one, is exactly
+    the row that cannot tell a person from their namesake. Where a name appears both
+    with a date and without, only the dated row is kept.
+
+    A name that is *only* ever dateless is kept as it stands: dropping it would lose a
+    person from the list altogether, which is worse than a weak entry.
+    """
+    names: set[str] = set()
+    dated: set[str] = set()
+    for record in records:
+        if not record.flag(*_ACTIVE_FIELDS, default=True):
+            continue
+        name = record.text(*_NAME_FIELDS)
+        if not name:
+            continue
+        names.add(name)
+        if _parse_date(record.text(*_BIRTH_DATE_FIELDS)) is not None:
+            dated.add(name)
+    kept: list[AirtableRecord] = []
+    folded = 0
+    for record in records:
+        if not record.flag(*_ACTIVE_FIELDS, default=True):
+            continue
+        name = record.text(*_NAME_FIELDS)
+        if not name:
+            kept.append(record)
+            continue
+        if name in dated and _parse_date(record.text(*_BIRTH_DATE_FIELDS)) is None:
+            folded += 1
+            continue
+        kept.append(record)
+    if folded:
+        logger.info("event=airtable_rfm_person_undated_folded count=%d", folded)
+    return kept
 
 
 def _base_url_key(url: str) -> str:

@@ -19,6 +19,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import logging
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,10 +42,50 @@ FILE_STEM = dict(zip(TABLES, TABLES, strict=True))
 # name and coerced; any other column is left as written, so a "0" in a numeric column
 # never turns into False.
 _BOOLEAN_COLUMNS = frozenset(
-    {"active", "enabled", "активен", "активна", "активно", "включён", "включена", "работает"}
+    {
+        "active",
+        "enabled",
+        "активен",
+        "активна",
+        "активно",
+        "включён",
+        "включена",
+        "работает",
+        # Airtable's own column for the membership flag, in the base it was curated in.
+        "✦росфинмониторинг",
+        "росфинмониторинг",
+        "✦активен",
+    }
 )
-_TRUE = frozenset({"true", "1", "yes", "y", "да", "истина", "x", "+", "вкл"})
-_FALSE = frozenset({"false", "0", "no", "n", "нет", "ложь", "-", "выкл", ""})
+_TRUE = frozenset({"true", "1", "yes", "y", "да", "истина", "x", "+", "вкл", "☑", "✓"})
+_FALSE = frozenset({"false", "0", "no", "n", "нет", "ложь", "-", "выкл", "", "☐", "—"})
+
+# Columns whose text is a date. Airtable writes dates in the locale of the view, so an
+# export from an English view is "July 12, 1980" or "12 July 1980" — neither of which
+# the pipeline's own date parser reads. Left alone, every birth date would arrive as
+# NULL and namesakes would become indistinguishable.
+_DATE_COLUMNS = frozenset(
+    {
+        "birth_date",
+        "birth date",
+        "дата рождения",
+        "дата включения в список рфм",
+        "дата исключения из списка рфм",
+        "inclusion_date",
+        "дата рождения преследуемого",
+    }
+)
+_MONTHS = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+    "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
+    "июля": 7, "августа": 8, "сентября": 9, "октября": 10, "ноября": 11, "декабря": 12,
+}  # fmt: skip
+# "July 12, 1980" and "12 July 1980": the two orders Airtable's export uses.
+_ENGLISH_DATE = re.compile(r"^(?P<month>[A-Za-zа-яё]+)\.?\s+(?P<day>\d{1,2}),?\s+(?P<year>\d{4})$")
+_DAY_FIRST = re.compile(r"^(?P<day>\d{1,2})\.?\s+(?P<month>[A-Za-zа-яё]+),?\s+(?P<year>\d{4})$")
+_ISO_LIKE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
 
 # The column that identifies a person, per list. It makes the synthesized id stable, so
 # a second import of the same file reports every row as unchanged.
@@ -127,19 +168,52 @@ class FileTableClient:
             if not name:
                 continue
             text = (value or "").strip()
-            fields[name] = _as_boolean(name, text) if name.lower() in _BOOLEAN_COLUMNS else text
+            if name.lower() in _BOOLEAN_COLUMNS:
+                fields[name] = _as_boolean(name, text)
+            elif name.lower() in _DATE_COLUMNS:
+                fields[name] = _as_date(text)
+            else:
+                fields[name] = text
         return AirtableRecord(id=_synthetic_id(table, fields), fields=fields)
 
 
 def _as_boolean(name: str, text: str) -> bool:
-    """A checkbox column's value read by name. Anything unrecognized is False, which is
-    the safe direction: a person is not silently treated as active."""
-    if text.lower() in _TRUE:
-        return True
-    if text.lower() in _FALSE:
-        return False
+    """A checkbox column's value read by name.
+
+    Airtable writes a checkbox as `1` / `0`, and in some exports as
+    `1 checked out of 1`. Anything unrecognized is False, which is the safe direction: a
+    person is not silently treated as active.
+    """
+    lowered = text.lower()
+    if lowered in _TRUE or lowered in _FALSE:
+        return lowered in _TRUE
+    checked = re.match(r"^(\d+)\s+checked out of\s+\d+$", lowered)
+    if checked:
+        return checked.group(1) != "0"
     logger.warning("event=airtable_import_bad_checkbox column=%s value=%s", name, text)
     return False
+
+
+def _as_date(text: str) -> str:
+    """A date column, rewritten into `YYYY-MM-DD` only when it is in a form the pipeline
+    does not already read.
+
+    Airtable writes dates in the locale of its view, so an export from an English one is
+    `July 12, 1980` or `12 July 1980` — neither of which the pipeline's own parser
+    understands. Everything else is passed through untouched: the parser already reads
+    `ДД.ММ.ГГГГ` and `ГГГГ-ММ-ДД`, and guessing at the rest would be worse than leaving
+    a value the parser will simply refuse.
+    """
+    if not text or _ISO_LIKE.match(text):
+        return text
+    for pattern in (_ENGLISH_DATE, _DAY_FIRST):
+        if not (found := pattern.match(text)):
+            continue
+        month = _MONTHS.get(found.group("month").lower().replace("ё", "е"))
+        if month is None:
+            break
+        return f"{found.group('year')}-{month:02d}-{int(found.group('day')):02d}"
+    return text
 
 
 def _synthetic_id(table: str, fields: Mapping[str, object]) -> str:

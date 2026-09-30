@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.airtable_fakes import fake_source
 from support.db_fixtures import DatabaseSeeder
@@ -286,9 +286,15 @@ class TestRosfinmonitoringSnapshot:
         with session_factory() as session:
             assert len(list(session.scalars(select(RosfinmonitoringSnapshotRecord)))) == 1
 
-    def test_a_changed_entry_is_updated_and_the_snapshot_kept(
+    def test_an_entry_the_operator_unlisted_is_gone_from_the_list(
         self, session_factory: sessionmaker[Session]
     ) -> None:
+        """Unticking a name means the person is not in the list, so the entry goes.
+
+        It is not written as `removed` instead: the matcher has no notion of "was in the
+        list and left", so such a row would keep matching and go on counting as in the
+        перечень — the exact thing unticking is meant to prevent.
+        """
         airtable = FakeAirtable({"RFM": [_person("recR1", "Иванов Иван Иванович")]})
         service = _service(session_factory, airtable)
         service.sync()
@@ -296,13 +302,35 @@ class TestRosfinmonitoringSnapshot:
         airtable.tables["RFM"] = [
             _person("recR1", "Иванов Иван Иванович", active=False, reason="исключён")
         ]
+        service.sync()
+        with session_factory() as session:
+            assert list(session.scalars(select(RosfinmonitoringEntryRecord))) == []
+            # The snapshot itself is kept, so the run stays comparable with the last one.
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(RosfinmonitoringSnapshotRecord)
+                    .where(RosfinmonitoringSnapshotRecord.source_url == RFM_SOURCE_URL)
+                )
+                == 1
+            )
+
+    def test_a_changed_entry_is_updated_in_place(
+        self, session_factory: sessionmaker[Session]
+    ) -> None:
+        airtable = FakeAirtable({"RFM": [_person("recR1", "Иванов Иван Иванович")]})
+        service = _service(session_factory, airtable)
+        service.sync()
+        with session_factory() as session:
+            entry_id = session.scalar(select(RosfinmonitoringEntryRecord.id))
+
+        airtable.tables["RFM"] = [_person("recR1", "Иванов Иван Иванович", reason="проверен")]
         result = service.sync().tables["rfm_persons"]
         assert result.updated == 1
         with session_factory() as session:
-            entry = session.scalar(select(RosfinmonitoringEntryRecord))
-            assert entry is not None
-            assert entry.status == "removed"
-            assert entry.inclusion_reason == "исключён"
+            entry = session.get_one(RosfinmonitoringEntryRecord, entry_id)
+            assert entry.inclusion_reason == "проверен"
+            assert entry.status == "active"
 
     def test_duplicate_records_for_one_person_do_not_break_the_sync(
         self, session_factory: sessionmaker[Session]

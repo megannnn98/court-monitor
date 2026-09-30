@@ -91,6 +91,60 @@ class TestReading:
         record = FileTableClient(ImportSettings(tmp_path)).list_records("known_persons")[0]
         assert record.text("ФИО") == "Иван Иванов"
 
+    # Airtable writes dates in the locale of the view. Left unread, every birth date
+    # arrives as NULL and namesakes become indistinguishable — silently.
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("July 12, 1980", "1980-07-12"),
+            ("December 1, 1975", "1975-12-01"),
+            ("1 July 1980", "1980-07-01"),
+            ("12 июля 1980", "1980-07-12"),
+            ("12.07.1980", "12.07.1980"),
+            ("1980-07-12", "1980-07-12"),
+            ("12/07/1980", "12/07/1980"),  # the pipeline reads these itself
+        ],
+    )
+    def test_airtable_date_formats_become_iso(
+        self, tmp_path: Path, value: str, expected: str
+    ) -> None:
+        _write(tmp_path, "rfm_persons", f'ФИО,Дата рождения\nИван Иванов,"{value}"\n')
+        record = FileTableClient(ImportSettings(tmp_path)).list_records("rfm_persons")[0]
+        assert record.text("Дата рождения") == expected
+
+    @pytest.mark.parametrize("value", ["июнь 1980", "unknown", "12.1980", "????"])
+    def test_a_date_the_reader_cannot_read_is_left_to_the_parser(
+        self, tmp_path: Path, value: str
+    ) -> None:
+        """Not rewritten, not guessed: the pipeline's parser decides, and it refuses."""
+        _write(tmp_path, "rfm_persons", f'ФИО,Дата рождения\nИван Иванов,"{value}"\n')
+        record = FileTableClient(ImportSettings(tmp_path)).list_records("rfm_persons")[0]
+        assert record.text("Дата рождения") == value
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("1 checked out of 1", True),
+            ("0 checked out of 1", False),
+            ("1 checked out of 2", True),
+            ("0 checked out of 2", False),
+        ],
+    )
+    def test_airtable_checkbox_spelling(self, tmp_path: Path, value: str, expected: bool) -> None:
+        """How Airtable's export actually writes a checkbox."""
+        _write(tmp_path, "known_persons", f"ФИО,Активен\nИван Иванов,{value}\n")
+        record = FileTableClient(ImportSettings(tmp_path)).list_records("known_persons")[0]
+        assert record.flag("Активен") is expected
+
+    def test_airtable_own_membership_column_is_a_checkbox(self, tmp_path: Path) -> None:
+        _write(
+            tmp_path,
+            "rfm_persons",
+            "Преследуемый,\u2726Росфинмониторинг\nИванов И. И.,1 checked out of 1\n",
+        )
+        record = FileTableClient(ImportSettings(tmp_path)).list_records("rfm_persons")[0]
+        assert record.flag("\u2726Росфинмониторинг") is True
+
     def test_the_synthesized_id_is_stable_across_reads(self, tmp_path: Path) -> None:
         _write(tmp_path, "known_persons", "ФИО\nИван Иванов\n")
         client = FileTableClient(ImportSettings(tmp_path))
@@ -221,6 +275,62 @@ class TestSync:
     def test_every_list_has_a_file_name(self) -> None:
         for name in TABLES:
             assert FileTableClient(ImportSettings(Path("."))).path_for(name).name == (f"{name}.csv")
+
+
+class TestRosfinmonitoringMembership:
+    """A cases file is one row per case, and the list is the rows someone ticked."""
+
+    def test_a_row_without_the_tick_is_not_in_the_list(
+        self, session_factory: sessionmaker[Session], tmp_path: Path
+    ) -> None:
+        _write(
+            tmp_path,
+            "rfm_persons",
+            "Преследуемый,Дата рождения,✦Росфинмониторинг\n"
+            "Иванов Иван Иванович,01.02.1970,1 checked out of 1\n"
+            "Петров Пётр Петрович,03.04.1980,0 checked out of 1\n",
+        )
+        result = _service(session_factory, tmp_path).sync().tables["rfm_persons"]
+        with session_factory() as session:
+            names = {row.full_name for row in session.scalars(select(RosfinmonitoringEntryRecord))}
+        # Not written as `removed` either: the matcher cannot tell that from being in
+        # the list, so Петров would go on counting as in the перечень.
+        assert names == {"Иванов Иван Иванович"}
+        assert result.created == 1
+
+    def test_several_cases_of_one_person_become_one_entry(
+        self, session_factory: sessionmaker[Session], tmp_path: Path
+    ) -> None:
+        _write(
+            tmp_path,
+            "rfm_persons",
+            "Кейс,Преследуемый,Дата рождения,✦Росфинмониторинг\n"
+            "1,Иванов Иван Иванович,01.02.1970,1 checked out of 1\n"
+            "2,Иванов Иван Иванович,01.02.1970,1 checked out of 1\n"
+            "3,Иванов Иван Иванович,,1 checked out of 1\n",
+        )
+        _service(session_factory, tmp_path).sync()
+        with session_factory() as session:
+            entries = list(session.scalars(select(RosfinmonitoringEntryRecord)))
+        # Three cases, one person: the list of names, not of cases.
+        assert len(entries) == 1
+        assert entries[0].birth_date is not None
+
+    def test_an_airtable_date_survives_into_the_snapshot(
+        self, session_factory: sessionmaker[Session], tmp_path: Path
+    ) -> None:
+        _write(
+            tmp_path,
+            "rfm_persons",
+            "Преследуемый,Дата рождения,✦Росфинмониторинг\n"
+            '"Иванов Иван Иванович","February 1, 1970",1 checked out of 1\n',
+        )
+        _service(session_factory, tmp_path).sync()
+        with session_factory() as session:
+            entry = session.scalar(select(RosfinmonitoringEntryRecord))
+        assert entry is not None
+        assert entry.birth_date is not None
+        assert entry.birth_date.year == 1970 and entry.birth_date.month == 2
 
 
 class TestSourcesFromFiles:

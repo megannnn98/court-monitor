@@ -117,6 +117,13 @@ class LatestRosfinMatchResponse(BaseModel):
     matched_entry_id: int | None
     matched_entry_name: str | None
     reasons: list[str]
+    # What may be said about the person and since when, as data: `rfm_since` is the
+    # list's own date of inclusion only when `rfm_status` is «confirmed»; under
+    # «probable» it is the first date we ourselves saw the person in a downloaded list.
+    rfm_status: str
+    rfm_since: str | None
+    rfm_first_seen_at: str | None
+    rfm_last_seen_at: str | None
 
 
 class PersonDetailResponse(BaseModel):
