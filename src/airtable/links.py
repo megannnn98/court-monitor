@@ -35,7 +35,6 @@ logger = logging.getLogger("airtable")
 # fourteen thousand updates for a list nobody had touched.
 IDENTITY_FIELDS = {
     "sources": ("Ссылка", "Ссылка на источник", "base_url", "url", "URL"),
-    "rfm_persons": ("Преследуемый", "ФИО", "Дата рождения", "full_name", "birth_date"),
     "known_persons": ("Преследуемый", "ФИО", "Дата рождения", "full_name", "birth_date"),
     "articles": ("Полная статья", "Статья", "article", "full_article"),
     "officials": ("ФИО", "full_name"),
@@ -43,24 +42,26 @@ IDENTITY_FIELDS = {
 
 SHARE_URL_ENV = {
     "sources": "AIRTABLE_SHARE_URL_SOURCES",
-    "rfm_persons": "AIRTABLE_SHARE_URL_RFM",
     "known_persons": "AIRTABLE_SHARE_URL_KNOWN",
     "officials": "AIRTABLE_SHARE_URL_OFFICIALS",
     "articles": "AIRTABLE_SHARE_URL_ARTICLES",
 }
 
 
-def share_links(env: Mapping[str, str] | None = None) -> dict[str, str]:
-    """The public link of each list that has one, by list name.
+# The list of people we already have on file used to be called the Rosfinmonitoring list
+# and read from `AIRTABLE_SHARE_URL_RFM`. It is not that list: the Rosfinmonitoring list is
+# published by fedsfm.ru and is the only thing that may say a person is on it. The name is
+# still accepted so that an environment already filled in keeps working.
+LEGACY_SHARE_URL = "AIRTABLE_SHARE_URL_RFM"
 
-    «Найденные люди» and «Росфинмониторинг» are the same 13 765 people read from one
-    link, so a known link falls back to the Rosfinmonitoring one unless it has its own.
-    """
+
+def share_links(env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """The public link of each list that has one, by list name."""
     env = os.environ if env is None else env
     found = {name: (env.get(var) or "").strip() for name, var in SHARE_URL_ENV.items()}
-    fallback = found.get("rfm_persons", "")
-    if not found.get("known_persons"):
-        found["known_persons"] = fallback
+    legacy = (env.get(LEGACY_SHARE_URL) or "").strip()
+    if legacy and not found.get("known_persons"):
+        found["known_persons"] = legacy
     return {name: link for name, link in found.items() if link}
 
 
@@ -74,6 +75,15 @@ class ShareTableClient:
     def __init__(self, links: Mapping[str, str], *, session: object | None = None) -> None:
         self._links = dict(links)
         self._session = session
+
+    #: The lists this source is a copy of, and may therefore replace whole. A list the
+    #: operator keeps by hand is not a copy of anything, and a row they wrote is not a row
+    #: an export can revoke.
+    REPLACES_WHOLE = frozenset({"known_persons", "articles"})
+
+    def replaces_whole(self, table: str) -> bool:
+        """Whether a list read from this source is a copy that may be replaced whole."""
+        return table in self.REPLACES_WHOLE
 
     @property
     def links(self) -> dict[str, str]:

@@ -7,14 +7,13 @@ from contextlib import contextmanager
 from typing import Any
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.airtable_fakes import fake_source
 from support.db_fixtures import DatabaseSeeder
 
 from airtable.client import AirtableError, AirtableRecord
 from airtable.models import MODE_SHARE, TABLES, TableStatus
-from airtable.repository import RFM_SOURCE_URL
 from airtable.service import (
     AirtableSyncAlreadyRunningError,
     AirtableSyncService,
@@ -24,8 +23,6 @@ from airtable.service import (
 from db.orm_models import (
     AirtableKnownPersonRecord,
     ExcludedPersonRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
     Source,
 )
 
@@ -33,7 +30,6 @@ _ENV = {
     "AIRTABLE_TOKEN": "secret-token",
     "AIRTABLE_BASE_ID": "appTest",
     "AIRTABLE_SOURCES_TABLE": "Sources",
-    "AIRTABLE_RFM_PERSONS_TABLE": "RFM",
     "AIRTABLE_KNOWN_PERSONS_TABLE": "Known",
     "AIRTABLE_OFFICIALS_TABLE": "Excluded",
 }
@@ -93,10 +89,10 @@ class TestSuccessfulSync:
         for result in report.tables.values():
             assert (result.created, result.updated, result.unchanged) == (0, 0, 0)
 
-    def test_all_five_tables_are_read(self, session_factory: sessionmaker[Session]) -> None:
+    def test_all_four_tables_are_read(self, session_factory: sessionmaker[Session]) -> None:
         airtable = FakeAirtable({})
         _service(session_factory, airtable).sync()
-        assert airtable.requested == ["Sources", "RFM", "Known", "Excluded", "Articles"]
+        assert airtable.requested == ["Sources", "Known", "Excluded", "Articles"]
 
     def test_a_person_is_created_once_and_then_stays_unchanged(
         self, session_factory: sessionmaker[Session]
@@ -251,152 +247,13 @@ class TestSources:
             assert session.scalar(select(Source.external_id)) == "rec1"
 
 
-class TestRosfinmonitoringSnapshot:
-    def test_entries_land_in_a_snapshot_of_our_own(
-        self, session_factory: sessionmaker[Session]
-    ) -> None:
-        airtable = FakeAirtable(
-            {
-                "RFM": [
-                    _person("recR1", "Иванов Иван Иванович", birth_date="01.02.1970"),
-                    _person("recR2", "Петров Пётр Петрович", birth_date="03.04.1980"),
-                ]
-            }
-        )
-        result = _service(session_factory, airtable).sync().tables["rfm_persons"]
-        assert result.created == 2
-        with session_factory() as session:
-            snapshot = session.scalar(select(RosfinmonitoringSnapshotRecord))
-            assert snapshot is not None
-            assert snapshot.source_url == RFM_SOURCE_URL
-            assert snapshot.entry_count == 2
-            entries = list(session.scalars(select(RosfinmonitoringEntryRecord)))
-        # Folded as the matcher expects, so the list is usable as it stands.
-        assert entries[0].normalized_name == "иванов иван иванович"
-        assert entries[0].matching_key == "ивановиваниванович"
-        assert entries[0].raw_data == {"airtable_record_id": "recR1"}
-
-    def test_a_second_sync_over_an_unchanged_list_writes_nothing(
-        self, session_factory: sessionmaker[Session]
-    ) -> None:
-        airtable = FakeAirtable({"RFM": [_person("recR1", "Иванов Иван Иванович")]})
-        service = _service(session_factory, airtable)
-        service.sync()
-        result = service.sync().tables["rfm_persons"]
-        assert (result.created, result.updated, result.unchanged) == (0, 0, 1)
-        with session_factory() as session:
-            assert len(list(session.scalars(select(RosfinmonitoringSnapshotRecord)))) == 1
-
-    def test_an_entry_the_operator_unlisted_is_gone_from_the_list(
-        self, session_factory: sessionmaker[Session]
-    ) -> None:
-        """Unticking a name means the person is not in the list, so the entry goes.
-
-        It is not written as `removed` instead: the matcher has no notion of "was in the
-        list and left", so such a row would keep matching and go on counting as in the
-        перечень — the exact thing unticking is meant to prevent.
-        """
-        airtable = FakeAirtable({"RFM": [_person("recR1", "Иванов Иван Иванович")]})
-        service = _service(session_factory, airtable)
-        service.sync()
-
-        airtable.tables["RFM"] = [
-            _person("recR1", "Иванов Иван Иванович", active=False, reason="исключён")
-        ]
-        service.sync()
-        with session_factory() as session:
-            assert list(session.scalars(select(RosfinmonitoringEntryRecord))) == []
-            # The snapshot itself is kept, so the run stays comparable with the last one.
-            assert (
-                session.scalar(
-                    select(func.count())
-                    .select_from(RosfinmonitoringSnapshotRecord)
-                    .where(RosfinmonitoringSnapshotRecord.source_url == RFM_SOURCE_URL)
-                )
-                == 1
-            )
-
-    def test_a_changed_entry_is_updated_in_place(
-        self, session_factory: sessionmaker[Session]
-    ) -> None:
-        airtable = FakeAirtable({"RFM": [_person("recR1", "Иванов Иван Иванович")]})
-        service = _service(session_factory, airtable)
-        service.sync()
-        with session_factory() as session:
-            entry_id = session.scalar(select(RosfinmonitoringEntryRecord.id))
-
-        airtable.tables["RFM"] = [_person("recR1", "Иванов Иван Иванович", reason="проверен")]
-        result = service.sync().tables["rfm_persons"]
-        assert result.updated == 1
-        with session_factory() as session:
-            entry = session.get_one(RosfinmonitoringEntryRecord, entry_id)
-            assert entry.inclusion_reason == "проверен"
-            assert entry.status == "active"
-
-    def test_duplicate_records_for_one_person_do_not_break_the_sync(
-        self, session_factory: sessionmaker[Session]
-    ) -> None:
-        airtable = FakeAirtable(
-            {
-                "RFM": [
-                    _person("recR1", "Иванов Иван Иванович", birth_date="01.02.1970"),
-                    _person("recR2", "Иванов Иван Иванович", birth_date="01.02.1970"),
-                ]
-            }
-        )
-        result = _service(session_factory, airtable).sync().tables["rfm_persons"]
-        assert result.created == 1
-        assert len(_rows(session_factory, RosfinmonitoringEntryRecord)) == 1
-
-    def test_the_list_is_not_mixed_with_the_downloaded_one(
-        self, session_factory: sessionmaker[Session]
-    ) -> None:
-        with session_factory.begin() as session:
-            seed = DatabaseSeeder(session)
-            snapshot_id = seed.snapshot(content_hash="downloaded")
-            seed.entry(snapshot_id, "Скачанный Человек")
-
-        airtable = FakeAirtable({"RFM": [_person("recR1", "Иванов Иван Иванович")]})
-        _service(session_factory, airtable).sync()
-
-        with session_factory() as session:
-            ours = session.scalar(
-                select(RosfinmonitoringSnapshotRecord).where(
-                    RosfinmonitoringSnapshotRecord.source_url == RFM_SOURCE_URL
-                )
-            )
-            # A snapshot of its own: the downloaded list keeps its own entries, and
-            # the one from Airtable is written beside it rather than over it.
-            assert ours is not None
-            assert ours.content_hash != "downloaded"
-            downloaded = {
-                row.full_name
-                for row in session.scalars(
-                    select(RosfinmonitoringEntryRecord).where(
-                        RosfinmonitoringEntryRecord.snapshot_id != ours.id
-                    )
-                )
-            }
-            from_airtable = {
-                row.full_name
-                for row in session.scalars(
-                    select(RosfinmonitoringEntryRecord).where(
-                        RosfinmonitoringEntryRecord.snapshot_id == ours.id
-                    )
-                )
-            }
-        assert downloaded == {"Скачанный Человек"}
-        assert from_airtable == {"Иванов Иван Иванович"}
-
-
 class TestPartialFailure:
-    def test_one_failing_table_does_not_hide_the_other_three(
+    def test_one_failing_table_does_not_hide_the_others(
         self, session_factory: sessionmaker[Session]
     ) -> None:
         airtable = FakeAirtable(
             {
                 "Sources": AirtableError("Airtable answered 403 for table 'Sources'"),
-                "RFM": [_person("recR1", "Иванов Иван Иванович")],
                 "Known": [_person("recK1", "Иван Иванов")],
                 "Excluded": [_person("recE1", "Ольга Минакова")],
             }
@@ -406,7 +263,7 @@ class TestPartialFailure:
         assert report.status == "partial"
         assert report.tables["sources"].status == TableStatus.ERROR
         assert "Sources" in (report.tables["sources"].error or "")
-        for table in ("rfm_persons", "known_persons", "officials"):
+        for table in ("known_persons", "officials"):
             assert report.tables[table].status == TableStatus.SUCCESS
             assert report.tables[table].created == 1
 

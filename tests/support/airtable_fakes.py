@@ -23,7 +23,6 @@ CONFIGURED_ENV = {
     "AIRTABLE_TOKEN": "secret-token",
     "AIRTABLE_BASE_ID": "appTest",
     "AIRTABLE_SOURCES_TABLE": "Sources",
-    "AIRTABLE_RFM_PERSONS_TABLE": "RFM",
     "AIRTABLE_KNOWN_PERSONS_TABLE": "Known",
     "AIRTABLE_OFFICIALS_TABLE": "Excluded",
     "AIRTABLE_ARTICLES_TABLE": "Articles",
@@ -67,7 +66,6 @@ def configure_airtable(env: dict[str, str] | None = None) -> Iterator[None]:
 # here addresses them the way production does, so a fake keyed on "Known" still answers.
 FAKE_TABLES = {
     "sources": CONFIGURED_ENV["AIRTABLE_SOURCES_TABLE"],
-    "rfm_persons": CONFIGURED_ENV["AIRTABLE_RFM_PERSONS_TABLE"],
     "known_persons": CONFIGURED_ENV["AIRTABLE_KNOWN_PERSONS_TABLE"],
     "officials": CONFIGURED_ENV["AIRTABLE_OFFICIALS_TABLE"],
     "articles": CONFIGURED_ENV["AIRTABLE_ARTICLES_TABLE"],

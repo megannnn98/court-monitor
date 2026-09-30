@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from airtable.client import AirtableError, AirtableRecord
+from airtable.replace import download_looks_complete
 
 logger = logging.getLogger("airtable")
 
@@ -205,6 +206,7 @@ def read_records(
     if response.status_code != 200:
         raise AirtableError(f"выгрузка вернула {response.status_code}")
     content_type = response.headers.get("content-type", "")
+    download_looks_complete(response.content, _content_length(response))
     if "csv" not in content_type:
         # The request fell through to the application's own page. Raising here is the
         # whole point: read as "no rows" it would silently empty a list.
@@ -213,6 +215,15 @@ def read_records(
             f"применилось (тип {content_type or 'неизвестен'})"
         )
     return _records_from_csv(response.content, table=table, identity=identity)
+
+
+def _content_length(response: Any) -> int | None:
+    """What the server said it was sending, if it said."""
+    raw = response.headers.get("content-length")
+    try:
+        return int(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _records_from_csv(

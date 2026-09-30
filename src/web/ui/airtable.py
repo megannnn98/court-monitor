@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from airtable.config import AirtableConfigurationError
 from airtable.files import FileTableClient, ImportSettings
 from airtable.models import MODE_API, MODE_FILES, MODE_SHARE, TABLE_LABELS, TABLES
-from airtable.repository import RFM_SOURCE_URL
 from airtable.service import (
     AirtableSyncAlreadyRunningError,
     build_sync_service,
@@ -34,8 +33,6 @@ from db.orm_models import (
     AirtableKnownPersonRecord,
     CriminalArticleRecord,
     ExcludedPersonRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
     Source,
 )
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -76,7 +73,6 @@ def _inventory(db: Session) -> list[tuple[str, str, int]]:
     """(list, label, rows in PostgreSQL) for the four lists."""
     return [
         ("sources", TABLE_LABELS["sources"], _row_count(db, Source, Source.active.is_(True))),
-        ("rfm_persons", TABLE_LABELS["rfm_persons"], _rfm_count(db)),
         (
             "known_persons",
             TABLE_LABELS["known_persons"],
@@ -93,25 +89,6 @@ def _inventory(db: Session) -> list[tuple[str, str, int]]:
             _row_count(db, CriminalArticleRecord, CriminalArticleRecord.active.is_(True)),
         ),
     ]
-
-
-def _rfm_count(db: Session) -> int:
-    """The entries of our own Airtable-sourced snapshot."""
-    snapshot_id = db.scalar(
-        select(RosfinmonitoringSnapshotRecord.id)
-        .where(RosfinmonitoringSnapshotRecord.source_url == RFM_SOURCE_URL)
-        .limit(1)
-    )
-    if snapshot_id is None:
-        return 0
-    return int(
-        db.scalar(
-            select(func.count())
-            .select_from(RosfinmonitoringEntryRecord)
-            .where(RosfinmonitoringEntryRecord.snapshot_id == snapshot_id)
-        )
-        or 0
-    )
 
 
 def _official_html(db: Session) -> str:
@@ -184,7 +161,7 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
   <div id="sync-result"></div>
 </section>
 <section class="band" aria-labelledby="official-title">
-  <h2 id="official-title">Перечень Росфинмониторинга</h2>
+  <h2 id="official-title">Официальный перечень РФМ (fedsfm.ru)</h2>
   {official_html}
   <p class="muted">Обычно список скачивается сам на шаге 5. Когда сайт недоступен,
   сохраните страницу перечня и загрузите файл здесь — он станет новым снимком.
@@ -213,9 +190,10 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
         body,
         active="airtable",
         instruction=(
-            "Источники, перечень Росфинмониторинга, найденные люди и список исключений "
-            "ведутся в Airtable. Кнопка переносит их в PostgreSQL; дальше система работает "
-            "только с базой. Официальный перечень РФМ — отдельный раздел ниже."
+            "Источники, найденные люди, должностные лица и статьи ведутся в Airtable. "
+            "Кнопка переносит их в PostgreSQL; дальше система работает только с базой. "
+            "Официальный перечень Росфинмониторинга — отдельный раздел ниже: он "
+            "публикуется на fedsfm.ru и ни с чем из Airtable не смешивается."
         ),
         db=db,
     )

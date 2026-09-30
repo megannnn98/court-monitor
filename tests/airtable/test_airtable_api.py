@@ -58,7 +58,6 @@ class TestEndpoint:
             "articles",
             "known_persons",
             "officials",
-            "rfm_persons",
             "sources",
         ]
         assert body["tables"]["known_persons"] == {
@@ -181,14 +180,12 @@ class TestPage:
         assert config["url"] == SYNC_URL
         assert list(config["labels"].values()) == [
             "Источники",
-            "Росфинмониторинг",
             "Найденные люди",
             "Должностные лица",
             "Статьи",
         ]
         assert config["order"] == [
             "sources",
-            "rfm_persons",
             "known_persons",
             "officials",
             "articles",

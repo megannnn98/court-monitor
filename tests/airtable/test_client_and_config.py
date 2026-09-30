@@ -18,7 +18,6 @@ _ENV = {
     "AIRTABLE_TOKEN": "secret-token",
     "AIRTABLE_BASE_ID": "appTest",
     "AIRTABLE_SOURCES_TABLE": "Sources",
-    "AIRTABLE_RFM_PERSONS_TABLE": "RFM",
     "AIRTABLE_KNOWN_PERSONS_TABLE": "Known",
     "AIRTABLE_OFFICIALS_TABLE": "Excluded",
 }

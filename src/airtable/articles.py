@@ -17,11 +17,12 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
+from airtable.replace import drop_vanished, removal_is_safe
 from airtable.repository import _same, _write
 from db.orm_models import CriminalArticleRecord
 
@@ -65,8 +66,18 @@ def article_key(text: str) -> str:
     return ".".join(digits[:2])
 
 
-def sync_articles(session: Session, records: Sequence[AirtableRecord]) -> TableSyncResult:
-    """Upsert the articles worth watching, keyed by the Airtable record id."""
+def sync_articles(
+    session: Session,
+    records: Sequence[AirtableRecord],
+    *,
+    replace: bool = False,
+) -> TableSyncResult:
+    """Upsert the articles worth watching, and — read from an Airtable view — replace it whole.
+
+    An article the operator struck out of the view has to leave the copy as well, or the
+    list of what to watch for only ever grows. Same guard and same transaction as the
+    people list; see `airtable.replace`.
+    """
     result = TableSyncResult(received=len(records))
     existing = {
         str(row.external_id): row
@@ -105,5 +116,20 @@ def sync_articles(session: Session, records: Sequence[AirtableRecord]) -> TableS
         else:
             _write(row, values)
             result.updated += 1
+    if replace:
+        keep = {
+            record.id
+            for record in records
+            if record.text(*_NAME_FIELDS) and article_key(record.text(*_NAME_FIELDS))
+        }
+        previous = int(session.scalar(select(func.count()).select_from(CriminalArticleRecord)) or 0)
+        safe, reason = removal_is_safe(len(keep), previous)
+        if safe:
+            result.removed = drop_vanished(session, CriminalArticleRecord, keep)
+        else:
+            logger.warning(
+                "event=airtable_replace_refused table=criminal_articles reason=%s", reason
+            )
+            result.removed_blocked = reason
     session.commit()
     return result

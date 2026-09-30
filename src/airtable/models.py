@@ -6,11 +6,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 # The four tables, in the order the operator reads them.
-TABLES = ("sources", "rfm_persons", "known_persons", "officials", "articles")
+TABLES = ("sources", "known_persons", "officials", "articles")
 
 TABLE_LABELS = {
     "sources": "Источники",
-    "rfm_persons": "Росфинмониторинг",
     "known_persons": "Найденные люди",
     "officials": "Должностные лица",
     "articles": "Статьи",
@@ -44,6 +43,13 @@ class TableSyncResult:
     errors: int = 0
     # Airtable records read, however many of them were written.
     received: int = 0
+    # Rows of this list that the export no longer holds, removed — the list is a copy of
+    # an Airtable view, and a view that lost a row means the copy has too.
+    removed: int = 0
+    # Why nothing was removed, when a list that is a copy was read and still left alone:
+    # a download too short to be believed. Empty when the removal went ahead or was not
+    # in question.
+    removed_blocked: str | None = None
     status: str = TableStatus.SUCCESS
     error: str | None = None
 

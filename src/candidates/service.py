@@ -22,8 +22,6 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
 )
 from persecution.queries import latest_persecution_classification_ids
-from rosfinmonitoring.models import AIRTABLE_SNAPSHOT_SOURCE_URL
-from rosfinmonitoring.probable import probable_person_ids
 
 # A person only counts as "absent from Rosfinmonitoring" when a match was
 # actually run and came back NOT_MATCHED. NO_MATCH_RECORD (never checked),
@@ -104,16 +102,6 @@ class CandidateQueryService:
         snapshot = session.get(RosfinmonitoringSnapshotRecord, snapshot_id)
         if snapshot is None:
             raise ValueError(f"Rosfinmonitoring snapshot {snapshot_id} not found")
-        if snapshot.source_url == AIRTABLE_SNAPSHOT_SOURCE_URL:
-            # A snapshot of an operator's own list has no official `not_matched` rows,
-            # so judging a person against it would report a confirmed absence that the
-            # state never published. The Airtable list only ever contributes probable
-            # matches (`rosfinmonitoring.probable`), and those are folded in below.
-            raise ValueError(
-                f"Rosfinmonitoring snapshot {snapshot_id} is the Airtable list, not the "
-                "published перечень: it cannot answer who is absent from it"
-            )
-
         # Get all persons with political persecution classification
         persecution_query = (
             select(
@@ -159,20 +147,6 @@ class CandidateQueryService:
             else {}
         )
 
-        # Names the Airtable-sourced list has that the published one does not. Read
-        # only to soften an official `not_matched` into `matched_probable`.
-        airtable_snapshot_id = session.scalar(
-            select(RosfinmonitoringSnapshotRecord.id)
-            .where(RosfinmonitoringSnapshotRecord.source_url == AIRTABLE_SNAPSHOT_SOURCE_URL)
-            .order_by(RosfinmonitoringSnapshotRecord.id.desc())
-            .limit(1)
-        )
-        probable = (
-            probable_person_ids(session, airtable_snapshot_id, person_ids)
-            if airtable_snapshot_id is not None and person_ids
-            else set()
-        )
-
         included = []
         for row in persecution_results:
             match = matches.get(row.person_id)
@@ -180,13 +154,6 @@ class CandidateQueryService:
             # that is NOT a confirmed absence, so it is excluded by default just
             # like AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA.
             rf_status = resolve_rosfinmonitoring_status(None if match is None else match[0])
-            # The published list says the name is absent, but the operator's Airtable
-            # list has it. That is a probability, not a confirmation, and it is the one
-            # case where the official verdict must be reported more carefully rather
-            # than less: a person who is only probably in the перечень is not a
-            # confirmed candidate.
-            if rf_status is RosfinmonitoringStatus.NOT_MATCHED and row.person_id in probable:
-                rf_status = RosfinmonitoringStatus.MATCHED_PROBABLE
             if rf_status not in include_rf_statuses:
                 continue
             included.append((row, rf_status, None if match is None else match[1]))

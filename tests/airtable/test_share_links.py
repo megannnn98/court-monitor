@@ -164,27 +164,34 @@ def test_an_empty_view_never_reaches_the_sync_as_an_empty_list(
     from airtable import share
 
     monkeypatch.setattr(share, "read_records", lambda link, **kwargs: [])
-    client = ShareTableClient({"rfm_persons": RF_LINK})
+    client = ShareTableClient({"known_persons": RF_LINK})
 
     with pytest.raises(AirtableError, match="ни одной строки"):
-        client.list_records("rfm_persons")
+        client.list_records("known_persons")
 
 
 def test_a_list_with_no_link_is_skipped_rather_than_read_as_empty() -> None:
-    client = ShareTableClient({"rfm_persons": RF_LINK})
+    client = ShareTableClient({"known_persons": RF_LINK})
 
     with pytest.raises(FileNotFoundError, match="ссылка не настроена"):
         client.list_records("officials")
 
 
-def test_the_known_people_list_reads_the_rosfinmonitoring_link() -> None:
-    """«Найденные люди» and «Росфинмониторинг» are the same 13 765 people, so one link
-    serves both; naming the list once is enough."""
+def test_the_people_list_reads_its_own_link() -> None:
+    """The Airtable list is the people we already have on file. It is not the
+    Rosfinmonitoring list: that one is published by fedsfm.ru, and it is the only thing
+    that may say a person is on it."""
+    links = share_links({"AIRTABLE_SHARE_URL_KNOWN": RF_LINK})
+
+    assert links == {"known_persons": RF_LINK}
+    assert "officials" not in links
+
+
+def test_the_old_variable_name_still_works() -> None:
+    """Environments already filled in keep working; the list is the same people."""
     links = share_links({"AIRTABLE_SHARE_URL_RFM": RF_LINK})
 
-    assert links["rfm_persons"] == RF_LINK
     assert links["known_persons"] == RF_LINK
-    assert "officials" not in links
 
 
 def test_a_known_people_link_of_its_own_wins() -> None:
@@ -196,12 +203,15 @@ def test_a_known_people_link_of_its_own_wins() -> None:
 
 
 def test_share_links_win_over_files_when_no_token_is_set() -> None:
-    env = {"AIRTABLE_SHARE_URL_SOURCES": SOURCES_LINK, "AIRTABLE_SHARE_URL_RFM": RF_LINK}
+    env = {
+        "AIRTABLE_SHARE_URL_SOURCES": SOURCES_LINK,
+        "AIRTABLE_SHARE_URL_KNOWN": RF_LINK,
+    }
 
     source = build_sync_source(env)
 
     assert source.mode == MODE_SHARE
-    assert set(source.tables) == {"sources", "rfm_persons", "known_persons"}
+    assert set(source.tables) == {"sources", "known_persons"}
 
 
 class _DeadToken:
@@ -218,20 +228,15 @@ def test_a_token_without_rights_does_not_break_the_lists() -> None:
     client = FallbackTableClient(
         _DeadToken(),
         share_links(
-            {"AIRTABLE_SHARE_URL_SOURCES": SOURCES_LINK, "AIRTABLE_SHARE_URL_RFM": RF_LINK}
+            {"AIRTABLE_SHARE_URL_SOURCES": SOURCES_LINK, "AIRTABLE_SHARE_URL_KNOWN": RF_LINK}
         ),
-        {
-            "sources": "Sources",
-            "rfm_persons": "Persons",
-            "known_persons": "Persons",
-            "officials": "Officials",
-        },
+        {"sources": "Sources", "known_persons": "Known", "officials": "Officials"},
     )
     client._links = _FakeLinks()  # type: ignore[attr-defined]
 
     assert client.list_records("Sources")
-    assert client.list_records("Persons")
-    assert client.used_links == {"sources", "rfm_persons"}
+    assert client.list_records("Known")
+    assert client.used_links == {"sources", "known_persons"}
 
 
 def test_a_list_with_no_link_reports_the_api_failure_itself() -> None:
@@ -246,7 +251,7 @@ class _FakeLinks:
     """Stands in for the share reader so the fallback is tested without a network."""
 
     def __init__(self) -> None:
-        self.links = {"sources": SOURCES_LINK, "rfm_persons": RF_LINK}
+        self.links = {"sources": SOURCES_LINK, "known_persons": RF_LINK}
 
     def list_records(self, name: str):
         from airtable.client import AirtableRecord
@@ -268,20 +273,6 @@ def test_a_link_that_stops_answering_is_reported_as_such() -> None:
 
     with pytest.raises(AirtableError, match="ни API, ни публичная ссылка"):
         client.list_records("Sources")
-
-
-def test_two_lists_on_one_table_resolve_the_same_way() -> None:
-    """«Росфинмониторинг» and «Найденные люди» are one table. Which list the name means
-    is decided in reading order, not by which entry a dict kept last."""
-    client = FallbackTableClient(
-        _DeadToken(), {}, {"rfm_persons": "Persons", "known_persons": "Persons"}
-    )
-    client._links = _FakeLinks()  # type: ignore[attr-defined]
-    client._links.links = {"rfm_persons": RF_LINK}
-
-    client.list_records("Persons")
-
-    assert client.used_links == {"rfm_persons"}
 
 
 def test_the_init_data_object_is_parsed_whatever_follows_it() -> None:
@@ -352,10 +343,14 @@ def test_a_200_that_is_not_the_list_is_refused(monkeypatch: pytest.MonkeyPatch) 
         download_rf_list("https://example.test/list")
 
 
-def test_the_five_lists_are_the_ones_the_operator_named() -> None:
-    """Sources, the Rosfinmonitoring list, the people already known, the officials, and
-    the articles to watch for — in the order they are read on the page."""
-    assert TABLES == ("sources", "rfm_persons", "known_persons", "officials", "articles")
+def test_the_four_lists_are_the_ones_the_operator_named() -> None:
+    """Sources, the people already known, the officials and the articles to watch for.
+
+    The Rosfinmonitoring list is not here: it is published by fedsfm.ru and is not
+    Airtable's to sync. What was here under that name is the list of people we already
+    have on file, and it is called that.
+    """
+    assert TABLES == ("sources", "known_persons", "officials", "articles")
 
 
 class TestRowIdentity:

@@ -230,7 +230,10 @@ def _synthetic_id(table: str, fields: Mapping[str, object]) -> str:
         value = fields.get(column)
         if isinstance(value, str) and value.strip():
             parts.append(f"{column}={value.strip().lower().replace('ё', 'е')}")
-    if table == "rfm_persons":
+    # A birth date is part of who somebody is, for every list of people. Without it two
+    # namesakes — «Иванов Иван Иванович», born 1970 and born 1980 — get one id, and the
+    # second overwrites the first: the list then holds one man and says it holds two.
+    if table in {"known_persons", "rfm_persons"}:
         for column in ("birth_date", "Дата рождения", "Birth date"):
             value = fields.get(column)
             if isinstance(value, str) and value.strip():

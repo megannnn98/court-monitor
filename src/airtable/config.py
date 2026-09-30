@@ -26,7 +26,6 @@ class AirtableSettings:
     token: str
     base_id: str
     sources_table: str
-    rfm_persons_table: str
     known_persons_table: str
     officials_table: str
     articles_table: str
@@ -47,7 +46,6 @@ class AirtableSettings:
             token=(env["AIRTABLE_TOKEN"] or "").strip(),
             base_id=(env["AIRTABLE_BASE_ID"] or "").strip(),
             sources_table=(env["AIRTABLE_SOURCES_TABLE"] or "").strip(),
-            rfm_persons_table=(env["AIRTABLE_RFM_PERSONS_TABLE"] or "").strip(),
             known_persons_table=(env["AIRTABLE_KNOWN_PERSONS_TABLE"] or "").strip(),
             officials_table=(env["AIRTABLE_OFFICIALS_TABLE"] or "").strip(),
             articles_table=(env.get("AIRTABLE_ARTICLES_TABLE") or "").strip(),
@@ -68,7 +66,6 @@ class AirtableSettings:
             "configured": True,
             "base_id": self.base_id,
             "sources_table": self.sources_table,
-            "rfm_persons_table": self.rfm_persons_table,
             "known_persons_table": self.known_persons_table,
             "officials_table": self.officials_table,
             "articles_table": self.articles_table,
@@ -80,7 +77,6 @@ _REQUIRED = (
     "AIRTABLE_TOKEN",
     "AIRTABLE_BASE_ID",
     "AIRTABLE_SOURCES_TABLE",
-    "AIRTABLE_RFM_PERSONS_TABLE",
     "AIRTABLE_KNOWN_PERSONS_TABLE",
     "AIRTABLE_OFFICIALS_TABLE",
 )

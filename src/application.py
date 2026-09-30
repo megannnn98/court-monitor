@@ -36,7 +36,6 @@ from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from rosfinmonitoring.probable import AirtableProvisionalMatcher
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from settings import ApplicationSettings
 from sources.retrying_fetcher import RetryingDocumentFetcher
@@ -119,7 +118,6 @@ def build_monitoring_service(
         findings=MonitoringFindingService(session_factory, query_provider=query_provider),
         # Probable matches: names the operator's Airtable list has and the published
         # one does not. They never become confirmed and never make a candidate.
-        probable_matcher=AirtableProvisionalMatcher(session_factory),
         entity_review=entity_review,
     )
     return MonitoringService(dependencies, settings)

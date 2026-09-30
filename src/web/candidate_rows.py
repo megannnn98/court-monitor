@@ -25,7 +25,6 @@ from db.orm_models import (
     SourceDocument,
 )
 from extraction.name_frequency import lookup_gender
-from rosfinmonitoring.models import AIRTABLE_SNAPSHOT_SOURCE_URL
 
 
 class _CandidateNews(NamedTuple):
@@ -216,7 +215,6 @@ def latest_snapshot_id(db: Session) -> int | None:
     """
     return db.scalar(
         select(RosfinmonitoringSnapshotRecord.id)
-        .where(RosfinmonitoringSnapshotRecord.source_url != AIRTABLE_SNAPSHOT_SOURCE_URL)
         .order_by(
             RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
             RosfinmonitoringSnapshotRecord.id.desc(),

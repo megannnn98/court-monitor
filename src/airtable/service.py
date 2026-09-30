@@ -8,9 +8,10 @@ so an unavailable Airtable costs this one page, not the run.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -20,7 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from airtable import repository
 from airtable.articles import sync_articles
-from airtable.client import AirtableClient, AirtableError, AirtableRecord, HttpAirtableClient
+from airtable.client import AirtableClient, AirtableError, HttpAirtableClient
 from airtable.config import AirtableConfigurationError, AirtableSettings
 from airtable.files import FileTableClient, ImportSettings
 from airtable.links import FallbackTableClient, ShareTableClient, share_links
@@ -127,9 +128,6 @@ class AirtableSyncService:
         try:
             for table in TABLES:
                 report.tables[table] = self._sync_one(client, table)
-            rfm = report.tables["rfm_persons"]
-            if rfm.status == TableStatus.SUCCESS:
-                self._refresh_probable_matches()
         finally:
             if owned:
                 close = getattr(client, "close", None)
@@ -143,31 +141,6 @@ class AirtableSyncService:
             int(report.duration_seconds * 1000),
         )
         return report
-
-    def _refresh_probable_matches(self) -> None:
-        """Recompute the probable matches right after the list changed.
-
-        A manual sync that left them stale would keep a person out of the candidates
-        after an operator removed them from Airtable, and would keep a false candidate
-        until the next monitoring run. This reads PostgreSQL only — it never goes back
-        to Airtable — and a failure here is logged, not raised: the lists are in, and a
-        stale secondary signal must not make the sync itself look failed.
-        """
-        from rosfinmonitoring.probable import AirtableProvisionalMatcher
-        from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-
-        official = SqlAlchemyRosfinmonitoringSnapshotLookup(
-            self._session_factory
-        ).latest_imported_snapshot()
-        if official is None:
-            # No published list to soften against: nothing to recompute.
-            return
-        try:
-            probable = AirtableProvisionalMatcher(self._session_factory).apply(official.snapshot_id)
-        except Exception as exc:  # noqa: BLE001 - an extra signal must not fail the sync
-            logger.warning("event=airtable_sync_probable_failed error=%s", exc)
-            return
-        logger.info("event=airtable_sync_probable_refreshed probable=%d", probable)
 
     def _sync_one(self, client: AirtableClient, table: str) -> TableSyncResult:
         """One table. A failure to read it is that table's failure, not the sync's, and a
@@ -186,9 +159,16 @@ class AirtableSyncService:
         except AirtableError as exc:
             logger.warning("event=airtable_sync_table_failed table=%s error=%s", table, exc)
             return TableSyncResult(status=TableStatus.ERROR, error=str(exc), errors=1)
+        # Only the lists that are a copy of an Airtable view are replaced whole, and only
+        # the writers that know how to do it are asked to. The sources and the officials
+        # are the operator's own tables: a row there is a decision, and no export revokes
+        # it.
+        replaces = getattr(self._source.client, "replaces_whole", None)
+        whole = bool(replaces(table)) if callable(replaces) else False
+        accepts = whole and "replace" in inspect.signature(sync).parameters
         try:
             with self._session_factory.begin() as session:
-                result = sync(session, records)
+                result = sync(session, records, replace=True) if accepts else sync(session, records)
         except Exception as exc:
             session_error = f"{type(exc).__name__}: {exc}"
             logger.exception("event=airtable_sync_table_failed table=%s", table)
@@ -206,9 +186,12 @@ class AirtableSyncService:
         return result
 
 
-_SYNC_BY_TABLE: dict[str, Callable[[Session, Sequence[AirtableRecord]], TableSyncResult]] = {
+# The writers have two shapes: the lists that are a copy of an Airtable view take
+# `replace`, the operator's own tables do not and are never asked to. Rather than
+# widen the two that must never delete, the type says they differ and the caller
+# checks the signature before asking.
+_SYNC_BY_TABLE: dict[str, Callable[..., TableSyncResult]] = {
     "sources": repository.sync_sources,
-    "rfm_persons": repository.sync_rfm_persons,
     "known_persons": repository.sync_known_persons,
     "officials": repository.sync_officials,
     "articles": sync_articles,
@@ -254,7 +237,6 @@ def build_sync_source(
         )
     api_tables = {
         "sources": settings.sources_table,
-        "rfm_persons": settings.rfm_persons_table,
         "known_persons": settings.known_persons_table,
         "officials": settings.officials_table,
         "articles": settings.articles_table,
