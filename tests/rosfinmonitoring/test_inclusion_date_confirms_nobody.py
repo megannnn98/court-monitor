@@ -18,6 +18,8 @@ two cannot both hold. This file holds the rule; that one will have to go.
 
 from __future__ import annotations
 
+import os
+import time
 from datetime import UTC, date, datetime
 
 import pytest
@@ -39,6 +41,22 @@ SECOND_SYNC = datetime(2026, 9, 30, 6, 0, tzinfo=UTC)
 
 # The entry entered the list on this day. It is the entry's day.
 INCLUSION_DATE = date(2024, 3, 14)
+
+
+@pytest.fixture(autouse=True)
+def _utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The day of a moment is read in local time, and there is no time of day that is safe
+    everywhere.
+
+    Offsets run from -12 to +14, which is 26 hours: wider than a day, so any single
+    instant crosses midnight in some zone or other. Noon UTC gives 2026-09-02 in Auckland
+    and 2026-09-01 in Moscow. The rule under test says nothing about the zone, so the
+    zone is pinned here rather than left to the machine: without this the test would fail
+    on a CI box east of UTC+12 for a reason that has nothing to do with the rule.
+    """
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    os.environ["TZ"] = "UTC"
 
 
 def test_a_list_inclusion_date_alone_does_not_confirm_the_person() -> None:
