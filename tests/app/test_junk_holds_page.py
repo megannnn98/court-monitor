@@ -173,7 +173,7 @@ def test_the_same_news_from_several_sources_stands_together_and_goes_together(
     with _client(session_factory) as client:
         page = client.get("/ui/junk-holds").text
         assert page.count('<section class="same-news">') == 1
-        assert "Похоже на одну новость: 2 публикации." in page
+        assert "Похоже на одну новость, публикаций: 2." in page
         # The copy stands right after the first, ahead of the unrelated article.
         assert page.index(f'id="a-{first}"') < page.index(f'id="a-{second}"')
         assert page.index(f'id="a-{second}"') < page.index(f'id="a-{other}"')

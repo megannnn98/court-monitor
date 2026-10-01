@@ -168,8 +168,8 @@ def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> s
         else ""
     )
     return (
-        '<section class="same-news"><p class="same-news-head"><strong>Похоже на одну новость: '
-        f"{len(group)} публикации.</strong> Совпал человек или заголовок — проверьте, "
+        '<section class="same-news"><p class="same-news-head"><strong>Похоже на одну новость, публикаций: '
+        f"{len(group)}.</strong> Совпал человек или заголовок — проверьте, "
         f"прежде чем убирать все. {everything}</p>"
         + "".join(_card(by_id[article], status, page) for article in group)
         + "</section>"
