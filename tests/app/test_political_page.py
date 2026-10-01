@@ -524,17 +524,19 @@ def test_a_person_ticked_as_done_leaves_the_list_and_can_be_shown_again(
         before = client.get("/ui/political").text
         assert "Смирнова Анна" in before and "Иванов Иван" in before
         assert "Найдено: 2." in before
-        assert "Обработано:" not in before, "nothing is done yet: no line about it"
+        assert "Показать обработанных (0)</label>" in before, "the way back is always in sight"
 
         _tick(client, "анна смирнова")
         hidden = client.get("/ui/political?months=0").text
         assert "Смирнова Анна" not in hidden and "Иванов Иван" in hidden
         assert "Найдено: 1." in hidden
-        assert "Обработано: 1 (скрыты)" in hidden
+        assert "Показать обработанных (1)</label>" in hidden
+        assert 'name="done" value="show" onchange="this.form.submit()">' in hidden
 
         shown = client.get("/ui/political?months=0&done=show").text
         assert "Смирнова Анна" in shown and "Найдено: 2." in shown
-        assert '<tr class="done">' in shown and " checked" in shown
+        assert '<tr class="done">' in shown
+        assert 'name="done" value="show" onchange="this.form.submit()" checked>' in shown
 
         # The file follows the page: hidden there, hidden here.
         book = load_workbook(BytesIO(client.get("/ui/political/export.xlsx?months=0").content))

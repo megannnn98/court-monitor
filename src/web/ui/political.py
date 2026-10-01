@@ -600,14 +600,12 @@ def ui_political(
         )
         or 0
     )
-    other = "show" if chosen.done == "hide" else "hide"
-    done_line = (
-        f"Обработано: {done_total}"
-        f"{' (скрыты)' if chosen.done == 'hide' else ''}. "
-        f'<a href="/ui/political?{escape(urlencode({**keep, "done": other}), quote=True)}">'
-        f"{'Показать обработанных' if other == 'show' else 'Скрыть обработанных'}</a>. "
-        if done_total
-        else ""
+    # Beside the filters and always there, so the way back to a ticked person is in plain
+    # sight: the first person to tick a row could not find them again.
+    done_toggle = (
+        '<label class="field"><input type="checkbox" name="done" value="show" '
+        f'onchange="this.form.submit()"{" checked" if chosen.done == "show" else ""}> '
+        f"Показать обработанных ({done_total})</label>"
     )
     # A period button clears the dates: the months are the choice then.
     periods = " ".join(
@@ -644,7 +642,6 @@ def ui_political(
     # The chosen months ride along hidden; a period button, sent later, wins over them.
     body = f"""<form method="get" action="/ui/political" class="toolbar" id="political-filters">
   <input type="hidden" name="months" value="{chosen.months}">
-  <input type="hidden" name="done" value="{chosen.done}">
   <span class="chips">{periods}</span>
   <span class="chips">{dates}</span>
   <div class="filter-row">
@@ -653,12 +650,14 @@ def ui_political(
         news_options
     }</select></label>
     {known_select}
+    {done_toggle}
     <button type="submit" class="secondary" formaction="/ui/political/export.xlsx">Скачать Excel</button>
   </div>
 </form>
 {funnel_line(funnel(db))}
-<p class="muted">Найдено: {total}. {done_line}Галочка в начале строки — «обработано»: человек
-уходит из списка и вернётся, когда о нём появится новая новость. Фигуранты уголовных дел, дело которых — политическое
+<p class="muted">Найдено: {total}. Галочка в начале строки — «обработано»: человек
+уходит из списка и вернётся, когда о нём появится новая новость; «Показать обработанных»
+над таблицей возвращает их в список, чтобы снять галочку. Фигуранты уголовных дел, дело которых — политическое
 преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
 Дата включения — свойство записи перечня, а не человека: под именем она читается как
