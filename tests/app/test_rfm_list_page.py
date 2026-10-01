@@ -9,14 +9,14 @@ people rather than about records, so the wording is checked here as well.
 
 from __future__ import annotations
 
-import csv
-import io
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
+from io import BytesIO
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -100,23 +100,35 @@ def _seed(session_factory: sessionmaker[Session], *, undated: bool = True) -> No
             regions=[],
         )
         session.add(entity)
+        maybe = EntityGroupRecord(
+            key="пётр сидоров",
+            name="Пётр Сидоров",
+            variants=[["Пётр Сидоров", 1]],
+            mention_count=1,
+            article_count=1,
+            event_types={},
+            regions=[],
+        )
+        session.add(maybe)
         session.flush()
+        # One entry we identified, one we only half did: the second matched on the name
+        # and surname alone, so it may be somebody else's record.
         session.add(
             EntityGroupRfMatchRecord(
                 group_id=entity.id, entry_id=ids["ИВАНОВ ИВАН ИВАНОВИЧ"], level="full"
             )
         )
+        session.add(
+            EntityGroupRfMatchRecord(
+                group_id=maybe.id, entry_id=ids["СИДОРОВ СИДОР СИДОРОВИЧ"], level="name"
+            )
+        )
 
 
-def _file_names(text: str) -> list[str]:
-    """The names the file holds: the rows, without the header and without the two lines
-    of attribution the file ends on."""
-    listed = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
-    return [
-        row[0]
-        for row in listed[1:]
-        if row and row[0] and not row[0].startswith(("Дата включения", "Дата описывает"))
-    ]
+def _file_names(content: bytes) -> list[str]:
+    """The names the file holds, read from the sheet the operator will actually open."""
+    sheet = load_workbook(BytesIO(content))["Перечень"]
+    return [str(row[0].value) for row in sheet.iter_rows(min_row=2) if row[0].value is not None]
 
 
 def _rows(text: str) -> list[str]:
@@ -201,10 +213,10 @@ def test_the_file_holds_the_period_the_page_shows(
 
     with _client(session_factory) as client:
         page = client.get("/ui/rfm?date_from=2026-09-19&date_to=2026-09-27").text
-        response = client.get("/ui/rfm/export.csv?date_from=2026-09-19&date_to=2026-09-27")
+        response = client.get("/ui/rfm/export.xlsx?date_from=2026-09-19&date_to=2026-09-27")
 
     assert response.status_code == 200
-    assert _file_names(response.text) == _rows(page)
+    assert _file_names(response.content) == _rows(page)
 
 
 def test_the_file_holds_every_row_of_the_period_and_not_only_the_page(
@@ -213,9 +225,9 @@ def test_the_file_holds_every_row_of_the_period_and_not_only_the_page(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        response = client.get("/ui/rfm/export.csv")
+        response = client.get("/ui/rfm/export.xlsx")
 
-    assert set(ENTRIES) <= set(_file_names(response.text))
+    assert set(ENTRIES) <= set(_file_names(response.content))
 
 
 def test_the_file_says_whose_day_the_date_is(
@@ -226,15 +238,71 @@ def test_the_file_says_whose_day_the_date_is(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        response = client.get("/ui/rfm/export.csv")
+        response = client.get("/ui/rfm/export.xlsx")
 
-    text = _flat(response.text)
-    assert "ОВД-Инфо" in text
-    assert "repression.net/rosfinmonitoring" in text
-    assert "не подтверждает" in text, (
+    notes = _flat(
+        " ".join(
+            str(cell.value)
+            for row in load_workbook(BytesIO(response.content))["Источник дат"].iter_rows()
+            for cell in row
+            if cell.value is not None
+        )
+    )
+    assert "ОВД-Инфо" in notes
+    assert "repression.net/rosfinmonitoring" in notes
+    assert "не подтверждает" in notes, (
         "the days travel with the words about what they are; a bare date column says "
         "«this person entered the list that day»"
     )
+
+
+def test_the_file_is_a_real_excel_book(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A CSV opens in Russian Excel as one column, and the operator works from files
+    rather than from the site — so the file is the deliverable, and a deliverable that
+    opens wrongly is not one. Checked as a file, not as a string: the point is that
+    Excel can read it, and a CSV that happens to contain the right words cannot be."""
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        response = client.get("/ui/rfm/export.xlsx")
+
+    assert response.content[:2] == b"PK", "an xlsx is a zip, a csv is not"
+    assert response.headers["content-type"].endswith("spreadsheetml.sheet")
+    assert "xlsx" in response.headers["content-disposition"]
+    workbook = load_workbook(BytesIO(response.content))
+    sheet = workbook["Перечень"]
+    assert [cell.value for cell in sheet[1]][:5] == [
+        "ФИО в перечне",
+        "Дата рождения",
+        "Место рождения",
+        "Запись включена",
+        "Наше совпадение",
+    ]
+
+
+def test_the_dates_in_the_file_are_dates_and_not_text(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A date written as text cannot be sorted or counted in the file, which is the one
+    thing an operator does with a period they were given."""
+    import datetime as dt
+
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        response = client.get("/ui/rfm/export.xlsx")
+
+    sheet = load_workbook(BytesIO(response.content))["Перечень"]
+    rows = list(sheet.iter_rows(min_row=2))
+    included = [row for row in rows if row[3].value is not None]
+    assert included, "the period has entries with a day"
+    for row in included:
+        assert isinstance(row[3].value, dt.datetime | dt.date), (
+            "the day of inclusion must arrive as a date, or the operator cannot sort by it"
+        )
+        assert sheet.cell(row=row[0].row, column=4).number_format == "DD.MM.YYYY"
 
 
 def test_the_page_says_the_day_is_the_entry_s(
@@ -292,11 +360,108 @@ def test_our_own_match_is_a_link_and_not_a_verdict(
     assert "/ui/investigations/" in page
 
 
+def test_a_namesake_is_marked_as_one_and_a_full_match_is_not(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The link looks the same either way, so the distinction has to be in the words.
+
+    ИВАНОВ was matched with his patronymic and is who he is; СИДОРОВ was matched on the
+    name and surname alone and may be a namesake — a different person, whose entry's day
+    of inclusion says nothing about them. Reading both as one link would put a case on
+    the wrong record.
+    """
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        page = _flat(client.get("/ui/rfm").text)
+
+    assert "в перечне" in page, "the entry we identified says so"
+    assert "возможно тёзка" in page, (
+        "the entry matched on a name alone must not read like the one we identified"
+    )
+
+
+def test_the_file_tells_the_two_kinds_of_match_apart_too(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The file is where the operator works, so the same words have to be in it."""
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        response = client.get("/ui/rfm/export.xlsx")
+
+    sheet = load_workbook(BytesIO(response.content))["Перечень"]
+    said = {
+        row[0].value: row[5].value for row in sheet.iter_rows(min_row=2) if row[0].value is not None
+    }
+    assert said["ИВАНОВ ИВАН ИВАНОВИЧ"] == "в перечне"
+    assert said["СИДОРОВ СИДОР СИДОРОВИЧ"] == "возможно тёзка"
+
+
+def test_the_page_reads_a_hundred_rows_and_not_the_whole_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The list is 23 023 rows and the page shows a hundred of them. Reading them all to
+    fill in one table is a query the operator waits on for nothing."""
+    import datetime as dt
+
+    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        latest = (
+            session.query(RosfinmonitoringSnapshotRecord)
+            .order_by(RosfinmonitoringSnapshotRecord.id.desc())
+            .first()
+        )
+        assert latest is not None
+        session.add_all(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=latest.id,
+                full_name=f"ПРОБНИК {index:05d}",
+                normalized_name=f"пробник {index:05d}",
+                matching_key=f"пробник{index:05d}",
+                inclusion_date=dt.datetime(2026, 9, 1, tzinfo=UTC),
+                raw_data={},
+            )
+            for index in range(500)
+        )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/rfm").text
+
+    assert page.count("<tr><td>") == 100, "the page shows a page, not the list"
+    assert "ПРОБНИК 00000" in page
+
+
+def test_the_empty_table_spans_every_column(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A colspan short by one leaves the «Записей нет» row narrower than the header, and
+    the table reads as having a column nobody can fill. A period with nothing in it, so
+    the table is still rendered — with its header, and with no rows."""
+    import re
+
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/rfm?date_from=2019-01-01&date_to=2019-12-31").text
+
+    header = re.search(r"<thead><tr>(.*?)</tr></thead>", page, re.DOTALL)
+    assert header is not None
+    columns = header.group(1).count("<th>")
+    empty = re.search(r'<td colspan="(\d+)"', page)
+    assert empty is not None, "an empty table must say so"
+    assert int(empty.group(1)) == columns, (
+        f"the empty row spans {empty.group(1)} of {columns} columns"
+    )
+
+
 def test_the_file_is_named_after_the_period_it_holds() -> None:
     """A file in a folder says what it is without being opened."""
-    assert _export_name(ListFilters(), TODAY) == "perechen_vse.csv"
+    assert _export_name(ListFilters(), TODAY) == "perechen_vse.xlsx"
     named = _export_name(ListFilters(date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)), TODAY)
-    assert named == "perechen_2026-09-01_2026-09-30.csv"
+    assert named == "perechen_2026-09-01_2026-09-30.xlsx"
 
 
 def test_the_period_computation_is_readable_without_the_page() -> None:

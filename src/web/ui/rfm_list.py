@@ -17,21 +17,22 @@ site and works from files.
 
 from __future__ import annotations
 
-import csv
-import io
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from html import escape
+from io import BytesIO
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import HTMLResponse
+from openpyxl import Workbook
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
+from entities.rf_check import FULL
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION
 from rosfinmonitoring.snapshot_lookup import (
     RosfinmonitoringSnapshotSummary,
@@ -43,6 +44,8 @@ from web.ui.layout import _page
 router = APIRouter()
 
 PAGE_SIZE = 100
+# The table's columns, for the empty row that has to span all of them.
+COLUMNS = 5
 
 # The periods offered as buttons. Days, not months: the list is added to daily, and the
 # period an operator asks for is «who came in since Tuesday».
@@ -83,6 +86,10 @@ class ListRow:
     # is the one who decides what to do with it.
     group_key: str | None = None
     group_name: str | None = None
+    # What the comparison established about that match: `full` (the name with the
+    # patronymic) or `name`, which may be a namesake. A namesake is a different person
+    # and must not read like the one we did identify.
+    match_level: str | None = None
 
 
 def _latest(db: Session) -> RosfinmonitoringSnapshotSummary | None:
@@ -109,11 +116,19 @@ def _period(chosen: ListFilters, today: date) -> tuple[date | None, date | None]
     return None, None
 
 
-def _entries(db: Session, snapshot_id: int, chosen: ListFilters, today: date) -> list[ListRow]:
+def _entries(
+    db: Session,
+    snapshot_id: int,
+    chosen: ListFilters,
+    today: date,
+    *,
+    limit: int | None = PAGE_SIZE,
+) -> list[ListRow]:
     """The entries of one snapshot under a period, most recently added first.
 
-    The period is read inside the query, not in Python: this list is 23 023 rows and the
-    filter is the reason for the page.
+    The period and the limit are read inside the query, not in Python: this list is 23 023
+    rows and the page shows a hundred of them. `limit=None` is for the export, which
+    holds every row of the period — that is the file the operator works from.
     """
     start, end = _period(chosen, today)
     query = select(RosfinmonitoringEntryRecord).where(
@@ -130,6 +145,12 @@ def _entries(db: Session, snapshot_id: int, chosen: ListFilters, today: date) ->
         # With no period chosen the list is ordered by the day we know, so the entries
         # that have one are the ones worth seeing.
         query = query.where(RosfinmonitoringEntryRecord.inclusion_date.isnot(None))
+    query = query.order_by(
+        RosfinmonitoringEntryRecord.inclusion_date.desc().nulls_last(),
+        RosfinmonitoringEntryRecord.full_name,
+    )
+    if limit is not None:
+        query = query.limit(limit)
     return [
         ListRow(
             entry_id=entry.id,
@@ -138,12 +159,7 @@ def _entries(db: Session, snapshot_id: int, chosen: ListFilters, today: date) ->
             birth_place=entry.birth_place,
             inclusion_date=entry.inclusion_date.date() if entry.inclusion_date else None,
         )
-        for entry in db.scalars(
-            query.order_by(
-                RosfinmonitoringEntryRecord.inclusion_date.desc().nulls_last(),
-                RosfinmonitoringEntryRecord.full_name,
-            )
-        )
+        for entry in db.scalars(query)
     ]
 
 
@@ -155,31 +171,49 @@ def _with_our_matches(db: Session, rows: list[ListRow]) -> None:
     """Fill in, for each entry, the person our comparison matched it to — if any.
 
     A link, not a verdict: the comparison matched a name, and the day on the row is the
-    entry's whatever that match was.
+    entry's whatever that match was. How well it matched is kept, because a namesake is
+    a different person and has to read as one.
+
+    Only the entities the page actually shows are read: an earlier version loaded every
+    group in the database to look up a handful of links, which on a real database is
+    tens of thousands of rows read to fill in two columns of a hundred rows.
     """
     from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
 
     if not rows:
         return
-    found = {
-        group_id: (key, name)
-        for group_id, key, name in db.execute(
-            select(
-                EntityGroupRecord.id,
-                EntityGroupRecord.key,
-                EntityGroupRecord.name,
-            )
-        ).all()
-    }
-    for entry_id, group_id in db.execute(
-        select(EntityGroupRfMatchRecord.entry_id, EntityGroupRfMatchRecord.group_id).where(
-            EntityGroupRfMatchRecord.entry_id.in_([row.entry_id for row in rows])
+    by_entry = {row.entry_id: row for row in rows}
+    for entry_id, group_id, level, key, name in db.execute(
+        select(
+            EntityGroupRfMatchRecord.entry_id,
+            EntityGroupRfMatchRecord.group_id,
+            EntityGroupRfMatchRecord.level,
+            EntityGroupRecord.key,
+            EntityGroupRecord.name,
         )
+        .select_from(EntityGroupRfMatchRecord)
+        .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupRfMatchRecord.group_id)
+        .where(EntityGroupRfMatchRecord.entry_id.in_(list(by_entry)))
+        .order_by(EntityGroupRfMatchRecord.level.desc())
     ).all():
-        for row in rows:
-            if row.entry_id == entry_id and group_id in found:
-                row.group_key, row.group_name = found[group_id]
-                break
+        row = by_entry[entry_id]
+        if row.group_key is not None:
+            continue
+        # `level desc` puts `full` before `name`, so where an entry matched two people the
+        # identified one is the one shown — as it is in «Результате».
+        row.group_key, row.group_name, row.match_level = key, name, level
+
+
+def _match_text(row: ListRow) -> str:
+    """What the comparison established, in the words used everywhere else.
+
+    «в перечне» for a name matched with its patronymic, «возможно тёзка» for one matched
+    on the name and surname alone. The link looks the same in both, so the distinction
+    has to be in the words or the operator cannot see it.
+    """
+    if row.group_key is None:
+        return ""
+    return "в перечне" if row.match_level == FULL else "возможно тёзка"
 
 
 def _count(db: Session, snapshot_id: int, chosen: ListFilters, today: date) -> tuple[int, int, int]:
@@ -239,19 +273,19 @@ def _filters_html(chosen: ListFilters, today: date) -> str:
     <button type="submit">Показать</button>
   </span>
   <div class="filter-row">
-    <button type="submit" class="secondary" formaction="/ui/rfm/export.csv">Скачать Excel</button>
+    <button type="submit" class="secondary" formaction="/ui/rfm/export.xlsx">Скачать Excel</button>
   </div>
 </form>"""
 
 
 def _rows_html(rows: list[ListRow]) -> str:
     if not rows:
-        return '<tr><td colspan="4" class="muted">Записей нет.</td></tr>'
+        return f'<tr><td colspan="{COLUMNS}" class="muted">Записей нет.</td></tr>'
     cells = []
     for row in rows:
         matched = (
-            f'<a href="/ui/investigations/{quote(row.group_key)}">'
-            f"{escape(row.group_name or '')}</a>"
+            f'<a href="/ui/investigations/{quote(row.group_key)}">{escape(row.group_name or "")}</a>'
+            f'<div class="muted">{escape(_match_text(row))}</div>'
             if row.group_key
             else '<span class="muted">—</span>'
         )
@@ -284,7 +318,7 @@ def ui_rfm(
             instruction=_INTRO,
             db=db,
         )
-    rows = _entries(db, latest.snapshot_id, chosen, today)[:PAGE_SIZE]
+    rows = _entries(db, latest.snapshot_id, chosen, today)
     _with_our_matches(db, rows)
     in_period, dated, total = _count(db, latest.snapshot_id, chosen, today)
     period_note = f"За период: {in_period}." if in_period else "За выбранный период записей нет."
@@ -307,24 +341,84 @@ def _parse_day(text: str) -> date | None:
 
 
 def _export_name(chosen: ListFilters, today: date) -> str:
-    """`perечень_<from>_<to>.csv`: the period the file holds, so a file in a folder says
+    """`perechen_<from>_<to>.xlsx`: the period the file holds, so a file in a folder says
     what it is without opening it."""
     start, end = _period(chosen, today)
     if start is None and end is None:
-        return "perechen_vse.csv"
+        return "perechen_vse.xlsx"
     first = start.isoformat() if start else "do"
     last = end.isoformat() if end else today.isoformat()
-    return f"perechen_{first}_{last}.csv"
+    return f"perechen_{first}_{last}.xlsx"
 
 
-@router.get("/ui/rfm/export.csv")
+def rfm_xlsx(rows: list[ListRow]) -> bytes:
+    """The list as an Excel file, the way «Результат» writes its own.
+
+    A CSV would be a file Russian Excel opens in one column, and the operator works from
+    files rather than from the site — so the file is the deliverable, and a deliverable
+    that opens wrongly is not one. Dates go in as dates, not as text, so a period can be
+    sorted and counted in the file itself.
+    """
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "Перечень"
+    sheet.append(
+        [
+            "ФИО в перечне",
+            "Дата рождения",
+            "Место рождения",
+            "Запись включена",
+            "Наше совпадение",
+            "Что это значит",
+        ]
+    )
+    for row in rows:
+        sheet.append(
+            [
+                row.full_name,
+                row.birth_date,
+                row.birth_place or None,
+                row.inclusion_date,
+                row.group_name or None,
+                _match_text(row) or None,
+            ]
+        )
+    for line in range(2, len(rows) + 2):
+        # Names and places come from a scraped page: never let «=» become a formula.
+        for column in (1, 3, 5, 6):
+            cell = sheet.cell(row=line, column=column)
+            if cell.value is not None:
+                cell.data_type = "s"
+        for column in (2, 4):
+            sheet.cell(row=line, column=column).number_format = "DD.MM.YYYY"
+    for letter, width in (("A", 42), ("B", 18), ("C", 40), ("D", 20), ("E", 30), ("F", 20)):
+        sheet.column_dimensions[letter].width = width
+    # The attribution and the rule travel with the rows: the file leaves the site.
+    note = workbook.create_sheet("Источник дат")
+    note["A1"] = "Дата включения в перечень"
+    note["A2"] = ATTRIBUTION
+    note["A3"] = (
+        "Дата описывает запись перечня, а не человека: совпадение имени и даты рождения "
+        "не подтверждает, что в новости речь о том же человеке."
+    )
+    note["A4"] = (
+        "«Возможно тёзка» — совпали имя и фамилия, отчества нет с одной стороны: это может "
+        "быть другой человек, и его запись о дате включения ничего о нём не говорит."
+    )
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+@router.get("/ui/rfm/export.xlsx")
 def ui_rfm_export(
     days: int = Query(default=0, ge=0, le=3650),
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
-    """The same rows the page shows, under the same period, as a file.
+    """The same rows the page shows, under the same period, as an Excel file.
 
     Excel and the page must not disagree: the filter is read from the same two names, so
     a file downloaded from a filtered page holds exactly that period.
@@ -332,36 +426,10 @@ def ui_rfm_export(
     today = datetime.now(UTC).date()
     chosen = ListFilters(days, _parse_day(date_from), _parse_day(date_to))
     latest = _latest(db)
-    rows = _entries(db, latest.snapshot_id, chosen, today) if latest is not None else []
+    rows = _entries(db, latest.snapshot_id, chosen, today, limit=None) if latest is not None else []
     _with_our_matches(db, rows)
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(
-        ["ФИО в перечне", "Дата рождения", "Место рождения", "Запись включена", "Наше совпадение"]
-    )
-    for row in rows:
-        writer.writerow(
-            [
-                row.full_name,
-                row.birth_date.isoformat() if row.birth_date else "",
-                row.birth_place or "",
-                row.inclusion_date.isoformat() if row.inclusion_date else "",
-                row.group_name or "",
-            ]
-        )
-    # The attribution and the rule travel with the rows: the file leaves the site.
-    writer.writerow([])
-    writer.writerow([ATTRIBUTION])
-    writer.writerow(
-        [
-            (
-                "Дата описывает запись перечня, а не человека: совпадение имени и даты "
-                "рождения не подтверждает, что в новости речь о том же человеке."
-            )
-        ]
-    )
     return Response(
-        content=("﻿" + buffer.getvalue()).encode("utf-8"),
-        media_type="text/csv; charset=utf-8",
+        content=rfm_xlsx(rows),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{_export_name(chosen, today)}"'},
     )
