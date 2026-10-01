@@ -175,6 +175,49 @@ _PERSON_SECTION_HEADING = re.compile(r"Физические\s+лица", re.IGNO
 _SECTION_HEADING = re.compile(r'<div class="panel-heading".*?</div>', re.DOTALL)
 
 
+def _read_published_line(item: str) -> RosfinmonitoringEntry | None:
+    """One published line — «12. ИВАНОВ ИВАН ИВАНОВИЧ*, 08.06.1996 г.р. , Г. МОСКВА;».
+
+    `None` for a line that is not a person: a heading, a stray item, or one this parser
+    does not recognise, which must be left as it is rather than half-read.
+    """
+    line = " ".join(item.split())
+    match = _PERSON_ENTRY.match(line)
+    if match is None:
+        return None
+    full_name = match.group("name").replace("*", "").strip(" ,")
+    normalized_name = _normalize_name(full_name)
+    if len(normalized_name.split()) < 2:
+        return None
+    former_names = _former_names(match.group("former_names"))
+    raw_data: dict[str, Any] = {"entry": line}
+    if former_names:
+        raw_data["former_names"] = former_names
+    return RosfinmonitoringEntry(
+        snapshot_id=0,
+        full_name=full_name,
+        normalized_name=normalized_name,
+        matching_key=_create_matching_key(normalized_name),
+        birth_date=_parse_date(match.group("birth_date")),
+        birth_place=(match.group("birth_place") or "").strip(" ,;") or None,
+        status=RosfinmonitoringEntryStatus.ACTIVE,
+        raw_data=raw_data,
+    )
+
+
+def read_published_line(item: str) -> RosfinmonitoringEntry | None:
+    """One published line, on its own — the same reading the page gets.
+
+    A snapshot imported before this parser understood the brackets in round brackets has
+    the birth date of 828 of its entries filed under the birth place, and 795 of those
+    have no birth date at all. Those entries can never be told from a namesake, and a
+    namesake is exactly what a day of inclusion must not be given to. Re-reading the
+    line we kept in `raw_data` is the way back: nothing is fetched, and the line is the
+    publication's own words.
+    """
+    return _read_published_line(item)
+
+
 class HtmlRosfinmonitoringParser:
     """Parser for the published list page (fedsfm.ru «Перечень террористов и экстремистов»).
 

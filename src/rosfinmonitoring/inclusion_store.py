@@ -79,6 +79,60 @@ def _swapped(ours: date, theirs: date) -> bool:
     return (ours.day, ours.month) == (theirs.month, theirs.day)
 
 
+def backfill_birth_dates(session: Session, snapshot_id: int) -> int:
+    """Re-read the birth date out of the stored publication line, where it is missing.
+
+    A snapshot imported before the parser understood the former names in brackets holds
+    828 entries whose date of birth ended up inside the birth place, and 795 of those
+    have no birth date at all. Those entries can never be told from a namesake, and a
+    namesake is exactly what a day of inclusion must not be given to.
+
+    The whole published line is kept in `raw_data`, so nothing is fetched: the same
+    parser that reads the page reads the line, and only the fields that are missing are
+    filled. Full names and matching keys are not touched — a day of birth does not change
+    who the entry is about.
+    """
+    from rosfinmonitoring.parser import read_published_line
+
+    updates: list[dict[str, object]] = []
+    former: dict[int, list[str]] = {}
+    for entry_id, line in session.execute(
+        select(RosfinmonitoringEntryRecord.id, RosfinmonitoringEntryRecord.raw_data).where(
+            RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
+            RosfinmonitoringEntryRecord.birth_date.is_(None),
+        )
+    ).all():
+        text = (line or {}).get("entry")
+        if not isinstance(text, str) or not text:
+            continue
+        parsed = read_published_line(text)
+        if parsed is None or parsed.birth_date is None:
+            continue
+        updates.append(
+            {
+                "id": entry_id,
+                "birth_date": parsed.birth_date,
+                "birth_place": parsed.birth_place,
+            }
+        )
+        if parsed.raw_data.get("former_names"):
+            former[entry_id] = list(parsed.raw_data["former_names"])
+
+    for start in range(0, len(updates), WRITE_CHUNK):
+        chunk = updates[start : start + WRITE_CHUNK]
+        session.execute(update(RosfinmonitoringEntryRecord), chunk)
+    # The former names travel with them: our own record of the name the entry was
+    # published under, from the same line. Nothing reads them yet.
+    for entry_id, names in former.items():
+        record = session.get(RosfinmonitoringEntryRecord, entry_id)
+        if record is not None:
+            record.raw_data = {**(record.raw_data or {}), "former_names": names}
+    logger.info(
+        "event=rfm_birth_dates_backfilled snapshot_id=%s dates=%d", snapshot_id, len(updates)
+    )
+    return len(updates)
+
+
 def carry_dates_from_previous_snapshot(
     session_factory: sessionmaker[Session], snapshot_id: int
 ) -> int:

@@ -41,6 +41,7 @@ from rosfinmonitoring.inclusion_dates import (
     download_inclusion_dates,
 )
 from rosfinmonitoring.inclusion_store import (
+    backfill_birth_dates,
     carry_dates_from_previous_snapshot,
     write_inclusion_dates,
 )
@@ -272,6 +273,12 @@ class EntityRfCheck:
         previous snapshot knew is already written, and the run goes on.
         """
         carried = carry_dates_from_previous_snapshot(self._session_factory, snapshot_id)
+        # Before the days, the birth dates they are matched on: a snapshot imported before
+        # the parser understood the former names in brackets has 795 entries with no date
+        # of birth, and those can never be told from a namesake. The snapshot already in
+        # the database is one of them, and the line to re-read is kept in `raw_data`.
+        with self._session_factory.begin() as session:
+            birth_dates = backfill_birth_dates(session, snapshot_id)
         try:
             with httpx.Client(timeout=INCLUSION_TIMEOUT_SECONDS) as client:
                 dates = self._inclusion_dates(client)
@@ -283,10 +290,11 @@ class EntityRfCheck:
         with self._session_factory.begin() as session:
             result = write_inclusion_dates(session, snapshot_id, dates)
         logger.info(
-            "event=rfm_inclusion_dates_ok snapshot_id=%s carried=%d dated=%d already=%d "
-            "unmatched=%d",
+            "event=rfm_inclusion_dates_ok snapshot_id=%s carried=%d birth_dates=%d dated=%d "
+            "already=%d unmatched=%d",
             snapshot_id,
             carried,
+            birth_dates,
             result.dated,
             result.already_dated,
             sum(result.unmatched.values()),

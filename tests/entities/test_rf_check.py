@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
@@ -241,6 +241,188 @@ def test_a_new_snapshot_takes_the_day_from_the_previous_one_when_the_file_is_unr
     assert days[("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1996-06-08")] is not None, (
         "the new snapshot must not stand empty while the day one snapshot back is known"
     )
+
+
+def test_a_snapshot_imported_before_the_parser_was_fixed_recovers_its_birth_dates(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The gap this closes: a snapshot imported before the parser understood the former
+    names in brackets has 795 entries with no date of birth, and those can never be told
+    from a namesake. The line to re-read is kept in `raw_data`, so nothing is fetched.
+
+    Stands as the production snapshot does: an entry stored the way the old parser left
+    it — the whole line in `raw_data`, no birth date, the brackets and the day inside the
+    birth place.
+    """
+    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+
+    # A check of the published page first, so that the snapshot we build below is the one
+    # the filling reaches: an unchanged page imports nothing.
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+    line = (
+        "96. АБДУКАРИМОВ МАГОМЕД МАГОМЕДОВИЧ*, (АБДУКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ; "
+        "АБДУЛКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ), 03.05.1964 г.р. , С. ЭЧЕДА;"
+    )
+    with session_factory.begin() as session:
+        snapshot = RosfinmonitoringSnapshotRecord(
+            # Later than the check's own, so that this is the snapshot in use and the one
+            # the filling is about.
+            snapshot_date=datetime.now(UTC) + timedelta(seconds=1),
+            source_url="https://www.fedsfm.ru/documents/terrorists-catalog-portal-act",
+            content_hash="old-parser",
+            entry_count=1,
+            fetched_at=datetime.now(UTC),
+        )
+        session.add(snapshot)
+        session.flush()
+        session.add(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=snapshot.id,
+                full_name="АБДУКАРИМОВ МАГОМЕД МАГОМЕДОВИЧ",
+                normalized_name="абдукаримов магомед магомедович",
+                matching_key="абдукаримовмагомедмагомедович",
+                birth_place="(АБДУКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ; "
+                "АБДУЛКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ), 03.05.1964 г.р. , С. ЭЧЕДА",
+                raw_data={"entry": line},
+            )
+        )
+        older = session.scalar(select(func.max(RosfinmonitoringSnapshotRecord.id)))
+    assert older is not None
+
+    # A check of an unchanged page imports nothing, so the snapshot we built is the latest
+    # and the filling is the only thing that can reach it.
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+
+    with session_factory() as session:
+        record = session.execute(
+            select(
+                RosfinmonitoringEntryRecord.birth_date,
+                RosfinmonitoringEntryRecord.birth_place,
+                RosfinmonitoringEntryRecord.inclusion_date,
+                RosfinmonitoringEntryRecord.raw_data,
+            ).where(RosfinmonitoringEntryRecord.snapshot_id == older)
+        ).one()
+    assert record[0] is not None, "the date of birth was in the line all along"
+    assert record[1] == "С. ЭЧЕДА", "the place is what follows the date, not the brackets"
+    assert record[0].date() == date(1964, 5, 3)
+    assert record[3]["former_names"] == [
+        "АБДУКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ",
+        "АБДУЛКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ",
+    ], "our own record of the name the entry was published under"
+
+
+def test_a_recovered_birth_date_does_not_change_who_the_entry_is(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A date of birth is not who an entry is about. Filling it must leave the name, the
+    normalized name and the matching key exactly as the list published them."""
+    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+    with session_factory.begin() as session:
+        snapshot = RosfinmonitoringSnapshotRecord(
+            snapshot_date=datetime.now(UTC) + timedelta(seconds=1),
+            source_url="https://www.fedsfm.ru/documents/terrorists-catalog-portal-act",
+            content_hash="old-parser-2",
+            entry_count=1,
+            fetched_at=datetime.now(UTC),
+        )
+        session.add(snapshot)
+        session.flush()
+        session.add(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=snapshot.id,
+                full_name="АБДУКАРОВ АХМЕД ГАСАНОВИЧ",
+                normalized_name="абдукаров ахмед гасанович",
+                matching_key="абдукаровахмедгасанович",
+                raw_data={
+                    "entry": "7. АБДУКАРОВ АХМЕД ГАСАНОВИЧ*, (ПРЕЖНИЙ), 11.03.1975 г.р. , Г. МАХАЧКАЛА;"
+                },
+            )
+        )
+        older = session.scalar(select(func.max(RosfinmonitoringSnapshotRecord.id)))
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+
+    with session_factory() as session:
+        row = session.execute(
+            select(
+                RosfinmonitoringEntryRecord.full_name,
+                RosfinmonitoringEntryRecord.normalized_name,
+                RosfinmonitoringEntryRecord.matching_key,
+                RosfinmonitoringEntryRecord.birth_date,
+            ).where(RosfinmonitoringEntryRecord.snapshot_id == older)
+        ).one()
+    assert row[0] == "АБДУКАРОВ АХМЕД ГАСАНОВИЧ"
+    assert row[1] == "абдукаров ахмед гасанович"
+    assert row[2] == "абдукаровахмедгасанович"
+    assert row[3] is not None and row[3].date() == date(1975, 3, 11)
+
+
+def test_an_entry_with_no_line_to_re_read_is_left_alone(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A row with nothing in `raw_data` — an Airtable-sourced one, or a row from before
+    it was kept — has nothing to re-read, and is left as it is rather than guessed at."""
+    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+    with session_factory.begin() as session:
+        snapshot = RosfinmonitoringSnapshotRecord(
+            snapshot_date=datetime.now(UTC) + timedelta(seconds=1),
+            source_url="airtable://rfm_persons",
+            content_hash="no-raw",
+            entry_count=1,
+            fetched_at=datetime.now(UTC),
+        )
+        session.add(snapshot)
+        session.flush()
+        session.add(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=snapshot.id,
+                full_name="ИВАНОВ ИВАН ИВАНОВИЧ",
+                normalized_name="иванов иван иванович",
+                matching_key="ивановиваниванович",
+                raw_data={},
+            )
+        )
+        older = session.scalar(select(func.max(RosfinmonitoringSnapshotRecord.id)))
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+
+    with session_factory() as session:
+        assert (
+            session.execute(
+                select(RosfinmonitoringEntryRecord.birth_date).where(
+                    RosfinmonitoringEntryRecord.snapshot_id == older
+                )
+            ).scalar_one_or_none()
+            is None
+        )
 
 
 def test_the_previous_snapshot_gives_nothing_when_it_has_no_day(
