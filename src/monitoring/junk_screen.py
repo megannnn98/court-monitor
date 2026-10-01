@@ -25,8 +25,9 @@ import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
+from monitoring.article_screen import ArticleScreen, JunkScreenError
+from monitoring.decision_screen import decision_screen_from_env
 from monitoring.embedder import (
     EmbeddingConfig,
     EmbeddingConfigurationError,
@@ -37,22 +38,6 @@ from monitoring.embedder import (
 DEFAULT_MODEL_PATH = Path(__file__).with_name("junk_screen_model.json")
 HELD = "held"
 JUNK = "junk"
-
-
-class JunkScreenError(Exception):
-    """The screen is on and cannot judge: nothing must be deleted."""
-
-
-class ArticleScreen(Protocol):
-    @property
-    def name(self) -> str: ...
-
-    @property
-    def cutoff(self) -> float: ...
-
-    def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:
-        """A score per (title, text): the higher, the likelier a criminal case."""
-        ...
 
 
 @dataclass(frozen=True)
@@ -135,9 +120,6 @@ def screen_from_env(env: Mapping[str, str] | None = None) -> ArticleScreen | Non
     env = os.environ if env is None else env
     chosen = env.get("JUNK_SCREEN", "").strip().lower()
     if chosen == DECISION:
-        # Imported here: the module imports this one for `JunkScreenError`.
-        from monitoring.decision_screen import decision_screen_from_env
-
         return decision_screen_from_env(env)
     if chosen not in ("1", "true", "yes", "on"):
         return None

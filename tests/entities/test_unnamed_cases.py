@@ -129,6 +129,23 @@ def test_the_key_holds_while_the_text_tells_the_same() -> None:
     assert group_cases([_sentence("q", age=20)])[0].key == "unnamed:q"
 
 
+def test_two_cases_never_share_a_key() -> None:
+    """A sentence that fits two people joins neither and stands alone; a second such
+    sentence tells exactly what the first does. A mark on one must not fall on the other."""
+    cases = group_cases(
+        [
+            _sentence("a", age=15, place="Канаш", initial="К"),
+            _sentence("b", article_id=2, age=15, place="Канаш", initial="Л"),
+            _sentence("c", article_id=3, age=15, place="Канаш"),
+            _sentence("d", article_id=4, age=15, place="Канаш"),
+        ]
+    )
+    keys = [case.key for case in cases]
+    assert len(cases) == 4 and len(set(keys)) == 4
+    # The first to tell it keeps the telling for its key, so its mark stays where it was.
+    assert keys[2] == "unnamed:канаш|male|15|" and keys[3] == "unnamed:канаш|male|15|#d"
+
+
 def test_a_case_is_political_only_by_an_article_it_names() -> None:
     """No verdict exists for the unnamed; an article the text does not name is no reason."""
     assert not group_cases([_sentence("a", age=30, place="Тотьма")])[0].political

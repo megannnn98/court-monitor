@@ -62,40 +62,73 @@ class Sentence:
     source: str = ""
 
 
+# What a sentence gives when it tells nothing of a thing.
+_UNTOLD = (None, "", "unknown")
+
+
+def _told(values: Iterable[str | int | None]) -> str | int | None:
+    """The first telling among the sentences' that tells something."""
+    return next((value for value in values if value not in _UNTOLD), None)
+
+
+def _same(first: str | int | None, second: str | int | None) -> bool:
+    """Two tellings agree: equal, or one of them tells nothing."""
+    return first in _UNTOLD or second in _UNTOLD or first == second
+
+
+def _normal(place: str) -> str:
+    """A place as it is compared: «Орёл» and «орел » are one."""
+    return place.strip().lower().replace("ё", "е")
+
+
 @dataclass
 class Case:
     """One unnamed person of the result: the sentences that describe them."""
 
     sentences: list[Sentence] = field(default_factory=list)
-
-    def _told(self, values: Iterable[str | int | None]) -> str | int | None:
-        return next((value for value in values if value not in (None, "", "unknown")), None)
+    # Set on a case that tells exactly what an earlier one does and yet could not be
+    # joined to it (`group_cases`): the two are told apart by this case's first sentence.
+    twin: bool = False
 
     @property
     def age(self) -> int | None:
-        value = self._told(sentence.age for sentence in self.sentences)
+        value = _told(sentence.age for sentence in self.sentences)
         return value if isinstance(value, int) else None
 
     @property
     def gender(self) -> str:
-        return str(self._told(sentence.gender for sentence in self.sentences) or "")
+        return str(_told(sentence.gender for sentence in self.sentences) or "")
 
     @property
     def place(self) -> str:
-        return str(self._told(sentence.place for sentence in self.sentences) or "")
+        return str(_told(sentence.place for sentence in self.sentences) or "")
 
     @property
     def initial(self) -> str:
-        return str(self._told(sentence.initial for sentence in self.sentences) or "")
+        return str(_told(sentence.initial for sentence in self.sentences) or "")
+
+    @property
+    def first_key(self) -> str:
+        """The key of the case's first sentence: what tells it apart from a case that
+        tells the same."""
+        return min(sentence.key for sentence in self.sentences)
+
+    @property
+    def told_key(self) -> str:
+        """By what names the person, not by a row's id: stable while the text tells the
+        same. A case that tells no place is its first sentence's."""
+        if not self.place:
+            return KEY_PREFIX + self.first_key
+        told = (_normal(self.place), self.gender, self.age or "", self.initial)
+        return KEY_PREFIX + "|".join(str(part) for part in told)
 
     @property
     def key(self) -> str:
-        """Stable while the text tells the same: by what names the person, not by a row's
-        id. A case that tells no place is its first sentence's."""
-        if self.place:
-            told = (self.place.lower().replace("ё", "е"), self.gender, self.age or "", self.initial)
-            return KEY_PREFIX + "|".join(str(part) for part in told)
-        return KEY_PREFIX + min(sentence.key for sentence in self.sentences)
+        """What the operator's mark is kept by: one case, one key. The first case that
+        tells a thing has the telling for its key; a twin adds its first sentence."""
+        if not self.twin:
+            return self.told_key
+        return f"{self.told_key}#{self.first_key}"
 
     @property
     def name(self) -> str:
@@ -189,14 +222,9 @@ def case_name(age: int | None, gender: str, place: str, initial: str) -> str:
     return " ".join(parts)
 
 
-def _same(first: str | int | None, second: str | int | None) -> bool:
-    """Two tellings agree: equal, or one of them tells nothing."""
-    empty = (None, "", "unknown")
-    return first in empty or second in empty or first == second
-
-
-def _place(sentence: Sentence) -> str:
-    return sentence.place.strip().lower().replace("ё", "е")
+def _tells_who(sentence: Sentence) -> bool:
+    """A place and an age: enough to say two sentences are one person."""
+    return bool(_normal(sentence.place)) and sentence.age is not None
 
 
 def group_cases(sentences: Sequence[Sentence]) -> list[Case]:
@@ -207,15 +235,11 @@ def group_cases(sentences: Sequence[Sentence]) -> list[Case]:
     when exactly one fits it — the same publication first, then the same place.
     """
     cases: list[Case] = []
-    full = [sentence for sentence in sentences if _place(sentence) and sentence.age is not None]
-    rest = [
-        sentence for sentence in sentences if not (_place(sentence) and sentence.age is not None)
-    ]
-    for sentence in full:
+    for sentence in (sentence for sentence in sentences if _tells_who(sentence)):
         fits = [
             case
             for case in cases
-            if _place(case.sentences[0]) == _place(sentence)
+            if _normal(case.sentences[0].place) == _normal(sentence.place)
             and case.age == sentence.age
             and _same(case.gender, sentence.gender)
             and _same(case.initial, sentence.initial)
@@ -224,7 +248,7 @@ def group_cases(sentences: Sequence[Sentence]) -> list[Case]:
             fits[0].sentences.append(sentence)
         else:
             cases.append(Case([sentence]))
-    for sentence in rest:
+    for sentence in (sentence for sentence in sentences if not _tells_who(sentence)):
         compatible = [
             case
             for case in cases
@@ -237,18 +261,21 @@ def group_cases(sentences: Sequence[Sentence]) -> list[Case]:
             for case in compatible
             if any(other.article_id == sentence.article_id for other in case.sentences)
         ]
+        place = _normal(sentence.place)
         same_place = [
             case
             for case in compatible
-            if _place(sentence)
-            and _same(_place(sentence), case.place.lower().replace("ё", "е"))
-            and case.place
+            if place and case.place and _same(place, _normal(case.place))
         ]
         fits = same_article if len(same_article) == 1 else same_place
         if len(fits) == 1:
             fits[0].sentences.append(sentence)
         else:
             cases.append(Case([sentence]))
+    told: set[str] = set()
+    for case in cases:
+        case.twin = case.told_key in told
+        told.add(case.told_key)
     return cases
 
 

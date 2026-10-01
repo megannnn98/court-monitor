@@ -12,11 +12,11 @@ from pathlib import Path
 import pytest
 
 from monitoring import junk_screen
+from monitoring.article_screen import JunkScreenError
 from monitoring.embedder import EmbeddingConfig, document_prefix
 from monitoring.junk_screen import (
     DEFAULT_MODEL_PATH,
     EmbeddingScreen,
-    JunkScreenError,
     ScreenModel,
     screen_from_env,
 )

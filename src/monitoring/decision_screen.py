@@ -19,12 +19,13 @@ reading of the answer below — a changed shape must stop the purge, not pass as
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 import httpx
 
-from monitoring.junk_screen import JunkScreenError
+from monitoring.article_screen import JunkScreenError
 
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 DECISION_MODEL = "~typesafe/jev-latest"
@@ -63,13 +64,14 @@ class DecisionScreen:
 
     def __init__(
         self,
-        http: httpx.Client,
+        connect: Callable[[], httpx.Client],
         api_key: str,
         *,
         model: str = DECISION_MODEL,
         sleep: float = 2.0,
     ) -> None:
-        self._http = http
+        # A client per batch, closed with it: the screen outlives no connection.
+        self._connect = connect
         self._api_key = api_key
         self._model = model
         self._sleep = sleep
@@ -86,10 +88,10 @@ class DecisionScreen:
         if not articles:
             return []
         # Every answer or none: one article that could not be judged stops the batch.
-        with ThreadPoolExecutor(CONCURRENCY) as pool:
-            return list(pool.map(self._score, articles))
+        with self._connect() as http, ThreadPoolExecutor(CONCURRENCY) as pool:
+            return list(pool.map(partial(self._score, http), articles))
 
-    def _score(self, article: tuple[str, str]) -> float:
+    def _score(self, http: httpx.Client, article: tuple[str, str]) -> float:
         title, body = article
         request = {
             "model": self._model,
@@ -110,15 +112,15 @@ class DecisionScreen:
                 }
             },
         }
-        return _case_probability(self._ask(request))
+        return _case_probability(self._ask(http, request))
 
-    def _ask(self, request: Mapping[str, object]) -> object:
+    def _ask(self, http: httpx.Client, request: Mapping[str, object]) -> object:
         failure = "no attempt was made"
         for attempt in range(RETRIES + 1):
             if attempt:
                 time.sleep(self._sleep * attempt)
             try:
-                response = self._http.post(
+                response = http.post(
                     DECISIONS_URL,
                     json=request,
                     headers={"Authorization": f"Bearer {self._api_key}"},
@@ -156,6 +158,10 @@ def _case_probability(answer: object) -> float:
     return case
 
 
+def _connect() -> httpx.Client:
+    return httpx.Client()
+
+
 def decision_screen_from_env(env: Mapping[str, str]) -> DecisionScreen:
     """The decision screen, asked once here: a key that does not work, or a service that
     does not answer, fails before the purge deletes anything."""
@@ -164,6 +170,6 @@ def decision_screen_from_env(env: Mapping[str, str]) -> DecisionScreen:
         raise JunkScreenError(
             "The junk screen is set to the decision model, but OPENROUTER_API_KEY is empty"
         )
-    screen = DecisionScreen(httpx.Client(), api_key)
+    screen = DecisionScreen(_connect, api_key)
     screen.scores([("Проверка", "Проверка модели отсева перед очисткой.")])
     return screen

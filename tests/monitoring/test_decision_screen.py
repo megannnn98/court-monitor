@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from monitoring import decision_screen
+from monitoring.article_screen import JunkScreenError
 from monitoring.decision_screen import (
     ARTICLE_CHARS,
     CUTOFF,
@@ -15,7 +16,7 @@ from monitoring.decision_screen import (
     DecisionScreen,
     decision_screen_from_env,
 )
-from monitoring.junk_screen import JunkScreenError, screen_from_env
+from monitoring.junk_screen import screen_from_env
 
 
 def _answer(case: float) -> dict[str, object]:
@@ -32,7 +33,7 @@ def _answer(case: float) -> dict[str, object]:
 
 
 def _screen(handler: httpx.MockTransport) -> DecisionScreen:
-    return DecisionScreen(httpx.Client(transport=handler), "secret-key", sleep=0)
+    return DecisionScreen(lambda: httpx.Client(transport=handler), "secret-key", sleep=0)
 
 
 def test_the_score_is_the_probability_of_a_case_in_the_order_asked() -> None:
