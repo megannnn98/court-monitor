@@ -10,6 +10,8 @@ same rows go to Excel.
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from html import escape
@@ -29,6 +31,7 @@ from db.orm_models import (
     EntityGroupRecord,
 )
 from entities.evidence import person_evidence_cte
+from entities.known_base import LEVEL_LABELS, KnownBase, KnownMatch
 from entities.news import CLOSED, KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
@@ -55,7 +58,7 @@ _DIGEST_MARKERS = (
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
-FILTER_NAMES = ("months", "date_from", "date_to", "news")
+FILTER_NAMES = ("months", "date_from", "date_to", "news", "known")
 # What the latest news is (`entities.news`): the operator's new cases and sentences first.
 NEWS_FILTERS = {
     "all": "Любая свежая новость",
@@ -65,6 +68,16 @@ NEWS_FILTERS = {
     CLOSED: "Дело завершено",
     OTHER: "Другое",
     UNKNOWN: "Не определено",
+}
+
+# Whether the operator's own base («Найденные люди») already holds the person, by name
+# (`entities.known_base`): the new people are the ones it does not.
+KNOWN_FILTERS = {
+    "all": "Любые",
+    "none": "Нет в базе",
+    "in_base": LEVEL_LABELS["in_base"].capitalize(),
+    "probably": LEVEL_LABELS["probably"].capitalize(),
+    "namesakes": LEVEL_LABELS["namesakes"].capitalize(),
 }
 
 _PUBLICATIONS = text(
@@ -111,6 +124,8 @@ class ListRow:
     # What the latest news is, and why the model said so.
     news_kind: str | None = None
     news_reason: str = ""
+    # What the operator's base says of this person; None: nobody by this name there.
+    known: KnownMatch | None = None
     memorial: str | None = None
     first_published: datetime | None = None
     # (title, url, published, source) of the latest publications.
@@ -126,6 +141,7 @@ class Filters:
     date_from: date | None = None
     date_to: date | None = None
     news: str = "all"
+    known: str = "all"
 
     @property
     def custom(self) -> bool:
@@ -138,6 +154,7 @@ class Filters:
             "date_from": self.date_from.isoformat() if self.date_from else "",
             "date_to": self.date_to.isoformat() if self.date_to else "",
             "news": self.news,
+            "known": self.known,
         }
 
 
@@ -182,7 +199,9 @@ def _date_field(name: str, label: str, value: date | None) -> str:
     )
 
 
-def filters(months: int, date_from: str, date_to: str, news: str = "all") -> Filters:
+def filters(
+    months: int, date_from: str, date_to: str, news: str = "all", known: str = "all"
+) -> Filters:
     """Dates, when given, win over the months."""
     start, end = _parse_date(date_from), _parse_date(date_to)
     return Filters(
@@ -190,6 +209,7 @@ def filters(months: int, date_from: str, date_to: str, news: str = "all") -> Fil
         date_from=start,
         date_to=end,
         news=news if news in NEWS_FILTERS else "all",
+        known=known if known in KNOWN_FILTERS else "all",
     )
 
 
@@ -208,7 +228,46 @@ def remembered(cookie: str) -> Filters | None:
         values.get("date_from", "")[:10],
         values.get("date_to", "")[:10],
         values.get("news", "all"),
+        values.get("known", "all"),
     )
+
+
+def _answer(match: KnownMatch | None) -> str:
+    return match.level if match else "none"
+
+
+@dataclass(frozen=True)
+class KnownCheck:
+    """The operator's base against the people on the list."""
+
+    matches: Mapping[int, KnownMatch | None]
+    # The people per answer («none» for nobody by the name), before the choice of one.
+    counts: Mapping[str, int]
+    # How many people the base holds; none loaded, the answer «not there» means nothing.
+    size: int
+
+
+def _by_known_base(
+    db: Session,
+    found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]],
+    chosen: Filters,
+) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], KnownCheck]:
+    """The people the base answers for, and who is left after the choice of an answer.
+
+    With the base not loaded (a sync has never run) nobody is «not in the base» — the
+    base is not there — so the choice is ignored and the page says so.
+    """
+    base = KnownBase.from_session(db)
+    matches = {entity.id: base.match(entity.name) for entity, _ in found}
+    counts = Counter(_answer(match) for match in matches.values())
+    check = KnownCheck(matches, dict(counts), len(base))
+    if chosen.known == "all" or not len(base):
+        return found, check
+    return [
+        (entity, politics)
+        for entity, politics in found
+        if _answer(matches[entity.id]) == chosen.known
+    ], check
 
 
 def _rows(
@@ -256,11 +315,18 @@ def _rows(
 
 
 def _details(
-    db: Session, found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]]
+    db: Session,
+    found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]],
+    known: Mapping[int, KnownMatch | None] | None = None,
 ) -> list[ListRow]:
     ids = [entity.id for entity, _ in found]
     rows = {
-        entity.id: ListRow(entity=entity, politics=politics, maybe_listed=False)
+        entity.id: ListRow(
+            entity=entity,
+            politics=politics,
+            maybe_listed=False,
+            known=known.get(entity.id) if known else None,
+        )
         for entity, politics in found
     }
     for group_id, kind, reason in db.execute(
@@ -365,7 +431,23 @@ def _news_mark(row: ListRow) -> str:
     )
 
 
-def _html_row(position: int, row: ListRow) -> str:
+def _known_mark(row: ListRow, *, loaded: bool) -> str:
+    """What the operator's base says of the person; the names it holds in the tooltip."""
+    if not loaded:
+        return '<span class="muted">—</span>'
+    match = row.known
+    if match is None:
+        return '<span class="badge succeeded">нет в базе</span>'
+    css = {"in_base": "", "probably": "", "namesakes": "pending"}[match.level]
+    names = "; ".join(match.names)
+    return (
+        f'<span class="badge {css}" title="{escape(names, quote=True)}">'
+        f"{escape(match.label)}</span>"
+        f'<br><span class="muted">{escape(names if match.level != "namesakes" else "")}</span>'
+    )
+
+
+def _html_row(position: int, row: ListRow, *, known_loaded: bool = False) -> str:
     entity = row.entity
     articles = ", ".join(
         f"<b>{escape(article)}</b>" if article in POLITICAL_ARTICLES else escape(article)
@@ -389,6 +471,7 @@ def _html_row(position: int, row: ListRow) -> str:
         f'<td><a href="/ui/investigations/{quote(entity.key)}">'
         f"{escape(display_name(entity.name))}</a>{listed}</td>"
         f"<td>{_news_mark(row)}</td>"
+        f"<td>{_known_mark(row, loaded=known_loaded)}</td>"
         f"<td>{escape(_regions_text(entity))}</td>"
         f'<td class="muted">{escape(row.rf_entry)}</td>'
         f"<td>{articles}</td>"
@@ -407,17 +490,20 @@ def ui_political(
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
     news: str = Query(default="all", max_length=16),
+    known: str = Query(default="all", max_length=16),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    chosen = filters(months, date_from, date_to, news)
+    chosen = filters(months, date_from, date_to, news, known)
     # No filters in the address: the last ones chosen, not «all the time».
     if not any(name in request.query_params for name in FILTER_NAMES):
         chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
     found, total, news_counts = _rows(db, chosen)
-    on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
+    found, check = _by_known_base(db, found, chosen)
+    total = len(found)
+    on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE], check.matches)
     rows = "".join(
-        _html_row(position, row)
+        _html_row(position, row, known_loaded=bool(check.size))
         for position, row in enumerate(on_page, start=(page - 1) * PAGE_SIZE + 1)
     )
     keep = chosen.query()
@@ -437,6 +523,17 @@ def ui_political(
         for key, label in NEWS_FILTERS.items()
         if key in ("all", NEW_CASE, SENTENCE, ONGOING) or news_counts.get(key)
     )
+    known_options = "".join(
+        f'<option value="{key}"{" selected" if key == chosen.known else ""}>{escape(label)}'
+        f"{f' ({check.counts.get(key, 0)})' if key != 'all' else ''}</option>"
+        for key, label in KNOWN_FILTERS.items()
+    )
+    known_select = (
+        '<label class="field">В базе Airtable <select name="known" '
+        f'onchange="this.form.submit()">{known_options}</select></label>'
+        if check.size
+        else ""
+    )
     dates = (
         _date_field("date_from", "с", chosen.date_from)
         + _date_field("date_to", "по", chosen.date_to)
@@ -452,6 +549,7 @@ def ui_political(
     <label class="field">Свежая новость <select name="news" onchange="this.form.submit()">{
         news_options
     }</select></label>
+    {known_select}
     <button type="submit" class="secondary" formaction="/ui/political/export.xlsx">Скачать Excel</button>
   </div>
 </form>
@@ -459,8 +557,10 @@ def ui_political(
 <p class="muted">Найдено: {total}. Фигуранты уголовных дел, дело которых — политическое
 преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
-Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.</p>
-<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Свежая новость</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
+Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.
+«В базе Airtable» — есть ли человек в вашей таблице «Найденные люди»; сверка только по имени
+(даты рождения и региона там нет), поэтому «вероятно» и «тёзки» — не уверенность.</p>
+<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Свежая новость</th><th>В базе Airtable</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
 {pages_html}
@@ -509,7 +609,21 @@ document.getElementById("political-filters").addEventListener("change", (event) 
     return response
 
 
-def political_xlsx(rows: list[ListRow]) -> bytes:
+def _known_text(row: ListRow, *, loaded: bool) -> str | None:
+    """The answer of the operator's base as a cell: what, and which records."""
+    if not loaded:
+        return None
+    if row.known is None:
+        return "нет в базе"
+    names = "; ".join(row.known.names)
+    return (
+        f"{row.known.label} ({names})"
+        if row.known.level == "namesakes"
+        else (f"{row.known.label}: {names}")
+    )
+
+
+def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
     assert sheet is not None
@@ -527,6 +641,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             "Перечень РФМ",
             *(f"Источник {number}" for number in range(1, LINKS + 1)),
             "Свежая новость",
+            "В базе Airtable",
         ]
     )
     for position, row in enumerate(rows, start=1):
@@ -550,6 +665,7 @@ def political_xlsx(rows: list[ListRow]) -> bytes:
             *(f"{source}: {title[:80]}" for title, _, source in sources),
             *(None for _ in range(LINKS - len(sources))),
             KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
+            _known_text(row, loaded=known_loaded),
         ]
         sheet.append(values)
         line = position + 1
@@ -587,14 +703,16 @@ def ui_political_export(
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
     news: str = Query(default="all", max_length=16),
+    known: str = Query(default="all", max_length=16),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    chosen = filters(months, date_from, date_to, news)
+    chosen = filters(months, date_from, date_to, news, known)
     found, _, _ = _rows(db, chosen)
+    found, check = _by_known_base(db, found, chosen)
     name = export_name(chosen, found, datetime.now(UTC).date())
     return Response(
-        political_xlsx(_details(db, found)),
+        political_xlsx(_details(db, found, check.matches), known_loaded=bool(check.size)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )

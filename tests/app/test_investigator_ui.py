@@ -387,6 +387,44 @@ def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
     assert "суд вынес приговор" in overview
 
 
+def _known(session_factory: sessionmaker[Session], *names: str) -> None:
+    from db.orm_models import AirtableKnownPersonRecord
+
+    with session_factory.begin() as session:
+        for number, name in enumerate(names):
+            session.add(
+                AirtableKnownPersonRecord(
+                    external_id=f"{name}-{number}",
+                    full_name=name,
+                    normalized_name=name.lower(),
+                    matching_key=name.lower().replace(" ", ""),
+                    active=True,
+                )
+            )
+
+
+def test_the_dossier_says_whether_the_operator_s_base_holds_the_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _case(session_factory)
+    with _client(session_factory) as client:
+        no_base = client.get(f"/ui/investigations/{quote(MOOR)}").text
+    _known(session_factory, "Кто-то Другой")
+    with _client(session_factory) as client:
+        absent = client.get(f"/ui/investigations/{quote(MOOR)}").text
+    _known(session_factory, "Моор Александр Петрович")
+    with _client(session_factory) as client:
+        present = client.get(f"/ui/investigations/{quote(MOOR)}").text
+
+    # No base synced: the dossier says nothing, rather than «not in the base».
+    assert "База Airtable" not in no_base
+    assert "<h3>База Airtable</h3>" in absent and "нет в базе" in absent
+    assert "вероятно, новый человек" in absent
+    assert "вероятно, есть в базе" in present and "<li>Моор Александр Петрович</li>" in present
+    # What a name proves is said where the answer is.
+    assert "Сверка только по имени" in present and "нет в базе" not in present
+
+
 def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(
     session_factory: sessionmaker[Session],
 ) -> None:

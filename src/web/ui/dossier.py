@@ -31,6 +31,7 @@ from db.orm_models import (
     EntityGroupRoleRecord,
 )
 from entities.evidence import person_evidence_cte
+from entities.known_base import KnownBase, KnownMatch
 from entities.news import KIND_LABELS as NEWS_LABELS
 from entities.news import NEW_CASE, SENTENCE
 from entities.officials import OFFICIAL_KINDS
@@ -273,6 +274,9 @@ class Dossier:
     related: list[tuple[str, str, int]]
     verdict_source: int | None
     disputes: list[str]
+    # What the operator's base says of the person; `known_loaded` False: no base to ask.
+    known: KnownMatch | None = None
+    known_loaded: bool = False
 
 
 def _marked(quote_text: str, start: int, end: int) -> str:
@@ -407,7 +411,10 @@ def load(db: Session, key: str) -> Dossier | None:
         for pair in dispute_pairs(db)
         if key in pair.keys
     ]
+    base = KnownBase.from_session(db)
     return Dossier(
+        known=base.match(entity.name),
+        known_loaded=bool(len(base)),
         entity=entity,
         rf=matches,
         snapshot_date=snapshot_date,
@@ -564,7 +571,7 @@ def _decision(dossier: Dossier) -> str:
   <h2 id="decision-title">Решение системы</h2>
   <div class="decision-grid">
     <div><h3>Политичность дела</h3>{verdict}</div>
-    <div><h3>Роль в деле</h3>{role}{_news(entity)}</div>
+    <div><h3>Роль в деле</h3>{role}{_news(entity)}{_known(dossier)}</div>
     <div><h3>Росфинмониторинг</h3>
       <p>{_badge(rf_label, rf_badge)}</p>
       {f"<ul>{rf_items}</ul>" if rf_items else ""}
@@ -615,6 +622,30 @@ def _news(entity: Any) -> str:
     return f"""<h3>Свежая новость</h3>
     <p>{_badge(NEWS_LABELS.get(entity.news_kind, entity.news_kind), "succeeded" if entity.news_kind in (NEW_CASE, SENTENCE) else "")}</p>
     <p class="muted">{escape(entity.news_reason)}</p>"""
+
+
+def _known(dossier: Dossier) -> str:
+    """Whether the operator's own base («Найденные люди») already holds the person — by
+    the name alone, and the block says how much that proves."""
+    if not dossier.known_loaded:
+        return ""
+    match = dossier.known
+    if match is None:
+        badge = _badge("нет в базе", "succeeded")
+        detail = "В вашей таблице «Найденные люди» никого с таким именем: вероятно, новый человек."
+    else:
+        badge = _badge(match.label, "pending" if match.level == "namesakes" else "")
+        names = "".join(f"<li>{escape(name)}</li>" for name in match.names)
+        more = (
+            f'<li class="muted">…и ещё {match.count - len(match.names)}</li>'
+            if match.count > len(match.names)
+            else ""
+        )
+        detail = f"<ul>{names}{more}</ul>"
+    return f"""<h3>База Airtable</h3>
+    <p>{badge}</p>
+    {detail}
+    <p class="muted">Сверка только по имени: даты рождения и региона в таблице нет.</p>"""
 
 
 def _timeline(dossier: Dossier) -> str:

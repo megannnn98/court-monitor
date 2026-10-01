@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
@@ -12,6 +13,7 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
+    AirtableKnownPersonRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
@@ -154,7 +156,13 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
     rows = list(sheet.iter_rows(values_only=True))
     assert rows[0][:3] == ("№", "Фамилия Имя", "Регион")
     assert rows[0][8] == "Перечень РФМ"
-    assert rows[0][9:13] == ("Источник 1", "Источник 2", "Источник 3", "Свежая новость")
+    assert rows[0][9:14] == (
+        "Источник 1",
+        "Источник 2",
+        "Источник 3",
+        "Свежая новость",
+        "В базе Airtable",
+    )
     assert [(row[1], row[2], row[8]) for row in rows[1:]] == [
         (
             "Смирнова Анна",
@@ -346,5 +354,150 @@ def test_the_latest_news_is_marked_and_chosen(session_factory: sessionmaker[Sess
     assert "Найдено: 0." in sentences
     assert "Найдено: 2." in nonsense
     rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
-    assert rows[0][-1] == "Свежая новость"
-    assert [(row[1], row[-1]) for row in rows[1:]] == [("Смирнова Анна", "новое дело")]
+    news = rows[0].index("Свежая новость")
+    assert [(row[1], row[news]) for row in rows[1:]] == [("Смирнова Анна", "новое дело")]
+
+
+def _known(session_factory: sessionmaker[Session], *names: str, active: bool = True) -> None:
+    with session_factory.begin() as session:
+        for number, name in enumerate(names):
+            session.add(
+                AirtableKnownPersonRecord(
+                    external_id=f"{name}-{number}",
+                    full_name=name,
+                    normalized_name=name.lower(),
+                    matching_key=name.lower().replace(" ", ""),
+                    active=active,
+                )
+            )
+
+
+def _third(session_factory: sessionmaker[Session]) -> None:
+    """A political person nobody has: the base's answer for them is «not there»."""
+    with session_factory.begin() as session:
+        entity = EntityGroupRecord(
+            key="олег новиков",
+            name="Олег Новиков",
+            variants=[["Олег Новиков", 1]],
+            mention_count=1,
+            article_count=1,
+            event_types={},
+            regions=[],
+            last_published_at=datetime.now(UTC) - timedelta(days=2),
+        )
+        session.add(entity)
+        session.flush()
+        session.add(
+            EntityGroupPoliticsRecord(
+                group_id=entity.id, verdict="political", method="model", reason="", quote=""
+            )
+        )
+
+
+def _base_world(session_factory: sessionmaker[Session]) -> None:
+    """Смирнова: one record, with a patronymic the news lacks. Иванов: two namesakes.
+    Новиков: not in the base."""
+    _seed(session_factory)
+    _third(session_factory)
+    _known(
+        session_factory,
+        "Смирнова Анна Петровна",
+        "Иванов Иван Иванович",
+        "Иванов Иван Петрович",
+        "Кто-то Другой",
+    )
+
+
+def test_the_list_says_who_the_operator_s_base_already_holds(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _base_world(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political", params={"months": 0}).text
+
+    assert "<th>В базе Airtable</th>" in page
+    # Смирнова: one record that holds her name and more — probably, not certainly.
+    assert re.search(r"Смирнова Анна</a>.*?>вероятно, есть в базе</span>", page, re.DOTALL)
+    assert "Смирнова Анна Петровна" in page
+    # Иванов: two records fit; the page counts them and picks neither.
+    assert re.search(r"Иванов Иван</a>.*?>тёзки в базе: 2</span>", page, re.DOTALL)
+    # Новиков: nobody by this name — the new one.
+    assert re.search(r"Новиков Олег</a>.*?>нет в базе</span>", page, re.DOTALL)
+    assert 'name="known"' in page
+    for option in (
+        '<option value="none">Нет в базе (1)</option>',
+        '<option value="probably">Вероятно, есть в базе (1)</option>',
+        '<option value="namesakes">Тёзки в базе (1)</option>',
+        '<option value="in_base">Есть в базе (0)</option>',
+    ):
+        assert option in page
+
+
+def test_the_choice_of_an_answer_narrows_the_list_and_its_count(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _base_world(session_factory)
+
+    with _client(session_factory) as client:
+        new = client.get("/ui/political", params={"months": 0, "known": "none"}).text
+        namesakes = client.get("/ui/political", params={"months": 0, "known": "namesakes"}).text
+        nonsense = client.get("/ui/political", params={"months": 0, "known": "drop table"}).text
+
+    assert "Найдено: 1." in new and "Новиков Олег" in new and "Смирнова" not in new
+    assert "Найдено: 1." in namesakes and "Иванов Иван" in namesakes
+    # Narrowed, the counts stay those of the whole list: the choice is not a filter on them.
+    assert '<option value="none" selected>Нет в базе (1)</option>' in new
+    assert "Найдено: 3." in nonsense
+
+
+def test_with_no_base_loaded_nobody_is_called_new(session_factory: sessionmaker[Session]) -> None:
+    """Nothing synced yet: «not in the base» would be a statement about nothing."""
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        # An answer that, taken at its word, would leave nobody: with no base it is ignored.
+        page = client.get("/ui/political", params={"months": 0, "known": "probably"}).text
+        excel = client.get("/ui/political/export.xlsx", params={"months": 0, "known": "probably"})
+
+    assert "нет в базе" not in page and 'name="known"' not in page
+    assert "Найдено: 2." in page
+    rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
+    assert len(rows) == 3 and all(row[-1] is None for row in rows[1:])
+
+
+def test_the_excel_has_the_base_s_answer_and_follows_the_choice(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _base_world(session_factory)
+
+    with _client(session_factory) as client:
+        everyone = client.get("/ui/political/export.xlsx", params={"months": 0})
+        new = client.get("/ui/political/export.xlsx", params={"months": 0, "known": "none"})
+
+    def answers(response: object) -> dict[str, str | None]:
+        sheet = load_workbook(BytesIO(response.content)).active  # type: ignore[attr-defined]
+        rows = list(sheet.iter_rows(values_only=True))
+        column = rows[0].index("В базе Airtable")
+        return {row[1]: row[column] for row in rows[1:]}
+
+    assert answers(everyone) == {
+        "Смирнова Анна": "вероятно, есть в базе: Смирнова Анна Петровна",
+        "Иванов Иван": "тёзки в базе: 2 (Иванов Иван Иванович; Иванов Иван Петрович)",
+        "Новиков Олег": "нет в базе",
+    }
+    assert answers(new) == {"Новиков Олег": "нет в базе"}
+
+
+def test_an_inactive_record_of_the_base_does_not_count(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _known(session_factory, "Смирнова Анна Петровна", active=False)
+    _known(session_factory, "Кто-то Другой")
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political", params={"months": 0}).text
+
+    assert 'name="known"' in page and "нет в базе" in page
+    assert "вероятно, есть в базе" not in page
