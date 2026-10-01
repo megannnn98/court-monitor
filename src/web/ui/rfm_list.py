@@ -194,13 +194,14 @@ def _with_our_matches(db: Session, rows: list[ListRow]) -> None:
         .select_from(EntityGroupRfMatchRecord)
         .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupRfMatchRecord.group_id)
         .where(EntityGroupRfMatchRecord.entry_id.in_(list(by_entry)))
-        .order_by(EntityGroupRfMatchRecord.level.desc())
+        # `level = 'full'` first, as on «Результате» — and not `level DESC`, which sorts
+        # the two words alphabetically and puts «name» ahead of «full», so where one
+        # entry matched two people the namesake would be the one shown.
+        .order_by((EntityGroupRfMatchRecord.level == FULL).desc())
     ).all():
         row = by_entry[entry_id]
         if row.group_key is not None:
             continue
-        # `level desc` puts `full` before `name`, so where an entry matched two people the
-        # identified one is the one shown — as it is in «Результате».
         row.group_key, row.group_name, row.match_level = key, name, level
 
 

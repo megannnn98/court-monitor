@@ -425,6 +425,95 @@ def test_an_entry_with_no_line_to_re_read_is_left_alone(
         )
 
 
+def test_a_recovered_birth_date_can_still_reach_the_day_it_had_before(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The order the two steps run in, and why it is not a matter of taste.
+
+    An entry whose date of birth was just re-read from `raw_data` matches on a pair, and
+    the carrying query skips entries that have no birth date — so if the previous
+    snapshot is consulted first, those entries never meet it and their day is lost
+    whenever the file cannot be read. 825 entries on a snapshot imported before the parser
+    was fixed are in exactly that position.
+    """
+    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+    with session_factory.begin() as session:
+        count = session.scalar(select(func.count()).select_from(RosfinmonitoringSnapshotRecord))
+        # The previous snapshot: it knows the day of the pair.
+        earlier = RosfinmonitoringSnapshotRecord(
+            snapshot_date=datetime.now(UTC),
+            source_url="https://www.fedsfm.ru/documents/terrorists-catalog-portal-act",
+            content_hash=f"earlier-{count}",
+            entry_count=1,
+            fetched_at=datetime.now(UTC),
+        )
+        session.add(earlier)
+        session.flush()
+        session.add(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=earlier.id,
+                full_name="АБАБАКАРОВ АХМЕД ГАСАНОВИЧ",
+                normalized_name="абабакаров ахмед гасанович",
+                matching_key="абабакаровахмедгасанович",
+                birth_date=datetime(1975, 3, 11, tzinfo=UTC),
+                inclusion_date=datetime(2014, 1, 8, tzinfo=UTC),
+                raw_data={},
+            )
+        )
+        # The snapshot in use: the same entry the way the old parser left it — no date of
+        # birth, the whole line in `raw_data`. A separate snapshot, or the day being looked
+        # for is the one the test itself put there.
+        current = RosfinmonitoringSnapshotRecord(
+            snapshot_date=datetime.now(UTC) + timedelta(seconds=1),
+            source_url="https://www.fedsfm.ru/documents/terrorists-catalog-portal-act",
+            content_hash=f"current-{count}",
+            entry_count=1,
+            fetched_at=datetime.now(UTC),
+        )
+        session.add(current)
+        session.flush()
+        session.add(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=current.id,
+                full_name="АБАБАКАРОВ АХМЕД ГАСАНОВИЧ",
+                normalized_name="абабакаров ахмед гасанович",
+                matching_key="абабакаровахмедгасанович",
+                raw_data={
+                    "entry": "7. АБАБАКАРОВ АХМЕД ГАСАНОВИЧ*, (ПРЕЖНИЙ), "
+                    "11.03.1975 г.р. , Г. МАХАЧКАЛА;"
+                },
+            )
+        )
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+
+    with session_factory() as session:
+        row = session.execute(
+            select(
+                RosfinmonitoringEntryRecord.birth_date, RosfinmonitoringEntryRecord.inclusion_date
+            ).where(
+                RosfinmonitoringEntryRecord.snapshot_id == current.id,
+                RosfinmonitoringEntryRecord.full_name == "АБАБАКАРОВ АХМЕД ГАСАНОВИЧ",
+            )
+        ).one()
+    assert row[0] is not None, "the date of birth was in the line all along"
+    assert row[1] is not None, (
+        "the day was known a snapshot ago and the file is unreadable: the birth date is "
+        "recovered first, so the entry must still meet the previous snapshot"
+    )
+    assert row[1].date() == date(2014, 1, 8)
+
+
 def test_the_previous_snapshot_gives_nothing_when_it_has_no_day(
     session_factory: sessionmaker[Session],
 ) -> None:

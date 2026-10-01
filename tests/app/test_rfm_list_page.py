@@ -17,6 +17,7 @@ from io import BytesIO
 import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -379,6 +380,46 @@ def test_a_namesake_is_marked_as_one_and_a_full_match_is_not(
     assert "возможно тёзка" in page, (
         "the entry matched on a name alone must not read like the one we identified"
     )
+
+
+def test_where_one_entry_matched_two_people_the_identified_one_is_shown(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """One list entry, two of our cases matched to it — one on the whole name, one on the
+    name alone. The one we identified has to be the one on the page.
+
+    The two levels are the words «full» and «name», and sorting them descending puts
+    «name» first: alphabetically it is the larger. An earlier version did that, showed
+    the namesake, and the comment above it claimed the opposite.
+    """
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        entry_id = session.execute(
+            select(RosfinmonitoringEntryRecord.id).where(
+                RosfinmonitoringEntryRecord.full_name == "ИВАНОВ ИВАН ИВАНОВИЧ"
+            )
+        ).scalar_one()
+        namesake = EntityGroupRecord(
+            key="иван иванов тёзка",
+            name="Иван Иванов (тёзка)",
+            variants=[["Иван Иванов (тёзка)", 1]],
+            mention_count=1,
+            article_count=1,
+            event_types={},
+            regions=[],
+        )
+        session.add(namesake)
+        session.flush()
+        session.add(EntityGroupRfMatchRecord(group_id=namesake.id, entry_id=entry_id, level="name"))
+
+    with _client(session_factory) as client:
+        page = _flat(client.get("/ui/rfm").text)
+
+    assert "Иван Иванов (тёзка)" not in page, (
+        "a namesake matched on a name alone must not stand for the entry in place of the "
+        "person we identified"
+    )
+    assert "в перечне" in page
 
 
 def test_the_file_tells_the_two_kinds_of_match_apart_too(

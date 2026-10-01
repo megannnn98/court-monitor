@@ -259,26 +259,28 @@ class EntityRfCheck:
     def _fill_inclusion_dates(self, snapshot_id: int) -> None:
         """Give the snapshot's entries whatever day of inclusion can be established.
 
-        Two sources, in order, and the first is not the network:
+        Three steps, in this order, and the order matters:
 
-        - the previous snapshot, which is our own record of the same list a week ago. A
-          name and a birth date that match there already have their day, and the day does
+        - first the birth dates, re-read from the line each entry keeps in `raw_data`. A
+          snapshot imported before the parser understood the former names in brackets has
+          795 entries with no date of birth, and those can never be told from a namesake;
+        - then the previous snapshot, which is our own record of the same list a week ago.
+          A name and a birth date that match there already have their day, and the day does
           not change because the list was re-downloaded. This is what fills a snapshot
           imported on a day the file could not be read, and it is why an unreachable file
-          does not leave the page empty;
-        - the ОВД-Инфо copy, for whatever the previous snapshot did not cover — a person
-          added since, or a snapshot whose days were never established at all.
+          does not leave the page empty. It has to come after the birth dates: an entry
+          whose date of birth was just recovered matches on a pair, and the carrying query
+          skips entries that have no birth date — so carried before it, those 825 entries
+          would miss the day they could have had;
+        - then the ОВД-Инфо copy, for whatever is left: a person added since, or a
+          snapshot whose days were never established at all.
 
         A failure to read the file is therefore not a failure of this at all: what the
         previous snapshot knew is already written, and the run goes on.
         """
-        carried = carry_dates_from_previous_snapshot(self._session_factory, snapshot_id)
-        # Before the days, the birth dates they are matched on: a snapshot imported before
-        # the parser understood the former names in brackets has 795 entries with no date
-        # of birth, and those can never be told from a namesake. The snapshot already in
-        # the database is one of them, and the line to re-read is kept in `raw_data`.
         with self._session_factory.begin() as session:
             birth_dates = backfill_birth_dates(session, snapshot_id)
+        carried = carry_dates_from_previous_snapshot(self._session_factory, snapshot_id)
         try:
             with httpx.Client(timeout=INCLUSION_TIMEOUT_SECONDS) as client:
                 dates = self._inclusion_dates(client)
