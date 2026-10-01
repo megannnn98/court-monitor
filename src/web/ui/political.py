@@ -36,6 +36,7 @@ from entities.known_base import LEVEL_LABELS, KnownBase, KnownMatch
 from entities.news import CLOSED, KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
+from entities.unnamed_cases import KEY_PREFIX, Case, political_cases
 from persecution.classifier import POLITICAL_ARTICLES
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
@@ -60,7 +61,20 @@ _DIGEST_MARKERS = (
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
-FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done")
+FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done", "who")
+# Named people, or the figurants a publication does not name (`entities.unnamed_cases`).
+WHO_FILTERS = {"all": "Все", "named": "С именем", "unnamed": "Без имени"}
+# An unnamed figurant has no «свежая новость» of the model's: the event of the latest
+# sentence about them stands for it.
+_EVENT_NEWS = {
+    "case_opened": NEW_CASE,
+    "detention": NEW_CASE,
+    "charge": NEW_CASE,
+    "search": NEW_CASE,
+    "arrest": ONGOING,
+    "sentence": SENTENCE,
+    "other": OTHER,
+}
 # The people the operator marked «обработано»: hidden unless she asks to see them.
 DONE_FILTERS = ("hide", "show")
 # What the latest news is (`entities.news`): the operator's new cases and sentences first.
@@ -131,10 +145,35 @@ def rf_text(row: ListRow) -> str:
     return ""
 
 
+@dataclass(frozen=True)
+class UnnamedPerson:
+    """An unnamed figurant in the place of an entity: what a row of the list reads."""
+
+    id: int
+    key: str
+    name: str
+    regions: list[Any]
+    last_published_at: datetime | None
+    case: Case
+
+
+@dataclass(frozen=True)
+class UnnamedBasis:
+    """Why an unnamed figurant is on the list: the political article the text names."""
+
+    reason: str
+    quote: str
+    method: str = "article"
+
+
+Person = EntityGroupRecord | UnnamedPerson
+Found = tuple[Person, EntityGroupPoliticsRecord | UnnamedBasis]
+
+
 @dataclass
 class ListRow:
-    entity: EntityGroupRecord
-    politics: EntityGroupPoliticsRecord
+    entity: Person
+    politics: EntityGroupPoliticsRecord | UnnamedBasis
     # On the list by the name alone (no patronymic on one side): maybe a namesake.
     maybe_listed: bool
     articles: list[tuple[str, bool]] = field(default_factory=list)
@@ -168,6 +207,7 @@ class Filters:
     news: str = "all"
     known: str = "all"
     done: str = "hide"
+    who: str = "all"
 
     @property
     def custom(self) -> bool:
@@ -182,6 +222,7 @@ class Filters:
             "news": self.news,
             "known": self.known,
             "done": self.done,
+            "who": self.who,
         }
 
 
@@ -233,6 +274,7 @@ def filters(
     news: str = "all",
     known: str = "all",
     done: str = "hide",
+    who: str = "all",
 ) -> Filters:
     """Dates, when given, win over the months."""
     start, end = _parse_date(date_from), _parse_date(date_to)
@@ -243,6 +285,7 @@ def filters(
         news=news if news in NEWS_FILTERS else "all",
         known=known if known in KNOWN_FILTERS else "all",
         done=done if done in DONE_FILTERS else "hide",
+        who=who if who in WHO_FILTERS else "all",
     )
 
 
@@ -263,6 +306,7 @@ def remembered(cookie: str) -> Filters | None:
         values.get("news", "all"),
         values.get("known", "all"),
         values.get("done", "hide"),
+        values.get("who", "all"),
     )
 
 
@@ -283,16 +327,21 @@ class KnownCheck:
 
 def _by_known_base(
     db: Session,
-    found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]],
+    found: list[Found],
     chosen: Filters,
-) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], KnownCheck]:
+) -> tuple[list[Found], KnownCheck]:
     """The people the base answers for, and who is left after the choice of an answer.
 
     With the base not loaded (a sync has never run) nobody is «not in the base» — the
     base is not there — so the choice is ignored and the page says so.
     """
     base = KnownBase.from_session(db)
-    matches = {entity.id: base.match(entity.name) for entity, _ in found}
+    # A person without a name cannot be looked up by one: the base is not asked.
+    matches = {
+        entity.id: base.match(entity.name)
+        for entity, _ in found
+        if isinstance(entity, EntityGroupRecord)
+    }
     counts = Counter(_answer(match) for match in matches.values())
     check = KnownCheck(matches, dict(counts), len(base))
     if chosen.known == "all" or not len(base):
@@ -300,7 +349,7 @@ def _by_known_base(
     return [
         (entity, politics)
         for entity, politics in found
-        if _answer(matches[entity.id]) == chosen.known
+        if entity.id in matches and _answer(matches[entity.id]) == chosen.known
     ], check
 
 
@@ -322,9 +371,80 @@ def _done_keys(db: Session, keys: list[str]) -> set[str]:
     )
 
 
-def _rows(
-    db: Session, chosen: Filters
-) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, dict[str, int]]:
+def _unnamed_done(db: Session) -> dict[str, datetime | None]:
+    """The «обработано» marks of the unnamed, by key: the news each was made at."""
+    return {
+        key: news_at
+        for key, news_at in db.execute(
+            select(EntityDoneMarkRecord.key, EntityDoneMarkRecord.news_at).where(
+                EntityDoneMarkRecord.key.startswith(KEY_PREFIX)
+            )
+        ).all()
+    }
+
+
+def _case_done(case: Case, marks: Mapping[str, datetime | None]) -> bool:
+    """Marked, and no sentence about the person later than the mark saw."""
+    if case.key not in marks:
+        return False
+    latest, seen = case.last_published_at, marks[case.key]
+    return latest is None or (seen is not None and seen >= latest)
+
+
+def _unnamed_rows(db: Session, chosen: Filters) -> tuple[list[Found], dict[str, int]]:
+    """The unnamed figurants under the same filters as the named, and how many of each
+    latest news there are in the period (before the choice of the news)."""
+    marks = _unnamed_done(db)
+    since = datetime.now(UTC) - timedelta(days=30 * chosen.months) if chosen.months else None
+    start = datetime.combine(chosen.date_from, time.min, UTC) if chosen.date_from else None
+    end = (
+        datetime.combine(chosen.date_to + timedelta(days=1), time.min, UTC)
+        if chosen.date_to
+        else None
+    )
+    found: list[Found] = []
+    counts: Counter[str] = Counter()
+    for number, case in enumerate(political_cases(db), start=1):
+        latest = case.last_published_at
+        if chosen.done == "hide" and _case_done(case, marks):
+            continue
+        if (since or start or end) and latest is None:
+            continue
+        if latest is not None and (
+            (since and latest < since) or (start and latest < start) or (end and latest >= end)
+        ):
+            continue
+        kind = _EVENT_NEWS.get(case.latest.event_type, OTHER)
+        counts[kind] += 1
+        if chosen.news not in ("all", kind):
+            continue
+        person = UnnamedPerson(
+            # Below every entity's id, so the two never meet in a lookup by id.
+            id=-number,
+            key=case.key,
+            name=case.name,
+            regions=[[case.place, len(case.sentences)]] if case.place else [],
+            last_published_at=latest,
+            case=case,
+        )
+        found.append((person, UnnamedBasis(case.latest.explanation, case.latest.quote)))
+    return found, dict(counts)
+
+
+def _all_rows(db: Session, chosen: Filters) -> tuple[list[Found], dict[str, int]]:
+    """The named and the unnamed in one list, latest news first."""
+    named, _, news_counts = _rows(db, chosen) if chosen.who != "unnamed" else ([], 0, {})
+    unnamed, unnamed_counts = _unnamed_rows(db, chosen) if chosen.who != "named" else ([], {})
+    counts = Counter(news_counts) + Counter(unnamed_counts)
+    oldest = datetime.min.replace(tzinfo=UTC)
+    # Stable: the named keep their order, and an unnamed row of the same moment follows.
+    merged = sorted(
+        [*named, *unnamed], key=lambda item: item[0].last_published_at or oldest, reverse=True
+    )
+    return merged, dict(counts)
+
+
+def _rows(db: Session, chosen: Filters) -> tuple[list[Found], int, dict[str, int]]:
     """The list's entities, latest news first; how many there are, and how many of each
     latest news (in the period, before the choice of the news)."""
     query = (
@@ -370,21 +490,26 @@ def _rows(
 
 def _details(
     db: Session,
-    found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]],
+    found: list[Found],
     known: Mapping[int, KnownMatch | None] | None = None,
 ) -> list[ListRow]:
-    ids = [entity.id for entity, _ in found]
+    ids = [entity.id for entity, _ in found if isinstance(entity, EntityGroupRecord)]
     done = _done_keys(db, [entity.key for entity, _ in found])
+    marks = _unnamed_done(db)
     rows = {
         entity.id: ListRow(
             entity=entity,
             politics=politics,
             maybe_listed=False,
             known=known.get(entity.id) if known else None,
-            done=entity.key in done,
+            done=entity.key in done
+            or (isinstance(entity, UnnamedPerson) and _case_done(entity.case, marks)),
         )
         for entity, politics in found
     }
+    for row in rows.values():
+        if isinstance(row.entity, UnnamedPerson):
+            _fill_unnamed(row, row.entity.case)
     for group_id, kind, reason in db.execute(
         select(
             EntityGroupNewsRecord.group_id, EntityGroupNewsRecord.kind, EntityGroupNewsRecord.reason
@@ -440,6 +565,31 @@ def _details(
     return [rows[entity.id] for entity, _ in found]
 
 
+def _fill_unnamed(row: ListRow, case: Case) -> None:
+    """What the sentences tell, in the columns the named people have."""
+    row.articles = [(article, True) for article in case.articles]
+    row.news_kind = _EVENT_NEWS.get(case.latest.event_type, OTHER)
+    row.news_reason = case.latest.explanation
+    row.first_published = case.first_published_at
+    oldest = datetime.min.replace(tzinfo=UTC)
+    seen: set[int] = set()
+    links = []
+    for sentence in sorted(
+        case.sentences, key=lambda sentence: sentence.published_at or oldest, reverse=True
+    ):
+        if sentence.article_id not in seen:
+            seen.add(sentence.article_id)
+            links.append((sentence.title, sentence.url, sentence.published_at, sentence.source))
+    row.links = links[:LINKS]
+
+
+def _shown_name(row: ListRow) -> str:
+    """The name of a row: surname first for a person, as told for an unnamed figurant."""
+    if isinstance(row.entity, UnnamedPerson):
+        return row.entity.name
+    return display_name(row.entity.name)
+
+
 def _is_digest(title: str) -> bool:
     lowered = title.lower()
     return any(marker in lowered for marker in _DIGEST_MARKERS)
@@ -449,7 +599,7 @@ def _article_text(articles: list[tuple[str, bool]]) -> str:
     return ", ".join(article for article, _ in articles)
 
 
-def _regions_text(entity: EntityGroupRecord) -> str:
+def _regions_text(entity: Person) -> str:
     return ", ".join(str(region) for region, _ in entity.regions)
 
 
@@ -543,12 +693,24 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: 
         if row.rf_level == FULL and row.rf_inclusion_date
         else ""
     )
+    if isinstance(entity, UnnamedPerson):
+        # No dossier: the sentences stand on «Безымянные», where the person is identified.
+        anchor = quote(entity.case.latest.key)
+        name_cell = (
+            f'<a href="/ui/unnamed?status=all#u-{anchor}">{escape(entity.name)}</a> '
+            '<span class="badge pending" title="Публикация не называет имени">без имени</span> '
+            f"{copy_button(entity.name)}"
+        )
+    else:
+        name_cell = (
+            f'<a href="/ui/investigations/{quote(entity.key)}">'
+            f"{escape(display_name(entity.name))}</a>{listed} "
+            f"{copy_button(display_name(entity.name))}{included}"
+        )
     return (
         f"<tr{' class="done"' if row.done else ''}><td>{_done_box(row, back)}</td>"
         f"<td>{position}</td>"
-        f'<td><a href="/ui/investigations/{quote(entity.key)}">'
-        f"{escape(display_name(entity.name))}</a>{listed} "
-        f"{copy_button(display_name(entity.name))}{included}</td>"
+        f"<td>{name_cell}</td>"
         f"<td>{_news_mark(row)}</td>"
         f"<td>{_known_mark(row, loaded=known_loaded)}</td>"
         f"<td>{escape(_regions_text(entity))}</td>"
@@ -571,14 +733,15 @@ def ui_political(
     news: str = Query(default="all", max_length=16),
     known: str = Query(default="all", max_length=16),
     done: str = Query(default="hide", max_length=8),
+    who: str = Query(default="all", max_length=8),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    chosen = filters(months, date_from, date_to, news, known, done)
+    chosen = filters(months, date_from, date_to, news, known, done, who)
     # No filters in the address: the last ones chosen, not «all the time».
     if not any(name in request.query_params for name in FILTER_NAMES):
         chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
-    found, total, news_counts = _rows(db, chosen)
+    found, news_counts = _all_rows(db, chosen)
     found, check = _by_known_base(db, found, chosen)
     total = len(found)
     on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE], check.matches)
@@ -599,6 +762,12 @@ def ui_political(
             .where(EntityGroupPoliticsRecord.verdict == POLITICAL, _is_done())
         )
         or 0
+    )
+    marks = _unnamed_done(db)
+    done_total += sum(_case_done(case, marks) for case in political_cases(db))
+    who_options = "".join(
+        f'<option value="{key}"{" selected" if key == chosen.who else ""}>{label}</option>'
+        for key, label in WHO_FILTERS.items()
     )
     # Beside the filters and always there, so the way back to a ticked person is in plain
     # sight: the first person to tick a row could not find them again.
@@ -651,6 +820,9 @@ def ui_political(
         news_options
     }</select></label>
     {known_select}
+    <label class="field">Кто <select name="who" onchange="this.form.submit()">{
+        who_options
+    }</select></label>
     {done_toggle}
     <button type="submit" class="secondary" formaction="/ui/political/export.xlsx">Скачать Excel</button>
   </div>
@@ -658,7 +830,9 @@ def ui_political(
 {funnel_line(funnel(db))}
 <p class="muted">Найдено: {total}. Галочка в начале строки — «обработано»: человек
 уходит из списка и вернётся, когда о нём появится новая новость; «Показать обработанных»
-над таблицей возвращает их в список, чтобы снять галочку. Фигуранты уголовных дел, дело которых — политическое
+над таблицей возвращает их в список, чтобы снять галочку. «Без имени» — фигуранты, которых
+публикация не называет: в списке только те, чьё дело идёт по политической статье; несколько
+упоминаний одного человека сведены в одну строку по возрасту, полу и месту. Фигуранты уголовных дел, дело которых — политическое
 преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
 Дата включения — свойство записи перечня, а не человека: под именем она читается как
@@ -759,7 +933,7 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
         ][:LINKS]
         values: list[Any] = [
             position,
-            display_name(row.entity.name),
+            _shown_name(row),
             _regions_text(row.entity) or None,
             _article_text(row.articles) or None,
             _basis(row),
@@ -797,9 +971,7 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
     return buffer.getvalue()
 
 
-def export_name(
-    chosen: Filters, found: list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], today: date
-) -> str:
+def export_name(chosen: Filters, found: list[Found], today: date) -> str:
     """`result_<from>_<to>.xlsx`: the dates chosen, else the period's start, else the
     earliest latest news of the rows; up to the date chosen, else today."""
     start = chosen.date_from
@@ -820,11 +992,12 @@ def ui_political_export(
     news: str = Query(default="all", max_length=16),
     known: str = Query(default="all", max_length=16),
     done: str = Query(default="hide", max_length=8),
+    who: str = Query(default="all", max_length=8),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    chosen = filters(months, date_from, date_to, news, known, done)
-    found, _, _ = _rows(db, chosen)
+    chosen = filters(months, date_from, date_to, news, known, done, who)
+    found, _ = _all_rows(db, chosen)
     found, check = _by_known_base(db, found, chosen)
     name = export_name(chosen, found, datetime.now(UTC).date())
     return Response(
@@ -845,7 +1018,11 @@ async def ui_political_done(
         for name, values in parse_qs((await request.body()).decode("utf-8", "replace")).items()
     }
     key = form.get("key", "")
-    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    entity: EntityGroupRecord | Case | None
+    if key.startswith(KEY_PREFIX):
+        entity = next((case for case in political_cases(db) if case.key == key), None)
+    else:
+        entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
     if entity is None:
         raise HTTPException(status_code=404, detail="Человек не найден")
     mark = db.get(EntityDoneMarkRecord, key)

@@ -11,6 +11,7 @@ from io import BytesIO
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
+from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     AirtableKnownPersonRecord,
@@ -21,6 +22,8 @@ from db.orm_models import (
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
 )
 from web.app import app
 from web.dependencies import get_db
@@ -608,3 +611,146 @@ def test_a_name_has_a_copy_button_and_the_page_loads_the_script(
     assert "sessionStorage.setItem(KEY, String(window.scrollY))" in script
     assert 'link.target = "_blank"' in script and "link.host !== location.host" in script
     assert "navigator.clipboard.writeText(button.dataset.copy)" in script
+
+
+def _unnamed(
+    session_factory: sessionmaker[Session],
+    key: str,
+    *,
+    age: int | None,
+    place: str,
+    articles: list[str],
+    gender: str = "male",
+    initial: str | None = None,
+    event: str = "detention",
+    day: int = 20,
+) -> None:
+    quote = f"Задержан человек {key}."
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source(f"news-{key}", f"https://{key}.example.test")
+        article, _ = seed.article(
+            source,
+            external_id=key,
+            title=f"Новость {key}",
+            text=quote,
+            published_at=datetime(2026, 9, day, tzinfo=UTC),
+        )
+        session.add(
+            UnnamedFigurantRecord(
+                key=key,
+                article_id=article,
+                start_offset=0,
+                end_offset=len(quote),
+                quote=quote,
+                age=age,
+                gender=gender,
+                place=place,
+                initial=initial,
+                articles=articles,
+                event_type=event,
+                explanation=f"дело об участии в запрещённой организации ({key})",
+                published_at=datetime(2026, 9, day, tzinfo=UTC),
+            )
+        )
+        session.commit()
+
+
+def test_the_unnamed_with_a_political_article_are_rows_of_the_list_and_of_the_file(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Ирина: «в работе они есть, а в результатах нет». One person a row, named by what
+    the text tells; a case with no political article stays on «Безымянные»."""
+    _seed(session_factory)
+    _unnamed(session_factory, "a", age=15, place="Канаш", articles=["205.5"], day=20)
+    _unnamed(session_factory, "b", age=15, place="Канаш", articles=[], day=21)
+    _unnamed(session_factory, "c", age=None, place="Благовещенск", articles=["282.2"])
+    _unnamed(session_factory, "d", age=16, place="Вологда", articles=["228.1"])
+    _unnamed(session_factory, "e", age=30, place="Тотьма", articles=[])
+    with _client(session_factory) as client:
+        page = client.get("/ui/political?months=0").text
+        assert "Найдено: 4." in page
+        assert page.count("15-летний житель Канаша</a>") == 1, "two sentences, one row"
+        assert "житель Благовещенска</a>" in page
+        assert "Вологды" not in page and "Тотьмы" not in page
+        assert page.count(">без имени</span>") == 2
+        assert 'data-copy="15-летний житель Канаша"' in page
+        assert "/ui/unnamed?status=all#u-b" in page, "the link goes to the latest sentence"
+
+        only = client.get("/ui/political?months=0&who=unnamed").text
+        assert "Найдено: 2." in only and "Смирнова Анна" not in only
+        named = client.get("/ui/political?months=0&who=named").text
+        assert "Найдено: 2." in named and "без имени</span>" not in named
+
+        book = load_workbook(
+            BytesIO(client.get("/ui/political/export.xlsx?months=0&who=unnamed").content)
+        )
+        rows = list(book["Результат"].iter_rows(min_row=2, values_only=True))
+        assert sorted(row[1] for row in rows) == ["15-летний житель Канаша", "житель Благовещенска"]
+        kanash = next(row for row in rows if row[1] == "15-летний житель Канаша")
+        assert kanash[2] == "Канаш" and kanash[3] == "205.5"
+        assert (kanash[6].date(), kanash[7].date()) == (date(2026, 9, 20), date(2026, 9, 21))
+        assert kanash[9].endswith("Новость b") and kanash[10].endswith("Новость a")
+
+
+def test_an_identified_figurant_is_no_longer_an_unnamed_row(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Once the operator says who it is, the person is in the result under the name."""
+    _seed(session_factory)
+    _unnamed(session_factory, "a", age=15, place="Канаш", articles=["205.5"])
+    _unnamed(session_factory, "c", age=None, place="Благовещенск", articles=["282.2"])
+    with session_factory.begin() as session:
+        session.add(
+            UnnamedIdentityResolutionRecord(
+                figurant_key="a", resolution="supplied_name", normalized_name="Иван Петров"
+            )
+        )
+        session.add(UnnamedIdentityResolutionRecord(figurant_key="c", resolution="no_rf_match"))
+    with _client(session_factory) as client:
+        page = client.get("/ui/political?months=0&who=unnamed").text
+    assert "Канаша" not in page
+    assert "житель Благовещенска</a>" in page, "«нет записи РФМ» does not close the case"
+
+
+def test_an_unnamed_row_is_ticked_done_and_comes_back_with_a_later_sentence(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _unnamed(session_factory, "a", age=15, place="Канаш", articles=["205.5"], day=20)
+    key = "unnamed:канаш|male|15|"
+    with _client(session_factory) as client:
+        assert f'name="key" value="{key}"' in client.get("/ui/political?months=0").text
+        _tick(client, key)
+        hidden = client.get("/ui/political?months=0&who=unnamed").text
+        assert "Канаша" not in hidden and "Показать обработанных (1)" in hidden
+        shown = client.get("/ui/political?months=0&who=unnamed&done=show").text
+        assert '<tr class="done">' in shown and "15-летний житель Канаша" in shown
+
+        _unnamed(session_factory, "b", age=15, place="Канаш", articles=[], day=25)
+        assert "15-летний житель Канаша" in client.get("/ui/political?months=0&who=unnamed").text
+
+        missing = client.post(
+            "/ui/political/done",
+            content="key=unnamed:нигде|male|1|&done=1",
+            headers={"content-type": "application/x-www-form-urlencoded"},
+            follow_redirects=False,
+        )
+        assert missing.status_code == 404
+
+
+def test_the_filters_of_the_list_hold_for_the_unnamed_too(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _unnamed(session_factory, "a", age=15, place="Канаш", articles=["205.5"], event="sentence")
+    _unnamed(session_factory, "c", age=None, place="Благовещенск", articles=["282.2"], day=2)
+    with _client(session_factory) as client:
+        sentences = client.get("/ui/political?months=0&who=unnamed&news=sentence").text
+        assert "Канаша" in sentences and "Благовещенска" not in sentences
+        late = client.get("/ui/political?who=unnamed&date_from=10/09/2026").text
+        assert "Канаша" in late and "Благовещенска" not in late
+        # The base is asked by a name; a person without one is not «нет в базе».
+        _known(session_factory, "Петров Пётр Петрович")
+        new = client.get("/ui/political?months=0&known=none").text
+        assert "без имени</span>" not in new
