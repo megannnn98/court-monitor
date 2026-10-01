@@ -17,14 +17,8 @@ from operator_console import (
 )
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page
-from web.ui.management import (
-    _RUN_STATUS_BADGES,
-    _RUN_STATUS_LABELS,
-    _badge,
-    _local_time,
-    _progress,
-    _stop_form,
-)
+from web.ui.management import _progress, _stop_form
+from web.ui.run_cards import RUN_STATUS_BADGES, RUN_STATUS_LABELS, badge, local_time
 
 router = APIRouter()
 
@@ -38,8 +32,8 @@ def _run_list(runs: Sequence[OperationRun], current: OperationRun) -> str:
         f'<tr class="{"current" if run.id == current.id else ""}">'
         f'<td><a href="/ui/logs?run_id={run.id}">#{run.id}</a></td>'
         f"<td>{escape(run.operation.title)}</td>"
-        f"<td>{escape(_local_time(run.created_at))}</td>"
-        f"<td>{_badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])}</td>"
+        f"<td>{escape(local_time(run.created_at))}</td>"
+        f"<td>{badge(RUN_STATUS_LABELS[run.status], RUN_STATUS_BADGES[run.status])}</td>"
         "</tr>"
         for run in runs
     )
@@ -72,10 +66,10 @@ def _run_log(db: Session, run: OperationRun) -> str:
         else ""
     )
     return f"""<section class="band">
-  <h2>Запуск #{run.id}: {escape(run.operation.title)} {_badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])}</h2>
+  <h2>Запуск #{run.id}: {escape(run.operation.title)} {badge(RUN_STATUS_LABELS[run.status], RUN_STATUS_BADGES[run.status])}</h2>
   {progress}
   {stop}
-  <p class="muted">Начат: {escape(_local_time(run.created_at))}; код выхода: {run.return_code if run.return_code is not None else "—"}</p>
+  <p class="muted">Начат: {escape(local_time(run.created_at))}; код выхода: {run.return_code if run.return_code is not None else "—"}</p>
   <p><code>{escape(" ".join(run.command))}</code></p>
   {error}
   {refresh}

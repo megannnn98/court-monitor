@@ -40,13 +40,8 @@ from persecution.classifier import POLITICAL_ARTICLES
 from web.candidate_rows import _surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager
-from web.ui.management import (
-    _RUN_STATUS_BADGES,
-    _RUN_STATUS_LABELS,
-    _badge,
-    _local_time,
-)
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, step_confirmation
+from web.ui.run_cards import RUN_STATUS_BADGES, RUN_STATUS_LABELS, badge, local_time
 from web.ui.run_tail import tail_html
 
 router = APIRouter()
@@ -97,7 +92,7 @@ def _surname_key(entity: EntityGroupRecord) -> tuple[str, str]:
 
 def _events(event_types: dict[str, int]) -> str:
     return " ".join(
-        _badge(f"{_EVENT_LABELS.get(kind, kind)}: {count}")
+        badge(f"{_EVENT_LABELS.get(kind, kind)}: {count}")
         for kind, count in sorted(event_types.items(), key=lambda item: -item[1])
     )
 
@@ -124,7 +119,7 @@ def _political(article: str) -> str:
 
 
 def _date(published_at: datetime | None) -> str:
-    return _local_time(published_at) if published_at else "—"
+    return local_time(published_at) if published_at else "—"
 
 
 def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[tuple[str, bool]]]:
@@ -280,8 +275,8 @@ def _rf_mark(level: str | None) -> str:
 def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
     """The rebuild button: step 3 of the pipeline, pressable only in its turn."""
     last = (
-        f" Последняя сборка: #{last_run.id} {escape(_local_time(last_run.created_at))} "
-        f"{_badge(_RUN_STATUS_LABELS[last_run.status], _RUN_STATUS_BADGES[last_run.status])}"
+        f" Последняя сборка: #{last_run.id} {escape(local_time(last_run.created_at))} "
+        f"{badge(RUN_STATUS_LABELS[last_run.status], RUN_STATUS_BADGES[last_run.status])}"
         if last_run is not None
         else " Сущности ещё не собирались."
     )
