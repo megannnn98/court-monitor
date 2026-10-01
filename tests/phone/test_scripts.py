@@ -13,6 +13,7 @@ def test_every_phone_shell_script_has_valid_bash_syntax() -> None:
     scripts = sorted(PHONE.glob("*.sh"))
     assert {script.name for script in scripts} >= {
         "install.sh",
+        "backup.sh",
         "run.sh",
         "stop.sh",
         "update.sh",
@@ -75,3 +76,14 @@ def test_update_records_rollback_commit_and_orders_deploy_steps() -> None:
     assert update.index("pip install") < update.index("alembic upgrade head")
     assert update.index("alembic upgrade head") < update.index("stop.sh")
     assert update.index("stop.sh") < update.index("run.sh")
+
+
+def test_backup_script_uses_configured_rclone_and_keeps_fourteen_dumps() -> None:
+    backup = (PHONE / "backup.sh").read_text(encoding="utf-8")
+
+    assert "PHONE_BACKUP_REMOTE" in backup
+    assert "PHONE_BACKUP_PATH" in backup
+    assert "PHONE_BACKUP_RETENTION" in backup
+    assert "pg_dump -Fc" in backup
+    assert "rclone copyto" in backup
+    assert "rclone deletefile" in backup

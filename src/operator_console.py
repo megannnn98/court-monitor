@@ -33,7 +33,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
-from phone_runtime import operation_wake_lock
+from phone_runtime import operation_wake_lock, run_phone_backup
 from sources.source_registry import SOURCES, SourceKind
 
 logger = logging.getLogger("operator_console")
@@ -189,6 +189,16 @@ ProcessRunner = Callable[[list[str], Heartbeat], ProcessResult]
 # Hands the run's work to something that executes it outside the HTTP request.
 Executor = Callable[[Callable[[], None]], None]
 OperationContext = Callable[[], AbstractContextManager[None]]
+PostSuccessAction = Callable[[OperationParameters, ProcessResult], ProcessResult]
+
+
+def _phone_post_success(parameters: OperationParameters, result: ProcessResult) -> ProcessResult:
+    stdout, stderr = run_phone_backup(
+        mode=parameters.mode,
+        stdout=result.stdout,
+        stderr=result.stderr,
+    )
+    return ProcessResult(result.return_code, stdout, stderr)
 
 
 def _thread_executor(work: Callable[[], None]) -> None:
@@ -265,6 +275,7 @@ class OperationRegistry:
         executor: Executor = _thread_executor,
         process_runner: ProcessRunner = _run_process,
         operation_context: OperationContext = operation_wake_lock,
+        post_success: PostSuccessAction = _phone_post_success,
         stale_after: timedelta = STALE_AFTER,
         worker_id: str | None = None,
     ) -> None:
@@ -272,6 +283,7 @@ class OperationRegistry:
         self._executor = executor
         self._process_runner = process_runner
         self._operation_context = operation_context
+        self._post_success = post_success
         self._stale_after = stale_after
         self._worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
 
@@ -429,6 +441,20 @@ class OperationRegistry:
                 error=f"{type(exc).__name__}: {exc}",
             )
             return
+        if result.return_code == 0:
+            try:
+                parameters = self._parameters(run_id)
+                # Only the final step of the pipeline is followed by the backup.
+                if parameters.mode == "political":
+                    result = self._post_success(parameters, result)
+            except Exception as exc:
+                logger.exception("event=phone_backup_hook_failed run_id=%s", run_id)
+                result = ProcessResult(
+                    result.return_code,
+                    result.stdout,
+                    f"{result.stderr}event=phone_backup status=failed\n"
+                    f"{type(exc).__name__}: {exc}\n",
+                )
         self._finish_or_log(
             run_id,
             status=(
@@ -446,6 +472,12 @@ class OperationRegistry:
             record = session.get(OperatorOperationRunRecord, run_id)
             assert record is not None
             return list(record.command)
+
+    def _parameters(self, run_id: int) -> OperationParameters:
+        with self._session_factory() as session:
+            record = session.get(OperatorOperationRunRecord, run_id)
+            assert record is not None
+            return OperationParameters(**record.parameters)
 
     def _claim(self, run_id: int) -> bool:
         """pending → running, only if the run is still pending (not interrupted meanwhile)."""
