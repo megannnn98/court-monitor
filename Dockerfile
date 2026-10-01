@@ -58,8 +58,11 @@ COPY docker/dagster/dagster.yaml docker/dagster/workspace.yaml /opt/dagster/dags
 # «неизвестно», which is the honest answer for a working copy.
 ARG BUILD_COMMIT=""
 ARG BUILD_TIME=""
+# `git describe --tags --always`: the release tag the commit stands on, or after.
+ARG BUILD_TAG=""
 ENV BUILD_COMMIT=$BUILD_COMMIT \
-    BUILD_TIME=$BUILD_TIME
+    BUILD_TIME=$BUILD_TIME \
+    BUILD_TAG=$BUILD_TAG
 
 EXPOSE 8000
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

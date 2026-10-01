@@ -74,7 +74,8 @@ def ui_about(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
   <h2>Сборка</h2>
   <table><tbody>{table}</tbody></table>
   <p class="muted">Коммит и время сборки проставляются при сборке образа
-  (<code>BUILD_COMMIT</code>, <code>BUILD_TIME</code>). Запуск из рабочей копии без
+  (<code>BUILD_COMMIT</code>, <code>BUILD_TIME</code>, <code>BUILD_TAG</code>). Тег вида
+  «0.36.0-3-g495d9e9» значит: три коммита после тега 0.36.0. Запуск из рабочей копии без
   пересборки показывает «{info.commit if info.commit else "неизвестно"}» — это значит, что
   страница говорит не о том коде, который вы правите.</p>
 </section>

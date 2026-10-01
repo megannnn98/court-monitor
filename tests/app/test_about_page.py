@@ -57,7 +57,16 @@ def test_the_stamp_degrades_instead_of_guessing() -> None:
 def test_every_field_is_a_row_for_the_page() -> None:
     rows = build_info({"BUILD_COMMIT": "04499df"}).rows()
 
-    assert [name for name, _ in rows] == ["Версия приложения", "Коммит", "Собран"]
+    assert [name for name, _ in rows] == ["Версия приложения", "Тег", "Коммит", "Собран"]
+
+
+def test_a_stamped_build_says_which_tag_it_stands_on() -> None:
+    """The operator asks «which version is this»: the release tag answers, the hash does not."""
+    info = build_info({"BUILD_COMMIT": "495d9e9", "BUILD_TAG": " 0.36.0-1-g495d9e9 "})
+
+    assert info.tag == "0.36.0-1-g495d9e9"
+    assert ("Тег", "0.36.0-1-g495d9e9") in info.rows()
+    assert build_info({"BUILD_COMMIT": "495d9e9"}).tag == UNKNOWN
 
 
 # The page

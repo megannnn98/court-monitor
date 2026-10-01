@@ -6,8 +6,8 @@ place: `/ui/about`.
 
 The commit comes from the build, not from git at runtime: the image carries no `.git`
 (only `src`, `migrations` and `docs/wiki` are copied in), and adding one to a private
-deployment image to read a string out of it is not worth the surface. `BUILD_COMMIT` and
-`BUILD_TIME` are passed as build args, and every field degrades to «неизвестно» when a
+deployment image to read a string out of it is not worth the surface. `BUILD_COMMIT`,
+`BUILD_TIME` and `BUILD_TAG` are passed as build args, and every field degrades to «неизвестно» when a
 developer runs from a working copy.
 """
 
@@ -28,10 +28,14 @@ class BuildInfo:
     commit: str
     built_at: str
     version: str
+    # `git describe --tags --always` at build time: «0.36.0» on a release, «0.36.0-3-g495d9e9»
+    # three commits after one.
+    tag: str = UNKNOWN
 
     def rows(self) -> list[tuple[str, str]]:
         return [
             ("Версия приложения", self.version),
+            ("Тег", self.tag),
             ("Коммит", self.commit),
             ("Собран", self.built_at),
         ]
@@ -42,8 +46,10 @@ def build_info(env: Mapping[str, str] | None = None) -> BuildInfo:
     env = os.environ if env is None else env
     commit = (env.get("BUILD_COMMIT") or "").strip()
     built_at = (env.get("BUILD_TIME") or "").strip()
+    tag = (env.get("BUILD_TAG") or "").strip()
     return BuildInfo(
         commit=commit[:12] if commit else UNKNOWN,
         built_at=built_at or UNKNOWN,
         version=APP_VERSION,
+        tag=tag or UNKNOWN,
     )
