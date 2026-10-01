@@ -1932,3 +1932,15 @@ section.same-news {
 .same-news-head {
   margin: 0.5rem 0;
 }
+
+/* The last three lines of a running step's log, under its progress bar. */
+pre.log-tail {
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.6rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--muted);
+  background: var(--surface-muted);
+  border-radius: 5px;
+  font-size: 12px;
+}

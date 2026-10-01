@@ -605,7 +605,18 @@ def _figurants_card(run: OperationRun) -> str:
 </section>"""
 
 
-_FINAL_STAGE = re.compile(r"event=(entities_rf_check_stage|entity_politics_stage) stage=([^\n]+)")
+# The five phases of the final step, in order: the list, the verdicts, the roundup posts, the
+# latest news, the unnamed. Each logs `event=<this> stage=<reading|asking N/M|writing>`.
+_FINAL_PHASES = (
+    ("entities_rf_check_stage", "Сверка с перечнем", ""),
+    ("entity_politics_stage", "Политичность", "Модель читает дела"),
+    ("article_digest_stage", "Сводки новостей", "Модель отличает сводки от новостей"),
+    ("entity_news_stage", "Свежая новость", "Модель определяет, что нового по делу"),
+    ("unnamed_stage", "Безымянные", "Модель читает предложения о безымянных"),
+)
+_FINAL_STAGE = re.compile(
+    r"event=(" + "|".join(event for event, _, _ in _FINAL_PHASES) + r") stage=([^\n]+)"
+)
 _FINAL_RF_STAGES = {
     "downloading": "Скачиваю перечень с fedsfm.ru…",
     "importing": "Перечень изменился — сохраняю новый снимок…",
@@ -621,22 +632,33 @@ def _political_card(run: OperationRun) -> str:
     stages = _FINAL_STAGE.findall(run.stderr)
     stage_source, stage = stages[-1] if stages else ("", "")
     stage = stage.strip()
-    if stage_source == "entity_politics_stage" and stage.startswith("asking "):
+    phase = next(
+        (
+            (number, label, asking)
+            for number, (event, label, asking) in enumerate(_FINAL_PHASES, start=1)
+            if event == stage_source
+        ),
+        None,
+    )
+    where = f"Этап {phase[0]} из {len(_FINAL_PHASES)} · " if phase else ""
+    if phase and stage.startswith("asking "):
         done, _, total = stage.removeprefix("asking ").partition("/")
         progress = (
             f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
-            f'max="{escape(total)}"></progress><p><strong>Модель читает дела: '
+            f'max="{escape(total)}"></progress><p><strong>{where}{phase[2]}: '
             f"{escape(done)} из {escape(total)}</strong></p></div>"
         )
     else:
-        label = (
-            _FINAL_RF_STAGES.get(stage, "Готовлюсь…")
-            if stage_source == "entities_rf_check_stage"
-            else {"reading": "Читаю фигурантов и цитаты…", "writing": "Сохраняю…"}.get(
-                stage, "Готовлюсь…"
-            )
-        )
-        progress = f'<div class="progress-box"><p><strong>{label}</strong></p></div>'
+        if stage_source == "entities_rf_check_stage":
+            label = _FINAL_RF_STAGES.get(stage, "Готовлюсь…")
+        elif phase:
+            label = {
+                "reading": f"{phase[1]}: читаю данные…",
+                "writing": f"{phase[1]}: сохраняю…",
+            }.get(stage, "Готовлюсь…")
+        else:
+            label = "Готовлюсь…"
+        progress = f'<div class="progress-box"><p><strong>{where}{label}</strong></p></div>'
     try:
         totals = json.loads(run.stdout) if run.stdout else {}
     except json.JSONDecodeError:
@@ -711,7 +733,63 @@ def _political_card(run: OperationRun) -> str:
 </section>"""
 
 
+# The lines of a log that say nothing about the work: one request after another to a site.
+_NOISE = ("HTTP Request:", " httpx ")
+_LOG_LINE = re.compile(
+    r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+ \w+ \S+ (?:request_id=\S+ )?(?P<rest>.*)$"
+)
+LOG_TAIL_LINES = 3
+LOG_TAIL_WIDTH = 160
+
+
+def log_tail(stderr: str, count: int = LOG_TAIL_LINES) -> list[str]:
+    """The last few things a run said: the latest line of each of the last `count` events.
+
+    A step that asks a model logs one line per batch, and three of those say one thing; so a
+    line counts once per event, and what is shown is where the run is now and what it did
+    just before. Date, level and request id are cut off: the card says when it started."""
+    found: list[str] = []
+    events: set[str] = set()
+    for raw in reversed(stderr.splitlines()):
+        if not raw.strip() or any(noise in raw for noise in _NOISE):
+            continue
+        match = _LOG_LINE.match(raw)
+        line = match.group("rest") if match else raw.strip()
+        event = next((word for word in line.split() if word.startswith("event=")), line[:40])
+        if event in events:
+            continue
+        events.add(event)
+        found.append(line[:LOG_TAIL_WIDTH])
+        if len(found) == count:
+            break
+    return list(reversed(found))
+
+
+def _with_log_tail(card: str, run: OperationRun) -> str:
+    """The card with the run's last lines under it while it runs, and when it ended badly."""
+    shown = run.status in (
+        OperationRunStatus.PENDING,
+        OperationRunStatus.RUNNING,
+        OperationRunStatus.FAILED,
+        OperationRunStatus.INTERRUPTED,
+    )
+    lines = log_tail(run.stderr) if shown else []
+    if not lines:
+        return card
+    tail = (
+        '<pre class="log-tail" aria-label="Последние строки журнала">'
+        + escape("\n".join(lines))
+        + "</pre>"
+    )
+    head, closing, rest = card.rpartition("</section>")
+    return f"{head}{tail}\n{closing}{rest}" if closing else card
+
+
 def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
+    return _with_log_tail(_run_card(db, run, selected), run)
+
+
+def _run_card(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
     if run.parameters.mode == "purge":
         return _purge_card(run)
     if run.parameters.mode == "entities":

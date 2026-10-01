@@ -927,3 +927,132 @@ def test_a_live_step_that_asks_a_paid_model_says_so_on_its_card_and_an_ended_one
     assert "⚠ Шаг платный" in card(running) and words in card(running)
     # The next step, still to be pressed, has its own warning: the card of the ended run has none.
     assert "⚠ Шаг платный" not in card(ended)
+
+
+def _political_run(
+    session_factory: sessionmaker[Session], client: TestClient, registry: OperationRegistry
+) -> tuple[str, int]:
+    """A started final step, and the address of its card."""
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+    response = client.post("/ui/management/political", follow_redirects=False)
+    return response.headers["location"], registry.runs_of("monitor")[0].id
+
+
+def _set_run(session_factory: sessionmaker[Session], run_id: int, *, status: str, log: str) -> None:
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE operator_operation_runs SET status = :status, started_at = now(), "
+                "heartbeat_at = now(), stderr = :log WHERE id = :id"
+            ),
+            {"id": run_id, "status": status, "log": log},
+        )
+
+
+@pytest.mark.parametrize(
+    ("event", "phase", "label"),
+    [
+        ("entity_politics_stage", 2, "Модель читает дела"),
+        ("article_digest_stage", 3, "Модель отличает сводки от новостей"),
+        ("entity_news_stage", 4, "Модель определяет, что нового по делу"),
+        ("unnamed_stage", 5, "Модель читает предложения о безымянных"),
+    ],
+)
+def test_every_phase_of_the_final_step_that_reads_texts_has_its_own_bar(
+    session_factory: sessionmaker[Session], event: str, phase: int, label: str
+) -> None:
+    """The step has five phases; only the verdicts used to show a bar, and the three that
+    followed it left the card saying «Сохраняю…» for minutes."""
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    with _client(session_factory, registry) as client:
+        address, run_id = _political_run(session_factory, client, registry)
+        _set_run(
+            session_factory,
+            run_id,
+            status="running",
+            log=f"event=entity_politics_stage stage=writing\nevent={event} stage=asking 40/500\n",
+        )
+        card = client.get(address).text
+
+    assert '<progress class="overall" value="40" max="500">' in card
+    assert f"Этап {phase} из 5 · {label}: 40 из 500" in card
+
+
+def test_a_phase_without_a_count_still_says_which_one_it_is(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    with _client(session_factory, registry) as client:
+        address, run_id = _political_run(session_factory, client, registry)
+        _set_run(
+            session_factory,
+            run_id,
+            status="running",
+            log="event=entities_rf_check_stage stage=matching\n",
+        )
+        rf = client.get(address).text
+        _set_run(
+            session_factory, run_id, status="running", log="event=unnamed_stage stage=reading\n"
+        )
+        unnamed = client.get(address).text
+
+    assert "Этап 1 из 5 · Сверяю сущности с перечнем…" in rf
+    assert "Этап 5 из 5 · Безымянные: читаю данные…" in unnamed
+
+
+def test_a_running_card_shows_the_last_three_things_the_run_said(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    log = (
+        "2026-10-01 09:44:10,771 INFO monitoring request_id=- event=entities_rf_check_stage "
+        "stage=downloading\n"
+        "2026-10-01 09:44:12,202 INFO entities request_id=- event=rf_list_downloaded bytes=4305049\n"
+        '2026-10-01 09:44:13,623 INFO httpx request_id=- HTTP Request: GET https://x.test "200"\n'
+        "2026-10-01 09:44:14,001 INFO entities request_id=- event=entity_politics_stage "
+        "stage=asking 50/3200\n"
+        "2026-10-01 09:44:15,001 INFO entities request_id=- event=entity_politics_stage "
+        "stage=asking 100/3200\n"
+        "2026-10-01 09:44:16,001 INFO entities request_id=- event=entity_politics_stage "
+        "stage=asking 150/3200\n"
+    )
+    with _client(session_factory, registry) as client:
+        address, run_id = _political_run(session_factory, client, registry)
+        _set_run(session_factory, run_id, status="running", log=log)
+        page = client.get(address).text
+
+    tail = re.search(r'<pre class="log-tail"[^>]*>(.*?)</pre>', page, re.DOTALL)
+    assert tail is not None
+    assert tail.group(1).splitlines() == [
+        "event=entities_rf_check_stage stage=downloading",
+        "event=rf_list_downloaded bytes=4305049",
+        "event=entity_politics_stage stage=asking 150/3200",
+    ]
+
+
+def test_the_log_tail_follows_a_run_that_ended_badly_and_leaves_a_good_one_alone(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    with _client(session_factory, registry) as client:
+        address, run_id = _political_run(session_factory, client, registry)
+        log = "event=entity_politics_stage stage=asking 50/3200\nTraceback: boom\n"
+        pages = {}
+        for status in ("failed", "interrupted", "succeeded"):
+            _set_run(session_factory, run_id, status=status, log=log)
+            pages[status] = client.get(address).text
+
+    assert "Traceback: boom" in pages["failed"] and "Traceback: boom" in pages["interrupted"]
+    assert 'class="log-tail"' not in pages["succeeded"]
+
+
+def test_the_log_tail_reads_a_log_without_the_noise() -> None:
+    from web.ui.management import log_tail
+
+    assert log_tail("") == [] and log_tail("\n  \n") == []
+    # A line that is not a log record is shown as it is; a long one is cut.
+    assert log_tail("plain words\n" + "я" * 400) == ["plain words", "я" * 160]
+    # Fewer events than lines asked: only those.
+    assert log_tail("event=a x=1\nevent=a x=2\n") == ["event=a x=2"]
+    assert log_tail("event=a\nevent=b\nevent=c\nevent=d\n") == ["event=b", "event=c", "event=d"]
+    assert log_tail("event=a\nevent=b\nevent=c\n", count=1) == ["event=c"]
