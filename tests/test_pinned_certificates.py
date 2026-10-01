@@ -74,6 +74,7 @@ def test_every_pinned_certificate_is_still_valid(name: str) -> None:
         subprocess.run(
             ["openssl", "x509", "-in", str(path), "-noout", "-checkend", "0"],
             capture_output=True,
+            check=False,
         ).returncode
         == 0
     ), f"{name} истёк {expires}"

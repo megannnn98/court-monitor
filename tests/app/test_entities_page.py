@@ -374,17 +374,14 @@ def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidde
         card = client.get(f"/ui/entities/{MOOR}").text
 
     # The list confirms who a person is: shown by default, hidden only on request.
-    # The page gives no date of inclusion, so the tag says «возможно» and dates itself
-    # from the day we first saw the person in a downloaded list.
-    listed = r"Моор Александр Петрович</a>[\s\S]*?>Возможно в РФМ с \d{2}\.\d{2}\.\d{4}</span>"
-    assert re.search(listed, page)
+    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", page)
     assert "Найдено: 2." in page
     assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in page
     assert "Скрыть тех, кто в перечне РФМ (1)" in page
     # A name without a patronymic may be a namesake: shown, marked.
-    assert re.search(r"Иванов Иван</a>[\s\S]*?>Возможно в РФМ с ", page)
+    assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
     assert "Найдено: 2." in everyone
-    assert re.search(listed, everyone)
+    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", everyone)
     assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in everyone
     # The second box, off by default, hides the maybe-namesakes too; Моор is on the list
     # for certain, so his patronymic-less namesake entry does not count him again.
@@ -394,7 +391,7 @@ def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidde
     assert "Найдено: 0." in both
     assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
     assert '<input id="box-rf" type="checkbox" name="rf" value="hide" checked' in ticked
-    assert "<h3>Росфинмониторинг</h3>" in card and ">Возможно в РФМ с " in card
+    assert "<h3>Росфинмониторинг</h3>" in card and "в перечне Росфинмониторинга" in card
     assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card
 
 

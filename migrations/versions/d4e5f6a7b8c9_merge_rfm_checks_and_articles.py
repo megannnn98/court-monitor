@@ -8,7 +8,6 @@ Create Date: 2026-09-30 16:00:00.000000
 
 from collections.abc import Sequence
 
-
 revision: str = "d4e5f6a7b8c9"
 down_revision: str | Sequence[str] | None = ("a7b8c9d0e1f2", "c3d4e5f6a7b8")
 branch_labels: str | Sequence[str] | None = None

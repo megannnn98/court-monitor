@@ -57,7 +57,7 @@ def _last_run(db: Session) -> str:
     started = row[0]
     if started.tzinfo is None:
         started = started.replace(tzinfo=UTC)
-    return started.astimezone().strftime("%d.%m.%Y %H:%M")
+    return str(started.astimezone().strftime("%d.%m.%Y %H:%M"))
 
 
 @router.get("/ui/about", response_class=HTMLResponse)
