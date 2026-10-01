@@ -18,6 +18,10 @@ Three rules the code below is built around:
 
 Every write goes through the same check step 4 reads, so what the operator sees on this
 page is exactly what the pipeline will act on.
+
+Step 4 puts on the list by itself the officials the texts name by title; the ones only
+the model calls officials are not put there — it called an arrested policeman one. They
+are offered here, one button each, for a person to accept.
 """
 
 from __future__ import annotations
@@ -33,8 +37,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord, ExcludedPersonRecord
-from entities.officials import official_entity_ids
+from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
+from entities.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
 from entities.roles import KIND_LABELS
 from web.dependencies import get_db
 from web.ui.layout import _page
@@ -88,6 +92,47 @@ def _listing(db: Session) -> tuple[list[tuple[ExcludedPersonRecord, str, str]], 
     return [(row, *found.get(id(row), ("", ""))) for row in rows], int(total)
 
 
+def _suggestions(db: Session) -> list[tuple[str, str, str, str]]:
+    """The people the model calls officials and the list does not name: (key, name, kind,
+    why the model thinks so). Not offered: anyone the list names, active or switched off
+    (that was an answer), and anyone with a mark of their own."""
+    groups = list(db.scalars(select(EntityGroupRecord)))
+    keys = {group.id: group.key for group in groups}
+    named = official_entity_ids(db, keys, active_only=False)
+    marks = official_marks(db, keys)
+    names = {group.id: group.name for group in groups}
+    found = []
+    for role in db.scalars(
+        select(EntityGroupRoleRecord).where(
+            EntityGroupRoleRecord.method == "model",
+            EntityGroupRoleRecord.kind.in_(sorted(OFFICIAL_KINDS)),
+        )
+    ):
+        if role.group_id in named or role.group_id in marks or role.group_id not in keys:
+            continue
+        found.append((keys[role.group_id], names[role.group_id], role.kind or "", role.reason))
+    return sorted(found, key=lambda item: (item[2], item[1]))[:PAGE_SIZE]
+
+
+def _suggestions_html(items: list[tuple[str, str, str, str]]) -> str:
+    if not items:
+        return ""
+    rows = "".join(
+        f'<tr><td><a href="/ui/entities/{quote(key)}">{escape(name)}</a></td>'
+        f"<td>{escape(_category_label(kind))}</td><td>{escape(reason)}</td>"
+        '<td><form method="post" action="/ui/airtable/officials/add-suggested">'
+        f'<input type="hidden" name="key" value="{escape(key, quote=True)}">'
+        '<button type="submit" class="secondary">Добавить в список</button></form></td></tr>'
+        for key, name, kind, reason in items
+    )
+    return f"""<h2>Предложения системы: {len(items)}</h2>
+<p class="muted">Модель решила, что эти люди — должностные лица, но перед именем в текстах
+должности нет. Это догадка: среди них бывают и обвиняемые, и иностранные политики. Добавьте
+тех, кто точно должностное лицо; в силу это вступит при следующем «Найти фигурантов».</p>
+<table><thead><tr><th>Кто</th><th>Категория</th><th>Почему модель так думает</th><th></th></tr>
+</thead><tbody>{rows}</tbody></table>"""
+
+
 def _rows_html(rows: list[tuple[ExcludedPersonRecord, str, str]]) -> str:
     if not rows:
         return '<tr><td colspan="5" class="muted">Список пуст.</td></tr>'
@@ -133,7 +178,9 @@ def officials_page(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
   <p><button type="submit">Добавить</button></p>
   </fieldset>
 </form>
-<p class="muted">Всего в списке: {total}.</p>
+<p class="muted">Всего в списке: {total}. Судей, прокуроров и других, чьё звание стоит в
+текстах перед именем, шаг «Найти фигурантов» добавляет сам («автоматически» в причине).</p>
+{_suggestions_html(_suggestions(db))}
 <table><thead><tr><th>ФИО в списке</th><th>Кого нашли в статьях</th><th>Категория</th>
 <th>Причина</th><th>В силе</th><th></th></tr></thead>
 <tbody>{_rows_html(rows)}</tbody></table>"""
@@ -195,6 +242,47 @@ async def officials_add(
     )
     db.commit()
     logger.info("event=official_added name=%s category=%s", name, category)
+    return RedirectResponse(f"{REFERENCE_URL}?status=added", status_code=303)
+
+
+@router.post("/ui/airtable/officials/add-suggested", response_model=None)
+async def officials_add_suggested(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """Accept the model's suggestion: the person goes on the list as a person's decision.
+
+    Refused with 404 when the key is no suggestion — no such entity, or the model does not
+    call it an official — so the button cannot put an arbitrary name on the list.
+    """
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    key = (form.get("key") or [""])[0]
+    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    role = db.get(EntityGroupRoleRecord, entity.id) if entity is not None else None
+    if (
+        entity is None
+        or role is None
+        or role.method != "model"
+        or (role.kind or "") not in OFFICIAL_KINDS
+    ):
+        raise HTTPException(status_code=404, detail="Такого предложения нет")
+    keys = {group.id: group.key for group in db.scalars(select(EntityGroupRecord))}
+    if entity.id in official_entity_ids(db, keys, active_only=False):
+        db.commit()
+        return RedirectResponse(f"{REFERENCE_URL}?status=already", status_code=303)
+    name = " ".join(entity.name.split())
+    db.add(
+        ExcludedPersonRecord(
+            external_id=f"model:{key}",
+            full_name=name,
+            normalized_name=" ".join(name.casefold().replace("ё", "е").split()),
+            category=role.kind or "official",
+            reason=f"предложено моделью, принято вручную: {role.reason}".strip(),
+            active=True,
+        )
+    )
+    db.commit()
+    logger.info("event=official_suggestion_accepted name=%s kind=%s", name, role.kind)
     return RedirectResponse(f"{REFERENCE_URL}?status=added", status_code=303)
 
 

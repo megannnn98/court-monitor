@@ -15,7 +15,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import EntityGroupRecord, ExcludedPersonRecord
+from db.orm_models import (
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityOfficialMarkRecord,
+    ExcludedPersonRecord,
+)
 from web.app import app
 from web.dependencies import get_db
 from web.routers.operations import get_operation_registry
@@ -183,3 +188,115 @@ def test_the_list_can_be_taken_away_as_a_file(session_factory: sessionmaker[Sess
     # The whole list, not only the page on screen.
     assert "Пётр Судья,other,,нет" in lines
     assert len(lines) == 3
+
+
+def _role(
+    session_factory: sessionmaker[Session], key: str, kind: str, method: str, reason: str = "почему"
+) -> None:
+    with session_factory.begin() as session:
+        group_id = session.scalar(select(EntityGroupRecord.id).where(EntityGroupRecord.key == key))
+        session.add(
+            EntityGroupRoleRecord(
+                group_id=group_id,
+                role="mentioned",
+                kind=kind,
+                method=method,
+                reason=reason,
+                quote="",
+            )
+        )
+
+
+def _suggest_world(session_factory: sessionmaker[Session]) -> None:
+    """Five people the model or the rules call officials, one way or another."""
+    for key, name in (
+        ("дмитрий песков", "Дмитрий Песков"),  # the model's guess: offered
+        ("ольга минакова", "Ольга Минакова"),  # by title: the rules' business, not offered
+        ("игорь краснов", "Игорь Краснов"),  # the model's guess, but on the list: not offered
+        ("марко рубио", "Марко Рубио"),  # the model's guess, a person said «no»: not offered
+        ("иван иванов", "Иван <b>Иванов</b>"),  # a figurant: never offered
+    ):
+        _entity(session_factory, key, name)
+    _role(session_factory, "дмитрий песков", "official", "model", "Представитель Кремля")
+    _role(session_factory, "ольга минакова", "judge", "official")
+    _role(session_factory, "игорь краснов", "official", "model")
+    _role(session_factory, "марко рубио", "official", "model")
+    _role(session_factory, "иван иванов", "accused", "model")
+    with session_factory.begin() as session:
+        session.add(
+            ExcludedPersonRecord(
+                external_id="console:краснов игорь",
+                full_name="Краснов Игорь",
+                normalized_name="краснов игорь",
+                category="official",
+                active=False,
+            )
+        )
+        session.add(EntityOfficialMarkRecord(key="марко рубио", official=False))
+
+
+def test_only_what_the_model_alone_calls_an_official_is_offered(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _suggest_world(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/airtable/officials").text
+
+    assert "Предложения системы: 1" in page
+    offered = page[page.index("Предложения системы") : page.index("<table><thead><tr><th>ФИО")]
+    assert "Дмитрий Песков" in offered and "Представитель Кремля" in offered
+    for left_out in ("Минакова", "Краснов", "Рубио", "Иванов"):
+        assert left_out not in offered
+    assert 'name="key" value="дмитрий песков"' in offered
+
+
+def test_accepting_a_suggestion_puts_the_person_on_the_list_once(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _suggest_world(session_factory)
+
+    with _client(session_factory) as client:
+        first = client.post(
+            "/ui/airtable/officials/add-suggested",
+            data={"key": "дмитрий песков"},
+            follow_redirects=False,
+        )
+        again = client.post("/ui/airtable/officials/add-suggested", data={"key": "дмитрий песков"})
+        page = client.get("/ui/airtable/officials").text
+
+    assert first.status_code == 303 and again.status_code == 200
+    rows = [row for row in _rows(session_factory) if row.external_id.startswith("model:")]
+    assert [(row.full_name, row.category, row.active) for row in rows] == [
+        ("Дмитрий Песков", "official", True)
+    ]
+    assert rows[0].reason == "предложено моделью, принято вручную: Представитель Кремля"
+    # No longer a suggestion; now a row of the list.
+    assert "Предложения системы" not in page and "Песков" in page
+
+
+def test_a_key_that_is_no_suggestion_is_refused(session_factory: sessionmaker[Session]) -> None:
+    _suggest_world(session_factory)
+
+    with _client(session_factory) as client:
+        nobody = client.post("/ui/airtable/officials/add-suggested", data={"key": "никто такой"})
+        by_title = client.post(
+            "/ui/airtable/officials/add-suggested", data={"key": "ольга минакова"}
+        )
+        accused = client.post("/ui/airtable/officials/add-suggested", data={"key": "иван иванов"})
+        empty = client.post("/ui/airtable/officials/add-suggested", data={})
+
+    assert (nobody.status_code, by_title.status_code, accused.status_code) == (404, 404, 404)
+    assert empty.status_code == 404
+    assert not [row for row in _rows(session_factory) if row.external_id.startswith("model:")]
+
+
+def test_a_suggested_name_is_escaped(session_factory: sessionmaker[Session]) -> None:
+    _entity(session_factory, "x", "Ёж <script>alert(1)</script>")
+    _role(session_factory, "x", "official", "model", "<b>почему</b>")
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/airtable/officials").text
+
+    assert "<script>alert(1)</script>" not in page and "&lt;script&gt;" in page
+    assert "<b>почему</b>" not in page

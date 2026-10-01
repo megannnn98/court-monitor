@@ -5,8 +5,10 @@ sentence about a man who insulted him is not charged with anything. Four sources
 first that speaks wins:
 
 1. a person's mark (`EntityOfficialMarkRecord`), either way;
-2. the exclusion list (`ExcludedPersonRecord`), synced from Airtable: the people a
-   person wrote down as never being a target;
+2. the exclusion list (`ExcludedPersonRecord`), kept in the console: the people a person
+   wrote down as never being a target, and the officials step 4 itself put there — those
+   the texts name by title (`remember_titled`) — so that the list, not the next article,
+   is what remembers them;
 3. the texts: a title right before the name («судья Ольга Минакова», «главе СК
    Александру Бастрыкину») in at least two mentions or half of them — once among many
    is the title of someone beside («критик главы региона Ростислав Мурзагулов»);
@@ -25,6 +27,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 
 from sqlalchemy import delete, select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from db.orm_models import (
@@ -151,20 +154,26 @@ def _key_candidates(name: str) -> list[str]:
 
 
 def official_entity_ids(
-    session: Session, keys: Mapping[int, str]
+    session: Session, keys: Mapping[int, str], *, active_only: bool = True
 ) -> dict[int, ExcludedPersonRecord]:
-    """The active officials the list names, for the exactly one entity each matches, per entity id.
+    """The officials the list names, for the exactly one entity each matches, per entity id.
+
+    Only the active rows act on the pipeline. `active_only=False` also finds the ones a
+    person switched off: to know that a name has been looked at, and not to offer it again.
 
     A row that names no entity of this database is left out: it may be a person the
     articles have not mentioned yet, which is nothing to act on. A row that names
     several — two people whose keys the same words could stand for — is left out too:
     excluding the wrong one of two is worse than excluding neither.
     """
-    active = list(session.scalars(select(ExcludedPersonRecord).where(ExcludedPersonRecord.active)))
+    query = select(ExcludedPersonRecord)
+    if active_only:
+        query = query.where(ExcludedPersonRecord.active)
+    records = list(session.scalars(query))
     index = KeyIndex(keys.values())
     by_key = {key: group_id for group_id, key in keys.items()}
     found: dict[int, ExcludedPersonRecord] = {}
-    for record in active:
+    for record in records:
         resolved = {
             by_key[today]
             for today in (index.today(candidate) for candidate in _key_candidates(record.full_name))
@@ -180,6 +189,65 @@ def official_entity_ids(
         if resolved:
             found[resolved.pop()] = record
     return found
+
+
+# The list's own rows are written by the console («console:», «model:») or by step 4.
+AUTO_PREFIX = "auto:"
+
+
+def _normalized(name: str) -> str:
+    return " ".join(name.casefold().replace("ё", "е").split())
+
+
+def remember_titled(
+    session: Session,
+    entities: Sequence[tuple[int, str, str]],
+    titles: Mapping[int, tuple[str, str]],
+    marks: Mapping[int, bool],
+) -> int:
+    """Put the officials the texts name by title on the list, once each; how many were put.
+
+    The title is the reliable sign (the model's guess is not: it called an arrested
+    policeman an official), but it is read afresh from whatever articles are in the
+    database. The list is what remembers: a judge named once by title stays an official
+    when another article names him without it.
+
+    Left out, never put back: a person with a mark of their own, either way (they have
+    decided), and anyone the list already names — active, or switched off by hand, which
+    is an answer that must outlive the next run. `entities` is (id, key, name), all of
+    them: the list is matched against every key, as step 4 does.
+
+    The row is keyed by the entity's key (`auto:<key>`), so a second run finds it.
+    """
+    wanted = [item for item in entities if item[0] in titles and item[0] not in marks]
+    if not wanted:
+        return 0
+    listed = official_entity_ids(session, {id_: key for id_, key, _ in entities}, active_only=False)
+    rows = []
+    for group_id, key, name in wanted:
+        if group_id in listed:
+            continue
+        kind, title = titles[group_id]
+        rows.append(
+            {
+                "external_id": f"{AUTO_PREFIX}{key}",
+                "full_name": name,
+                "normalized_name": _normalized(name),
+                "category": kind,
+                "reason": f"автоматически: в текстах «{title}» перед именем",
+                "active": True,
+            }
+        )
+    if not rows:
+        return 0
+    inserted = session.scalars(
+        pg_insert(ExcludedPersonRecord)
+        .values(rows)
+        .on_conflict_do_nothing(index_elements=["external_id"])
+        .returning(ExcludedPersonRecord.id)
+    ).all()
+    logger.info("event=officials_listed count=%d", len(inserted))
+    return len(inserted)
 
 
 def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]:

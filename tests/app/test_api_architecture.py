@@ -36,6 +36,7 @@ ROUTES_AFTER_SPLIT = [
     "GET /ui/airtable/officials",
     "GET /ui/airtable/officials.csv",
     "POST /ui/airtable/officials/add",
+    "POST /ui/airtable/officials/add-suggested",
     "POST /ui/airtable/officials/deactivate",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)

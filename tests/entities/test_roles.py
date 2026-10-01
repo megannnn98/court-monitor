@@ -13,6 +13,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityMentionRecord,
+    EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
 from entities.collector import EntityCollector
@@ -309,6 +310,106 @@ def test_officials_are_named_in_cases_never_their_figurants(
     assert result.officials == 2
 
 
+def _list(session_factory: sessionmaker[Session]) -> dict[str, tuple[str, str, bool]]:
+    """The officials list: name → (category, external id, active)."""
+    with session_factory() as session:
+        return {
+            row.full_name: (row.category, row.external_id, row.active)
+            for row in session.scalars(select(ExcludedPersonRecord))
+        }
+
+
+def test_officials_named_by_title_are_put_on_the_list_once(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed_officials(session_factory)
+    classifier = FakeClassifier({"Иван Иванов": "accused"})
+
+    first = FigurantFinder(session_factory, classifier=classifier).run()
+    second = FigurantFinder(session_factory, classifier=classifier).run()
+
+    # The reliable sign — a title before the name — puts them on the list, with the
+    # category the title tells and the entity's key as the row's id; the accused is not.
+    assert _list(session_factory) == {
+        "Александр Бастрыкин": ("police", "auto:александр бастрыкин", True),
+        "Ольга Минакова": ("judge", "auto:ольга минакова", True),
+    }
+    assert (first.officials_listed, second.officials_listed) == (2, 0)
+    with session_factory() as session:
+        reason = session.scalar(
+            select(ExcludedPersonRecord.reason).where(
+                ExcludedPersonRecord.full_name == "Ольга Минакова"
+            )
+        )
+    assert reason == "автоматически: в текстах «судья» перед именем"
+
+
+def test_a_person_switched_off_by_hand_is_not_put_back_on_the_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«We looked and she is not an official» is an answer that must outlive the run."""
+    _seed_officials(session_factory)
+    with session_factory.begin() as session:
+        session.add(
+            ExcludedPersonRecord(
+                external_id="console:минакова ольга",
+                full_name="Минакова Ольга",
+                normalized_name="минакова ольга",
+                category="judge",
+                active=False,
+            )
+        )
+
+    result = FigurantFinder(
+        session_factory, classifier=FakeClassifier({"Иван Иванов": "accused"})
+    ).run()
+
+    assert result.officials_listed == 1
+    assert _list(session_factory) == {
+        "Минакова Ольга": ("judge", "console:минакова ольга", False),
+        "Александр Бастрыкин": ("police", "auto:александр бастрыкин", True),
+    }
+
+
+def test_a_person_with_a_mark_of_their_own_is_not_put_on_the_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed_officials(session_factory)
+    with session_factory.begin() as session:
+        session.add(EntityOfficialMarkRecord(key="ольга минакова", official=False))
+        session.add(EntityOfficialMarkRecord(key="александр бастрыкин", official=True))
+    classifier = FakeClassifier({"Иван Иванов": "accused", "Ольга Минакова": "judge"})
+
+    result = FigurantFinder(session_factory, classifier=classifier).run()
+
+    assert result.officials_listed == 0
+    assert _list(session_factory) == {}
+
+
+def test_a_listed_judge_stays_an_official_when_the_title_is_gone(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The list is what remembers: an article that names her without «судья» no longer
+    shows a title, and she is still not asked about as a possible figurant."""
+    _seed_officials(session_factory)
+    classifier = FakeClassifier({"Иван Иванов": "accused"})
+    FigurantFinder(session_factory, classifier=classifier).run()
+    with session_factory.begin() as session:
+        # Same length: the mentions' offsets still point at the names.
+        session.execute(text("UPDATE parsed_articles SET text = replace(text, 'Судья', 'Мадам')"))
+
+    FigurantFinder(session_factory, classifier=classifier).run()
+
+    assert _roles(session_factory)["Ольга Минакова"] == ("mentioned", "judge", "official")
+    with session_factory() as session:
+        reason = session.scalar(
+            select(EntityGroupRoleRecord.reason)
+            .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupRoleRecord.group_id)
+            .where(EntityGroupRecord.name == "Ольга Минакова")
+        )
+    assert reason is not None and reason.startswith("должностное лицо — в списке исключений")
+
+
 def test_a_name_on_the_exclusion_list_is_never_a_target_figurant(
     session_factory: sessionmaker[Session],
 ) -> None:
@@ -398,6 +499,30 @@ def test_a_person_s_mark_wins_either_way_and_survives_a_rebuild(
     assert after["Иван Иванов"] == ("mentioned", "official", "official")
     # Unmarked, the title no longer counts; the model says judge, the mark says no.
     assert after["Ольга Минакова"] == ("unclear", "judge", "model")
+
+
+def test_a_person_s_no_outranks_a_row_of_the_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The order is the person's mark, then the list, then the texts: a row written by
+    hand or by step 4 does not turn a person who said «not an official» into one."""
+    _seed_officials(session_factory, titles=False)
+    with session_factory.begin() as session:
+        session.add(
+            ExcludedPersonRecord(
+                external_id="console:иван иванов",
+                full_name="Иван Иванов",
+                normalized_name="иван иванов",
+                category="lawyer",
+                active=True,
+            )
+        )
+        session.add(EntityOfficialMarkRecord(key="иван иванов", official=False))
+    classifier = FakeClassifier({"Александр Бастрыкин": "official", "Иван Иванов": "accused"})
+
+    FigurantFinder(session_factory, classifier=classifier).run()
+
+    assert _roles(session_factory)["Иван Иванов"] == ("figurant", "accused", "model")
 
 
 def test_a_surname_alone_is_nobody_for_certain(session_factory: sessionmaker[Session]) -> None:

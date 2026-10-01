@@ -571,6 +571,7 @@ def _figurants_card(run: OperationRun) -> str:
         ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
         ("figurant_manual", "Фигуранты по решению оператора", "succeeded"),
         ("officials", "Должностные лица", ""),
+        ("officials_listed", "Добавлено в список должностных лиц", "succeeded"),
         ("possible", "Задержаны, обысканы или административное дело", "pending"),
         ("mentioned", "Только упомянуты", ""),
         ("unclear", "Не ясно", ""),

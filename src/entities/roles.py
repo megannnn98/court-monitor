@@ -53,6 +53,7 @@ from entities.officials import (
     OFFICIAL_KINDS,
     official_entity_ids,
     official_marks,
+    remember_titled,
     titled_entities,
 )
 
@@ -427,6 +428,8 @@ class FigurantResult:
     # Figurants a person decided by hand. Its own field, not folded into the model's:
     # a count that mixes the two hides both the person's work and the model's accuracy.
     figurant_manual: int = 0
+    # Officials put on the list in this run, by their title in the texts.
+    officials_listed: int = 0
     # Left unasked: the run's budget was spent; the next run asks them.
     unasked: int = 0
     cost_usd: float = 0.0
@@ -488,9 +491,20 @@ class FigurantFinder:
         # A person's mark first, either way; then a name they wrote on the exclusion
         # list; then a title before the name in the texts.
         officials = {row.id for row in entities if marks.get(row.id, row.id in titles)}
+        # The title is the reliable sign: the list remembers those it names, so that a
+        # judge named once by title stays an official when an article names him without.
+        with self._session_factory.begin() as session:
+            officials_listed = remember_titled(
+                session, [(row.id, row.key, row.name) for row in entities], titles, marks
+            )
         rows: list[dict[str, object]] = []
         for row in entities:
             excluded_row = excluded.get(row.id)
+            # A person's «no» outranks the list too, as the order above says: the list
+            # holds the officials step 4 itself put there, and a person's mark is the
+            # answer to them.
+            if marks.get(row.id) is False:
+                continue
             if row.id not in officials and excluded_row is None:
                 continue
             kind, title = titles.get(row.id, ("official", ""))
@@ -647,6 +661,7 @@ class FigurantFinder:
                 row["role"] == FIGURANT and row["method"] == MANUAL for row in rows
             ),
             officials=sum(row["method"] == "official" for row in rows),
+            officials_listed=officials_listed,
             possible=roles.count(POSSIBLE),
             mentioned=roles.count(MENTIONED),
             unclear=roles.count(UNCLEAR),
