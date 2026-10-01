@@ -36,6 +36,7 @@ from entities.news import CLOSED, KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENC
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
 from persecution.classifier import POLITICAL_ARTICLES
+from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
 from web.ui.entities import _articles_by_group, _date, display_name
 from web.ui.funnel import funnel, funnel_line
@@ -94,7 +95,7 @@ _PUBLICATIONS = text(
 
 _RF_ENTRIES = text(
     """
-    SELECT m.group_id, m.level, e.full_name, e.birth_date, e.birth_place
+    SELECT m.group_id, m.level, e.full_name, e.birth_date, e.birth_place, e.inclusion_date
     FROM entity_group_rf_matches m JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
     WHERE m.group_id = ANY(:groups)
     ORDER BY m.group_id, m.level = 'full' DESC, e.full_name
@@ -102,11 +103,27 @@ _RF_ENTRIES = text(
 )
 
 
+def entry_included_text(inclusion_date: datetime | None) -> str:
+    """When the entry of the перечень appeared, in the words that keep it an entry's.
+
+    «запись перечня включена 14.03.2024» and not «в перечне с 14.03.2024»: the day says
+    when the list published this record, and the entry was matched to the person by name
+    and birth date — which is the strongest thing we can say, and not more than that.
+    `tests/rosfinmonitoring/test_inclusion_date_confirms_nobody.py` holds the rule.
+    """
+    return f"запись перечня включена {inclusion_date:%d.%m.%Y}" if inclusion_date else ""
+
+
 def rf_text(row: ListRow) -> str:
     """The list's word on the person, for the page and for Excel."""
     if row.rf_level == FULL:
-        return f"в перечне: {row.rf_entry}"
+        # The date belongs to the entry, so it is said about the entry and never as a
+        # date of the person's listing.
+        included = entry_included_text(row.rf_inclusion_date)
+        return f"в перечне: {row.rf_entry}" + (f", {included}" if included else "")
     if row.rf_level is not None:
+        # A name matched without the patronymic is a namesake: the entry's day is that
+        # other person's, and it is not shown at all.
         return f"возможно тёзка: {row.rf_entry}"
     return ""
 
@@ -121,6 +138,9 @@ class ListRow:
     # The list's entry: «full» (the name with the patronymic) or «name», and who it is.
     rf_level: str | None = None
     rf_entry: str = ""
+    # When this entry of the перечень appeared, if the ОВД-Инфо copy says. It describes
+    # the entry, not the person; see `entry_included_text`.
+    rf_inclusion_date: datetime | None = None
     # What the latest news is, and why the model said so.
     news_kind: str | None = None
     news_reason: str = ""
@@ -336,13 +356,14 @@ def _details(
     ).all():
         rows[group_id].news_kind, rows[group_id].news_reason = kind, reason
     # The strongest entry of each: the query gives those with the patronymic first.
-    for group_id, level, full_name, birth_date, birth_place in db.execute(
+    for group_id, level, full_name, birth_date, birth_place, inclusion_date in db.execute(
         _RF_ENTRIES, {"groups": ids}
     ).all():
         row = rows[group_id]
         if row.rf_level is not None:
             continue
         row.rf_level = level
+        row.rf_inclusion_date = inclusion_date
         row.rf_entry = ", ".join(
             part
             for part in (
@@ -466,10 +487,17 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False) -> str
         if row.maybe_listed
         else ""
     )
+    # Shown only for an entry matched with the patronymic: on a namesake the day belongs
+    # to somebody else, so it is not shown at all.
+    included = (
+        f'<div class="muted">{escape(entry_included_text(row.rf_inclusion_date))}</div>'
+        if row.rf_level == FULL and row.rf_inclusion_date
+        else ""
+    )
     return (
         f"<tr><td>{position}</td>"
         f'<td><a href="/ui/investigations/{quote(entity.key)}">'
-        f"{escape(display_name(entity.name))}</a>{listed}</td>"
+        f"{escape(display_name(entity.name))}</a>{listed}{included}</td>"
         f"<td>{_news_mark(row)}</td>"
         f"<td>{_known_mark(row, loaded=known_loaded)}</td>"
         f"<td>{escape(_regions_text(entity))}</td>"
@@ -557,6 +585,9 @@ def ui_political(
 <p class="muted">Найдено: {total}. Фигуранты уголовных дел, дело которых — политическое
 преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
+Дата включения — свойство записи перечня, а не человека: под именем она читается как
+«запись перечня включена …» и не делает совпадение подтверждением личности.
+{escape(INCLUSION_ATTRIBUTION)}.
 Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.
 «В базе Airtable» — есть ли человек в вашей таблице «Найденные люди»; сверка только по имени
 (даты рождения и региона там нет), поэтому «вероятно» и «тёзки» — не уверенность.</p>
@@ -677,6 +708,14 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
             sheet.cell(row=line, column=column).number_format = "DD.MM.YYYY"
         for column, (_, url, _) in enumerate(sources, start=10):
             sheet.cell(row=line, column=column).hyperlink = url
+    # Ирина работает с файлами, а не с сайтом: атрибуция обязана уехать вместе с датой.
+    attribution = workbook.create_sheet("Источник дат")
+    attribution["A1"] = "Дата включения в перечень"
+    attribution["A2"] = INCLUSION_ATTRIBUTION
+    attribution["A3"] = (
+        "Дата описывает запись перечня, а не человека: совпадение имени и даты рождения "
+        "не подтверждает, что в новости речь о том же человеке."
+    )
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()

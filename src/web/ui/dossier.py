@@ -38,6 +38,7 @@ from entities.officials import OFFICIAL_KINDS
 from entities.politics import CRIMINAL, POLITICAL
 from entities.rf_check import FULL
 from entities.roles import FIGURANT
+from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
 from web.ui.entities import (
     _EVENT_LABELS,
@@ -95,13 +96,13 @@ _ENTITY = text(
 # Q2 — the Rosfinmonitoring matches, and the list snapshot the check could last read.
 _RF = text(
     """
-    SELECT m.level, e.full_name, e.birth_date, e.birth_place, s.snapshot_date
+    SELECT m.level, e.full_name, e.birth_date, e.birth_place, s.snapshot_date, e.inclusion_date
     FROM entity_group_rf_matches m
     JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
     JOIN rosfinmonitoring_snapshots s ON s.id = e.snapshot_id
     WHERE m.group_id = :group
     UNION ALL
-    SELECT NULL, NULL, NULL, NULL, max(snapshot_date) FROM rosfinmonitoring_snapshots
+    SELECT NULL, NULL, NULL, NULL, max(snapshot_date), NULL FROM rosfinmonitoring_snapshots
     ORDER BY 1 NULLS LAST, 2
     """
 )
@@ -550,10 +551,14 @@ def _decision(dossier: Dossier) -> str:
     else:
         role = '<p class="muted">Шаг 5 ещё не определял роль.</p>'
     rf_label, rf_badge = rf_status(dossier.rf)
+    # The day of inclusion is said about the entry, and only where the entry was matched
+    # with the patronymic: on a namesake the day belongs to somebody else.
     rf_items = "".join(
         f"<li>{_badge('ФИО с отчеством' if row.level == FULL else 'имя и фамилия', '' if row.level == FULL else 'pending')} "
         f"{escape(row.full_name)}{f', {row.birth_date:%d.%m.%Y} г.р.' if row.birth_date else ''}"
-        f"{f', {escape(row.birth_place)}' if row.birth_place else ''}</li>"
+        f"{f', {escape(row.birth_place)}' if row.birth_place else ''}"
+        f"{f' — запись перечня включена {row.inclusion_date:%d.%m.%Y}' if row.level == FULL and row.inclusion_date else ''}"
+        "</li>"
         for row in dossier.rf
     )
     warnings = ["Даты событий — даты публикаций: точной даты события в базе нет."]
@@ -577,7 +582,8 @@ def _decision(dossier: Dossier) -> str:
       {f"<ul>{rf_items}</ul>" if rf_items else ""}
       <p class="muted">Перечень подтверждает личность: дата рождения и место. Последний снимок
       перечня: {_day(dossier.snapshot_date)}. Даты рождения в новостях нет — тёзку отличает
-      только отчество.</p>
+      только отчество. Дата включения — свойство записи перечня, а не человека: она не
+      делает совпадение подтверждением личности. {escape(INCLUSION_ATTRIBUTION)}</p>
     </div>
   </div>
   <h3>Ограничения</h3>
