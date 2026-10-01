@@ -41,6 +41,8 @@ ROUTES_AFTER_SPLIT = [
     # The list itself, with the period filter and the file that goes with it.
     "GET /ui/rfm",
     "GET /ui/rfm/export.xlsx",
+    # The whole base of the people as one Excel file, whatever the filters say.
+    "GET /ui/people/export.xlsx",
     # The operator's «обработано» on a person of the result.
     "POST /ui/political/done",
     # «Мусор» for every held article of one story at once.

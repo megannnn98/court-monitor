@@ -271,8 +271,9 @@ _SENTENCES = text(
 )
 
 
-def political_cases(session: Session) -> list[Case]:
-    """The unnamed people for the result: not identified, political by an article."""
+def all_cases(session: Session) -> list[Case]:
+    """Every unnamed person not yet identified, political or not, in the order of the
+    first sentence about them."""
     sentences = [
         Sentence(
             key=row.key,
@@ -292,4 +293,9 @@ def political_cases(session: Session) -> list[Case]:
         )
         for row in session.execute(_SENTENCES, {"closed": sorted(IDENTIFIED | {INSUFFICIENT})})
     ]
-    return [case for case in group_cases(sentences) if case.political]
+    return group_cases(sentences)
+
+
+def political_cases(session: Session) -> list[Case]:
+    """The unnamed people for the result: not identified, political by an article."""
+    return [case for case in all_cases(session) if case.political]

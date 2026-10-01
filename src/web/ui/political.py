@@ -890,18 +890,18 @@ document.getElementById("political-filters").addEventListener("change", (event) 
     return response
 
 
-def _known_text(row: ListRow, *, loaded: bool) -> str | None:
+def known_answer_text(match: KnownMatch | None, *, loaded: bool) -> str | None:
     """The answer of the operator's base as a cell: what, and which records."""
     if not loaded:
         return None
-    if row.known is None:
+    if match is None:
         return "нет в базе"
-    names = "; ".join(row.known.names)
-    return (
-        f"{row.known.label} ({names})"
-        if row.known.level == "namesakes"
-        else (f"{row.known.label}: {names}")
-    )
+    names = "; ".join(match.names)
+    return f"{match.label} ({names})" if match.level == "namesakes" else f"{match.label}: {names}"
+
+
+def _known_text(row: ListRow, *, loaded: bool) -> str | None:
+    return known_answer_text(row.known, loaded=loaded)
 
 
 def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:

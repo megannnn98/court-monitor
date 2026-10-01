@@ -39,6 +39,7 @@ from web.ui import management as ui_management
 from web.ui import officials as ui_officials
 from web.ui import officials_list as ui_officials_list
 from web.ui import overview as ui_overview
+from web.ui import people_export as ui_people_export
 from web.ui import persons as ui_persons
 from web.ui import political as ui_political
 from web.ui import publications as ui_publications
@@ -96,6 +97,7 @@ for module in (
     ui_overview,
     ui_dossier,
     ui_entities,
+    ui_people_export,
     ui_disputes,
     ui_queue,
     ui_publications,

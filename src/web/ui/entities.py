@@ -542,6 +542,9 @@ def ui_entities(
     {"".join(boxes)}
   </div>
 </form>
+<p class="export-bar"><a class="button-link" href="/ui/people/export.xlsx">Выгрузить всех
+людей в Excel</a> <span class="muted">вся база без фильтров: люди с именем и случаи без
+имени</span></p>
 {roles_note}
 <p class="muted">Найдено: {total}{found_by}. Одна сущность — одно имя с фамилией в любом падеже.
 Серая статья УК — «общая»: в событии обвиняемыми названы и другие люди. «В перечне» — ФИО с
