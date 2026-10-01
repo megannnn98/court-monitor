@@ -74,6 +74,9 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
     assert links == [
         ("/ui/cycle", "Работа"),
         ("/ui/political", "Результаты"),
+        # The list itself sits with the working pages: «who was added lately» is what
+        # an operator opens the tool for, not a setting.
+        ("/ui/rfm", "Перечень"),
         ("/ui/investigations", "Поиск"),
         ("/ui/investigations", "Расследование"),
         ("/ui/entities", "Люди"),

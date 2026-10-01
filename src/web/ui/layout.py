@@ -83,6 +83,10 @@ _ICONS = {
     "political": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/>'
     '<line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/>'
     '<line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+    # A dated list: rows, and the day each row arrived.
+    "rfm": '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" x2="21" y1="9" y2="9"/>'
+    '<line x1="3" x2="21" y1="15" y2="15"/><line x1="8" x2="8.01" y1="9" y2="9"/>'
+    '<line x1="8" x2="8.01" y1="15" y2="15"/>',
     "airtable": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
     "management": '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/>'
     '<line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/>'
@@ -151,6 +155,9 @@ def _nav(active: str, counts: dict[str, object]) -> str:
     main = [
         link("cycle", "Работа", HOME, counts["queue"]),
         link("political", "Результаты", "/ui/political", counts["result"]),
+        # The list itself, with «who was added lately»: a working page, not a reference
+        # one, and the reason the day of inclusion is worth storing at all.
+        link("rfm", "Перечень", "/ui/rfm"),
         link("investigations", "Поиск", "/ui/investigations"),
     ]
     reference = "".join(link(*item) for item in _REFERENCE)

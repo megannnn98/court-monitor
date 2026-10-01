@@ -38,6 +38,9 @@ ROUTES_AFTER_SPLIT = [
     "POST /ui/airtable/officials/add",
     "POST /ui/airtable/officials/add-suggested",
     "POST /ui/airtable/officials/deactivate",
+    # The list itself, with the period filter and the file that goes with it.
+    "GET /ui/rfm",
+    "GET /ui/rfm/export.csv",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.
