@@ -525,6 +525,8 @@ def test_a_person_ticked_as_done_leaves_the_list_and_can_be_shown_again(
         assert "Смирнова Анна" in before and "Иванов Иван" in before
         assert "Найдено: 2." in before
         assert "Показать обработанных (0)</label>" in before, "the way back is always in sight"
+        # The tick-box label, not the select's: that one draws the box as a wide field.
+        assert '<label class="check"><input type="checkbox" name="done"' in before
 
         _tick(client, "анна смирнова")
         hidden = client.get("/ui/political?months=0").text

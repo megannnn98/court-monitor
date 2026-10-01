@@ -603,7 +603,8 @@ def ui_political(
     # Beside the filters and always there, so the way back to a ticked person is in plain
     # sight: the first person to tick a row could not find them again.
     done_toggle = (
-        '<label class="field"><input type="checkbox" name="done" value="show" '
+        # `check`, the tick-box label: `field` is the select's, and sizes the box as one.
+        '<label class="check"><input type="checkbox" name="done" value="show" '
         f'onchange="this.form.submit()"{" checked" if chosen.done == "show" else ""}> '
         f"Показать обработанных ({done_total})</label>"
     )
