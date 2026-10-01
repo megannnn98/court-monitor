@@ -15,14 +15,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from html import escape
-from io import BytesIO
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from openpyxl import Workbook
-from sqlalchemy import exists, func, or_, select, text
+from sqlalchemy import exists, func, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import (
@@ -31,16 +30,31 @@ from db.orm_models import (
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
 )
+from entities.done_marks import case_done, done_keys, is_done, unnamed_marks
 from entities.evidence import person_evidence_cte
 from entities.known_base import LEVEL_LABELS, KnownBase, KnownMatch
 from entities.news import CLOSED, KIND_LABELS, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
+from entities.rf_entry import (
+    INCLUSION_NOTES,
+    entry_included_text,
+    rf_word,
+    strongest_entries,
+)
 from entities.unnamed_cases import KEY_PREFIX, Case, political_cases
 from persecution.classifier import POLITICAL_ARTICLES
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
-from web.ui.entities import _articles_by_group, _date, display_name
+from web.exports import (
+    XLSX,
+    excel_day,
+    is_web_link,
+    workbook_bytes,
+    write_notes,
+    write_sheet,
+)
+from web.ui.entities import _articles_by_group, _date, display_name, regions_text
 from web.ui.funnel import funnel, funnel_line
 from web.ui.layout import _page, copy_button, pager
 
@@ -108,41 +122,6 @@ _PUBLICATIONS = text(
     WHERE pe.group_id = ANY(:groups)
     """
 )
-
-
-_RF_ENTRIES = text(
-    """
-    SELECT m.group_id, m.level, e.full_name, e.birth_date, e.birth_place, e.inclusion_date
-    FROM entity_group_rf_matches m JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
-    WHERE m.group_id = ANY(:groups)
-    ORDER BY m.group_id, m.level = 'full' DESC, e.full_name
-    """
-)
-
-
-def entry_included_text(inclusion_date: datetime | None) -> str:
-    """When the entry of the перечень appeared, in the words that keep it an entry's.
-
-    «запись перечня включена 14.03.2024» and not «в перечне с 14.03.2024»: the day says
-    when the list published this record, and the entry was matched to the person by name
-    and birth date — which is the strongest thing we can say, and not more than that.
-    `tests/rosfinmonitoring/test_inclusion_date_confirms_nobody.py` holds the rule.
-    """
-    return f"запись перечня включена {inclusion_date:%d.%m.%Y}" if inclusion_date else ""
-
-
-def rf_text(row: ListRow) -> str:
-    """The list's word on the person, for the page and for Excel."""
-    if row.rf_level == FULL:
-        # The date belongs to the entry, so it is said about the entry and never as a
-        # date of the person's listing.
-        included = entry_included_text(row.rf_inclusion_date)
-        return f"в перечне: {row.rf_entry}" + (f", {included}" if included else "")
-    if row.rf_level is not None:
-        # A name matched without the patronymic is a namesake: the entry's day is that
-        # other person's, and it is not shown at all.
-        return f"возможно тёзка: {row.rf_entry}"
-    return ""
 
 
 @dataclass(frozen=True)
@@ -353,48 +332,10 @@ def _by_known_base(
     ], check
 
 
-def _is_done() -> Any:
-    """The person carries a mark, and no news later than the one it was made at."""
-    return exists().where(
-        EntityDoneMarkRecord.key == EntityGroupRecord.key,
-        or_(
-            EntityGroupRecord.last_published_at.is_(None),
-            EntityDoneMarkRecord.news_at >= EntityGroupRecord.last_published_at,
-        ),
-    )
-
-
-def _done_keys(db: Session, keys: list[str]) -> set[str]:
-    """Which of these people are «обработано» now."""
-    return set(
-        db.scalars(select(EntityGroupRecord.key).where(EntityGroupRecord.key.in_(keys), _is_done()))
-    )
-
-
-def _unnamed_done(db: Session) -> dict[str, datetime | None]:
-    """The «обработано» marks of the unnamed, by key: the news each was made at."""
-    return {
-        key: news_at
-        for key, news_at in db.execute(
-            select(EntityDoneMarkRecord.key, EntityDoneMarkRecord.news_at).where(
-                EntityDoneMarkRecord.key.startswith(KEY_PREFIX)
-            )
-        ).all()
-    }
-
-
-def _case_done(case: Case, marks: Mapping[str, datetime | None]) -> bool:
-    """Marked, and no sentence about the person later than the mark saw."""
-    if case.key not in marks:
-        return False
-    latest, seen = case.last_published_at, marks[case.key]
-    return latest is None or (seen is not None and seen >= latest)
-
-
 def _unnamed_rows(db: Session, chosen: Filters) -> tuple[list[Found], dict[str, int]]:
     """The unnamed figurants under the same filters as the named, and how many of each
     latest news there are in the period (before the choice of the news)."""
-    marks = _unnamed_done(db)
+    marks = unnamed_marks(db)
     since = datetime.now(UTC) - timedelta(days=30 * chosen.months) if chosen.months else None
     start = datetime.combine(chosen.date_from, time.min, UTC) if chosen.date_from else None
     end = (
@@ -406,7 +347,7 @@ def _unnamed_rows(db: Session, chosen: Filters) -> tuple[list[Found], dict[str, 
     counts: Counter[str] = Counter()
     for number, case in enumerate(political_cases(db), start=1):
         latest = case.last_published_at
-        if chosen.done == "hide" and _case_done(case, marks):
+        if chosen.done == "hide" and case_done(case, marks):
             continue
         if (since or start or end) and latest is None:
             continue
@@ -453,7 +394,7 @@ def _rows(db: Session, chosen: Filters) -> tuple[list[Found], int, dict[str, int
         .where(EntityGroupPoliticsRecord.verdict == POLITICAL)
     )
     if chosen.done == "hide":
-        query = query.where(~_is_done())
+        query = query.where(~is_done())
     if chosen.months:
         since = datetime.now(UTC) - timedelta(days=30 * chosen.months)
         query = query.where(EntityGroupRecord.last_published_at >= since)
@@ -494,8 +435,8 @@ def _details(
     known: Mapping[int, KnownMatch | None] | None = None,
 ) -> list[ListRow]:
     ids = [entity.id for entity, _ in found if isinstance(entity, EntityGroupRecord)]
-    done = _done_keys(db, [entity.key for entity, _ in found])
-    marks = _unnamed_done(db)
+    done = done_keys(db, [entity.key for entity, _ in found])
+    marks = unnamed_marks(db)
     rows = {
         entity.id: ListRow(
             entity=entity,
@@ -503,7 +444,7 @@ def _details(
             maybe_listed=False,
             known=known.get(entity.id) if known else None,
             done=entity.key in done
-            or (isinstance(entity, UnnamedPerson) and _case_done(entity.case, marks)),
+            or (isinstance(entity, UnnamedPerson) and case_done(entity.case, marks)),
         )
         for entity, politics in found
     }
@@ -516,23 +457,12 @@ def _details(
         ).where(EntityGroupNewsRecord.group_id.in_(ids))
     ).all():
         rows[group_id].news_kind, rows[group_id].news_reason = kind, reason
-    # The strongest entry of each: the query gives those with the patronymic first.
-    for group_id, level, full_name, birth_date, birth_place, inclusion_date in db.execute(
-        _RF_ENTRIES, {"groups": ids}
-    ).all():
+    for group_id, entry in strongest_entries(db, ids).items():
         row = rows[group_id]
-        if row.rf_level is not None:
-            continue
-        row.rf_level = level
-        row.rf_inclusion_date = inclusion_date
-        row.rf_entry = ", ".join(
-            part
-            for part in (
-                full_name,
-                f"{birth_date:%d.%m.%Y} г.р." if birth_date else "",
-                birth_place or "",
-            )
-            if part
+        row.rf_level, row.rf_entry, row.rf_inclusion_date = (
+            entry.level,
+            entry.text,
+            entry.inclusion_date,
         )
     for row in rows.values():
         row.maybe_listed = row.rf_level is not None and row.rf_level != FULL
@@ -597,10 +527,6 @@ def _is_digest(title: str) -> bool:
 
 def _article_text(articles: list[tuple[str, bool]]) -> str:
     return ", ".join(article for article, _ in articles)
-
-
-def _regions_text(entity: Person) -> str:
-    return ", ".join(str(region) for region, _ in entity.regions)
 
 
 # Who said so. A person who decides a verdict by hand is not the model, and telling the
@@ -677,7 +603,7 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: 
         f'<div class="pub-link"><span class="muted">{escape(source)}:</span> '
         f'<a href="{escape(url, quote=True)}">{escape(title[:80])}</a></div>'
         for title, url, _, source in row.links
-        if url.startswith(("http://", "https://"))
+        if is_web_link(url)
     )
     listed = (
         ' <span class="badge">в перечне РФМ</span>'
@@ -713,7 +639,7 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: 
         f"<td>{name_cell}</td>"
         f"<td>{_news_mark(row)}</td>"
         f"<td>{_known_mark(row, loaded=known_loaded)}</td>"
-        f"<td>{escape(_regions_text(entity))}</td>"
+        f"<td>{escape(regions_text(entity.regions))}</td>"
         f'<td class="muted">{escape(row.rf_entry)}</td>'
         f"<td>{articles}</td>"
         f'<td>{escape(_basis(row))}<br><span class="muted">{escape(row.politics.quote[:200])}</span></td>'
@@ -759,12 +685,12 @@ def ui_political(
                 EntityGroupPoliticsRecord,
                 EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id,
             )
-            .where(EntityGroupPoliticsRecord.verdict == POLITICAL, _is_done())
+            .where(EntityGroupPoliticsRecord.verdict == POLITICAL, is_done())
         )
         or 0
     )
-    marks = _unnamed_done(db)
-    done_total += sum(_case_done(case, marks) for case in political_cases(db))
+    marks = unnamed_marks(db)
+    done_total += sum(case_done(case, marks) for case in political_cases(db))
     who_options = "".join(
         f'<option value="{key}"{" selected" if key == chosen.who else ""}>{label}</option>'
         for key, label in WHO_FILTERS.items()
@@ -909,66 +835,52 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
     sheet = workbook.active
     assert sheet is not None
     sheet.title = "Результат"
-    sheet.append(
+    headers = [
+        "№",
+        "Фамилия Имя",
+        "Регион",
+        "Статьи УК",
+        "Почему политическое",
+        "Мемориал",
+        "Первая новость",
+        "Последняя новость",
+        "Перечень РФМ",
+        *(f"Источник {number}" for number in range(1, LINKS + 1)),
+        "Свежая новость",
+        "В базе Airtable",
+    ]
+    first_source = headers.index("Источник 1") + 1
+    sources = [
+        [(title, url, source) for title, url, _, source in row.links if is_web_link(url)][:LINKS]
+        for row in rows
+    ]
+    write_sheet(
+        sheet,
+        headers,
         [
-            "№",
-            "Фамилия Имя",
-            "Регион",
-            "Статьи УК",
-            "Почему политическое",
-            "Мемориал",
-            "Первая новость",
-            "Последняя новость",
-            "Перечень РФМ",
-            *(f"Источник {number}" for number in range(1, LINKS + 1)),
-            "Свежая новость",
-            "В базе Airtable",
-        ]
+            [
+                position,
+                _shown_name(row),
+                regions_text(row.entity.regions) or None,
+                _article_text(row.articles) or None,
+                _basis(row),
+                row.memorial,
+                excel_day(row.first_published),
+                excel_day(row.entity.last_published_at),
+                rf_word(row.rf_level, row.rf_entry, row.rf_inclusion_date) or None,
+                *(f"{source}: {title[:80]}" for title, _, source in found),
+                *(None for _ in range(LINKS - len(found))),
+                KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
+                _known_text(row, loaded=known_loaded),
+            ]
+            for position, (row, found) in enumerate(zip(rows, sources, strict=True), start=1)
+        ],
     )
-    for position, row in enumerate(rows, start=1):
-        sources = [
-            (title, url, source)
-            for title, url, _, source in row.links
-            if url.startswith(("http://", "https://"))
-        ][:LINKS]
-        values: list[Any] = [
-            position,
-            _shown_name(row),
-            _regions_text(row.entity) or None,
-            _article_text(row.articles) or None,
-            _basis(row),
-            row.memorial,
-            row.first_published.replace(tzinfo=None) if row.first_published else None,
-            row.entity.last_published_at.replace(tzinfo=None)
-            if row.entity.last_published_at
-            else None,
-            rf_text(row) or None,
-            *(f"{source}: {title[:80]}" for title, _, source in sources),
-            *(None for _ in range(LINKS - len(sources))),
-            KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
-            _known_text(row, loaded=known_loaded),
-        ]
-        sheet.append(values)
-        line = position + 1
-        # Names, reasons and source titles come from scraped sources: never let «=» become a formula.
-        for column in (2, 3, 4, 5, 6, *range(10, 10 + LINKS)):
-            if sheet.cell(row=line, column=column).value is not None:
-                sheet.cell(row=line, column=column).data_type = "s"
-        for column in (7, 8):
-            sheet.cell(row=line, column=column).number_format = "DD.MM.YYYY"
-        for column, (_, url, _) in enumerate(sources, start=10):
+    for line, found in enumerate(sources, start=2):
+        for column, (_, url, _) in enumerate(found, start=first_source):
             sheet.cell(row=line, column=column).hyperlink = url
-    # Ирина работает с файлами, а не с сайтом: атрибуция обязана уехать вместе с датой.
-    attribution = workbook.create_sheet("Источник дат")
-    attribution["A1"] = "Дата включения в перечень"
-    attribution["A2"] = INCLUSION_ATTRIBUTION
-    attribution["A3"] = (
-        "Дата описывает запись перечня, а не человека: совпадение имени и даты рождения "
-        "не подтверждает, что в новости речь о том же человеке."
-    )
-    buffer = BytesIO()
-    workbook.save(buffer)
-    return buffer.getvalue()
+    write_notes(workbook, "Источник дат", INCLUSION_NOTES)
+    return workbook_bytes(workbook)
 
 
 def export_name(chosen: Filters, found: list[Found], today: date) -> str:
@@ -1002,7 +914,7 @@ def ui_political_export(
     name = export_name(chosen, found, datetime.now(UTC).date())
     return Response(
         political_xlsx(_details(db, found, check.matches), known_loaded=bool(check.size)),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type=XLSX,
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
 

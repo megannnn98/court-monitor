@@ -20,7 +20,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from html import escape
-from io import BytesIO
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -33,12 +32,14 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
 from entities.rf_check import FULL
+from entities.rf_entry import INCLUSION_NOTES
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION
 from rosfinmonitoring.snapshot_lookup import (
     RosfinmonitoringSnapshotSummary,
     SqlAlchemyRosfinmonitoringSnapshotLookup,
 )
 from web.dependencies import get_db, session_factory_for
+from web.exports import XLSX, workbook_bytes, write_notes, write_sheet
 from web.ui.layout import _page, copy_button
 
 router = APIRouter()
@@ -364,18 +365,17 @@ def rfm_xlsx(rows: list[ListRow]) -> bytes:
     sheet = workbook.active
     assert sheet is not None
     sheet.title = "Перечень"
-    sheet.append(
-        [
+    write_sheet(
+        sheet,
+        (
             "ФИО в перечне",
             "Дата рождения",
             "Место рождения",
             "Запись включена",
             "Наше совпадение",
             "Что это значит",
-        ]
-    )
-    for row in rows:
-        sheet.append(
+        ),
+        [
             [
                 row.full_name,
                 row.birth_date,
@@ -384,32 +384,23 @@ def rfm_xlsx(rows: list[ListRow]) -> bytes:
                 row.group_name or None,
                 _match_text(row) or None,
             ]
-        )
-    for line in range(2, len(rows) + 2):
-        # Names and places come from a scraped page: never let «=» become a formula.
-        for column in (1, 3, 5, 6):
-            cell = sheet.cell(row=line, column=column)
-            if cell.value is not None:
-                cell.data_type = "s"
-        for column in (2, 4):
-            sheet.cell(row=line, column=column).number_format = "DD.MM.YYYY"
-    for letter, width in (("A", 42), ("B", 18), ("C", 40), ("D", 20), ("E", 30), ("F", 20)):
-        sheet.column_dimensions[letter].width = width
+            for row in rows
+        ],
+        widths=(42, 18, 40, 20, 30, 20),
+    )
     # The attribution and the rule travel with the rows: the file leaves the site.
-    note = workbook.create_sheet("Источник дат")
-    note["A1"] = "Дата включения в перечень"
-    note["A2"] = ATTRIBUTION
-    note["A3"] = (
-        "Дата описывает запись перечня, а не человека: совпадение имени и даты рождения "
-        "не подтверждает, что в новости речь о том же человеке."
+    write_notes(
+        workbook,
+        "Источник дат",
+        (
+            *INCLUSION_NOTES,
+            (
+                "«Возможно тёзка» — совпали имя и фамилия, отчества нет с одной стороны: это "
+                "может быть другой человек, и его запись о дате включения ничего о нём не говорит."
+            ),
+        ),
     )
-    note["A4"] = (
-        "«Возможно тёзка» — совпали имя и фамилия, отчества нет с одной стороны: это может "
-        "быть другой человек, и его запись о дате включения ничего о нём не говорит."
-    )
-    buffer = BytesIO()
-    workbook.save(buffer)
-    return buffer.getvalue()
+    return workbook_bytes(workbook)
 
 
 @router.get("/ui/rfm/export.xlsx")
@@ -431,6 +422,6 @@ def ui_rfm_export(
     _with_our_matches(db, rows)
     return Response(
         content=rfm_xlsx(rows),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type=XLSX,
         headers={"Content-Disposition": f'attachment; filename="{_export_name(chosen, today)}"'},
     )

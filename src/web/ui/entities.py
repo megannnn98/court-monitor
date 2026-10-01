@@ -114,7 +114,7 @@ def _source_mark(name_source: str) -> str:
 _NAME_SOURCES = {"model": "дала модель", MANUAL: "исправлено вручную"}
 
 
-def _article_order(article: str) -> tuple[int, ...]:
+def article_order(article: str) -> tuple[int, ...]:
     """«205.2» after «205» and before «207.3»: by number, not as text."""
     return tuple(int(part) if part.isdigit() else 0 for part in article.split("."))
 
@@ -142,7 +142,7 @@ def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[
     for group_id, article, sole in rows:
         articles.setdefault(group_id, []).append((article, bool(sole)))
     for found in articles.values():
-        found.sort(key=lambda item: _article_order(item[0]))
+        found.sort(key=lambda item: article_order(item[0]))
     return articles
 
 
@@ -167,11 +167,16 @@ def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
     return levels
 
 
+def regions_text(regions: list[Any]) -> str:
+    """The regions of a person as plain text, for a cell."""
+    return ", ".join(str(region) for region, _count in regions)
+
+
 def _regions(regions: list[Any], *, short: bool = False) -> str:
     """The regions registry cards give: in the list after the name, on the card in full."""
     if not regions:
         return ""
-    names = ", ".join(escape(str(region)) for region, _count in regions)
+    names = escape(regions_text(regions))
     return f'<br><span class="muted">{names}</span>' if short else names
 
 
@@ -198,7 +203,7 @@ def _roles(db: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str | 
     }
 
 
-def _role_label(role: str, kind: str | None) -> str:
+def role_label(role: str, kind: str | None) -> str:
     if role == FIGURANT:
         return "фигурант дела"
     if role == POSSIBLE:
@@ -213,7 +218,7 @@ def _role_mark(found: tuple[str, str | None] | None) -> str:
         return ""
     role, kind = found
     badge = {FIGURANT: "succeeded", POSSIBLE: "pending"}.get(role, "")
-    return f' <span class="badge {badge}">{escape(_role_label(role, kind))}</span>'
+    return f' <span class="badge {badge}">{escape(role_label(role, kind))}</span>'
 
 
 _ROLE_METHODS = {

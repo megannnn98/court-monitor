@@ -14,7 +14,6 @@ role, and the cell is empty rather than «не ясно»: an empty cell is «н
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from io import BytesIO
 from typing import Any
 
 from fastapi import APIRouter, Depends, Response
@@ -30,56 +29,51 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
+from entities.done_marks import case_done, done_keys, unnamed_marks
 from entities.known_base import KnownBase
 from entities.news import KIND_LABELS as NEWS_LABELS
-from entities.rf_check import FULL
+from entities.politics import VERDICT_LABELS
+from entities.rf_entry import rf_word, strongest_entries
 from entities.unnamed import EVENT_LABELS
 from entities.unnamed_cases import Case, all_cases
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
-from web.ui.entities import _article_order, _role_label, display_name
-from web.ui.political import (
-    _RF_ENTRIES,
-    _case_done,
-    _done_keys,
-    _regions_text,
-    _unnamed_done,
-    entry_included_text,
-    known_answer_text,
-)
+from web.exports import XLSX, excel_day, is_web_link, workbook_bytes, write_notes, write_sheet
+from web.ui.entities import article_order, display_name, regions_text, role_label
+from web.ui.political import known_answer_text
 
 router = APIRouter()
 
-XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-_VERDICTS = {"political": "политическое", "criminal": "уголовное", "unclear": "не ясно"}
-_PEOPLE_HEADERS = (
-    "№",
-    "Фамилия Имя",
-    "Роль в деле",
-    "Дело",
-    "Статьи УК",
-    "Регион",
-    "Упоминаний",
-    "Публикаций",
-    "Последняя новость",
-    "Свежая новость",
-    "Перечень РФМ",
-    "В базе Airtable",
-    "Обработано",
+# A column: its header and its width.
+_PEOPLE_COLUMNS = (
+    ("№", 5),
+    ("Фамилия Имя", 28),
+    ("Роль в деле", 26),
+    ("Дело", 14),
+    ("Статьи УК", 18),
+    ("Регион", 22),
+    ("Упоминаний", 11),
+    ("Публикаций", 11),
+    ("Последняя новость", 16),
+    ("Свежая новость", 20),
+    ("Перечень РФМ", 50),
+    ("В базе Airtable", 36),
+    ("Обработано", 12),
 )
-_UNNAMED_HEADERS = (
-    "№",
-    "Кто",
-    "Политическая статья",
-    "Статьи УК",
-    "Место",
-    "Предложений",
-    "Первая новость",
-    "Последняя новость",
-    "Событие",
-    "Что сказано",
-    "Источник",
-    "Обработано",
+_SOURCE = "Источник"
+_UNNAMED_COLUMNS = (
+    ("№", 5),
+    ("Кто", 34),
+    ("Политическая статья", 12),
+    ("Статьи УК", 18),
+    ("Место", 22),
+    ("Предложений", 11),
+    ("Первая новость", 16),
+    ("Последняя новость", 16),
+    ("Событие", 18),
+    ("Что сказано", 60),
+    (_SOURCE, 50),
+    ("Обработано", 12),
 )
 
 
@@ -103,42 +97,6 @@ def notes_text(stamp: str) -> list[str]:
             "«вероятно» и «тёзки» — не уверенность."
         ),
     ]
-
-
-def _day(moment: datetime | None) -> datetime | None:
-    """A moment as a naive one: Excel has no time zones, and the cell is a date."""
-    return moment.replace(tzinfo=None) if moment else None
-
-
-def _write(sheet: Worksheet, headers: tuple[str, ...], rows: list[list[Any]]) -> None:
-    sheet.append(list(headers))
-    for row in rows:
-        sheet.append(row)
-    for line in sheet.iter_rows(min_row=2):
-        for cell in line:
-            if isinstance(cell.value, str):
-                # Names, places and titles come from scraped pages: never a formula.
-                cell.data_type = "s"
-            elif isinstance(cell.value, datetime):
-                cell.number_format = "DD.MM.YYYY"
-    sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = sheet.dimensions
-
-
-def _rf_text(entries: list[Any]) -> str | None:
-    """The list's word on the person: the strongest entry, the one with the patronymic first."""
-    if not entries:
-        return None
-    level, full_name, birth_date, birth_place, inclusion_date = entries[0]
-    entry = ", ".join(
-        part
-        for part in (full_name, f"{birth_date:%d.%m.%Y} г.р." if birth_date else "", birth_place)
-        if part
-    )
-    if level != FULL:
-        return f"возможно тёзка: {entry}"
-    included = entry_included_text(inclusion_date)
-    return f"в перечне: {entry}" + (f", {included}" if included else "")
 
 
 def people_rows(db: Session) -> list[list[Any]]:
@@ -178,27 +136,26 @@ def people_rows(db: Session) -> list[list[Any]]:
         select(EntityGroupChargeRecord.group_id, EntityGroupChargeRecord.article).distinct()
     ):
         articles.setdefault(group_id, set()).add(article)
-    entries: dict[int, list[Any]] = {}
-    for group_id, *entry in db.execute(_RF_ENTRIES, {"groups": ids}):
-        entries.setdefault(group_id, []).append(tuple(entry))
+    entries = strongest_entries(db, ids)
     base = KnownBase.from_session(db)
-    done = _done_keys(db, [group.key for group in groups])
+    done = done_keys(db, [group.key for group in groups])
     rows: list[list[Any]] = []
     for position, group in enumerate(groups, start=1):
         role = roles.get(group.id)
+        entry = entries.get(group.id)
         rows.append(
             [
                 position,
                 display_name(group.name),
-                _role_label(*role) if role else None,
-                _VERDICTS.get(verdicts.get(group.id, "")),
-                ", ".join(sorted(articles.get(group.id, ()), key=_article_order)) or None,
-                _regions_text(group) or None,
+                role_label(*role) if role else None,
+                VERDICT_LABELS.get(verdicts.get(group.id, "")),
+                ", ".join(sorted(articles.get(group.id, ()), key=article_order)) or None,
+                regions_text(group.regions) or None,
                 group.mention_count,
                 group.article_count,
-                _day(group.last_published_at),
+                excel_day(group.last_published_at),
                 NEWS_LABELS.get(news[group.id], news[group.id]) if group.id in news else None,
-                _rf_text(entries.get(group.id, [])),
+                rf_word(entry.level, entry.text, entry.inclusion_date) if entry else None,
                 known_answer_text(base.match(group.name), loaded=bool(len(base))),
                 "да" if group.key in done else None,
             ]
@@ -214,7 +171,7 @@ def _case_source(case: Case) -> str:
 def unnamed_rows(db: Session) -> tuple[list[list[Any]], list[str]]:
     """Every unnamed person not yet identified, the latest news first; and the addresses
     of their latest sources, to make each a link."""
-    marks = _unnamed_done(db)
+    marks = unnamed_marks(db)
     oldest = datetime.min.replace(tzinfo=UTC)
     cases = sorted(all_cases(db), key=lambda case: case.last_published_at or oldest, reverse=True)
     rows = [
@@ -225,16 +182,26 @@ def unnamed_rows(db: Session) -> tuple[list[list[Any]], list[str]]:
             ", ".join(case.articles) or None,
             case.place or None,
             len(case.sentences),
-            _day(case.first_published_at),
-            _day(case.last_published_at),
+            excel_day(case.first_published_at),
+            excel_day(case.last_published_at),
             EVENT_LABELS.get(case.latest.event_type, case.latest.event_type),
             case.latest.explanation,
             _case_source(case),
-            "да" if _case_done(case, marks) else None,
+            "да" if case_done(case, marks) else None,
         ]
         for position, case in enumerate(cases, start=1)
     ]
     return rows, [case.latest.url for case in cases]
+
+
+def _table(sheet: Worksheet, columns: tuple[tuple[str, int], ...], rows: list[list[Any]]) -> None:
+    write_sheet(
+        sheet,
+        [header for header, _ in columns],
+        rows,
+        widths=[width for _, width in columns],
+        filterable=True,
+    )
 
 
 def people_xlsx(db: Session, *, today: datetime | None = None) -> bytes:
@@ -242,25 +209,18 @@ def people_xlsx(db: Session, *, today: datetime | None = None) -> bytes:
     people = workbook.active
     assert people is not None
     people.title = "Люди"
-    _write(people, _PEOPLE_HEADERS, people_rows(db))
-    for letter, width in zip("ABCDEFGHIJKLM", (5, 28, 26, 14, 18, 22, 11, 11, 16, 20, 50, 36, 12)):
-        people.column_dimensions[letter].width = width
+    _table(people, _PEOPLE_COLUMNS, people_rows(db))
     unnamed = workbook.create_sheet("Без имени")
     rows, links = unnamed_rows(db)
-    _write(unnamed, _UNNAMED_HEADERS, rows)
+    _table(unnamed, _UNNAMED_COLUMNS, rows)
+    source = [header for header, _ in _UNNAMED_COLUMNS].index(_SOURCE) + 1
     for line, url in enumerate(links, start=2):
-        if url.startswith(("http://", "https://")):
-            unnamed.cell(row=line, column=11).hyperlink = url
-    for letter, width in zip("ABCDEFGHIJKL", (5, 34, 12, 18, 22, 11, 16, 16, 18, 60, 50, 12)):
-        unnamed.column_dimensions[letter].width = width
-    notes = workbook.create_sheet("Пояснения")
+        if is_web_link(url):
+            unnamed.cell(row=line, column=source).hyperlink = url
     stamp = (today or datetime.now(UTC)).astimezone().strftime("%d.%m.%Y %H:%M")
-    for line, text in enumerate(notes_text(stamp), start=1):
-        notes.cell(row=line, column=1, value=text).data_type = "s"
-    notes.column_dimensions["A"].width = 140
-    buffer = BytesIO()
-    workbook.save(buffer)
-    return buffer.getvalue()
+    write_notes(workbook, "Пояснения", notes_text(stamp))
+    workbook["Пояснения"].column_dimensions["A"].width = 140
+    return workbook_bytes(workbook)
 
 
 # Not under `/ui/entities/`: there `/ui/entities/{key}` is a person's page, and «export.xlsx»

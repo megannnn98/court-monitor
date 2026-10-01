@@ -28,9 +28,10 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from entities.rf_entry import entry_included_text
 from web.app import app
 from web.dependencies import get_db
-from web.ui.political import ListRow, entry_included_text, political_xlsx
+from web.ui.political import ListRow, political_xlsx
 
 INCLUDED = datetime(2024, 3, 14, tzinfo=UTC)
 
