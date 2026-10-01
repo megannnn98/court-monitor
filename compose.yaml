@@ -78,8 +78,10 @@ services:
       # The working date: step 2 deletes what was published before it.
       PIPELINE_SINCE: ${PIPELINE_SINCE:-2026-09-20}
       # Step 2 holds back junk that reads like a criminal case instead of deleting it
-      # (docs/wiki/Junk-Screen.md). Needs the semantic image (compose.gpu.yaml); 0 turns it off.
-      JUNK_SCREEN: ${JUNK_SCREEN:-1}
+      # (docs/wiki/Junk-Screen.md). `jev`: a decision model through OpenRouter, nothing to
+      # install; `1`: the embedding screen, needs the semantic image (compose.gpu.yaml);
+      # `0` turns it off.
+      JUNK_SCREEN: ${JUNK_SCREEN:-jev}
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
       DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
       DATABASE_POOL_TIMEOUT: ${DATABASE_POOL_TIMEOUT:-30}

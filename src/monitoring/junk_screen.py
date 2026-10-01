@@ -9,8 +9,10 @@ article is held (`JunkScreenHoldRecord`) for a person, never kept silently: a hi
 is no proof of a criminal case, and a held article has no event, so no later step sees it
 until its extraction is fixed and run again.
 
-Off by default. `JUNK_SCREEN=1` turns it on for `purge-junk`; `JUNK_SCREEN_MODEL` points
-to another model file. Turned on, a model file that is missing or wrong, an embedding
+Off by default. `JUNK_SCREEN=jev` turns on the screen that asks a decision model
+(`monitoring.decision_screen`) — the one `compose.yaml` sets: it saves more cases, holds
+less junk and needs nothing installed. `JUNK_SCREEN=1` turns on the embedding screen
+described here; `JUNK_SCREEN_MODEL` points to another model file. Turned on, a model file that is missing or wrong, an embedding
 model that does not load, or an embedding that fails stops the purge before it deletes
 the batch — an article the screen could not judge is never deleted.
 """
@@ -123,11 +125,21 @@ class EmbeddingScreen:
         return 1 / (1 + math.exp(-logit))
 
 
-def screen_from_env(env: Mapping[str, str] | None = None) -> EmbeddingScreen | None:
+# `JUNK_SCREEN=jev`: the decision model instead of the embeddings.
+DECISION = "jev"
+
+
+def screen_from_env(env: Mapping[str, str] | None = None) -> ArticleScreen | None:
     """The screen when `JUNK_SCREEN` is on; None when off. On, it is loaded and tried once
     here, so a broken screen fails before the purge deletes anything."""
     env = os.environ if env is None else env
-    if env.get("JUNK_SCREEN", "").strip().lower() not in ("1", "true", "yes", "on"):
+    chosen = env.get("JUNK_SCREEN", "").strip().lower()
+    if chosen == DECISION:
+        # Imported here: the module imports this one for `JunkScreenError`.
+        from monitoring.decision_screen import decision_screen_from_env
+
+        return decision_screen_from_env(env)
+    if chosen not in ("1", "true", "yes", "on"):
         return None
     model = ScreenModel.load(Path(env.get("JUNK_SCREEN_MODEL") or DEFAULT_MODEL_PATH))
     try:
