@@ -1,59 +1,38 @@
 """«Обработано»: the operator's mark on a person of the result, and when it still stands.
 
 A mark remembers the news it was made at. A later news about the person brings them back,
-so a mark stands only while nothing newer has been published. The named people are asked
-in SQL (`is_done`), the unnamed cases — which are no rows of a table — in Python
-(`case_done`); both read the same rule.
+so a mark stands only while nothing newer has been published. The people with a name and
+the figurants without one carry their marks by key in the same table, and the same rule
+is asked of both.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityDoneMarkRecord, EntityGroupRecord
-from entities.unnamed_cases import KEY_PREFIX, Case
+from db.orm_models import EntityDoneMarkRecord
+
+# The news each mark was made at, by the person's key.
+Marks = Mapping[str, datetime | None]
 
 
-def stands(seen: datetime | None, latest: datetime | None) -> bool:
-    """A mark made at the news `seen` stands while the latest news is not later."""
-    return latest is None or (seen is not None and seen >= latest)
-
-
-def is_done() -> Any:
-    """The person carries a mark, and no news later than the one it was made at."""
-    return exists().where(
-        EntityDoneMarkRecord.key == EntityGroupRecord.key,
-        or_(
-            EntityGroupRecord.last_published_at.is_(None),
-            EntityDoneMarkRecord.news_at >= EntityGroupRecord.last_published_at,
-        ),
-    )
-
-
-def done_keys(db: Session, keys: Sequence[str]) -> set[str]:
-    """Which of these people are «обработано» now."""
-    return set(
-        db.scalars(select(EntityGroupRecord.key).where(EntityGroupRecord.key.in_(keys), is_done()))
-    )
-
-
-def unnamed_marks(db: Session) -> dict[str, datetime | None]:
-    """The «обработано» marks of the unnamed, by key: the news each was made at."""
+def done_marks(db: Session) -> dict[str, datetime | None]:
+    """Every mark there is."""
     return {
         key: news_at
         for key, news_at in db.execute(
-            select(EntityDoneMarkRecord.key, EntityDoneMarkRecord.news_at).where(
-                EntityDoneMarkRecord.key.startswith(KEY_PREFIX)
-            )
+            select(EntityDoneMarkRecord.key, EntityDoneMarkRecord.news_at)
         ).all()
     }
 
 
-def case_done(case: Case, marks: Mapping[str, datetime | None]) -> bool:
-    """Marked, and no sentence about the person later than the mark saw."""
-    return case.key in marks and stands(marks[case.key], case.last_published_at)
+def is_done(marks: Marks, key: str, latest: datetime | None) -> bool:
+    """Marked, and no news about the person later than the one the mark saw."""
+    if key not in marks:
+        return False
+    seen = marks[key]
+    return latest is None or (seen is not None and seen >= latest)

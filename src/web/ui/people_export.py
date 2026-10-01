@@ -29,7 +29,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
-from entities.done_marks import case_done, done_keys, unnamed_marks
+from entities.done_marks import done_marks, is_done
 from entities.known_base import KnownBase
 from entities.news import KIND_LABELS as NEWS_LABELS
 from entities.politics import VERDICT_LABELS
@@ -138,7 +138,7 @@ def people_rows(db: Session) -> list[list[Any]]:
         articles.setdefault(group_id, set()).add(article)
     entries = strongest_entries(db, ids)
     base = KnownBase.from_session(db)
-    done = done_keys(db, [group.key for group in groups])
+    marks = done_marks(db)
     rows: list[list[Any]] = []
     for position, group in enumerate(groups, start=1):
         role = roles.get(group.id)
@@ -157,7 +157,7 @@ def people_rows(db: Session) -> list[list[Any]]:
                 NEWS_LABELS.get(news[group.id], news[group.id]) if group.id in news else None,
                 rf_word(entry.level, entry.text, entry.inclusion_date) if entry else None,
                 known_answer_text(base.match(group.name), loaded=bool(len(base))),
-                "да" if group.key in done else None,
+                "да" if is_done(marks, group.key, group.last_published_at) else None,
             ]
         )
     return rows
@@ -171,7 +171,7 @@ def _case_source(case: Case) -> str:
 def unnamed_rows(db: Session) -> tuple[list[list[Any]], list[str]]:
     """Every unnamed person not yet identified, the latest news first; and the addresses
     of their latest sources, to make each a link."""
-    marks = unnamed_marks(db)
+    marks = done_marks(db)
     oldest = datetime.min.replace(tzinfo=UTC)
     cases = sorted(all_cases(db), key=lambda case: case.last_published_at or oldest, reverse=True)
     rows = [
@@ -187,7 +187,7 @@ def unnamed_rows(db: Session) -> tuple[list[list[Any]], list[str]]:
             EVENT_LABELS.get(case.latest.event_type, case.latest.event_type),
             case.latest.explanation,
             _case_source(case),
-            "да" if case_done(case, marks) else None,
+            "да" if is_done(marks, case.key, case.last_published_at) else None,
         ]
         for position, case in enumerate(cases, start=1)
     ]
