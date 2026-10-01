@@ -236,6 +236,36 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+/* The one figure that costs money when it runs out: a chip at the end of the line, so it is
+   seen and not read for. Red when a run of a paid step may not be paid for. */
+.status-strip .balance {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.status-strip .balance::before {
+  content: none;
+}
+
+.status-strip .balance strong {
+  font-weight: 700;
+}
+
+.status-strip .balance.low {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.status-strip .balance.unknown {
+  color: var(--muted);
+}
+
 .badge {
   display: inline-block;
   border: 1px solid var(--border-strong);

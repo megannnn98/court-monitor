@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
+from collections.abc import Iterator
 
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session, sessionmaker
+
+from web.app import app
+from web.dependencies import get_db
 from web.ui import spend
 from web.ui.cycle import _processing
 from web.ui.pipeline import PipelineState, step_confirmation, stepper
@@ -158,3 +164,56 @@ def test_the_page_of_the_cycle_shows_the_balance(monkeypatch: pytest.MonkeyPatch
 
     assert "Остаток на OpenRouter: $4.26" in page
     assert "Шаг платный: DeepSeek через OpenRouter" in page
+
+
+def _strip(session_factory: sessionmaker[Session]) -> str:
+    def override() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override
+    try:
+        page = TestClient(app).get("/ui/about").text
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+    return page.split('<section class="status-strip"', 1)[1].split("</section>", 1)[0]
+
+
+def test_the_balance_is_a_chip_in_the_strip_at_the_top_of_every_page(
+    monkeypatch: pytest.MonkeyPatch, session_factory: sessionmaker[Session]
+) -> None:
+    _paid(monkeypatch)
+    _credits(monkeypatch)
+
+    strip = _strip(session_factory)
+
+    assert '<span class="balance" title="Куплено $15.00, потрачено $10.74.' in strip
+    assert "<small>Баланс OpenRouter</small><strong>$4.26</strong>" in strip
+    # At the end of the line, after the figures of the base.
+    assert strip.index("Последний запуск") < strip.index("Баланс OpenRouter")
+
+
+def test_a_balance_under_the_limit_of_a_run_is_red_in_the_strip(
+    monkeypatch: pytest.MonkeyPatch, session_factory: sessionmaker[Session]
+) -> None:
+    _paid(monkeypatch)
+    _credits(monkeypatch, {"data": {"total_credits": 15, "total_usage": 14.0}})
+
+    strip = _strip(session_factory)
+
+    assert '<span class="balance low"' in strip and "<strong>$1.00</strong>" in strip
+    assert "Остатка меньше" in strip
+
+
+def test_the_strip_says_a_dash_when_openrouter_does_not_answer_and_nothing_without_a_key(
+    monkeypatch: pytest.MonkeyPatch, session_factory: sessionmaker[Session]
+) -> None:
+    _paid(monkeypatch)
+    _credits(monkeypatch, None)
+    assert '<span class="balance unknown"' in _strip(session_factory)
+    assert "<strong>—</strong>" in _strip(session_factory)
+
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    spend.reset_cache()
+    assert "balance" not in _strip(session_factory)
+    assert "<small>Публикации</small>" in _strip(session_factory)

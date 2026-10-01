@@ -17,6 +17,7 @@ from db.orm_models import (
     MonitoringRunRecord,
     ParsedArticleRecord,
 )
+from web.ui import spend
 from web.ui.work_cycle import live_next_action
 from web.ui.workload import Workload, workload
 
@@ -225,6 +226,7 @@ def _page(
       <span><small>Результат</small><strong>{counts["result"]}</strong></span>
       <span><small>Очередь</small><strong>{counts["queue"]}</strong></span>
       <span><small>Последний запуск</small><strong>{escape(str(counts["latest_run"]))}</strong></span>
+      {spend.strip_item()}
     </section>
     <header class="page-head">
       <h1>{escape(title)}</h1>
