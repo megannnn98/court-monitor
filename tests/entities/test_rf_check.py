@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
 
 import httpx
 import pytest
@@ -23,6 +23,7 @@ from rosfinmonitoring.inclusion_dates import (
     InclusionDatesUnavailable,
     normalize_name,
 )
+from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 
 PERSONS = """
     <li>1. АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ*, 08.06.1996 г.р. , П. МАМЕДКАЛА;</li>
@@ -165,6 +166,143 @@ def test_the_days_survive_a_list_that_did_not_change(
 
     assert first.new_snapshot and not again.new_snapshot
     assert _inclusion_dates_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == date(2024, 3, 14)
+
+
+def _extra_snapshot(
+    session_factory: sessionmaker[Session], *, dated: bool, birth: datetime
+) -> None:
+    """A snapshot holding one entry of our own, with or without a day of inclusion.
+
+    A snapshot the check did not import, so the carrying code can be exercised against a
+    previous one without a second download.
+    """
+    with session_factory.begin() as session:
+        snapshot = RosfinmonitoringSnapshotRecord(
+            snapshot_date=datetime.now(UTC),
+            source_url="https://www.fedsfm.ru/documents/terrorists-catalog-portal-act",
+            content_hash=f"earlier-{session.scalar(select(func.count()).select_from(RosfinmonitoringSnapshotRecord))}",
+            entry_count=1,
+            fetched_at=datetime.now(UTC),
+        )
+        session.add(snapshot)
+        session.flush()
+        session.add(
+            RosfinmonitoringEntryRecord(
+                snapshot_id=snapshot.id,
+                full_name="АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ",
+                normalized_name="абабакаров абдулла гасанович",
+                matching_key="абабакаровабдуллагасанович",
+                birth_date=birth,
+                inclusion_date=datetime(2024, 3, 14, tzinfo=UTC) if dated else None,
+                raw_data={},
+            )
+        )
+
+
+def _days_of_latest(session_factory: sessionmaker[Session]) -> dict[tuple[str, str], object]:
+    """(имя, дата рождения) → день включения, for the newest snapshot only."""
+    latest = SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory).latest_imported_snapshot()
+    assert latest is not None
+    with session_factory() as session:
+        return {
+            (full_name, birth_date.date().isoformat() if birth_date else ""): inclusion_date
+            for full_name, birth_date, inclusion_date in session.execute(
+                select(
+                    RosfinmonitoringEntryRecord.full_name,
+                    RosfinmonitoringEntryRecord.birth_date,
+                    RosfinmonitoringEntryRecord.inclusion_date,
+                ).where(RosfinmonitoringEntryRecord.snapshot_id == latest.snapshot_id),
+            ).all()
+        }
+
+
+def test_a_new_snapshot_takes_the_day_from_the_previous_one_when_the_file_is_unreadable(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The gap this closes: a snapshot imported on a day the ОВД-Инфо file could not be
+    read arrives with no days at all, and the page that filters by them stays empty until
+    the state next changes the list — which may be weeks. The previous snapshot is our own
+    record of the same list a moment ago, and it knows the day."""
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+    _extra_snapshot(session_factory, dated=True, birth=datetime(1996, 6, 8, tzinfo=UTC))
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+
+    days = _days_of_latest(session_factory)
+    assert days[("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1996-06-08")] is not None, (
+        "the new snapshot must not stand empty while the day one snapshot back is known"
+    )
+
+
+def test_the_previous_snapshot_gives_nothing_when_it_has_no_day(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A day is carried, never assumed: a previous snapshot with no days of its own tells
+    us nothing, and the file is asked instead."""
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+    _extra_snapshot(session_factory, dated=False, birth=datetime(1996, 6, 8, tzinfo=UTC))
+
+    result = EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+
+    assert result.snapshot_id is not None
+    assert _inclusion_dates_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == date(
+        2024, 3, 14
+    ), "nothing to carry, so the file's day must be used"
+
+
+def test_a_day_is_carried_only_where_the_birth_date_agrees(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The carried day belongs to a pair, and a name is not a pair: the same name born on
+    another day is somebody else and must not inherit it.
+
+    The page changes between the runs, so a new snapshot is really imported — a check of
+    an unchanged page imports nothing, and then the snapshot on top is the one the test
+    built itself, which would make the case pass for the wrong reason."""
+    listed = """
+    <li>1. АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ*, 08.06.1996 г.р. , П. МАМЕДКАЛА;</li>
+    <li>2. АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ*, 01.01.1970 г.р. , Г. МОСКВА;</li>
+    """
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+    _extra_snapshot(session_factory, dated=True, birth=datetime(1996, 6, 8, tzinfo=UTC))
+
+    result = EntityRfCheck(
+        session_factory,
+        download=lambda: _page(listed),
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+
+    assert result.new_snapshot, "the page changed, so a new snapshot must exist"
+    days = _days_of_latest(session_factory)
+    assert days[("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1996-06-08")] is not None, (
+        "the pair that was there a snapshot ago keeps its day"
+    )
+    assert days[("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1970-01-01")] is None, (
+        "a namesake's row must not inherit the other one's day"
+    )
 
 
 def test_a_file_that_cannot_be_read_costs_the_list_nothing(

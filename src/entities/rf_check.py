@@ -40,7 +40,10 @@ from rosfinmonitoring.inclusion_dates import (
     InclusionDatesUnavailable,
     download_inclusion_dates,
 )
-from rosfinmonitoring.inclusion_store import write_inclusion_dates
+from rosfinmonitoring.inclusion_store import (
+    carry_dates_from_previous_snapshot,
+    write_inclusion_dates,
+)
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
@@ -127,6 +130,12 @@ class EntityRfCheck:
         if latest is None:
             logger.warning("event=entities_rf_check_no_snapshot error=%s", download_error)
             return RfCheckResult(None, None, 0, download_error, new_snapshot, 0, 0, 0)
+        # Every run, not only the one that imported: a snapshot imported on a day the
+        # ОВД-Инфо file was unreadable arrives with no days at all, and the page that
+        # filters by them would stay empty until the state next changed the list — which
+        # may be weeks. The snapshot in the database on the day the code is deployed is
+        # exactly such a snapshot, so the days are topped up at every check.
+        self._fill_inclusion_dates(latest.snapshot_id)
         # The operator's Airtable list, consulted for probabilities only: a name it has
         # and the published list does not is «possible», never FULL, so it can neither
         # count as confirmed nor merge a pair of namesakes.
@@ -244,25 +253,40 @@ class EntityRfCheck:
             imported.snapshot_id,
             imported.entries_created,
         )
-        # The days of inclusion are read once per snapshot, from the ОВД-Инфо copy, and
-        # written before the comparison: they belong to the entries, so a row matched
-        # below can already carry one. A failure here is not the list's failure — the
-        # snapshot stands and the dates simply stay as they were.
-        self._write_inclusion_dates(imported.snapshot_id)
         return None, True
 
-    def _write_inclusion_dates(self, snapshot_id: int) -> None:
-        """Fill `inclusion_date` from the ОВД-Инфо copy, or say why not."""
+    def _fill_inclusion_dates(self, snapshot_id: int) -> None:
+        """Give the snapshot's entries whatever day of inclusion can be established.
+
+        Two sources, in order, and the first is not the network:
+
+        - the previous snapshot, which is our own record of the same list a week ago. A
+          name and a birth date that match there already have their day, and the day does
+          not change because the list was re-downloaded. This is what fills a snapshot
+          imported on a day the file could not be read, and it is why an unreachable file
+          does not leave the page empty;
+        - the ОВД-Инфо copy, for whatever the previous snapshot did not cover — a person
+          added since, or a snapshot whose days were never established at all.
+
+        A failure to read the file is therefore not a failure of this at all: what the
+        previous snapshot knew is already written, and the run goes on.
+        """
+        carried = carry_dates_from_previous_snapshot(self._session_factory, snapshot_id)
         try:
-            dates = self._inclusion_dates(httpx.Client(timeout=INCLUSION_TIMEOUT_SECONDS))
+            with httpx.Client(timeout=INCLUSION_TIMEOUT_SECONDS) as client:
+                dates = self._inclusion_dates(client)
         except (httpx.HTTPError, InclusionDatesUnavailable) as exc:
-            logger.warning("event=rfm_inclusion_dates_unavailable error=%s", exc)
+            logger.warning(
+                "event=rfm_inclusion_dates_unavailable carried=%d error=%s", carried, exc
+            )
             return
         with self._session_factory.begin() as session:
             result = write_inclusion_dates(session, snapshot_id, dates)
         logger.info(
-            "event=rfm_inclusion_dates_ok snapshot_id=%s dated=%d already=%d unmatched=%d",
+            "event=rfm_inclusion_dates_ok snapshot_id=%s carried=%d dated=%d already=%d "
+            "unmatched=%d",
             snapshot_id,
+            carried,
             result.dated,
             result.already_dated,
             sum(result.unmatched.values()),

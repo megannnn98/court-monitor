@@ -23,9 +23,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
 from sqlalchemy import select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import RosfinmonitoringEntryRecord
+from db.orm_models import (
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+)
 from rosfinmonitoring.inclusion_dates import (
     InclusionDates,
     match_inclusion_date,
@@ -74,6 +77,87 @@ class InclusionWriteResult:
 def _swapped(ours: date, theirs: date) -> bool:
     """Whether the two dates are each other's day and month: 06.11 against 11.06."""
     return (ours.day, ours.month) == (theirs.month, theirs.day)
+
+
+def carry_dates_from_previous_snapshot(
+    session_factory: sessionmaker[Session], snapshot_id: int
+) -> int:
+    """Copy the days of inclusion from the snapshot before this one, onto this one's.
+
+    The list is re-downloaded daily and only becomes a new snapshot when it changed, so
+    consecutive snapshots hold nearly the same entries. A day established for one of them
+    is a day for the same person now, and the state's copy carries no dates of its own —
+    without this, a snapshot imported on a day the ОВД-Инфо file could not be read would
+    have none, and the page that filters by them would stay empty until the state next
+    changed the list.
+
+    Matched on the name and the birth date, as everywhere else. The day belongs to the
+    entry, and a name on its own would carry one person's day onto a namesake's row.
+    """
+    # One session throughout: this runs inside a check, and leaving sessions open is how a
+    # pool runs out and a check waits for a connection that never arrives.
+    with session_factory() as session:
+        previous_id = session.execute(
+            select(RosfinmonitoringSnapshotRecord.id)
+            .where(RosfinmonitoringSnapshotRecord.id < snapshot_id)
+            .order_by(RosfinmonitoringSnapshotRecord.id.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if previous_id is None:
+            return 0
+
+        known: dict[tuple[str, date], date] = {}
+        for full_name, birth_date, inclusion_date in session.execute(
+            select(
+                RosfinmonitoringEntryRecord.full_name,
+                RosfinmonitoringEntryRecord.birth_date,
+                RosfinmonitoringEntryRecord.inclusion_date,
+            ).where(
+                RosfinmonitoringEntryRecord.snapshot_id == previous_id,
+                RosfinmonitoringEntryRecord.inclusion_date.isnot(None),
+            )
+        ).all():
+            if birth_date is None:
+                continue
+            known[normalize_name(full_name), birth_date.date()] = inclusion_date.date()
+
+        updates: list[dict[str, object]] = []
+        for entry_id, full_name, birth_date in session.execute(
+            select(
+                RosfinmonitoringEntryRecord.id,
+                RosfinmonitoringEntryRecord.full_name,
+                RosfinmonitoringEntryRecord.birth_date,
+            ).where(
+                RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
+                RosfinmonitoringEntryRecord.inclusion_date.is_(None),
+                RosfinmonitoringEntryRecord.birth_date.isnot(None),
+            )
+        ).all():
+            if birth_date is None:
+                continue
+            day = known.get((normalize_name(full_name), birth_date.date()))
+            if day is None:
+                continue
+            updates.append(
+                {
+                    "id": entry_id,
+                    "inclusion_date": datetime(day.year, day.month, day.day, tzinfo=UTC),
+                }
+            )
+        for start in range(0, len(updates), WRITE_CHUNK):
+            session.execute(
+                update(RosfinmonitoringEntryRecord), updates[start : start + WRITE_CHUNK]
+            )
+        # Committed here: this session is not a `begin()` block, and closing one only
+        # rolls back — the count would then report days that were never written.
+        session.commit()
+    logger.info(
+        "event=rfm_inclusion_dates_carried from_snapshot=%s into_snapshot=%s dates=%d",
+        previous_id,
+        snapshot_id,
+        len(updates),
+    )
+    return len(updates)
 
 
 def write_inclusion_dates(
