@@ -14,6 +14,9 @@ dependencies = [
     "fastapi>=0.115.0",
     "httpx[socks]>=0.28.0",
     "openpyxl>=3.1.5",
+    # Reads the ОВД-Инфо copy of the перечень (a single parquet file) to learn when each
+    # entry was included. See `rosfinmonitoring.inclusion_dates`.
+    "pyarrow>=21.0.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.11.0",
     "pymorphy3>=2.0.6",
@@ -67,6 +70,12 @@ module = [
     "sklearn",
     "sklearn.*",
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# PyArrow ships no type information; reading the ОВД-Инфо copy of the list stays
+# runtime-checked.
+module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
