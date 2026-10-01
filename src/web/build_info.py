@@ -14,10 +14,12 @@ developer runs from a working copy.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-APP_VERSION = "1.0.0"
+# `git describe` after a tag: «<tag>-<commits since>-g<hash>».
+_AFTER_TAG = re.compile(r"^(?P<tag>.+)-\d+-g[0-9a-f]+$")
 UNKNOWN = "неизвестно"
 
 
@@ -41,6 +43,18 @@ class BuildInfo:
         ]
 
 
+def version_of(tag: str) -> str:
+    """The release the build belongs to: the tag it stands on or after.
+
+    «0.36.0» → «0.36.0»; «0.36.0-2-gf2c361e» (two commits later) → «0.36.0». A bare
+    hash — a repository with no tags — names no release.
+    """
+    after = _AFTER_TAG.match(tag)
+    if after:
+        return after.group("tag")
+    return UNKNOWN if not tag or re.fullmatch(r"[0-9a-f]{7,40}", tag) else tag
+
+
 def build_info(env: Mapping[str, str] | None = None) -> BuildInfo:
     """The build stamp, read from the environment the image was started with."""
     env = os.environ if env is None else env
@@ -50,6 +64,6 @@ def build_info(env: Mapping[str, str] | None = None) -> BuildInfo:
     return BuildInfo(
         commit=commit[:12] if commit else UNKNOWN,
         built_at=built_at or UNKNOWN,
-        version=APP_VERSION,
+        version=version_of(tag),
         tag=tag or UNKNOWN,
     )

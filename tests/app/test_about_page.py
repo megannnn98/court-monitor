@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from web.app import app
-from web.build_info import APP_VERSION, UNKNOWN, build_info
+from web.build_info import UNKNOWN, build_info, version_of
 from web.dependencies import get_db
 
 
@@ -39,7 +39,7 @@ def test_a_stamped_build_says_which_commit_it_is() -> None:
 
     assert info.commit == "04499dfabc12", "a short hash is enough and fits the page"
     assert info.built_at == "2026-09-29T18:00:00Z"
-    assert info.version == APP_VERSION
+    assert info.version == UNKNOWN, "no tag told: no release to name"
 
 
 def test_a_working_copy_says_it_does_not_know() -> None:
@@ -135,3 +135,20 @@ def test_an_empty_run_table_does_not_break_the_page(session_factory) -> None:
 def test_the_page_needs_no_query_parameters(session_factory, path: str) -> None:
     with _client(session_factory) as client:
         assert client.get(path).status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("tag", "version"),
+    [
+        ("0.36.0", "0.36.0"),
+        ("0.36.0-2-gf2c361e", "0.36.0"),
+        ("v1.2.0-rc1-14-g0a1b2c3", "v1.2.0-rc1"),
+        # No tag in the repository: `git describe --always` gives a bare hash.
+        ("f2c361e", UNKNOWN),
+        ("", UNKNOWN),
+    ],
+)
+def test_the_version_is_the_release_tag_the_build_stands_on(tag: str, version: str) -> None:
+    """One number, not two: the version is the tag, not a constant nobody updates."""
+    assert version_of(tag) == version
+    assert build_info({"BUILD_TAG": tag}).version == version
