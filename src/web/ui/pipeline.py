@@ -16,8 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import escape
 
-from entities.llm import endpoint_from_env
 from operator_console import OperationRegistry, OperationRun, OperationRunStatus
+from web.ui import spend
 
 OPERATION = "monitor"
 STAGES = ("load", "purge", "entities", "figurants", "political")
@@ -126,15 +126,19 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
 
 def deepseek_confirmation(stage: str) -> str:
     """Return a browser confirmation only when this stage can call paid DeepSeek."""
-    endpoint = endpoint_from_env()
-    if (
-        endpoint is None
-        or endpoint.provider != "openrouter"
-        or "deepseek" not in endpoint.model.lower()
-        or ":free" in endpoint.model.lower()
-    ):
+    if not spend.paid_deepseek():
         return ""
     return _DEEPSEEK_CONFIRM.get(stage, "")
+
+
+def _purge_confirmation() -> str:
+    """The purge asks the decision model per article, when the screen is set to it."""
+    if not spend.paid("purge"):
+        return ""
+    return (
+        "Шаг «Очистить от мусора» использует платную модель JEV через OpenRouter: "
+        "около $0,00006 за статью."
+    )
 
 
 def step_action(stage: str) -> str:
@@ -143,8 +147,14 @@ def step_action(stage: str) -> str:
 
 
 def step_confirmation(stage: str) -> str:
-    """The applicable destructive or paid-provider confirmation."""
-    return deepseek_confirmation(stage) or _CONFIRM.get(stage, "")
+    """What the browser asks before a step: the destructive warning, the paid one, and what
+    the account can still pay for."""
+    paid_warning = deepseek_confirmation(stage) or (
+        _purge_confirmation() if stage == "purge" else ""
+    )
+    return " ".join(
+        part for part in (_CONFIRM.get(stage, ""), paid_warning, spend.confirm_text(stage)) if part
+    )
 
 
 def stepper(state: PipelineState, checked_count: int, *, back: str = "management") -> str:
@@ -169,12 +179,10 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
             )
         elif stage == state.current:
             needs_sources = stage in _WITH_SOURCES
+            warning = step_confirmation(stage)
             confirm = (
-                f" onclick=\"return confirm('{_CONFIRM[stage]}')\"" if stage in _CONFIRM else ""
+                f" onclick=\"return confirm('{escape(warning, quote=True)}')\"" if warning else ""
             )
-            warning = deepseek_confirmation(stage)
-            if warning:
-                confirm = f" onclick=\"return confirm('{escape(warning, quote=True)}')\""
             classes = "step current" + (" run-button" if needs_sources else "")
             disabled = " disabled" if needs_sources and not checked_count else ""
             button = (
@@ -201,4 +209,5 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
         f'<div class="pipeline">{arrows.join(steps)}</div>'
         f'<p class="muted pipeline-note">{running} После шага {len(STAGES)} круг начинается '
         "заново.</p>"
+        f"{spend.notice(state.current) if state.live is None else ''}"
     )

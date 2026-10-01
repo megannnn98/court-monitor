@@ -38,3 +38,13 @@ def session_factory(
     yield create_session_factory(test_engine)
 
     _truncate_test_tables(test_engine)
+
+
+@pytest.fixture(autouse=True)
+def _no_openrouter_balance_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A page that shows the balance must not ask OpenRouter from a test: a key that a test
+    sets is a fake one, and a developer's own key must not be spent on the network."""
+    from web.ui import spend
+
+    monkeypatch.setattr(spend, "_request", lambda _key: None)
+    spend.reset_cache()

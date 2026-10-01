@@ -46,7 +46,7 @@ from web.ui.management import (
     _badge,
     _local_time,
 )
-from web.ui.pipeline import PipelineState, current_state, deepseek_confirmation, out_of_turn
+from web.ui.pipeline import PipelineState, current_state, out_of_turn, step_confirmation
 
 router = APIRouter()
 
@@ -290,7 +290,7 @@ def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
         )
     refusal = out_of_turn(state, "entities")
     if refusal is None:
-        warning = deepseek_confirmation("entities")
+        warning = step_confirmation("entities")
         confirm = (
             f" onsubmit=\"return confirm('{escape(warning, quote=True)}')\"" if warning else ""
         )

@@ -877,3 +877,53 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
     assert "tg-broblsud" in errors and "ValueError: Post text not found" in errors
     assert "Источников с ошибками загрузки за неделю: 1" in home
     assert 'href="/ui/runs#source-errors"' in home
+
+
+@pytest.mark.parametrize(
+    ("mode", "done_steps", "words"),
+    [
+        ("purge", ("load",), "каждую статью на удаление оценивает модель JEV"),
+        ("entities", ("load", "purge"), "DeepSeek через OpenRouter, не более $2.00 за запуск"),
+        ("figurants", ("load", "purge", "entities"), "DeepSeek через OpenRouter"),
+        ("political", ("load", "purge", "entities", "figurants"), "DeepSeek через OpenRouter"),
+    ],
+)
+def test_a_live_step_that_asks_a_paid_model_says_so_on_its_card_and_an_ended_one_does_not(
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    done_steps: tuple[str, ...],
+    words: str,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("JUNK_SCREEN", "jev")
+    monkeypatch.delenv("ENTITY_NORMALIZE_MODEL", raising=False)
+    monkeypatch.delenv("ENTITY_MODEL_BUDGET_USD", raising=False)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, *done_steps)
+
+    with _client(session_factory, registry) as client:
+        response = client.post(f"/ui/management/{mode}", follow_redirects=False)
+        run_id = registry.runs_of("monitor")[0].id
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = 'running', started_at = now(), "
+                    "heartbeat_at = now() WHERE id = :id"
+                ),
+                {"id": run_id},
+            )
+        running = client.get(response.headers["location"]).text
+        with session_factory.begin() as session:
+            session.execute(
+                text("UPDATE operator_operation_runs SET status = 'succeeded' WHERE id = :id"),
+                {"id": run_id},
+            )
+        ended = client.get(response.headers["location"]).text
+
+    def card(page: str) -> str:
+        return page.split('<section class="band run-card">', 1)[1].split("</section>", 1)[0]
+
+    assert "⚠ Шаг платный" in card(running) and words in card(running)
+    # The next step, still to be pressed, has its own warning: the card of the ended run has none.
+    assert "⚠ Шаг платный" not in card(ended)

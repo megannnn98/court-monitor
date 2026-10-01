@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from operator_console import OperationRegistry
 from web.dependencies import get_db, get_operation_registry
+from web.ui import spend
 from web.ui.layout import _page
 from web.ui.pipeline import (
     STAGES,
@@ -118,6 +119,7 @@ def _processing(state: PipelineState, work: Workload) -> str:
     return f"""<section class="processing-status" aria-labelledby="processing-title">
   <div><h2 id="processing-title">Обработка данных</h2>
   <p class="muted">Автоматические шаги. Ручная проверка показана выше.</p></div>
+  {spend.balance_line()}{spend.notice(state.current) if state.live is None else ""}
   <ol>{"".join(rows)}</ol>
   <div class="pipeline-current {"running" if state.live is not None else "ready"}">{_pipeline_control(state, work)}</div>
 </section>"""

@@ -28,6 +28,7 @@ from operator_console import (
 )
 from sources.source_registry import news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
+from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
@@ -402,6 +403,7 @@ def _purge_card(run: OperationRun) -> str:
   <h2>Запуск #{run.id} · {_MODE_TITLES["purge"]} {overall}</h2>
   <p class="muted">Начат {started} · вся база · <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress}
+  {spend.notice("purge") if in_progress else ""}
   <p class="run-summary">{summary}</p>
   <p class="muted">Удаляются статьи, в последнем разборе которых нет уголовного события,
   со всем извлечённым из них, и люди, которых после этого ничто не упоминает.
@@ -468,6 +470,7 @@ def _entities_card(run: OperationRun) -> str:
   <p class="muted">Начат {started} · <a href="/ui/entities">Сущности</a> ·
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if in_progress else ""}
+  {spend.notice("entities") if in_progress else ""}
   <p class="run-summary">{summary}</p>
   {refresh}
 </section>"""
@@ -596,6 +599,7 @@ def _figurants_card(run: OperationRun) -> str:
   <p class="muted">Начат {started} · <a href="/ui/entities">Сущности</a> ·
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if in_progress else ""}
+  {spend.notice("figurants") if in_progress else ""}
   <p class="run-summary">{summary}</p>
   {refresh}
 </section>"""
@@ -700,6 +704,7 @@ def _political_card(run: OperationRun) -> str:
   <p class="muted">Начат {started} · <a href="/ui/political">Результат</a> ·
   <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if in_progress else ""}
+  {spend.notice("political") if in_progress else ""}
   {snapshot}
   <p class="run-summary">{summary}</p>
   {refresh}
