@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import date
+
 import httpx
 import pytest
 from sqlalchemy import func, select
@@ -11,9 +14,15 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
     EntityPairDecisionRecord,
+    RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
 from entities.rf_check import EntityRfCheck, match_level
+from rosfinmonitoring.inclusion_dates import (
+    InclusionDates,
+    InclusionDatesUnavailable,
+    normalize_name,
+)
 
 PERSONS = """
     <li>1. АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ*, 08.06.1996 г.р. , П. МАМЕДКАЛА;</li>
@@ -62,6 +71,141 @@ def _levels(session_factory: sessionmaker[Session]) -> dict[str, list[str]]:
 def _snapshots(session_factory: sessionmaker[Session]) -> int:
     with session_factory() as session:
         return session.scalar(select(func.count(RosfinmonitoringSnapshotRecord.id))) or 0
+
+
+def _inclusion_dates(
+    *rows: tuple[str, str, str],
+    unreadable: bool = False,
+) -> Callable[[httpx.Client], InclusionDates]:
+    """The ОВД-Инфо file as the check reads it, or a stand-in that always refuses.
+
+    Injected the way the download is: the check takes an `httpx.Client`, so a test gives
+    it a transport rather than a socket. The default answers with a file covering the
+    published people, which is what the real one does.
+    """
+    if unreadable:
+
+        def refuses(client: httpx.Client) -> InclusionDates:
+            raise InclusionDatesUnavailable("файл не читается")
+
+        return refuses
+
+    def answered(client: httpx.Client) -> InclusionDates:
+        by_name: dict[tuple[str, date], date] = {}
+        for name, birth, added in rows:
+            by_name[(normalize_name(name), date.fromisoformat(birth))] = date.fromisoformat(added)
+        return InclusionDates(
+            by_name_and_birth=by_name,
+            total_rows=len(rows),
+            rows_without_added_date=0,
+            names_in_source=frozenset(name for name, _, _ in rows),
+        )
+
+    return answered
+
+
+PUBLISHED_INCLUSION = (
+    ("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1996-06-08", "2024-03-14"),
+    ("ИВАНОВ ИВАН ИВАНОВИЧ", "1980-01-02", "2025-06-01"),
+)
+
+
+def _inclusion_dates_of(session_factory: sessionmaker[Session]) -> dict[str, date | None]:
+    with session_factory() as session:
+        return {
+            name: (inclusion_date.date() if inclusion_date else None)
+            for name, inclusion_date in session.execute(
+                select(
+                    RosfinmonitoringEntryRecord.full_name,
+                    RosfinmonitoringEntryRecord.inclusion_date,
+                )
+            ).all()
+        }
+
+
+def test_a_new_snapshot_is_given_the_days_of_inclusion(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The state publishes no dates, so without this the column stands empty and the
+    filter has nothing to filter by. They are read as part of importing a snapshot, not
+    as a separate job nobody runs."""
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+
+    dates = _inclusion_dates_of(session_factory)
+    assert dates["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == date(2024, 3, 14)
+
+
+def test_the_days_survive_a_list_that_did_not_change(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A second check of an unchanged page imports no snapshot, and a day already written
+    is not re-decided — the file is somebody else's build and can be rebuilt differently."""
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+    first = EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+    ).run()
+    moved = (
+        ("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1996-06-08", "2019-01-01"),
+        ("ИВАНОВ ИВАН ИВАНОВИЧ", "1980-01-02", "2025-06-01"),
+    )
+
+    again = EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*moved),
+    ).run()
+
+    assert first.new_snapshot and not again.new_snapshot
+    assert _inclusion_dates_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == date(2024, 3, 14)
+
+
+def test_a_file_that_cannot_be_read_costs_the_list_nothing(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The ОВД-Инфо file is a build artefact of someone else's site and can stop being
+    readable at any time. The snapshot is already in and the comparison is what this
+    check is for; the days are a second thing, and losing them is not a reason to lose
+    the first."""
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+
+    result = EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=True),
+    ).run()
+
+    assert result.snapshot_id is not None, "the snapshot must stand"
+    assert result.new_snapshot is True
+    assert result.download_error is None, "the state's own list was read fine"
+    assert result.full == 1, "the comparison still ran"
+    assert all(day is None for day in _inclusion_dates_of(session_factory).values())
+
+
+def test_an_entry_the_file_does_not_cover_gets_no_day(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The list's own second entry has no birth date, so nothing can be matched on both
+    sides. ИВАНОВ ИВАН ИВАНОВИЧ in the file is a different person with a birth date, and
+    a name that is unique is still only a name."""
+    _entities(session_factory, "Абдулла Гасанович Абабакаров")
+
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(
+            ("АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ", "1996-06-08", "2024-03-14")
+        ),
+    ).run()
+
+    assert _inclusion_dates_of(session_factory)["ИВАНОВ ИВАН ИВАНОВИЧ"] is None
 
 
 PEOPLE = (

@@ -35,6 +35,12 @@ from rosfinmonitoring.download import (
     RosfinmonitoringDownloadError,
     download_rf_list,
 )
+from rosfinmonitoring.inclusion_dates import (
+    InclusionDates,
+    InclusionDatesUnavailable,
+    download_inclusion_dates,
+)
+from rosfinmonitoring.inclusion_store import write_inclusion_dates
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
@@ -43,6 +49,9 @@ from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotL
 logger = logging.getLogger("entities")
 
 INSERT_CHUNK = 5_000
+# The ОВД-Инфо file is 1.5 MB and the page that names it is small; a slow answer is
+# better than a cut-off, and the check carries on either way.
+INCLUSION_TIMEOUT_SECONDS = 120.0
 FULL = "full"
 NAME = "name"
 
@@ -103,10 +112,12 @@ class EntityRfCheck:
         session_factory: sessionmaker[Session],
         *,
         download: Callable[[], bytes] = download_rf_list,
+        inclusion_dates: Callable[[httpx.Client], InclusionDates] = download_inclusion_dates,
         on_stage: Callable[[str], None] = lambda _stage: None,
     ) -> None:
         self._session_factory = session_factory
         self._download = download
+        self._inclusion_dates = inclusion_dates
         self._on_stage = on_stage
 
     def run(self) -> RfCheckResult:
@@ -233,4 +244,26 @@ class EntityRfCheck:
             imported.snapshot_id,
             imported.entries_created,
         )
+        # The days of inclusion are read once per snapshot, from the ОВД-Инфо copy, and
+        # written before the comparison: they belong to the entries, so a row matched
+        # below can already carry one. A failure here is not the list's failure — the
+        # snapshot stands and the dates simply stay as they were.
+        self._write_inclusion_dates(imported.snapshot_id)
         return None, True
+
+    def _write_inclusion_dates(self, snapshot_id: int) -> None:
+        """Fill `inclusion_date` from the ОВД-Инфо copy, or say why not."""
+        try:
+            dates = self._inclusion_dates(httpx.Client(timeout=INCLUSION_TIMEOUT_SECONDS))
+        except (httpx.HTTPError, InclusionDatesUnavailable) as exc:
+            logger.warning("event=rfm_inclusion_dates_unavailable error=%s", exc)
+            return
+        with self._session_factory.begin() as session:
+            result = write_inclusion_dates(session, snapshot_id, dates)
+        logger.info(
+            "event=rfm_inclusion_dates_ok snapshot_id=%s dated=%d already=%d unmatched=%d",
+            snapshot_id,
+            result.dated,
+            result.already_dated,
+            sum(result.unmatched.values()),
+        )
