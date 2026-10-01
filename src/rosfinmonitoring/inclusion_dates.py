@@ -71,9 +71,14 @@ class InclusionDates:
     by_name_and_birth: dict[tuple[str, date], date]
     total_rows: int
     rows_without_added_date: int
+    # Every name the file publishes, dated or not. 165 of their rows carry no birth date
+    # and so can never be matched on one; the name alone is not a match, and the reason an
+    # entry went without a date is worth telling apart from «they do not publish this
+    # person at all».
+    names_in_source: frozenset[str] = frozenset()
 
 
-def _normalize(name: str) -> str:
+def normalize_name(name: str) -> str:
     """The same normalisation the list parser uses, so both sides compare equal.
 
     Kept as a copy of `parser._normalize_name` rather than an import: this module reads
@@ -129,14 +134,17 @@ def read_inclusion_dates(raw: bytes) -> InclusionDates:
         )
 
     dates: dict[tuple[str, date], date] = {}
+    names: set[str] = set()
     without_date = 0
     for row in table.select(list(_REQUIRED_COLUMNS)).to_pylist():
+        name = normalize_name(str(row["name"]))
+        names.add(name)
         added = _as_date(row["added_date"])
         if added is None:
             without_date += 1
             continue
         birth = _as_date(row["birth_date"])
-        key = (_normalize(str(row["name"])), birth or date.min)
+        key = (name, birth or date.min)
         # A duplicate key means two of their rows agree on the pair; both carry a day,
         # and the earlier is the one that describes when the entry appeared.
         if key not in dates or added < dates[key]:
@@ -152,6 +160,7 @@ def read_inclusion_dates(raw: bytes) -> InclusionDates:
         by_name_and_birth=dates,
         total_rows=table.num_rows,
         rows_without_added_date=without_date,
+        names_in_source=frozenset(names),
     )
 
 
@@ -200,4 +209,4 @@ def match_inclusion_date(
     """
     if entry_birth_date is None:
         return None
-    return dates.by_name_and_birth.get((_normalize(entry_full_name), entry_birth_date))
+    return dates.by_name_and_birth.get((normalize_name(entry_full_name), entry_birth_date))
