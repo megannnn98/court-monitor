@@ -19,6 +19,7 @@ from web.ui.pipeline import (
     step_action,
     step_confirmation,
 )
+from web.ui.run_tail import tail_html
 from web.ui.workload import OperatorTask, Workload, next_operator_task, operator_tasks, workload
 
 router = APIRouter()
@@ -121,6 +122,7 @@ def _processing(state: PipelineState, work: Workload) -> str:
   <p class="muted">Автоматические шаги. Ручная проверка показана выше.</p></div>
   {spend.balance_line()}{spend.notice(state.current) if state.live is None else ""}
   <ol>{"".join(rows)}</ol>
+  {tail_html(state.live) if state.live is not None else ""}
   <div class="pipeline-current {"running" if state.live is not None else "ready"}">{_pipeline_control(state, work)}</div>
 </section>"""
 

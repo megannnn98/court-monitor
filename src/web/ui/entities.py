@@ -47,6 +47,7 @@ from web.ui.management import (
     _local_time,
 )
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, step_confirmation
+from web.ui.run_tail import tail_html
 
 router = APIRouter()
 
@@ -286,6 +287,7 @@ def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
             f'<button id="stop-button" class="danger" type="submit">'
             f"Остановить сборку #{state.live.id}</button>"
             '<span class="muted">Идёт сборка сущностей, страница обновится сама.</span></form>'
+            f"{tail_html(state.live)}"
             "<script>setTimeout(() => window.location.reload(), 5000);</script>"
         )
     refusal = out_of_turn(state, "entities")

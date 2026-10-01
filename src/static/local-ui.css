@@ -1974,3 +1974,9 @@ pre.log-tail {
   border-radius: 5px;
   font-size: 12px;
 }
+
+/* Whether the process still answers: one quiet line above the last lines of its log. */
+p.log-pulse {
+  margin: 0.6rem 0 0;
+  font-size: 12px;
+}

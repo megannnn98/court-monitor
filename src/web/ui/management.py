@@ -32,6 +32,7 @@ from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
+from web.ui.run_tail import tail_html
 
 router = APIRouter()
 
@@ -733,54 +734,11 @@ def _political_card(run: OperationRun) -> str:
 </section>"""
 
 
-# The lines of a log that say nothing about the work: one request after another to a site.
-_NOISE = ("HTTP Request:", " httpx ")
-_LOG_LINE = re.compile(
-    r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+ \w+ \S+ (?:request_id=\S+ )?(?P<rest>.*)$"
-)
-LOG_TAIL_LINES = 3
-LOG_TAIL_WIDTH = 160
-
-
-def log_tail(stderr: str, count: int = LOG_TAIL_LINES) -> list[str]:
-    """The last few things a run said: the latest line of each of the last `count` events.
-
-    A step that asks a model logs one line per batch, and three of those say one thing; so a
-    line counts once per event, and what is shown is where the run is now and what it did
-    just before. Date, level and request id are cut off: the card says when it started."""
-    found: list[str] = []
-    events: set[str] = set()
-    for raw in reversed(stderr.splitlines()):
-        if not raw.strip() or any(noise in raw for noise in _NOISE):
-            continue
-        match = _LOG_LINE.match(raw)
-        line = match.group("rest") if match else raw.strip()
-        event = next((word for word in line.split() if word.startswith("event=")), line[:40])
-        if event in events:
-            continue
-        events.add(event)
-        found.append(line[:LOG_TAIL_WIDTH])
-        if len(found) == count:
-            break
-    return list(reversed(found))
-
-
 def _with_log_tail(card: str, run: OperationRun) -> str:
-    """The card with the run's last lines under it while it runs, and when it ended badly."""
-    shown = run.status in (
-        OperationRunStatus.PENDING,
-        OperationRunStatus.RUNNING,
-        OperationRunStatus.FAILED,
-        OperationRunStatus.INTERRUPTED,
-    )
-    lines = log_tail(run.stderr) if shown else []
-    if not lines:
+    """The card with the run's pulse and last lines under it (`web.ui.run_tail`)."""
+    tail = tail_html(run)
+    if not tail:
         return card
-    tail = (
-        '<pre class="log-tail" aria-label="Последние строки журнала">'
-        + escape("\n".join(lines))
-        + "</pre>"
-    )
     head, closing, rest = card.rpartition("</section>")
     return f"{head}{tail}\n{closing}{rest}" if closing else card
 

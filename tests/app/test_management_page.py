@@ -1047,7 +1047,7 @@ def test_the_log_tail_follows_a_run_that_ended_badly_and_leaves_a_good_one_alone
 
 
 def test_the_log_tail_reads_a_log_without_the_noise() -> None:
-    from web.ui.management import log_tail
+    from web.ui.run_tail import log_tail
 
     assert log_tail("") == [] and log_tail("\n  \n") == []
     # A line that is not a log record is shown as it is; a long one is cut.
