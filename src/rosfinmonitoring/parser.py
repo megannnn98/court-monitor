@@ -26,6 +26,25 @@ def _create_matching_key(normalized_name: str) -> str:
     return re.sub(r"\s+", "", normalized_name)
 
 
+def _former_names(raw: str | None) -> list[str]:
+    """Former names out of the published brackets: `(ПРЕЖНЕЕ ФИО; ПРЕЖНЕЕ ФИО)`.
+
+    The page separates them with semicolons and sometimes repeats one. Order is kept as
+    published, and an entry is dropped when it carries no letters at all: the page
+    sometimes leaves a doubled name, and an empty string is not a former name.
+    """
+    if not raw:
+        return []
+    names: list[str] = []
+    for part in raw.split(";"):
+        name = part.strip(" ,")
+        if not name or not any(character.isalpha() for character in name):
+            continue
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def _parse_date(date_str: str | None) -> datetime | None:
     """Parse a date string in various formats."""
     if not date_str:
@@ -134,8 +153,19 @@ class JsonRosfinmonitoringParser:
 
 # «12. ИВАНОВ ИВАН ИВАНОВИЧ*, 08.06.1996 г.р. , Г. МОСКВА;» — one published person entry.
 # The asterisk marks the person as listed; the birth date and place may be missing.
+#
+# The published page also gives a person's former names in round brackets right after
+# the name, separated by semicolons:
+# «96. АБДУКАРИМОВ МАГОМЕД МАГОМЕДОВИЧ*, (АБДУКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ;
+# АБДУЛКЕРИМОВ МАГОМЕД МАГОМЕДОВИЧ), 03.05.1964 г.р. , С. ЭЧЕДА УСМАДИНСКОГО РАЙОНА;»
+# A name pattern that stops at the first comma reads those brackets as the name and
+# swallows the birth date and the birth place into one field, so 828 of the 23 023
+# published entries lost their birth date and their place was filled with the brackets.
+# Brackets are therefore matched as their own field, before the birth date is read.
 _PERSON_ENTRY = re.compile(
-    r"^\d+\.\s*(?P<name>[^,]+?)\s*(?:,\s*(?P<birth_date>\d{2}\.\d{2}\.\d{4})?\s*(?:г\.?р\.?)?\s*)?"
+    r"^\d+\.\s*(?P<name>[^,()]+?)\s*\*?\s*"
+    r"(?:,\s*\((?P<former_names>[^()]*)\))?\s*"
+    r",?\s*(?:(?P<birth_date>\d{2}\.\d{2}\.\d{4})?\s*(?:г\.?р\.?)?\s*)?"
     r"(?:,\s*(?P<birth_place>.*?))?\s*;?\s*$"
 )
 _LIST_ITEM = re.compile(r"<li[^>]*>(.*?)</li>", re.DOTALL)
@@ -174,6 +204,13 @@ class HtmlRosfinmonitoringParser:
                 if key in seen:
                     continue
                 seen.add(key)
+                # Former names are kept, but nothing reads them yet: they are the list's own
+                # record that a person was listed under another name, and how far that may
+                # be trusted for matching is a separate question from reading the page.
+                former_names = _former_names(match.group("former_names"))
+                raw_data: dict[str, Any] = {"entry": item}
+                if former_names:
+                    raw_data["former_names"] = former_names
                 entries.append(
                     RosfinmonitoringEntry(
                         snapshot_id=0,
@@ -184,7 +221,7 @@ class HtmlRosfinmonitoringParser:
                         birth_place=birth_place,
                         inclusion_reason=None,
                         status=RosfinmonitoringEntryStatus.ACTIVE,
-                        raw_data={"entry": item},
+                        raw_data=raw_data,
                     )
                 )
         return entries
