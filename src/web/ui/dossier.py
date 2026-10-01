@@ -51,7 +51,7 @@ from web.ui.entities import (
     _role_label,
     display_name,
 )
-from web.ui.layout import _page, external_url
+from web.ui.layout import _page, copy_button, external_url
 from web.ui.workload import dispute_pairs
 
 router = APIRouter()
@@ -490,7 +490,8 @@ def _header(dossier: Dossier) -> str:
     official = entity.kind in OFFICIAL_KINDS
     return f"""<section class="band dossier-head" aria-labelledby="dossier-name">
   <div class="dossier-title">
-    <h2 id="dossier-name">{escape(display_name(entity.name))}</h2>
+    <h2 id="dossier-name">{escape(display_name(entity.name))}
+      {copy_button(display_name(entity.name))}</h2>
     <p class="badges">{role} {verdict} {_badge(rf_label, rf_badge)} {disputes}</p>
   </div>
   <dl class="facts">

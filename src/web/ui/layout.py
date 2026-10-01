@@ -29,6 +29,19 @@ _CSS_VERSION = hashlib.sha256(
 ).hexdigest()[:12]
 
 
+_JS_VERSION = hashlib.sha256(
+    (Path(__file__).resolve().parents[2] / "static" / "local-ui.js").read_bytes()
+).hexdigest()[:12]
+
+
+def copy_button(text: str) -> str:
+    """A small button beside a name that copies it (`local-ui.js` does the copying)."""
+    return (
+        f'<button type="button" class="copy" data-copy="{escape(text, quote=True)}" '
+        'title="Скопировать" aria-label="Скопировать">⧉</button>'
+    )
+
+
 def _status_counts(db: Session, work: Workload | None = None) -> dict[str, object]:
     work = work or workload(db)
     latest_run = db.scalars(
@@ -190,6 +203,7 @@ def _page(
   <title>{escape(title)}</title>
   <link rel="stylesheet" href="/static/local-ui.css?v={_CSS_VERSION}">
   <script>document.documentElement.classList.add("js")</script>
+  <script defer src="/static/local-ui.js?v={_JS_VERSION}"></script>
 </head>
 <body>
   <a class="skip-link" href="#content">К содержанию</a>

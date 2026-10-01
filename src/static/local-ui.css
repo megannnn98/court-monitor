@@ -1896,3 +1896,39 @@ td.actions-cell {
     min-height: 44px;
   }
 }
+
+/* «Скопировать» beside a name: quiet until wanted, and it says when it worked. */
+button.copy {
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--muted, #6b7280);
+  font-size: 0.95em;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+button.copy:hover {
+  color: inherit;
+}
+
+button.copy.copied::after {
+  content: " скопировано";
+  font-size: 0.8em;
+}
+
+/* A person the operator has dealt with, when she asks to see them again. */
+tr.done td {
+  opacity: 0.55;
+}
+
+/* Held articles that tell one story stand together. */
+section.same-news {
+  margin: 1rem 0;
+  padding: 0.25rem 0.75rem 0.5rem;
+  border-left: 3px solid var(--muted, #64748b);
+}
+
+.same-news-head {
+  margin: 0.5rem 0;
+}

@@ -41,6 +41,10 @@ ROUTES_AFTER_SPLIT = [
     # The list itself, with the period filter and the file that goes with it.
     "GET /ui/rfm",
     "GET /ui/rfm/export.xlsx",
+    # The operator's «обработано» on a person of the result.
+    "POST /ui/political/done",
+    # «Мусор» for every held article of one story at once.
+    "POST /ui/junk-holds/junk-all",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

@@ -136,7 +136,7 @@ def _rows(text: str) -> list[str]:
     """The names of the table's rows, in the order the page shows them."""
     import re
 
-    return re.findall(r"<tr><td>([А-ЯЁ][^<]*)</td><td>", text)
+    return re.findall(r"<tr><td>([А-ЯЁ][^<]*?) <button", text)
 
 
 def _flat(text: str) -> str:

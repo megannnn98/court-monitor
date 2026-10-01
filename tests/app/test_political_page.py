@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
     AirtableKnownPersonRecord,
+    EntityDoneMarkRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
@@ -501,3 +502,105 @@ def test_an_inactive_record_of_the_base_does_not_count(
 
     assert 'name="known"' in page and "нет в базе" in page
     assert "вероятно, есть в базе" not in page
+
+
+def _tick(client: TestClient, key: str, done: int = 1, back: str = "") -> None:
+    response = client.post(
+        "/ui/political/done",
+        content=f"key={key}&done={done}&back={back}",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303, response.text
+    assert response.headers["location"].startswith("/ui/political?")
+
+
+def test_a_person_ticked_as_done_leaves_the_list_and_can_be_shown_again(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Ирина ticks the people she has dealt with, so the list holds only what is left."""
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        before = client.get("/ui/political").text
+        assert "Смирнова Анна" in before and "Иванов Иван" in before
+        assert "Найдено: 2." in before
+        assert "Обработано:" not in before, "nothing is done yet: no line about it"
+
+        _tick(client, "анна смирнова")
+        hidden = client.get("/ui/political?months=0").text
+        assert "Смирнова Анна" not in hidden and "Иванов Иван" in hidden
+        assert "Найдено: 1." in hidden
+        assert "Обработано: 1 (скрыты)" in hidden
+
+        shown = client.get("/ui/political?months=0&done=show").text
+        assert "Смирнова Анна" in shown and "Найдено: 2." in shown
+        assert '<tr class="done">' in shown and " checked" in shown
+
+        # The file follows the page: hidden there, hidden here.
+        book = load_workbook(BytesIO(client.get("/ui/political/export.xlsx?months=0").content))
+        names = [row[1] for row in book["Результат"].iter_rows(min_row=2, values_only=True)]
+        assert names == ["Иванов Иван"]
+
+        _tick(client, "анна смирнова", done=0)
+        assert "Смирнова Анна" in client.get("/ui/political?months=0").text
+
+
+def test_a_later_news_brings_a_done_person_back(session_factory: sessionmaker[Session]) -> None:
+    """What was dealt with is what was known then. A news after the tick is new work."""
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        _tick(client, "анна смирнова")
+        assert "Смирнова Анна" not in client.get("/ui/political?months=0").text
+        with session_factory.begin() as session:
+            entity = session.query(EntityGroupRecord).filter_by(key="анна смирнова").one()
+            entity.last_published_at = datetime.now(UTC)
+        assert "Смирнова Анна" in client.get("/ui/political?months=0").text
+
+
+def test_the_mark_survives_a_rebuild_of_the_people(session_factory: sessionmaker[Session]) -> None:
+    """Step 3 rebuilds the groups and their ids change: the mark is kept by the key."""
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        _tick(client, "анна смирнова")
+        with session_factory.begin() as session:
+            marks = session.query(EntityDoneMarkRecord).all()
+            assert [(mark.key, mark.news_at is not None) for mark in marks] == [
+                ("анна смирнова", True)
+            ]
+
+
+def test_ticking_nobody_is_refused_and_the_way_back_stays_on_the_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        missing = client.post(
+            "/ui/political/done",
+            content="key=никто&done=1",
+            headers={"content-type": "application/x-www-form-urlencoded"},
+            follow_redirects=False,
+        )
+        assert missing.status_code == 404
+        response = client.post(
+            "/ui/political/done",
+            content="key=иван иванов&done=1&back=https%3A%2F%2Fevil.test%2F%3Fpage%3D2",
+            headers={"content-type": "application/x-www-form-urlencoded"},
+            follow_redirects=False,
+        )
+        assert response.headers["location"].startswith("/ui/political?")
+
+
+def test_a_name_has_a_copy_button_and_the_page_loads_the_script(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Ирина copies the name into her own base: one click beside it."""
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        text = client.get("/ui/political?months=0").text
+        assert 'data-copy="Смирнова Анна"' in text
+        assert re.search(r'<script defer src="/static/local-ui\.js\?v=[0-9a-f]{12}">', text)
+        script = client.get("/static/local-ui.js").text
+    # The three things the script is for, each by the line that does it.
+    assert "sessionStorage.setItem(KEY, String(window.scrollY))" in script
+    assert 'link.target = "_blank"' in script and "link.host !== location.host" in script
+    assert "navigator.clipboard.writeText(button.dataset.copy)" in script

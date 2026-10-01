@@ -222,6 +222,23 @@ class EntityOfficialMarkRecord(Base):
     )
 
 
+class EntityDoneMarkRecord(Base):
+    """The operator's «обработано» on a person of the result: she has dealt with them, and
+    the list stops showing them. By key, so it survives every rebuild.
+
+    `news_at` is the person's latest news at the moment of the mark. A later news brings
+    the person back: what was dealt with is what was known then, not whatever comes next.
+    """
+
+    __tablename__ = "entity_done_marks"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    news_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class EntityRoleDecisionRecord(Base):
     """A person's word on an entity's role in a case (figurant, possible, mentioned):
     it overrides step 4 and survives every rebuild, as a name correction does."""

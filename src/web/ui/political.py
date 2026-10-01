@@ -19,13 +19,14 @@ from io import BytesIO
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlencode
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from openpyxl import Workbook
-from sqlalchemy import exists, func, select, text
+from sqlalchemy import exists, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import (
+    EntityDoneMarkRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
@@ -40,7 +41,7 @@ from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTIO
 from web.dependencies import get_db
 from web.ui.entities import _articles_by_group, _date, display_name
 from web.ui.funnel import funnel, funnel_line
-from web.ui.layout import _page, pager
+from web.ui.layout import _page, copy_button, pager
 
 router = APIRouter()
 
@@ -59,7 +60,9 @@ _DIGEST_MARKERS = (
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
-FILTER_NAMES = ("months", "date_from", "date_to", "news", "known")
+FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done")
+# The people the operator marked «обработано»: hidden unless she asks to see them.
+DONE_FILTERS = ("hide", "show")
 # What the latest news is (`entities.news`): the operator's new cases and sentences first.
 NEWS_FILTERS = {
     "all": "Любая свежая новость",
@@ -138,6 +141,8 @@ class ListRow:
     # The list's entry: «full» (the name with the patronymic) or «name», and who it is.
     rf_level: str | None = None
     rf_entry: str = ""
+    # The operator's «обработано», still standing (no news since).
+    done: bool = False
     # When this entry of the перечень appeared, if the ОВД-Инфо copy says. It describes
     # the entry, not the person; see `entry_included_text`.
     rf_inclusion_date: datetime | None = None
@@ -162,6 +167,7 @@ class Filters:
     date_to: date | None = None
     news: str = "all"
     known: str = "all"
+    done: str = "hide"
 
     @property
     def custom(self) -> bool:
@@ -175,6 +181,7 @@ class Filters:
             "date_to": self.date_to.isoformat() if self.date_to else "",
             "news": self.news,
             "known": self.known,
+            "done": self.done,
         }
 
 
@@ -220,7 +227,12 @@ def _date_field(name: str, label: str, value: date | None) -> str:
 
 
 def filters(
-    months: int, date_from: str, date_to: str, news: str = "all", known: str = "all"
+    months: int,
+    date_from: str,
+    date_to: str,
+    news: str = "all",
+    known: str = "all",
+    done: str = "hide",
 ) -> Filters:
     """Dates, when given, win over the months."""
     start, end = _parse_date(date_from), _parse_date(date_to)
@@ -230,6 +242,7 @@ def filters(
         date_to=end,
         news=news if news in NEWS_FILTERS else "all",
         known=known if known in KNOWN_FILTERS else "all",
+        done=done if done in DONE_FILTERS else "hide",
     )
 
 
@@ -249,6 +262,7 @@ def remembered(cookie: str) -> Filters | None:
         values.get("date_to", "")[:10],
         values.get("news", "all"),
         values.get("known", "all"),
+        values.get("done", "hide"),
     )
 
 
@@ -290,6 +304,24 @@ def _by_known_base(
     ], check
 
 
+def _is_done() -> Any:
+    """The person carries a mark, and no news later than the one it was made at."""
+    return exists().where(
+        EntityDoneMarkRecord.key == EntityGroupRecord.key,
+        or_(
+            EntityGroupRecord.last_published_at.is_(None),
+            EntityDoneMarkRecord.news_at >= EntityGroupRecord.last_published_at,
+        ),
+    )
+
+
+def _done_keys(db: Session, keys: list[str]) -> set[str]:
+    """Which of these people are «обработано» now."""
+    return set(
+        db.scalars(select(EntityGroupRecord.key).where(EntityGroupRecord.key.in_(keys), _is_done()))
+    )
+
+
 def _rows(
     db: Session, chosen: Filters
 ) -> tuple[list[tuple[EntityGroupRecord, EntityGroupPoliticsRecord]], int, dict[str, int]]:
@@ -300,6 +332,8 @@ def _rows(
         .join(EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id)
         .where(EntityGroupPoliticsRecord.verdict == POLITICAL)
     )
+    if chosen.done == "hide":
+        query = query.where(~_is_done())
     if chosen.months:
         since = datetime.now(UTC) - timedelta(days=30 * chosen.months)
         query = query.where(EntityGroupRecord.last_published_at >= since)
@@ -340,12 +374,14 @@ def _details(
     known: Mapping[int, KnownMatch | None] | None = None,
 ) -> list[ListRow]:
     ids = [entity.id for entity, _ in found]
+    done = _done_keys(db, [entity.key for entity, _ in found])
     rows = {
         entity.id: ListRow(
             entity=entity,
             politics=politics,
             maybe_listed=False,
             known=known.get(entity.id) if known else None,
+            done=entity.key in done,
         )
         for entity, politics in found
     }
@@ -468,7 +504,20 @@ def _known_mark(row: ListRow, *, loaded: bool) -> str:
     )
 
 
-def _html_row(position: int, row: ListRow, *, known_loaded: bool = False) -> str:
+def _done_box(row: ListRow, back: str) -> str:
+    """The tick at the start of a row: «обработано». Ticking sends the form at once."""
+    return (
+        '<form method="post" action="/ui/political/done" class="inline-form">'
+        f'<input type="hidden" name="key" value="{escape(row.entity.key, quote=True)}">'
+        f'<input type="hidden" name="back" value="{escape(back, quote=True)}">'
+        f'<input type="hidden" name="done" value="{0 if row.done else 1}">'
+        '<input type="checkbox" title="Обработано" aria-label="Обработано" '
+        # requestSubmit, not submit: it fires the event the scroll keeper listens for.
+        f'onchange="this.form.requestSubmit()"{" checked" if row.done else ""}></form>'
+    )
+
+
+def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: str = "") -> str:
     entity = row.entity
     articles = ", ".join(
         f"<b>{escape(article)}</b>" if article in POLITICAL_ARTICLES else escape(article)
@@ -495,9 +544,11 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False) -> str
         else ""
     )
     return (
-        f"<tr><td>{position}</td>"
+        f"<tr{' class="done"' if row.done else ''}><td>{_done_box(row, back)}</td>"
+        f"<td>{position}</td>"
         f'<td><a href="/ui/investigations/{quote(entity.key)}">'
-        f"{escape(display_name(entity.name))}</a>{listed}{included}</td>"
+        f"{escape(display_name(entity.name))}</a>{listed} "
+        f"{copy_button(display_name(entity.name))}{included}</td>"
         f"<td>{_news_mark(row)}</td>"
         f"<td>{_known_mark(row, loaded=known_loaded)}</td>"
         f"<td>{escape(_regions_text(entity))}</td>"
@@ -519,10 +570,11 @@ def ui_political(
     date_to: str = Query(default="", max_length=10),
     news: str = Query(default="all", max_length=16),
     known: str = Query(default="all", max_length=16),
+    done: str = Query(default="hide", max_length=8),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    chosen = filters(months, date_from, date_to, news, known)
+    chosen = filters(months, date_from, date_to, news, known, done)
     # No filters in the address: the last ones chosen, not «all the time».
     if not any(name in request.query_params for name in FILTER_NAMES):
         chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
@@ -530,11 +582,33 @@ def ui_political(
     found, check = _by_known_base(db, found, chosen)
     total = len(found)
     on_page = _details(db, found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE], check.matches)
+    keep = chosen.query()
+    back = urlencode({**keep, "page": page})
     rows = "".join(
-        _html_row(position, row, known_loaded=bool(check.size))
+        _html_row(position, row, known_loaded=bool(check.size), back=back)
         for position, row in enumerate(on_page, start=(page - 1) * PAGE_SIZE + 1)
     )
-    keep = chosen.query()
+    done_total = (
+        db.scalar(
+            select(func.count())
+            .select_from(EntityGroupRecord)
+            .join(
+                EntityGroupPoliticsRecord,
+                EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id,
+            )
+            .where(EntityGroupPoliticsRecord.verdict == POLITICAL, _is_done())
+        )
+        or 0
+    )
+    other = "show" if chosen.done == "hide" else "hide"
+    done_line = (
+        f"Обработано: {done_total}"
+        f"{' (скрыты)' if chosen.done == 'hide' else ''}. "
+        f'<a href="/ui/political?{escape(urlencode({**keep, "done": other}), quote=True)}">'
+        f"{'Показать обработанных' if other == 'show' else 'Скрыть обработанных'}</a>. "
+        if done_total
+        else ""
+    )
     # A period button clears the dates: the months are the choice then.
     periods = " ".join(
         f'<button type="submit" name="months" value="{key}" '
@@ -570,6 +644,7 @@ def ui_political(
     # The chosen months ride along hidden; a period button, sent later, wins over them.
     body = f"""<form method="get" action="/ui/political" class="toolbar" id="political-filters">
   <input type="hidden" name="months" value="{chosen.months}">
+  <input type="hidden" name="done" value="{chosen.done}">
   <span class="chips">{periods}</span>
   <span class="chips">{dates}</span>
   <div class="filter-row">
@@ -582,7 +657,8 @@ def ui_political(
   </div>
 </form>
 {funnel_line(funnel(db))}
-<p class="muted">Найдено: {total}. Фигуранты уголовных дел, дело которых — политическое
+<p class="muted">Найдено: {total}. {done_line}Галочка в начале строки — «обработано»: человек
+уходит из списка и вернётся, когда о нём появится новая новость. Фигуранты уголовных дел, дело которых — политическое
 преследование. Перечень Росфинмониторинга подтверждает личность: дата рождения и место из
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
 Дата включения — свойство записи перечня, а не человека: под именем она читается как
@@ -591,7 +667,7 @@ def ui_political(
 Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.
 «В базе Airtable» — есть ли человек в вашей таблице «Найденные люди»; сверка только по имени
 (даты рождения и региона там нет), поэтому «вероятно» и «тёзки» — не уверенность.</p>
-<table><thead><tr><th>№</th><th>Фамилия Имя</th><th>Свежая новость</th><th>В базе Airtable</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
+<table><thead><tr><th title="Обработано">✓</th><th>№</th><th>Фамилия Имя</th><th>Свежая новость</th><th>В базе Airtable</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
 {pages_html}
@@ -743,10 +819,11 @@ def ui_political_export(
     date_to: str = Query(default="", max_length=10),
     news: str = Query(default="all", max_length=16),
     known: str = Query(default="all", max_length=16),
+    done: str = Query(default="hide", max_length=8),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    chosen = filters(months, date_from, date_to, news, known)
+    chosen = filters(months, date_from, date_to, news, known, done)
     found, _, _ = _rows(db, chosen)
     found, check = _by_known_base(db, found, chosen)
     name = export_name(chosen, found, datetime.now(UTC).date())
@@ -754,4 +831,34 @@ def ui_political_export(
         political_xlsx(_details(db, found, check.matches), known_loaded=bool(check.size)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+@router.post("/ui/political/done")
+async def ui_political_done(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """Tick or untick «обработано» on a person, and come back to the same list."""
+    form = {
+        name: values[0]
+        for name, values in parse_qs((await request.body()).decode("utf-8", "replace")).items()
+    }
+    key = form.get("key", "")
+    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Человек не найден")
+    mark = db.get(EntityDoneMarkRecord, key)
+    if form.get("done") == "1":
+        if mark is None:
+            mark = EntityDoneMarkRecord(key=key)
+            db.add(mark)
+        # The news the operator has seen: a later one brings the person back.
+        mark.news_at = entity.last_published_at
+    elif mark is not None:
+        db.delete(mark)
+    db.commit()
+    # Only the list's own address: the form's `back` is its query, never a place to go.
+    return RedirectResponse(
+        f"/ui/political?{urlencode(parse_qs(form.get('back', '')), doseq=True)}", 303
     )

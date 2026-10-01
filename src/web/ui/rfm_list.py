@@ -39,7 +39,7 @@ from rosfinmonitoring.snapshot_lookup import (
     SqlAlchemyRosfinmonitoringSnapshotLookup,
 )
 from web.dependencies import get_db, session_factory_for
-from web.ui.layout import _page
+from web.ui.layout import _page, copy_button
 
 router = APIRouter()
 
@@ -291,7 +291,7 @@ def _rows_html(rows: list[ListRow]) -> str:
             else '<span class="muted">—</span>'
         )
         cells.append(
-            f"<tr><td>{escape(row.full_name)}</td>"
+            f"<tr><td>{escape(row.full_name)} {copy_button(row.full_name)}</td>"
             f"<td>{f'{row.birth_date:%d.%m.%Y}' if row.birth_date else '—'}</td>"
             f"<td>{escape(row.birth_place or '—')}</td>"
             f"<td>{f'{row.inclusion_date:%d.%m.%Y}' if row.inclusion_date else '—'}</td>"

@@ -46,7 +46,66 @@ _HOLDS = text(
     ORDER BY h.score DESC, h.article_id
     """
 )
+# The same news told twice. Sources copy one another, and reading one story five times is
+# the operator's dullest work — so held articles that tell one story are shown together
+# and can be dismissed together. Two signs, each on its own enough:
+# - they name the same person (first name and surname, as the extraction normalised it);
+# - their titles are nearly the same text (trigram similarity, pg_trgm).
+# Neither proves it is one story, so nothing is merged or deleted on its own: the cards
+# only stand together, and every one keeps its own buttons.
+TITLE_SIMILARITY = 0.5
+_SAME_PERSON = text(
+    """
+    WITH latest AS (
+        SELECT DISTINCT ON (r.article_id) r.article_id, r.id
+        FROM article_extraction_runs r
+        JOIN junk_screen_holds h ON h.article_id = r.article_id AND h.status = :status
+        WHERE r.status = 'succeeded'
+        ORDER BY r.article_id, r.id DESC
+    ), named AS (
+        SELECT DISTINCT l.article_id, lower(m.normalized_text) AS name
+        FROM latest l JOIN entity_mentions m ON m.extraction_run_id = l.id
+        WHERE m.entity_type = 'person' AND m.normalized_text LIKE '% %'
+    )
+    SELECT x.article_id, y.article_id
+    FROM named x JOIN named y ON y.name = x.name AND x.article_id < y.article_id
+    """
+)
+_SAME_TITLE = text(
+    """
+    WITH held AS (
+        SELECT a.id, left(a.title, 300) AS title
+        FROM junk_screen_holds h JOIN parsed_articles a ON a.id = h.article_id
+        WHERE h.status = :status AND a.title IS NOT NULL AND length(a.title) >= 20
+    )
+    SELECT x.id, y.id FROM held x JOIN held y ON x.id < y.id
+    WHERE similarity(x.title, y.title) >= :similarity
+    """
+)
 _COUNTS = text("SELECT status, count(*) FROM junk_screen_holds GROUP BY status")
+
+
+def same_news(ids: list[int], pairs: list[tuple[int, int]]) -> list[list[int]]:
+    """The articles in groups of one story, in the order of `ids`.
+
+    A pair joins two articles; pairs chain (A with B, B with C: one story of three). A
+    group stands where its first article stood, so the list keeps its order.
+    """
+    parent = {article: article for article in ids}
+
+    def root(article: int) -> int:
+        while parent[article] != article:
+            parent[article] = parent[parent[article]]
+            article = parent[article]
+        return article
+
+    for first, second in pairs:
+        if first in parent and second in parent:
+            parent[root(second)] = root(first)
+    groups: dict[int, list[int]] = {}
+    for article in ids:
+        groups.setdefault(root(article), []).append(article)
+    return list(groups.values())
 
 
 def _day(moment: datetime | None) -> str:
@@ -84,6 +143,39 @@ def _card(row: Any, status: str, page: int) -> str:
 </article>"""
 
 
+def _pages(stories: list[list[int]]) -> list[list[list[int]]]:
+    """The stories in pages of about `PAGE_SIZE` articles. A story is never cut by a page
+    break: a page takes whole stories until it is full."""
+    pages: list[list[list[int]]] = []
+    count = PAGE_SIZE
+    for story in stories:
+        if count >= PAGE_SIZE:
+            pages.append([])
+            count = 0
+        pages[-1].append(story)
+        count += len(story)
+    return pages
+
+
+def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> str:
+    """Several articles that tell one story: together, with one button for them all."""
+    everything = (
+        '<form method="post" action="/ui/junk-holds/junk-all" class="inline-form">'
+        f'<input type="hidden" name="articles" value="{",".join(map(str, group))}">'
+        f'<input type="hidden" name="back" value="{escape(urlencode({"status": status, "page": page}), quote=True)}">'
+        f'<button type="submit" class="secondary">Мусор — все {len(group)}</button></form>'
+        if status == HELD
+        else ""
+    )
+    return (
+        '<section class="same-news"><p class="same-news-head"><strong>Похоже на одну новость: '
+        f"{len(group)} публикации.</strong> Совпал человек или заголовок — проверьте, "
+        f"прежде чем убирать все. {everything}</p>"
+        + "".join(_card(by_id[article], status, page) for article in group)
+        + "</section>"
+    )
+
+
 @router.get("/ui/junk-holds", response_class=HTMLResponse)
 def ui_junk_holds(
     status: str = Query(default=HELD, pattern=f"^({HELD}|{JUNK})$"),
@@ -93,7 +185,21 @@ def ui_junk_holds(
 ) -> HTMLResponse:
     counts = {str(key): int(value) for key, value in db.execute(_COUNTS).all()}
     rows = db.execute(_HOLDS, {"status": status}).all()
-    on_page = rows[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+    by_id = {row.article_id: row for row in rows}
+    pairs = [
+        (first, second)
+        for first, second in [
+            *db.execute(_SAME_PERSON, {"status": status}).all(),
+            *db.execute(_SAME_TITLE, {"status": status, "similarity": TITLE_SIMILARITY}).all(),
+        ]
+    ]
+    pages = _pages(same_news(list(by_id), pairs))
+    cards = [
+        _card(by_id[story[0]], status, page)
+        if len(story) == 1
+        else _story(story, by_id, status, page)
+        for story in (pages[page - 1] if page <= len(pages) else [])
+    ]
     chips = " ".join(
         f'<a class="chip{" active" if key == status else ""}" '
         f'href="/ui/junk-holds?{urlencode({"status": key})}">{label} ({counts.get(key, 0)})</a>'
@@ -117,8 +223,8 @@ def ui_junk_holds(
 события в них нет. Высокая оценка — не доказательство дела. Если дело есть, исправьте правила
 извлечения и нажмите «Извлечь заново»: найденное событие вернёт статью в работу. Если нет —
 «Мусор»: статья удалится при следующей очистке.</p>
-{"".join(_card(row, status, page) for row in on_page) or empty}
-{pager("/ui/junk-holds", {"status": status}, page, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)}"""
+{"".join(cards) or empty}
+{pager("/ui/junk-holds", {"status": status}, page, len(pages))}"""
     return _page(
         "Отсев: на проверке",
         body,
@@ -166,6 +272,25 @@ async def ui_junk_holds_junk(
         raise HTTPException(status_code=404, detail="Статья не на проверке")
     db.commit()
     return RedirectResponse(_back(form, article_id), status_code=303)
+
+
+@router.post("/ui/junk-holds/junk-all", response_model=None)
+async def ui_junk_holds_junk_all(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """«Мусор» for every article of one story. All of them, or none: one that is no
+    longer held means the page is stale, and the operator should look again."""
+    form = await _form(request)
+    values = form.get("articles", "").split(",")
+    if not values or not all(value.isdigit() for value in values):
+        raise HTTPException(status_code=400, detail="Не указаны статьи")
+    articles = [int(value) for value in values]
+    if not all(mark_junk(db, article_id) for article_id in articles):
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Статья не на проверке")
+    db.commit()
+    return RedirectResponse(_back(form, articles[0]), status_code=303)
 
 
 @router.post("/ui/junk-holds/hold", response_model=None)
