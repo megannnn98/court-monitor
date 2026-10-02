@@ -56,7 +56,7 @@ def _ago(seconds: float) -> str:
 
 
 def pulse(run: OperationRun, now: datetime | None = None) -> str:
-    """Whether the process of a live run still answers, in words; the class of the line."""
+    """Whether the process of a live run still answers, in words."""
     now = now or datetime.now(UTC)
     if run.status is OperationRunStatus.PENDING or run.started_at is None:
         return '<p class="muted log-pulse">Запуск готовится…</p>'
@@ -80,19 +80,13 @@ def tail_html(run: OperationRun, now: datetime | None = None) -> str:
     (or a word that it has said nothing yet); after a bad end, the lines; after a good one,
     nothing."""
     lines = log_tail(run.stderr)
+    shown = (
+        f'<pre class="log-tail" aria-label="Последние строки журнала">{escape("\n".join(lines))}'
+        "</pre>"
+        if lines
+        else ""
+    )
     if run.status in _LIVE:
-        shown = (
-            '<pre class="log-tail" aria-label="Последние строки журнала">'
-            + escape("\n".join(lines))
-            + "</pre>"
-            if lines
-            else '<p class="muted">Процесс пока ничего не написал в журнал.</p>'
-        )
-        return f"{pulse(run, now)}{shown}"
-    if run.status in _ENDED_BADLY and lines:
-        return (
-            '<pre class="log-tail" aria-label="Последние строки журнала">'
-            + escape("\n".join(lines))
-            + "</pre>"
-        )
-    return ""
+        silent = '<p class="muted">Процесс пока ничего не написал в журнал.</p>'
+        return f"{pulse(run, now)}{shown or silent}"
+    return shown if run.status in _ENDED_BADLY else ""

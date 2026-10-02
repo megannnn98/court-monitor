@@ -21,6 +21,7 @@ from db.orm_models import (
     SourceDocument,
 )
 from monitoring import cli
+from monitoring.article_screen import JunkScreenError
 from monitoring.junk_holds import hold_again, mark_junk, reextract
 from monitoring.junk_purge import (
     EXPIRED_CONTENT_TYPE,
@@ -28,7 +29,7 @@ from monitoring.junk_purge import (
     JunkPurgeResult,
     since_from_env,
 )
-from monitoring.junk_screen import HELD, JunkScreenError
+from monitoring.junk_screen import HELD
 
 
 def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:

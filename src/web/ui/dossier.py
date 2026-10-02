@@ -35,7 +35,7 @@ from entities.known_base import KnownBase, KnownMatch
 from entities.news import KIND_LABELS as NEWS_LABELS
 from entities.news import NEW_CASE, SENTENCE
 from entities.officials import OFFICIAL_KINDS
-from entities.politics import CRIMINAL, POLITICAL
+from entities.politics import CRIMINAL, POLITICAL, VERDICT_LABELS
 from entities.rf_check import FULL
 from entities.roles import FIGURANT
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
@@ -44,12 +44,12 @@ from web.ui.entities import (
     _EVENT_LABELS,
     _NAME_SOURCES,
     _ROLE_METHODS,
-    _article_order,
     _events,
     _political,
     _regions,
-    _role_label,
+    article_order,
     display_name,
+    role_label,
 )
 from web.ui.layout import _page, copy_button, external_url
 from web.ui.workload import dispute_pairs
@@ -62,7 +62,6 @@ RELATED_LIMIT = 30
 GRAPH_LIMIT = 18
 QUOTE_CONTEXT = 160
 
-VERDICT_LABELS = {POLITICAL: "политическое", CRIMINAL: "обычное уголовное", "unclear": "неясно"}
 _VERDICT_BADGES = {POLITICAL: "succeeded", CRIMINAL: "", "unclear": "pending"}
 _VERDICT_METHODS = {
     "article": "правило: статья УК из списка политических (или только обычной уголовщины)",
@@ -464,9 +463,7 @@ def _article_link(article: str) -> str:
 def _header(dossier: Dossier) -> str:
     entity = dossier.entity
     role = (
-        _badge(
-            _role_label(entity.role, entity.kind), "succeeded" if entity.role == FIGURANT else ""
-        )
+        _badge(role_label(entity.role, entity.kind), "succeeded" if entity.role == FIGURANT else "")
         if entity.role
         else _badge("роль не определена", "pending")
     )
@@ -545,7 +542,7 @@ def _decision(dossier: Dossier) -> str:
             "уголовных дел.</p>"
         )
     if entity.role:
-        role = f"""<p>{_badge(_role_label(entity.role, entity.kind))}
+        role = f"""<p>{_badge(role_label(entity.role, entity.kind))}
       <span class="muted">— {escape(_ROLE_METHODS.get(entity.role_method, entity.role_method))}</span></p>
     <p><b>Причина:</b> {escape(entity.role_reason)}</p>
     {f"<blockquote>{escape(entity.role_quote)}</blockquote>" if entity.role_quote else ""}"""
@@ -601,9 +598,9 @@ def _charges(dossier: Dossier) -> str:
   <p class="empty">Ни одно событие не называет статью УК рядом с этим человеком.</p>
 </section>"""
     items = []
-    for article in sorted(dossier.charges, key=_article_order):
+    for article in sorted(dossier.charges, key=article_order):
         charge = dossier.charges[article]
-        parts = ", ".join(f"ч. {part}" for part in sorted(charge["parts"], key=_article_order))
+        parts = ", ".join(f"ч. {part}" for part in sorted(charge["parts"], key=article_order))
         shared = (
             ""
             if charge["sole"]
@@ -671,7 +668,7 @@ def _timeline(dossier: Dossier) -> str:
             f"публикация {_day(item.day)}</span>"
         )
         articles = ", ".join(
-            _article_link(article) for article in sorted(item.articles, key=_article_order)
+            _article_link(article) for article in sorted(item.articles, key=article_order)
         )
         orgs = ", ".join(
             f'{escape(name)} <span class="muted">({_ORG_ROLES.get(role, role)})</span>'
@@ -728,7 +725,7 @@ def graph_nodes(dossier: Dossier) -> tuple[list[Node], int]:
             f"/ui/entities?{urlencode({'article': article, 'figurants': 'all', 'rf': 'all'})}",
             "обвинение по статье",
         )
-        for article in sorted(dossier.charges, key=_article_order)
+        for article in sorted(dossier.charges, key=article_order)
     ]
     people = [
         Node(
@@ -876,7 +873,7 @@ def _evidence(dossier: Dossier) -> str:
             escape(_EVENT_LABELS.get(event, event)) for event in sorted(publication.events)
         )
         articles = ", ".join(
-            _article_link(article) for article in sorted(publication.articles, key=_article_order)
+            _article_link(article) for article in sorted(publication.articles, key=article_order)
         )
         url = external_url(publication.url)
         external = (
@@ -993,7 +990,7 @@ def ui_investigations(
     rows = "".join(
         f'<tr><td><a href="/ui/investigations/{quote(entity.key)}">'
         f"{escape(display_name(entity.name))}</a></td>"
-        f"<td>{escape(_role_label(*roles[entity.id])) if entity.id in roles else '—'}</td>"
+        f"<td>{escape(role_label(*roles[entity.id])) if entity.id in roles else '—'}</td>"
         f'<td class="num">{entity.article_count}</td><td>{_day(entity.last_published_at)}</td></tr>'
         for entity in found
     )

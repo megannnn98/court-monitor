@@ -28,9 +28,11 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from entities.rf_entry import entry_included_text
 from web.app import app
 from web.dependencies import get_db
-from web.ui.political import ListRow, entry_included_text, political_xlsx
+from web.ui.political import political_xlsx
+from web.ui.political_rows import named_row
 
 INCLUDED = datetime(2024, 3, 14, tzinfo=UTC)
 
@@ -350,9 +352,7 @@ def test_the_xlsx_of_rows_without_matches_says_nothing_about_dates() -> None:
     politics = EntityGroupPoliticsRecord(
         group_id=1, verdict=POLITICAL, method="model", reason="р", quote="ц"
     )
-    workbook = load_workbook(
-        BytesIO(political_xlsx([ListRow(entity=entity, politics=politics, maybe_listed=False)]))
-    )
+    workbook = load_workbook(BytesIO(political_xlsx([named_row(entity, politics)])))
     rows = [
         str(cell.value)
         for row in workbook["Результат"].iter_rows()

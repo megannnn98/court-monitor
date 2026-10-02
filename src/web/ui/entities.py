@@ -40,13 +40,8 @@ from persecution.classifier import POLITICAL_ARTICLES
 from web.candidate_rows import _surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager
-from web.ui.management import (
-    _RUN_STATUS_BADGES,
-    _RUN_STATUS_LABELS,
-    _badge,
-    _local_time,
-)
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, step_confirmation
+from web.ui.run_cards import RUN_STATUS_BADGES, RUN_STATUS_LABELS, badge, local_time
 from web.ui.run_tail import tail_html
 
 router = APIRouter()
@@ -97,7 +92,7 @@ def _surname_key(entity: EntityGroupRecord) -> tuple[str, str]:
 
 def _events(event_types: dict[str, int]) -> str:
     return " ".join(
-        _badge(f"{_EVENT_LABELS.get(kind, kind)}: {count}")
+        badge(f"{_EVENT_LABELS.get(kind, kind)}: {count}")
         for kind, count in sorted(event_types.items(), key=lambda item: -item[1])
     )
 
@@ -114,7 +109,7 @@ def _source_mark(name_source: str) -> str:
 _NAME_SOURCES = {"model": "дала модель", MANUAL: "исправлено вручную"}
 
 
-def _article_order(article: str) -> tuple[int, ...]:
+def article_order(article: str) -> tuple[int, ...]:
     """«205.2» after «205» and before «207.3»: by number, not as text."""
     return tuple(int(part) if part.isdigit() else 0 for part in article.split("."))
 
@@ -124,7 +119,7 @@ def _political(article: str) -> str:
 
 
 def _date(published_at: datetime | None) -> str:
-    return _local_time(published_at) if published_at else "—"
+    return local_time(published_at) if published_at else "—"
 
 
 def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[tuple[str, bool]]]:
@@ -142,7 +137,7 @@ def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[
     for group_id, article, sole in rows:
         articles.setdefault(group_id, []).append((article, bool(sole)))
     for found in articles.values():
-        found.sort(key=lambda item: _article_order(item[0]))
+        found.sort(key=lambda item: article_order(item[0]))
     return articles
 
 
@@ -167,11 +162,16 @@ def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
     return levels
 
 
+def regions_text(regions: list[Any]) -> str:
+    """The regions of a person as plain text, for a cell."""
+    return ", ".join(str(region) for region, _count in regions)
+
+
 def _regions(regions: list[Any], *, short: bool = False) -> str:
     """The regions registry cards give: in the list after the name, on the card in full."""
     if not regions:
         return ""
-    names = ", ".join(escape(str(region)) for region, _count in regions)
+    names = escape(regions_text(regions))
     return f'<br><span class="muted">{names}</span>' if short else names
 
 
@@ -198,7 +198,7 @@ def _roles(db: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str | 
     }
 
 
-def _role_label(role: str, kind: str | None) -> str:
+def role_label(role: str, kind: str | None) -> str:
     if role == FIGURANT:
         return "фигурант дела"
     if role == POSSIBLE:
@@ -213,7 +213,7 @@ def _role_mark(found: tuple[str, str | None] | None) -> str:
         return ""
     role, kind = found
     badge = {FIGURANT: "succeeded", POSSIBLE: "pending"}.get(role, "")
-    return f' <span class="badge {badge}">{escape(_role_label(role, kind))}</span>'
+    return f' <span class="badge {badge}">{escape(role_label(role, kind))}</span>'
 
 
 _ROLE_METHODS = {
@@ -275,8 +275,8 @@ def _rf_mark(level: str | None) -> str:
 def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
     """The rebuild button: step 3 of the pipeline, pressable only in its turn."""
     last = (
-        f" Последняя сборка: #{last_run.id} {escape(_local_time(last_run.created_at))} "
-        f"{_badge(_RUN_STATUS_LABELS[last_run.status], _RUN_STATUS_BADGES[last_run.status])}"
+        f" Последняя сборка: #{last_run.id} {escape(local_time(last_run.created_at))} "
+        f"{badge(RUN_STATUS_LABELS[last_run.status], RUN_STATUS_BADGES[last_run.status])}"
         if last_run is not None
         else " Сущности ещё не собирались."
     )

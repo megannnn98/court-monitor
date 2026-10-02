@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
 
@@ -27,7 +28,8 @@ from db.orm_models import (
 )
 from web.app import app
 from web.dependencies import get_db
-from web.ui.political import ListRow, political_xlsx
+from web.ui.political import political_xlsx
+from web.ui.political_rows import named_row
 
 
 @contextmanager
@@ -179,6 +181,7 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
 
 def test_the_excel_makes_each_source_a_separate_link() -> None:
     entity = EntityGroupRecord(
+        id=1,
         key="анна смирнова",
         name="Анна Смирнова",
         variants=[],
@@ -198,10 +201,8 @@ def test_the_excel_makes_each_source_a_separate_link() -> None:
         BytesIO(
             political_xlsx(
                 [
-                    ListRow(
-                        entity,
-                        politics,
-                        False,
+                    replace(
+                        named_row(entity, politics),
                         links=[
                             ("Первый источник", "https://first.example.test", None, "Первый"),
                             ("Второй источник", "https://second.example.test", None, "Второй"),

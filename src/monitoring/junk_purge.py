@@ -33,7 +33,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import JunkScreenHoldRecord
-from monitoring.junk_screen import HELD, ArticleScreen, reason
+from monitoring.article_screen import ArticleScreen
+from monitoring.junk_screen import HELD, reason
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
 
 logger = logging.getLogger("monitoring")

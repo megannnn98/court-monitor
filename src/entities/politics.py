@@ -58,6 +58,8 @@ INSERT_CHUNK = 5_000
 POLITICAL = "political"
 CRIMINAL = "criminal"
 UNCLEAR = "unclear"
+# The verdict as the operator reads it, on a page or in a file.
+VERDICT_LABELS = {POLITICAL: "политическое", CRIMINAL: "обычное уголовное", UNCLEAR: "не ясно"}
 Verdict = Literal["political", "criminal", "unknown"]
 VERDICTS: tuple[str, ...] = Verdict.__args__  # type: ignore[attr-defined]
 

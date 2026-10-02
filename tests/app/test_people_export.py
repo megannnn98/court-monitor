@@ -259,7 +259,7 @@ def test_the_file_holds_every_person_with_a_name_the_most_mentioned_first(
     # The news give two words and the base three: one record, but not certainly the person.
     assert smirnova[11] == "вероятно, есть в базе: Смирнова Анна Петровна"
     # A namesake: the entry's day is somebody else's and is not in the file.
-    assert ivanov[3] == "уголовное" and ivanov[10] == "возможно тёзка: ИВАНОВ ИВАН ИВАНОВИЧ"
+    assert ivanov[3] == "обычное уголовное" and ivanov[10] == "возможно тёзка: ИВАНОВ ИВАН ИВАНОВИЧ"
     assert "2020" not in ivanov[10]
     assert ivanov[12] == "да" and smirnova[12] is None
     assert judge[2] == "упомянут: судья" and judge[3] is None, "never judged: an empty cell"

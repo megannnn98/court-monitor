@@ -52,12 +52,6 @@ _CONFIRM = {
     "purge": "Удалить из базы все статьи без уголовных дел и людей, которых после этого "
     "ничто не упоминает? Это необратимо.",
 }
-_DEEPSEEK_CONFIRM = {
-    "entities": "Шаг «Собрать сущности» использует платный DeepSeek через OpenRouter. Продолжить?",
-    "figurants": "Шаг «Найти фигурантов» использует платный DeepSeek через OpenRouter. Продолжить?",
-    "political": "Шаг «Отобрать политические дела» использует платный DeepSeek через "
-    "OpenRouter и может сделать несколько платных запросов. Продолжить?",
-}
 _LIVE = (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
 
 
@@ -124,37 +118,15 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
     return None
 
 
-def deepseek_confirmation(stage: str) -> str:
-    """Return a browser confirmation only when this stage can call paid DeepSeek."""
-    if not spend.paid_deepseek():
-        return ""
-    return _DEEPSEEK_CONFIRM.get(stage, "")
-
-
-def _purge_confirmation() -> str:
-    """The purge asks the decision model per article, when the screen is set to it."""
-    if not spend.paid("purge"):
-        return ""
-    return (
-        "Шаг «Очистить от мусора» использует платную модель JEV через OpenRouter: "
-        "около $0,00006 за статью."
-    )
-
-
 def step_action(stage: str) -> str:
     """The existing POST endpoint for one pipeline step."""
     return _ACTIONS[stage]
 
 
 def step_confirmation(stage: str) -> str:
-    """What the browser asks before a step: the destructive warning, the paid one, and what
-    the account can still pay for."""
-    paid_warning = deepseek_confirmation(stage) or (
-        _purge_confirmation() if stage == "purge" else ""
-    )
-    return " ".join(
-        part for part in (_CONFIRM.get(stage, ""), paid_warning, spend.confirm_text(stage)) if part
-    )
+    """What the browser asks before a step: the destructive warning, then what the step
+    costs and what the account can still pay for."""
+    return " ".join(part for part in (_CONFIRM.get(stage, ""), spend.confirm_text(stage)) if part)
 
 
 def stepper(state: PipelineState, checked_count: int, *, back: str = "management") -> str:

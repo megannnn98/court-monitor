@@ -16,7 +16,7 @@ from web.candidate_rows import (
     latest_snapshot_id,
 )
 from web.dependencies import get_db
-from web.exports import candidates_xlsx
+from web.exports import XLSX, candidates_xlsx
 from web.routers.rosfinmonitoring import list_rosfinmonitoring_snapshots
 from web.ui.layout import HOME, _page
 
@@ -144,7 +144,7 @@ def ui_candidates_export_xlsx(
     )
     return Response(
         content=candidates_xlsx(rows),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media_type=XLSX,
         headers={
             "Content-Disposition": f'attachment; filename="political-candidates-{snapshot_id}.xlsx"'
         },

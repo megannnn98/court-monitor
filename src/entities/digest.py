@@ -6,7 +6,7 @@ how many figurants' evidence points to the same article.
 
 Title-only is a real limit: a case article headlined by a quote that names no one
 («Хрущевских ошибок... мы не допустим») gives the model nothing to go on, and it may
-call it irrelevant too. `web.ui.political._rows` falls back to the unfiltered list when
+call it irrelevant too. `web.ui.political_rows.with_details` falls back to the unfiltered list when
 filtering would empty it, so this never hides every source — it just may not filter a
 person whose only case article has an opaque headline.
 

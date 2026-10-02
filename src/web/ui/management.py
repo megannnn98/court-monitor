@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime
 from html import escape
@@ -28,11 +27,18 @@ from operator_console import (
 )
 from sources.source_registry import news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
-from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
-from web.ui.run_tail import tail_html
+from web.ui.run_cards import (
+    MODE_TITLES,
+    RUN_STATUS_BADGES,
+    RUN_STATUS_LABELS,
+    WHOLE_DATABASE_CARDS,
+    badge,
+    card,
+    local_time,
+)
 
 router = APIRouter()
 
@@ -40,21 +46,6 @@ _OPERATION = "monitor"
 # Runs over the whole database: no source selection, a card of their own. `rosfin` stays
 # here so old standalone runs remain accessible in the UI.
 _WHOLE_DATABASE = ("purge", "entities", "rosfin", "figurants", "political")
-_RUN_STATUS_LABELS = {
-    OperationRunStatus.PENDING: "В очереди",
-    OperationRunStatus.RUNNING: "Выполняется",
-    OperationRunStatus.SUCCEEDED: "Завершено",
-    OperationRunStatus.FAILED: "Завершено с ошибками",
-    OperationRunStatus.INTERRUPTED: "Прервано",
-}
-# Badge colours of `local-ui.css`: yellow while in progress or partly done, green, red.
-_RUN_STATUS_BADGES = {
-    OperationRunStatus.PENDING: "pending",
-    OperationRunStatus.RUNNING: "running",
-    OperationRunStatus.SUCCEEDED: "succeeded",
-    OperationRunStatus.FAILED: "failed",
-    OperationRunStatus.INTERRUPTED: "failed",
-}
 HISTORY_SIZE = 4
 
 
@@ -66,26 +57,6 @@ def _stop_form(run: OperationRun, back: str) -> str:
         f'<input type="hidden" name="back" value="{escape(back, quote=True)}">'
         '<button type="submit" class="danger">Остановить</button></form>'
     )
-
-
-def _badge(label: str, css_class: str = "") -> str:
-    return f'<span class="badge {css_class}">{escape(label)}</span>'
-
-
-def _local_time(moment: datetime) -> str:
-    return moment.astimezone().strftime("%d.%m.%Y %H:%M")
-
-
-_MODE_TITLES = {
-    "load": "Загрузка статей",
-    "resolve": "Разрешение персон",
-    "purge": "Очистка от мусора",
-    "entities": "Сборка сущностей",
-    "rosfin": "Сверка с Росфинмониторингом",
-    "figurants": "Поиск фигурантов",
-    "political": "Политические дела и сверка с РФМ",
-    None: "Загрузка и разрешение",
-}
 
 
 def _has_derived_step(run: OperationRun) -> bool:
@@ -206,9 +177,9 @@ def _history(runs: Sequence[OperationRun], current: OperationRun | None) -> str:
     rows = "".join(
         f'<tr class="{"current" if current is not None and run.id == current.id else ""}">'
         f'<td><a href="/ui/runs?run_id={run.id}">#{run.id}</a></td>'
-        f"<td>{_MODE_TITLES[run.parameters.mode]}</td>"
-        f"<td>{escape(_local_time(run.created_at))}</td>"
-        f"<td>{_badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])}</td>"
+        f"<td>{MODE_TITLES[run.parameters.mode]}</td>"
+        f"<td>{escape(local_time(run.created_at))}</td>"
+        f"<td>{badge(RUN_STATUS_LABELS[run.status], RUN_STATUS_BADGES[run.status])}</td>"
         f'<td class="num">{len(run.parameters.sources or [])}</td>'
         "</tr>"
         for run in runs
@@ -357,411 +328,14 @@ def _source_title(source: str, names: dict[str, str]) -> str:
     )
 
 
-_PURGE_PROGRESS = re.compile(
-    r"event=junk_purge_progress articles=(\d+) total=(\d+) persons=(\d+) reviews=(\d+)"
-    r"(?: outdated=(\d+))?(?: held=(\d+))?"
-)
-
-
-def _purge_card(run: OperationRun) -> str:
-    """A purge has no sources: its card counts what it removed, from its own log."""
-    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    found = _PURGE_PROGRESS.findall(run.stderr)
-    # The last progress line holds the running totals; none yet before the first batch.
-    articles, total, persons, reviews, outdated, held = (
-        int(value or 0) for value in (found[-1] if found else ("0",) * 6)
-    )
-    progress = (
-        f'<div class="progress-box"><progress class="overall" value="{articles}" '
-        f'max="{max(total, 1)}"></progress>'
-        f"<p><strong>Удалено статей {articles} из {total}</strong></p></div>"
-        if in_progress and found
-        else '<div class="progress-box"><p><strong>Ищу статьи без уголовных дел…</strong></p></div>'
-        if in_progress
-        else ""
-    )
-    summary = " ".join(
-        (
-            _badge(f"Статей удалено: {articles}", "succeeded"),
-            _badge(f"Из них до рабочей даты: {outdated}", ""),
-            _badge(f"Людей удалено: {persons}", "succeeded"),
-            _badge(f"Записей проверки удалено: {reviews}", ""),
-            *(
-                [
-                    f'<a href="/ui/junk-holds">{_badge(f"Оставлено на проверку: {held}", "pending")}</a>'
-                ]
-                if held
-                else []
-            ),
-        )
-    )
-    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
-    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
-    refresh = (
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
-    )
-    return f"""<section class="band run-card">
-  <h2>Запуск #{run.id} · {_MODE_TITLES["purge"]} {overall}</h2>
-  <p class="muted">Начат {started} · вся база · <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
-  {progress}
-  {spend.notice("purge") if in_progress else ""}
-  <p class="run-summary">{summary}</p>
-  <p class="muted">Удаляются статьи, в последнем разборе которых нет уголовного события,
-  со всем извлечённым из них, и люди, которых после этого ничто не упоминает.
-  Исходная публикация остаётся пустой отметкой, чтобы её не скачивать снова.</p>
-  {refresh}
-</section>"""
-
-
-_ENTITIES_STAGE = re.compile(r"event=entities_collect_stage stage=([^\n]+)")
-_ENTITIES_STAGES = {
-    "reading": "Читаю упоминания…",
-    "grouping": "Склеиваю…",
-    "writing": "Сохраняю…",
-    "charges": "Связываю со статьями УК…",
-}
-
-
-def _entities_card(run: OperationRun) -> str:
-    """An entity rebuild: its stage from the log while it runs, its counts at the end."""
-    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    stages = _ENTITIES_STAGE.findall(run.stderr)
-    stage = stages[-1].strip() if stages else ""
-    if stage.startswith("normalizing "):
-        done, _, total = stage.removeprefix("normalizing ").partition("/")
-        progress = (
-            f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
-            f'max="{escape(total)}"></progress><p><strong>Модель приводит имена к '
-            f"именительному: {escape(done)} из {escape(total)}</strong></p></div>"
-        )
-    else:
-        progress = (
-            f'<div class="progress-box"><p><strong>'
-            f"{escape(_ENTITIES_STAGES.get(stage, 'Готовлюсь…'))}</strong></p></div>"
-        )
-    try:
-        totals = json.loads(run.stdout) if run.stdout else {}
-    except json.JSONDecodeError:
-        totals = {}
-    if not isinstance(totals, dict):
-        totals = {}
-    labels = (
-        ("entities", "Сущностей", "succeeded"),
-        ("grouped", "Упоминаний в них", ""),
-        ("normalized_now", "Имён от модели сейчас", ""),
-        ("normalized_cached", "Имён из кэша", ""),
-        ("normalize_failures", "Не удалось нормализовать", "failed"),
-        ("charged_entities", "Со статьями УК", ""),
-        ("normalize_unasked", "Не спрошено: лимит расходов", "failed"),
-        ("model_cost_usd", "Стоимость модели, $", ""),
-        ("charges", "Связей со статьями УК", ""),
-    )
-    summary = " ".join(
-        _badge(f"{label}: {totals[key]}", badge)
-        for key, label, badge in labels
-        if isinstance(totals, dict) and totals.get(key)
-    )
-    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
-    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
-    refresh = (
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
-    )
-    return f"""<section class="band run-card">
-  <h2>Запуск #{run.id} · {_MODE_TITLES["entities"]} {overall}</h2>
-  <p class="muted">Начат {started} · <a href="/ui/entities">Сущности</a> ·
-  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
-  {progress if in_progress else ""}
-  {spend.notice("entities") if in_progress else ""}
-  <p class="run-summary">{summary}</p>
-  {refresh}
-</section>"""
-
-
-_ROSFIN_STAGE = re.compile(r"event=entities_rf_check_stage stage=([^\n]+)")
-_ROSFIN_STAGES = {
-    "downloading": "Скачиваю перечень с fedsfm.ru…",
-    "importing": "Перечень изменился — сохраняю новый снимок…",
-    "matching": "Сверяю сущности с перечнем…",
-    "writing": "Сохраняю…",
-    "merging": "Сливаю спорные пары, где человек в перечне…",
-}
-
-
-def _rosfin_card(run: OperationRun) -> str:
-    """A check against the list: its stage while it runs; the snapshot and counts after."""
-    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    stages = _ROSFIN_STAGE.findall(run.stderr)
-    stage = stages[-1].strip() if stages else ""
-    try:
-        totals = json.loads(run.stdout) if run.stdout else {}
-    except json.JSONDecodeError:
-        totals = {}
-    if not isinstance(totals, dict):
-        totals = {}
-    lines: list[str] = []
-    if totals.get("snapshot_id"):
-        snapshot_date = str(totals.get("snapshot_date") or "")[:10]
-        lines.append(
-            f"<p>Перечень: снимок #{totals['snapshot_id']} от {escape(snapshot_date)}, "
-            f"записей {totals.get('entries', 0)}"
-            f"{' — <b>новый</b>' if totals.get('new_snapshot') else ' — не изменился'}.</p>"
-        )
-        lines.append(
-            "<p>"
-            + _badge(f"В перечне (ФИО с отчеством): {totals.get('rf_full', 0)}", "failed")
-            + " "
-            + _badge(f"Возможно в перечне: {totals.get('rf_possible', 0)}", "pending")
-            + " "
-            + _badge(f"Сущностей сверено: {totals.get('entities', 0)}")
-            + " "
-            + _badge(f"Спорных пар слито по перечню: {totals.get('rf_merged', 0)}")
-            + " "
-            + _badge(f"Слито «одно ФИО — один человек»: {totals.get('region_merged', 0)}")
-            + ' <a href="/ui/entities">Сущности</a></p>'
-        )
-    if totals.get("download_error"):
-        lines.append(
-            '<p class="warning">Свежий перечень скачать не удалось, сверено по последнему '
-            f"снимку: {escape(str(totals['download_error']))}</p>"
-        )
-    progress = (
-        f'<div class="progress-box"><p><strong>'
-        f"{escape(_ROSFIN_STAGES.get(stage, 'Готовлюсь…'))}</strong></p></div>"
-        if in_progress
-        else ""
-    )
-    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
-    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
-    refresh = (
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
-    )
-    return f"""<section class="band run-card">
-  <h2>Запуск #{run.id} · {_MODE_TITLES["rosfin"]} {overall}</h2>
-  <p class="muted">Начат {started} · <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
-  {progress}
-  {"".join(lines)}
-  {refresh}
-</section>"""
-
-
-_FIGURANTS_STAGE = re.compile(r"event=entity_figurants_stage stage=([^\n]+)")
-
-
-def _figurants_card(run: OperationRun) -> str:
-    """Finding the figurants: the model's progress while it runs; the roles after."""
-    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    stages = _FIGURANTS_STAGE.findall(run.stderr)
-    stage = stages[-1].strip() if stages else ""
-    if stage.startswith("asking "):
-        done, _, total = stage.removeprefix("asking ").partition("/")
-        progress = (
-            f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
-            f'max="{escape(total)}"></progress><p><strong>Модель читает цитаты: '
-            f"{escape(done)} из {escape(total)}</strong></p></div>"
-        )
-    else:
-        label = {"reading": "Читаю сущности и цитаты…", "writing": "Сохраняю…"}.get(
-            stage, "Готовлюсь…"
-        )
-        progress = f'<div class="progress-box"><p><strong>{label}</strong></p></div>'
-    try:
-        totals = json.loads(run.stdout) if run.stdout else {}
-    except json.JSONDecodeError:
-        totals = {}
-    if not isinstance(totals, dict):
-        totals = {}
-    labels = (
-        ("figurant_rules", "Фигуранты по статье УК без ответа модели", "succeeded"),
-        ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
-        ("figurant_manual", "Фигуранты по решению оператора", "succeeded"),
-        ("officials", "Должностные лица", ""),
-        ("officials_listed", "Добавлено в список должностных лиц", "succeeded"),
-        ("possible", "Задержаны, обысканы или административное дело", "pending"),
-        ("mentioned", "Только упомянуты", ""),
-        ("unclear", "Не ясно", ""),
-        ("failures", "Модель не ответила", "failed"),
-        ("asked_now", "Ответов модели сейчас", ""),
-        ("cached", "Из кэша", ""),
-        ("unasked", "Не спрошено: лимит расходов", "failed"),
-        ("cost_usd", "Стоимость модели, $", ""),
-    )
-    summary = " ".join(
-        _badge(f"{label}: {totals[key]}", badge)
-        for key, label, badge in labels
-        if isinstance(totals, dict) and totals.get(key)
-    )
-    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
-    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
-    refresh = (
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
-    )
-    return f"""<section class="band run-card">
-  <h2>Запуск #{run.id} · {_MODE_TITLES["figurants"]} {overall}</h2>
-  <p class="muted">Начат {started} · <a href="/ui/entities">Сущности</a> ·
-  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
-  {progress if in_progress else ""}
-  {spend.notice("figurants") if in_progress else ""}
-  <p class="run-summary">{summary}</p>
-  {refresh}
-</section>"""
-
-
-# The five phases of the final step, in order: the list, the verdicts, the roundup posts, the
-# latest news, the unnamed. Each logs `event=<this> stage=<reading|asking N/M|writing>`.
-_FINAL_PHASES = (
-    ("entities_rf_check_stage", "Сверка с перечнем", ""),
-    ("entity_politics_stage", "Политичность", "Модель читает дела"),
-    ("article_digest_stage", "Сводки новостей", "Модель отличает сводки от новостей"),
-    ("entity_news_stage", "Свежая новость", "Модель определяет, что нового по делу"),
-    ("unnamed_stage", "Безымянные", "Модель читает предложения о безымянных"),
-)
-_FINAL_STAGE = re.compile(
-    r"event=(" + "|".join(event for event, _, _ in _FINAL_PHASES) + r") stage=([^\n]+)"
-)
-_FINAL_RF_STAGES = {
-    "downloading": "Скачиваю перечень с fedsfm.ru…",
-    "importing": "Перечень изменился — сохраняю новый снимок…",
-    "matching": "Сверяю сущности с перечнем…",
-    "writing": "Сохраняю сверку с РФМ…",
-    "merging": "Сливаю спорные пары по перечню…",
-}
-
-
-def _political_card(run: OperationRun) -> str:
-    """Telling persecution from crime: the model's progress while it runs; the verdicts after."""
-    in_progress = run.status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    stages = _FINAL_STAGE.findall(run.stderr)
-    stage_source, stage = stages[-1] if stages else ("", "")
-    stage = stage.strip()
-    phase = next(
-        (
-            (number, label, asking)
-            for number, (event, label, asking) in enumerate(_FINAL_PHASES, start=1)
-            if event == stage_source
-        ),
-        None,
-    )
-    where = f"Этап {phase[0]} из {len(_FINAL_PHASES)} · " if phase else ""
-    if phase and stage.startswith("asking "):
-        done, _, total = stage.removeprefix("asking ").partition("/")
-        progress = (
-            f'<div class="progress-box"><progress class="overall" value="{escape(done)}" '
-            f'max="{escape(total)}"></progress><p><strong>{where}{phase[2]}: '
-            f"{escape(done)} из {escape(total)}</strong></p></div>"
-        )
-    else:
-        if stage_source == "entities_rf_check_stage":
-            label = _FINAL_RF_STAGES.get(stage, "Готовлюсь…")
-        elif phase:
-            label = {
-                "reading": f"{phase[1]}: читаю данные…",
-                "writing": f"{phase[1]}: сохраняю…",
-            }.get(stage, "Готовлюсь…")
-        else:
-            label = "Готовлюсь…"
-        progress = f'<div class="progress-box"><p><strong>{where}{label}</strong></p></div>'
-    try:
-        totals = json.loads(run.stdout) if run.stdout else {}
-    except json.JSONDecodeError:
-        totals = {}
-    if not isinstance(totals, dict):
-        totals = {}
-    snapshot = ""
-    if totals.get("snapshot_id"):
-        snapshot_date = str(totals.get("snapshot_date") or "")[:10]
-        snapshot = (
-            f'<p class="muted">Сверено по снимку перечня РФМ #{escape(str(totals["snapshot_id"]))}'
-            f"{f' от {escape(snapshot_date)}' if snapshot_date else ''}.</p>"
-        )
-    elif totals:
-        # The step ran without the list: none imported yet, or the check failed.
-        snapshot = (
-            '<p class="warning">Сверка с РФМ не выполнена: '
-            f"{escape(str(totals['rf_error'])) if totals.get('rf_error') else 'снимков перечня нет'}"
-            ". Политичность оценена без неё.</p>"
-        )
-    if totals.get("download_error"):
-        snapshot += (
-            '<p class="warning">Свежий перечень не скачан, сверено по последнему сохранённому '
-            f"снимку: {escape(str(totals['download_error']))}</p>"
-        )
-    labels = (
-        # The list confirms who a person is: no mark against them.
-        ("rf_full", "В перечне (ФИО с отчеством)", ""),
-        ("rf_possible", "Возможно в перечне", "pending"),
-        ("rf_merged", "Спорных пар слито по перечню", ""),
-        ("region_merged", "Слито «одно ФИО — один человек»", ""),
-        ("political_rules", "Политические по статье УК", "succeeded"),
-        ("political_model", "Политические по ответу модели", "succeeded"),
-        ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
-        ("political_manual", "Политические по решению оператора", "succeeded"),
-        ("criminal_rules", "Уголовные по статье (без модели)", ""),
-        ("criminal_manual", "Уголовные по решению оператора", ""),
-        ("criminal", "Уголовные", ""),
-        ("unclear", "Не ясно", ""),
-        ("failures", "Модель не ответила", "failed"),
-        ("asked_now", "Ответов модели сейчас", ""),
-        ("cached", "Из кэша", ""),
-        ("unasked", "Не спрошено: лимит расходов", "failed"),
-        ("cost_usd", "Стоимость модели, $", ""),
-        ("news_new_case", "Свежая новость: новое дело", "succeeded"),
-        ("news_sentence", "Свежая новость: приговор", "succeeded"),
-        ("news_ongoing", "Свежая новость: продолжение дела", ""),
-        ("news_closed", "Свежая новость: дело завершено", ""),
-        ("news_unknown", "Свежая новость не определена", "pending"),
-        ("unnamed", "Безымянных фигурантов", "succeeded"),
-        ("unnamed_cost_usd", "Стоимость (безымянные), $", ""),
-    )
-    summary = " ".join(
-        _badge(f"{label}: {totals[key]}", badge)
-        for key, label, badge in labels
-        if isinstance(totals, dict) and totals.get(key)
-    )
-    overall = _badge(_RUN_STATUS_LABELS[run.status], _RUN_STATUS_BADGES[run.status])
-    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
-    refresh = (
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
-    )
-    return f"""<section class="band run-card">
-  <h2>Запуск #{run.id} · {_MODE_TITLES["political"]} {overall}</h2>
-  <p class="muted">Начат {started} · <a href="/ui/political">Результат</a> ·
-  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
-  {progress if in_progress else ""}
-  {spend.notice("political") if in_progress else ""}
-  {snapshot}
-  <p class="run-summary">{summary}</p>
-  {refresh}
-</section>"""
-
-
-def _with_log_tail(card: str, run: OperationRun) -> str:
-    """The card with the run's pulse and last lines under it (`web.ui.run_tail`)."""
-    tail = tail_html(run)
-    if not tail:
-        return card
-    head, closing, rest = card.rpartition("</section>")
-    return f"{head}{tail}\n{closing}{rest}" if closing else card
-
-
 def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
-    return _with_log_tail(_run_card(db, run, selected), run)
-
-
-def _run_card(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
-    if run.parameters.mode == "purge":
-        return _purge_card(run)
-    if run.parameters.mode == "entities":
-        return _entities_card(run)
-    if run.parameters.mode == "rosfin":
-        return _rosfin_card(run)
-    if run.parameters.mode == "figurants":
-        return _figurants_card(run)
-    if run.parameters.mode == "political":
-        return _political_card(run)
     """A card per run: status, counts per outcome and, folded, the sources that ran.
 
     Sources the run never reached are only counted: listed one by one they buried the
     source selection under dozens of «Не запускался» rows."""
+    whole_database = WHOLE_DATABASE_CARDS.get(run.parameters.mode or "")
+    if whole_database is not None:
+        return whole_database(run)
     monitoring_runs = _monitoring_runs(db, run)
     per_source = {item.source: item for item in monitoring_runs if item.source is not None}
     derived = next((item for item in monitoring_runs if item.source is None), None)
@@ -786,7 +360,7 @@ def _run_card(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
                 counts["busy"] += 1
                 rows.append(
                     f"<tr><td>{_source_title(source, names)}</td>"
-                    f"<td>{_badge('Занят', 'partial')}</td>"
+                    f"<td>{badge('Занят', 'partial')}</td>"
                     f'<td colspan="{blank}"></td></tr>'
                 )
             else:
@@ -796,22 +370,22 @@ def _run_card(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
         counts[outcome] += 1
         numbers = "".join(f'<td class="num">{value(item)}</td>' for _, _, value in columns)
         message = escape(item.error_message[:240]) if item.error_message else ""
-        label, badge = _OUTCOMES[outcome]
         rows.append(
-            f"<tr><td>{_source_title(source, names)}</td><td>{_badge(label, badge)}</td>"
+            f"<tr><td>{_source_title(source, names)}</td><td>{badge(*_OUTCOMES[outcome])}</td>"
             f'{numbers}<td class="error-text">{message}</td></tr>'
         )
 
     if _has_derived_step(run):
         if derived is not None:
-            label, badge = _OUTCOMES[_source_outcome(derived.status, in_progress=in_progress)]
-            derived_status = _badge(label, badge)
+            derived_status = badge(
+                *_OUTCOMES[_source_outcome(derived.status, in_progress=in_progress)]
+            )
             derived_metrics = (
                 f"Классифицировано: {derived.classifications_created}; совпадений РФМ: "
                 f"{derived.rf_matches_created}; ошибок: {derived.error_count}"
             )
         else:
-            derived_status = _badge("Ожидает", "pending") if in_progress else _badge("Не запущен")
+            derived_status = badge("Ожидает", "pending") if in_progress else badge("Не запущен")
             derived_metrics = ""
         rows.append(
             f'<tr class="derived"><td>Общая классификация и сверка с РФМ</td>'
@@ -821,28 +395,23 @@ def _run_card(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
         f'<th title="{escape(meaning, quote=True)}">{escape(header)}</th>'
         for header, meaning, _ in columns
     )
-    overall = _RUN_STATUS_LABELS[run.status]
-    overall_badge = _RUN_STATUS_BADGES[run.status]
+    status = None
     if run.status is OperationRunStatus.FAILED and any(
         item.status in (MonitoringRunStatus.COMPLETED, MonitoringRunStatus.COMPLETED_WITH_ERRORS)
         for item in monitoring_runs
     ):
-        overall, overall_badge = "Завершено частично: есть ошибки", "partial"
+        status = ("Завершено частично: есть ошибки", "partial")
     summary = " ".join(
-        _badge(f"{_OUTCOMES[outcome][0]}: {count}", _OUTCOMES[outcome][1])
+        badge(f"{_OUTCOMES[outcome][0]}: {count}", _OUTCOMES[outcome][1])
         for outcome, count in counts.items()
         if count
     )
-    refresh = (
-        "<script>setTimeout(() => window.location.reload(), 5000);</script>" if in_progress else ""
-    )
-    started = escape(run.created_at.astimezone().strftime("%d.%m.%Y %H:%M"))
     ran = len(selected) - counts["waiting"] - counts["not_started"]
-    return f"""<section class="band run-card">
-  <h2>Запуск #{run.id} · {_MODE_TITLES[run.parameters.mode]} {_badge(overall, overall_badge)}</h2>
-  <p class="muted">Начат {started} · источников выбрано: {len(selected)} ·
-  <a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
-  {_published_range_label(run)}
+    return card(
+        run,
+        where=f"источников выбрано: {len(selected)}",
+        status=status,
+        body=f"""{_published_range_label(run)}
   {_progress(db, run)}
   <p class="run-summary">{summary}</p>
   <details{" open" if in_progress else ""}>
@@ -851,9 +420,8 @@ def _run_card(db: Session, run: OperationRun, selected: Sequence[str]) -> str:
     <th title="Текст ошибки, если источник упал целиком">Сообщение</th></tr></thead>
     <tbody>{"".join(rows)}</tbody></table>
     {_column_legend(columns)}
-  </details>
-  {refresh}
-</section>"""
+  </details>""",
+    )
 
 
 SOURCE_ERRORS = 8
