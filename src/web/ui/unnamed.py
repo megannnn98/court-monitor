@@ -26,6 +26,7 @@ from db.orm_models import (
 from entities.base_candidates import BaseCandidates, base_candidates
 from entities.jurisdiction import CourtHints, Jurisdiction
 from entities.unnamed import (
+    CANDIDATE_KEY_LENGTH,
     DIFFERENT,
     EVENT_LABELS,
     EXISTING_PERSON,
@@ -258,11 +259,15 @@ def _base_candidates_html(figurant: UnnamedFigurantRecord, found: BaseCandidates
                 "Это он",
                 "",
                 back,
-                {"resolution": SUPPLIED_NAME, "normalized_name": item.name},
+                {
+                    "resolution": SUPPLIED_NAME,
+                    "normalized_name": item.name,
+                    "rf_birth_date": item.birth_date.isoformat(),
+                },
             )
             if item.decision != SAME
             else ""
-        ) + (_reject_form(figurant.key, item.key, back) if item.decision != DIFFERENT else "")
+        ) + (_reject_form(figurant.key, item.key, back) if item.decision is None else "")
         rows.append(
             f'<tr><th scope="row">{escape(item.name)}{verdict}</th>'
             f"<td>{item.birth_date:%d.%m.%Y}</td>"
@@ -596,7 +601,7 @@ async def reject_unnamed(
     form = await _form(request)
     figurant = form.get("figurant", "")
     _known(db, figurant)
-    if not form.get("candidate"):
+    if not 0 < len(form.get("candidate", "")) <= CANDIDATE_KEY_LENGTH:
         raise HTTPException(status_code=400, detail="Не выбран человек из перечня")
     decide(db, figurant, form.get("candidate", ""), DIFFERENT)
     db.commit()

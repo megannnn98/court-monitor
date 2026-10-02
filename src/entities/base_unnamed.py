@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from db.orm_models import AirtableKnownPersonRecord, UnnamedDecisionRecord
-from entities.unnamed import DIFFERENT, SAME, place_stems
+from entities.unnamed import DIFFERENT, SAME, place_pattern
 
 SHOWN = 5
 DECISIONS = frozenset({SAME, DIFFERENT})
@@ -108,6 +108,8 @@ class RfCandidate:
     age: int
     reasons: list[str] = field(default_factory=list)
     city_match: bool = False
+    # Included in the list before the case was opened.
+    earlier: bool = False
     decision: str | None = None
 
 
@@ -120,6 +122,9 @@ class NamelessCase:
     candidates: list[RfCandidate]
     # How many fit in all; `candidates` are the first `SHOWN` of them.
     total: int
+    # The entry a person said the record is (its name and birth date), whether or not it
+    # is among the candidates now: an entry leaves the list, a word on it stays.
+    confirmed: str | None = None
 
     @property
     def identified(self) -> RfCandidate | None:
@@ -134,7 +139,11 @@ class NamelessCase:
         """When the latest of the candidates still to look at came onto the list: a record
         with a fresh one stands first."""
         return max(
-            (item.entry.included_on for item in self.open if item.entry.included_on),
+            (
+                item.entry.included_on
+                for item in self.open
+                if item.entry.included_on and not item.earlier
+            ),
             default=date.min,
         )
 
@@ -159,47 +168,53 @@ def candidates_for(
 
     The record's age is the news's, and the case was opened before the news: on the day
     it was opened the person was that age or a year younger; a year older allows for a
-    date the base only knows roughly. An entry included before the case was opened is not
-    someone this case put on the list."""
+    date the base only knows roughly. An entry included before the case was opened is
+    hardly someone this case put on the list, but the base may date the case late: such
+    an entry stands below the others and says so."""
     age = record_age(record.full_name)
     opened: date | None = record.case_opened_on
     if age is None or opened is None:
         return None
-    city = place_stems(record.city or "")
-    region = place_stems(record.region or "")
+    in_city = place_pattern(record.city or "")
+    in_region = place_pattern(record.region or "")
     found: list[RfCandidate] = []
     for entry in rf_list.born_in(range(opened.year - age - 2, opened.year - age + 2)):
-        if entry.included_on and entry.included_on < opened:
-            continue
         if record.gender and entry.gender not in (None, record.gender):
             continue
         entry_age = age_on(opened, entry.birth_date)
         if abs(entry_age - age) > 1:
             continue
-        city_match = any(stem in entry.place for stem in city)
-        if not city_match and not any(stem in entry.place for stem in region):
+        city_match = bool(in_city and in_city.search(entry.place))
+        if not city_match and not (in_region and in_region.search(entry.place)):
             continue
+        earlier = bool(entry.included_on and entry.included_on < opened)
         reasons = [
             f"{entry_age} лет на {opened:%d.%m.%Y}",
             f"родился: {entry.birth_place}",
-            f"включён в перечень {entry.included_on:%d.%m.%Y}, после возбуждения дела"
+            f"включён в перечень {entry.included_on:%d.%m.%Y}, до возбуждения дела"
+            if earlier
+            else f"включён в перечень {entry.included_on:%d.%m.%Y}, после возбуждения дела"
             if entry.included_on
             else "дата включения в перечень неизвестна",
         ]
-        found.append(RfCandidate(entry, entry_age, reasons, city_match, words.get(entry.key)))
-    # Confirmed first, the rejected last; then born in the very city, the exact age, and
-    # the latest onto the list.
+        found.append(
+            RfCandidate(entry, entry_age, reasons, city_match, earlier, words.get(entry.key))
+        )
+    # Confirmed first, the rejected last; then those included after the case was opened,
+    # born in the very city, the exact age, and the latest onto the list.
     found.sort(
         key=lambda item: (
             item.decision != SAME,
             item.decision == DIFFERENT,
+            item.earlier,
             not item.city_match,
             item.age != age,
             -(item.entry.included_on or date.min).toordinal(),
             item.entry.full_name,
         )
     )
-    return NamelessCase(record, age, found[:shown], len(found))
+    confirmed = next((key for key, decision in words.items() if decision == SAME), None)
+    return NamelessCase(record, age, found[:shown], len(found), confirmed)
 
 
 def nameless_cases(session: Session) -> list[NamelessCase]:
@@ -219,7 +234,7 @@ def nameless_cases(session: Session) -> list[NamelessCase]:
         case
         for record in records
         if (case := candidates_for(record, rf_list, by_record[record.external_id])) is not None
-        and case.candidates
+        and (case.candidates or case.confirmed)
     ]
     cases.sort(key=lambda case: (-case.newest.toordinal(), case.record.full_name))
     return cases
@@ -256,6 +271,6 @@ def say(session: Session, record_id: str, candidate: str, decision: str | None) 
 
 
 def counts(cases: Sequence[NamelessCase]) -> dict[str, int]:
-    found = sum(case.identified is not None for case in cases)
-    waiting = sum(case.identified is None and bool(case.open) for case in cases)
+    found = sum(case.confirmed is not None for case in cases)
+    waiting = sum(case.confirmed is None and bool(case.open) for case in cases)
     return {"open": waiting, "found": found, "all": len(cases)}

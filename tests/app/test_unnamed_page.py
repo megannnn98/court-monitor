@@ -296,11 +296,15 @@ def test_a_card_shows_the_people_of_the_base_and_takes_a_word_on_them(
                 "figurant": "k" * 64,
                 "resolution": "supplied_name",
                 "normalized_name": "Тюменцев <Иван> Ильич",
+                "rf_birth_date": "2007-05-01",
                 "back": "status=open&page=1",
             },
             follow_redirects=False,
         )
         found = client.get("/ui/unnamed", params={"status": "found"}).text
+        too_long = client.post(
+            "/ui/unnamed/reject", data={"figurant": "k" * 64, "candidate": "x" * 256}
+        )
 
     assert "Кандидаты из базы Airtable</caption>" not in without
     assert "В базе Airtable" not in without.split("</article>")[0].split("<article")[1]
@@ -313,7 +317,8 @@ def test_a_card_shows_the_people_of_the_base_and_takes_a_word_on_them(
     assert "17 лет на 25.11.2024; место: Тюменская область, Тюмень; та же статья: 205" in page
     assert (
         'name="resolution" value="supplied_name"><input type="hidden" name="normalized_name" '
-        'value="Тюменцев &lt;Иван&gt; Ильич"'
+        'value="Тюменцев &lt;Иван&gt; Ильич"><input type="hidden" name="rf_birth_date" '
+        'value="2007-05-01">'
     ) in page
     assert 'name="candidate" value="base:тюменцев иван ильич|2007-05-01"' in page
     assert rejected.status_code == 303
@@ -321,6 +326,9 @@ def test_a_card_shows_the_people_of_the_base_and_takes_a_word_on_them(
     assert same.status_code == 303
     assert "опознан: Тюменцев &lt;Иван&gt; Ильич" in found
     assert 'Ильич <span class="badge succeeded">это он</span></th>' in found
+    # A confirmed person is taken back with «Отменить решение»: no «Не он» beside them.
+    assert 'name="candidate" value="base:' not in found
+    assert too_long.status_code == 400
 
 
 def test_the_base_only_counts_where_the_place_does_not_fit(

@@ -20,7 +20,7 @@ from db.orm_models import AirtableKnownPersonRecord
 from entities.base_candidates import article_numbers
 from entities.base_unnamed import NamelessCase, counts, nameless_cases, say
 from entities.jurisdiction import Jurisdiction
-from entities.unnamed import DIFFERENT, SAME
+from entities.unnamed import CANDIDATE_KEY_LENGTH, DIFFERENT, SAME
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
 from web.ui.layout import _page, pager
@@ -66,6 +66,10 @@ def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
     status = (
         f'<span class="badge succeeded">опознан: {escape(identified.entry.full_name)}</span>'
         if identified
+        else '<span class="badge succeeded">опознан: '
+        f"{escape(case.confirmed.split('|')[0])}</span>"
+        ' <span class="muted">этой записи сейчас нет среди кандидатов из перечня</span>'
+        if case.confirmed
         else '<span class="badge pending">не разобран</span>'
         if case.open
         else '<span class="badge">кандидаты отклонены</span>'
@@ -140,8 +144,8 @@ def ui_base_unnamed(
         case
         for case in cases
         if status == "all"
-        or (status == "found" and case.identified is not None)
-        or (status == "open" and case.identified is None and case.open)
+        or (status == "found" and case.confirmed is not None)
+        or (status == "open" and case.confirmed is None and case.open)
     ]
     back = urlencode({"status": status, "page": page})
     courts = Jurisdiction.from_session(db)
@@ -163,8 +167,8 @@ def ui_base_unnamed(
 <p class="chips">{chips}</p>
 <p class="muted">Записи базы Airtable без имени («34-летний уроженец Крыма») и кто из перечня
 Росфинмониторинга может быть ими: того возраста на день возбуждения дела (плюс-минус год), того
-пола, родился в названном городе или регионе и включён в перечень не раньше возбуждения дела.
-Первыми стоят записи, у которых кандидат появился в перечне позже всех. Место рождения — не
+пола, родился в названном городе или регионе. Включённые в перечень после возбуждения дела стоят
+выше включённых до него. Первыми идут записи, у которых кандидат появился в перечне позже всех. Место рождения — не
 всегда место жительства. Имя в базу вносит оператор; здесь решение только запоминается.</p>
 {cards or empty}
 {pager("/ui/base-unnamed", {"status": status}, page, (len(chosen) + PAGE_SIZE - 1) // PAGE_SIZE)}"""
@@ -200,7 +204,7 @@ async def decide_base_unnamed(
     )
     if not known:
         raise HTTPException(status_code=400, detail="Неизвестная запись базы")
-    if not candidate or decision not in (SAME, DIFFERENT, _CLEAR):
+    if not 0 < len(candidate) <= CANDIDATE_KEY_LENGTH or decision not in (SAME, DIFFERENT, _CLEAR):
         raise HTTPException(status_code=400, detail="Неполное решение")
     say(db, record, candidate, None if decision == _CLEAR else decision)
     db.commit()

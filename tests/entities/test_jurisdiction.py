@@ -65,6 +65,22 @@ def test_the_place_may_be_a_city_and_the_article_any_of_several() -> None:
     assert both.total == 4
 
 
+def test_a_cell_of_two_courts_is_two_courts() -> None:
+    rows = [
+        ("Тула", "", "ст. 280 УК РФ", "Суд Б , Суд  А", "https://b.test/card"),
+        ("Тула", "", "ст. 280 УК РФ", "Суд А", "https://a.test/card"),
+        ("Томск", "", "ст. 280 УК РФ", "Томский суд", None),
+    ]
+
+    found = Jurisdiction(rows).courts("Тула", ["280"])
+
+    # The link beside two courts does not say whose site it is.
+    assert found == CourtHints(
+        [CourtHint("Суд А", 2, "https://a.test"), CourtHint("Суд Б", 1, None)], 3
+    )
+    assert Jurisdiction(rows).courts("Омск", ["280"]) == CourtHints([], 0)
+
+
 def test_the_count_orders_before_the_name() -> None:
     rows = [("Тула", "", "ст. 280 УК РФ", court, None) for court in ("А суд", "Я суд", "Я суд")]
 

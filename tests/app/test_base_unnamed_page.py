@@ -131,6 +131,11 @@ def test_a_card_shows_the_record_and_takes_a_word(session_factory: sessionmaker[
         cleared = client.get("/ui/base-unnamed").text
         assert _decide(client, "maybe") == 400
         assert _decide(client, "same", candidate="") == 400
+        assert _decide(client, "same", candidate="x" * 256) == 400
+        assert _decide(client, "same", candidate="ушедший иван|1975-01-01") == 303
+        gone = client.get("/ui/base-unnamed", params={"status": "found"}).text
+        gone_open = client.get("/ui/base-unnamed").text
+        assert _decide(client, "clear", candidate="ушедший иван|1975-01-01") == 303
         assert _decide(client, "same", record="nobody") == 400
 
     # Both the base and the list are escaped.
@@ -158,5 +163,9 @@ def test_a_card_shows_the_record_and_takes_a_word(session_factory: sessionmaker[
     assert "кандидаты отклонены" in rejected and '<span class="badge">не он</span>' in rejected
     assert "Не разобраны (0)" in rejected
     assert "Не разобраны (1)" in cleared and ">Отменить<" not in cleared
+    # A word on an entry that is not among the candidates is shown, not lost.
+    assert "Опознаны (1)" in gone and "опознан: ушедший иван</span>" in gone
+    assert "этой записи сейчас нет среди кандидатов из перечня" in gone
+    assert "В этом разделе никого." in gone_open
     with session_factory() as session:
         assert session.execute(text("SELECT count(*) FROM unnamed_decisions")).scalar() == 0

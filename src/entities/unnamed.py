@@ -64,6 +64,8 @@ MAX_TOKENS = 6_000
 CONTEXT = 300
 CANDIDATES_SHOWN = 10
 
+# `unnamed_decisions.candidate` holds this many characters.
+CANDIDATE_KEY_LENGTH = 255
 SAME = "same"
 DIFFERENT = "different"
 NONE = "none"
@@ -500,14 +502,28 @@ def candidate_key(normalized_name: str, birth_date: date) -> str:
 
 def place_stems(place: str) -> list[str]:
     """«Тюмень» → «тюме»: enough of each word of the place to find it declined in the
-    list's «Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ»; the kind of place is no evidence."""
+    list's «Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ»; the kind of place is no evidence.
+
+    A word of three letters is a place only when it is written as a name («Уфа»): «под»
+    and «при» are not."""
     generic = {"область", "край", "республика", "город", "округ", "район", "автономный"}
     stems = []
-    for word in re.findall(r"[а-яё]+", place.lower()):
-        if word in generic or len(word) < 4:
+    for word in re.findall(r"[А-Яа-яЁё]+", place):
+        folded = word.lower()
+        if folded in generic or len(folded) < 3 or (len(folded) == 3 and not word[0].isupper()):
             continue
-        stems.append(word[:-2] if len(word) > 5 else word[:-1])
+        stems.append(folded[:-2] if len(folded) > 5 else folded[:-1])
     return stems
+
+
+def place_pattern(place: str) -> re.Pattern[str] | None:
+    """What finds the place in a lower-case text, or None for a place that names nothing.
+
+    A stem counts only where a word begins: «омс» is «омск», «омская», not «томск»."""
+    stems = place_stems(place)
+    if not stems:
+        return None
+    return re.compile("(?<![а-яё])(?:" + "|".join(re.escape(stem) for stem in stems) + ")")
 
 
 # The entries of the latest snapshot of that age on the day, of that sex and initial.
@@ -555,7 +571,7 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
             "initial": (figurant.initial or "").upper(),
         },
     ).all()
-    stems = place_stems(figurant.place)
+    in_place = place_pattern(figurant.place)
     rejected = {
         candidate: decision
         for candidate, decision in session.execute(
@@ -583,7 +599,7 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
     found: list[Candidate] = []
     for row in rows:
         place = row.birth_place.lower()
-        place_match = bool(stems) and any(stem in place for stem in stems)
+        place_match = bool(in_place and in_place.search(place))
         reasons = [f"{row.age} лет на {figurant.published_at:%d.%m.%Y}"]
         if figurant.gender:
             reasons.append("мужчина" if figurant.gender == "male" else "женщина")

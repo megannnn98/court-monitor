@@ -56,15 +56,17 @@ BUDNIKOV = _entry("БУДНИКОВ ЕВГЕНИЙ АНАТОЛЬЕВИЧ*", dat
 ALTAI = _entry(
     "АЛТАЕВ ПЁТР ИЛЬИЧ", date(1975, 1, 1), "С. ПАВЛОВСК АЛТАЙСКОГО КРАЯ", date(2026, 1, 1)
 )
+# On the list a day before the case was opened: the base may date the case late.
+EARLY = _entry("РАННИЙ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. РУБЦОВСК", date(2025, 6, 8))
 LIST = RfList(
     [
         ALTAI,
         BUDNIKOV,
-        # Not him: a woman, born elsewhere, too young, on the list before the case.
+        # Not him: a woman, born elsewhere, too young.
         _entry("РУБЦОВА АННА ИЛЬИНИЧНА", date(1975, 5, 5), "Г. РУБЦОВСК АЛТАЙСКОГО КРАЯ"),
         _entry("ОМСКИЙ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. ОМСК"),
         _entry("МОЛОДОЙ ИВАН ИЛЬИЧ", date(1980, 5, 5), "Г. РУБЦОВСК АЛТАЙСКОГО КРАЯ"),
-        _entry("РАННИЙ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. РУБЦОВСК", date(2025, 6, 8)),
+        EARLY,
     ]
 )
 
@@ -72,12 +74,15 @@ LIST = RfList(
 def test_the_entries_of_that_age_sex_and_birth_place_included_after_the_case() -> None:
     case = candidates_for(_record(), LIST, {})
 
-    assert case is not None and case.age == 50 and case.total == 2
-    # Born in the very city first, then in the region.
+    assert case is not None and case.age == 50 and case.total == 3
+    # Born in the very city first, then in the region; the one on the list before the
+    # case below them all, though born in the city.
     assert [item.entry.full_name for item in case.candidates] == [
         "БУДНИКОВ ЕВГЕНИЙ АНАТОЛЬЕВИЧ*",
         "АЛТАЕВ ПЁТР ИЛЬИЧ",
+        "РАННИЙ ИВАН ИЛЬИЧ",
     ]
+    assert case.candidates[2].reasons[-1] == "включён в перечень 08.06.2025, до возбуждения дела"
     first = case.candidates[0]
     assert first.entry.key == "будников евгений анатольевич*|1975-10-09"
     # 49 on the day the case was opened: the record's age is the news's.
@@ -97,8 +102,8 @@ def test_the_age_may_be_a_year_off_either_way_and_no_more() -> None:
 
     # Будников is 49 on the day, Алтаев 50.
     assert names(48) == ["БУДНИКОВ ЕВГЕНИЙ АНАТОЛЬЕВИЧ*"]
-    assert names(49) == ["БУДНИКОВ ЕВГЕНИЙ АНАТОЛЬЕВИЧ*", "АЛТАЕВ ПЁТР ИЛЬИЧ"]
-    assert names(51) == ["АЛТАЕВ ПЁТР ИЛЬИЧ"]
+    assert names(49) == ["БУДНИКОВ ЕВГЕНИЙ АНАТОЛЬЕВИЧ*", "АЛТАЕВ ПЁТР ИЛЬИЧ", "РАННИЙ ИВАН ИЛЬИЧ"]
+    assert names(51) == ["АЛТАЕВ ПЁТР ИЛЬИЧ", "РАННИЙ ИВАН ИЛЬИЧ"]
     assert names(52) == []
 
 
@@ -128,13 +133,40 @@ def test_a_person_s_word_orders_and_the_rest_is_cut() -> None:
     case = candidates_for(_record(), LIST, words, shown=1)
     same = candidates_for(_record(), LIST, {ALTAI.key: SAME})
 
-    assert case is not None and case.total == 2
+    assert case is not None and case.total == 3 and case.confirmed is None
     assert [item.entry.full_name for item in case.candidates] == ["АЛТАЕВ ПЁТР ИЛЬИЧ"]
-    assert same is not None and same.identified is not None
+    assert same is not None and same.identified is not None and same.confirmed == ALTAI.key
     assert same.identified.entry is ALTAI and same.candidates[0].entry is ALTAI
-    assert [item.entry for item in same.open] == [BUDNIKOV]
+    assert [item.entry for item in same.open] == [BUDNIKOV, EARLY]
     # The freshest of those still to look at, not of the one already confirmed.
     assert same.newest == date(2025, 10, 14)
+    # Only the one on the list before the case is left to look at: nothing fresh.
+    stale = candidates_for(_record(), LIST, {ALTAI.key: DIFFERENT, BUDNIKOV.key: DIFFERENT})
+    assert stale is not None and [item.entry for item in stale.open] == [EARLY]
+    assert stale.newest == date.min
+
+
+def test_a_word_on_an_entry_that_left_the_list_stays() -> None:
+    case = candidates_for(_record(), LIST, {"ушедший иван ильич|1975-03-03": SAME})
+
+    assert case is not None and case.identified is None
+    assert case.confirmed == "ушедший иван ильич|1975-03-03"
+    assert counts([case]) == {"open": 0, "found": 1, "all": 1}
+
+
+def test_a_birth_place_is_found_where_a_word_begins() -> None:
+    tomsk = _entry("ТОМСКИЙ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. ТОМСК")
+    omsk = _entry("ОМСКИЙ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. ОМСК ОМСКОЙ ОБЛАСТИ")
+    ufa = _entry("УФИМСКИЙ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. УФА")
+
+    def names(**place: str | None) -> list[str]:
+        case = candidates_for(_record(**place), RfList([tomsk, omsk, ufa]), {})
+        assert case is not None
+        return [item.entry.full_name for item in case.candidates]
+
+    assert names(region="Омская область", city="Омск") == ["ОМСКИЙ ИВАН ИЛЬИЧ"]
+    assert names(region="Башкортостан", city="Уфа") == ["УФИМСКИЙ ИВАН ИЛЬИЧ"]
+    assert names(region="", city=None) == []
 
 
 def test_the_newer_on_the_list_stands_above_among_equals() -> None:
@@ -147,10 +179,13 @@ def test_the_newer_on_the_list_stands_above_among_equals() -> None:
     # Included on the very day the case was opened: not before it.
     that_day = _entry("ДНЁВ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. РУБЦОВСК", OPENED)
 
-    case = candidates_for(_record(), RfList([off, old, none, that_day, new]), {})
+    # On the list before the case, though born in the city and of the exact age: last.
+    before = _entry("АРХИПОВ ИВАН ИЛЬИЧ", date(1975, 5, 5), "Г. РУБЦОВСК", date(2025, 6, 8))
+
+    case = candidates_for(_record(), RfList([before, off, old, none, that_day, new]), {}, shown=9)
 
     assert case is not None
-    assert [item.entry for item in case.candidates] == [new, old, that_day, none, off]
+    assert [item.entry for item in case.candidates] == [new, old, that_day, none, off, before]
 
 
 def test_names_ages_and_sexes_are_read() -> None:
@@ -258,6 +293,22 @@ def test_the_nameless_records_of_the_base_against_the_latest_snapshot(
         ("50-летний житель Рубцовска", ["БУДНИКОВ ЕВГЕНИЙ АНАТОЛЬЕВИЧ*"]),
     ]
     assert counts(cases) == {"open": 2, "found": 0, "all": 2}
+
+
+def test_a_confirmed_record_stays_though_no_entry_fits_now(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+
+    with session_factory.begin() as session:
+        # «20-летний житель Рубцовска»: nobody on the list is that age.
+        say(session, "rec6", "ушедший иван ильич|2005-03-03", SAME)
+    with session_factory() as session:
+        cases = nameless_cases(session)
+
+    assert counts(cases) == {"open": 2, "found": 1, "all": 3}
+    kept = next(case for case in cases if case.record.external_id == "rec6")
+    assert (kept.candidates, kept.confirmed) == ([], "ушедший иван ильич|2005-03-03")
 
 
 def test_a_word_is_kept_changed_and_taken_back(session_factory: sessionmaker[Session]) -> None:

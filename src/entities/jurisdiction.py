@@ -23,7 +23,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from entities.base_candidates import article_numbers
-from entities.unnamed import place_stems
+from entities.unnamed import place_pattern
 
 SHOWN = 3
 
@@ -61,16 +61,16 @@ class Jurisdiction:
         """Rows of region, city, articles, court, and the link to the case card."""
         self._sentences: list[_Sentence] = []
         sites: dict[str, Counter[str]] = defaultdict(Counter)
-        for region, city, articles, court, card_url in rows:
-            if court:
-                self._sentences.append(
-                    _Sentence(
-                        f"{region} {city}".lower(), frozenset(article_numbers(articles)), court
-                    )
-                )
+        for region, city, articles, cell, card_url in rows:
+            # A person tried twice has two courts in the cell: each passed a sentence.
+            courts = [" ".join(part.split()) for part in (cell or "").split(",") if part.strip()]
+            place = f"{region} {city}".lower()
+            numbers = frozenset(article_numbers(articles))
+            self._sentences.extend(_Sentence(place, numbers, court) for court in courts)
             site = _SITE.match(card_url or "")
-            if site and court:
-                sites[court][site[1]] += 1
+            # One link beside two courts is the site of one of them, and does not say which.
+            if site and len(courts) == 1:
+                sites[courts[0]][site[1]] += 1
         self._sites = {court: found.most_common(1)[0][0] for court, found in sites.items()}
 
     @classmethod
@@ -94,12 +94,12 @@ class Jurisdiction:
 
         Nothing for a place or an article the text does not give: every court of the
         country is no answer."""
-        stems = place_stems(place)
+        in_place = place_pattern(place)
         wanted = {str(article) for article in articles}
         found: Counter[str] = Counter(
             sentence.court
             for sentence in self._sentences
-            if wanted & sentence.articles and any(stem in sentence.place for stem in stems)
+            if in_place and wanted & sentence.articles and in_place.search(sentence.place)
         )
         ranked = sorted(found.items(), key=lambda item: (-item[1], item[0]))
         return CourtHints(

@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from entities.unnamed import DIFFERENT, SAME, SUPPLIED_NAME, place_stems
+from entities.unnamed import DIFFERENT, SAME, SUPPLIED_NAME, place_pattern
 
 SHOWN = 5
 KEY_PREFIX = "base:"
@@ -40,7 +40,7 @@ _PEOPLE = text(
     """
 )
 # «ст. 205.1 УК РФ ч. 1» → «205.1».
-_ARTICLE = re.compile(r"ст\.\s*(\d+(?:\.\d+)?)")
+_ARTICLE = re.compile(r"ст\.\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
 
 
 @dataclass
@@ -98,7 +98,7 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
             "initial": (figurant.initial or "").upper(),
         },
     ).all()
-    stems = place_stems(figurant.place)
+    in_place = place_pattern(figurant.place)
     wanted = {str(article) for article in figurant.articles or []}
     rejected = set(
         session.scalars(
@@ -109,17 +109,20 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
             {"key": figurant.key},
         )
     )
-    identified = session.scalar(
+    # «Это он» keeps the name and the birth date: the name alone is two namesakes of the
+    # base, or a name somebody typed by hand.
+    identified = session.execute(
         text(
-            "SELECT normalized_name FROM unnamed_identity_resolutions "
+            "SELECT normalized_name, rf_birth_date FROM unnamed_identity_resolutions "
             "WHERE figurant_key = :key AND resolution = :resolution"
         ),
         {"key": figurant.key, "resolution": SUPPLIED_NAME},
-    )
+    ).first()
+    confirmed = tuple(identified) if identified else None
     found: list[BaseCandidate] = []
     for row in rows:
         where = f"{row.region} {row.city}".lower()
-        if not any(stem in where for stem in stems):
+        if not (in_place and in_place.search(where)):
             continue
         shared = sorted(wanted & article_numbers(row.articles))
         place = ", ".join(part for part in (row.region, row.city) if part)
@@ -142,7 +145,11 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
                 age=row.age,
                 reasons=reasons,
                 article_match=bool(shared),
-                decision=SAME if identified == name else DIFFERENT if key in rejected else None,
+                decision=SAME
+                if confirmed == (name, row.birth_date)
+                else DIFFERENT
+                if key in rejected
+                else None,
             )
         )
     # Confirmed first, then the same article, then the exact age; the rejected last.

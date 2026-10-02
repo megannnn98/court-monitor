@@ -158,7 +158,13 @@ def test_a_person_s_word_orders_the_candidates(session_factory: sessionmaker[Ses
             base_candidate_key("иванова мария ивановна (іванова марія)", date(1999, 1, 1)),
             DIFFERENT,
         )
-        resolve_identity(session, "k" * 64, SUPPLIED_NAME, normalized_name="Абрамова Анна Олеговна")
+        resolve_identity(
+            session,
+            "k" * 64,
+            SUPPLIED_NAME,
+            normalized_name="Абрамова Анна Олеговна",
+            rf_birth_date=date(1998, 12, 1),
+        )
     with session_factory() as session:
         found = base_candidates(session, _figurant())
         two = base_candidates(session, _figurant(), shown=2)
@@ -171,7 +177,62 @@ def test_a_person_s_word_orders_the_candidates(session_factory: sessionmaker[Ses
     assert [item.name for item in two.shown] == ["Абрамова Анна Олеговна", "Белова Ольга Петровна"]
 
 
+def test_the_word_is_on_one_person_not_on_a_name(session_factory: sessionmaker[Session]) -> None:
+    with session_factory.begin() as session:
+        session.add_all(
+            [
+                _person("Иванова Мария Ивановна", date(1999, 1, 1)),
+                # A namesake, of the same age and place.
+                _person("Иванова Мария Ивановна", date(1998, 9, 9)),
+            ]
+        )
+        resolve_identity(
+            session,
+            "k" * 64,
+            SUPPLIED_NAME,
+            normalized_name="Иванова Мария Ивановна",
+            rf_birth_date=date(1998, 9, 9),
+        )
+    with session_factory() as session:
+        found = base_candidates(session, _figurant())
+    assert [(item.birth_date, item.decision) for item in found.shown] == [
+        (date(1998, 9, 9), SAME),
+        (date(1999, 1, 1), None),
+    ]
+
+    # A name typed by hand carries no birth date: it confirms nobody of the base.
+    with session_factory.begin() as session:
+        resolve_identity(session, "k" * 64, SUPPLIED_NAME, normalized_name="Иванова Мария Ивановна")
+    with session_factory() as session:
+        typed = base_candidates(session, _figurant())
+    assert [item.decision for item in typed.shown] == [None, None]
+
+
+def test_a_place_is_found_where_a_word_begins(session_factory: sessionmaker[Session]) -> None:
+    born = date(1999, 1, 1)
+    with session_factory.begin() as session:
+        session.add_all(
+            [
+                _person("Омская Анна Ильинична", born, region="Омская область", city="Омск"),
+                _person("Томская Анна Ильинична", born, region="Томская область", city="Томск"),
+                _person("Уфимская Анна Ильинична", born, region="Башкортостан", city="Уфа"),
+                _person("Подольская Анна Ильинична", born, region="Подмосковье", city="Подольск"),
+            ]
+        )
+
+    with session_factory() as session:
+        omsk = base_candidates(session, _figurant(place="Омск"))
+        ufa = base_candidates(session, _figurant(place="Уфа"))
+        # «под» is no place.
+        near = base_candidates(session, _figurant(place="под Омском"))
+
+    assert [item.name for item in omsk.shown] == ["Омская Анна Ильинична"]
+    assert [item.name for item in ufa.shown] == ["Уфимская Анна Ильинична"]
+    assert [item.name for item in near.shown] == ["Омская Анна Ильинична"]
+
+
 def test_article_numbers_are_read_from_the_base_s_cell() -> None:
+    assert article_numbers("Ст. 280 УК РФ") == {"280"}
     assert article_numbers("ст. 205.1 УК РФ ч. 1,ст. 30 УК РФ ч. 3, ст.275 УК РФ") == {
         "205.1",
         "30",
