@@ -172,11 +172,10 @@ class _Place:
         self._pattern = place_pattern(place)
 
     def within(self, text: str) -> bool:
-        return (
-            self._pattern is not None
-            and any(stem in text for stem in self._stems)
-            and self._pattern.search(text) is not None
-        )
+        for stem in self._stems:
+            if stem in text:
+                return self._pattern is not None and self._pattern.search(text) is not None
+        return False
 
 
 def candidates_for(
@@ -195,15 +194,19 @@ def candidates_for(
         return None
     city = _Place(record.city or "")
     region = _Place(record.region or "")
+    # Read once: the record is an ORM row, and the loop below runs over thousands of
+    # entries for each of hundreds of records.
+    gender = record.gender
     found: list[RfCandidate] = []
     for entry in rf_list.born_in(range(opened.year - age - 2, opened.year - age + 2)):
-        if record.gender and entry.gender not in (None, record.gender):
+        if gender and entry.gender not in (None, gender):
+            continue
+        # The place before the age: it turns away nearly everyone, and costs least.
+        city_match = city.within(entry.place)
+        if not city_match and not region.within(entry.place):
             continue
         entry_age = age_on(opened, entry.birth_date)
         if abs(entry_age - age) > 1:
-            continue
-        city_match = city.within(entry.place)
-        if not city_match and not region.within(entry.place):
             continue
         earlier = bool(entry.included_on and entry.included_on < opened)
         reasons = [
