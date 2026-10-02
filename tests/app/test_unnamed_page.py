@@ -336,3 +336,32 @@ def test_the_base_only_counts_where_the_place_does_not_fit(
 
     assert "Кандидаты из базы Airtable</caption>" not in page
     assert "В базе Airtable 1 человек этого возраста и пола; по месту из них никто" in page
+
+
+def test_a_card_says_where_the_article_is_tried_from_the_place(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        without = client.get("/ui/unnamed").text
+    with session_factory.begin() as session:
+        session.add(
+            AirtableKnownPersonRecord(
+                external_id="sentenced",
+                full_name="Осуждённый Пётр Ильич",
+                normalized_name="x",
+                matching_key="x",
+                region="Тюменская область",
+                articles="ст. 205 УК РФ ч. 1",
+                court="Центральный окружной военный суд",
+            )
+        )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/unnamed").text
+
+    assert "Где судят" not in without
+    assert (
+        "Где судят по этой статье из этого места (приговоры в базе Airtable, всего 1): "
+        "Центральный окружной военный суд — 1.</p>"
+    ) in page

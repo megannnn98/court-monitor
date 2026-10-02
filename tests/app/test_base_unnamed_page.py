@@ -49,6 +49,20 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
                 case_opened_on=date(2025, 6, 9),
             )
         )
+        # People of the base already sentenced under the article in the region.
+        for index, court in enumerate(["2-й Восточный <окружной> суд"] * 2 + ["Рубцовский суд"]):
+            session.add(
+                AirtableKnownPersonRecord(
+                    external_id=f"sentenced{index}",
+                    full_name=f"Осуждённый Номер {index}",
+                    normalized_name="x",
+                    matching_key="x",
+                    region="Алтайский край",
+                    articles="ст. 205.1 УК РФ ч. 1",
+                    court=court,
+                    court_card_url='https://2vovs.sudrf.test/card?"id"=1' if index == 0 else None,
+                )
+            )
         snapshot = RosfinmonitoringSnapshotRecord(
             snapshot_date=datetime(2026, 9, 1, tzinfo=UTC),
             source_url="https://fedsfm.test",
@@ -127,6 +141,11 @@ def test_a_card_shows_the_record_and_takes_a_word(session_factory: sessionmaker[
         "ст. 205.1 УК РФ ч. 1.1"
     ) in page
     assert "<td>09.10.1975</td><td>Г. РУБЦОВСК АЛТАЙСКОГО КРАЯ</td>" in page
+    assert (
+        "Где судят по этой статье из этого места (приговоры в базе Airtable, всего 3): "
+        '2-й Восточный &lt;окружной&gt; суд — 2 (<a href="https://2vovs.sudrf.test">сайт суда</a>); '
+        "Рубцовский суд — 1.</p>"
+    ) in page
     assert "включён в перечень 14.10.2025, после возбуждения дела" in page
     assert "Не разобраны (1)" in page and "Опознаны (0)" in page
     assert 'name="candidate" value="будников &lt;евгений&gt;|1975-10-09"' in page

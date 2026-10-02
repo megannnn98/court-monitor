@@ -17,9 +17,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from db.orm_models import AirtableKnownPersonRecord
+from entities.base_candidates import article_numbers
 from entities.base_unnamed import NamelessCase, counts, nameless_cases, say
+from entities.jurisdiction import Jurisdiction
 from entities.unnamed import DIFFERENT, SAME
 from web.dependencies import get_db
+from web.ui.court_hints import courts_html
 from web.ui.layout import _page, pager
 
 router = APIRouter()
@@ -57,7 +60,7 @@ def _word_form(
     )
 
 
-def _card(case: NamelessCase, back: str) -> str:
+def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
     record = case.record
     identified = case.identified
     status = (
@@ -110,6 +113,13 @@ def _card(case: NamelessCase, back: str) -> str:
   <p class="badges">{status}</p>
   <p class="quote">{escape(record.full_name)}</p>
   <p class="muted">{_facts(case)}</p>
+  {
+        courts_html(
+            courts.courts(
+                f"{record.region or ''} {record.city or ''}", article_numbers(record.articles or "")
+            )
+        )
+    }
   <table class="candidates"><caption>Кандидаты из перечня</caption>
 <thead><tr><th scope="col">ФИО</th><th scope="col">Дата рождения</th>
 <th scope="col">Место рождения</th><th scope="col">Почему подходит</th>
@@ -134,7 +144,10 @@ def ui_base_unnamed(
         or (status == "open" and case.identified is None and case.open)
     ]
     back = urlencode({"status": status, "page": page})
-    cards = "".join(_card(case, back) for case in chosen[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
+    courts = Jurisdiction.from_session(db)
+    cards = "".join(
+        _card(case, courts, back) for case in chosen[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+    )
     chips = " ".join(
         f'<a class="chip{" active" if key == status else ""}" '
         f'href="/ui/base-unnamed?{urlencode({"status": key})}">{label} ({totals[key]})</a>'

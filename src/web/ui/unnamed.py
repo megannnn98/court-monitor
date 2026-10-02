@@ -24,6 +24,7 @@ from db.orm_models import (
     UnnamedFigurantRecord,
 )
 from entities.base_candidates import BaseCandidates, base_candidates
+from entities.jurisdiction import CourtHints, Jurisdiction
 from entities.unnamed import (
     DIFFERENT,
     EVENT_LABELS,
@@ -42,6 +43,7 @@ from entities.unnamed import (
     resolve_identity,
 )
 from web.dependencies import get_db
+from web.ui.court_hints import courts_html
 from web.ui.layout import _page, pager
 
 router = APIRouter()
@@ -280,6 +282,7 @@ def _card(
     figurant: UnnamedFigurantRecord,
     found: Candidates,
     in_base: BaseCandidates,
+    courts: CourtHints,
     resolution: tuple[str, str | None, str | None, str | None, date | None, datetime | None] | None,
     people: list[EntityGroupRecord],
     back: str,
@@ -369,6 +372,7 @@ def _card(
   {note}
   {_candidates_html(figurant, found, back)}
   {_base_candidates_html(figurant, in_base, back)}
+  {courts_html(courts)}
   {person_form}
   {supplied_form}
   <p class="actions-cell">{no_rf}{insufficient}{clear}</p>
@@ -488,9 +492,16 @@ def ui_unnamed(
         else ""
     )
     back = urlencode({"status": status, "page": page, "person_q": person_q.strip()})
+    jurisdiction = Jurisdiction.from_session(db)
     cards = "".join(
         _card(
-            item, candidates(db, item), base_candidates(db, item), words.get(item.key), people, back
+            item,
+            candidates(db, item),
+            base_candidates(db, item),
+            jurisdiction.courts(item.place, item.articles),
+            words.get(item.key),
+            people,
+            back,
         )
         for item in on_page
     )
