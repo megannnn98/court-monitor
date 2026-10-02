@@ -34,7 +34,7 @@ _CLEAR = "clear"
 
 def _facts(case: NamelessCase) -> str:
     record = case.record
-    parts = [f"{case.age} лет"]
+    parts = [f"{case.age} лет"] if case.age is not None else []
     if record.gender:
         parts.append("мужчина" if record.gender == "male" else "женщина")
     place = ", ".join(part for part in (record.region, record.city) if part)
@@ -107,6 +107,25 @@ def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
             f"<td>{escape('; '.join(item.reasons))}</td>"
             f'<td class="actions-cell">{actions}</td></tr>'
         )
+    table = (
+        f"""<table class="candidates"><caption>Кандидаты из перечня</caption>
+<thead><tr><th scope="col">ФИО</th><th scope="col">Дата рождения</th>
+<th scope="col">Место рождения</th><th scope="col">Почему подходит</th>
+<th scope="col">Решение</th></tr></thead>
+<tbody>{"".join(rows)}</tbody></table>"""
+        if rows
+        else ""
+    )
+    # A confirmed entry that is not among the candidates has no row to take the word back in.
+    forget = (
+        '<p class="actions-cell">'
+        + _word_form(
+            record.external_id, case.confirmed, _CLEAR, "Отменить решение", "secondary", back
+        )
+        + "</p>"
+        if case.confirmed and identified is None
+        else ""
+    )
     more = (
         f'<p class="muted">Показаны {len(case.candidates)} из {case.total} подходящих записей '
         "перечня: сначала родившиеся в названном городе, затем точный возраст и самые новые.</p>"
@@ -124,11 +143,7 @@ def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
             )
         )
     }
-  <table class="candidates"><caption>Кандидаты из перечня</caption>
-<thead><tr><th scope="col">ФИО</th><th scope="col">Дата рождения</th>
-<th scope="col">Место рождения</th><th scope="col">Почему подходит</th>
-<th scope="col">Решение</th></tr></thead>
-<tbody>{"".join(rows)}</tbody></table>{more}
+  {table}{more}{forget}
 </article>"""
 
 

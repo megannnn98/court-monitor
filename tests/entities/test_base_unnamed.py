@@ -311,6 +311,32 @@ def test_a_confirmed_record_stays_though_no_entry_fits_now(
     assert (kept.candidates, kept.confirmed) == ([], "ушедший иван ильич|2005-03-03")
 
 
+def test_a_word_stays_on_a_record_that_can_no_longer_be_compared(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+
+    with session_factory.begin() as session:
+        # No age in the name; no day the case was opened.
+        say(session, "rec5", "будников|1975-10-09", SAME)
+        say(session, "rec4", "барнаулов|1975-10-09", SAME)
+        # Only rejected: no word to keep in sight.
+        say(session, "rec2", "кто-то|1975-10-09", DIFFERENT)
+        # Got a birth date: a named person now, nobody to identify.
+        say(session, "rec3", "рубцов|1975-01-01", SAME)
+    with session_factory() as session:
+        cases = nameless_cases(session)
+
+    assert [(case.record.full_name, case.age, case.confirmed) for case in cases] == [
+        ("34-летний уроженец Омска", 34, None),
+        ("50-летний житель Рубцовска", 50, None),
+        # Nothing fresh to look at: after the others, by name.
+        ("50-летний житель Барнаула", 50, "барнаулов|1975-10-09"),
+        ("Житель Рубцовска 3", None, "будников|1975-10-09"),
+    ]
+    assert counts(cases) == {"open": 2, "found": 2, "all": 4}
+
+
 def test_a_word_is_kept_changed_and_taken_back(session_factory: sessionmaker[Session]) -> None:
     _seed(session_factory)
     budnikov = "будников евгений анатольевич*|1975-10-09"

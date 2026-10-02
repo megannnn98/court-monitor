@@ -3,8 +3,9 @@
 The operator enters a case when the news of it comes, often without a name: «34-летний
 уроженец Крыма». Months later the person appears on the list, with a name, a birth date
 and a birth place. So each nameless record is put next to the entries of the list of that
-age on the day the case was opened, of that sex, born in that place, and included in the
-list no earlier than the case. The operator confirms: this is who to look at.
+age on the day the case was opened, of that sex and born in that place; those included in
+the list after the case was opened stand first. The operator confirms: this is who to look
+at.
 
 The other direction — a news item that names nobody, against the named people of the base
 — is `entities.base_candidates`.
@@ -24,7 +25,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from db.orm_models import AirtableKnownPersonRecord, UnnamedDecisionRecord
-from entities.unnamed import DIFFERENT, SAME, place_pattern
+from entities.unnamed import DIFFERENT, SAME, place_pattern, place_stems
 
 SHOWN = 5
 DECISIONS = frozenset({SAME, DIFFERENT})
@@ -118,7 +119,8 @@ class NamelessCase:
     """A nameless record of the base with the entries of the list it may be."""
 
     record: AirtableKnownPersonRecord
-    age: int
+    # None for a record confirmed earlier whose name no longer tells an age.
+    age: int | None
     candidates: list[RfCandidate]
     # How many fit in all; `candidates` are the first `SHOWN` of them.
     total: int
@@ -161,6 +163,22 @@ def nameless_records(session: Session) -> list[AirtableKnownPersonRecord]:
     return [row for row in rows if record_age(row.full_name) is not None]
 
 
+class _Place:
+    """A place to look for in thousands of birth places: the plain substring first, the
+    word boundary only where that found something."""
+
+    def __init__(self, place: str) -> None:
+        self._stems = place_stems(place)
+        self._pattern = place_pattern(place)
+
+    def within(self, text: str) -> bool:
+        return (
+            self._pattern is not None
+            and any(stem in text for stem in self._stems)
+            and self._pattern.search(text) is not None
+        )
+
+
 def candidates_for(
     record: Any, rf_list: RfList, words: dict[str, str], *, shown: int = SHOWN
 ) -> NamelessCase | None:
@@ -175,8 +193,8 @@ def candidates_for(
     opened: date | None = record.case_opened_on
     if age is None or opened is None:
         return None
-    in_city = place_pattern(record.city or "")
-    in_region = place_pattern(record.region or "")
+    city = _Place(record.city or "")
+    region = _Place(record.region or "")
     found: list[RfCandidate] = []
     for entry in rf_list.born_in(range(opened.year - age - 2, opened.year - age + 2)):
         if record.gender and entry.gender not in (None, record.gender):
@@ -184,8 +202,8 @@ def candidates_for(
         entry_age = age_on(opened, entry.birth_date)
         if abs(entry_age - age) > 1:
             continue
-        city_match = bool(in_city and in_city.search(entry.place))
-        if not city_match and not (in_region and in_region.search(entry.place)):
+        city_match = city.within(entry.place)
+        if not city_match and not region.within(entry.place):
             continue
         earlier = bool(entry.included_on and entry.included_on < opened)
         reasons = [
@@ -236,8 +254,32 @@ def nameless_cases(session: Session) -> list[NamelessCase]:
         if (case := candidates_for(record, rf_list, by_record[record.external_id])) is not None
         and (case.candidates or case.confirmed)
     ]
+    cases.extend(_confirmed_elsewhere(session, {row.external_id for row in records}))
     cases.sort(key=lambda case: (-case.newest.toordinal(), case.record.full_name))
     return cases
+
+
+def _confirmed_elsewhere(session: Session, compared: set[str]) -> list[NamelessCase]:
+    """The records a person identified that can no longer be compared with the list — the
+    age left the name, or the day the case was opened left the base — but still carry no
+    birth date: the word on them is shown, not lost. A record that got its birth date is
+    a named person now, and is nobody to identify."""
+    rows = session.execute(
+        select(AirtableKnownPersonRecord, UnnamedDecisionRecord.candidate)
+        .join(
+            UnnamedDecisionRecord,
+            UnnamedDecisionRecord.figurant_key == AirtableKnownPersonRecord.external_id,
+        )
+        .where(
+            UnnamedDecisionRecord.decision == SAME,
+            AirtableKnownPersonRecord.birth_date.is_(None),
+        )
+    ).all()
+    return [
+        NamelessCase(record, record_age(record.full_name), [], 0, candidate)
+        for record, candidate in rows
+        if record.external_id not in compared
+    ]
 
 
 def say(session: Session, record_id: str, candidate: str, decision: str | None) -> None:

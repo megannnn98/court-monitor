@@ -167,5 +167,35 @@ def test_a_card_shows_the_record_and_takes_a_word(session_factory: sessionmaker[
     assert "Опознаны (1)" in gone and "опознан: ушедший иван</span>" in gone
     assert "этой записи сейчас нет среди кандидатов из перечня" in gone
     assert "В этом разделе никого." in gone_open
+    # A confirmed candidate in the table has its own «Отменить»: no second button.
+    assert ">Отменить решение<" in gone and ">Отменить решение<" not in found
+
+
+def test_a_confirmed_record_without_candidates_has_no_empty_table(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        # The age leaves the name: nothing to compare with the list any more.
+        session.execute(
+            text(
+                "UPDATE airtable_known_persons SET full_name = 'Житель Рубцовска 3' "
+                "WHERE external_id = 'share:known:1'"
+            )
+        )
+
+    with _client(session_factory) as client:
+        unconfirmed = client.get("/ui/base-unnamed", params={"status": "all"}).text
+        assert _decide(client, "same") == 303
+        found = client.get("/ui/base-unnamed", params={"status": "found"}).text
+        assert _decide(client, "clear") == 303
+        cleared = client.get("/ui/base-unnamed", params={"status": "all"}).text
+
+    assert "Все (0)" in unconfirmed and "Все (0)" in cleared
+    assert "Опознаны (1)" in found and "Житель Рубцовска 3" in found
+    assert "опознан: будников &lt;евгений&gt;</span>" in found
+    assert '<table class="candidates">' not in found and "None" not in found
+    assert '<p class="muted">мужчина · Алтайский край, Рубцовск' in found
+    assert ">Отменить решение<" in found
     with session_factory() as session:
         assert session.execute(text("SELECT count(*) FROM unnamed_decisions")).scalar() == 0
