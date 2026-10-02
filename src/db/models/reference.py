@@ -5,9 +5,9 @@ is only the editing surface; PostgreSQL is what the pipeline reads, and the pipe
 never asks Airtable for anything.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Index, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.models.base import Base
@@ -34,6 +34,19 @@ class AirtableKnownPersonRecord(Base):
     normalized_name: Mapped[str] = mapped_column(String(512), nullable=False)
     matching_key: Mapped[str] = mapped_column(String(255), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # What the base says of the person beside the name (`airtable.person_details`): each
+    # is None where the base has nothing, or has something that is not read.
+    gender: Mapped[str | None] = mapped_column(String(16))
+    birth_date: Mapped[date | None] = mapped_column(Date)
+    region: Mapped[str | None] = mapped_column(Text)
+    city: Mapped[str | None] = mapped_column(Text)
+    articles: Mapped[str | None] = mapped_column(Text)
+    case_opened_on: Mapped[date | None] = mapped_column(Date)
+    sentenced_on: Mapped[date | None] = mapped_column(Date)
+    court: Mapped[str | None] = mapped_column(Text)
+    court_card_url: Mapped[str | None] = mapped_column(Text)
+    in_rfm: Mapped[bool | None] = mapped_column(Boolean)
+    rfm_included_on: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

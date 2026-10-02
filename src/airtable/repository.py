@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
+from airtable.person_details import details
 from airtable.replace import UntrustedExport, drop_vanished, removal_is_safe
 from db.orm_models import (
     AirtableKnownPersonRecord,
@@ -43,7 +44,6 @@ _NAME_FIELDS = (
     "Фамилия Имя",
     "Преследуемый",
 )
-_BIRTH_DATE_FIELDS = ("birth_date", "Birth date", "Дата рождения")
 # The `active` flag, under the names a hand-kept list actually gives it. Airtable's own
 # membership column is accepted too, so a list exported straight from a base that tracks
 # Rosfinmonitoring membership needs no renaming.
@@ -154,6 +154,7 @@ def sync_known_persons(
             "normalized_name": normalized,
             "matching_key": matching_key,
             "active": record.flag(*_ACTIVE_FIELDS, default=True),
+            **details(record),
         }
         row = existing.get(record.id)
         if row is None:
