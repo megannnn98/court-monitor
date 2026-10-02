@@ -498,7 +498,7 @@ def candidate_key(normalized_name: str, birth_date: date) -> str:
     return f"{normalized_name}|{birth_date.isoformat()}"
 
 
-def _stems(place: str) -> list[str]:
+def place_stems(place: str) -> list[str]:
     """«Тюмень» → «тюме»: enough of each word of the place to find it declined in the
     list's «Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ»; the kind of place is no evidence."""
     generic = {"область", "край", "республика", "город", "округ", "район", "автономный"}
@@ -555,7 +555,7 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
             "initial": (figurant.initial or "").upper(),
         },
     ).all()
-    stems = _stems(figurant.place)
+    stems = place_stems(figurant.place)
     rejected = {
         candidate: decision
         for candidate, decision in session.execute(

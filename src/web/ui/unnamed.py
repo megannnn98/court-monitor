@@ -23,6 +23,7 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
 )
+from entities.base_candidates import BaseCandidates, base_candidates
 from entities.unnamed import (
     DIFFERENT,
     EVENT_LABELS,
@@ -229,9 +230,56 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
 <tbody>{"".join(rows)}</tbody></table>{more}"""
 
 
+def _base_candidates_html(figurant: UnnamedFigurantRecord, found: BaseCandidates, back: str) -> str:
+    """The people of the operator's own base the figurant may be; nothing where the base
+    has nobody of that age and sex, a count where the text names no place to narrow by."""
+    if not found.shown:
+        if not found.total:
+            return ""
+        return (
+            f'<p class="muted">В базе Airtable {found.total} человек этого возраста и пола; '
+            "по месту из них никто не подошёл.</p>"
+        )
+    rows = []
+    for item in found.shown:
+        verdict = (
+            ' <span class="badge succeeded">это он</span>'
+            if item.decision == SAME
+            else ' <span class="badge">не он</span>'
+            if item.decision == DIFFERENT
+            else ""
+        )
+        actions = (
+            _post_form(
+                "/ui/unnamed/resolve",
+                figurant.key,
+                "Это он",
+                "",
+                back,
+                {"resolution": SUPPLIED_NAME, "normalized_name": item.name},
+            )
+            if item.decision != SAME
+            else ""
+        ) + (_reject_form(figurant.key, item.key, back) if item.decision != DIFFERENT else "")
+        rows.append(
+            f'<tr><th scope="row">{escape(item.name)}{verdict}</th>'
+            f"<td>{item.birth_date:%d.%m.%Y}</td>"
+            f"<td>{escape(', '.join(part for part in (item.region, item.city) if part))}</td>"
+            f"<td>{escape(item.articles)}</td>"
+            f"<td>{escape('; '.join(item.reasons))}</td>"
+            f'<td class="actions-cell">{actions}</td></tr>'
+        )
+    return f"""<table class="candidates"><caption>Кандидаты из базы Airtable</caption>
+<thead><tr><th scope="col">ФИО</th><th scope="col">Дата рождения</th>
+<th scope="col">Регион, город</th><th scope="col">Статьи в базе</th>
+<th scope="col">Почему подходит</th><th scope="col">Решение</th></tr></thead>
+<tbody>{"".join(rows)}</tbody></table>"""
+
+
 def _card(
     figurant: UnnamedFigurantRecord,
     found: Candidates,
+    in_base: BaseCandidates,
     resolution: tuple[str, str | None, str | None, str | None, date | None, datetime | None] | None,
     people: list[EntityGroupRecord],
     back: str,
@@ -320,6 +368,7 @@ def _card(
   <p class="muted">Модель: {escape(figurant.explanation)}</p>
   {note}
   {_candidates_html(figurant, found, back)}
+  {_base_candidates_html(figurant, in_base, back)}
   {person_form}
   {supplied_form}
   <p class="actions-cell">{no_rf}{insufficient}{clear}</p>
@@ -440,7 +489,10 @@ def ui_unnamed(
     )
     back = urlencode({"status": status, "page": page, "person_q": person_q.strip()})
     cards = "".join(
-        _card(item, candidates(db, item), words.get(item.key), people, back) for item in on_page
+        _card(
+            item, candidates(db, item), base_candidates(db, item), words.get(item.key), people, back
+        )
+        for item in on_page
     )
     chips = " ".join(
         f'<a class="chip{" active" if key == status else ""}" '
@@ -477,6 +529,9 @@ def ui_unnamed(
 событие бывает раньше новости), того пола и буквы фамилии; сначала — родившиеся в названном
 месте. Место рождения — не всегда место жительства; даты включения в перечень у нас есть
 только с первого сохранённого снимка.</p>
+<p class="muted">Ниже в карточке — люди из базы Airtable, которыми может быть безымянный: того
+возраста на дату новости и пола, из названного места (регион или город в базе); сначала — с той
+же статьёй. «Это он» создаёт человека с именем из базы.</p>
 <p class="muted">Опознанный человек попадёт в результат после следующих шагов 3–5.</p>
 {cards or empty}
 {pager("/ui/unnamed", {"status": status, "person_q": person_q.strip(), "rf_q": rf_q.strip(), "rf_key": rf_key}, page, pages)}"""

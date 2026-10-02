@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
+    AirtableKnownPersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
@@ -251,3 +252,87 @@ def test_the_overview_counts_the_candidates_worth_looking_at() -> None:
     assert _found(Candidates([], 0, None), age_told=False) == (
         "возраст не назван — искать в перечне не по чему"
     )
+
+
+def _seed_base(session_factory: sessionmaker[Session]) -> None:
+    with session_factory.begin() as session:
+        session.add(
+            AirtableKnownPersonRecord(
+                external_id="rec1",
+                full_name="Тюменцев <Иван> Ильич",
+                normalized_name="тюменцев иван ильич",
+                matching_key="тюменцевиванильич",
+                gender="male",
+                birth_date=datetime(2007, 5, 1, tzinfo=UTC).date(),
+                region="Тюменская область",
+                city="Тюмень",
+                articles="ст. 205 УК РФ ч. 1",
+            )
+        )
+
+
+def test_a_card_shows_the_people_of_the_base_and_takes_a_word_on_them(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        without = client.get("/ui/unnamed").text
+        _seed_base(session_factory)
+        page = client.get("/ui/unnamed").text
+        rejected = client.post(
+            "/ui/unnamed/reject",
+            data={
+                "figurant": "k" * 64,
+                "candidate": "base:тюменцев иван ильич|2007-05-01",
+                "back": "status=open&page=1",
+            },
+            follow_redirects=False,
+        )
+        after_reject = client.get("/ui/unnamed").text
+        same = client.post(
+            "/ui/unnamed/resolve",
+            data={
+                "figurant": "k" * 64,
+                "resolution": "supplied_name",
+                "normalized_name": "Тюменцев <Иван> Ильич",
+                "back": "status=open&page=1",
+            },
+            follow_redirects=False,
+        )
+        found = client.get("/ui/unnamed", params={"status": "found"}).text
+
+    assert "Кандидаты из базы Airtable</caption>" not in without
+    assert "В базе Airtable" not in without.split("</article>")[0].split("<article")[1]
+    assert "Кандидаты из базы Airtable</caption>" in page
+    # The base is a person's typing: escaped like everything else.
+    assert "Тюменцев &lt;Иван&gt; Ильич</th>" in page and "<Иван>" not in page
+    assert (
+        "<td>01.05.2007</td><td>Тюменская область, Тюмень</td><td>ст. 205 УК РФ ч. 1</td>" in page
+    )
+    assert "17 лет на 25.11.2024; место: Тюменская область, Тюмень; та же статья: 205" in page
+    assert (
+        'name="resolution" value="supplied_name"><input type="hidden" name="normalized_name" '
+        'value="Тюменцев &lt;Иван&gt; Ильич"'
+    ) in page
+    assert 'name="candidate" value="base:тюменцев иван ильич|2007-05-01"' in page
+    assert rejected.status_code == 303
+    assert 'Ильич <span class="badge">не он</span></th>' in after_reject
+    assert same.status_code == 303
+    assert "опознан: Тюменцев &lt;Иван&gt; Ильич" in found
+    assert 'Ильич <span class="badge succeeded">это он</span></th>' in found
+
+
+def test_the_base_only_counts_where_the_place_does_not_fit(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _seed_base(session_factory)
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE airtable_known_persons SET region = 'Омск', city = NULL"))
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/unnamed").text
+
+    assert "Кандидаты из базы Airtable</caption>" not in page
+    assert "В базе Airtable 1 человек этого возраста и пола; по месту из них никто" in page
