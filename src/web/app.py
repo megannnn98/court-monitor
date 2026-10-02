@@ -28,6 +28,7 @@ from web.routers import (
 )
 from web.ui import about as ui_about
 from web.ui import airtable as ui_airtable
+from web.ui import base_unnamed as ui_base_unnamed
 from web.ui import candidates as ui_candidates
 from web.ui import cycle as ui_cycle
 from web.ui import disputes as ui_disputes
@@ -102,6 +103,7 @@ for module in (
     ui_queue,
     ui_publications,
     ui_unnamed,
+    ui_base_unnamed,
     ui_junk_holds,
     ui_political,
     ui_rfm_list,

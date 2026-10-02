@@ -518,7 +518,8 @@ def ui_unnamed(
     placeholder="Имя из перечня РФМ">
   <button type="submit" class="secondary">Найти в РФМ</button>
 </form>"""
-    body = f"""<p><a href="/ui/cycle">Назад к циклу</a></p>
+    body = f"""<p><a href="/ui/cycle">Назад к циклу</a> · <a href="/ui/base-unnamed">Без имени
+в базе Airtable: кандидаты из перечня</a></p>
 <p class="chips">{chips}</p>
 {search}
 {rf_search}

@@ -150,6 +150,7 @@ _ACTIVE_ALIASES = {
     "roles": "cycle",
     "politics-review": "cycle",
     "unnamed": "cycle",
+    "base_unnamed": "cycle",
     "overview": "cycle",
 }
 

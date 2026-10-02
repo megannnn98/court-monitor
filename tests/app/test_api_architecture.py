@@ -47,6 +47,9 @@ ROUTES_AFTER_SPLIT = [
     "POST /ui/political/done",
     # «Мусор» for every held article of one story at once.
     "POST /ui/junk-holds/junk-all",
+    # The nameless records of the operator's base against the list.
+    "GET /ui/base-unnamed",
+    "POST /ui/base-unnamed/decide",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.
