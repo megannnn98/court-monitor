@@ -4,7 +4,8 @@ what evidence, why political, whether on the Rosfinmonitoring list, who and what
 Nothing here decides: it reads what the steps wrote (the entity, its role, its verdict,
 its Rosfinmonitoring matches, the events it is the target of, the charges) and shows
 each conclusion beside its evidence. A fixed number of queries per page, whatever the
-person's size: the timeline, the publications and the graph are capped.
+person's size: the timeline and the publications are capped. The graph of events is
+not built here: the page's script reads it from `web.investigation_graph`.
 
 The dates: an extracted event carries the date of its publication (or none, when its
 text names another year); no event date is invented, and the page says so.
@@ -13,8 +14,7 @@ text names another year); no event date is invented, and the page says so.
 from __future__ import annotations
 
 import hashlib
-import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from html import escape
@@ -83,7 +83,6 @@ _GRAPH_FILTERS = (
 TIMELINE_LIMIT = 200
 PUBLICATION_LIMIT = 30
 RELATED_LIMIT = 30
-GRAPH_LIMIT = 18
 QUOTE_CONTEXT = 160
 
 _VERDICT_BADGES = {POLITICAL: "succeeded", CRIMINAL: "", "unclear": "pending"}
@@ -278,14 +277,6 @@ class Publication:
 
 
 @dataclass
-class Node:
-    kind: str
-    label: str
-    href: str
-    relation: str
-
-
-@dataclass
 class Dossier:
     entity: Any
     rf: list[Any]
@@ -293,7 +284,6 @@ class Dossier:
     timeline: list[TimelineItem]
     events_capped: bool
     charges: dict[str, dict[str, Any]]
-    orgs: Counter[tuple[str, str]]
     publications: list[Publication]
     related: list[tuple[str, str, int]]
     verdict_source: int | None
@@ -378,10 +368,6 @@ def load(db: Session, key: str) -> Dossier | None:
                     row.end_offset,
                 )
             )
-    orgs: Counter[tuple[str, str]] = Counter(
-        org for orgs_of in orgs_by_event.values() for org in orgs_of
-    )
-
     publications = [
         Publication(
             row.id,
@@ -452,7 +438,6 @@ def load(db: Session, key: str) -> Dossier | None:
         ),
         events_capped=events_capped,
         charges=charges,
-        orgs=orgs,
         publications=publications,
         related=related,
         verdict_source=verdict_source,
@@ -733,154 +718,20 @@ def _timeline(dossier: Dossier) -> str:
 </section>"""
 
 
-# Nodes of each kind at most: one kind must not crowd the others out of the graph.
-_GRAPH_SHARES = {"article": 5, "person": 6, "org": 4, "publication": 3, "event": 3}
-
-
-def graph_nodes(dossier: Dossier) -> tuple[list[Node], int]:
-    """The most telling connections, at most `GRAPH_LIMIT`, a share of each kind: the
-    articles, the people, the courts and bodies, the publications, the events. Only
-    what the data states — shared publications, events and their charges; no
-    similarity. Also how many there are in all: the rest is in the page's sections."""
-    articles = [
-        Node(
-            "article",
-            f"ст. {article}",
-            f"/ui/entities?{urlencode({'article': article, 'figurants': 'all', 'rf': 'all'})}",
-            "обвинение по статье",
-        )
-        for article in sorted(dossier.charges, key=article_order)
-    ]
-    people = [
-        Node(
-            "person",
-            display_name(name),
-            f"/ui/investigations/{quote(key)}",
-            f"общих публикаций: {shared}",
-        )
-        for key, name, shared in dossier.related
-    ]
-    orgs = [
-        Node(
-            "org",
-            name,
-            f"/ui/publications?{urlencode({'q': name})}",
-            f"{_ORG_ROLES.get(role, role)} в событиях: {count}",
-        )
-        for (role, name), count in dossier.orgs.most_common()
-    ]
-    publications = [
-        Node(
-            "publication",
-            publication.title,
-            f"/ui/articles/{publication.article_id}",
-            "упомянут в публикации",
-        )
-        for publication in dossier.publications
-    ]
-    events = [
-        Node(
-            "event",
-            _EVENT_LABELS.get(event_type, event_type),
-            "#timeline",
-            f"участник события: {count}",
-        )
-        for event_type, count in Counter(item.event_type for item in dossier.timeline).most_common()
-    ]
-    kinds = {
-        "article": articles,
-        "person": people,
-        "org": orgs,
-        "publication": publications,
-        "event": events,
-    }
-    shown = [node for kind, nodes in kinds.items() for node in nodes[: _GRAPH_SHARES[kind]]]
-    return shown[:GRAPH_LIMIT], sum(len(nodes) for nodes in kinds.values())
-
-
-_NODE_KINDS = {
-    "person": "человек",
-    "article": "статья УК",
-    "org": "суд или орган",
-    "publication": "публикация",
-    "event": "событие",
-}
-
-
-def _short(label: str, size: int = 22) -> str:
-    return label if len(label) <= size else label[: size - 1] + "…"
-
-
-def _graph(dossier: Dossier) -> str:
-    nodes, total = graph_nodes(dossier)
-    name = display_name(dossier.entity.name)
-    # An ellipse: the labels at the sides have room, the top and bottom ones less.
-    width, height, rx, ry = 820, 440, 235, 170
-    cx, cy = width / 2, height / 2
-    shapes = []
-    for index, node in enumerate(nodes):
-        angle = 2 * math.pi * index / max(len(nodes), 1) - math.pi / 2
-        x, y = cx + rx * math.cos(angle), cy + ry * math.sin(angle)
-        anchor = "start" if math.cos(angle) > 0.2 else "end" if math.cos(angle) < -0.2 else "middle"
-        dx = 12 if anchor == "start" else -12 if anchor == "end" else 0
-        dy = 4 if anchor != "middle" else (-12 if math.sin(angle) < 0 else 20)
-        shapes.append(
-            f'<line x1="{cx:.0f}" y1="{cy:.0f}" x2="{x:.0f}" y2="{y:.0f}" class="edge edge-{node.kind}">'
-            f"<title>{escape(node.relation)}</title></line>"
-        )
-        shapes.append(
-            f'<a href="{escape(node.href, quote=True)}" aria-label="{escape(_NODE_KINDS[node.kind])}: '
-            f'{escape(node.label, quote=True)} — {escape(node.relation, quote=True)}">'
-            f'<circle cx="{x:.0f}" cy="{y:.0f}" r="8" class="node node-{node.kind}"/>'
-            f'<text x="{x + dx:.0f}" y="{y + dy:.0f}" text-anchor="{anchor}">{escape(_short(node.label))}</text>'
-            f"<title>{escape(node.label)} — {escape(node.relation)}</title></a>"
-        )
-    svg = (
-        f'<svg class="graph" viewBox="0 0 {width} {height}" role="img" '
-        f'aria-label="Граф связей: {escape(name, quote=True)} и {len(nodes)} связанных узлов">'
-        f"{''.join(shapes)}"
-        f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="14" class="node node-center"/>'
-        f'<text x="{cx:.0f}" y="{cy + 32:.0f}" text-anchor="middle" class="center-label">'
-        f"{escape(_short(name, 28))}</text></svg>"
-    )
-    legend = "".join(
-        f'<span class="legend-item"><i class="swatch node-{kind}"></i>{label}</span>'
-        for kind, label in _NODE_KINDS.items()
-    )
+def _related(dossier: Dossier) -> str:
+    """The people of the same publications, as a table: what «Совместные упоминания» draws,
+    readable without the script. A count of shared publications — not a connection."""
+    if not dossier.related:
+        return ""
     rows = "".join(
-        f"<tr><td>{escape(_NODE_KINDS[node.kind])}</td>"
-        f'<td><a href="{escape(node.href, quote=True)}">{escape(node.label)}</a></td>'
-        f"<td>{escape(node.relation)}</td></tr>"
-        for node in nodes
-    )
-    people = "".join(
         f'<tr><td><a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a></td>'
         f'<td class="num">{shared}</td></tr>'
         for key, name, shared in dossier.related
     )
-    more = (
-        f"""<details><summary>Показать все связанные люди ({len(dossier.related)})</summary>
-  <table><caption>Люди из тех же публикаций</caption>
+    return f"""<details id="links"><summary>Люди из тех же публикаций ({len(dossier.related)})</summary>
+  <table><caption>Совместные упоминания: счёт общих публикаций, не установленная связь</caption>
   <thead><tr><th scope="col">Человек</th><th scope="col">Общих публикаций</th></tr></thead>
-  <tbody>{people}</tbody></table></details>"""
-        if dossier.related
-        else ""
-    )
-    if not nodes:
-        return """<section class="band" id="links" aria-labelledby="links-title">
-  <h2 id="links-title">Связи</h2>
-  <p class="empty">Связей нет: ни статей УК, ни других людей в тех же публикациях.</p>
-</section>"""
-    return f"""<section class="band" id="links" aria-labelledby="links-title">
-  <h2 id="links-title">Связи</h2>
-  <p class="muted">Только подтверждённые данными связи: общие публикации, события и их статьи УК.
-  Показано {len(nodes)} из {total}.</p>
-  <div class="graph-wrap">{svg}<p class="legend">{legend}</p></div>
-  <table class="links-table"><caption>Связи списком</caption>
-  <thead><tr><th scope="col">Тип</th><th scope="col">Узел</th><th scope="col">Связь</th></tr></thead>
-  <tbody>{rows}</tbody></table>
-  {more}
-</section>"""
+  <tbody>{rows}</tbody></table></details>"""
 
 
 def _event_graph(dossier: Dossier) -> str:
@@ -915,6 +766,7 @@ def _event_graph(dossier: Dossier) -> str:
     ⬢ статья · сплошная линия — из текста публикации · пунктир — совместное упоминание ·
     пунктирная рамка — узел ещё не раскрыт (двойное нажатие или кнопка в панели)</p>
   </div>
+  {_related(dossier)}
   {_GRAPH_SCRIPT_TAGS}
 </section>"""
 
@@ -1003,9 +855,7 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
 {_timeline(dossier)}
 {_evidence(dossier)}
 {_event_graph(dossier)}
-<details class="graph-details" id="links"><summary>Граф связей</summary>
-{_graph(dossier)}
-</details>"""
+"""
     return _page(
         display_name(dossier.entity.name),
         body,

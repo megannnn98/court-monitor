@@ -304,6 +304,29 @@ def test_a_person_opens_into_their_events_and_an_administrative_article_is_no_cr
     ] == ("ст. 20.2 КоАП РФ")
 
 
+def test_the_role_is_the_one_the_extraction_gave(session_factory: sessionmaker[Session]) -> None:
+    """Only `target` is written today; another role is shown as it is, from either end."""
+    ids = _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE event_entity_mentions SET role = 'witness' WHERE event_id = :event "
+                "AND mention_id IN (SELECT mention_id FROM entity_group_mentions WHERE group_id = :group)"
+            ),
+            {"event": ids["detention"], "group": ids[PETROV]},
+        )
+    petrov, detention = f"person:{ids[PETROV]}", f"event:{ids['detention']}"
+
+    with session_factory() as session:
+        person = expand(session, petrov)
+        event = expand(session, detention)
+
+    assert (petrov, detention, "witness") in _edges(person)
+    assert (petrov, detention, "witness") in _edges(event)
+    assert (f"person:{ids[IVANOV]}", detention, "target") in _edges(event)
+    assert _by_id(person["edges"])[f"{petrov}>{detention}:witness"]["label"] == "witness"
+
+
 def test_opening_twice_gives_the_same_ids(session_factory: sessionmaker[Session]) -> None:
     ids = _seed(session_factory)
 

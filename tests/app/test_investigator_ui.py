@@ -25,7 +25,6 @@ from entities.collector import EntityCollector
 from operator_console import OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
-from web.ui.dossier import GRAPH_LIMIT, graph_nodes, load
 
 MOOR = "александр моор"
 ARREST = "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ."
@@ -257,9 +256,9 @@ def test_a_dossier_opens_and_an_unknown_person_is_not_found(
 
     assert page.status_code == 200
     assert "<title>Моор Александр</title>" in page.text
-    for section in ("Решение системы", "Статьи УК", "Хронология", "Связи", "Доказательства"):
+    for section in ("Решение системы", "Статьи УК", "Хронология", "Граф событий", "Доказательства"):
         assert section in page.text
-    assert '<details class="graph-details" id="links"><summary>Граф связей</summary>' in page.text
+    assert '<section class="band" id="graph" aria-labelledby="graph-title">' in page.text
     assert "<dt>Публикаций</dt><dd>3 · упоминаний: 3</dd>" in page.text
     assert "<dt>Первая публикация</dt><dd>01.09.2026</dd>" in page.text
     assert missing.status_code == 404
@@ -466,28 +465,24 @@ def test_the_dossier_holds_the_place_of_the_event_graph(
     assert "Ленинский суд" not in section and "Моор" not in section.split("aria-label")[0]
 
 
-def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(
+def test_the_people_of_the_same_publications_are_a_count_not_a_connection(
     session_factory: sessionmaker[Session],
 ) -> None:
     _case(session_factory, extra=25)
 
     with _client(session_factory) as client:
         page = client.get(f"/ui/investigations/{quote(MOOR)}").text
-    with session_factory() as session:
-        dossier = load(session, MOOR)
-    assert dossier is not None
-    nodes, total = graph_nodes(dossier)
 
-    links = page[page.index('<details class="graph-details"') :]
-    # A court of an event, an article of a charge, a person of a shared publication.
-    assert "Ленинский суд" in links and "ст. 205.2" in links and "Иванов Иван" in links
-    # Every kind has its share; together no more than the limit.
-    assert len(nodes) <= GRAPH_LIMIT < total
-    assert {node.kind for node in nodes} == {"article", "person", "org", "publication", "event"}
-    assert links.count('class="node node-') == len(nodes) + 1  # and the person
-    assert f"Показано {len(nodes)} из {total}." in links
-    # The rest is in the table, all of it.
-    assert "Показать все связанные люди (26)" in links
+    table = page[page.index('<details id="links">') :]
+    table = table[: table.index("</details>")]
+    # Everyone of a shared publication, readable without the script — and named for what
+    # it is.
+    assert "<summary>Люди из тех же публикаций (26)</summary>" in table
+    assert "Совместные упоминания: счёт общих публикаций, не установленная связь" in table
+    assert table.count("<tr><td><a href=") == 26 and "Иванов Иван" in table
+    # The old drawing is gone: no person is joined to a person, a court or an article here.
+    assert "<svg" not in page[page.index('id="graph"') :]
+    assert "Ленинский суд" not in table and "ст. 205.2" not in table
 
 
 def _statements(session_factory: sessionmaker[Session], path: str) -> int:

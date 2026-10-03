@@ -136,17 +136,19 @@ _EVENT_JOINS = """
     JOIN sources s ON s.id = d.source_id
 """
 _PERSON = "SELECT id, key, name FROM entity_groups WHERE {column} = :value"
-# The events a person is named in, the latest first, with how many there are in all.
+# The events a person is named in — in the role the extraction gave them there — the
+# latest first, with how many there are in all.
 _PERSON_EVENTS = text(
     f"""
-    SELECT {_EVENT_COLUMNS}, count(*) OVER () AS total
+    SELECT {_EVENT_COLUMNS}, mine.role, count(*) OVER () AS total
     {_EVENT_JOINS}
-    WHERE e.id IN (
-        SELECT em.event_id
+    JOIN (
+        SELECT em.event_id, min(em.role) AS role
         FROM entity_group_mentions gm
-        JOIN event_entity_mentions em ON em.mention_id = gm.mention_id AND em.role = 'target'
+        JOIN event_entity_mentions em ON em.mention_id = gm.mention_id
         WHERE gm.group_id = :group
-    )
+        GROUP BY em.event_id
+    ) mine ON mine.event_id = e.id
     ORDER BY coalesce(e.event_date, a.published_at) DESC NULLS LAST, e.id DESC
     LIMIT :limit
     """
@@ -220,7 +222,9 @@ def _span_href(row: Any) -> str:
 def _events_of(db: Session, graph: Graph, person_id: str, group: int, limit: int) -> None:
     rows = db.execute(_PERSON_EVENTS, {"group": group, "limit": limit}).all()
     for row in rows:
-        graph.edge(person_id, _event_node(graph, row), "target", _ROLE_LABELS["target"])
+        graph.edge(
+            person_id, _event_node(graph, row), row.role, _ROLE_LABELS.get(row.role, row.role)
+        )
     if rows:
         graph.cut(person_id, EVENT, rows[0].total - len(rows))
 

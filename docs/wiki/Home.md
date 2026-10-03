@@ -38,6 +38,7 @@ Status](Implementation-Status.md).
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
 - [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: рабочий цикл, «Результат», обзор, досье, отдельные проверки и журнал запусков
 - [Pipeline](Pipeline.md) — пять шагов от публикации до «Результата», модель и расходы, старый путь через Person
+- [Investigation Graph](Investigation-Graph.md) — граф событий в досье: человек, события, а через них публикации, суды, статьи и другие люди
 - [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
 - [Junk Screen](Junk-Screen.md) — отсев мусора с проверкой: статьи, где извлечение пропустило дело, удерживаются, а не удаляются
 - [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности

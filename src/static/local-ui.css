@@ -1401,21 +1401,6 @@ ul.warnings {
   color: var(--warning);
 }
 
-.graph-details {
-  margin: 0 0 16px;
-}
-
-.graph-details summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.graph-details[open] summary {
-  margin-bottom: 10px;
-  color: var(--text);
-}
-
 ol.timeline {
   margin: 0;
   padding: 0;
@@ -1468,70 +1453,6 @@ p.quote {
   font-size: 12px;
 }
 
-.graph-wrap {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-subtle);
-}
-
-svg.graph {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-svg.graph .edge {
-  stroke: var(--border-strong);
-  stroke-width: 1.2;
-}
-
-svg.graph text {
-  fill: var(--text);
-  font-size: 11px;
-}
-
-svg.graph .center-label {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-svg.graph a:focus-visible circle,
-svg.graph a:hover circle {
-  stroke: var(--focus);
-  stroke-width: 3;
-}
-
-.node-center {
-  fill: var(--node-person);
-  stroke: var(--surface);
-  stroke-width: 3;
-}
-
-.node-person {
-  fill: var(--node-person);
-  background: var(--node-person);
-}
-
-.node-article {
-  fill: var(--node-article);
-  background: var(--node-article);
-}
-
-.node-org {
-  fill: var(--node-org);
-  background: var(--node-org);
-}
-
-.node-publication {
-  fill: var(--node-publication);
-  background: var(--node-publication);
-}
-
-.node-event {
-  fill: var(--node-event);
-  background: var(--node-event);
-}
-
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -1539,19 +1460,6 @@ svg.graph a:hover circle {
   margin: 0;
   padding: 6px 10px;
   font-size: 12px;
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
 }
 
 /* The interactive graph of a dossier (`investigation-graph.js`). */
@@ -1694,11 +1602,6 @@ article.evidence p {
 }
 
 @media (max-width: 600px) {
-  /* The phone: the list of links stays; the canvas is too small to read. */
-  .graph-wrap svg.graph {
-    display: none;
-  }
-
   .timeline-item {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;

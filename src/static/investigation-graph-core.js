@@ -140,9 +140,7 @@
   // Only an address inside the console is a link: a label, a title and a name come from
   // scraped text, and an address made of them must not leave the site or run a script.
   function safeHref(href) {
-    return typeof href === "string" && /^\/ui\/[^\s]*$/.test(href) && href.indexOf("//") === -1
-      ? href
-      : null;
+    return typeof href === "string" && /^\/ui\/[^\s]*$/.test(href) ? href : null;
   }
 
   function formatDate(iso) {
@@ -212,9 +210,6 @@
 
   function neighbours(state, id, type) {
     return edgesOf(state, id)
-      .filter(function (edge) {
-        return edge.type !== COOCCURRENCE;
-      })
       .map(function (edge) {
         return state.nodes.get(edge.from === id ? edge.to : edge.from);
       })
