@@ -966,9 +966,23 @@ pre.log {
   font-size: 11px;
 }
 
-.pipeline-current {
+/* The button of the cycle and the words beside it: on one line, apart, the words centred
+   on the button; on a narrow screen the words go under it. */
+.pipeline-current,
+.pipeline-all {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-start;
+  gap: 6px 12px;
+}
+
+.pipeline-current {
+  margin-top: 12px;
+}
+
+.pipeline-all {
+  margin: 0 0 10px;
 }
 
 @media (max-width: 640px) {
