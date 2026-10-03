@@ -25,7 +25,8 @@ from sqlalchemy.orm import Session
 from entities.unnamed import DIFFERENT, EXISTING_PERSON, SAME, place_stems
 
 SHOWN = 5
-# The same news comes out over a few days: a court's release, then the agencies.
+# The same news comes out over a few days: a court's release, then the agencies. Whole
+# days of the calendar, either way.
 WINDOW = timedelta(days=3)
 # How far from the name the age may stand: «…Иванова, 53 года, осуждена…».
 AGE_CONTEXT = 160
@@ -54,7 +55,7 @@ _NAMED = text(
       AND EXISTS (
           SELECT 1 FROM event_entity_mentions em
           JOIN extracted_events e ON e.id = em.event_id
-          WHERE em.mention_id = m.id AND (:event = '' OR e.event_type = :event)
+          WHERE em.mention_id = m.id AND (:any_event OR e.event_type = ANY(:events))
       )
     ORDER BY a.published_at, a.id, m.start_offset
     """
@@ -67,8 +68,14 @@ _CHARGES = text(
     WHERE g.key = ANY(:keys) AND c.publication_id = ANY(:publications)
     """
 )
-# The events a publication is searched by; «other» says nothing of the kind.
-_EVENTS = frozenset({"case_opened", "detention", "arrest", "search", "charge", "sentence"})
+# One case is told at one stage by different words: what one source calls a detention
+# another calls an arrest or a charge. A sentence is a stage of its own. «other» — the
+# model could not say what happened — says nothing of the stage, and nothing is compared.
+_BEFORE_TRIAL = ("case_opened", "detention", "arrest", "search", "charge")
+_STAGES: dict[str, tuple[str, ...]] = {
+    **dict.fromkeys(_BEFORE_TRIAL, _BEFORE_TRIAL),
+    "sentence": ("sentence",),
+}
 
 
 @dataclass
@@ -90,12 +97,6 @@ class NamedCandidate:
     decision: str | None = None
 
 
-@dataclass
-class NamedCandidates:
-    shown: list[NamedCandidate]
-    total: int
-
-
 def person_candidate_key(person_key: str) -> str:
     """A named person in the words kept on candidates; apart from a list entry's key."""
     return f"{KEY_PREFIX}{person_key}"
@@ -106,25 +107,34 @@ def _age_pattern(age: int) -> re.Pattern[str]:
     return re.compile(rf"(?<!\d){age}(?:\s*-?\s*лет|\s+год)", re.IGNORECASE)
 
 
-def named_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> NamedCandidates:
-    """The named figurants of other publications that may be this unnamed person.
+def named_candidates(
+    session: Session, figurant: Any, *, shown: int = SHOWN
+) -> list[NamedCandidate]:
+    """The people other publications name that may be this unnamed person.
 
-    The place, the days and the kind of event choose the publications; a person of them
-    is shown when something of the person fits as well — the age written beside the
-    name, an article of the Code, or the surname's initial — and the sex does not
-    contradict. A text that names no place has no other publication to be found by."""
+    The place, the days and the stage of the case choose the publications. A person named
+    there at such an event — someone the steps have judged a figurant, of this case or of
+    another — is shown when something of the person fits as well: the age written near
+    the name, an article of the Code, or an initial; and the sex does not contradict. A
+    text that names no place has no other publication to be found by.
+
+    None of it says the two are one person: the age near a name may be a neighbour's, the
+    article is charged to many. It says where to look."""
     stems = place_stems(figurant.place)
     if not stems or figurant.published_at is None:
-        return NamedCandidates([], 0)
+        return []
+    day = figurant.published_at.replace(hour=0, minute=0, second=0, microsecond=0)
+    stage = _STAGES.get(figurant.event_type)
     rows = session.execute(
         _NAMED,
         {
             "article": figurant.article_id,
-            "since": figurant.published_at - WINDOW,
-            "until": figurant.published_at + WINDOW,
+            "since": day - WINDOW,
+            "until": day + WINDOW + timedelta(days=1),
             # Where a word begins, as `place_pattern` reads it.
             "place": "(^|[^а-яё])(" + "|".join(re.escape(stem) for stem in stems) + ")",
-            "event": figurant.event_type if figurant.event_type in _EVENTS else "",
+            "any_event": stage is None,
+            "events": list(stage or ()),
             "context": AGE_CONTEXT,
         },
     ).all()
@@ -159,9 +169,7 @@ def named_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> 
     age = _age_pattern(figurant.age) if figurant.age is not None else None
     initial = (figurant.initial or "").strip(". ").casefold()
     found: dict[str, NamedCandidate] = {}
-    people: set[str] = set()
     for row in rows:
-        people.add(row.key)
         if figurant.gender and row.gender and row.gender != figurant.gender:
             continue
         age_match = bool(age and age.search(row.around or ""))
@@ -171,13 +179,17 @@ def named_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> 
         )
         if not (age_match or shared or by_initial):
             continue
-        reasons = [f"{row.source}, {row.published_at:%d.%m.%Y}: тот же вид события в том же месте"]
+        # What was compared, said as it was: the stage only when there was one to compare.
+        reasons = [
+            f"{row.source}, {row.published_at:%d.%m.%Y}: то же место, "
+            + ("та же стадия дела" if stage else "вид события не сравнивался — он не определён")
+        ]
         if age_match:
-            reasons.append(f"рядом с именем назван возраст {figurant.age}")
+            reasons.append(f"возраст {figurant.age} назван в тексте около имени")
         if shared:
             reasons.append("та же статья: " + ", ".join(shared))
         if by_initial:
-            reasons.append(f"имя на «{initial.upper()}»")
+            reasons.append(f"в имени есть слово на «{initial.upper()}»")
         candidate = NamedCandidate(
             key=row.key,
             name=row.name,
@@ -205,7 +217,7 @@ def named_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> 
             item.name,
         ),
     )
-    return NamedCandidates(ranked[:shown], len(people))
+    return ranked[:shown]
 
 
 def _strength(candidate: NamedCandidate) -> int:

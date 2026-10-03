@@ -653,6 +653,16 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
     return Candidates(top, len(found), snapshot_date, likely)
 
 
+def forget(session: Session, figurant_key: str, candidate: str) -> None:
+    """Take a word on a candidate back: neither «это он» nor «не он»."""
+    session.execute(
+        delete(UnnamedDecisionRecord).where(
+            UnnamedDecisionRecord.figurant_key == figurant_key,
+            UnnamedDecisionRecord.candidate == candidate,
+        )
+    )
+
+
 def decide(session: Session, figurant_key: str, candidate: str, decision: str) -> None:
     """A person's word that a list entry is not this unnamed figurant."""
     if decision != DIFFERENT:

@@ -12,7 +12,7 @@ from support.db_fixtures import DatabaseSeeder
 from db.orm_models import EntityMentionRecord, UnnamedFigurantRecord
 from entities.collector import EntityCollector
 from entities.named_candidates import named_candidates, person_candidate_key
-from entities.unnamed import DIFFERENT, EXISTING_PERSON, SAME, decide, resolve_identity
+from entities.unnamed import DIFFERENT, EXISTING_PERSON, SAME, decide, forget, resolve_identity
 
 COURT = "Суд вынес приговор 53-летней жительнице Якутии."
 KEY = "u" * 64
@@ -102,6 +102,11 @@ def _seed(session_factory: sessionmaker[Session], **told: Any) -> UnnamedFiguran
                 "Позже в Якутии Мария Ханова осуждена по ст. 205.5 УК РФ.",
                 {"day": 3},
             ),
+            # Three days on by the calendar, though more than 72 hours after the court's
+            # morning release: the days are whole days.
+            ("Лена Пятая", "В Якутии осуждена Лена Пятая, 53 года.", {"day": 5, "article": None}),
+            # The day before the court's release: the days are counted both ways.
+            ("Рая Ранняя", "В Якутии осуждена Рая Ранняя, 53 года.", {"day": 1, "article": None}),
             # No age told, the same article: a weaker sign, shown after the age.
             ("Зоя Статейная", "В Якутии осуждена Зоя Статейная по ст. 205.5 УК РФ.", {}),
         ]
@@ -140,7 +145,7 @@ def _seed(session_factory: sessionmaker[Session], **told: Any) -> UnnamedFiguran
 
 
 def _names(found: Any) -> list[str]:
-    return [item.name for item in found.shown]
+    return [item.name for item in found]
 
 
 def test_the_person_another_publication_names_with_the_same_age_and_article(
@@ -152,20 +157,23 @@ def test_the_person_another_publication_names_with_the_same_age_and_article(
         found = named_candidates(session, figurant)
 
     # The age beside the name and the article; the age; the article alone.
-    assert _names(found) == ["Мария Ханова", "Инна Третья", "Зоя Статейная"]
-    first = found.shown[0]
+    assert _names(found) == [
+        "Мария Ханова",
+        "Инна Третья",
+        "Лена Пятая",
+        "Рая Ранняя",
+        "Зоя Статейная",
+    ]
+    first = found[0]
     assert first.reasons == [
-        "Прокуратура <b>, 02.10.2026: тот же вид события в том же месте",
-        "рядом с именем назван возраст 53",
+        "Прокуратура <b>, 02.10.2026: то же место, та же стадия дела",
+        "возраст 53 назван в тексте около имени",
         "та же статья: 205.5",
     ]
     assert (first.title, first.key) == ("О деле: Мария Ханова", "мария ханова")
     # The link leads to the name in that publication's text.
     assert (first.start, first.end) == (18, 30)
-    assert found.shown[2].reasons[1:] == ["та же статья: 205.5"]
-    # Everyone named a figurant in the publications of those days about the place and the
-    # sentence; Другая is only mentioned in her case, and is nobody to look at.
-    assert found.total == 4
+    assert found[4].reasons[1:] == ["та же статья: 205.5"]
 
 
 def test_what_the_text_does_not_tell_does_not_narrow_and_no_place_finds_nothing(
@@ -181,11 +189,24 @@ def test_what_the_text_does_not_tell_does_not_narrow_and_no_place_finds_nothing(
         nowhere = named_candidates(session, figurant)
 
     # No sex told: the man of 53 fits by the age, and by the initial as well.
-    assert _names(found) == ["Инна Третья", "Мария Ханова", "Пётр Мужчинов"]
-    assert found.shown[2].reasons[1:] == ["рядом с именем назван возраст 53", "имя на «М»"]
-    # An event the model could not name is no kind to search by: the arrested one too.
-    assert "Анна Арестова" in _names(any_event)
-    assert (nowhere.shown, nowhere.total) == ([], 0)
+    assert _names(found) == [
+        "Инна Третья",
+        "Лена Пятая",
+        "Мария Ханова",
+        "Пётр Мужчинов",
+        "Рая Ранняя",
+    ]
+    assert found[3].reasons[1:] == [
+        "возраст 53 назван в тексте около имени",
+        "в имени есть слово на «М»",
+    ]
+    # An event the model could not name is no stage to search by: the arrested one too —
+    # and the reason does not claim a stage that was not compared.
+    arrested = next(item for item in any_event if item.name == "Анна Арестова")
+    assert arrested.reasons[0] == (
+        "Прокуратура <b>, 02.10.2026: то же место, вид события не сравнивался — он не определён"
+    )
+    assert nowhere == []
 
 
 def test_a_person_s_word_on_a_named_candidate(session_factory: sessionmaker[Session]) -> None:
@@ -205,12 +226,39 @@ def test_a_person_s_word_on_a_named_candidate(session_factory: sessionmaker[Sess
         one = named_candidates(session, figurant, shown=1)
 
     # The confirmed first, the rejected last — whatever tells the most of whom.
-    assert [(item.name, item.decision) for item in found.shown] == [
+    assert [(item.name, item.decision) for item in found] == [
         ("Зоя Статейная", SAME),
         ("Инна Третья", None),
+        ("Лена Пятая", None),
+        ("Рая Ранняя", None),
         ("Мария Ханова", DIFFERENT),
     ]
     assert _names(one) == ["Зоя Статейная"]
+
+    # A word taken back is that one word: the other stays.
+    with session_factory.begin() as session:
+        decide(session, KEY, person_candidate_key("инна третья"), DIFFERENT)
+        forget(session, KEY, person_candidate_key("мария ханова"))
+    with session_factory() as session:
+        after = {item.name: item.decision for item in named_candidates(session, figurant)}
+    assert (after["Мария Ханова"], after["Инна Третья"]) == (None, DIFFERENT)
+
+
+def test_a_case_before_the_trial_is_one_stage_and_a_sentence_another(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """What one source calls a detention another calls an arrest: one stage. A sentence
+    is found by a sentence only."""
+    figurant = _seed(session_factory, event_type="detention")
+
+    with session_factory() as session:
+        detained = named_candidates(session, figurant)
+        figurant.event_type = "sentence"
+        sentenced = named_candidates(session, figurant)
+
+    assert _names(detained) == ["Анна Арестова"]
+    assert detained[0].reasons[0].endswith("то же место, та же стадия дела")
+    assert "Анна Арестова" not in _names(sentenced) and "Мария Ханова" in _names(sentenced)
 
 
 def test_the_publication_itself_is_no_other_publication(

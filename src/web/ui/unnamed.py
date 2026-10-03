@@ -26,7 +26,7 @@ from db.orm_models import (
 from entities.base_candidates import BaseCandidates, base_candidates
 from entities.jurisdiction import CourtHints, Jurisdiction
 from entities.named_candidates import (
-    NamedCandidates,
+    NamedCandidate,
     named_candidates,
     person_candidate_key,
 )
@@ -46,6 +46,7 @@ from entities.unnamed import (
     candidates,
     clear_resolution,
     decide,
+    forget,
     resolve_identity,
 )
 from web.dependencies import get_db
@@ -240,14 +241,14 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
 
 
 def _named_candidates_html(
-    figurant: UnnamedFigurantRecord, found: NamedCandidates, back: str
+    figurant: UnnamedFigurantRecord, found: list[NamedCandidate], back: str
 ) -> str:
     """The named figurants of other publications the unnamed one may be; nothing where
     no other publication of those days tells of the place and the event."""
-    if not found.shown:
+    if not found:
         return ""
     rows = []
-    for item in found.shown:
+    for item in found:
         verdict = (
             ' <span class="badge succeeded">это он</span>'
             if item.decision == SAME
@@ -255,7 +256,7 @@ def _named_candidates_html(
             if item.decision == DIFFERENT
             else ""
         )
-        # «Не он» can be taken back by «Это он»; «Это он» — by «Отменить решение» below.
+        # «Не он» is taken back by «Вернуть»; «Это он» — by «Отменить решение» below.
         actions = (
             _post_form(
                 "/ui/unnamed/resolve",
@@ -270,6 +271,15 @@ def _named_candidates_html(
         ) + (
             _reject_form(figurant.key, person_candidate_key(item.key), back)
             if item.decision is None
+            else _post_form(
+                "/ui/unnamed/reject",
+                figurant.key,
+                "Вернуть",
+                "secondary",
+                back,
+                {"candidate": person_candidate_key(item.key), "undo": "1"},
+            )
+            if item.decision == DIFFERENT
             else ""
         )
         where = urlencode({"start": item.start, "end": item.end})
@@ -341,7 +351,7 @@ def _card(
     figurant: UnnamedFigurantRecord,
     found: Candidates,
     in_base: BaseCandidates,
-    named: NamedCandidates,
+    named: list[NamedCandidate],
     courts: CourtHints,
     resolution: tuple[str, str | None, str | None, str | None, date | None, datetime | None] | None,
     people: list[EntityGroupRecord],
@@ -603,10 +613,12 @@ def ui_unnamed(
 событие бывает раньше новости), того пола и буквы фамилии; сначала — родившиеся в названном
 месте. Место рождения — не всегда место жительства; даты включения в перечень у нас есть
 только с первого сохранённого снимка.</p>
-<p class="muted">«Названные в других публикациях» — фигуранты, которых в те же дни (плюс-минус
-три) назвала другая наша публикация о том же месте и таком же событии: рядом с именем стоит тот
-же возраст, названа та же статья или совпала буква фамилии. Ссылка ведёт к имени в тексте. Это
-то, что обычно ищут поиском: суд не назвал человека, а прокуратура или издание — назвали.</p>
+<p class="muted">«Названные в других публикациях» — люди, которых в те же дни (плюс-минус три)
+назвала другая наша публикация о том же месте на той же стадии дела (до суда или приговор) и
+которых система считает фигурантами — этого дела или другого. Показаны те, у кого что-то
+совпало: возраст в тексте около имени, статья или буква. Возраст рядом с именем может относиться
+к соседнему человеку — откройте ссылку, она ведёт к имени в тексте. Это наводка, которую обычно
+ищут поиском: суд не назвал человека, а прокуратура или издание — назвали.</p>
 <p class="muted">Ниже в карточке — люди из базы Airtable, которыми может быть безымянный: того
 возраста на дату новости и пола, из названного места (регион или город в базе); сначала — с той
 же статьёй. К новости о приговоре добавляются люди базы с приговором по той же статье за 90 дней
@@ -666,7 +678,11 @@ async def reject_unnamed(
     _known(db, figurant)
     if not 0 < len(form.get("candidate", "")) <= CANDIDATE_KEY_LENGTH:
         raise HTTPException(status_code=400, detail="Не выбран человек из перечня")
-    decide(db, figurant, form.get("candidate", ""), DIFFERENT)
+    if form.get("undo") == "1":
+        # «Не он» said by mistake: back to no word at all.
+        forget(db, figurant, form.get("candidate", ""))
+    else:
+        decide(db, figurant, form.get("candidate", ""), DIFFERENT)
     db.commit()
     return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
 

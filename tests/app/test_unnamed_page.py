@@ -430,6 +430,12 @@ def test_a_card_shows_who_another_publication_names_and_takes_a_word(
             follow_redirects=False,
         )
         after_reject = client.get("/ui/unnamed").text
+        undone = client.post(
+            "/ui/unnamed/reject",
+            data={"figurant": "k" * 64, "candidate": f"person:{key}", "undo": "1"},
+            follow_redirects=False,
+        )
+        returned = client.get("/ui/unnamed").text
         same = client.post(
             "/ui/unnamed/resolve",
             data={
@@ -451,21 +457,27 @@ def test_a_card_shows_who_another_publication_names_and_takes_a_word(
     assert "Задержание &lt;в Тюмени&gt;</a>" in table and "<в Тюмени>" not in table
     assert re.search(r'href="/ui/articles/\d+\?start=18&amp;end=31"', table)
     assert (
-        "Прокуратура, 26.11.2024: тот же вид события в том же месте; рядом с именем назван возраст 17"
+        "Прокуратура, 26.11.2024: то же место, та же стадия дела; возраст 17 назван в тексте около имени"
         in table
     )
     # The key holds what the text wrote: escaped in the form as everywhere.
     assert f'name="existing_person_key" value="{escape(key, quote=True)}"' in table
     assert f'name="candidate" value="person:{escape(key, quote=True)}"' in table
     assert "<пуртов>" not in table and "<Пуртов>" not in table
-    assert rejected.status_code == 303 and same.status_code == 303
+    assert rejected.status_code == 303 and undone.status_code == 303 and same.status_code == 303
     assert '<span class="badge">не он</span>' in after_reject
-    # «Не он» is taken back by «Это он», which stays; «Не он» itself is said once.
+    # «Не он» said: «Это он» stays, and «Вернуть» takes the word back.
     rejected_table = after_reject[after_reject.index(caption) :].split("</table>")[0]
     assert 'name="resolution" value="existing_person"' in rejected_table
-    assert 'name="candidate" value="person:' not in rejected_table
+    assert (
+        'name="undo" value="1"><button type="submit" class="secondary">Вернуть<' in rejected_table
+    )
+    assert ">Не он<" not in rejected_table
+    table_again = returned[returned.index(caption) :].split("</table>")[0]
+    assert "не он</span>" not in table_again and ">Не он<" in table_again
     # «Это он» said: no button beside the person — «Отменить решение» is below the card.
     confirmed_table = found[found.index(caption) :].split("</table>")[0]
     assert 'name="resolution" value="existing_person"' not in confirmed_table
     assert 'name="candidate" value="person:' not in confirmed_table
+    assert 'name="undo"' not in confirmed_table
     assert '<span class="badge succeeded">это он</span>' in found[found.index(caption) :]
