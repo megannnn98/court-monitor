@@ -177,19 +177,24 @@
       shape: SHAPES[node.type] || "dot",
       colour: COLOURS[node.type] || "publication",
       size: node.id === center ? 22 : node.type === "event" ? 16 : 12,
-      borderWidth: node.id === center ? 3 : 1,
+      borderWidth: node.id === center ? 3 : node.expandable ? 2 : 1,
       // Not opened yet: a dashed border invites the tap.
       dashed: Boolean(node.expandable) && node.id !== center,
     };
   }
 
+  // An edge says what it is on hover and in the panel. Only the count of shared
+  // publications is written on the line itself: twenty «назван в событии» around one
+  // person say nothing and hide the dates.
   function visEdge(edge) {
     const weak = edge.type === COOCCURRENCE || edge.source !== "extracted";
+    const label = String(edge.label || "");
     return {
       id: edge.id,
       from: edge.from,
       to: edge.to,
-      label: String(edge.label || ""),
+      label: edge.type === COOCCURRENCE ? label : "",
+      title: label + (edge.title ? " (" + edge.title + ")" : ""),
       dashes: weak,
       arrows: edge.type === COOCCURRENCE ? "" : "to",
     };

@@ -72,6 +72,7 @@
       from: shape.from,
       to: shape.to,
       label: shape.label,
+      title: shape.title,
       dashes: shape.dashes,
       arrows: shape.arrows,
       color: { color: line, highlight: text },
@@ -179,6 +180,8 @@
     { nodes: nodes, edges: edges },
     {
       autoResize: true,
+      // The same dossier opens to the same picture.
+      layout: { randomSeed: 7 },
       interaction: { hover: true, tooltipDelay: 200, multiselect: false },
       physics: {
         solver: "forceAtlas2Based",
@@ -217,6 +220,10 @@
   say("Загружаю граф…");
   load(box.dataset.graphUrl)
     .then(function (payload) {
+      // The first layout is shown whole; after that the reader's own zoom is kept.
+      network.once("stabilized", function () {
+        network.fit({ animation: false });
+      });
       add(payload);
       state.expanded.add(state.center);
       nodes.update(drawn(state.nodes.get(state.center)));

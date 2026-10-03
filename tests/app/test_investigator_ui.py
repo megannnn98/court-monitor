@@ -460,7 +460,7 @@ def test_the_dossier_holds_the_place_of_the_event_graph(
         ("articles", " checked"),
         ("cooccurrence", ""),
     ]
-    assert 'class="secondary ig-reset"' in section and 'class="ig-panel"' in section
+    assert 'class="secondary ig-reset"' in section and '<div class="ig-panel"' in section
     # Without the script the section says so, and no node of the graph is written here.
     assert "требует JavaScript" in section and "Остальное досье от него не зависит" in section
     assert "Ленинский суд" not in section and "Моор" not in section.split("aria-label")[0]

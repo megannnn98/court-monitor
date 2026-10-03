@@ -906,7 +906,7 @@ def _event_graph(dossier: Dossier) -> str:
     <div class="ig-body">
       <div class="ig-canvas" role="application"
         aria-label="Граф событий: {escape(display_name(dossier.entity.name), quote=True)}"></div>
-      <aside class="ig-panel" aria-live="polite" aria-label="Выбранный узел"></aside>
+      <div class="ig-panel" role="region" aria-live="polite" aria-label="Выбранный узел"></div>
     </div>
     <p class="ig-toolbar"><button type="button" class="secondary ig-reset">Вернуть расположение</button>
     <span class="ig-status" role="status">Граф строится в браузере и требует JavaScript.

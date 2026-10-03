@@ -202,8 +202,11 @@ test("the shape says the kind, and a weak edge is dashed", () => {
 
   const fact = core.visEdge(state.edges.get("person:1>event:7:target"));
   const count = core.visEdge(state.edges.get("person:1>person:3:cooccurrence"));
-  assert.deepEqual([fact.dashes, fact.arrows, fact.label], [false, "to", "назван в событии"]);
-  assert.deepEqual([count.dashes, count.arrows], [true, ""]);
+  // What an edge is stands in its tooltip; only the count of shared publications is
+  // written on the line.
+  assert.deepEqual([fact.dashes, fact.arrows, fact.label, fact.title], [false, "to", "", "назван в событии"]);
+  assert.deepEqual([count.dashes, count.arrows, count.label], [true, "", "общих публикаций: 4"]);
+  assert.equal(core.visEdge(state.edges.get("event:7>article:УК РФ:280.3:legal_basis")).title, "статья (ч. 1)");
   // A hypothesis an operator draws by hand must never look like a fact.
   assert.equal(core.visEdge({ id: "m", from: "a", to: "b", type: "linked", label: "", source: "manual" }).dashes, true);
 });
