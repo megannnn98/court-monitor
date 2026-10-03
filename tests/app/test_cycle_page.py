@@ -266,3 +266,69 @@ def test_a_live_single_step_says_nothing_of_a_chain(session_factory: sessionmake
 
     with _client(session_factory, registry) as client:
         assert "Идёт «Сделать всё»" not in client.get("/ui/cycle").text
+
+
+def test_a_chain_that_stopped_says_where_and_why(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    def chained(mode: str, status: str) -> int:
+        run = registry.start(
+            "monitor",
+            OperationParameters(
+                mode=mode,  # type: ignore[arg-type]
+                chain=True,
+                sources=["ovd-info"] if mode == "load" else None,
+            ),
+        )
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "UPDATE operator_operation_runs SET status = :status, started_at = now(), "
+                    "finished_at = now() WHERE id = :id"
+                ),
+                {"status": status, "id": run.id},
+            )
+        return run.id
+
+    with _client(session_factory, registry) as client:
+        nothing = client.get("/ui/cycle").text
+        first = chained("load", "succeeded")
+        lost = client.get("/ui/cycle").text
+        crashed = chained("purge", "failed")
+        failed, runs = client.get("/ui/cycle").text, client.get("/ui/runs").text
+        chained("purge", "interrupted")
+        stopped = client.get("/ui/cycle").text
+        finish_steps(session_factory, registry, "purge")
+        by_hand = client.get("/ui/cycle").text
+
+    assert "«Сделать всё» остановилось" not in nothing
+    # The step ended well and the next never started: the chain was lost, not the step.
+    assert (
+        f"«Сделать всё» остановилось на шаге 1 (запуск #{first}): следующий шаг не запустился "
+        "(сервер перезапускался или шаг запустили вручную). Кнопка продолжит с шага 2."
+    ) in lost
+    assert (
+        f"«Сделать всё» остановилось на шаге 2 (запуск #{crashed}): шаг завершился с ошибкой"
+    ) in failed and "Кнопка продолжит с шага 2." in failed
+    assert "шаг был остановлен или потерян" in stopped
+    # The runs' page says it above its own button, and the card names the chain.
+    assert "«Сделать всё» остановилось на шаге 2" in runs
+    assert "· шаг цепочки «Сделать всё» ·" in runs
+    # A step pressed by hand afterwards is no chain: nothing to say.
+    assert "«Сделать всё» остановилось" not in by_hand
+
+
+def test_a_chain_that_reached_the_last_step_says_nothing(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+    run = registry.start("monitor", OperationParameters(mode="political", chain=True))
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE operator_operation_runs SET status = 'succeeded' WHERE id = :id"),
+            {"id": run.id},
+        )
+
+    with _client(session_factory, registry) as client:
+        assert "«Сделать всё» остановилось" not in client.get("/ui/cycle").text

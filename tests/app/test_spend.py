@@ -225,9 +225,11 @@ def test_do_all_warns_when_the_account_cannot_pay_for_every_step_to_its_limit(
     """$4.26 on the account; three steps of $2 each may spend $6."""
     _paid(monkeypatch)
     _credits(monkeypatch)
+    # The purge is paid by the article and has no limit: it is not in the sum, and the
+    # warning says so.
     shortfall = (
         "Остатка меньше суммы лимитов этих шагов ($6.00): цепочка может остановиться, "
-        "не дойдя до конца."
+        "не дойдя до конца. Шаг без лимита (оплата за каждую статью) в эту сумму не входит."
     )
 
     whole = chain_confirmation("load")
@@ -241,6 +243,25 @@ def test_do_all_warns_when_the_account_cannot_pay_for_every_step_to_its_limit(
     assert two.startswith("Выполнить шаги 4–5 подряд?") and "Остатка меньше" not in two
     assert "Шаг 3." not in two and "Удалить из базы" not in two
     assert spend.chain_shortfall(["load"]) == ""
+    # Three steps with limits and no step paid by the piece: nothing is said of one.
+    assert spend.chain_shortfall(["entities", "figurants", "political"]) == (
+        "Остатка меньше суммы лимитов этих шагов ($6.00): цепочка может остановиться, "
+        "не дойдя до конца."
+    )
+
+
+def test_a_question_with_an_apostrophe_is_still_asked() -> None:
+    """Written into the handler's own text, an apostrophe breaks the script, and a button
+    whose script is broken submits unasked — the purge among them."""
+    from web.ui.pipeline import ask
+
+    attributes = ask("Удалить 'всё'?\\ \"да\"\nточно")
+
+    assert attributes == (
+        ' data-ask="Удалить &#x27;всё&#x27;?\\ &quot;да&quot;\nточно" '
+        'onclick="return confirm(this.dataset.ask)"'
+    )
+    assert ask("") == ""
 
 
 def test_do_all_without_a_key_asks_only_of_what_it_deletes(

@@ -82,7 +82,7 @@ def card(
     mode = run.parameters.mode
     return f"""<section class="band run-card">
   <h2>Запуск #{run.id} · {MODE_TITLES[mode]} {badge(label, css)}</h2>
-  <p class="muted">Начат {escape(local_time(run.created_at))} · {where + " · " if where else ""}<a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
+  <p class="muted">Начат {escape(local_time(run.created_at))} · {"шаг цепочки «Сделать всё» · " if run.parameters.chain else ""}{where + " · " if where else ""}<a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if live else ""}
   {spend.notice(mode) if live and mode else ""}
   {body}

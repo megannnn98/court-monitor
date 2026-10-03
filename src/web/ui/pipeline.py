@@ -9,6 +9,11 @@ cycle. The step that may run now comes from the latest monitor run alone:
   «failed» when one of many sources did — the step is done, its errors are in its card,
   and one broken source must not block the cycle;
 - otherwise the next step. No run at all: the first.
+
+«Сделать всё» runs the steps from the current one to the last by one press: each step is
+still a run of its own, and a chained step that ends well starts the next
+(`operator_console.OperationRegistry._continue_chain`). What the page says of a chain —
+the question before it, the note under a live step, the word when it stopped — is here.
 """
 
 from __future__ import annotations
@@ -59,6 +64,8 @@ _LIVE = (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
 class PipelineState:
     current: str
     live: OperationRun | None = None
+    # The latest run, live or ended: what a chain that stopped is told by.
+    latest: OperationRun | None = None
 
 
 def _stage_of(run: OperationRun) -> str:
@@ -79,7 +86,7 @@ def pipeline_state(latest: OperationRun | None) -> PipelineState:
         return PipelineState(current=STAGES[0])
     current = pipeline_current(latest.parameters.mode, latest.status)
     live = latest if latest.status in _LIVE else None
-    return PipelineState(current=current, live=live)
+    return PipelineState(current=current, live=live, latest=latest)
 
 
 def pipeline_current(mode: str | None, status: OperationRunStatus | None) -> str:
@@ -118,14 +125,48 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
     return None
 
 
-def step_action(stage: str) -> str:
-    """The existing POST endpoint for one pipeline step."""
-    return _ACTIONS[stage]
-
-
 def chain_action(stage: str) -> str:
     """The address that starts `stage` and, after it, every step to the end of the cycle."""
     return f"{_ACTIONS[stage]}?chain=1"
+
+
+def chain_span(stage: str) -> str:
+    """«шаги 2–5 подряд», or «шаг 5» when the last alone is left."""
+    first, last = STAGES.index(stage) + 1, len(STAGES)
+    return f"шаг {last}" if first == last else f"шаги {first}–{last} подряд"
+
+
+def ask(question: str) -> str:
+    """The attributes of a button that asks before it submits. The question is kept as
+    data and read by the handler: written into the handler's own text, an apostrophe in
+    it would break the script — and a button whose script is broken submits unasked."""
+    if not question:
+        return ""
+    return f' data-ask="{escape(question, quote=True)}" onclick="return confirm(this.dataset.ask)"'
+
+
+def chain_stopped(state: PipelineState) -> str:
+    """Why «Сделать всё» did not reach the last step, said where the button stands: a
+    chain that stopped leaves the page looking as if the steps had been pressed one by one."""
+    run = state.latest
+    if run is None or state.live is not None or not run.parameters.chain:
+        return ""
+    stage = _stage_of(run)
+    if stage not in STAGES:
+        return ""
+    number = STAGES.index(stage) + 1
+    if run.status is OperationRunStatus.SUCCEEDED:
+        if stage == STAGES[-1]:
+            return ""
+        why = "следующий шаг не запустился (сервер перезапускался или шаг запустили вручную)"
+    elif run.status is OperationRunStatus.FAILED:
+        why = "шаг завершился с ошибкой — посмотрите его карточку в журнале запусков"
+    else:
+        why = "шаг был остановлен или потерян"
+    return (
+        f'<p class="warning chain-stopped">«Сделать всё» остановилось на шаге {number} '
+        f"(запуск #{run.id}): {why}. Кнопка продолжит с шага {STAGES.index(state.current) + 1}.</p>"
+    )
 
 
 def chain_confirmation(stage: str) -> str:
@@ -136,15 +177,13 @@ def chain_confirmation(stage: str) -> str:
     asked = [
         f"Шаг {STAGES.index(step) + 1}. {text}"
         for step in steps
-        if (text := " ".join(p for p in (_CONFIRM.get(step, ""), spend.cost_text(step)) if p))
+        if (text := " ".join(p for p in (_CONFIRM.get(step, ""), spend.spend_text(step)) if p))
     ]
-    first, last = STAGES.index(stage) + 1, len(STAGES)
-    span = f"шаг {last}" if first == last else f"шаги {first}–{last} подряд"
     return " ".join(
         [
-            f"Выполнить {span}? Остановится на первой ошибке.",
+            f"Выполнить {chain_span(stage)}? Остановится на первой ошибке.",
             *asked,
-            spend.balance_text() if any(spend.cost_text(step) for step in steps) else "",
+            spend.balance_text() if any(spend.spend_text(step) for step in steps) else "",
             spend.chain_shortfall(steps),
         ]
     ).strip()
@@ -193,9 +232,7 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
         elif stage == state.current:
             needs_sources = stage in _WITH_SOURCES
             warning = step_confirmation(stage)
-            confirm = (
-                f" onclick=\"return confirm('{escape(warning, quote=True)}')\"" if warning else ""
-            )
+            confirm = ask(warning)
             classes = "step current" + (" run-button" if needs_sources else "")
             disabled = " disabled" if needs_sources and not checked_count else ""
             button = (
@@ -215,14 +252,14 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
     everything = ""
     if state.live is None:
         needs_sources = state.current in _WITH_SOURCES
-        asked = escape(chain_confirmation(state.current), quote=True)
         everything = (
+            f"{chain_stopped(state)}"
             f'<p class="pipeline-all"><button id="do-all" class="primary-action'
             f'{" run-button" if needs_sources else ""}" type="submit" '
-            f'formaction="{chain_action(state.current)}" '
-            f"onclick=\"return confirm('{asked}')\""
+            f'formaction="{chain_action(state.current)}"'
+            f"{ask(chain_confirmation(state.current))}"
             f"{' disabled' if needs_sources and not checked_count else ''}>Сделать всё</button> "
-            f'<span class="muted">шаги {current + 1}–{len(STAGES)} подряд, без остановок; '
+            f'<span class="muted">{chain_span(state.current)}, без остановок; '
             "кнопки ниже запускают по одному шагу</span></p>"
         )
     if state.live is None:

@@ -7,7 +7,7 @@ import os
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
-from db.orm_models import OperatorOperationRunRecord
+from db.orm_models import MonitoringRunRecord, OperatorOperationRunRecord
 from operator_console import (
     MONITOR_CYCLE,
     OUTPUT_LIMIT,
@@ -648,21 +648,97 @@ def test_a_chain_from_the_middle_goes_on_from_there(session_factory: sessionmake
     assert [mode for mode, _, _ in _modes(session_factory)] == ["figurants", "political"]
 
 
-def test_a_step_that_fails_ends_the_chain_but_a_load_with_a_broken_source_does_not(
+def _source_run(session_factory: sessionmaker[Session], source: str, status: str) -> None:
+    """A source's own run of the load, as `monitor` records one per source."""
+    with session_factory.begin() as session:
+        session.add(
+            MonitoringRunRecord(
+                scope=f"source:{source}",
+                source=source,
+                trigger_type="manual",
+                status=status,
+                parameters={},
+                started_at=datetime.now(UTC),
+                heartbeat_at=datetime.now(UTC),
+            )
+        )
+
+
+def _chain_after_a_failed_load(
+    session_factory: sessionmaker[Session], sources: dict[str, str], *, code: int = 1
+) -> list[tuple[str, str]]:
+    def process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        if command[2] != "monitor":
+            return ProcessResult(return_code=0, stdout="", stderr="")
+        for source, status in sources.items():
+            _source_run(session_factory, source, status)
+        return ProcessResult(return_code=code, stdout="", stderr="")
+
+    _registry(session_factory, process).start("monitor", _load(chain=True))
+    return [(mode, status) for mode, status, _ in _modes(session_factory)]
+
+
+def test_a_load_with_one_broken_source_goes_on(session_factory: sessionmaker[Session]) -> None:
+    ran = _chain_after_a_failed_load(session_factory, {"ovd-info": "completed", "sota": "failed"})
+
+    assert ran[:2] == [("load", "failed"), ("purge", "succeeded")] and len(ran) == 5
+
+
+def test_a_load_that_loaded_nothing_ends_the_chain(session_factory: sessionmaker[Session]) -> None:
+    """Every source failed, or none was even started: the steps that delete and that cost
+    money must not start by themselves on what an earlier load left."""
+    # A source that completed before this load began is no proof of this load.
+    _source_run(session_factory, "ovd-info", "completed")
+
+    assert _chain_after_a_failed_load(session_factory, {"ovd-info": "failed"}) == [
+        ("load", "failed")
+    ]
+
+
+def test_a_load_skipped_for_another_load_ends_the_chain(
     session_factory: sessionmaker[Session],
 ) -> None:
+    """Exit code 3: a source was held by the scheduled load. Another process is writing —
+    not the time to purge."""
+    ran = _chain_after_a_failed_load(session_factory, {"sota": "completed"}, code=3)
+
+    assert ran == [("load", "failed")]
+
+
+def test_a_step_that_crashes_ends_the_chain(session_factory: sessionmaker[Session]) -> None:
     def process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
-        # The load ends with an error (one source of many); the entities' rebuild crashes.
-        failed = command[2] in ("monitor", "collect-entities")
+        failed = command[2] == "collect-entities"
         return ProcessResult(return_code=1 if failed else 0, stdout="", stderr="")
 
     _registry(session_factory, process).start("monitor", _load(chain=True))
 
     assert [(mode, status) for mode, status, _ in _modes(session_factory)] == [
-        ("load", "failed"),
+        ("load", "succeeded"),
         ("purge", "succeeded"),
         ("entities", "failed"),
     ]
+
+
+def test_a_chain_that_finds_another_run_started_stops_quietly(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The operator pressed the next step by hand just as the chained one ended: the chain
+    gives way, and the step that ended is still recorded as it ended."""
+    registry = _registry(session_factory)
+    start = registry.start
+    calls: list[str | None] = []
+
+    def once(name: str, parameters: OperationParameters) -> object:
+        calls.append(parameters.mode)
+        if len(calls) > 1:
+            raise OperationConflictError("operation monitor is already running")
+        return start(name, parameters)
+
+    monkeypatch.setattr(registry, "start", once)
+    registry.start("monitor", OperationParameters(mode="figurants", chain=True))
+
+    assert calls == ["figurants", "political"]
+    assert _modes(session_factory) == [("figurants", "succeeded", True)]
 
 
 def test_a_step_stopped_while_its_process_ended_well_ends_the_chain(
@@ -699,7 +775,10 @@ def test_what_follows_a_step_in_a_chain() -> None:
         "political",
         None,
     ]
-    assert next_in_chain("load", failed) == "purge"
+    # A failed load goes on only when it is known to have loaded something.
+    assert next_in_chain("load", failed) is None
+    assert next_in_chain("load", failed, load_partly_done=True) == "purge"
+    assert next_in_chain("purge", failed, load_partly_done=True) is None
     assert next_in_chain("purge", failed) is None
     assert next_in_chain("load", OperationRunStatus.INTERRUPTED) is None
     # Not a step of the cycle: nothing follows.

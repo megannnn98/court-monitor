@@ -580,6 +580,22 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
     assert f'formaction="/ui/management/runs/{run_id}/stop"' in _run_bar(page)
 
 
+def test_do_all_on_the_runs_page_names_the_last_step_as_one(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    assert "шаг 5, без остановок; кнопки ниже запускают по одному шагу" in page
+    assert "шаги 5–5" not in page
+    # The question is data the handler reads, not text inside the handler.
+    assert 'data-ask="Выполнить шаг 5? Остановится на первой ошибке.' in page
+    assert 'onclick="return confirm(this.dataset.ask)"' in page and "confirm('Выполнить" not in page
+
+
 @pytest.mark.parametrize(
     ("finished", "status", "current"),
     [
@@ -816,6 +832,50 @@ def test_the_funnel_counts_a_held_publication_as_neither_a_case_nor_dropped(
         "туда, ни сюда не входят"
     ) in page
     assert "из 1 публикаций; одно имя" in page
+
+
+def test_the_funnel_goes_by_the_latest_extraction_as_the_steps_do(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """An article whose first extraction found an arrest and whose latest finds none is
+    held for a person to look at. It is one publication, not a case and a held one both:
+    counted twice, «отсеяно» would go below zero."""
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        ovd = seed.source("ОВД-Инфо", "https://ovd.info")
+        article, run = seed.article(
+            ovd,
+            external_id="reread",
+            title="reread",
+            text="Ивана Иванова арестовали.",
+            published_at=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+        seed.event(run, "Ивана Иванова арестовали.", event_type="arrest", event_date=None, links=[])
+        session.execute(
+            text(
+                "INSERT INTO article_extraction_runs (article_id, article_content_hash, "
+                "extractor_name, extractor_version, normalizer_version, status, started_at) "
+                "SELECT article_id, article_content_hash, extractor_name, '2.0.0', "
+                "normalizer_version, 'succeeded', now() FROM article_extraction_runs WHERE id = :run"
+            ),
+            {"run": run},
+        )
+        session.add(
+            JunkScreenHoldRecord(
+                article_id=article, status="held", score=0.8, cutoff=0.7, screen="t", reason="r"
+            )
+        )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    stages = dict(
+        re.findall(r'<span class="funnel-step">(\d)</span>.*?<b>([\d ]+)</b>', page, re.DOTALL)
+    )
+    assert (stages["1"], stages["2"]) == ("1", "0")
+    assert "отсеяно 0 без уголовного дела" in page and "1 отложены на проверку" in page
+    assert "отсеяно -" not in page
 
 
 def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[Session]) -> None:

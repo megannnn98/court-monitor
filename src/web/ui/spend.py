@@ -144,12 +144,6 @@ def spend_text(stage: str, env: Mapping[str, str] | None = None) -> str:
     return found.text if found else ""
 
 
-def cost_text(stage: str, env: Mapping[str, str] | None = None) -> str:
-    """The words of what a step costs; empty for a step that is free."""
-    found = cost(stage, env)
-    return found.text if found else ""
-
-
 def balance_text(env: Mapping[str, str] | None = None) -> str:
     """The balance as a sentence; empty with no key at all."""
     if not _api_key(os.environ if env is None else env):
@@ -172,12 +166,19 @@ def _is_low(limit: float | None, env: Mapping[str, str] | None) -> bool:
 def chain_shortfall(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
     """«Сделать всё» runs several paid steps: a warning when the account cannot pay for
     every one of them to its limit. Empty when it can, or when the balance is unknown."""
-    total = sum(found.limit or 0 for stage in stages if (found := cost(stage, env)))
+    costs = [found for stage in stages if (found := cost(stage, env))]
+    total = sum(found.limit or 0 for found in costs)
     if not total or not _is_low(total, env):
         return ""
+    # A step paid by the piece has no limit: it is not in the sum, and says so.
+    beyond = (
+        " Шаг без лимита (оплата за каждую статью) в эту сумму не входит."
+        if any(found.limit is None for found in costs)
+        else ""
+    )
     return (
         f"Остатка меньше суммы лимитов этих шагов (${total:.2f}): цепочка может "
-        "остановиться, не дойдя до конца."
+        f"остановиться, не дойдя до конца.{beyond}"
     )
 
 

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import IO, Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -453,7 +453,17 @@ class OperationRegistry:
                     return
                 parameters = OperationParameters(**record.parameters)
                 status = OperationRunStatus(record.status)
-            following = next_in_chain(parameters.mode, status) if parameters.chain else None
+                partly = (
+                    parameters.chain
+                    and parameters.mode == "load"
+                    and status is OperationRunStatus.FAILED
+                    and _load_partly_done(session, record)
+                )
+            following = (
+                next_in_chain(parameters.mode, status, load_partly_done=partly)
+                if parameters.chain
+                else None
+            )
             if following is None:
                 return
             started = self.start("monitor", OperationParameters(mode=following, chain=True))
@@ -588,18 +598,46 @@ MONITOR_CYCLE: tuple[Literal["load", "purge", "entities", "figurants", "politica
 )
 
 
+# The exit code of `monitor` when a source was skipped because another load of it is
+# already running (the scheduled one): `monitoring.cli.MONITOR_EXIT_ALREADY_RUNNING`.
+_LOAD_ALREADY_RUNNING = 3
+# A source's own run of the load that reached its end, with or without errors in it.
+_SOURCE_LOADED = ("completed", "completed_with_errors")
+
+
+def _load_partly_done(session: Session, record: OperatorOperationRunRecord) -> bool:
+    """A load that ended «failed» still did its work when one source of many broke: at
+    least one source's own run, started by this load, reached its end — and no source was
+    skipped because another load was running.
+
+    The exit code alone does not tell «one source did not answer» from «none did» or from
+    «another load holds the sources»: after either of those the steps that delete and that
+    cost money must not start by themselves."""
+    if record.return_code == _LOAD_ALREADY_RUNNING or record.started_at is None:
+        return False
+    loaded = session.scalar(
+        text(
+            "SELECT count(*) FROM monitoring_runs WHERE source IS NOT NULL "
+            "AND started_at >= :since AND status = ANY(:loaded)"
+        ),
+        {"since": record.started_at, "loaded": list(_SOURCE_LOADED)},
+    )
+    return bool(loaded)
+
+
 def next_in_chain(
-    mode: str | None, status: OperationRunStatus
+    mode: str | None, status: OperationRunStatus, *, load_partly_done: bool = False
 ) -> Literal["load", "purge", "entities", "figurants", "political"] | None:
     """The step a chain starts after `mode` ended with `status`; None when it ends there.
 
     A step that succeeded is followed by the next; the last is followed by nothing. A
-    load «failed» when one of many sources did: its articles are loaded, and one broken
-    source must not hold the rest of the night's work. Any other failure ends the chain."""
+    load «failed» when one of many sources did: with `load_partly_done` its articles are
+    loaded, and one broken source must not hold the rest of the night's work. Any other
+    failure ends the chain."""
     if mode not in MONITOR_CYCLE:
         return None
     done = status is OperationRunStatus.SUCCEEDED or (
-        status is OperationRunStatus.FAILED and mode == "load"
+        status is OperationRunStatus.FAILED and mode == "load" and load_partly_done
     )
     index = MONITOR_CYCLE.index(mode)
     return MONITOR_CYCLE[index + 1] if done and index + 1 < len(MONITOR_CYCLE) else None

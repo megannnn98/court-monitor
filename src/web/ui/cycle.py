@@ -15,9 +15,12 @@ from web.ui.layout import _page
 from web.ui.pipeline import (
     STAGES,
     PipelineState,
+    ask,
     chain_action,
     chain_confirmation,
     chain_note,
+    chain_span,
+    chain_stopped,
     current_state,
 )
 from web.ui.run_tail import tail_html
@@ -90,15 +93,13 @@ def _pipeline_control(state: PipelineState, work: Workload) -> str:
         )
         if item
     )
-    first, last = STAGES.index(state.current) + 1, len(STAGES)
-    span = f"шаг {last}" if first == last else f"шаги {first}–{last} подряд"
     # One press runs every step that is left; a single step is on «Журнал запусков».
     return (
         f'<button id="step-{state.current}" class="secondary" type="submit" '
-        f'formaction="{chain_action(state.current)}&amp;back=cycle" '
-        f"onclick=\"return confirm('{escape(confirmation, quote=True)}')\">Сделать всё</button> "
-        f'<span class="muted">{span}; по одному шагу — в <a href="/ui/runs">журнале запусков</a>'
-        "</span>"
+        f'formaction="{chain_action(state.current)}&amp;back=cycle"{ask(confirmation)}>'
+        "Сделать всё</button> "
+        f'<span class="muted">{chain_span(state.current)}; по одному шагу — в '
+        '<a href="/ui/runs">журнале запусков</a></span>'
     )
 
 
@@ -127,7 +128,7 @@ def _processing(state: PipelineState, work: Workload) -> str:
   {spend.balance_line()}{spend.notice(state.current) if state.live is None else ""}
   <ol>{"".join(rows)}</ol>
   {tail_html(state.live) if state.live is not None else ""}
-  {chain_note(state)}
+  {chain_note(state)}{chain_stopped(state)}
   <div class="pipeline-current {"running" if state.live is not None else "ready"}">{_pipeline_control(state, work)}</div>
 </section>"""
 

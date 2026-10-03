@@ -33,11 +33,18 @@ _COUNTS = text(
       (SELECT count(*) FROM junk_screen_holds WHERE status = :held)
     """
 )
+# The publications whose latest successful extraction found a criminal-case event: the
+# very ones step 3 collects people from (`entities.collector`) and the purge keeps. An
+# earlier extraction does not count — the purge and the holds go by the latest too.
 _CRIMINAL_PUBLICATIONS = text(
     """
-    SELECT count(DISTINCT r.article_id) FROM article_extraction_runs r
-    JOIN extracted_events e ON e.extraction_run_id = r.id
-    WHERE r.status = 'succeeded' AND e.event_type = ANY(:criminal)
+    WITH latest AS (
+        SELECT DISTINCT ON (article_id) id, article_id FROM article_extraction_runs
+        WHERE status = 'succeeded' ORDER BY article_id, id DESC
+    )
+    SELECT count(DISTINCT l.article_id) FROM latest l
+    JOIN extracted_events e ON e.extraction_run_id = l.id
+    WHERE e.event_type = ANY(:criminal)
     """
 )
 
@@ -97,7 +104,7 @@ def funnel(db: Session) -> Funnel:
             "С уголовным делом",
             criminal_publications,
             # A held publication is kept for a person to look at: neither a case nor dropped.
-            f"отсеяно {_n(documents - criminal_publications - held)} без уголовного дела "
+            f"отсеяно {_n(max(documents - criminal_publications - held, 0))} без уголовного дела "
             "(штрафы, прочие новости)"
             + (f"; {_n(held)} отложены на проверку и ни туда, ни сюда не входят" if held else ""),
             "/ui/runs",
