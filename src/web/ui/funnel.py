@@ -29,8 +29,7 @@ _COUNTS = text(
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'criminal'),
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'unclear'),
       (SELECT min(published_at) FROM parsed_articles),
-      (SELECT max(published_at) FROM parsed_articles),
-      (SELECT count(*) FROM junk_screen_holds WHERE status = :held)
+      (SELECT max(published_at) FROM parsed_articles)
     """
 )
 # The publications whose latest successful extraction found a criminal-case event: the
@@ -41,10 +40,17 @@ _CRIMINAL_PUBLICATIONS = text(
     WITH latest AS (
         SELECT DISTINCT ON (article_id) id, article_id FROM article_extraction_runs
         WHERE status = 'succeeded' ORDER BY article_id, id DESC
+    ),
+    criminal AS (
+        SELECT DISTINCT l.article_id FROM latest l
+        JOIN extracted_events e ON e.extraction_run_id = l.id
+        WHERE e.event_type = ANY(:criminal)
     )
-    SELECT count(DISTINCT l.article_id) FROM latest l
-    JOIN extracted_events e ON e.extraction_run_id = l.id
-    WHERE e.event_type = ANY(:criminal)
+    SELECT (SELECT count(*) FROM criminal),
+           -- Held for a person to look at, and not a case by the latest extraction: an
+           -- article read again since it was held may be a case now, and is counted there.
+           (SELECT count(*) FROM junk_screen_holds h
+            WHERE h.status = :held AND h.article_id NOT IN (SELECT article_id FROM criminal))
     """
 )
 
@@ -89,14 +95,12 @@ def funnel(db: Session) -> Funnel:
         unclear,
         since,
         until,
-        held,
     ) = db.execute(
-        _COUNTS,
-        {"officials": sorted(OFFICIAL_KINDS), "expired": EXPIRED_CONTENT_TYPE, "held": HELD},
+        _COUNTS, {"officials": sorted(OFFICIAL_KINDS), "expired": EXPIRED_CONTENT_TYPE}
     ).one()
-    criminal_publications = (
-        db.scalar(_CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}) or 0
-    )
+    criminal_publications, held = db.execute(
+        _CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES), "held": HELD}
+    ).one()
     stages = [
         Stage("1", "Публикаций скачано", documents, "", "/ui/runs"),
         Stage(
@@ -104,7 +108,7 @@ def funnel(db: Session) -> Funnel:
             "С уголовным делом",
             criminal_publications,
             # A held publication is kept for a person to look at: neither a case nor dropped.
-            f"отсеяно {_n(max(documents - criminal_publications - held, 0))} без уголовного дела "
+            f"отсеяно {_n(documents - criminal_publications - held)} без уголовного дела "
             "(штрафы, прочие новости)"
             + (f"; {_n(held)} отложены на проверку и ни туда, ни сюда не входят" if held else ""),
             "/ui/runs",

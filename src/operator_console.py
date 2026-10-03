@@ -376,6 +376,27 @@ class OperationRegistry:
             logger.warning("event=operation_run_stopped run_id=%s", run_id)
         return stopped is not None
 
+    def stop_chain_after(self, run_id: int) -> bool:
+        """Stop the live step a chain started after `run_id`, a chained step that has
+        already ended. False when `run_id` was no chained step or nothing of its chain is
+        live."""
+        with self._session_factory() as session:
+            record = session.get(OperatorOperationRunRecord, run_id)
+            if record is None or not OperationParameters(**record.parameters).chain:
+                return False
+            # One run of an operation is live at a time: with `run_id` ended, the live one
+            # came after it.
+            following = session.scalars(
+                select(OperatorOperationRunRecord).where(
+                    OperatorOperationRunRecord.operation_name == record.operation_name,
+                    OperatorOperationRunRecord.status.in_(LIVE_STATUSES),
+                )
+            ).first()
+            if following is None or not OperationParameters(**following.parameters).chain:
+                return False
+            following_id = following.id
+        return self.stop(following_id)
+
     def interrupt_stale_runs(self) -> list[int]:
         """Live runs whose heartbeat stopped: their process died, they will never finish."""
         with self._session_factory.begin() as session:

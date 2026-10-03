@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -73,7 +74,7 @@ def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     assert "Обработка данных" in response.text
     # One press runs every step that is left; a single step is on the runs' page.
     assert 'id="step-load"' in response.text and ">Сделать всё</button>" in response.text
-    assert 'formaction="/ui/management/run?chain=1&amp;back=cycle"' in response.text
+    assert 'formaction="/ui/management/run?chain=1&amp;after=0&amp;back=cycle"' in response.text
     assert "Выполнить шаги 1–5 подряд? Остановится на первой ошибке." in response.text
     assert "шаги 1–5 подряд; по одному шагу" in response.text
     assert "Запустить следующий шаг" not in response.text
@@ -223,15 +224,19 @@ def test_do_all_starts_a_chain_from_the_step_that_is_due(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+    done = finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
         last = client.get("/ui/cycle").text
-        started = client.post("/ui/management/political?chain=1&back=cycle", follow_redirects=False)
+        after = re.search(r"political\?chain=1&amp;after=(\d+)&amp;back=cycle", last)
+        assert after is not None
+        address = f"/ui/management/political?chain=1&after={after[1]}&back=cycle"
+        started = client.post(address, follow_redirects=False)
         running = client.get("/ui/cycle").text
 
     # The last step alone is left: «Сделать всё» says so.
-    assert 'formaction="/ui/management/political?chain=1&amp;back=cycle"' in last
+    # The press names the latest run its page was drawn for.
+    assert int(after[1]) == done[-1]
     assert "Выполнить шаг 5? Остановится на первой ошибке." in last and "шаг 5;" in last
     # It asks of the steps it will run, not of the ones already done.
     assert "Удалить из базы" not in last
@@ -332,3 +337,61 @@ def test_a_chain_that_reached_the_last_step_says_nothing(
 
     with _client(session_factory, registry) as client:
         assert "«Сделать всё» остановилось" not in client.get("/ui/cycle").text
+
+
+def test_the_same_press_cannot_start_a_second_chain(session_factory: sessionmaker[Session]) -> None:
+    """The form sent again from the browser's history after the cycle went round: the
+    first step is due again, and the old press would delete and spend with nobody asked."""
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        first = client.post("/ui/management/run?chain=1&after=0&back=cycle", follow_redirects=False)
+        with session_factory.begin() as session:
+            session.execute(text("UPDATE operator_operation_runs SET status = 'succeeded'"))
+        finish_steps(session_factory, registry, "purge", "entities", "figurants", "political")
+        again = client.post("/ui/management/run?chain=1&after=0&back=cycle", follow_redirects=False)
+        unnamed = client.post("/ui/management/run?chain=1&back=cycle", follow_redirects=False)
+        page = client.get("/ui/cycle").text
+        fresh = re.search(r"run\?chain=1&amp;after=(\d+)", page)
+        assert fresh is not None
+        pressed = client.post(
+            f"/ui/management/run?chain=1&after={fresh[1]}&back=cycle", follow_redirects=False
+        )
+        # A single step is not a chain: it needs no such word.
+        single = client.post("/ui/management/purge", follow_redirects=False)
+
+    assert first.status_code == 303
+    assert again.status_code == 409 and "Это нажатие «Сделать всё» устарело" in again.text
+    assert unnamed.status_code == 409
+    assert pressed.status_code == 303
+    assert single.status_code == 409 and "устарело" not in single.text
+    assert len(registry.runs_of("monitor", limit=20)) == 6
+
+
+def test_an_old_press_is_refused_on_every_step_and_stop_reaches_the_chain(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    (loaded,) = finish_steps(session_factory, registry, "load")
+
+    with _client(session_factory, registry) as client:
+        old = client.post("/ui/management/purge?chain=1&after=0", follow_redirects=False)
+        purge = client.post(f"/ui/management/purge?chain=1&after={loaded}", follow_redirects=False)
+        ended = registry.runs_of("monitor", limit=1)[0].id
+        # The purge ends and its chain starts the next step — and only then «Остановить»,
+        # pressed on the page that still showed the purge, arrives.
+        with session_factory.begin() as session:
+            session.execute(
+                text("UPDATE operator_operation_runs SET status = 'succeeded' WHERE id = :id"),
+                {"id": ended},
+            )
+        following = registry.start("monitor", OperationParameters(mode="entities", chain=True))
+        stopped = client.post(
+            f"/ui/management/runs/{ended}/stop", data={"back": "cycle"}, follow_redirects=False
+        )
+
+    assert old.status_code == 409 and "устарело" in old.text
+    assert purge.status_code == 303
+    assert stopped.status_code == 303
+    assert registry.get(following.id).status.value == "interrupted"
+    assert registry.get(ended).status.value == "succeeded"

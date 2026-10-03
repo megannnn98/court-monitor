@@ -125,9 +125,17 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
     return None
 
 
-def chain_action(stage: str) -> str:
-    """The address that starts `stage` and, after it, every step to the end of the cycle."""
-    return f"{_ACTIONS[stage]}?chain=1"
+def chain_action(state: PipelineState) -> str:
+    """The address that starts the current step and, after it, every step to the end of
+    the cycle. `after` is the latest run the page was drawn for: the server starts a
+    chain only while that is still the latest, so the same press cannot start a second
+    chain — a form sent again from the browser's history, after the cycle went round,
+    would otherwise delete and spend with nobody asked."""
+    return f"{_ACTIONS[state.current]}?chain=1&amp;after={latest_run_id(state)}"
+
+
+def latest_run_id(state: PipelineState) -> int:
+    return state.latest.id if state.latest is not None else 0
 
 
 def chain_span(stage: str) -> str:
@@ -256,7 +264,7 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
             f"{chain_stopped(state)}"
             f'<p class="pipeline-all"><button id="do-all" class="primary-action'
             f'{" run-button" if needs_sources else ""}" type="submit" '
-            f'formaction="{chain_action(state.current)}"'
+            f'formaction="{chain_action(state)}"'
             f"{ask(chain_confirmation(state.current))}"
             f"{' disabled' if needs_sources and not checked_count else ''}>Сделать всё</button> "
             f'<span class="muted">{chain_span(state.current)}, без остановок; '

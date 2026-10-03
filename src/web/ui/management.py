@@ -29,7 +29,13 @@ from sources.source_registry import news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
-from web.ui.pipeline import PipelineState, current_state, out_of_turn, stepper
+from web.ui.pipeline import (
+    PipelineState,
+    current_state,
+    latest_run_id,
+    out_of_turn,
+    stepper,
+)
 from web.ui.run_cards import (
     MODE_TITLES,
     RUN_STATUS_BADGES,
@@ -623,7 +629,8 @@ def _start_whole_database(
     registry: OperationRegistry,
     mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
 ) -> HTMLResponse | RedirectResponse:
-    refusal = out_of_turn(current_state(registry), mode)
+    state = current_state(registry)
+    refusal = _stale_chain(request, state) or out_of_turn(state, mode)
     if refusal is not None:
         return _refused(db, registry, refusal, 409)
     try:
@@ -651,7 +658,8 @@ async def _start(
     everything = [item.name for item in news_sources()]
     # The page sends no sources: all of them. The API may still name some.
     selected = list(dict.fromkeys(form.get("sources", []))) or everything
-    refusal = out_of_turn(current_state(registry), mode)
+    state = current_state(registry)
+    refusal = _stale_chain(request, state) or out_of_turn(state, mode)
     if refusal is not None:
         return _refused(db, registry, refusal, 409)
     if not set(selected) <= set(everything):
@@ -677,6 +685,20 @@ async def _start(
 def _chained(request: Request) -> bool:
     """«Сделать всё»: the step is the first of a chain to the end of the cycle."""
     return request.query_params.get("chain") == "1"
+
+
+def _stale_chain(request: Request, state: PipelineState) -> str | None:
+    """Why this «Сделать всё» may not start, or None. The press names the latest run its
+    page was drawn for; when runs have happened since, it is an old press sent again —
+    the question it was answered with was about another state of the base."""
+    if not _chained(request):
+        return None
+    if request.query_params.get("after") == str(latest_run_id(state)):
+        return None
+    return (
+        "Это нажатие «Сделать всё» устарело: после него уже были запуски. Обновите страницу "
+        "и нажмите ещё раз, если шаги по-прежнему нужны."
+    )
 
 
 def _started_at(request: Request, run_id: int) -> str:
@@ -708,7 +730,10 @@ async def stop_management_run(
         (form.get("back") or [""])[0], "/ui/runs"
     )
     try:
-        registry.stop(run_id)
+        if not registry.stop(run_id):
+            # The step ended a moment before the press, and its chain has started the
+            # next: «Остановить» is a word on the chain, not on a run's number.
+            registry.stop_chain_after(run_id)
     except OperationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Запуск не найден") from exc
     # Stopping an already finished run changes nothing: the page shows how it ended.

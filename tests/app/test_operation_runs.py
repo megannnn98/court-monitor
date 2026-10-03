@@ -784,3 +784,33 @@ def test_what_follows_a_step_in_a_chain() -> None:
     # Not a step of the cycle: nothing follows.
     for mode in ("rosfin", "resolve", None):
         assert next_in_chain(mode, succeeded) is None
+
+
+def test_stop_pressed_as_a_chained_step_ended_stops_the_step_its_chain_started(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The page showed step 2 running; by the press it had ended and the chain had started
+    step 3. «Остановить» is a word on the chain."""
+    executor, queued = _deferred()
+    registry = _registry(session_factory, executor=executor)
+    ended = registry.start("monitor", OperationParameters(mode="purge", chain=True))
+    queued.pop(0)()
+    following = registry.runs_of("monitor", limit=1)[0]
+    assert (following.parameters.mode, following.status.value) == ("entities", "pending")
+
+    assert registry.stop(ended.id) is False
+    assert registry.stop_chain_after(ended.id) is True
+
+    assert registry.get(following.id).status is OperationRunStatus.INTERRUPTED
+    # Nothing of the chain is live any more.
+    assert registry.stop_chain_after(ended.id) is False
+    # A step the operator then started by hand is not the chain's: the old press on the
+    # chained step does not reach it.
+    by_hand = registry.start("monitor", OperationParameters(mode="entities"))
+    assert registry.stop_chain_after(ended.id) is False
+    assert registry.get(by_hand.id).status is OperationRunStatus.PENDING
+    # And a step that was no chain has no chain to stop.
+    queued.pop()()
+    chained = registry.start("monitor", OperationParameters(mode="figurants", chain=True))
+    assert registry.stop_chain_after(by_hand.id) is False
+    assert registry.get(chained.id).status is OperationRunStatus.PENDING

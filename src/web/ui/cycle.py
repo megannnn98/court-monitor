@@ -96,7 +96,7 @@ def _pipeline_control(state: PipelineState, work: Workload) -> str:
     # One press runs every step that is left; a single step is on «Журнал запусков».
     return (
         f'<button id="step-{state.current}" class="secondary" type="submit" '
-        f'formaction="{chain_action(state.current)}&amp;back=cycle"{ask(confirmation)}>'
+        f'formaction="{chain_action(state)}&amp;back=cycle"{ask(confirmation)}>'
         "Сделать всё</button> "
         f'<span class="muted">{chain_span(state.current)}; по одному шагу — в '
         '<a href="/ui/runs">журнале запусков</a></span>'

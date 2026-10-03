@@ -539,7 +539,7 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    finish_steps(session_factory, registry, "load")
+    (loaded,) = finish_steps(session_factory, registry, "load")
 
     with _client(session_factory, registry) as client:
         idle = _run_bar(client.get("/ui/management").text)
@@ -570,7 +570,7 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
     # «Сделать всё» stands above the steps, from the step that is due.
     assert (
         '<button id="do-all" class="primary-action" type="submit" '
-        'formaction="/ui/management/purge?chain=1"'
+        f'formaction="/ui/management/purge?chain=1&amp;after={loaded}"'
     ) in idle
     assert "Выполнить шаги 2–5 подряд? Остановится на первой ошибке. Шаг 2. Удалить из базы" in idle
     assert 'id="do-all"' not in page, "no second start while a run is live"
@@ -876,6 +876,50 @@ def test_the_funnel_goes_by_the_latest_extraction_as_the_steps_do(
     assert (stages["1"], stages["2"]) == ("1", "0")
     assert "отсеяно 0 без уголовного дела" in page and "1 отложены на проверку" in page
     assert "отсеяно -" not in page
+
+
+def test_a_held_article_that_is_a_case_now_is_counted_as_a_case_alone(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Held when its extraction found no case; read again since, and a case is there. The
+    hold still waits for a person's word, but the publication is one, in one group."""
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        ovd = seed.source("ОВД-Инфо", "https://ovd.info")
+        for name in ("case-and-held", "held", "other"):
+            article, run = seed.article(
+                ovd,
+                external_id=name,
+                title=name,
+                text="Ивана Иванова арестовали.",
+                published_at=datetime(2026, 9, 1, tzinfo=UTC),
+            )
+            if name != "other":
+                session.add(
+                    JunkScreenHoldRecord(
+                        article_id=article,
+                        status="held",
+                        score=0.8,
+                        cutoff=0.7,
+                        screen="t",
+                        reason="r",
+                    )
+                )
+            if name == "case-and-held":
+                seed.event(
+                    run, "Ивана Иванова арестовали.", event_type="arrest", event_date=None, links=[]
+                )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    stages = dict(
+        re.findall(r'<span class="funnel-step">(\d)</span>.*?<b>([\d ]+)</b>', page, re.DOTALL)
+    )
+    # Three publications: one case, one held, one dropped — each counted once.
+    assert (stages["1"], stages["2"]) == ("3", "1")
+    assert "отсеяно 1 без уголовного дела" in page and "; 1 отложены на проверку" in page
 
 
 def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[Session]) -> None:
