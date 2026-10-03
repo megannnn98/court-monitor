@@ -12,7 +12,7 @@ from web.app import app
 from web.dependencies import get_db
 from web.ui import spend
 from web.ui.cycle import _processing
-from web.ui.pipeline import PipelineState, step_confirmation, stepper
+from web.ui.pipeline import PipelineState, chain_confirmation, step_confirmation, stepper
 from web.ui.workload import Workload
 
 CREDITS = {"data": {"total_credits": 15, "total_usage": 10.737357613}}
@@ -217,3 +217,39 @@ def test_the_strip_says_a_dash_when_openrouter_does_not_answer_and_nothing_witho
     spend.reset_cache()
     assert "balance" not in _strip(session_factory)
     assert "<small>Публикации</small>" in _strip(session_factory)
+
+
+def test_do_all_warns_when_the_account_cannot_pay_for_every_step_to_its_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """$4.26 on the account; three steps of $2 each may spend $6."""
+    _paid(monkeypatch)
+    _credits(monkeypatch)
+    shortfall = (
+        "Остатка меньше суммы лимитов этих шагов ($6.00): цепочка может остановиться, "
+        "не дойдя до конца."
+    )
+
+    whole = chain_confirmation("load")
+    two = chain_confirmation("figurants")
+
+    assert whole.startswith("Выполнить шаги 1–5 подряд? Остановится на первой ошибке. Шаг 2. ")
+    assert whole.endswith(
+        "Остаток на OpenRouter: $4.26 (куплено $15.00, потрачено $10.74). " + shortfall
+    )
+    # Two steps of $2 are within $4.26: no warning, and the steps already done are not asked of.
+    assert two.startswith("Выполнить шаги 4–5 подряд?") and "Остатка меньше" not in two
+    assert "Шаг 3." not in two and "Удалить из базы" not in two
+    assert spend.chain_shortfall(["load"]) == ""
+
+
+def test_do_all_without_a_key_asks_only_of_what_it_deletes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    assert chain_confirmation("load") == (
+        "Выполнить шаги 1–5 подряд? Остановится на первой ошибке. Шаг 2. Удалить из базы все "
+        "статьи без уголовных дел и людей, которых после этого ничто не упоминает? Это необратимо."
+    )
+    assert chain_confirmation("political") == "Выполнить шаг 5? Остановится на первой ошибке."

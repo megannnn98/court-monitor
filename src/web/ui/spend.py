@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from html import escape
 
@@ -167,6 +167,18 @@ def _is_low(limit: float | None, env: Mapping[str, str] | None) -> bool:
     """The account cannot pay for a whole run: its limit is above the balance."""
     found = balance(env)
     return found is not None and limit is not None and found.remaining < limit
+
+
+def chain_shortfall(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
+    """«Сделать всё» runs several paid steps: a warning when the account cannot pay for
+    every one of them to its limit. Empty when it can, or when the balance is unknown."""
+    total = sum(found.limit or 0 for stage in stages if (found := cost(stage, env)))
+    if not total or not _is_low(total, env):
+        return ""
+    return (
+        f"Остатка меньше суммы лимитов этих шагов (${total:.2f}): цепочка может "
+        "остановиться, не дойдя до конца."
+    )
 
 
 def confirm_text(stage: str, env: Mapping[str, str] | None = None) -> str:

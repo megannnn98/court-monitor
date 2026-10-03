@@ -1174,6 +1174,8 @@ label.dates input[type="date"] {
 
 .funnel-bar {
   display: block;
+  /* A narrow stage still shows its whole label: the width is a share, not a limit. */
+  min-width: max-content;
   padding: 6px 10px;
   border-radius: 6px;
   white-space: nowrap;

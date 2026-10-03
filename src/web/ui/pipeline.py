@@ -145,6 +145,7 @@ def chain_confirmation(stage: str) -> str:
             f"Выполнить {span}? Остановится на первой ошибке.",
             *asked,
             spend.balance_text() if any(spend.cost_text(step) for step in steps) else "",
+            spend.chain_shortfall(steps),
         ]
     ).strip()
 
