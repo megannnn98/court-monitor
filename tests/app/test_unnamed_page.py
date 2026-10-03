@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from html import escape
+from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -13,10 +16,12 @@ from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
     AirtableKnownPersonRecord,
+    EntityMentionRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
 )
+from entities.collector import EntityCollector
 from operator_console import OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -373,3 +378,94 @@ def test_a_card_says_where_the_article_is_tried_from_the_place(
         "Где судят по этой статье из этого места (приговоры в базе Airtable, всего 1): "
         "Центральный окружной военный суд — 1.</p>"
     ) in page
+
+
+def test_a_card_shows_who_another_publication_names_and_takes_a_word(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        without = client.get("/ui/unnamed").text
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("Прокуратура", "https://proc.example.test")
+        sentence = "В Тюмени задержан Егор <Пуртов>, 17 лет."
+        _, run = seed.article(
+            source,
+            external_id="named",
+            title="Задержание <в Тюмени>",
+            text=sentence,
+            published_at=datetime(2024, 11, 26, tzinfo=UTC),
+        )
+        mention = seed.mention(run, "Егор <Пуртов>", person_id=None)
+        session.get_one(EntityMentionRecord, mention).normalized_data = {
+            "first_name": "Егор",
+            "last_name": "Пуртов",
+            "patronymic": None,
+        }
+        seed.event(
+            run,
+            sentence,
+            event_type="detention",
+            event_date=None,
+            links=[],
+            entity_links=[(mention, "target")],
+        )
+        session.commit()
+    EntityCollector(session_factory).run()
+    with session_factory.begin() as session:
+        key = session.scalar(text("SELECT key FROM entity_groups"))
+        session.execute(
+            text(
+                "INSERT INTO entity_group_roles (group_id, role, kind, method, reason, quote) "
+                "SELECT id, 'figurant', 'accused', 'model', '', '' FROM entity_groups"
+            )
+        )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/unnamed").text
+        rejected = client.post(
+            "/ui/unnamed/reject",
+            data={"figurant": "k" * 64, "candidate": f"person:{key}", "back": "status=open&page=1"},
+            follow_redirects=False,
+        )
+        after_reject = client.get("/ui/unnamed").text
+        same = client.post(
+            "/ui/unnamed/resolve",
+            data={
+                "figurant": "k" * 64,
+                "resolution": "existing_person",
+                "existing_person_key": key,
+                "back": "status=open&page=1",
+            },
+            follow_redirects=False,
+        )
+        found = client.get("/ui/unnamed", params={"status": "found"}).text
+
+    caption = "Названные в других публикациях</caption>"
+    assert caption not in without and caption in page
+    table = page[page.index(caption) :]
+    table = table[: table.index("</table>")]
+    # The person leads to the dossier, the publication to the name in its text; escaped.
+    assert f'<a href="/ui/investigations/{quote(key)}">' in table
+    assert "Задержание &lt;в Тюмени&gt;</a>" in table and "<в Тюмени>" not in table
+    assert re.search(r'href="/ui/articles/\d+\?start=18&amp;end=31"', table)
+    assert (
+        "Прокуратура, 26.11.2024: тот же вид события в том же месте; рядом с именем назван возраст 17"
+        in table
+    )
+    # The key holds what the text wrote: escaped in the form as everywhere.
+    assert f'name="existing_person_key" value="{escape(key, quote=True)}"' in table
+    assert f'name="candidate" value="person:{escape(key, quote=True)}"' in table
+    assert "<пуртов>" not in table and "<Пуртов>" not in table
+    assert rejected.status_code == 303 and same.status_code == 303
+    assert '<span class="badge">не он</span>' in after_reject
+    # «Не он» is taken back by «Это он», which stays; «Не он» itself is said once.
+    rejected_table = after_reject[after_reject.index(caption) :].split("</table>")[0]
+    assert 'name="resolution" value="existing_person"' in rejected_table
+    assert 'name="candidate" value="person:' not in rejected_table
+    # «Это он» said: no button beside the person — «Отменить решение» is below the card.
+    confirmed_table = found[found.index(caption) :].split("</table>")[0]
+    assert 'name="resolution" value="existing_person"' not in confirmed_table
+    assert 'name="candidate" value="person:' not in confirmed_table
+    assert '<span class="badge succeeded">это он</span>' in found[found.index(caption) :]

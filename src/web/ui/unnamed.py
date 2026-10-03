@@ -25,6 +25,11 @@ from db.orm_models import (
 )
 from entities.base_candidates import BaseCandidates, base_candidates
 from entities.jurisdiction import CourtHints, Jurisdiction
+from entities.named_candidates import (
+    NamedCandidates,
+    named_candidates,
+    person_candidate_key,
+)
 from entities.unnamed import (
     CANDIDATE_KEY_LENGTH,
     DIFFERENT,
@@ -45,6 +50,7 @@ from entities.unnamed import (
 )
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
+from web.ui.entities import display_name
 from web.ui.layout import _page, pager
 
 router = APIRouter()
@@ -233,6 +239,54 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
 <tbody>{"".join(rows)}</tbody></table>{more}"""
 
 
+def _named_candidates_html(
+    figurant: UnnamedFigurantRecord, found: NamedCandidates, back: str
+) -> str:
+    """The named figurants of other publications the unnamed one may be; nothing where
+    no other publication of those days tells of the place and the event."""
+    if not found.shown:
+        return ""
+    rows = []
+    for item in found.shown:
+        verdict = (
+            ' <span class="badge succeeded">это он</span>'
+            if item.decision == SAME
+            else ' <span class="badge">не он</span>'
+            if item.decision == DIFFERENT
+            else ""
+        )
+        # «Не он» can be taken back by «Это он»; «Это он» — by «Отменить решение» below.
+        actions = (
+            _post_form(
+                "/ui/unnamed/resolve",
+                figurant.key,
+                "Это он",
+                "",
+                back,
+                {"resolution": EXISTING_PERSON, "existing_person_key": item.key},
+            )
+            if item.decision != SAME
+            else ""
+        ) + (
+            _reject_form(figurant.key, person_candidate_key(item.key), back)
+            if item.decision is None
+            else ""
+        )
+        where = urlencode({"start": item.start, "end": item.end})
+        rows.append(
+            f'<tr><th scope="row"><a href="/ui/investigations/{quote(item.key)}">'
+            f"{escape(display_name(item.name))}</a>{verdict}</th>"
+            f'<td><a href="/ui/articles/{item.article_id}?{escape(where, quote=True)}">'
+            f"{escape(item.title)}</a></td>"
+            f"<td>{escape('; '.join(item.reasons))}</td>"
+            f'<td class="actions-cell">{actions}</td></tr>'
+        )
+    return f"""<table class="candidates"><caption>Названные в других публикациях</caption>
+<thead><tr><th scope="col">Человек</th><th scope="col">Публикация, где он назван</th>
+<th scope="col">Почему подходит</th><th scope="col">Решение</th></tr></thead>
+<tbody>{"".join(rows)}</tbody></table>"""
+
+
 def _base_candidates_html(figurant: UnnamedFigurantRecord, found: BaseCandidates, back: str) -> str:
     """The people of the operator's own base the figurant may be; nothing where the base
     has nobody of that age and sex, a count where the text names no place to narrow by."""
@@ -287,6 +341,7 @@ def _card(
     figurant: UnnamedFigurantRecord,
     found: Candidates,
     in_base: BaseCandidates,
+    named: NamedCandidates,
     courts: CourtHints,
     resolution: tuple[str, str | None, str | None, str | None, date | None, datetime | None] | None,
     people: list[EntityGroupRecord],
@@ -376,6 +431,7 @@ def _card(
   <p class="muted">Модель: {escape(figurant.explanation)}</p>
   {note}
   {_candidates_html(figurant, found, back)}
+  {_named_candidates_html(figurant, named, back)}
   {_base_candidates_html(figurant, in_base, back)}
   {courts_html(courts)}
   {person_form}
@@ -503,6 +559,7 @@ def ui_unnamed(
             item,
             candidates(db, item),
             base_candidates(db, item),
+            named_candidates(db, item),
             jurisdiction.courts(item.place, item.articles),
             words.get(item.key),
             people,
@@ -546,6 +603,10 @@ def ui_unnamed(
 событие бывает раньше новости), того пола и буквы фамилии; сначала — родившиеся в названном
 месте. Место рождения — не всегда место жительства; даты включения в перечень у нас есть
 только с первого сохранённого снимка.</p>
+<p class="muted">«Названные в других публикациях» — фигуранты, которых в те же дни (плюс-минус
+три) назвала другая наша публикация о том же месте и таком же событии: рядом с именем стоит тот
+же возраст, названа та же статья или совпала буква фамилии. Ссылка ведёт к имени в тексте. Это
+то, что обычно ищут поиском: суд не назвал человека, а прокуратура или издание — назвали.</p>
 <p class="muted">Ниже в карточке — люди из базы Airtable, которыми может быть безымянный: того
 возраста на дату новости и пола, из названного места (регион или город в базе); сначала — с той
 же статьёй. К новости о приговоре добавляются люди базы с приговором по той же статье за 90 дней
