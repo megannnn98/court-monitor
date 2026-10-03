@@ -50,6 +50,9 @@ ROUTES_AFTER_SPLIT = [
     # The nameless records of the operator's base against the list.
     "GET /ui/base-unnamed",
     "POST /ui/base-unnamed/decide",
+    # The graph of an investigation: the first answer and what a node adds.
+    "GET /api/investigations/{key}/graph",
+    "GET /api/investigations/{key}/graph/expand",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

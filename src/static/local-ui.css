@@ -1554,6 +1554,100 @@ svg.graph a:hover circle {
   border-radius: 50%;
 }
 
+/* The interactive graph of a dossier (`investigation-graph.js`). */
+.ig-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.ig-filters legend {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ig-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 10px;
+}
+
+.ig-canvas {
+  height: 520px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-subtle);
+}
+
+.ig-panel {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.ig-panel:empty {
+  display: none;
+}
+
+.ig-panel h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.ig-panel p {
+  margin: 0 0 5px;
+  font-size: 13px;
+}
+
+.ig-panel .ig-kind {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ig-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.ig-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 8px 0 0;
+}
+
+.ig-status {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ig-legend {
+  padding: 6px 0 0;
+  color: var(--muted);
+}
+
+@media (max-width: 800px) {
+  /* The phone: the panel goes under the canvas, the canvas keeps most of the screen. */
+  .ig-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ig-canvas {
+    height: 62vh;
+    min-height: 320px;
+  }
+}
+
 table caption {
   padding: 8px 0 4px;
   color: var(--muted);

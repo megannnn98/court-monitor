@@ -20,6 +20,7 @@ from web.routers import (
     articles,
     candidates,
     health,
+    investigations,
     monitoring,
     operations,
     persons,
@@ -115,5 +116,6 @@ for module in (
     operations,
     monitoring,
     health,
+    investigations,
 ):
     app.include_router(module.router)

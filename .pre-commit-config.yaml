@@ -1,3 +1,6 @@
+# A vendored browser bundle is somebody else's file: kept byte for byte.
+exclude: ^src/static/vendor/
+
 repos:
   # Базовые проверки файлов
   - repo: https://github.com/pre-commit/pre-commit-hooks

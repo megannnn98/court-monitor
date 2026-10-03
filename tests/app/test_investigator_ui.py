@@ -425,6 +425,47 @@ def test_the_dossier_says_whether_the_operator_s_base_holds_the_person(
     assert "Сверка только по имени" in present and "нет в базе" not in present
 
 
+def test_the_dossier_holds_the_place_of_the_event_graph(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _case(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get(f"/ui/investigations/{MOOR}").text
+        graph = client.get(f"/api/investigations/{MOOR}/graph")
+
+    section = page[page.index('<section class="band" id="graph"') :]
+    section = section[: section.index("</section>")]
+    address = "/api/investigations/%D0%B0%D0%BB%D0%B5%D0%BA%D1%81%D0%B0%D0%BD%D0%B4%D1%80%20%D0%BC%D0%BE%D0%BE%D1%80/graph"
+    assert f'data-graph-url="{address}"' in section
+    assert f'data-expand-url="{address}/expand"' in section
+    # The address the page gives is the one the API serves.
+    assert graph.status_code == 200 and graph.json()["center"].startswith("person:")
+    assert '<a href="#graph">Граф событий</a>' in page
+    # The library, the logic and the page script, from this site, in that order.
+    assert re.findall(
+        r'<script defer src="(/static/[^"?]+)\?v=[0-9a-f]{12}"></script>', section
+    ) == [
+        "/static/vendor/vis-network/vis-network.min.js",
+        "/static/investigation-graph-core.js",
+        "/static/investigation-graph.js",
+    ]
+    assert "http://" not in section and "https://" not in section
+    # Co-occurrence is off until asked for; the rest is on.
+    assert re.findall(r'data-filter="(\w+)"( checked)?', section) == [
+        ("events", " checked"),
+        ("people", " checked"),
+        ("publications", " checked"),
+        ("orgs", " checked"),
+        ("articles", " checked"),
+        ("cooccurrence", ""),
+    ]
+    assert 'class="secondary ig-reset"' in section and 'class="ig-panel"' in section
+    # Without the script the section says so, and no node of the graph is written here.
+    assert "требует JavaScript" in section and "Остальное досье от него не зависит" in section
+    assert "Ленинский суд" not in section and "Моор" not in section.split("aria-label")[0]
+
+
 def test_the_links_are_the_data_s_and_the_graph_keeps_to_its_limit(
     session_factory: sessionmaker[Session],
 ) -> None:

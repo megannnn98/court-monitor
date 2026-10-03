@@ -12,11 +12,13 @@ text names another year); no event date is invented, and the page says so.
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from html import escape
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -55,6 +57,28 @@ from web.ui.layout import _page, copy_button, external_url
 from web.ui.workload import dispute_pairs
 
 router = APIRouter()
+
+_STATIC = Path(__file__).resolve().parents[2] / "static"
+# The graph's scripts, in the order they load: the library, the logic, the page.
+_GRAPH_SCRIPTS = (
+    "vendor/vis-network/vis-network.min.js",
+    "investigation-graph-core.js",
+    "investigation-graph.js",
+)
+_GRAPH_SCRIPT_TAGS = "".join(
+    f'<script defer src="/static/{name}?v='
+    f'{hashlib.sha256((_STATIC / name).read_bytes()).hexdigest()[:12]}"></script>'
+    for name in _GRAPH_SCRIPTS
+)
+# The switches of the graph (`investigation-graph-core.js` knows the same names).
+_GRAPH_FILTERS = (
+    ("events", "События", True),
+    ("people", "Людей", True),
+    ("publications", "Публикации", True),
+    ("orgs", "Суды и органы", True),
+    ("articles", "Статьи", True),
+    ("cooccurrence", "Совместные упоминания", False),
+)
 
 TIMELINE_LIMIT = 200
 PUBLICATION_LIMIT = 30
@@ -859,6 +883,42 @@ def _graph(dossier: Dossier) -> str:
 </section>"""
 
 
+def _event_graph(dossier: Dossier) -> str:
+    """The place of the interactive graph: the switches, the canvas, the panel. The graph
+    itself is read by the page's script from `/api/investigations/{key}/graph`; nothing
+    of it is written here, so without the script the section says so and the rest of the
+    dossier stands as it is."""
+    address = f"/api/investigations/{quote(dossier.entity.key, safe='')}/graph"
+    switches = "".join(
+        f'<label class="check"><input type="checkbox" data-filter="{name}"'
+        f"{' checked' if on else ''}> {label}</label>"
+        for name, label, on in _GRAPH_FILTERS
+    )
+    return f"""<section class="band" id="graph" aria-labelledby="graph-title">
+  <h2 id="graph-title">Граф событий</h2>
+  <p class="muted">Человек связан с событием, в котором он назван; событие — со своей
+  публикацией, судом, органом и статьёй. Двое связаны только через событие, где названы оба.
+  «Назван в событии» — не «обвиняемый»: извлечение называет так каждого, кто стоит в предложении.
+  «Совместные упоминания» — счёт общих публикаций, а не установленная связь.</p>
+  <div id="investigation-graph" class="ig" data-graph-url="{escape(address, quote=True)}"
+    data-expand-url="{escape(address, quote=True)}/expand">
+    <fieldset class="ig-filters"><legend>Показывать</legend>{switches}</fieldset>
+    <div class="ig-body">
+      <div class="ig-canvas" role="application"
+        aria-label="Граф событий: {escape(display_name(dossier.entity.name), quote=True)}"></div>
+      <aside class="ig-panel" aria-live="polite" aria-label="Выбранный узел"></aside>
+    </div>
+    <p class="ig-toolbar"><button type="button" class="secondary ig-reset">Вернуть расположение</button>
+    <span class="ig-status" role="status">Граф строится в браузере и требует JavaScript.
+    Остальное досье от него не зависит.</span></p>
+    <p class="legend ig-legend">● человек · ◆ событие · ■ публикация · ▲ суд · ▼ орган ·
+    ⬢ статья · сплошная линия — из текста публикации · пунктир — совместное упоминание ·
+    пунктирная рамка — узел ещё не раскрыт (двойное нажатие или кнопка в панели)</p>
+  </div>
+  {_GRAPH_SCRIPT_TAGS}
+</section>"""
+
+
 def _evidence(dossier: Dossier) -> str:
     if not dossier.publications:
         return """<section class="band" id="evidence" aria-labelledby="evidence-title">
@@ -935,13 +995,14 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
 <div class="page-toc" role="navigation" aria-label="Разделы досье">
   <a href="#decision-title">Решение</a> <a href="#charges">Статьи УК</a>
   <a href="#timeline">Хронология</a>
-  <a href="#evidence">Доказательства</a> <a href="#links">Граф связей</a>
+  <a href="#evidence">Доказательства</a> <a href="#graph">Граф событий</a>
 </div>
 {_header(dossier)}
 {_decision(dossier)}
 {_charges(dossier)}
 {_timeline(dossier)}
 {_evidence(dossier)}
+{_event_graph(dossier)}
 <details class="graph-details" id="links"><summary>Граф связей</summary>
 {_graph(dossier)}
 </details>"""
