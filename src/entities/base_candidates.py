@@ -78,7 +78,8 @@ class BaseCandidate:
 @dataclass
 class BaseCandidates:
     shown: list[BaseCandidate]
-    # People of that age and sex in the base in all; `shown` are the ones from that place.
+    # People of that age and sex in the base in all; `shown` are the ones from that place
+    # and, for news of a sentence, the ones sentenced under its article shortly before.
     total: int
 
 
@@ -199,4 +200,11 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
             item.name,
         )
     )
-    return BaseCandidates(found[:shown], len(rows))
+    top = found[:shown]
+    # The place is the weaker sign of the two when the news is of a sentence: five people
+    # of the place must not hide the one found by the sentence and the article. The first
+    # of those takes the last seat.
+    sentenced = next((item for item in found if item.by_sentence), None)
+    if sentenced is not None and sentenced not in top and top:
+        top[-1] = sentenced
+    return BaseCandidates(top, len(rows))

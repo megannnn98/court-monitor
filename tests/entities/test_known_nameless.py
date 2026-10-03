@@ -83,3 +83,16 @@ def test_the_record_s_age_is_moved_to_the_day_of_the_news() -> None:
     assert undated.match(41, "male", "Ленинградская область", DAY) is not None
     assert undated.match(42, "male", "Ленинградская область", DAY) is None
     assert undated.match(41, "male", "Ленинградская область", None) is not None
+
+
+def test_a_record_of_years_ago_is_still_asked() -> None:
+    """Entered six years ago as «35-летний»: 41 today. Left out, it would not only be
+    missed — it would leave the other record alone, and «похожие записи: 2» would read
+    «вероятно, есть в базе»."""
+    old = _record("35-летний житель Ленинградской области", case_opened_on=date(2020, 9, 30))
+    recent = _record("41-летний житель Ленинградской области")
+
+    assert NamelessBase([old]).match(41, "male", "Ленинградская область", DAY) is not None
+    both = NamelessBase([old, recent]).match(41, "male", "Ленинградская область", DAY)
+    assert both is not None and (both.level, both.count) == ("similar", 2)
+    assert len(NamelessBase([old, recent, _record("Житель Тулы 3")])) == 2

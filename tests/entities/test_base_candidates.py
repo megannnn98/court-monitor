@@ -329,6 +329,29 @@ def test_news_of_a_sentence_finds_who_was_sentenced_under_the_article_wherever_f
     assert sorted(item.name.split()[0] for item in no_article.shown) == ["Местная", "Якутова"]
 
 
+def test_people_of_the_place_do_not_hide_the_one_found_by_the_sentence(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Five seats, six people of the place: the one found by the sentence and the article
+    — the stronger sign for news of a sentence — takes the last seat."""
+    _sentenced(session_factory)
+    with session_factory.begin() as session:
+        session.add_all(
+            _person(f"Якутянка{n} Анна Ильинична", date(1973, 3, 3), region="Якутия", city=None)
+            for n in range(5)
+        )
+    news = _figurant(age=53, place="Якутия", articles=["205.5", "282.2"], event_type="sentence")
+
+    with session_factory() as session:
+        found = base_candidates(session, news)
+        arrest = base_candidates(session, _figurant(**{**vars(news), "event_type": "arrest"}))
+
+    assert len(found.shown) == 5 and found.shown[-1].name == "Ханова Мария Андреевна"
+    assert not any(item.by_sentence for item in found.shown[:-1])
+    # Nobody found by a sentence: the five seats are the place's, as before.
+    assert len(arrest.shown) == 5 and not any(item.by_sentence for item in arrest.shown)
+
+
 def test_the_sentence_is_looked_for_ninety_days_back_and_two_ahead(
     session_factory: sessionmaker[Session],
 ) -> None:

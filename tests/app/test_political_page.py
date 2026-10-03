@@ -796,6 +796,15 @@ def test_an_unnamed_person_is_looked_for_among_the_base_s_nameless_records(
     # Two records tell of a boy of Канаш: which one, if any, is for the operator.
     _nameless(session_factory, "15-летний житель Канаша", opened=date(2026, 9, 1))
     _nameless(session_factory, "Подросток 15-летний, Канаш (2)", opened=date(2026, 8, 1))
+    # A record the base no longer counts says nothing.
+    _nameless(
+        session_factory,
+        "30-летний житель Вологды",
+        opened=date(2026, 9, 1),
+        region="Вологодская область",
+        city="Вологда",
+        active=False,
+    )
     # Not them: a woman, another town, a named person of that age and place.
     _nameless(
         session_factory, "15-летняя жительница Канаша", opened=date(2026, 9, 1), gender="female"
@@ -859,3 +868,37 @@ def test_an_unnamed_person_is_looked_for_among_the_base_s_nameless_records(
     assert cells["15-летний житель Канаша"] == (
         "похожие записи в базе: 2 (15-летний житель Канаша; Подросток 15-летний, Канаш (2))"
     )
+
+
+def test_a_base_of_nameless_records_alone_is_a_base(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    _unnamed(session_factory, "b", age=15, place="Канаш", articles=["205.5"])
+    with _client(session_factory) as client:
+        empty = client.get("/ui/political?months=0&who=unnamed").text
+        _nameless(session_factory, "15-летний житель Канаша", opened=date(2026, 9, 1))
+        page = client.get("/ui/political?months=0&who=unnamed").text
+        chosen = client.get("/ui/political?months=0&who=unnamed&known=none").text
+
+    # No base at all: nobody is called new. A base of records without a name is a base.
+    assert 'name="known"' not in empty and "вероятно, есть в базе" not in empty
+    assert ">вероятно, есть в базе</span>" in page and 'name="known"' in page
+    assert "Канаша" not in chosen
+
+
+def test_the_base_is_asked_with_the_age_of_the_day_it_was_told(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The age is told on the 5th; a later sentence of the same person, on the 20th, tells
+    none. A record «19-летний» of a year ago fits a man of 21 only if the two weeks to
+    the later sentence are counted — and they must not be."""
+    _seed(session_factory)
+    _unnamed(session_factory, "a", age=21, place="Канаш", articles=["205.5"], day=5)
+    _unnamed(session_factory, "b", age=None, place="Канаш", articles=["205.5"], day=20)
+    _nameless(session_factory, "19-летний житель Канаша", opened=date(2025, 9, 10))
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political?months=0&who=unnamed").text
+
+    row = re.search(r"Канаша.*?</tr>", page, re.DOTALL)
+    assert row is not None and page.count("без имени</span>") == 1, "one person, two sentences"
+    assert ">нет в базе</span>" in row.group(0)

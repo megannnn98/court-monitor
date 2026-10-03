@@ -154,6 +154,17 @@ class Case:
         return self.latest.published_at
 
     @property
+    def age_told_at(self) -> datetime | None:
+        """When the age was last told. A later sentence that tells no age says nothing of
+        how old the person is on its day: the age is the one of the day it was told."""
+        dates = [
+            sentence.published_at
+            for sentence in self.sentences
+            if sentence.age is not None and sentence.published_at
+        ]
+        return max(dates) if dates else None
+
+    @property
     def first_published_at(self) -> datetime | None:
         dates = [sentence.published_at for sentence in self.sentences if sentence.published_at]
         return min(dates) if dates else None

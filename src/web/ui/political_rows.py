@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from urllib.parse import quote
 
 from sqlalchemy import select, text
@@ -112,6 +112,8 @@ class ListRow:
     # base that names nobody either (the place is `regions`).
     age: int | None = None
     gender: str = ""
+    # The day the age was told.
+    age_day: date | None = None
     memorial: str | None = None
     first_published: datetime | None = None
     # The latest publications.
@@ -182,6 +184,7 @@ def unnamed_row(case: Case, *, done: bool = False) -> ListRow:
         links=list(links.values())[:LINKS],
         age=case.age,
         gender=case.gender,
+        age_day=told.date() if (told := case.age_told_at) else None,
     )
 
 
@@ -252,23 +255,25 @@ def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Re
     base = KnownBase.from_session(db)
     # A person without a name is looked for among the records that name nobody — by the
     # age, the sex and the place, on the day of their latest news.
-    nameless = NamelessBase.from_session(db) if any(row.unnamed for row in found) else None
+    nameless = NamelessBase.from_session(db)
     for row in found:
-        if not row.unnamed:
-            row.known = base.match(row.name)
-        elif nameless is not None:
-            day = row.last_published.date() if row.last_published else None
-            row.known = nameless.match(row.age, row.gender, row.regions, day)
+        row.known = (
+            nameless.match(row.age, row.gender, row.regions, row.age_day)
+            if row.unnamed
+            else base.match(row.name)
+        )
     known_counts = Counter(known_answer(row.known) for row in found)
     # With the base not loaded (a sync has never run) nobody is «not in the base» — the
     # base is not there — so the choice is ignored and the page says so.
-    if chosen.known != "all" and len(base):
+    # Loaded is either kind of record: a base of nameless records alone is a base.
+    base_size = len(base) + len(nameless)
+    if chosen.known != "all" and base_size:
         found = [row for row in found if known_answer(row.known) == chosen.known]
     return Result(
         rows=found,
         news_counts=dict(news_counts),
         known_counts=dict(known_counts),
-        base_size=len(base),
+        base_size=base_size,
         done_total=sum(row.done for row in everyone),
     )
 

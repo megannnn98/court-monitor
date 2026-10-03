@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -12,6 +12,7 @@ from entities.unnamed_cases import (
     group_cases,
     place_genitive,
 )
+from web.ui.political_rows import unnamed_row
 
 
 def _sentence(
@@ -153,3 +154,20 @@ def test_a_case_is_political_only_by_an_article_it_names() -> None:
     # 205 is on the operator's list of the перечень's articles; 282.2 is «АУЕ».
     assert group_cases([_sentence("a", place="Тюмень", articles=("205",))])[0].political
     assert group_cases([_sentence("a", place="Благовещенск", articles=("282.2",))])[0].political
+
+
+def test_the_age_is_of_the_day_it_was_told() -> None:
+    """A later sentence that tells no age says nothing of how old the person is on its
+    day: compared with the base, the age is the one of the day it was told."""
+    case = group_cases(
+        [
+            _sentence("a", age=20, place="Канаш", day=3),
+            _sentence("b", age=20, place="Канаш", day=5),
+            _sentence("c", place="Канаш", day=20),
+        ]
+    )[0]
+    assert len(case.sentences) == 3
+    assert case.last_published_at == datetime(2026, 9, 20, tzinfo=UTC)
+    assert case.age_told_at == datetime(2026, 9, 5, tzinfo=UTC)
+    assert unnamed_row(case).age_day == date(2026, 9, 5)
+    assert group_cases([_sentence("d", place="Канаш")])[0].age_told_at is None

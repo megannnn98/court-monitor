@@ -12,7 +12,6 @@ which one — if any — is for the operator to see. A named person is `entities
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -26,7 +25,6 @@ from entities.known_base import SHOWN, KnownMatch
 from entities.unnamed import place_pattern
 
 _YEAR = 365.25
-_YEARS_BACK = 4
 
 
 @dataclass(frozen=True)
@@ -39,31 +37,34 @@ class _Record:
 
 
 class NamelessBase:
-    """The records of the base that name nobody, by the age they tell."""
+    """The records of the base that name nobody and tell an age."""
 
     def __init__(self, records: list[Any]) -> None:
-        self._by_age: dict[int, list[_Record]] = defaultdict(list)
-        for record in records:
-            age = record_age(record.full_name)
-            if age is None:
-                continue
-            self._by_age[age].append(
-                _Record(
-                    " ".join(record.full_name.split()),
-                    age,
-                    record.gender,
-                    f"{record.region or ''} {record.city or ''}".lower(),
-                    record.case_opened_on,
-                )
+        self._records = [
+            _Record(
+                " ".join(record.full_name.split()),
+                age,
+                record.gender,
+                f"{record.region or ''} {record.city or ''}".lower(),
+                record.case_opened_on,
             )
+            for record in records
+            if (age := record_age(record.full_name)) is not None
+        ]
+
+    def __len__(self) -> int:
+        return len(self._records)
 
     @classmethod
     def from_session(cls, session: Session) -> NamelessBase:
         return cls(
             list(
                 session.scalars(
+                    # The active records, as `KnownBase` reads the named ones: a record
+                    # the base no longer counts must not say «есть в базе».
                     select(AirtableKnownPersonRecord).where(
-                        AirtableKnownPersonRecord.birth_date.is_(None)
+                        AirtableKnownPersonRecord.active,
+                        AirtableKnownPersonRecord.birth_date.is_(None),
                     )
                 )
             )
@@ -78,11 +79,11 @@ class NamelessBase:
         in_place = place_pattern(place)
         if age is None or in_place is None:
             return None
+        # Every record is asked: one entered six years ago tells an age six years off, and
+        # left out it would turn «похожие записи: 2» into «вероятно» for the other.
         found = [
             record
-            # A record entered up to `_YEARS_BACK` years away tells an age that many years off.
-            for told in range(age - _YEARS_BACK, age + _YEARS_BACK + 1)
-            for record in self._by_age.get(told, [])
+            for record in self._records
             if _same_age(record, age, day)
             and (not gender or record.gender in (None, gender))
             and in_place.search(record.place)
