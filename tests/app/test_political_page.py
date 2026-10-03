@@ -842,6 +842,8 @@ def test_an_unnamed_person_is_looked_for_among_the_base_s_nameless_records(
         assert row is not None
         return row.group(0)
 
+    # The page says what the answer is worth.
+    assert "сигнал проверить запись, а не основание не заводить\nновое дело" in page
     # One record fits: probably her record, named as the base writes it — and escaped.
     leningrad = answer("Ленинградской области")
     assert ">вероятно, есть в базе</span>" in leningrad
