@@ -42,6 +42,7 @@ KNOWN_FILTERS = {
     "in_base": LEVEL_LABELS["in_base"].capitalize(),
     "probably": LEVEL_LABELS["probably"].capitalize(),
     "namesakes": LEVEL_LABELS["namesakes"].capitalize(),
+    "similar": LEVEL_LABELS["similar"].capitalize(),
 }
 
 

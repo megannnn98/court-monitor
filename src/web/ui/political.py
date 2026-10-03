@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from db.orm_models import (
     EntityDoneMarkRecord,
 )
-from entities.known_base import KnownMatch
+from entities.known_base import COUNTED, KnownMatch
 from entities.news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE, UNKNOWN
 from entities.rf_check import FULL
 from entities.rf_entry import (
@@ -109,12 +109,12 @@ def _known_mark(row: ListRow, *, loaded: bool) -> str:
     match = row.known
     if match is None:
         return '<span class="badge succeeded">нет в базе</span>'
-    css = {"in_base": "", "probably": "", "namesakes": "pending"}[match.level]
+    several = match.level in COUNTED
     names = "; ".join(match.names)
     return (
-        f'<span class="badge {css}" title="{escape(names, quote=True)}">'
+        f'<span class="badge {"pending" if several else ""}" title="{escape(names, quote=True)}">'
         f"{escape(match.label)}</span>"
-        f'<br><span class="muted">{escape(names if match.level != "namesakes" else "")}</span>'
+        f'<br><span class="muted">{escape("" if match.level == "namesakes" else names)}</span>'
     )
 
 
@@ -279,8 +279,10 @@ def ui_political(
 «запись перечня включена …» и не делает совпадение подтверждением личности.
 {escape(INCLUSION_ATTRIBUTION)}.
 Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.
-«В базе Airtable» — есть ли человек в вашей таблице «Найденные люди»; сверка только по имени
-(даты рождения и региона там нет), поэтому «вероятно» и «тёзки» — не уверенность.</p>
+«В базе Airtable» — есть ли человек в вашей таблице «Найденные люди». Названных сверяем по
+имени, поэтому «вероятно» и «тёзки» — не уверенность. Безымянных — с записями базы без имени:
+по возрасту в названии записи, полу и региону; «вероятно» — подошла одна запись, «похожие
+записи» — несколько.</p>
 <table><thead><tr><th title="Обработано">✓</th><th>№</th><th>Фамилия Имя</th><th>Свежая новость</th><th>В базе Airtable</th><th>Регион</th><th>Перечень РФМ</th><th>Статьи УК</th>
 <th>Почему политическое</th><th>Мемориал</th><th>Первая новость</th><th>Последняя новость</th>
 <th>Публикации</th></tr></thead><tbody>{rows}</tbody></table>
@@ -337,7 +339,7 @@ def known_answer_text(match: KnownMatch | None, *, loaded: bool) -> str | None:
     if match is None:
         return "нет в базе"
     names = "; ".join(match.names)
-    return f"{match.label} ({names})" if match.level == "namesakes" else f"{match.label}: {names}"
+    return f"{match.label} ({names})" if match.level in COUNTED else f"{match.label}: {names}"
 
 
 def _known_text(row: ListRow, *, loaded: bool) -> str | None:

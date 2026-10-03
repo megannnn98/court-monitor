@@ -34,12 +34,16 @@ from sqlalchemy.orm import Session
 
 from db.orm_models import AirtableKnownPersonRecord
 
-Level = Literal["in_base", "probably", "namesakes"]
+Level = Literal["in_base", "probably", "namesakes", "similar"]
 LEVEL_LABELS = {
     "in_base": "есть в базе",
     "probably": "вероятно, есть в базе",
     "namesakes": "тёзки в базе",
+    # An unnamed person against the records without a name (`entities.known_nameless`).
+    "similar": "похожие записи в базе",
 }
+# The answers that name several records and count them.
+COUNTED = frozenset({"namesakes", "similar"})
 # A record shown beside the answer: how many names to list.
 SHOWN = 3
 
@@ -57,7 +61,7 @@ class KnownMatch:
 
     @property
     def label(self) -> str:
-        if self.level == "namesakes":
+        if self.level in COUNTED:
             return f"{LEVEL_LABELS[self.level]}: {self.count}"
         return LEVEL_LABELS[self.level]
 

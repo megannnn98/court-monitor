@@ -751,7 +751,111 @@ def test_the_filters_of_the_list_hold_for_the_unnamed_too(
         assert "Канаша" in sentences and "Благовещенска" not in sentences
         late = client.get("/ui/political?who=unnamed&date_from=10/09/2026").text
         assert "Канаша" in late and "Благовещенска" not in late
-        # The base is asked by a name; a person without one is not «нет в базе».
+        # With no record of the base that tells the same, an unnamed person is new too.
         _known(session_factory, "Петров Пётр Петрович")
         new = client.get("/ui/political?months=0&known=none").text
-        assert "без имени</span>" not in new
+        assert "Канаша" in new and "Благовещенска" in new
+
+
+def _nameless(
+    session_factory: sessionmaker[Session], name: str, *, opened: date, **values: object
+) -> None:
+    """A record of the base that names nobody: no birth date, the age in its name."""
+    with session_factory.begin() as session:
+        session.add(
+            AirtableKnownPersonRecord(
+                external_id=f"rec-{name}-{opened}",
+                full_name=name,
+                normalized_name=name.lower(),
+                matching_key=name.lower(),
+                case_opened_on=opened,
+                **{"gender": "male", "region": "Чувашия", "city": "Канаш", **values},  # type: ignore[arg-type]
+            )
+        )
+
+
+def test_an_unnamed_person_is_looked_for_among_the_base_s_nameless_records(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«41-летний житель Ленинградской области» stands in the base under that very name;
+    the result said «нет в базе», having no name to look up."""
+    _seed(session_factory)
+    _unnamed(session_factory, "a", age=41, place="Ленинградская область", articles=["205.5"])
+    _unnamed(session_factory, "b", age=15, place="Канаш", articles=["205.5"])
+    _unnamed(session_factory, "c", age=30, place="Вологда", articles=["282.2"])
+    _unnamed(session_factory, "d", age=None, place="Тотьма", articles=["282.2"])
+    # The base is loaded: it holds named people too.
+    _known(session_factory, "Петров Пётр Петрович")
+    _nameless(
+        session_factory,
+        "41-летний житель <Ленинградской> области",
+        opened=date(2026, 9, 19),
+        region="Ленинградская область",
+        city=None,
+    )
+    # Two records tell of a boy of Канаш: which one, if any, is for the operator.
+    _nameless(session_factory, "15-летний житель Канаша", opened=date(2026, 9, 1))
+    _nameless(session_factory, "Подросток 15-летний, Канаш (2)", opened=date(2026, 8, 1))
+    # Not them: a woman, another town, a named person of that age and place.
+    _nameless(
+        session_factory, "15-летняя жительница Канаша", opened=date(2026, 9, 1), gender="female"
+    )
+    _nameless(
+        session_factory,
+        "30-летний житель Омска",
+        opened=date(2026, 9, 1),
+        region="Омская область",
+        city="Омск",
+    )
+    with session_factory.begin() as session:
+        session.add(
+            AirtableKnownPersonRecord(
+                external_id="named",
+                full_name="Иванов 15-летний Иван",
+                normalized_name="x",
+                matching_key="x",
+                gender="male",
+                region="Чувашия",
+                city="Канаш",
+                birth_date=date(2011, 1, 1),
+            )
+        )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/political?months=0&who=unnamed").text
+        similar = client.get("/ui/political?months=0&known=similar").text
+        workbook = load_workbook(
+            BytesIO(client.get("/ui/political/export.xlsx?months=0&who=unnamed").content)
+        )
+
+    def answer(place: str) -> str:
+        row = re.search(rf"{place}.*?</tr>", page, re.DOTALL)
+        assert row is not None
+        return row.group(0)
+
+    # One record fits: probably her record, named as the base writes it — and escaped.
+    leningrad = answer("Ленинградской области")
+    assert ">вероятно, есть в базе</span>" in leningrad
+    assert "41-летний житель &lt;Ленинградской&gt; области" in leningrad
+    kanash = answer("Канаша")
+    assert ">похожие записи в базе: 2</span>" in kanash
+    assert "15-летний житель Канаша; Подросток 15-летний, Канаш (2)" in kanash
+    assert "жительница" not in kanash and "Иванов" not in kanash
+    # Nobody of Вологда in the base; and no age told — nothing to compare.
+    assert ">нет в базе</span>" in answer("Вологды") and ">нет в базе</span>" in answer("Тотьмы")
+    for option in (
+        '<option value="probably">Вероятно, есть в базе (1)</option>',
+        '<option value="similar">Похожие записи в базе (1)</option>',
+        '<option value="none">Нет в базе (2)</option>',
+    ):
+        assert option in page
+    assert "Канаша" in similar and "Ленинградской" not in similar
+    rows = list(workbook["Результат"].iter_rows(values_only=True))
+    known = rows[0].index("В базе Airtable")
+    cells = {row[1]: row[known] for row in rows[1:]}
+    assert cells["41-летний житель Ленинградской области"] == (
+        "вероятно, есть в базе: 41-летний житель <Ленинградской> области"
+    )
+    assert cells["15-летний житель Канаша"] == (
+        "похожие записи в базе: 2 (15-летний житель Канаша; Подросток 15-летний, Канаш (2))"
+    )

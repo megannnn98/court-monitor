@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -229,6 +229,130 @@ def test_a_place_is_found_where_a_word_begins(session_factory: sessionmaker[Sess
     assert [item.name for item in omsk.shown] == ["Омская Анна Ильинична"]
     assert [item.name for item in ufa.shown] == ["Уфимская Анна Ильинична"]
     assert [item.name for item in near.shown] == ["Омская Анна Ильинична"]
+
+
+def _sentenced(session_factory: sessionmaker[Session]) -> None:
+    """«53-летняя жительница Якутии» of the news is a woman of the base whose case was
+    opened in Бурятия: the place differs, the sentence and the articles do not."""
+    born = date(1973, 3, 3)
+    with session_factory.begin() as session:
+        session.add_all(
+            [
+                _person(
+                    "Ханова Мария Андреевна",
+                    born,
+                    region="Республика Бурятия",
+                    city=None,
+                    articles="ст. 282.2 УК РФ ч. 1,ст. 205.5 УК РФ ч. 2",
+                    sentenced_on=date(2026, 5, 6),
+                    court="2-й Восточный окружной военный суд",
+                ),
+                # Not her: sentenced too long ago, under another article, never sentenced.
+                _person(
+                    "Давняя Анна Ильинична",
+                    born,
+                    region="Тува",
+                    city=None,
+                    articles="ст. 205.5 УК РФ",
+                    sentenced_on=date(2026, 3, 1),
+                ),
+                _person(
+                    "Другая Анна Ильинична",
+                    born,
+                    region="Тува",
+                    city=None,
+                    articles="ст. 275 УК РФ",
+                    sentenced_on=date(2026, 6, 1),
+                ),
+                _person(
+                    "Несудимая Анна Ильинична",
+                    born,
+                    region="Тува",
+                    city=None,
+                    articles="ст. 205.5 УК РФ",
+                ),
+                # From the place the news names: first, as before.
+                _person(
+                    "Якутова Анна Ильинична",
+                    born,
+                    region="Якутия",
+                    city="Якутск",
+                    articles="ст. 275 УК РФ",
+                ),
+                # From the place and sentenced under the article that season: found by
+                # the place, like anyone of the place.
+                _person(
+                    "Местная Анна Ильинична",
+                    born,
+                    region="Якутия",
+                    city=None,
+                    articles="ст. 205.5 УК РФ",
+                    sentenced_on=date(2026, 6, 1),
+                ),
+            ]
+        )
+
+
+def test_news_of_a_sentence_finds_who_was_sentenced_under_the_article_wherever_from(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _sentenced(session_factory)
+    news = _figurant(age=53, place="Якутия", articles=["205.5", "282.2"], event_type="sentence")
+
+    with session_factory() as session:
+        found = base_candidates(session, news)
+        arrest = base_candidates(session, _figurant(**{**vars(news), "event_type": "arrest"}))
+        no_article = base_candidates(session, _figurant(**{**vars(news), "articles": []}))
+
+    # The one from the place first; then the one found by her sentence, who says so.
+    assert [(item.name, item.by_sentence) for item in found.shown] == [
+        ("Местная Анна Ильинична", False),
+        ("Якутова Анна Ильинична", False),
+        ("Ханова Мария Андреевна", True),
+    ]
+    assert found.shown[0].reasons == [
+        "53 лет на 11.06.2026",
+        "место: Якутия",
+        "та же статья: 205.5",
+        "в базе уже есть приговор от 01.06.2026",
+    ]
+    assert found.shown[2].reasons == [
+        "53 лет на 11.06.2026",
+        "та же статья: 205.5, 282.2",
+        "приговор в базе от 06.05.2026, 2-й Восточный окружной военный суд",
+        "место в базе другое: Республика Бурятия",
+    ]
+    assert found.total == 6
+    # News of an arrest is no news of a sentence; and with no article named, the people
+    # sentenced that season are too many to tell anything.
+    assert [item.name.split()[0] for item in arrest.shown] == ["Местная", "Якутова"]
+    assert sorted(item.name.split()[0] for item in no_article.shown) == ["Местная", "Якутова"]
+
+
+def test_the_sentence_is_looked_for_ninety_days_back_and_two_ahead(
+    session_factory: sessionmaker[Session],
+) -> None:
+    born = date(1973, 3, 3)
+    days = {"ровно": 90, "раньше": 91, "позже": -2, "ещёпозже": -3}
+    with session_factory.begin() as session:
+        for name, before in days.items():
+            session.add(
+                _person(
+                    f"{name.capitalize()} Анна Ильинична",
+                    born,
+                    region="Тува",
+                    city=None,
+                    articles="ст. 205.5 УК РФ",
+                    sentenced_on=NEWS.date() - timedelta(days=before),
+                )
+            )
+
+    with session_factory() as session:
+        found = base_candidates(
+            session, _figurant(age=53, place="Якутия", articles=["205.5"], event_type="sentence")
+        )
+
+    assert sorted(item.name.split()[0] for item in found.shown) == ["Позже", "Ровно"]
 
 
 def test_article_numbers_are_read_from_the_base_s_cell() -> None:

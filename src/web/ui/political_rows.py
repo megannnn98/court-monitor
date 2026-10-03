@@ -25,6 +25,7 @@ from db.orm_models import EntityGroupNewsRecord, EntityGroupPoliticsRecord, Enti
 from entities.done_marks import Marks, done_marks, is_done
 from entities.evidence import person_evidence_cte
 from entities.known_base import KnownBase, KnownMatch
+from entities.known_nameless import NamelessBase
 from entities.news import NEW_CASE, ONGOING, OTHER, SENTENCE
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
 from entities.rf_check import FULL
@@ -107,6 +108,10 @@ class ListRow:
     rf_inclusion_date: datetime | None = None
     # What the operator's base says of this person; None: nobody by this name there.
     known: KnownMatch | None = None
+    # An unnamed person: the age and the sex the text tells, to look for a record of the
+    # base that names nobody either (the place is `regions`).
+    age: int | None = None
+    gender: str = ""
     memorial: str | None = None
     first_published: datetime | None = None
     # The latest publications.
@@ -175,6 +180,8 @@ def unnamed_row(case: Case, *, done: bool = False) -> ListRow:
         articles=[(article, True) for article in case.articles],
         first_published=case.first_published_at,
         links=list(links.values())[:LINKS],
+        age=case.age,
+        gender=case.gender,
     )
 
 
@@ -243,15 +250,20 @@ def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Re
         reverse=True,
     )
     base = KnownBase.from_session(db)
-    # A person without a name cannot be looked up by one: the base is not asked.
-    named = [row for row in found if not row.unnamed]
-    for row in named:
-        row.known = base.match(row.name)
-    known_counts = Counter(known_answer(row.known) for row in named)
+    # A person without a name is looked for among the records that name nobody — by the
+    # age, the sex and the place, on the day of their latest news.
+    nameless = NamelessBase.from_session(db) if any(row.unnamed for row in found) else None
+    for row in found:
+        if not row.unnamed:
+            row.known = base.match(row.name)
+        elif nameless is not None:
+            day = row.last_published.date() if row.last_published else None
+            row.known = nameless.match(row.age, row.gender, row.regions, day)
+    known_counts = Counter(known_answer(row.known) for row in found)
     # With the base not loaded (a sync has never run) nobody is «not in the base» — the
     # base is not there — so the choice is ignored and the page says so.
     if chosen.known != "all" and len(base):
-        found = [row for row in named if known_answer(row.known) == chosen.known]
+        found = [row for row in found if known_answer(row.known) == chosen.known]
     return Result(
         rows=found,
         news_counts=dict(news_counts),

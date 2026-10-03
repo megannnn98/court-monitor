@@ -6,13 +6,19 @@ with the birth date, the region and the articles. So an unnamed figurant is put 
 the people of the base of that age on the day of the news, of that sex, from that place;
 those charged under the same article first. The operator confirms: this is a list of who
 to look at, not an identification.
+
+The place is where the two disagree most: the news says where the person lives («жительница
+Якутии»), the base where the case was opened (Бурятия). So news of a sentence is also put
+next to the people of the base sentenced shortly before it under the same article, wherever
+from — what the operator does by hand, going through a court's sentences for someone of
+that age. They stand below the people from the place, and say that the place differs.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -21,6 +27,12 @@ from sqlalchemy.orm import Session
 from entities.unnamed import DIFFERENT, SAME, SUPPLIED_NAME, place_pattern
 
 SHOWN = 5
+# News of a sentence comes after the sentence: the same day from the court, weeks later
+# when it is an appeal or a round-up.
+SENTENCE_WINDOW = timedelta(days=90)
+# A sentence the base dates a day or two after the news is the same sentence.
+SENTENCE_SLACK = timedelta(days=2)
+SENTENCE = "sentence"
 KEY_PREFIX = "base:"
 
 # The people of the base of that age on the day (or a year older: the event may be
@@ -29,7 +41,7 @@ _PEOPLE = text(
     """
     SELECT full_name, normalized_name, birth_date,
            coalesce(region, '') AS region, coalesce(city, '') AS city,
-           coalesce(articles, '') AS articles, sentenced_on,
+           coalesce(articles, '') AS articles, sentenced_on, coalesce(court, '') AS court,
            date_part('year', age(CAST(:on AS date), birth_date))::int AS age
     FROM airtable_known_persons
     WHERE birth_date IS NOT NULL
@@ -58,6 +70,8 @@ class BaseCandidate:
     age: int
     reasons: list[str] = field(default_factory=list)
     article_match: bool = False
+    # Found by the sentence and the article, not by the place: the place differs.
+    by_sentence: bool = False
     decision: str | None = None
 
 
@@ -84,9 +98,11 @@ def _name(full_name: str) -> str:
 def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> BaseCandidates:
     """The people of the base that may be this unnamed person.
 
-    The age and the sex alone fit hundreds, so the place decides who is shown: only the
-    people whose region or city is the place the text names. A text that names no place
-    shows nobody — only how many there are."""
+    The age and the sex alone fit hundreds, so something must narrow them. First the
+    place: the people whose region or city is the one the text names. Then, for news of a
+    sentence that names an article, the people sentenced under that article within
+    `SENTENCE_WINDOW` before the news, wherever the base says they are from. A text that
+    gives neither shows nobody — only how many there are."""
     if figurant.age is None or figurant.published_at is None:
         return BaseCandidates([], 0)
     rows = session.execute(
@@ -120,16 +136,34 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
     ).first()
     confirmed = tuple(identified) if identified else None
     found: list[BaseCandidate] = []
+    day = figurant.published_at.date()
+    sentence_news = getattr(figurant, "event_type", None) == SENTENCE
     for row in rows:
         where = f"{row.region} {row.city}".lower()
-        if not (in_place and in_place.search(where)):
-            continue
         shared = sorted(wanted & article_numbers(row.articles))
         place = ", ".join(part for part in (row.region, row.city) if part)
-        reasons = [f"{row.age} лет на {figurant.published_at:%d.%m.%Y}", f"место: {place}"]
+        placed = bool(in_place and in_place.search(where))
+        by_sentence = (
+            not placed
+            and sentence_news
+            and bool(shared)
+            and row.sentenced_on is not None
+            and day - SENTENCE_WINDOW <= row.sentenced_on <= day + SENTENCE_SLACK
+        )
+        if not placed and not by_sentence:
+            continue
+        reasons = [f"{row.age} лет на {figurant.published_at:%d.%m.%Y}"]
+        if placed:
+            reasons.append(f"место: {place}")
         if shared:
             reasons.append("та же статья: " + ", ".join(shared))
-        if row.sentenced_on and row.sentenced_on < figurant.published_at.date():
+        if by_sentence:
+            reasons.append(
+                f"приговор в базе от {row.sentenced_on:%d.%m.%Y}"
+                + (f", {row.court}" if row.court else "")
+            )
+            reasons.append(f"место в базе другое: {place or 'не указано'}")
+        elif row.sentenced_on and row.sentenced_on < day:
             reasons.append(f"в базе уже есть приговор от {row.sentenced_on:%d.%m.%Y}")
         key = base_candidate_key(row.normalized_name, row.birth_date)
         name = _name(row.full_name)
@@ -145,6 +179,7 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
                 age=row.age,
                 reasons=reasons,
                 article_match=bool(shared),
+                by_sentence=by_sentence,
                 decision=SAME
                 if confirmed == (name, row.birth_date)
                 else DIFFERENT
@@ -152,11 +187,13 @@ def base_candidates(session: Session, figurant: Any, *, shown: int = SHOWN) -> B
                 else None,
             )
         )
-    # Confirmed first, then the same article, then the exact age; the rejected last.
+    # Confirmed first and the rejected last; then the people from the place, the same
+    # article, the exact age.
     found.sort(
         key=lambda item: (
             item.decision != SAME,
             item.decision == DIFFERENT,
+            item.by_sentence,
             not item.article_match,
             item.age != figurant.age,
             item.name,
