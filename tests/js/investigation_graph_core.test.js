@@ -186,6 +186,7 @@ test("what a limit cut is said in words", () => {
   assert.equal(core.moreText("event", 11), "+ 11 событий");
   assert.equal(core.moreText("person", 22), "+ 22 человека");
   assert.equal(core.moreText("unresolved_person", 5), "+ 5 имён без карточки");
+  assert.equal(core.moreText("organization", 2), "+ 2 суда или органа");
 });
 
 test("the shape says the kind, and a weak edge is dashed", () => {

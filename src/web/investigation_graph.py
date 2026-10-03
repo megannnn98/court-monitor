@@ -35,6 +35,7 @@ PERSON_EVENTS = 20
 EVENT_PEOPLE = 20
 EVENT_NEIGHBOURS = 20
 COOCCURRENCE_PEOPLE = 10
+_ID_DIGITS = 9
 
 PERSON = "person"
 EVENT = "event"
@@ -307,12 +308,13 @@ def expand_event(db: Session, event: int) -> dict[str, Any]:
     graph.edge(event_id, publication, EVIDENCE, "источник", href=_span_href(row))
 
     people: dict[int, Any] = {}
-    unresolved = 0
+    unresolved: set[str] = set()
     neighbours = 0
     for mention in db.execute(_EVENT_MENTIONS, {"event": event}).all():
         if mention.entity_type == "person":
             if mention.group_id is None:
-                unresolved += 1
+                # One name written twice in the sentence is one name.
+                unresolved.add(" ".join((mention.normalized_text or "").split()).casefold())
             else:
                 people.setdefault(mention.group_id, mention)
             continue
@@ -351,7 +353,8 @@ def expand_event(db: Session, event: int) -> dict[str, Any]:
     graph.cut(event_id, PERSON, len(people) - EVENT_PEOPLE)
     # Names the event gives that step 3 made no person of: counted, not drawn — a name
     # in a text is not an identity.
-    graph.cut(event_id, "unresolved_person", unresolved)
+    graph.cut(event_id, "unresolved_person", len(unresolved))
+    graph.cut(event_id, "organization", neighbours - EVENT_NEIGHBOURS)
     return graph.payload()
 
 
@@ -366,6 +369,8 @@ def expand_person(db: Session, person: int) -> dict[str, Any]:
 def expand(db: Session, node: str) -> dict[str, Any]:
     """The neighbours of `person:<id>` or `event:<id>`."""
     kind, _, number = node.partition(":")
-    if kind not in (PERSON, EVENT) or not number.isdigit():
+    # An id of the database is an integer of four bytes: a longer number names nothing,
+    # and must not reach the query as an overflow.
+    if kind not in (PERSON, EVENT) or not number.isdigit() or len(number) > _ID_DIGITS:
         raise NotExpandable(node)
     return expand_event(db, int(number)) if kind == EVENT else expand_person(db, int(number))

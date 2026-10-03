@@ -231,15 +231,16 @@
       const cuts = Object.keys(cut).map(function (type) {
         return core.moreText(type, cut[type]);
       });
+      const events = payload.nodes.filter(function (node) {
+        return node.type === "event";
+      }).length;
       say(
-        state.nodes.size > 1
+        events
           ? "Событий на графе: " +
-              payload.nodes.filter(function (node) {
-                return node.type === "event";
-              }).length +
+              events +
               (cuts.length ? " (" + cuts.join(", ") + ")" : "") +
               ". Нажмите на событие и откройте его связи."
-          : "У человека нет событий: связывать не с чем."
+          : "Человек не назван ни в одном событии: связывать не с чем."
       );
       show(state.center);
     })

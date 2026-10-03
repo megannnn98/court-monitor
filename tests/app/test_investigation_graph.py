@@ -399,6 +399,21 @@ def test_a_name_step_3_made_no_person_of_is_counted_not_drawn(
     ]
 
 
+def test_more_courts_than_the_limit_are_counted(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ids = _seed(session_factory)
+    monkeypatch.setattr(investigation_graph, "EVENT_NEIGHBOURS", 1)
+
+    with session_factory() as session:
+        graph = expand(session, f"event:{ids['detention']}")
+
+    assert len([node for node in graph["nodes"] if node["type"] in ("court", "authority")]) == 1
+    assert graph["more"] == [
+        {"node": f"event:{ids['detention']}", "type": "organization", "count": 1}
+    ]
+
+
 def test_what_is_not_there_and_what_does_not_open(session_factory: sessionmaker[Session]) -> None:
     ids = _seed(session_factory)
 
@@ -412,6 +427,8 @@ def test_what_is_not_there_and_what_does_not_open(session_factory: sessionmaker[
             f"publication:{ids['detention_article']}",
             "org:court:тверской суд",
             "event:x",
+            # Longer than any id of the database: refused, not an overflow in the query.
+            "event:99999999999999999999",
             "",
         ):
             with pytest.raises(NotExpandable):
