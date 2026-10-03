@@ -73,6 +73,10 @@ class OperationParameters(BaseModel):
     ) = None
     limit: int | None = Field(default=None, ge=1, le=100_000)
     workers: int | None = Field(default=None, ge=1, le=32)
+    # monitor only, «Сделать всё»: when this step ends well, the next step of the cycle is
+    # started by the same word, and so on to the last. A step stopped, lost or crashed
+    # ends the chain: the operator looks, and presses again from where it stands.
+    chain: bool = False
 
 
 @dataclass(frozen=True)
@@ -434,6 +438,36 @@ class OperationRegistry:
             stdout=_tail(result.stdout),
             stderr=_tail(result.stderr),
         )
+        self._continue_chain(run_id)
+
+    def _continue_chain(self, run_id: int) -> None:
+        """«Сделать всё»: start the step after a chained one that ended well.
+
+        The ending is read back from the database, not taken from the process: a run the
+        operator stopped while its process was finishing is `interrupted` there, and a
+        stopped chain must not go on."""
+        try:
+            with self._session_factory() as session:
+                record = session.get(OperatorOperationRunRecord, run_id)
+                if record is None or record.operation_name != "monitor":
+                    return
+                parameters = OperationParameters(**record.parameters)
+                status = OperationRunStatus(record.status)
+            following = next_in_chain(parameters.mode, status) if parameters.chain else None
+            if following is None:
+                return
+            started = self.start("monitor", OperationParameters(mode=following, chain=True))
+            logger.info(
+                "event=operation_chain_continued after_run=%s mode=%s run_id=%s",
+                run_id,
+                following,
+                started.id,
+            )
+        except OperationConflictError:
+            logger.warning("event=operation_chain_blocked after_run=%s", run_id)
+        except Exception:
+            # The step itself is recorded; a chain that cannot go on is not its failure.
+            logger.exception("event=operation_chain_failed after_run=%s", run_id)
 
     def _command(self, run_id: int) -> list[str]:
         with self._session_factory() as session:
@@ -544,6 +578,33 @@ def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
 
 
 # Monitor modes over the whole database, and the command of each.
+# The cycle of the monitor's steps, in order: what «Сделать всё» runs one after another.
+MONITOR_CYCLE: tuple[Literal["load", "purge", "entities", "figurants", "political"], ...] = (
+    "load",
+    "purge",
+    "entities",
+    "figurants",
+    "political",
+)
+
+
+def next_in_chain(
+    mode: str | None, status: OperationRunStatus
+) -> Literal["load", "purge", "entities", "figurants", "political"] | None:
+    """The step a chain starts after `mode` ended with `status`; None when it ends there.
+
+    A step that succeeded is followed by the next; the last is followed by nothing. A
+    load «failed» when one of many sources did: its articles are loaded, and one broken
+    source must not hold the rest of the night's work. Any other failure ends the chain."""
+    if mode not in MONITOR_CYCLE:
+        return None
+    done = status is OperationRunStatus.SUCCEEDED or (
+        status is OperationRunStatus.FAILED and mode == "load"
+    )
+    index = MONITOR_CYCLE.index(mode)
+    return MONITOR_CYCLE[index + 1] if done and index + 1 < len(MONITOR_CYCLE) else None
+
+
 _WHOLE_DATABASE_COMMANDS = {
     "purge": "purge-junk",
     "entities": "collect-entities",

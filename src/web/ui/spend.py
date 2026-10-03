@@ -144,6 +144,12 @@ def spend_text(stage: str, env: Mapping[str, str] | None = None) -> str:
     return found.text if found else ""
 
 
+def cost_text(stage: str, env: Mapping[str, str] | None = None) -> str:
+    """The words of what a step costs; empty for a step that is free."""
+    found = cost(stage, env)
+    return found.text if found else ""
+
+
 def balance_text(env: Mapping[str, str] | None = None) -> str:
     """The balance as a sentence; empty with no key at all."""
     if not _api_key(os.environ if env is None else env):

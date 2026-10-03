@@ -626,7 +626,7 @@ def _start_whole_database(
     if refusal is not None:
         return _refused(db, registry, refusal, 409)
     try:
-        run = registry.start(_OPERATION, OperationParameters(mode=mode))
+        run = registry.start(_OPERATION, OperationParameters(mode=mode, chain=_chained(request)))
     except OperationConflictError:
         # Another worker started a run between the check and the start.
         return _refused(db, registry, "Идёт другой запуск.", 409)
@@ -661,6 +661,7 @@ async def _start(
             OperationParameters(
                 sources=selected,
                 mode=mode,
+                chain=_chained(request),
                 published_from=published_from.isoformat()
                 if isinstance(published_from, date)
                 else None,
@@ -670,6 +671,11 @@ async def _start(
     except OperationConflictError:
         return _refused(db, registry, "Идёт другой запуск.", 409)
     return RedirectResponse(_started_at(request, run.id), status_code=303)
+
+
+def _chained(request: Request) -> bool:
+    """«Сделать всё»: the step is the first of a chain to the end of the cycle."""
+    return request.query_params.get("chain") == "1"
 
 
 def _started_at(request: Request, run_id: int) -> str:

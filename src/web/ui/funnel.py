@@ -15,12 +15,12 @@ from sqlalchemy.orm import Session
 
 from entities.officials import OFFICIAL_KINDS
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES, EXPIRED_CONTENT_TYPE
+from monitoring.junk_screen import HELD
 
 _COUNTS = text(
     """
     SELECT
       (SELECT count(*) FROM source_documents WHERE content_type <> :expired),
-      (SELECT count(*) FROM parsed_articles),
       (SELECT count(*) FROM entity_groups),
       (SELECT count(DISTINCT group_id) FROM entity_group_rf_matches WHERE level = 'full'),
       (SELECT count(*) FROM entity_group_roles WHERE role = 'figurant'),
@@ -29,7 +29,8 @@ _COUNTS = text(
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'criminal'),
       (SELECT count(*) FROM entity_group_politics WHERE verdict = 'unclear'),
       (SELECT min(published_at) FROM parsed_articles),
-      (SELECT max(published_at) FROM parsed_articles)
+      (SELECT max(published_at) FROM parsed_articles),
+      (SELECT count(*) FROM junk_screen_holds WHERE status = :held)
     """
 )
 _CRIMINAL_PUBLICATIONS = text(
@@ -72,7 +73,6 @@ def _n(value: int) -> str:
 def funnel(db: Session) -> Funnel:
     (
         documents,
-        publications,
         entities,
         listed,
         figurants,
@@ -82,8 +82,10 @@ def funnel(db: Session) -> Funnel:
         unclear,
         since,
         until,
+        held,
     ) = db.execute(
-        _COUNTS, {"officials": sorted(OFFICIAL_KINDS), "expired": EXPIRED_CONTENT_TYPE}
+        _COUNTS,
+        {"officials": sorted(OFFICIAL_KINDS), "expired": EXPIRED_CONTENT_TYPE, "held": HELD},
     ).one()
     criminal_publications = (
         db.scalar(_CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}) or 0
@@ -94,15 +96,19 @@ def funnel(db: Session) -> Funnel:
             "2",
             "С уголовным делом",
             criminal_publications,
-            f"отсеяно {_n(documents - criminal_publications)} без уголовного дела "
-            "(штрафы, прочие новости)",
+            # A held publication is kept for a person to look at: neither a case nor dropped.
+            f"отсеяно {_n(documents - criminal_publications - held)} без уголовного дела "
+            "(штрафы, прочие новости)"
+            + (f"; {_n(held)} отложены на проверку и ни туда, ни сюда не входят" if held else ""),
             "/ui/runs",
         ),
         Stage(
             "3",
             "Людей в них",
             entities,
-            f"из {_n(publications)} публикаций; одно имя в любом падеже — один человек, "
+            # People are collected from the publications with a case only (step 3 reads no
+            # other), so the number is the one of the stage above.
+            f"из {_n(criminal_publications)} публикаций; одно имя в любом падеже — один человек, "
             "спорные — в «Спорных случаях»",
             "/ui/entities?rf=all&figurants=all",
         ),

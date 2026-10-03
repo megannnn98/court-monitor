@@ -123,6 +123,46 @@ def step_action(stage: str) -> str:
     return _ACTIONS[stage]
 
 
+def chain_action(stage: str) -> str:
+    """The address that starts `stage` and, after it, every step to the end of the cycle."""
+    return f"{_ACTIONS[stage]}?chain=1"
+
+
+def chain_confirmation(stage: str) -> str:
+    """What the browser asks before «Сделать всё»: which steps will run, and of each of
+    them what a single start of it would have asked — the destructive warning and the
+    cost. The balance is said once."""
+    steps = STAGES[STAGES.index(stage) :]
+    asked = [
+        f"Шаг {STAGES.index(step) + 1}. {text}"
+        for step in steps
+        if (text := " ".join(p for p in (_CONFIRM.get(step, ""), spend.cost_text(step)) if p))
+    ]
+    first, last = STAGES.index(stage) + 1, len(STAGES)
+    span = f"шаг {last}" if first == last else f"шаги {first}–{last} подряд"
+    return " ".join(
+        [
+            f"Выполнить {span}? Остановится на первой ошибке.",
+            *asked,
+            spend.balance_text() if any(spend.cost_text(step) for step in steps) else "",
+        ]
+    ).strip()
+
+
+def chain_note(state: PipelineState) -> str:
+    """Under a live chained step: what happens when it ends."""
+    if state.live is None or not state.live.parameters.chain:
+        return ""
+    stage = _stage_of(state.live)
+    if stage not in STAGES or stage == STAGES[-1]:
+        return '<p class="muted chain-note">Идёт «Сделать всё»: это последний шаг.</p>'
+    following = TITLES[STAGES[STAGES.index(stage) + 1]]
+    return (
+        f'<p class="muted chain-note">Идёт «Сделать всё»: после этого шага сам запустится '
+        f"«{escape(following)}». «Остановить» прерывает и цепочку.</p>"
+    )
+
+
 def step_confirmation(stage: str) -> str:
     """What the browser asks before a step: the destructive warning, then what the step
     costs and what the account can still pay for."""
@@ -171,6 +211,19 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
             )
         steps.append(button)
     arrows = '<span class="step-arrow" aria-hidden="true">→</span>'
+    everything = ""
+    if state.live is None:
+        needs_sources = state.current in _WITH_SOURCES
+        asked = escape(chain_confirmation(state.current), quote=True)
+        everything = (
+            f'<p class="pipeline-all"><button id="do-all" class="primary-action'
+            f'{" run-button" if needs_sources else ""}" type="submit" '
+            f'formaction="{chain_action(state.current)}" '
+            f"onclick=\"return confirm('{asked}')\""
+            f"{' disabled' if needs_sources and not checked_count else ''}>Сделать всё</button> "
+            f'<span class="muted">шаги {current + 1}–{len(STAGES)} подряд, без остановок; '
+            "кнопки ниже запускают по одному шагу</span></p>"
+        )
     if state.live is None:
         running = f"Следующий шаг {current + 1}: {escape(HINTS[state.current])}."
     elif _stage_of(state.live) in STAGES:
@@ -178,7 +231,9 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
     else:
         running = f"Идёт {escape(_title_of(state.live).lower())}."
     return (
+        f"{everything}"
         f'<div class="pipeline">{arrows.join(steps)}</div>'
+        f"{chain_note(state)}"
         f'<p class="muted pipeline-note">{running} После шага {len(STAGES)} круг начинается '
         "заново.</p>"
         f"{spend.notice(state.current) if state.live is None else ''}"

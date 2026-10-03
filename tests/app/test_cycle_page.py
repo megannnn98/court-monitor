@@ -71,8 +71,12 @@ def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     assert "<h1>Работа</h1>" in response.text
     assert "Сейчас ничего проверять не нужно" in response.text
     assert "Обработка данных" in response.text
-    assert 'id="step-load"' in response.text
-    assert 'formaction="/ui/management/run?back=cycle"' in response.text
+    # One press runs every step that is left; a single step is on the runs' page.
+    assert 'id="step-load"' in response.text and ">Сделать всё</button>" in response.text
+    assert 'formaction="/ui/management/run?chain=1&amp;back=cycle"' in response.text
+    assert "Выполнить шаги 1–5 подряд? Остановится на первой ошибке." in response.text
+    assert "шаги 1–5 подряд; по одному шагу" in response.text
+    assert "Запустить следующий шаг" not in response.text
     assert 'id="step-purge"' not in response.text
     assert 'href="/ui/political"><svg' in response.text
     assert "<span>Работа</span>" in response.text
@@ -213,3 +217,52 @@ def test_common_next_action_does_not_wait_for_a_stale_run(
 
     assert "<strong>Дальше:</strong> Шаг 1: подгрузить статьи." in overview
     assert "Дождитесь завершения" not in overview
+
+
+def test_do_all_starts_a_chain_from_the_step_that_is_due(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
+
+    with _client(session_factory, registry) as client:
+        last = client.get("/ui/cycle").text
+        started = client.post("/ui/management/political?chain=1&back=cycle", follow_redirects=False)
+        running = client.get("/ui/cycle").text
+
+    # The last step alone is left: «Сделать всё» says so.
+    assert 'formaction="/ui/management/political?chain=1&amp;back=cycle"' in last
+    assert "Выполнить шаг 5? Остановится на первой ошибке." in last and "шаг 5;" in last
+    # It asks of the steps it will run, not of the ones already done.
+    assert "Удалить из базы" not in last
+    assert (started.status_code, started.headers["location"]) == (303, "/ui/cycle")
+    run = registry.runs_of("monitor", limit=1)[0]
+    assert (run.parameters.mode, run.parameters.chain) == ("political", True)
+    assert "Идёт «Сделать всё»: это последний шаг." in running
+    assert ">Остановить</button>" in running and ">Сделать всё</button>" not in running
+
+
+def test_a_live_chained_step_says_what_starts_after_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load")
+    registry.start("monitor", OperationParameters(mode="purge", chain=True))
+
+    with _client(session_factory, registry) as client:
+        cycle = client.get("/ui/cycle").text
+        runs = client.get("/ui/runs").text
+
+    note = (
+        "Идёт «Сделать всё»: после этого шага сам запустится «Собрать сущности». "
+        "«Остановить» прерывает и цепочку."
+    )
+    assert note in cycle and note in runs
+
+
+def test_a_live_single_step_says_nothing_of_a_chain(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
+
+    with _client(session_factory, registry) as client:
+        assert "Идёт «Сделать всё»" not in client.get("/ui/cycle").text

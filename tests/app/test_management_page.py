@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
-from db.orm_models import OperatorOperationRunRecord
+from db.orm_models import JunkScreenHoldRecord, OperatorOperationRunRecord
 from monitoring.models import MonitoringStage, MonitoringTrigger
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from operator_console import OperationParameters, OperationRegistry, OperationRunStatus
@@ -565,6 +565,15 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
     )
     run = registry.get(run_id)
     assert (run.parameters.mode, run.command[2:]) == ("purge", ["purge-junk"])
+    # A step started by its own button is no chain.
+    assert run.parameters.chain is False
+    # «Сделать всё» stands above the steps, from the step that is due.
+    assert (
+        '<button id="do-all" class="primary-action" type="submit" '
+        'formaction="/ui/management/purge?chain=1"'
+    ) in idle
+    assert "Выполнить шаги 2–5 подряд? Остановится на первой ошибке. Шаг 2. Удалить из базы" in idle
+    assert 'id="do-all"' not in page, "no second start while a run is live"
     assert "Очистка от мусора" in page
     assert '<progress class="overall" value="1000" max="16046">' in page
     assert "Людей удалено: 260" in page
@@ -755,6 +764,58 @@ def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[
     assert 'class="funnel-stage result" href="/ui/political"' in page
     # The funnel counts every publication: it says from when to when.
     assert "<b>За всё время:</b> публикации с 04.03.2025 по 01.09.2026." in page
+
+
+def test_the_funnel_counts_a_held_publication_as_neither_a_case_nor_dropped(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Three publications: one with a case, one held for a person to look at, one without
+    a case. People are collected from the first alone — and the funnel says «из 1»."""
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        ovd = seed.source("ОВД-Инфо", "https://ovd.info")
+        runs = {}
+        for name in ("case", "held", "other"):
+            article, runs[name] = seed.article(
+                ovd,
+                external_id=name,
+                title=name,
+                text="Ивана Иванова арестовали.",
+                published_at=datetime(2026, 9, 1, tzinfo=UTC),
+            )
+            # A hold a person has already called junk is no longer waiting.
+            if name != "case":
+                session.add(
+                    JunkScreenHoldRecord(
+                        article_id=article,
+                        status="held" if name == "held" else "junk",
+                        score=0.8,
+                        cutoff=0.7,
+                        screen="test",
+                        reason="check",
+                    )
+                )
+        seed.event(
+            runs["case"],
+            "Ивана Иванова арестовали.",
+            event_type="arrest",
+            event_date=None,
+            links=[],
+        )
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    stages = dict(
+        re.findall(r'<span class="funnel-step">(\d)</span>.*?<b>([\d ]+)</b>', page, re.DOTALL)
+    )
+    assert (stages["1"], stages["2"]) == ("3", "1")
+    assert (
+        "отсеяно 1 без уголовного дела (штрафы, прочие новости); 1 отложены на проверку и ни "
+        "туда, ни сюда не входят"
+    ) in page
+    assert "из 1 публикаций; одно имя" in page
 
 
 def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[Session]) -> None:

@@ -13,13 +13,15 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
+from db.orm_models import OperatorOperationRunRecord
 from operator_console import (
+    MONITOR_CYCLE,
     OUTPUT_LIMIT,
     Heartbeat,
     OperationConflictError,
@@ -29,6 +31,7 @@ from operator_console import (
     OperationRunStatus,
     ProcessResult,
     ProcessRunner,
+    next_in_chain,
 )
 
 INGEST = OperationParameters(source="ovd-info", limit=3)
@@ -590,3 +593,115 @@ def test_the_purge_is_a_monitor_mode_without_sources(
     assert commands[0][2:] == ["purge-junk"]
     with pytest.raises(ValueError):
         registry.start("monitor", OperationParameters(mode="purge", sources=["ovd-info"]))
+
+
+# ── «Сделать всё»: a chained step that ends well starts the next ──────────────────────
+
+
+def _modes(session_factory: sessionmaker[Session]) -> list[tuple[str, str, bool]]:
+    with session_factory() as session:
+        return [
+            (row.parameters["mode"], row.status, row.parameters["chain"])
+            for row in session.scalars(
+                select(OperatorOperationRunRecord).order_by(OperatorOperationRunRecord.id)
+            )
+        ]
+
+
+def _load(chain: bool) -> OperationParameters:
+    return OperationParameters(mode="load", sources=["ovd-info"], chain=chain)
+
+
+def test_a_chain_runs_every_step_to_the_last_one_after_another(
+    session_factory: sessionmaker[Session],
+) -> None:
+    commands: list[str] = []
+
+    def process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        commands.append(command[2])
+        return ProcessResult(return_code=0, stdout="", stderr="")
+
+    _registry(session_factory, process).start("monitor", _load(chain=True))
+
+    assert commands == [
+        "monitor",
+        "purge-junk",
+        "collect-entities",
+        "find-figurants",
+        "find-political",
+    ]
+    assert _modes(session_factory) == [
+        (mode, "succeeded", True)
+        for mode in ("load", "purge", "entities", "figurants", "political")
+    ]
+
+
+def test_a_single_step_starts_nothing_after_it(session_factory: sessionmaker[Session]) -> None:
+    _registry(session_factory).start("monitor", _load(chain=False))
+
+    assert _modes(session_factory) == [("load", "succeeded", False)]
+
+
+def test_a_chain_from_the_middle_goes_on_from_there(session_factory: sessionmaker[Session]) -> None:
+    _registry(session_factory).start("monitor", OperationParameters(mode="figurants", chain=True))
+
+    assert [mode for mode, _, _ in _modes(session_factory)] == ["figurants", "political"]
+
+
+def test_a_step_that_fails_ends_the_chain_but_a_load_with_a_broken_source_does_not(
+    session_factory: sessionmaker[Session],
+) -> None:
+    def process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        # The load ends with an error (one source of many); the entities' rebuild crashes.
+        failed = command[2] in ("monitor", "collect-entities")
+        return ProcessResult(return_code=1 if failed else 0, stdout="", stderr="")
+
+    _registry(session_factory, process).start("monitor", _load(chain=True))
+
+    assert [(mode, status) for mode, status, _ in _modes(session_factory)] == [
+        ("load", "failed"),
+        ("purge", "succeeded"),
+        ("entities", "failed"),
+    ]
+
+
+def test_a_step_stopped_while_its_process_ended_well_ends_the_chain(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The ending is the database's: the operator pressed «Остановить» and the process
+    then returned 0 — the run is interrupted, and the chain does not go on."""
+
+    def process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+        if command[2] == "purge-junk":
+            with session_factory.begin() as session:
+                session.execute(
+                    text(
+                        "UPDATE operator_operation_runs SET status = 'interrupted' "
+                        "WHERE status = 'running'"
+                    )
+                )
+        return ProcessResult(return_code=0, stdout="", stderr="")
+
+    _registry(session_factory, process).start("monitor", _load(chain=True))
+
+    assert [(mode, status) for mode, status, _ in _modes(session_factory)] == [
+        ("load", "succeeded"),
+        ("purge", "interrupted"),
+    ]
+
+
+def test_what_follows_a_step_in_a_chain() -> None:
+    succeeded, failed = OperationRunStatus.SUCCEEDED, OperationRunStatus.FAILED
+    assert [next_in_chain(mode, succeeded) for mode in MONITOR_CYCLE] == [
+        "purge",
+        "entities",
+        "figurants",
+        "political",
+        None,
+    ]
+    assert next_in_chain("load", failed) == "purge"
+    assert next_in_chain("purge", failed) is None
+    assert next_in_chain("load", OperationRunStatus.INTERRUPTED) is None
+    # Not a step of the cycle: nothing follows.
+    for mode in ("rosfin", "resolve", None):
+        assert next_in_chain(mode, succeeded) is None

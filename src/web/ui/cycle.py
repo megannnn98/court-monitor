@@ -15,9 +15,10 @@ from web.ui.layout import _page
 from web.ui.pipeline import (
     STAGES,
     PipelineState,
+    chain_action,
+    chain_confirmation,
+    chain_note,
     current_state,
-    step_action,
-    step_confirmation,
 )
 from web.ui.run_tail import tail_html
 from web.ui.workload import OperatorTask, Workload, next_operator_task, operator_tasks, workload
@@ -81,20 +82,23 @@ def _pipeline_control(state: PipelineState, work: Workload) -> str:
         item
         for item in (
             (
-                f"Проверка «{task.title}» не завершена: {task.count}. Всё равно запустить шаг?"
+                f"Проверка «{task.title}» не завершена: {task.count}. Всё равно запустить?"
                 if task is not None
                 else ""
             ),
-            step_confirmation(state.current),
+            chain_confirmation(state.current),
         )
         if item
     )
-    onclick = (
-        f" onclick=\"return confirm('{escape(confirmation, quote=True)}')\"" if confirmation else ""
-    )
+    first, last = STAGES.index(state.current) + 1, len(STAGES)
+    span = f"шаг {last}" if first == last else f"шаги {first}–{last} подряд"
+    # One press runs every step that is left; a single step is on «Журнал запусков».
     return (
         f'<button id="step-{state.current}" class="secondary" type="submit" '
-        f'formaction="{step_action(state.current)}?back=cycle"{onclick}>Запустить следующий шаг</button>'
+        f'formaction="{chain_action(state.current)}&amp;back=cycle" '
+        f"onclick=\"return confirm('{escape(confirmation, quote=True)}')\">Сделать всё</button> "
+        f'<span class="muted">{span}; по одному шагу — в <a href="/ui/runs">журнале запусков</a>'
+        "</span>"
     )
 
 
@@ -123,6 +127,7 @@ def _processing(state: PipelineState, work: Workload) -> str:
   {spend.balance_line()}{spend.notice(state.current) if state.live is None else ""}
   <ol>{"".join(rows)}</ol>
   {tail_html(state.live) if state.live is not None else ""}
+  {chain_note(state)}
   <div class="pipeline-current {"running" if state.live is not None else "ready"}">{_pipeline_control(state, work)}</div>
 </section>"""
 
