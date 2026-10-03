@@ -183,9 +183,9 @@ def test_the_first_answer_is_the_person_and_their_events(
         "date": "2026-06-14",
         "dated": True,
         "confidence": 0.8,
-        "publication": f"publication:{ids['detention_article']}",
-        "publication_title": "Задержание <двоих>",
-        "publication_source": "ОВД-Инфо <b>",
+        "reports": 1,
+        "publications": 1,
+        "sources": ["ОВД-Инфо <b>"],
         # The event leads to its very words in the publication.
         "href": f"/ui/articles/{ids['detention_article']}?start={start}&end={start + len(DETENTION)}",
         "expandable": True,
@@ -325,6 +325,195 @@ def test_the_role_is_the_one_the_extraction_gave(session_factory: sessionmaker[S
     assert (petrov, detention, "witness") in _edges(event)
     assert (f"person:{IVANOV}", detention, "target") in _edges(event)
     assert _by_id(person["edges"])[f"{petrov}>{detention}:witness"]["label"] == "witness"
+
+
+def _told_again(session_factory: sessionmaker[Session], ids: dict[str, int]) -> None:
+    """The detention of 14.06 told by more publications: one naming Иванов alone, one
+    Петров alone; and, the same day, a detention of Сидоров that names neither."""
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("ASTRA", "https://astra.example.test")
+        for name, sentence, first, last in (
+            ("ivanov", "Ивана Иванова задержали.", "Иван", "Иванов"),
+            ("petrov", "Петра Петрова задержали.", "Пётр", "Петров"),
+            ("sidorov", "Олега Сидорова задержали.", "Олег", "Сидоров"),
+        ):
+            article, run = seed.article(
+                source,
+                external_id=f"again-{name}",
+                title=f"Ещё о задержании: {name}",
+                text=f"Сообщают: {sentence}",
+                published_at=datetime(2026, 6, 14, 20, tzinfo=UTC),
+            )
+            ids[f"article-{name}"] = article
+            ids[f"again-{name}"] = seed.event(
+                run,
+                sentence,
+                event_type="detention",
+                # No date of its own: dated by its publication, the same day.
+                event_date=None,
+                links=[],
+                entity_links=[
+                    (_person(session, seed, run, sentence.rsplit(" ", 1)[0], first, last), "target")
+                ],
+            )
+        # The same publication tells Иванов's detention twice: two reports, one source.
+        _, run = seed.article(
+            source,
+            external_id="again-twice",
+            title="Ещё о задержании: дважды",
+            text="Иванова Ивана задержали утром. Иванова Ивана Петровича задержали.",
+            published_at=datetime(2026, 6, 14, 21, tzinfo=UTC),
+        )
+        for sentence, surface in (
+            ("Иванова Ивана задержали утром.", "Иванова Ивана"),
+            ("Иванова Ивана Петровича задержали.", "Иванова Ивана Петровича"),
+        ):
+            seed.event(
+                run,
+                sentence,
+                event_type="detention",
+                event_date=None,
+                links=[],
+                entity_links=[(_person(session, seed, run, surface, "Иван", "Иванов"), "target")],
+            )
+        # The same day Петров is also arrested: another type is another event. And two
+        # reports with no day at all — no date of their own, no date of publication.
+        for name, kind, when in (
+            ("arrest-same-day", "arrest", datetime(2026, 6, 14, 22, tzinfo=UTC)),
+            ("undated-1", "search", None),
+            ("undated-2", "search", None),
+        ):
+            _, run = seed.article(
+                source,
+                external_id=name,
+                title=name,
+                text="У Петра Петрова было событие.",
+                published_at=when,
+            )
+            ids[name] = seed.event(
+                run,
+                "У Петра Петрова было событие.",
+                event_type=kind,
+                event_date=None,
+                links=[],
+                entity_links=[
+                    (_person(session, seed, run, "Петра Петрова", "Пётр", "Петров"), "target")
+                ],
+            )
+        session.commit()
+    EntityCollector(session_factory).run()
+
+
+def _mentioned(session_factory: sessionmaker[Session], key: str) -> None:
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "INSERT INTO entity_group_roles (group_id, role, kind, method, reason, quote) "
+                "SELECT id, 'mentioned', 'judge', 'model', 'судья', '' FROM entity_groups "
+                "WHERE key = :key"
+            ),
+            {"key": key},
+        )
+
+
+def test_reports_of_one_day_and_type_with_a_common_person_are_one_event(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    _told_again(session_factory, ids)
+    detention = f"event:{ids['detention']}"
+
+    with session_factory() as session:
+        first = initial_graph(session, IVANOV)
+        opened = expand(session, detention)
+        by_member = expand(session, f"event:{ids['again-petrov']}")
+        sidorov = expand(session, "person:олег сидоров")
+
+    # Five reports — the first, Иванов's three and Петров's (through Петров, named in the
+    # first) — are one event, named by the first report; one publication told it twice.
+    events = [node for node in first["nodes"] if node["type"] == "event"]
+    assert [(node["id"], node["reports"], node["publications"]) for node in events] == [
+        (detention, 5, 4)
+    ]
+    assert events[0]["sources"] == ["ASTRA", "ОВД-Инфо <b>"]
+    # A text gave the date of one report; the others are dated by their publications.
+    assert (events[0]["date"], events[0]["dated"]) == ("2026-06-14", True)
+    assert _edges(first, "target") == [(f"person:{IVANOV}", detention, "target")]
+
+    # Each publication is a source of its own, leading to its own words.
+    evidence = {edge["to"]: edge["href"] for edge in opened["edges"] if edge["type"] == "evidence"}
+    assert len(evidence) == 4 and set(evidence) > {
+        f"publication:{ids[key]}"
+        for key in ("detention_article", "article-ivanov", "article-petrov")
+    }
+    assert evidence[f"publication:{ids['article-ivanov']}"] == (
+        f"/ui/articles/{ids['article-ivanov']}?start=10&end=34"
+    )
+    assert _edges(opened, "target") == [
+        (f"person:{IVANOV}", detention, "target"),
+        (f"person:{PETROV}", detention, "target"),
+    ]
+    # Reached by any of its reports, it is the same event.
+    assert by_member == opened
+    # Сидоров's detention the same day names nobody of theirs: another event.
+    theirs = [node for node in sidorov["nodes"] if node["type"] == "event"]
+    assert [(node["id"], node["reports"]) for node in theirs] == [
+        (f"event:{ids['again-sidorov']}", 1)
+    ]
+
+
+def test_a_person_only_mentioned_binds_no_reports(session_factory: sessionmaker[Session]) -> None:
+    """A judge named in every sentence of a day must not make them one sentence."""
+    ids = _seed(session_factory)
+    _told_again(session_factory, ids)
+    _mentioned(session_factory, PETROV)
+
+    with session_factory() as session:
+        ivanov = initial_graph(session, IVANOV)
+        petrov = expand(session, f"person:{PETROV}")
+
+    # Иванов still binds the first report and his own; Петров's own report stands apart.
+    assert [
+        (node["id"], node["reports"]) for node in ivanov["nodes"] if node["type"] == "event"
+    ] == [(f"event:{ids['detention']}", 4)]
+    assert sorted(
+        (node["id"], node["reports"])
+        for node in petrov["nodes"]
+        if node["type"] == "event" and node["event_type"] == "detention"
+    ) == [(f"event:{ids['detention']}", 4), (f"event:{ids['again-petrov']}", 1)]
+
+
+def test_reports_of_other_days_and_types_stay_apart_and_publications_are_cut(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ids = _seed(session_factory, arrests=3)
+    _told_again(session_factory, ids)
+    monkeypatch.setattr(investigation_graph, "EVENT_PUBLICATIONS", 1)
+
+    with session_factory() as session:
+        petrov = expand(session, f"person:{PETROV}")
+        opened = expand(session, f"event:{ids['detention']}")
+
+    # An arrest on the day of the detention is another event; so is each arrest of another
+    # day; and two searches with no day at all are two — there is no day to share.
+    assert sorted(
+        (node["event_type"], node["date"] or "", node["reports"])
+        for node in petrov["nodes"]
+        if node["type"] == "event"
+    ) == [
+        ("arrest", "2026-06-14", 1),
+        ("arrest", "2026-07-01", 1),
+        ("arrest", "2026-07-02", 1),
+        ("arrest", "2026-07-03", 1),
+        ("detention", "2026-06-14", 5),
+        ("search", "", 1),
+        ("search", "", 1),
+    ]
+    assert len([node for node in opened["nodes"] if node["type"] == "publication"]) == 1
+    assert {"node": f"event:{ids['detention']}", "type": "publication", "count": 3} in opened[
+        "more"
+    ]
 
 
 def test_opening_twice_gives_the_same_ids(session_factory: sessionmaker[Session]) -> None:

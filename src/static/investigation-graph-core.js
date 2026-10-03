@@ -66,6 +66,7 @@
     person: ["человек", "человека", "человек"],
     unresolved_person: ["имя без карточки", "имени без карточки", "имён без карточки"],
     organization: ["суд или орган", "суда или органа", "судов и органов"],
+    publication: ["публикация", "публикации", "публикаций"],
   };
 
   function createState() {
@@ -170,9 +171,11 @@
 
   function visNode(node, center) {
     const date = node.type === "event" ? formatDate(node.date) : "";
+    // «Приговор ×7»: seven reports drawn as one event.
+    const times = node.type === "event" && node.reports > 1 ? " ×" + node.reports : "";
     return {
       id: node.id,
-      label: short(String(node.label), 30) + (date ? "\n" + date : ""),
+      label: short(String(node.label), 30) + times + (date ? "\n" + date : ""),
       shape: SHAPES[node.type] || "dot",
       colour: COLOURS[node.type] || "publication",
       size: node.id === center ? 22 : node.type === "event" ? 16 : 12,
@@ -251,11 +254,17 @@
       if (typeof node.confidence === "number") {
         lines.push("Уверенность извлечения: " + node.confidence.toFixed(2));
       }
-      if (node.publication_source) {
-        lines.push("Источник: " + node.publication_source);
+      if (node.reports > 1) {
+        lines.push(
+          "Сообщений: " +
+            node.reports +
+            ", публикаций: " +
+            node.publications +
+            " — слиты как одно событие: один вид, один день, общий человек"
+        );
       }
-      if (node.publication_title) {
-        lines.push("Публикация: " + node.publication_title);
+      if (node.sources && node.sources.length) {
+        lines.push((node.sources.length > 1 ? "Источники: " : "Источник: ") + node.sources.join(", "));
       }
       edges
         .filter(function (edge) {

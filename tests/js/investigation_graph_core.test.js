@@ -15,8 +15,9 @@ const FIRST = {
       date: "2026-06-14",
       dated: false,
       confidence: 0.956,
-      publication_source: "ОВД-Инфо",
-      publication_title: "<b>Задержание</b>",
+      reports: 3,
+      publications: 2,
+      sources: ["<b>ASTRA</b>", "ОВД-Инфо"],
       href: "/ui/articles/9?start=3&end=40",
       expandable: true,
     },
@@ -121,8 +122,8 @@ test("the panel of an event says its date, who is named, its source and where to
     "Иванов Иван: назван в событии",
     "Петров Пётр: назван в событии",
     "Уверенность извлечения: 0.96",
-    "Источник: ОВД-Инфо",
-    "Публикация: <b>Задержание</b>",
+    "Сообщений: 3, публикаций: 2 — слиты как одно событие: один вид, один день, общий человек",
+    "Источники: <b>ASTRA</b>, ОВД-Инфо",
     "Суд: Тверской суд",
     "Статья УК: ст. 280.3 УК РФ (ч. 1)",
     "+ 2 имени без карточки",
@@ -187,6 +188,7 @@ test("what a limit cut is said in words", () => {
   assert.equal(core.moreText("person", 22), "+ 22 человека");
   assert.equal(core.moreText("unresolved_person", 5), "+ 5 имён без карточки");
   assert.equal(core.moreText("organization", 2), "+ 2 суда или органа");
+  assert.equal(core.moreText("publication", 3), "+ 3 публикации");
 });
 
 test("the shape says the kind, and a weak edge is dashed", () => {
@@ -196,7 +198,9 @@ test("the shape says the kind, and a weak edge is dashed", () => {
     ["person:1", "event:7", "publication:9", "org:court:тверской суд", "article:УК РФ:280.3"].map((id) => shape(id).shape),
     ["dot", "diamond", "square", "triangle", "hexagon"]
   );
-  assert.equal(shape("event:7").label, "Задержание\n14.06.2026");
+  // Three reports drawn as one event say so on the node.
+  assert.equal(shape("event:7").label, "Задержание ×3\n14.06.2026");
+  assert.equal(core.visNode({ id: "e", type: "event", label: "Арест", date: "2026-06-14", reports: 1 }, null).label, "Арест\n14.06.2026");
   assert.ok(shape("person:1").size > shape("person:2").size);
   assert.deepEqual([shape("person:1").dashed, shape("person:2").dashed, shape("publication:9").dashed], [false, true, false]);
   assert.equal(core.visNode({ id: "x", type: "publication", label: "д".repeat(40) }, null).label.length, 30);
