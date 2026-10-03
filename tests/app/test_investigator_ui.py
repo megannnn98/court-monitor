@@ -485,6 +485,17 @@ def test_the_people_of_the_same_publications_are_a_count_not_a_connection(
     assert "Ленинский суд" not in table and "ст. 205.2" not in table
 
 
+def test_a_cut_list_of_people_says_it_is_cut(session_factory: sessionmaker[Session]) -> None:
+    _case(session_factory, extra=33)
+
+    with _client(session_factory) as client:
+        page = client.get(f"/ui/investigations/{quote(MOOR)}").text
+
+    # 34 people share a publication; the table holds the first 30 and does not call it all.
+    assert "<summary>Люди из тех же публикаций (первые 30)</summary>" in page
+    assert page[page.index('<details id="links">') :].count("<tr><td><a href=") == 30
+
+
 def _statements(session_factory: sessionmaker[Session], path: str) -> int:
     engine = session_factory.kw["bind"]
     count = 0

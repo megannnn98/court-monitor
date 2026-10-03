@@ -728,7 +728,12 @@ def _related(dossier: Dossier) -> str:
         f'<td class="num">{shared}</td></tr>'
         for key, name, shared in dossier.related
     )
-    return f"""<details id="links"><summary>Люди из тех же публикаций ({len(dossier.related)})</summary>
+    count = (
+        f"первые {RELATED_LIMIT}"
+        if len(dossier.related) >= RELATED_LIMIT
+        else str(len(dossier.related))
+    )
+    return f"""<details id="links"><summary>Люди из тех же публикаций ({count})</summary>
   <table><caption>Совместные упоминания: счёт общих публикаций, не установленная связь</caption>
   <thead><tr><th scope="col">Человек</th><th scope="col">Общих публикаций</th></tr></thead>
   <tbody>{rows}</tbody></table></details>"""

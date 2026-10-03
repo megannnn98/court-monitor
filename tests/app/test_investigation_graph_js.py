@@ -55,6 +55,8 @@ def test_the_page_script_writes_no_html_and_asks_nothing_outside() -> None:
         assert not re.search(r"https?://", source), name
     page = (STATIC / "investigation-graph.js").read_text()
     # The two addresses the page gives, and no other.
+    # A node asked for and not answered yet is not asked for again.
+    assert "state.expanded.has(id) || pending.has(id)" in page and "pending.delete(id)" in page
     assert re.findall(r"load\((.+?)\)[\n.]", page) == [
         'box.dataset.expandUrl + "?node=" + encodeURIComponent(id)',
         "box.dataset.graphUrl",

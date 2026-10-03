@@ -28,6 +28,8 @@
   const filters = Object.assign({}, core.DEFAULT_FILTERS);
   const nodes = new window.vis.DataSet([]);
   const edges = new window.vis.DataSet([]);
+  // Asked for and not answered yet: a second tap must not ask again.
+  const pending = new Set();
   let selected = null;
 
   // The colours are the theme's: read from the page, so the dark theme is followed.
@@ -146,7 +148,9 @@
   function load(url) {
     return fetch(url, { headers: { Accept: "application/json" } }).then(function (response) {
       if (!response.ok) {
-        throw new Error(String(response.status));
+        const failure = new Error(String(response.status));
+        failure.status = response.status;
+        throw failure;
       }
       return response.json();
     });
@@ -154,15 +158,20 @@
 
   function open(id) {
     const node = state.nodes.get(id);
-    if (!node || !node.expandable || state.expanded.has(id)) {
+    if (!node || !node.expandable || state.expanded.has(id) || pending.has(id)) {
       return;
     }
+    pending.add(id);
     say("Загружаю связи…");
     load(box.dataset.expandUrl + "?node=" + encodeURIComponent(id))
       .then(function (payload) {
         state.expanded.add(id);
         const added = add(payload);
         nodes.update(drawn(node));
+        // What was added may lie outside the frame — on a phone it nearly always does.
+        network.once("stabilized", function () {
+          network.fit({ animation: { duration: 250, easingFunction: "easeInOutQuad" } });
+        });
         say(
           added.nodes.length
             ? "Добавлено узлов: " + added.nodes.length + "."
@@ -170,8 +179,16 @@
         );
         show(id);
       })
-      .catch(function () {
-        say("Не удалось загрузить связи. Попробуйте ещё раз.");
+      .catch(function (failure) {
+        // 404: the node is gone — the data was rebuilt since the page was opened.
+        say(
+          failure.status === 404
+            ? "Этого узла больше нет: данные пересобраны. Обновите страницу."
+            : "Не удалось загрузить связи. Попробуйте ещё раз."
+        );
+      })
+      .finally(function () {
+        pending.delete(id);
       });
   }
 
@@ -225,6 +242,9 @@
         network.fit({ animation: false });
       });
       add(payload);
+      if (!state.nodes.has(state.center)) {
+        throw new Error("no centre");
+      }
       state.expanded.add(state.center);
       nodes.update(drawn(state.nodes.get(state.center)));
       const cut = state.more.get(state.center) || {};
@@ -240,7 +260,8 @@
               events +
               (cuts.length ? " (" + cuts.join(", ") + ")" : "") +
               ". Нажмите на событие и откройте его связи."
-          : "Человек не назван ни в одном событии: связывать не с чем."
+          : "Человек не назван ни в одном событии. Есть только совместные упоминания — их " +
+              "включает переключатель."
       );
       show(state.center);
     })

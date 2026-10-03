@@ -14,11 +14,15 @@ The graph is never read whole. The first answer is the person and their latest e
 an event or a person is expanded on request, each by a fixed number of queries whatever
 its size, and what a limit cut is counted in `more`.
 
-People are the entities of step 3 (`entity_groups`); `persons` is not read.
+People are the entities of step 3 (`entity_groups`); `persons` is not read. A person's
+node is named by the entity's key, not its id: step 3 rebuilds the groups and hands the
+ids out anew, and a page left open must not open somebody else's events under a name
+that is already drawn.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -35,7 +39,9 @@ PERSON_EVENTS = 20
 EVENT_PEOPLE = 20
 EVENT_NEIGHBOURS = 20
 COOCCURRENCE_PEOPLE = 10
-_ID_DIGITS = 9
+# An event's id as the database has it: ASCII digits, within an integer of four bytes.
+# `str.isdigit` would let «²» through, and `int` would then fail on it.
+_EVENT_ID = re.compile(r"[0-9]{1,9}")
 
 PERSON = "person"
 EVENT = "event"
@@ -136,7 +142,7 @@ _EVENT_JOINS = """
     JOIN source_documents d ON d.id = a.document_id
     JOIN sources s ON s.id = d.source_id
 """
-_PERSON = "SELECT id, key, name FROM entity_groups WHERE {column} = :value"
+_PERSON = text("SELECT id, key, name FROM entity_groups WHERE key = :key")
 # The events a person is named in — in the role the extraction gave them there — the
 # latest first, with how many there are in all.
 _PERSON_EVENTS = text(
@@ -173,11 +179,11 @@ _COOCCURRENCE = text(
     f"""
     WITH {person_evidence_cte()},
     mine AS (SELECT DISTINCT article_id FROM person_evidence WHERE group_id = :group)
-    SELECT g.id, g.key, g.name, count(DISTINCT r.article_id) AS shared
+    SELECT g.key, g.name, count(DISTINCT r.article_id) AS shared
     FROM person_evidence r
     JOIN entity_groups g ON g.id = r.group_id
     WHERE r.article_id IN (SELECT article_id FROM mine) AND r.group_id <> :group
-    GROUP BY g.id, g.key, g.name ORDER BY shared DESC, g.name LIMIT :limit
+    GROUP BY g.key, g.name ORDER BY shared DESC, g.name LIMIT :limit
     """
 )
 
@@ -188,10 +194,10 @@ def _iso(moment: datetime | None) -> str | None:
 
 def _person_node(graph: Graph, row: Any) -> str:
     return graph.node(
-        f"{PERSON}:{row.id}",
+        f"{PERSON}:{row.key}",
         PERSON,
         display_name(row.name),
-        href=f"/ui/investigations/{quote(row.key)}",
+        href=f"/ui/investigations/{quote(row.key, safe='')}",
         expandable=True,
     )
 
@@ -230,22 +236,22 @@ def _events_of(db: Session, graph: Graph, person_id: str, group: int, limit: int
         graph.cut(person_id, EVENT, rows[0].total - len(rows))
 
 
-def _person(db: Session, column: str, value: object) -> Any:
-    row = db.execute(text(_PERSON.format(column=column)), {"value": value}).first()
+def _person(db: Session, key: str) -> Any:
+    row = db.execute(_PERSON, {"key": key}).first()
     if row is None:
-        raise UnknownNode(f"no person: {value}")
+        raise UnknownNode(f"no person: {key}")
     return row
 
 
 def known_person(db: Session, key: str) -> None:
     """Raises `UnknownNode` for a key that names nobody."""
-    _person(db, "key", key)
+    _person(db, key)
 
 
 def initial_graph(db: Session, key: str) -> dict[str, Any]:
     """The person, their latest events, and the people of the same publications (as
     `cooccurrence` edges only). Three queries."""
-    person = _person(db, "key", key)
+    person = _person(db, key)
     graph = Graph()
     graph.center = _person_node(graph, person)
     _events_of(db, graph, graph.center, person.id, INITIAL_EVENTS)
@@ -264,16 +270,21 @@ def initial_graph(db: Session, key: str) -> dict[str, Any]:
 
 
 def _article_node(graph: Graph, data: dict[str, Any], surface: str) -> tuple[str, str] | None:
-    """The article of the Code a legal reference names, and how the edge says its part."""
+    """The article of the Code a legal reference names, and how the edge says its part.
+    None for a reference that names no article or no Code: which Code it is would be a
+    guess."""
     article = str(data.get("article") or "").strip()
-    if not article:
-        return None
     code = " ".join(str(data.get("code") or "").split())
-    criminal = code.upper().startswith("УК")
+    if not article or not code:
+        return None
+    # «УК» and «УК РФ» are one Code (step 3 reads them so): one article, one node. The
+    # label keeps the Code as the text wrote it.
+    head = re.sub(r"\s*РФ$", "", code, flags=re.IGNORECASE)
+    criminal = head.upper() == "УК"
     node = graph.node(
-        f"article:{code or '?'}:{article}",
+        f"article:{head}:{article}",
         CRIMINAL_ARTICLE if criminal else ADMINISTRATIVE_ARTICLE,
-        " ".join(part for part in (f"ст. {article}", code) if part),
+        f"ст. {article} {code}",
         href=f"/ui/entities?{urlencode({'article': article, 'figurants': 'all', 'rf': 'all'})}"
         if criminal
         else None,
@@ -309,7 +320,8 @@ def expand_event(db: Session, event: int) -> dict[str, Any]:
 
     people: dict[int, Any] = {}
     unresolved: set[str] = set()
-    neighbours = 0
+    # A court named twice in the event is one court: by its node, in the order of the text.
+    orgs: dict[str, tuple[str, str]] = {}
     for mention in db.execute(_EVENT_MENTIONS, {"event": event}).all():
         if mention.entity_type == "person":
             if mention.group_id is None:
@@ -320,19 +332,9 @@ def expand_event(db: Session, event: int) -> dict[str, Any]:
             continue
         if mention.role in _ORG_TYPES:
             name = " ".join((mention.surface_text or "").split())
-            if not name:
-                continue
-            neighbours += 1
-            if neighbours > EVENT_NEIGHBOURS:
-                continue
-            node = graph.node(
-                f"org:{mention.role}:{' '.join((mention.normalized_text or name).split()).casefold()}",
-                _ORG_TYPES[mention.role],
-                name,
-                href=f"/ui/publications?{urlencode({'q': name})}",
-                expandable=False,
-            )
-            graph.edge(event_id, node, mention.role, _ROLE_LABELS[mention.role])
+            if name:
+                folded = " ".join((mention.normalized_text or name).split()).casefold()
+                orgs.setdefault(f"org:{mention.role}:{folded}", (mention.role, name))
         elif mention.role == "legal_basis":
             found = _article_node(
                 graph, dict(mention.normalized_data or {}), mention.surface_text or ""
@@ -341,36 +343,43 @@ def expand_event(db: Session, event: int) -> dict[str, Any]:
                 graph.edge(
                     event_id, found[0], "legal_basis", _ROLE_LABELS["legal_basis"], title=found[1]
                 )
-    for person in list(people.values())[:EVENT_PEOPLE]:
-        node = graph.node(
-            f"{PERSON}:{person.group_id}",
-            PERSON,
-            display_name(person.name),
-            href=f"/ui/investigations/{quote(person.key)}",
-            expandable=True,
+    for org_id, (role, name) in list(orgs.items())[:EVENT_NEIGHBOURS]:
+        graph.node(
+            org_id,
+            _ORG_TYPES[role],
+            name,
+            href=f"/ui/publications?{urlencode({'q': name})}",
+            expandable=False,
         )
-        graph.edge(node, event_id, person.role, _ROLE_LABELS.get(person.role, person.role))
+        graph.edge(event_id, org_id, role, _ROLE_LABELS[role])
+    for person in list(people.values())[:EVENT_PEOPLE]:
+        graph.edge(
+            _person_node(graph, person),
+            event_id,
+            person.role,
+            _ROLE_LABELS.get(person.role, person.role),
+        )
     graph.cut(event_id, PERSON, len(people) - EVENT_PEOPLE)
     # Names the event gives that step 3 made no person of: counted, not drawn — a name
     # in a text is not an identity.
     graph.cut(event_id, "unresolved_person", len(unresolved))
-    graph.cut(event_id, "organization", neighbours - EVENT_NEIGHBOURS)
+    graph.cut(event_id, "organization", len(orgs) - EVENT_NEIGHBOURS)
     return graph.payload()
 
 
-def expand_person(db: Session, person: int) -> dict[str, Any]:
+def expand_person(db: Session, key: str) -> dict[str, Any]:
     """The events a person is named in. Two queries."""
-    row = _person(db, "id", person)
+    row = _person(db, key)
     graph = Graph()
     _events_of(db, graph, _person_node(graph, row), row.id, PERSON_EVENTS)
     return graph.payload()
 
 
 def expand(db: Session, node: str) -> dict[str, Any]:
-    """The neighbours of `person:<id>` or `event:<id>`."""
-    kind, _, number = node.partition(":")
-    # An id of the database is an integer of four bytes: a longer number names nothing,
-    # and must not reach the query as an overflow.
-    if kind not in (PERSON, EVENT) or not number.isdigit() or len(number) > _ID_DIGITS:
-        raise NotExpandable(node)
-    return expand_event(db, int(number)) if kind == EVENT else expand_person(db, int(number))
+    """The neighbours of `person:<key>` or `event:<id>`."""
+    kind, _, name = node.partition(":")
+    if kind == PERSON and name:
+        return expand_person(db, name)
+    if kind == EVENT and _EVENT_ID.fullmatch(name):
+        return expand_event(db, int(name))
+    raise NotExpandable(node)

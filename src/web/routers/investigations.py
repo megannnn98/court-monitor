@@ -33,7 +33,7 @@ def investigation_graph(key: str, db: Session = Depends(get_db)) -> dict[str, An
 @router.get("/api/investigations/{key}/graph/expand")
 def investigation_graph_expand(
     key: str,
-    node: str = Query(max_length=64),
+    node: str = Query(max_length=300),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """`key` is the dossier the graph is open in: the answer does not depend on it, but an
