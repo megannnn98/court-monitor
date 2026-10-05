@@ -39,6 +39,7 @@ from entities.news import NEW_CASE, SENTENCE
 from entities.officials import OFFICIAL_KINDS
 from entities.politics import CRIMINAL, POLITICAL, VERDICT_LABELS
 from entities.rf_check import FULL
+from entities.rf_entry import source_mark
 from entities.roles import FIGURANT
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
@@ -118,13 +119,15 @@ _ENTITY = text(
 # Q2 — the Rosfinmonitoring matches, and the list snapshot the check could last read.
 _RF = text(
     """
-    SELECT m.level, e.full_name, e.birth_date, e.birth_place, s.snapshot_date, e.inclusion_date
+    SELECT m.level, e.full_name, e.birth_date, e.birth_place, s.snapshot_date, e.inclusion_date,
+           e.inclusion_source
     FROM entity_group_rf_matches m
     JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
     JOIN rosfinmonitoring_snapshots s ON s.id = e.snapshot_id
     WHERE m.group_id = :group
     UNION ALL
-    SELECT NULL, NULL, NULL, NULL, max(snapshot_date), NULL FROM rosfinmonitoring_snapshots
+    SELECT NULL, NULL, NULL, NULL, max(snapshot_date), NULL, NULL
+    FROM rosfinmonitoring_snapshots
     ORDER BY 1 NULLS LAST, 2
     """
 )
@@ -564,7 +567,7 @@ def _decision(dossier: Dossier) -> str:
         f"<li>{_badge('ФИО с отчеством' if row.level == FULL else 'имя и фамилия', '' if row.level == FULL else 'pending')} "
         f"{escape(row.full_name)}{f', {row.birth_date:%d.%m.%Y} г.р.' if row.birth_date else ''}"
         f"{f', {escape(row.birth_place)}' if row.birth_place else ''}"
-        f"{f' — запись перечня включена {row.inclusion_date:%d.%m.%Y}' if row.level == FULL and row.inclusion_date else ''}"
+        f"{f' — запись перечня включена {row.inclusion_date:%d.%m.%Y}{source_mark(row.inclusion_source)}' if row.level == FULL and row.inclusion_date else ''}"
         "</li>"
         for row in dossier.rf
     )

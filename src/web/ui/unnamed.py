@@ -216,11 +216,20 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
             if item.decision != SAME
             else ""
         ) + (_reject_form(figurant.key, item.key, back) if item.decision != DIFFERENT else "")
-        seen = (
-            f"в перечне с {_day(item.first_seen)} или раньше"
-            if item.first_seen
-            else "дата включения неизвестна"
-        )
+        if item.removed:
+            # Said of the row of the operator's table, not of the list: the list no
+            # longer holds this person.
+            seen = (
+                f"включён {item.added_on:%d.%m.%Y}, позже исключён"
+                if item.added_on
+                else "был в перечне, исключён"
+            ) + " — по таблице оператора"
+        else:
+            seen = (
+                f"в перечне с {_day(item.first_seen)} или раньше"
+                if item.first_seen
+                else "дата включения неизвестна"
+            )
         rows.append(
             f'<tr><th scope="row">{escape(item.full_name)}{verdict}</th>'
             f"<td>{item.birth_date:%d.%m.%Y}</td><td>{escape(item.birth_place)}</td>"

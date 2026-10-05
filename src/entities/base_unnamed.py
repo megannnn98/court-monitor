@@ -61,6 +61,8 @@ class RfEntry:
     birth_date: date
     birth_place: str
     included_on: date | None
+    # Not on the list now: a row the operator's table marks as removed from it.
+    removed: bool = False
     # Read once for the whole list: every record is compared with thousands of entries.
     gender: str | None = field(init=False)
     place: str = field(init=False)
@@ -88,12 +90,29 @@ class RfList:
         rows = session.execute(
             text(
                 """
-                SELECT full_name, normalized_name, birth_date::date AS birth_date,
-                       coalesce(birth_place, '') AS birth_place,
-                       inclusion_date::date AS included_on
-                FROM rosfinmonitoring_entries
-                WHERE snapshot_id = (SELECT max(id) FROM rosfinmonitoring_snapshots)
-                  AND birth_date IS NOT NULL
+                WITH listed AS (
+                    SELECT full_name, normalized_name, birth_date::date AS birth_date,
+                           coalesce(birth_place, '') AS birth_place,
+                           inclusion_date::date AS included_on, false AS removed
+                    FROM rosfinmonitoring_entries
+                    WHERE snapshot_id = (SELECT max(id) FROM rosfinmonitoring_snapshots)
+                      AND birth_date IS NOT NULL
+                ),
+                -- Who was on the list and is not now, by the operator's own table: the
+                -- record may be of a case older than the removal.
+                removed AS (
+                    SELECT DISTINCT ON (o.normalized_name, o.birth_date)
+                           o.full_name, o.normalized_name, o.birth_date, o.birth_place,
+                           o.added_on AS included_on, true AS removed
+                    FROM rfm_operator_entries o
+                    WHERE o.removed AND o.birth_date IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM listed l
+                          WHERE l.normalized_name = o.normalized_name
+                            AND l.birth_date = o.birth_date)
+                    ORDER BY o.normalized_name, o.birth_date, o.added_on DESC NULLS LAST
+                )
+                SELECT * FROM listed UNION ALL SELECT * FROM removed
                 """
             )
         ).all()
@@ -218,6 +237,8 @@ def candidates_for(
             if entry.included_on
             else "дата включения в перечень неизвестна",
         ]
+        if entry.removed:
+            reasons.append("позже исключён из перечня — по таблице оператора")
         found.append(
             RfCandidate(entry, entry_age, reasons, city_match, earlier, words.get(entry.key))
         )

@@ -160,12 +160,15 @@ def carry_dates_from_previous_snapshot(
         if previous_id is None:
             return 0
 
-        known: dict[tuple[str, date], date] = {}
-        for full_name, birth_date, inclusion_date in session.execute(
+        # The day and where it came from travel together: a day of the operator's table
+        # must not turn into one of the ОВД-Инфо copy by being carried.
+        known: dict[tuple[str, date], tuple[date, str | None]] = {}
+        for full_name, birth_date, inclusion_date, source in session.execute(
             select(
                 RosfinmonitoringEntryRecord.full_name,
                 RosfinmonitoringEntryRecord.birth_date,
                 RosfinmonitoringEntryRecord.inclusion_date,
+                RosfinmonitoringEntryRecord.inclusion_source,
             ).where(
                 RosfinmonitoringEntryRecord.snapshot_id == previous_id,
                 RosfinmonitoringEntryRecord.inclusion_date.isnot(None),
@@ -173,7 +176,7 @@ def carry_dates_from_previous_snapshot(
         ).all():
             if birth_date is None:
                 continue
-            known[normalize_name(full_name), birth_date.date()] = inclusion_date.date()
+            known[normalize_name(full_name), birth_date.date()] = (inclusion_date.date(), source)
 
         updates: list[dict[str, object]] = []
         for entry_id, full_name, birth_date in session.execute(
@@ -189,13 +192,15 @@ def carry_dates_from_previous_snapshot(
         ).all():
             if birth_date is None:
                 continue
-            day = known.get((normalize_name(full_name), birth_date.date()))
-            if day is None:
+            carried = known.get((normalize_name(full_name), birth_date.date()))
+            if carried is None:
                 continue
+            day, source = carried
             updates.append(
                 {
                     "id": entry_id,
                     "inclusion_date": datetime(day.year, day.month, day.day, tzinfo=UTC),
+                    "inclusion_source": source,
                 }
             )
         for start in range(0, len(updates), WRITE_CHUNK):
@@ -218,8 +223,13 @@ def write_inclusion_dates(
     session: Session,
     snapshot_id: int,
     dates: InclusionDates,
+    *,
+    source: str | None = None,
 ) -> InclusionWriteResult:
     """Put the day of inclusion on every entry of `snapshot_id` that can be given one.
+
+    `source` is written beside the day: empty for the ОВД-Инфо copy, a name for any other
+    place the days were read from.
 
     An entry already carrying a date is left alone: the file is read again on every new
     snapshot, and a day established by an earlier run is not un-established because the
@@ -232,23 +242,31 @@ def write_inclusion_dates(
             RosfinmonitoringEntryRecord.full_name,
             RosfinmonitoringEntryRecord.birth_date,
             RosfinmonitoringEntryRecord.inclusion_date,
+            RosfinmonitoringEntryRecord.inclusion_source,
         ).where(RosfinmonitoringEntryRecord.snapshot_id == snapshot_id)
     ).all()
     result.entries = len(entries)
 
     updates: list[dict[str, object]] = []
-    for entry_id, full_name, birth_date, known_date in entries:
-        if known_date is not None:
+    for entry_id, full_name, birth_date, known_date, known_source in entries:
+        # A day another source filled in is a stand-in: the ОВД-Инфо copy, which keeps the
+        # list's history day by day, replaces it the moment it has a day of its own.
+        stand_in = known_date is not None and known_source is not None and source is None
+        if known_date is not None and not stand_in:
             result.already_dated += 1
             continue
         day = match_inclusion_date(
             full_name, birth_date.date() if birth_date is not None else None, dates
         )
+        if day is None and stand_in:
+            result.already_dated += 1
+            continue
         if day is not None:
             updates.append(
                 {
                     "id": entry_id,
                     "inclusion_date": datetime(day.year, day.month, day.day, tzinfo=UTC),
+                    "inclusion_source": source,
                 }
             )
             result.dated += 1

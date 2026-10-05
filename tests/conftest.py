@@ -41,6 +41,13 @@ def session_factory(
 
 
 @pytest.fixture(autouse=True)
+def _no_operator_table_link(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A check of the list must not read the operator's real table from a test: a link set
+    in a developer's environment is a real one."""
+    monkeypatch.delenv("RFM_TABLE_SHARE_URL", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _no_openrouter_balance_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """A page that shows the balance must not ask OpenRouter from a test: a key that a test
     sets is a fake one, and a developer's own key must not be spent on the network."""

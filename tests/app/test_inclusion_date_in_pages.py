@@ -19,6 +19,7 @@ from urllib.parse import quote
 import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -361,3 +362,38 @@ def test_the_xlsx_of_rows_without_matches_says_nothing_about_dates() -> None:
     ]
     assert not any("запись перечня" in cell for cell in rows)
     assert not any("14.03.2024" in cell for cell in rows)
+
+
+def test_a_day_of_the_operator_s_table_says_so_wherever_it_is_shown(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The table is typed by hand: a day from it must not read as one of the ОВД-Инфо
+    copy, on the result, in its file, or in the dossier."""
+    _seed(session_factory, namesake=False)
+    with session_factory.begin() as session:
+        session.execute(text("UPDATE rosfinmonitoring_entries SET inclusion_source = 'operator'"))
+
+    with _client(session_factory) as client:
+        result = client.get("/ui/political?known=all").text
+        dossier = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
+        book = client.get("/ui/political/export.xlsx?known=all").content
+
+    marked = "запись перечня включена 14.03.2024 (по таблице оператора)"
+    assert marked in result and marked in dossier
+    cells = [
+        str(cell.value)
+        for sheet in load_workbook(BytesIO(book)).worksheets
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
+    ]
+    assert any(marked in cell for cell in cells)
+    assert any("из таблицы, которую ведёт оператор" in cell for cell in cells)
+
+
+def test_a_day_of_the_ovd_info_copy_carries_no_mark() -> None:
+    assert entry_included_text(INCLUDED, None) == "запись перечня включена 14.03.2024"
+    assert entry_included_text(INCLUDED, "operator") == (
+        "запись перечня включена 14.03.2024 (по таблице оператора)"
+    )
+    assert entry_included_text(None, "operator") == ""

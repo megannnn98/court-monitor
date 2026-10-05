@@ -62,6 +62,7 @@ from db.models.reference import (
     ExcludedPersonRecord,
 )
 from db.models.rosfinmonitoring import (
+    RfmOperatorEntryRecord,
     RosfinMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
@@ -121,6 +122,7 @@ __all__ = [
     "PersonResolutionAiReviewRecord",
     "PersonResolutionDecisionRecord",
     "ReviewRecordModel",
+    "RfmOperatorEntryRecord",
     "RosfinMatchRecord",
     "RosfinmonitoringEntryRecord",
     "RosfinmonitoringSnapshotRecord",

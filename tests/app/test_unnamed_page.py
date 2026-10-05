@@ -106,6 +106,42 @@ def test_nobody_yet_says_where_they_come_from(session_factory: sessionmaker[Sess
     assert 'href="/ui/unnamed" aria-current="page"' not in page
 
 
+def test_a_candidate_removed_from_the_list_is_shown_as_removed(
+    session_factory: sessionmaker[Session],
+) -> None:
+    from datetime import date
+
+    from rosfinmonitoring.operator_table import OperatorRow, store
+
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        store(
+            session,
+            [
+                OperatorRow(
+                    "УШЕДШИЙ ИВАН ПЕТРОВИЧ",
+                    date(2007, 4, 4),
+                    "Г. ТЮМЕНЬ",
+                    date(2024, 11, 20),
+                    True,
+                    "терроризм",
+                    "",
+                )
+            ],
+        )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/unnamed").text
+
+    row = page[page.index("УШЕДШИЙ ИВАН ПЕТРОВИЧ") :]
+    row = row[: row.index("</tr>")]
+    assert "родился: Г. ТЮМЕНЬ; исключён из перечня" in row
+    # The day is the table's and the list no longer holds him: neither is said as the list's.
+    assert "включён 20.11.2024, позже исключён — по таблице оператора" in row
+    assert "в перечне с" not in row
+    assert ">Это он<" in row
+
+
 def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
     session_factory: sessionmaker[Session],
 ) -> None:

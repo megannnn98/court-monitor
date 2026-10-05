@@ -157,7 +157,7 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: 
     # Shown only for an entry matched with the patronymic: on a namesake the day belongs
     # to somebody else, so it is not shown at all.
     included = (
-        f'<div class="muted">{escape(entry_included_text(row.rf_inclusion_date))}</div>'
+        f'<div class="muted">{escape(entry_included_text(row.rf_inclusion_date, row.rf_inclusion_source))}</div>'
         if row.rf_level == FULL and row.rf_inclusion_date
         else ""
     )
@@ -384,7 +384,8 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
                 row.memorial,
                 excel_day(row.first_published),
                 excel_day(row.last_published),
-                rf_word(row.rf_level, row.rf_entry, row.rf_inclusion_date) or None,
+                rf_word(row.rf_level, row.rf_entry, row.rf_inclusion_date, row.rf_inclusion_source)
+                or None,
                 *(f"{source}: {title[:80]}" for title, _, source in found),
                 *(None for _ in range(LINKS - len(found))),
                 KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,

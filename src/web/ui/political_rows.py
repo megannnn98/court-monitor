@@ -106,6 +106,7 @@ class ListRow:
     # When this entry of the перечень appeared, if the ОВД-Инфо copy says. It describes
     # the entry, not the person; see `entities.rf_entry.entry_included_text`.
     rf_inclusion_date: datetime | None = None
+    rf_inclusion_source: str | None = None
     # What the operator's base says of this person; None: nobody by this name there.
     known: KnownMatch | None = None
     # An unnamed person: the age and the sex the text tells, to look for a record of the
@@ -294,10 +295,11 @@ def with_details(db: Session, rows: list[ListRow]) -> list[ListRow]:
     ids = list(named)
     for group_id, entry in strongest_entries(db, ids).items():
         row = named[group_id]
-        row.rf_level, row.rf_entry, row.rf_inclusion_date = (
+        row.rf_level, row.rf_entry, row.rf_inclusion_date, row.rf_inclusion_source = (
             entry.level,
             entry.text,
             entry.inclusion_date,
+            entry.inclusion_source,
         )
     for group_id, articles in _articles_by_group(db, ids).items():
         named[group_id].articles = articles

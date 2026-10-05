@@ -482,6 +482,10 @@ class Candidate:
     reasons: list[str] = field(default_factory=list)
     place_match: bool = False
     decision: str | None = None
+    # Not on the list now: the operator's table says the row was removed, and when it
+    # had been added.
+    removed: bool = False
+    added_on: date | None = None
 
 
 @dataclass
@@ -526,20 +530,40 @@ def place_pattern(place: str) -> re.Pattern[str] | None:
     return re.compile("(?<![а-яё])(?:" + "|".join(re.escape(stem) for stem in stems) + ")")
 
 
-# The entries of the latest snapshot of that age on the day, of that sex and initial.
+# The entries of the latest snapshot of that age on the day, of that sex and initial —
+# and the rows the operator's own table marks as removed from the list since: a person the
+# news left unnamed years ago may have been on the list then and not be now. A removed
+# row still in the snapshot (added again) is the snapshot's entry, not a second candidate.
 _CANDIDATES = text(
     """
-    SELECT e.full_name, e.normalized_name, e.birth_date::date AS birth_date,
-           coalesce(e.birth_place, '') AS birth_place,
-           date_part('year', age(CAST(:on AS date), e.birth_date::date))::int AS age
-    FROM rosfinmonitoring_entries e
-    WHERE e.snapshot_id = (SELECT max(id) FROM rosfinmonitoring_snapshots)
-      AND e.birth_date IS NOT NULL
-      AND date_part('year', age(CAST(:on AS date), e.birth_date::date)) BETWEEN :age AND :age + 1
+    WITH latest AS (SELECT max(id) AS id FROM rosfinmonitoring_snapshots),
+    listed AS (
+        SELECT e.full_name, e.normalized_name, e.birth_date::date AS birth_date,
+               coalesce(e.birth_place, '') AS birth_place,
+               false AS removed, CAST(NULL AS date) AS added_on
+        FROM rosfinmonitoring_entries e, latest
+        WHERE e.snapshot_id = latest.id AND e.birth_date IS NOT NULL
+    ),
+    removed AS (
+        SELECT DISTINCT ON (o.normalized_name, o.birth_date)
+               o.full_name, o.normalized_name, o.birth_date, o.birth_place,
+               true AS removed, o.added_on
+        FROM rfm_operator_entries o
+        WHERE o.removed AND o.birth_date IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM listed l
+              WHERE l.normalized_name = o.normalized_name AND l.birth_date = o.birth_date)
+        ORDER BY o.normalized_name, o.birth_date, o.added_on DESC NULLS LAST
+    )
+    SELECT c.full_name, c.normalized_name, c.birth_date, c.birth_place,
+           date_part('year', age(CAST(:on AS date), c.birth_date))::int AS age,
+           c.removed, c.added_on
+    FROM (SELECT * FROM listed UNION ALL SELECT * FROM removed) c
+    WHERE date_part('year', age(CAST(:on AS date), c.birth_date)) BETWEEN :age AND :age + 1
       AND (:gender = ''
-           OR (:gender = 'male' AND e.full_name ~ '(ВИЧ|ОГЛЫ|УГЛИ|ИЧ)\\*?\\s*$')
-           OR (:gender = 'female' AND e.full_name ~ '(ВНА|КЫЗЫ|ГЫЗЫ|ИЧНА)\\*?\\s*$'))
-      AND (:initial = '' OR e.full_name LIKE :initial || '%')
+           OR (:gender = 'male' AND c.full_name ~ '(ВИЧ|ОГЛЫ|УГЛИ|ИЧ)\\*?\\s*$')
+           OR (:gender = 'female' AND c.full_name ~ '(ВНА|КЫЗЫ|ГЫЗЫ|ИЧНА)\\*?\\s*$'))
+      AND (:initial = '' OR c.full_name LIKE :initial || '%')
     """
 )
 # When each entry first appeared in our snapshots.
@@ -607,6 +631,8 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
             reasons.append(f"фамилия на «{figurant.initial}»")
         if place_match:
             reasons.append(f"родился: {row.birth_place}")
+        if row.removed:
+            reasons.append("исключён из перечня")
         key = candidate_key(row.normalized_name, row.birth_date)
         found.append(
             Candidate(
@@ -619,6 +645,8 @@ def candidates(session: Session, figurant: Any, *, shown: int = CANDIDATES_SHOWN
                 reasons=reasons,
                 place_match=place_match,
                 decision=SAME if key == same_key else rejected.get(key),
+                removed=row.removed,
+                added_on=row.added_on,
             )
         )
     # Confirmed first, then born there, then the exact age; the rejected last.

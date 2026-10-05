@@ -384,3 +384,38 @@ def test_a_word_is_kept_changed_and_taken_back(session_factory: sessionmaker[Ses
         ("rec0", "другой|1975-01-01", DIFFERENT),
         ("rec1", "омский иван ильич|1991-05-05", SAME),
     ]
+
+
+def test_a_row_removed_from_the_list_is_compared_with_a_nameless_record(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«20-летний житель Рубцовска»: nobody on the list is that age — but the operator's
+    table holds one who was on it and has been removed since."""
+    from rosfinmonitoring.operator_table import OperatorRow, store
+
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        store(
+            session,
+            [
+                OperatorRow(
+                    "УШЕДШИЙ ИВАН ИЛЬИЧ",
+                    date(2005, 3, 3),
+                    "Г. РУБЦОВСК АЛТАЙСКОГО КРАЯ",
+                    date(2025, 7, 1),
+                    True,
+                    "экстремизм",
+                    "",
+                )
+            ],
+        )
+    with session_factory() as session:
+        cases = nameless_cases(session)
+
+    case = next(case for case in cases if case.record.external_id == "rec6")
+    [gone] = case.candidates
+    assert gone.entry.full_name == "УШЕДШИЙ ИВАН ИЛЬИЧ" and gone.entry.removed
+    assert gone.reasons[-2:] == [
+        "включён в перечень 01.07.2025, после возбуждения дела",
+        "позже исключён из перечня — по таблице оператора",
+    ]

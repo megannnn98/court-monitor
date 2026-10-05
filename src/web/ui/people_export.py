@@ -155,7 +155,9 @@ def people_rows(db: Session) -> list[list[Any]]:
                 group.article_count,
                 excel_day(group.last_published_at),
                 NEWS_LABELS.get(news[group.id], news[group.id]) if group.id in news else None,
-                rf_word(entry.level, entry.text, entry.inclusion_date) if entry else None,
+                rf_word(entry.level, entry.text, entry.inclusion_date, entry.inclusion_source)
+                if entry
+                else None,
                 known_answer_text(base.match(group.name), loaded=bool(len(base))),
                 "да" if is_done(marks, group.key, group.last_published_at) else None,
             ]

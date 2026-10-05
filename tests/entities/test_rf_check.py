@@ -14,6 +14,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
     EntityPairDecisionRecord,
+    RfmOperatorEntryRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
@@ -23,6 +24,7 @@ from rosfinmonitoring.inclusion_dates import (
     InclusionDatesUnavailable,
     normalize_name,
 )
+from rosfinmonitoring.operator_table import OperatorRow, OperatorTableUnavailable
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 
 PERSONS = """
@@ -796,3 +798,86 @@ def test_a_download_failure_of_our_own_also_leaves_the_last_snapshot_in_use(
 
     assert result.download_error == "RosfinmonitoringDownloadError: fedsfm.ru вернул 403"
     assert (result.new_snapshot, result.full) == (False, 1)
+
+
+def _table_row(added: str = "2023-11-20") -> OperatorRow:
+    return OperatorRow(
+        "АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ",
+        date(1996, 6, 8),
+        "П. МАМЕДКАЛА",
+        date.fromisoformat(added),
+        False,
+        "терроризм",
+        "",
+    )
+
+
+def _sources_of(session_factory: sessionmaker[Session]) -> dict[str, str | None]:
+    with session_factory() as session:
+        return dict(
+            session.execute(
+                select(
+                    RosfinmonitoringEntryRecord.full_name,
+                    RosfinmonitoringEntryRecord.inclusion_source,
+                )
+            ).all()
+        )
+
+
+@pytest.mark.parametrize("copy_unreadable", [False, True])
+def test_the_operator_s_table_dates_what_the_ovd_info_copy_does_not(
+    session_factory: sessionmaker[Session], copy_unreadable: bool
+) -> None:
+    """Read in the same check, after the copy — and also when the copy cannot be read at
+    all: the table is another source, and one failing is no reason to skip the other."""
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(unreadable=copy_unreadable),
+        operator_table=lambda: [_table_row()],
+    ).run()
+
+    assert _inclusion_dates_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == date(
+        2023, 11, 20
+    )
+    assert _sources_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == "operator"
+
+
+def test_the_operator_s_table_does_not_move_a_day_the_copy_gave(
+    session_factory: sessionmaker[Session],
+) -> None:
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(*PUBLISHED_INCLUSION),
+        operator_table=lambda: [_table_row()],
+    ).run()
+
+    assert _inclusion_dates_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == date(2024, 3, 14)
+    assert _sources_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] is None
+
+
+def test_a_table_that_cannot_be_read_stops_nothing_and_keeps_the_copy_held(
+    session_factory: sessionmaker[Session],
+) -> None:
+    EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(),
+        operator_table=lambda: [_table_row()],
+    ).run()
+
+    def refuses() -> list[OperatorRow]:
+        raise OperatorTableUnavailable("ссылка отозвана")
+
+    result = EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(),
+        operator_table=refuses,
+    ).run()
+
+    assert result.snapshot_id is not None
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(RfmOperatorEntryRecord)) == 1
+    assert _sources_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == "operator"

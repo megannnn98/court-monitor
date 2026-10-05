@@ -17,7 +17,7 @@ from io import BytesIO
 import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -532,3 +532,66 @@ def test_a_broken_date_in_the_address_is_ignored_not_fatal(
         response = client.get(f"/ui/rfm?date_from={text}")
 
     assert response.status_code == 200
+
+
+def test_a_day_of_the_operator_s_table_is_marked_on_the_page_and_in_the_file(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE rosfinmonitoring_entries SET inclusion_source = 'operator' "
+                "WHERE full_name = 'ПЕТРОВ ПЕТР ПЕТРОВИЧ'"
+            )
+        )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/rfm").text
+        book = client.get("/ui/rfm/export.xlsx").content
+
+    assert page.count('<div class="muted">по таблице оператора</div>') == 1
+    petrov = page[page.index("ПЕТРОВ ПЕТР ПЕТРОВИЧ") :]
+    assert "по таблице оператора" in petrov[: petrov.index("</tr>")]
+    sheet = load_workbook(BytesIO(book))["Перечень"]
+    header = [cell.value for cell in sheet[1]]
+    source = header.index("Откуда дата")
+    by_name = {row[0].value: row[source].value for row in sheet.iter_rows(min_row=2)}
+    assert by_name["ПЕТРОВ ПЕТР ПЕТРОВИЧ"] == "по таблице оператора"
+    assert by_name["ИВАНОВ ИВАН ИВАНОВИЧ"] is None
+
+
+def test_those_removed_from_the_list_have_a_page_of_their_own(
+    session_factory: sessionmaker[Session],
+) -> None:
+    from rosfinmonitoring.operator_table import OperatorRow, store
+
+    _seed(session_factory)
+    with _client(session_factory) as client:
+        assert "Исключены из перечня" not in client.get("/ui/rfm").text
+
+    def row(name: str, *, removed: bool, added: date | None = None) -> OperatorRow:
+        return OperatorRow(name, date(1980, 5, 1), "Г. ОМСК", added, removed, "экстремизм", "")
+
+    with session_factory.begin() as session:
+        store(
+            session,
+            [
+                row("УШЕДШИЙ ИВАН ИЛЬИЧ", removed=True, added=date(2021, 4, 2)),
+                # Twice in the table: one person, one row of the page, the later day.
+                row("УШЕДШИЙ ИВАН ИЛЬИЧ", removed=True, added=date(2019, 1, 1)),
+                # Removed once, on the list again: the list's entry, not a removed one.
+                row("ИВАНОВ ИВАН ИВАНОВИЧ", removed=True, added=date(2020, 1, 1)),
+                row("ЛИШНИЙ ОЛЕГ ПЕТРОВИЧ", removed=False),
+            ],
+        )
+
+    with _client(session_factory) as client:
+        page = _flat(client.get("/ui/rfm").text)
+        gone = _flat(client.get("/ui/rfm?removed=1").text)
+
+    assert "Исключены из перечня, по таблице оператора: 1." in page
+    assert '<a href="/ui/rfm?removed=1">Показать</a>' in page
+    assert _rows(gone) == ["УШЕДШИЙ ИВАН ИЛЬИЧ"]
+    assert "<td>02.04.2021</td>" in gone and "01.01.2019" not in gone
+    assert "в действующем перечне этих людей нет" in gone

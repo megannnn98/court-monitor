@@ -46,6 +46,14 @@ from rosfinmonitoring.inclusion_store import (
     write_inclusion_dates,
 )
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from rosfinmonitoring.operator_table import SOURCE as OPERATOR_SOURCE
+from rosfinmonitoring.operator_table import (
+    OperatorRow,
+    OperatorTableUnavailable,
+    read_configured_table,
+)
+from rosfinmonitoring.operator_table import inclusion_dates as operator_inclusion_dates
+from rosfinmonitoring.operator_table import store as store_operator_table
 from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -117,11 +125,13 @@ class EntityRfCheck:
         *,
         download: Callable[[], bytes] = download_rf_list,
         inclusion_dates: Callable[[httpx.Client], InclusionDates] = download_inclusion_dates,
+        operator_table: Callable[[], list[OperatorRow] | None] = read_configured_table,
         on_stage: Callable[[str], None] = lambda _stage: None,
     ) -> None:
         self._session_factory = session_factory
         self._download = download
         self._inclusion_dates = inclusion_dates
+        self._operator_table = operator_table
         self._on_stage = on_stage
 
     def run(self) -> RfCheckResult:
@@ -288,9 +298,13 @@ class EntityRfCheck:
             logger.warning(
                 "event=rfm_inclusion_dates_unavailable carried=%d error=%s", carried, exc
             )
+            # The operator's table is another source altogether: it is read all the same.
+            self._fill_from_operator_table(snapshot_id)
             return
         with self._session_factory.begin() as session:
             result = write_inclusion_dates(session, snapshot_id, dates)
+        # After the ОВД-Инфо copy, so that it only fills what that copy left empty.
+        self._fill_from_operator_table(snapshot_id)
         logger.info(
             "event=rfm_inclusion_dates_ok snapshot_id=%s carried=%d birth_dates=%d dated=%d "
             "already=%d unmatched=%d",
@@ -300,4 +314,30 @@ class EntityRfCheck:
             result.dated,
             result.already_dated,
             sum(result.unmatched.values()),
+        )
+
+    def _fill_from_operator_table(self, snapshot_id: int) -> None:
+        """Bring in the operator's own table of the list, and give its days to the entries
+        still without one.
+
+        No link set is not an error — the table is the operator's to share or not. A read
+        that fails leaves the copy we hold, and the days are filled from that copy."""
+        try:
+            rows = self._operator_table()
+        except OperatorTableUnavailable as exc:
+            logger.warning("event=rfm_operator_table_unavailable error=%s", exc)
+            rows = None
+        with self._session_factory.begin() as session:
+            if rows is not None:
+                try:
+                    with session.begin_nested():
+                        stored = store_operator_table(session, rows)
+                    logger.info("event=rfm_operator_table_stored rows=%d", stored)
+                except OperatorTableUnavailable as exc:
+                    logger.warning("event=rfm_operator_table_refused error=%s", exc)
+            result = write_inclusion_dates(
+                session, snapshot_id, operator_inclusion_dates(session), source=OPERATOR_SOURCE
+            )
+        logger.info(
+            "event=rfm_operator_table_dates snapshot_id=%s dated=%d", snapshot_id, result.dated
         )

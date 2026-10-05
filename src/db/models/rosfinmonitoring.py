@@ -1,9 +1,11 @@
 """Rosfinmonitoring list snapshots, entries and person matches."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -71,9 +73,33 @@ class RosfinmonitoringEntryRecord(Base):
     inn: Mapped[str | None] = mapped_column(String(20), nullable=True)
     inclusion_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     inclusion_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Where the day came from: empty for the ОВД-Инфо copy, `operator` for the operator's
+    # own table, which only fills what the first left empty.
+    inclusion_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     raw_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RfmOperatorEntryRecord(Base):
+    """A row of the operator's own table of the list: a copy, replaced whole on a read.
+
+    It is not the list. The list is what fedsfm.ru publishes, and only an entry of a
+    snapshot may say a person is on it; this table is kept by hand and says two things
+    the state does not — the day a row was added, and that a row was later removed."""
+
+    __tablename__ = "rfm_operator_entries"
+    __table_args__ = (Index("ix_rfm_operator_entries_normalized_name", "normalized_name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    full_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    birth_place: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    added_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    removed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    category: Mapped[str] = mapped_column(String(255), nullable=False, default="")
 
 
 class RosfinMatchRecord(Base):

@@ -42,6 +42,7 @@ DISPOSABLE_TABLES = (
     "semantic_vector_collections",
     "semantic_documents",
     "rosfin_matches",
+    "rfm_operator_entries",
     "rosfinmonitoring_entries",
     "rosfinmonitoring_snapshots",
     "persecution_classifications",

@@ -25,14 +25,14 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import HTMLResponse
 from openpyxl import Workbook
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
 from entities.rf_check import FULL
-from entities.rf_entry import INCLUSION_NOTES
+from entities.rf_entry import INCLUSION_NOTES, source_mark
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION
 from rosfinmonitoring.snapshot_lookup import (
     RosfinmonitoringSnapshotSummary,
@@ -82,6 +82,8 @@ class ListRow:
     birth_date: date | None
     birth_place: str | None
     inclusion_date: date | None
+    # Empty for a day of the ОВД-Инфо copy; a name for one read elsewhere.
+    inclusion_source: str | None = None
     # Our own match, if this entry was matched to a person in a case. Said as a link
     # because it is a claim we could not establish from the name alone, and the operator
     # is the one who decides what to do with it.
@@ -159,6 +161,7 @@ def _entries(
             birth_date=entry.birth_date.date() if entry.birth_date else None,
             birth_place=entry.birth_place,
             inclusion_date=entry.inclusion_date.date() if entry.inclusion_date else None,
+            inclusion_source=entry.inclusion_source,
         )
         for entry in db.scalars(query)
     ]
@@ -280,6 +283,13 @@ def _filters_html(chosen: ListFilters, today: date) -> str:
 </form>"""
 
 
+def _source_html(row: ListRow) -> str:
+    """Under a day that is not of the ОВД-Инфо copy: whose day it is."""
+    if not (row.inclusion_date and row.inclusion_source):
+        return ""
+    return f'<div class="muted">{escape(source_mark(row.inclusion_source).strip(" ()"))}</div>'
+
+
 def _rows_html(rows: list[ListRow]) -> str:
     if not rows:
         return f'<tr><td colspan="{COLUMNS}" class="muted">Записей нет.</td></tr>'
@@ -295,7 +305,8 @@ def _rows_html(rows: list[ListRow]) -> str:
             f"<tr><td>{escape(row.full_name)} {copy_button(row.full_name)}</td>"
             f"<td>{f'{row.birth_date:%d.%m.%Y}' if row.birth_date else '—'}</td>"
             f"<td>{escape(row.birth_place or '—')}</td>"
-            f"<td>{f'{row.inclusion_date:%d.%m.%Y}' if row.inclusion_date else '—'}</td>"
+            f"<td>{f'{row.inclusion_date:%d.%m.%Y}' if row.inclusion_date else '—'}"
+            f"{_source_html(row)}</td>"
             f"<td>{matched}</td></tr>"
         )
     return "".join(cells)
@@ -306,9 +317,12 @@ def ui_rfm(
     days: int = Query(default=0, ge=0, le=3650),
     date_from: str = Query(default="", max_length=10),
     date_to: str = Query(default="", max_length=10),
+    removed: bool = Query(default=False),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     """The list, and the entries added in a period."""
+    if removed:
+        return _page("Перечень РФМ", _removed_html(db), active="rfm", instruction=_INTRO, db=db)
     today = datetime.now(UTC).date()
     chosen = ListFilters(days, _parse_day(date_from), _parse_day(date_to))
     latest = _latest(db)
@@ -331,8 +345,69 @@ def ui_rfm(
 подтверждает, что в новости речь о том же человеке. {escape(ATTRIBUTION)}.</p>
 <table><thead><tr><th>ФИО в перечне</th><th>Дата рождения</th><th>Место рождения</th>
 <th>Запись включена</th><th>Наше совпадение</th></tr></thead>
-<tbody>{_rows_html(rows)}</tbody></table>"""
+<tbody>{_rows_html(rows)}</tbody></table>
+{_removed_link(db)}"""
     return _page("Перечень РФМ", body, active="rfm", instruction=_INTRO, db=db)
+
+
+# Who the operator's own table says was on the list and is not in the latest snapshot.
+_REMOVED = """
+    FROM (
+        SELECT DISTINCT ON (o.normalized_name, o.birth_date)
+               o.full_name, o.birth_date, o.birth_place, o.added_on
+        FROM rfm_operator_entries o
+        WHERE o.removed
+          AND NOT EXISTS (
+              SELECT 1 FROM rosfinmonitoring_entries e
+              WHERE e.snapshot_id = (SELECT max(id) FROM rosfinmonitoring_snapshots)
+                AND e.normalized_name = o.normalized_name
+                AND e.birth_date::date = o.birth_date)
+        ORDER BY o.normalized_name, o.birth_date, o.added_on DESC NULLS LAST
+    ) gone
+"""
+
+
+def _removed_link(db: Session) -> str:
+    """Under the list: how many the operator's table knows to have left it."""
+    count = db.scalar(text("SELECT count(*)" + _REMOVED)) or 0
+    if not count:
+        return ""
+    return (
+        f'<p class="muted">Исключены из перечня, по таблице оператора: {count}. '
+        '<a href="/ui/rfm?removed=1">Показать</a></p>'
+    )
+
+
+def _removed_html(db: Session) -> str:
+    """The rows removed from the list. Not entries of it: the table is the operator's own,
+    typed by hand, and the page says so before the first name."""
+    count = db.scalar(text("SELECT count(*)" + _REMOVED)) or 0
+    rows = db.execute(
+        text(
+            "SELECT full_name, birth_date, birth_place, added_on"
+            + _REMOVED
+            + "ORDER BY added_on DESC NULLS LAST, full_name LIMIT :limit"
+        ),
+        {"limit": PAGE_SIZE},
+    ).all()
+    cells = (
+        "".join(
+            f"<tr><td>{escape(row.full_name)} {copy_button(row.full_name)}</td>"
+            f"<td>{f'{row.birth_date:%d.%m.%Y}' if row.birth_date else '—'}</td>"
+            f"<td>{escape(row.birth_place or '—')}</td>"
+            f"<td>{f'{row.added_on:%d.%m.%Y}' if row.added_on else '—'}</td></tr>"
+            for row in rows
+        )
+        or '<tr><td colspan="4" class="muted">Записей нет.</td></tr>'
+    )
+    return f"""<p><a href="/ui/rfm">← Перечень</a></p>
+<p class="muted">Исключены из перечня: {count}; показаны первые {len(rows)}. Это не записи
+перечня, а строки таблицы, которую ведёт оператор: в действующем перечне этих людей нет.
+Они нужны, чтобы опознать человека из старой новости, — в карточках безымянных такие
+кандидаты помечены «исключён из перечня».</p>
+<table><thead><tr><th>ФИО</th><th>Дата рождения</th><th>Место рождения</th>
+<th>Был включён</th></tr></thead>
+<tbody>{cells}</tbody></table>"""
 
 
 def _parse_day(text: str) -> date | None:
@@ -374,6 +449,8 @@ def rfm_xlsx(rows: list[ListRow]) -> bytes:
             "Запись включена",
             "Наше совпадение",
             "Что это значит",
+            # Last: the files she already works from keep their columns where they were.
+            "Откуда дата",
         ),
         [
             [
@@ -383,10 +460,11 @@ def rfm_xlsx(rows: list[ListRow]) -> bytes:
                 row.inclusion_date,
                 row.group_name or None,
                 _match_text(row) or None,
+                source_mark(row.inclusion_source).strip(" ()") or None,
             ]
             for row in rows
         ],
-        widths=(42, 18, 40, 20, 30, 20),
+        widths=(42, 18, 40, 20, 30, 20, 24),
     )
     # The attribution and the rule travel with the rows: the file leaves the site.
     write_notes(

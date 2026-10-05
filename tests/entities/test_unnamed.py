@@ -307,3 +307,56 @@ def test_common_crime_only_is_every_article_common_none_political() -> None:
     assert not common_crime_only(["30"])
     # Nothing told: kept.
     assert not common_crime_only([])
+
+
+def _removed_rows(session_factory: sessionmaker[Session]) -> None:
+    """The operator's own table: who it says was removed from the list."""
+    from datetime import date
+
+    from rosfinmonitoring.operator_table import OperatorRow, store
+
+    def row(name: str, born: date, *, removed: bool, added: date | None) -> OperatorRow:
+        return OperatorRow(name, born, "Г. ТЮМЕНЬ", added, removed, "терроризм", "")
+
+    with session_factory.begin() as session:
+        store(
+            session,
+            [
+                # 17 in Tyumen on the day of the news, on the list then, removed since.
+                row(
+                    "УШЕДШИЙ ИВАН ПЕТРОВИЧ",
+                    date(2007, 4, 4),
+                    removed=True,
+                    added=date(2024, 11, 20),
+                ),
+                # Removed once and added again: the snapshot's entry, not a second one.
+                row("ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ", date(2007, 2, 17), removed=True, added=None),
+                # In the table, not removed, and not in the snapshot: the table is typed
+                # by hand, and only the snapshot says who is on the list.
+                row("ЛИШНИЙ ОЛЕГ ПЕТРОВИЧ", date(2007, 6, 6), removed=False, added=None),
+            ],
+        )
+
+
+def test_a_row_removed_from_the_list_is_a_candidate_and_says_so(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _list(session_factory)
+    _removed_rows(session_factory)
+    UnnamedFinder(session_factory, reader=FakeReader()).run()
+
+    with session_factory() as session:
+        figurant = session.scalars(select(UnnamedFigurantRecord)).one()
+        found = candidates(session, figurant)
+
+    by_name = {item.full_name: item for item in found.shown}
+    assert sorted(by_name) == ["ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ", "УШЕДШИЙ ИВАН ПЕТРОВИЧ"]
+    gone = by_name["УШЕДШИЙ ИВАН ПЕТРОВИЧ"]
+    assert gone.removed and gone.added_on == datetime(2024, 11, 20, tzinfo=UTC).date()
+    assert gone.reasons[-1] == "исключён из перечня"
+    # The one the snapshot holds is the list's own entry and says nothing of removal.
+    assert not by_name["ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ"].removed
+    assert "исключён из перечня" not in by_name["ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ"].reasons
+    # Сидоров of the snapshot, born elsewhere, and the two above.
+    assert found.total == 3
