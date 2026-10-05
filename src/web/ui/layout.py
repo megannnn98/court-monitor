@@ -33,6 +33,13 @@ _CSS_VERSION = hashlib.sha256(
 _JS_VERSION = hashlib.sha256(
     (Path(__file__).resolve().parents[2] / "static" / "local-ui.js").read_bytes()
 ).hexdigest()[:12]
+# Sorting a table by a press on its header: the order, then the headers and the rows.
+_SORT_VERSION = hashlib.sha256(
+    b"".join(
+        (Path(__file__).resolve().parents[2] / "static" / name).read_bytes()
+        for name in ("table-sort-core.js", "table-sort.js")
+    )
+).hexdigest()[:12]
 
 
 def copy_button(text: str) -> str:
@@ -265,6 +272,8 @@ def _page(
   <link rel="stylesheet" href="/static/local-ui.css?v={_CSS_VERSION}">
   <script>document.documentElement.classList.add("js")</script>
   <script defer src="/static/local-ui.js?v={_JS_VERSION}"></script>
+  <script defer src="/static/table-sort-core.js?v={_SORT_VERSION}"></script>
+  <script defer src="/static/table-sort.js?v={_SORT_VERSION}"></script>
 </head>
 <body>
   <a class="skip-link" href="#content">К содержанию</a>

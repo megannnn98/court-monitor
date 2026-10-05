@@ -103,6 +103,9 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         "/ui/investigations",
     ]
     assert '<div class="nav-group nav-daily">Каждый день</div>' in nav.group(1)
+    # Every page sorts its tables: the order is defined before the script that uses it.
+    order = page.text.index('src="/static/table-sort-core.js?v=')
+    assert order < page.text.index('src="/static/table-sort.js?v=')
     # No step runs: nothing is said of one.
     assert "live-strip" not in page.text
     # The phone: a menu button with a label, the page reachable past the menu.

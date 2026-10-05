@@ -2197,3 +2197,42 @@ p.log-pulse {
     animation: none;
   }
 }
+
+/* ── A table sorts by a press on a column's header (`table-sort.js`) ───────────────── */
+th button.sort {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+th button.sort::after {
+  content: "↕";
+  opacity: 0.35;
+}
+
+th[aria-sort="ascending"] button.sort::after {
+  content: "↑";
+  opacity: 1;
+}
+
+th[aria-sort="descending"] button.sort::after {
+  content: "↓";
+  opacity: 1;
+}
+
+th button.sort:hover::after,
+th button.sort:focus-visible::after {
+  opacity: 1;
+}

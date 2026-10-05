@@ -61,3 +61,20 @@ def test_the_page_script_writes_no_html_and_asks_nothing_outside() -> None:
         'box.dataset.expandUrl + "?node=" + encodeURIComponent(id)',
         "box.dataset.graphUrl",
     ]
+
+
+def test_the_table_sorting_scripts_are_served_and_write_no_html() -> None:
+    client = TestClient(app)
+    for name, mark in (
+        ("table-sort-core.js", "root.TableSortCore = api"),
+        ("table-sort.js", "window.TableSortCore"),
+    ):
+        script = client.get(f"/static/{name}")
+        assert script.status_code == 200 and mark in script.text
+        # Cells hold scraped names: rows are moved as they are, never written again.
+        assert not re.search(
+            r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(", script.text
+        )
+    # Left alone: a table the server already sorts, merged cells, a column with no name.
+    script = client.get("/static/table-sort.js").text
+    assert 'table.querySelector("thead a, [rowspan], thead [colspan]")' in script
