@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from db.orm_models import (
@@ -170,22 +170,74 @@ def _nav(active: str, counts: dict[str, object]) -> str:
             f"<span>{escape(label)}</span>{badge}</a>"
         )
 
-    def group(title: str) -> str:
-        return f'<div class="nav-group">{title}</div>'
+    def group(title: str, css: str = "") -> str:
+        return f'<div class="nav-group{" " + css if css else ""}">{title}</div>'
 
+    # On a phone these three stand in the bar at the bottom, so the opened menu hides them.
     daily = (
-        link("cycle", "Работа", HOME, counts["queue"])
-        + link("political", "Результаты", "/ui/political", counts["result"])
-        + link("investigations", "Найти человека", "/ui/investigations")
+        link("cycle", "Работа", HOME, counts["queue"], "nav-daily")
+        + link("political", "Результаты", "/ui/political", counts["result"], "nav-daily")
+        + link("investigations", "Найти человека", "/ui/investigations", css="nav-daily")
     )
     data = "".join(link(*item) for item in _DATA)
     system = "".join(link(*item) for item in _SYSTEM)
     return (
-        group("Каждый день")
+        group("Каждый день", "nav-daily")
         + daily
         + group("Данные")
         + data
         + f'<div class="nav-bottom">{group("Система")}{system}</div>'
+    )
+
+
+# The pages of the phone's bottom bar; every other page is under «Ещё».
+_TABS = (
+    ("cycle", "Работа", HOME, "queue"),
+    ("political", "Результаты", "/ui/political", "result"),
+    ("investigations", "Найти", "/ui/investigations", None),
+)
+# The step that is running now, if any: its mode, to say which.
+_LIVE_RUN = text(
+    """
+    SELECT parameters ->> 'mode' FROM operator_operation_runs
+    WHERE status IN ('pending', 'running') ORDER BY id DESC LIMIT 1
+    """
+)
+
+
+def _tabbar(active: str, counts: dict[str, object]) -> str:
+    """The phone's bottom bar: the three daily pages under the thumb, the rest behind «Ещё».
+    Hidden on a wide screen, where the menu is always in sight."""
+    active = _ACTIVE_ALIASES.get(active, active)
+    tabs = []
+    for key, label, href, count in _TABS:
+        badge = f'<span class="nav-count">{counts[count]}</span>' if count else ""
+        current = ' class="active" aria-current="page"' if key == active else ""
+        tabs.append(f'<a href="{href}"{current}>{_icon(key)}<span>{label}</span>{badge}</a>')
+    elsewhere = " active" if active not in {key for key, *_ in _TABS} else ""
+    return (
+        '<div class="tabbar" role="navigation" aria-label="Главные разделы">'
+        + "".join(tabs)
+        + f'<button type="button" class="tabbar-more{elsewhere}" aria-controls="main-nav" '
+        'aria-expanded="false" onclick="const open = document.body.classList.toggle('
+        "'nav-open'); this.setAttribute('aria-expanded', open)\">"
+        f"{_icon('menu')}<span>Ещё</span></button></div>"
+    )
+
+
+def _live_strip(db: Session) -> str:
+    """Above the bottom bar while a step runs: which one, and the way to its progress —
+    on a phone the card of the run is two screens down."""
+    from web.ui.run_cards import MODE_TITLES
+
+    row = db.execute(_LIVE_RUN).first()
+    if row is None:
+        return ""
+    title = MODE_TITLES.get(row[0], MODE_TITLES[None])
+    return (
+        f'<a class="live-strip" href="{HOME}#processing-title">'
+        f'<span class="live-dot" aria-hidden="true"></span>Идёт: {escape(title)}'
+        '<span class="live-open">ход →</span></a>'
     )
 
 
@@ -227,6 +279,7 @@ def _page(
     </div>
     <nav id="main-nav" aria-label="Разделы">{_nav(active, counts)}</nav>
   </aside>
+  {_live_strip(db)}{_tabbar(active, counts)}
   <main id="content" tabindex="-1">
     <section class="status-strip" aria-label="Показатели">
       <span><small>Публикации</small><strong>{counts["articles"]}</strong></span>

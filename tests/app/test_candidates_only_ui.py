@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
@@ -59,7 +60,7 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
     assert '<span>Результаты</span><span class="nav-count">0</span>' in nav.group(1)
     assert "Очередь" not in nav.group(1)
     assert "Безымянные" not in nav.group(1)
-    groups = re.split(r'<div class="nav-group">([^<]+)</div>', nav.group(1))
+    groups = re.split(r'<div class="nav-group[^"]*">([^<]+)</div>', nav.group(1))
     assert groups[0] == ""
     assert {
         title: re.findall(r"<span>([^<]+)</span><", body + "<")
@@ -84,6 +85,26 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         ("/ui/wiki", "Вики"),
         ("/ui/about", "О системе"),
     ]
+    # The phone: the three daily pages in a bar at the bottom, the rest behind «Ещё»,
+    # which opens the same menu — with the three marked, so that it can leave them out.
+    bar = re.search(r'<div class="tabbar" role="navigation"[^>]*>(.*?)</div>', page.text, re.DOTALL)
+    assert bar is not None
+    assert re.findall(r'href="([^"]+)"[^>]*><svg.*?</svg><span>([^<]+)</span>', bar.group(1)) == [
+        ("/ui/cycle", "Работа"),
+        ("/ui/political", "Результаты"),
+        ("/ui/investigations", "Найти"),
+    ]
+    assert '<span>Результаты</span><span class="nav-count">0</span>' in bar.group(1)
+    assert re.search(r'class="tabbar-more[^"]*" aria-controls="main-nav"', bar.group(1))
+    assert "<span>Ещё</span></button>" in bar.group(1)
+    assert re.findall(r'<a class="nav-daily[^"]*" href="([^"]+)"', nav.group(1)) == [
+        "/ui/cycle",
+        "/ui/political",
+        "/ui/investigations",
+    ]
+    assert '<div class="nav-group nav-daily">Каждый день</div>' in nav.group(1)
+    # No step runs: nothing is said of one.
+    assert "live-strip" not in page.text
     # The phone: a menu button with a label, the page reachable past the menu.
     assert 'class="nav-toggle" aria-label="Меню"' in page.text
     assert '<a class="skip-link" href="#content">К содержанию</a>' in page.text
@@ -178,3 +199,37 @@ def test_the_page_opens_on_the_newest_snapshot(
         page = client.get("/ui/candidates")
 
     assert f'<option value="{newer}" selected>' in page.text
+
+
+def test_the_bar_marks_the_page_it_is_on_and_a_running_step_is_said_on_every_page(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with _client(session_factory) as client:
+        result = client.get("/ui/political").text
+        logs = client.get("/ui/logs").text
+        with session_factory.begin() as session:
+            session.execute(
+                text(
+                    "INSERT INTO operator_operation_runs "
+                    "(operation_name, parameters, command, status, stdout, stderr) VALUES "
+                    # The step that ended has the later id: a strip that named the
+                    # latest run, whatever its state, would name this one.
+                    "('monitor', '{\"mode\": \"figurants\"}', '[]', 'running', '', ''), "
+                    "('monitor', '{\"mode\": \"entities\"}', '[]', 'succeeded', '', '')"
+                )
+            )
+        running = client.get("/ui/logs").text
+
+    assert '<a href="/ui/political" class="active" aria-current="page">' in result
+    assert 'class="tabbar-more"' in result
+    # A page of the menu behind «Ещё»: the button is the one marked.
+    assert (
+        'class="tabbar-more active"' in logs
+        and 'class="active" aria-current' not in (logs[logs.index('<div class="tabbar"') :])
+    )
+    assert "live-strip" not in logs
+    # The step that runs, not the one that ended; and the way to its progress.
+    assert (
+        '<a class="live-strip" href="/ui/cycle#processing-title">'
+        '<span class="live-dot" aria-hidden="true"></span>Идёт: Поиск фигурантов'
+    ) in running
