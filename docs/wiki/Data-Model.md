@@ -188,9 +188,10 @@ PostgreSQL — рабочее хранилище ([Airtable Sync](Airtable-Sync.
 |---|---|---|
 | `airtable_known_persons` | оператор, через sync | уже найденные и проверенные люди: `external_id`, `full_name`, `normalized_name`, `matching_key`, `active`; рядом с именем — что база говорит о человеке: `gender`, `birth_date`, `region`, `city`, `articles`, `case_opened_on`, `sentenced_on`, `court`, `court_card_url`, `in_rfm`, `rfm_included_on` (пусто, где в базе пусто) |
 | `excluded_persons` (список «Должностные лица») | оператор, через sync | должностные лица и все, кого нельзя создавать фигурантами (защитники, свидетели): `external_id`, `full_name`, `normalized_name`, `category`, `reason`, `active`; шаг 4 читает активные |
+| `rfm_operator_entries` | оператор, через сверку с перечнем | копия собственной таблицы оператора по перечню РФМ: `full_name`, `normalized_name`, `birth_date`, `birth_place`, `added_on`, `removed`, `kind`, `category`; заменяется целиком, `external_id` нет ([Rosfinmonitoring](Rosfinmonitoring.md#таблица-оператора), миграция `g7b8c9d0e1f2_rfm_operator_table.py`) |
 | `sources.external_id`, `sources.active` | оператор, через sync | связь строки источника с записью Airtable и флаг активности; сами источники заданы кодом |
 
-У всех трёх `external_id` — уникальный индекс: он однозначно связывает строку
+У первых трёх `external_id` — уникальный индекс: он однозначно связывает строку
 PostgreSQL с записью Airtable и делает повторный запуск идемпотентным.
 
 Миграции: от `x8y9z0a1b2c3_entity_groups.py` до

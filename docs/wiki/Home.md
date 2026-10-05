@@ -36,12 +36,12 @@ Status](Implementation-Status.md).
 - [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища
 - [Monitoring](Monitoring.md) — автоматический monitoring pipeline: Dagster, runs, checkpoints, findings, CLI/API
-- [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: рабочий цикл, «Результат», обзор, досье, отдельные проверки и журнал запусков
+- [Local Web UI](Local-Web-UI.md) — консоль «Следователь»: меню из трёх групп, «Работа», «Результат», досье, отдельные проверки и журнал запусков
 - [Pipeline](Pipeline.md) — пять шагов от публикации до «Результата», модель и расходы, старый путь через Person
 - [Investigation Graph](Investigation-Graph.md) — граф событий в досье: человек, события, а через них публикации, суды, статьи и другие люди
 - [Unnamed Figurants](Unnamed-Figurants.md) — безымянные фигуранты и кандидаты на них из перечня Росфинмониторинга
 - [Junk Screen](Junk-Screen.md) — отсев мусора с проверкой: статьи, где извлечение пропустило дело, удерживаются, а не удаляются
-- [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности
+- [Rosfinmonitoring](Rosfinmonitoring.md) — перечень: снимки, сверка людей, подтверждение личности, даты включения, таблица оператора и исключённые из перечня
 - [Airtable Sync](Airtable-Sync.md) — ручная синхронизация справочников из Airtable: кнопка, `POST /api/admin/airtable/sync`, соответствие полей, идемпотентность
 - [Real-World Validation](RealWorldValidation.md) — real-world corpus, golden annotations, safety gates, отчёты качества pipeline
 - [Setup](Setup.md) — переменные окружения, docker compose, миграции, CLI
