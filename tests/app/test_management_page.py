@@ -758,6 +758,38 @@ def test_step_six_finds_the_political_cases_from_management(
     assert "Политические по ответу модели: 1500" in done
     assert "В перечне (ФИО с отчеством): 3605" in done
     assert "Уголовные: 1800" in done and 'href="/ui/political">Результат</a>' in done
+    # The counts are read by what they are about: a line per group, an empty group none.
+    lines = dict(
+        re.findall(
+            r'<p class="run-summary"><span class="run-summary-title">([^<]+)</span>(.*?)</p>',
+            done,
+        )
+    )
+    assert list(lines) == ["Вердикты", "Перечень РФМ", "Модель и расход"]
+    assert "Политические по статье УК: 1378" in lines["Вердикты"]
+    assert "Не ясно: 150" in lines["Вердикты"]
+    assert "Ответов модели сейчас" not in lines["Вердикты"]
+    assert "Возможно в перечне: 950" in lines["Перечень РФМ"]
+    assert "Модель не ответила: 3" in lines["Модель и расход"]
+    assert "Ответов модели сейчас: 3450" in lines["Модель и расход"]
+    # Starting comes first, then the run and the journal; the funnel of the whole base
+    # closes the page.
+    order = [
+        done.index(mark)
+        for mark in (
+            "<h2>Запуск</h2>",
+            'id="do-all"',
+            f"Запуск #{run_id}",
+            "<h2>Последние ручные запуски</h2>",
+            '<section class="band funnel" id="funnel">',
+        )
+    ]
+    assert order == sorted(order)
+    # The dates belong to step 1 alone: folded, inside the form the buttons submit.
+    form = done[
+        done.index('<form method="post" action="/ui/management/run"') : done.index("</form>")
+    ]
+    assert '<details class="date-range">' in form and 'name="published_from"' in form
 
 
 def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[Session]) -> None:

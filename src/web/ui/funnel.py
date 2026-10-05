@@ -159,11 +159,11 @@ def funnel_html(whole: Funnel) -> str:
         f'<span class="funnel-dropped muted">{escape(stage.dropped)}</span></a>'
         for index, stage in enumerate(stages)
     )
-    return f"""<section class="band funnel">
+    return f"""<section class="band funnel" id="funnel">
   <h2>Воронка отбора</h2>
   <p class="funnel-period"><b>За всё время:</b> {escape(whole.period)}. Период на
   «Результате» выбирается отдельно.</p>
-  <p class="muted">Шаги 1–5 ниже по очереди сужают поток: из скачанных публикаций — к людям с
+  <p class="muted">Шаги 1–5 по очереди сужают поток: из скачанных публикаций — к людям с
   политическими уголовными делами. Перечень Росфинмониторинга никого не отсеивает, он
   подтверждает личность. Нажмите на ступень, чтобы её посмотреть.</p>
   {rows}
@@ -175,5 +175,5 @@ def funnel_line(whole: Funnel) -> str:
     parts = " → ".join(f"{_n(stage.count)} {escape(stage.label.lower())}" for stage in whole.stages)
     return (
         f'<p class="muted funnel-line">Воронка за всё время ({escape(whole.period)}): {parts}. '
-        '<a href="/ui/runs">Подробнее</a></p>'
+        '<a href="/ui/runs#funnel">Подробнее</a></p>'
     )

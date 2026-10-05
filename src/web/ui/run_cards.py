@@ -125,12 +125,23 @@ def _totals(run: OperationRun) -> dict[str, Any]:
     return totals if isinstance(totals, dict) else {}
 
 
-def _summary(totals: dict[str, Any], labels: Sequence[tuple[str, str, str]]) -> str:
-    """The counts that are not zero, as badges: (key, label, badge) of each."""
-    marks = " ".join(
-        badge(f"{label}: {totals[key]}", css) for key, label, css in labels if totals.get(key)
-    )
-    return f'<p class="run-summary">{marks}</p>'
+_Labels = Sequence[tuple[str, str, str]]
+
+
+def _summary(totals: dict[str, Any], groups: Sequence[tuple[str, _Labels]]) -> str:
+    """The counts that are not zero, as badges: (key, label, badge) of each. A line per
+    group under its title: what the step found is not read in one row with what it cost."""
+    lines = []
+    for title, labels in groups:
+        marks = " ".join(
+            badge(f"{label}: {totals[key]}", css) for key, label, css in labels if totals.get(key)
+        )
+        if marks:
+            lines.append(
+                f'<p class="run-summary"><span class="run-summary-title">{title}</span>'
+                f'<span class="run-summary-marks">{marks}</span></p>'
+            )
+    return "".join(lines)
 
 
 _PURGE_PROGRESS = re.compile(
@@ -197,15 +208,25 @@ def _entities_card(run: OperationRun) -> str:
         else progress_box(_ENTITIES_STAGES.get(stage, _PREPARING))
     )
     labels = (
-        ("entities", "Сущностей", "succeeded"),
-        ("grouped", "Упоминаний в них", ""),
-        ("normalized_now", "Имён от модели сейчас", ""),
-        ("normalized_cached", "Имён из кэша", ""),
-        ("normalize_failures", "Не удалось нормализовать", "failed"),
-        ("charged_entities", "Со статьями УК", ""),
-        ("normalize_unasked", "Не спрошено: лимит расходов", "failed"),
-        ("model_cost_usd", "Стоимость модели, $", ""),
-        ("charges", "Связей со статьями УК", ""),
+        (
+            "Итог",
+            (
+                ("entities", "Сущностей", "succeeded"),
+                ("grouped", "Упоминаний в них", ""),
+                ("charged_entities", "Со статьями УК", ""),
+                ("charges", "Связей со статьями УК", ""),
+            ),
+        ),
+        (
+            "Модель и расход",
+            (
+                ("normalized_now", "Имён от модели сейчас", ""),
+                ("normalized_cached", "Имён из кэша", ""),
+                ("normalize_failures", "Не удалось нормализовать", "failed"),
+                ("normalize_unasked", "Не спрошено: лимит расходов", "failed"),
+                ("model_cost_usd", "Стоимость модели, $", ""),
+            ),
+        ),
     )
     return card(
         run,
@@ -276,19 +297,29 @@ def _figurants_card(run: OperationRun) -> str:
         else progress_box(_FIGURANTS_STAGES.get(stage, _PREPARING))
     )
     labels = (
-        ("figurant_rules", "Фигуранты по статье УК без ответа модели", "succeeded"),
-        ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
-        ("figurant_manual", "Фигуранты по решению оператора", "succeeded"),
-        ("officials", "Должностные лица", ""),
-        ("officials_listed", "Добавлено в список должностных лиц", "succeeded"),
-        ("possible", "Задержаны, обысканы или административное дело", "pending"),
-        ("mentioned", "Только упомянуты", ""),
-        ("unclear", "Не ясно", ""),
-        ("failures", "Модель не ответила", "failed"),
-        ("asked_now", "Ответов модели сейчас", ""),
-        ("cached", "Из кэша", ""),
-        ("unasked", "Не спрошено: лимит расходов", "failed"),
-        ("cost_usd", "Стоимость модели, $", ""),
+        (
+            "Итог",
+            (
+                ("figurant_rules", "Фигуранты по статье УК без ответа модели", "succeeded"),
+                ("figurant_model", "Фигуранты по ответу модели", "succeeded"),
+                ("figurant_manual", "Фигуранты по решению оператора", "succeeded"),
+                ("officials", "Должностные лица", ""),
+                ("officials_listed", "Добавлено в список должностных лиц", "succeeded"),
+                ("possible", "Задержаны, обысканы или административное дело", "pending"),
+                ("mentioned", "Только упомянуты", ""),
+                ("unclear", "Не ясно", ""),
+            ),
+        ),
+        (
+            "Модель и расход",
+            (
+                ("failures", "Модель не ответила", "failed"),
+                ("asked_now", "Ответов модели сейчас", ""),
+                ("cached", "Из кэша", ""),
+                ("unasked", "Не спрошено: лимит расходов", "failed"),
+                ("cost_usd", "Стоимость модели, $", ""),
+            ),
+        ),
     )
     return card(
         run,
@@ -373,31 +404,51 @@ def _political_card(run: OperationRun) -> str:
             f"снимку: {escape(str(totals['download_error']))}</p>"
         )
     labels = (
-        # The list confirms who a person is: no mark against them.
-        ("rf_full", "В перечне (ФИО с отчеством)", ""),
-        ("rf_possible", "Возможно в перечне", "pending"),
-        ("rf_merged", "Спорных пар слито по перечню", ""),
-        ("region_merged", "Слито «одно ФИО — один человек»", ""),
-        ("political_rules", "Политические по статье УК", "succeeded"),
-        ("political_model", "Политические по ответу модели", "succeeded"),
-        ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
-        ("political_manual", "Политические по решению оператора", "succeeded"),
-        ("criminal_rules", "Уголовные по статье (без модели)", ""),
-        ("criminal_manual", "Уголовные по решению оператора", ""),
-        ("criminal", "Уголовные", ""),
-        ("unclear", "Не ясно", ""),
-        ("failures", "Модель не ответила", "failed"),
-        ("asked_now", "Ответов модели сейчас", ""),
-        ("cached", "Из кэша", ""),
-        ("unasked", "Не спрошено: лимит расходов", "failed"),
-        ("cost_usd", "Стоимость модели, $", ""),
-        ("news_new_case", "Свежая новость: новое дело", "succeeded"),
-        ("news_sentence", "Свежая новость: приговор", "succeeded"),
-        ("news_ongoing", "Свежая новость: продолжение дела", ""),
-        ("news_closed", "Свежая новость: дело завершено", ""),
-        ("news_unknown", "Свежая новость не определена", "pending"),
-        ("unnamed", "Безымянных фигурантов", "succeeded"),
-        ("unnamed_cost_usd", "Стоимость (безымянные), $", ""),
+        (
+            "Вердикты",
+            (
+                ("political_rules", "Политические по статье УК", "succeeded"),
+                ("political_model", "Политические по ответу модели", "succeeded"),
+                ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
+                ("political_manual", "Политические по решению оператора", "succeeded"),
+                ("criminal_rules", "Уголовные по статье (без модели)", ""),
+                ("criminal_manual", "Уголовные по решению оператора", ""),
+                ("criminal", "Уголовные", ""),
+                ("unclear", "Не ясно", ""),
+            ),
+        ),
+        (
+            "Перечень РФМ",
+            (
+                # The list confirms who a person is: no mark against them.
+                ("rf_full", "В перечне (ФИО с отчеством)", ""),
+                ("rf_possible", "Возможно в перечне", "pending"),
+                ("rf_merged", "Спорных пар слито по перечню", ""),
+                ("region_merged", "Слито «одно ФИО — один человек»", ""),
+            ),
+        ),
+        (
+            "Свежие новости",
+            (
+                ("news_new_case", "Новое дело", "succeeded"),
+                ("news_sentence", "Приговор", "succeeded"),
+                ("news_ongoing", "Продолжение дела", ""),
+                ("news_closed", "Дело завершено", ""),
+                ("news_unknown", "Не определена", "pending"),
+                ("unnamed", "Безымянных фигурантов", "succeeded"),
+            ),
+        ),
+        (
+            "Модель и расход",
+            (
+                ("failures", "Модель не ответила", "failed"),
+                ("asked_now", "Ответов модели сейчас", ""),
+                ("cached", "Из кэша", ""),
+                ("unasked", "Не спрошено: лимит расходов", "failed"),
+                ("cost_usd", "Стоимость модели, $", ""),
+                ("unnamed_cost_usd", "Стоимость (безымянные), $", ""),
+            ),
+        ),
     )
     return card(
         run,

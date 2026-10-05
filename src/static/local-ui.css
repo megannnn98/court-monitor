@@ -778,6 +778,38 @@ pre.log {
   margin: 8px 0;
 }
 
+/* What a line of counts is about: the step's result, the list, the news, the cost. */
+.run-summary-title {
+  flex: 0 0 132px;
+  padding-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* The marks wrap under themselves, not under the title. */
+.run-summary-marks {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .run-summary-title {
+    flex-basis: 100%;
+    padding-top: 0;
+  }
+}
+
+/* The start buttons inside their own block: no strip of their own. */
+.band .run-bar {
+  position: static;
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
 .run-card details {
   margin-top: 8px;
 }
@@ -1992,4 +2024,25 @@ pre.log-tail {
 p.log-pulse {
   margin: 0.6rem 0 0;
   font-size: 12px;
+}
+
+/* The dates of step 1: folded under the buttons they belong to. */
+.date-range {
+  margin-top: 4px;
+}
+
+.date-range summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.date-range label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px 0 0;
+}
+
+.date-range input {
+  width: auto;
 }

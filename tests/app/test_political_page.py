@@ -132,6 +132,8 @@ def test_the_list_is_the_political_the_period_tells_new_from_old(
     # The funnel, in one line, down to the result.
     assert "2 политические дела — результат" in page
     assert "Воронка за всё время (публикаций пока нет):" in page
+    # The whole funnel closes the journal: the link goes to it, not to the page's top.
+    assert '<a href="/ui/runs#funnel">Подробнее</a>' in page
     assert "Найдено: 2." in page and "Беда" not in page
     assert "Смирнова Анна" in page and "Москва" in page and "модель: так про Анна Смирнова" in page
     assert 'Иванов Иван</a> <span class="badge pending">возможно в перечне</span>' in page

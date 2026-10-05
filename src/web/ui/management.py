@@ -489,25 +489,28 @@ def _management_page(
     definitions = news_sources()
     run_html = _run_results(db, run, run.parameters.sources or []) if run else ""
     error_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
+    # What the page is opened for comes first: start, see the run, look back. The
+    # funnel is the whole base, not a run, so it closes the page.
     body = f"""{error_html}
-{run_html}
-{funnel_html(funnel(db))}
-<form method="post" action="/ui/management/run" class="source-form">
+<form method="post" action="/ui/management/run" class="source-form band">
+  <h2>Запуск</h2>
   <div class="run-bar">
     {stepper(state or PipelineState(current="load"), len(definitions))}
     <span class="muted">Шаг 1 скачивает все новостные источники ({len(definitions)}); шаги 2–5
     работают со всей базой.</span>
   </div>
-  <fieldset class="date-range">
-    <legend>Даты публикаций для шага 1</legend>
+  <details class="date-range">
+    <summary>Ограничить даты публикаций для шага 1</summary>
     <label>С <input type="date" name="published_from"></label>
     <label>По <input type="date" name="published_to"></label>
     <p class="muted">Пусто — без ограничения. Фильтр применяется к дате публикации после
     загрузки статьи; для старых дат увеличьте limit источника.</p>
-  </fieldset>
+  </details>
 </form>
+{run_html}
 {_history(history, run)}
-{_source_errors(db)}"""
+{_source_errors(db)}
+{funnel_html(funnel(db))}"""
     page = _page(
         "Журнал запусков",
         body,
