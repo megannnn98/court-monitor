@@ -54,34 +54,31 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
     nav = re.search(r'<nav id="main-nav" aria-label="Разделы">(.*?)</nav>', page.text, re.DOTALL)
     assert nav is not None
     links = re.findall(r'href="([^"]+)"[^>]*><svg[^>]*>.*?</svg><span>([^<]+)</span>', nav.group(1))
-    # Work comes first; results and search are the other primary paths. Operational
-    # queues stay inside Work, while reference pages remain grouped at the bottom.
+    # Three groups: what is done every day, the data, the system. Operational queues
+    # stay inside Work; no page is in the menu twice.
     assert '<span>Результаты</span><span class="nav-count">0</span>' in nav.group(1)
     assert "Очередь" not in nav.group(1)
     assert "Безымянные" not in nav.group(1)
-    bottom = re.search(r'<div class="nav-bottom">(.*)</div>', nav.group(1), re.DOTALL)
-    assert bottom is not None and '<div class="nav-group">Справочно</div>' in bottom.group(1)
-    assert re.findall(r"<span>([^<]+)</span>", bottom.group(1)) == [
-        "Расследование",
-        "Люди",
-        "Публикации",
-        "Справочники",
-        "Журнал запусков",
-        "Логи",
-        "Вики",
-        "О системе",
-    ]
+    groups = re.split(r'<div class="nav-group">([^<]+)</div>', nav.group(1))
+    assert groups[0] == ""
+    assert {
+        title: re.findall(r"<span>([^<]+)</span><", body + "<")
+        for title, body in zip(groups[1::2], groups[2::2], strict=True)
+    } == {
+        "Каждый день": ["Работа", "Результаты", "Найти человека"],
+        "Данные": ["Все люди", "Публикации", "Перечень РФМ", "База Airtable"],
+        "Система": ["Журнал запусков", "Логи", "Вики", "О системе"],
+    }
+    # The system's pages are the block kept at the bottom.
+    assert '<div class="nav-bottom"><div class="nav-group">Система</div>' in nav.group(1)
     assert links == [
         ("/ui/cycle", "Работа"),
         ("/ui/political", "Результаты"),
-        # The list itself sits with the working pages: «who was added lately» is what
-        # an operator opens the tool for, not a setting.
-        ("/ui/rfm", "Перечень"),
-        ("/ui/investigations", "Поиск"),
-        ("/ui/investigations", "Расследование"),
-        ("/ui/entities", "Люди"),
+        ("/ui/investigations", "Найти человека"),
+        ("/ui/entities", "Все люди"),
         ("/ui/publications", "Публикации"),
-        ("/ui/airtable", "Справочники"),
+        ("/ui/rfm", "Перечень РФМ"),
+        ("/ui/airtable", "База Airtable"),
         ("/ui/runs", "Журнал запусков"),
         ("/ui/logs", "Логи"),
         ("/ui/wiki", "Вики"),

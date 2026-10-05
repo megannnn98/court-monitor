@@ -850,7 +850,7 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
     dossier = load(db, key)
     if dossier is None:
         raise HTTPException(status_code=404, detail="Человек не найден")
-    body = f"""<p><a href="/ui/investigations">← Расследование</a></p>
+    body = f"""<p><a href="/ui/investigations">← Найти человека</a></p>
 <div class="page-toc" role="navigation" aria-label="Разделы досье">
   <a href="#decision-title">Решение</a> <a href="#charges">Статьи УК</a>
   <a href="#timeline">Хронология</a>
@@ -928,7 +928,7 @@ def ui_investigations(
 </form>
 <section class="band">{table}</section>"""
     return _page(
-        "Расследование",
+        "Найти человека",
         body,
         active="investigations",
         instruction="Найдите человека и откройте его досье.",

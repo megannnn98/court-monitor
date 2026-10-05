@@ -416,7 +416,7 @@ def test_the_dossier_says_whether_the_operator_s_base_holds_the_person(
         present = client.get(f"/ui/investigations/{quote(MOOR)}").text
 
     # No base synced: the dossier says nothing, rather than «not in the base».
-    assert "База Airtable" not in no_base
+    assert "<h3>База Airtable</h3>" not in no_base
     assert "<h3>База Airtable</h3>" in absent and "нет в базе" in absent
     assert "вероятно, новый человек" in absent
     assert "вероятно, есть в базе" in present and "<li>Моор Александр Петрович</li>" in present

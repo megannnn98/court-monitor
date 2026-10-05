@@ -188,7 +188,7 @@ def ui_airtable(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
 </script>
 <script src="/static/airtable-sync.js" defer></script>"""
     return _page(
-        "Справочники",
+        "База Airtable",
         body,
         active="airtable",
         instruction=(

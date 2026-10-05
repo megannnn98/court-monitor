@@ -562,7 +562,7 @@ document.querySelectorAll("tr[data-href]").forEach((row) => row.addEventListener
 }}));
 </script>"""
     return _page(
-        "Люди",
+        "Все люди",
         body,
         active="entities",
         instruction=(

@@ -82,7 +82,7 @@ def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     assert 'href="/ui/political"><svg' in response.text
     assert "<span>Работа</span>" in response.text
     assert "<span>Результаты</span>" in response.text
-    assert "<span>Поиск</span>" in response.text
+    assert "<span>Найти человека</span>" in response.text
     assert "source-table" not in response.text
     assert 'id="source-errors"' not in response.text
 

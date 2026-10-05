@@ -130,13 +130,16 @@ def _icon(name: str) -> str:
     )
 
 
-# The menu: current result stays close to the home page; investigation material and
-# operation history are reference pages, not steps in the operator's work queue.
-_REFERENCE = (
-    ("investigations", "Расследование", "/ui/investigations"),
-    ("entities", "Люди", "/ui/entities"),
+# The menu, in three groups: what the operator does every day, the data the system
+# holds, and the system itself.
+_DATA = (
+    ("entities", "Все люди", "/ui/entities"),
     ("publications", "Публикации", "/ui/publications"),
-    ("airtable", "Справочники", "/ui/airtable"),
+    # The list itself, with «who was added lately».
+    ("rfm", "Перечень РФМ", "/ui/rfm"),
+    ("airtable", "База Airtable", "/ui/airtable"),
+)
+_SYSTEM = (
     ("management", "Журнал запусков", "/ui/runs"),
     ("logs", "Логи", "/ui/logs"),
     ("wiki", "Вики", "/ui/wiki"),
@@ -167,18 +170,22 @@ def _nav(active: str, counts: dict[str, object]) -> str:
             f"<span>{escape(label)}</span>{badge}</a>"
         )
 
-    main = [
-        link("cycle", "Работа", HOME, counts["queue"]),
-        link("political", "Результаты", "/ui/political", counts["result"]),
-        # The list itself, with «who was added lately»: a working page, not a reference
-        # one, and the reason the day of inclusion is worth storing at all.
-        link("rfm", "Перечень", "/ui/rfm"),
-        link("investigations", "Поиск", "/ui/investigations"),
-    ]
-    reference = "".join(link(*item) for item in _REFERENCE)
+    def group(title: str) -> str:
+        return f'<div class="nav-group">{title}</div>'
+
+    daily = (
+        link("cycle", "Работа", HOME, counts["queue"])
+        + link("political", "Результаты", "/ui/political", counts["result"])
+        + link("investigations", "Найти человека", "/ui/investigations")
+    )
+    data = "".join(link(*item) for item in _DATA)
+    system = "".join(link(*item) for item in _SYSTEM)
     return (
-        "".join(main)
-        + f'<div class="nav-bottom"><div class="nav-group">Справочно</div>{reference}</div>'
+        group("Каждый день")
+        + daily
+        + group("Данные")
+        + data
+        + f'<div class="nav-bottom">{group("Система")}{system}</div>'
     )
 
 

@@ -100,7 +100,7 @@ def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
         by_declined_form = client.get("/ui/entities", params={"q": "Моору"}).text
         nobody = client.get("/ui/entities", params={"q": "Петров"}).text
 
-    assert "<span>Люди</span></a>" in page
+    assert "<span>Все люди</span></a>" in page
     # Surname first, as the candidates are; the name opens the dossier.
     assert f'<a href="/ui/investigations/{MOOR}">Моор Александр</a>' in page
     assert "Найдено: 2." in page
