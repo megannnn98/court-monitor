@@ -60,6 +60,7 @@
  "POST /ui/junk-holds/hold",
  "POST /ui/junk-holds/junk",
  "POST /ui/junk-holds/reextract",
+ "POST /ui/junk-holds/release",
  "POST /ui/management/entities",
  "POST /ui/management/figurants",
  "POST /ui/management/political",

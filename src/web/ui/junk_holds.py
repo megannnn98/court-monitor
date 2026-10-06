@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from monitoring.hold_reader import MODEL_JUNK, RELEASED, release
 from monitoring.junk_holds import hold_again, mark_junk, reextract
 from monitoring.junk_screen import HELD, JUNK
 from web.dependencies import get_db, session_factory_for
@@ -26,11 +27,33 @@ from web.ui.layout import _page, pager
 router = APIRouter()
 
 PAGE_SIZE = 30
-_STATUSES = {HELD: "На проверке", JUNK: "Отмечены как мусор"}
+# The held are two lists: what a model read as junk waits apart, to go by one press.
+MODEL_JUNK_VIEW = "model_junk"
+_STATUSES = {
+    HELD: "На проверке",
+    MODEL_JUNK_VIEW: "Модель считает мусором",
+    RELEASED: "Выпущено в работу",
+    JUNK: "Отмечены как мусор",
+}
+# A list's rows: the hold's status, and for the held — whether a model called it junk.
+_VIEW = (
+    "h.status = :status AND (CAST(:model_junk AS boolean) IS NULL "
+    "OR coalesce(h.reader_verdict = :junk_read, false) = CAST(:model_junk AS boolean))"
+)
+
+
+def _view(status: str) -> dict[str, object]:
+    return {
+        "status": HELD if status == MODEL_JUNK_VIEW else status,
+        "model_junk": {HELD: False, MODEL_JUNK_VIEW: True}.get(status),
+        "junk_read": MODEL_JUNK,
+    }
+
 
 _HOLDS = text(
-    """
+    f"""
     SELECT h.article_id, h.status, h.score, h.cutoff, h.screen, h.reason, h.note,
+           h.reader_verdict,
            h.created_at, a.title, a.published_at, s.name AS source, d.canonical_url,
            left(a.text, 400) AS start,
            (SELECT string_agg(DISTINCT e.event_type, ', ') FROM extracted_events e
@@ -42,7 +65,7 @@ _HOLDS = text(
     JOIN parsed_articles a ON a.id = h.article_id
     JOIN source_documents d ON d.id = a.document_id
     JOIN sources s ON s.id = d.source_id
-    WHERE h.status = :status
+    WHERE {_VIEW}
     ORDER BY h.score DESC, h.article_id
     """
 )
@@ -55,11 +78,11 @@ _HOLDS = text(
 # only stand together, and every one keeps its own buttons.
 TITLE_SIMILARITY = 0.5
 _SAME_PERSON = text(
-    """
+    f"""
     WITH latest AS (
         SELECT DISTINCT ON (r.article_id) r.article_id, r.id
         FROM article_extraction_runs r
-        JOIN junk_screen_holds h ON h.article_id = r.article_id AND h.status = :status
+        JOIN junk_screen_holds h ON h.article_id = r.article_id AND {_VIEW}
         WHERE r.status = 'succeeded'
         ORDER BY r.article_id, r.id DESC
     ), named AS (
@@ -72,17 +95,23 @@ _SAME_PERSON = text(
     """
 )
 _SAME_TITLE = text(
-    """
+    f"""
     WITH held AS (
         SELECT a.id, left(a.title, 300) AS title
         FROM junk_screen_holds h JOIN parsed_articles a ON a.id = h.article_id
-        WHERE h.status = :status AND a.title IS NOT NULL AND length(a.title) >= 20
+        WHERE {_VIEW} AND a.title IS NOT NULL AND length(a.title) >= 20
     )
     SELECT x.id, y.id FROM held x JOIN held y ON x.id < y.id
     WHERE similarity(x.title, y.title) >= :similarity
     """
 )
-_COUNTS = text("SELECT status, count(*) FROM junk_screen_holds GROUP BY status")
+_COUNTS = text(
+    """
+    SELECT CASE WHEN status = 'held' AND reader_verdict = 'junk' THEN 'model_junk' ELSE status END,
+           count(*)
+    FROM junk_screen_holds GROUP BY 1
+    """
+)
 
 
 def same_news(ids: list[int], pairs: list[tuple[int, int]]) -> list[list[int]]:
@@ -121,14 +150,23 @@ def _button(action: str, article_id: int, label: str, status: str, page: int) ->
     )
 
 
+# Whose word the note is, when it is a model's.
+_NOTE_LABELS = {MODEL_JUNK: "Модель: не дело — ", "case": "Модель: дело — "}
+
+
 def _card(row: Any, status: str, page: int) -> str:
     article_id = row.article_id
-    actions = (
-        _button("reextract", article_id, "Извлечь заново", status, page)
-        + _button("junk", article_id, "Мусор", status, page)
-        if row.status == HELD
-        else _button("hold", article_id, "Вернуть на проверку", status, page)
-    )
+    if row.status == HELD:
+        actions = (
+            _button("release", article_id, "Это дело — в работу", status, page)
+            + _button("reextract", article_id, "Извлечь заново", status, page)
+            + _button("junk", article_id, "Мусор", status, page)
+        )
+    elif row.status == RELEASED:
+        # The model's mistake, undone: the article waits for the purge again.
+        actions = _button("junk", article_id, "Мусор", status, page)
+    else:
+        actions = _button("hold", article_id, "Вернуть на проверку", status, page)
     note = row.note
     return f"""<article class="band" id="a-{article_id}">
   <h3><a href="/ui/articles/{article_id}">{escape(row.title or "Без заголовка")}</a></h3>
@@ -138,7 +176,7 @@ def _card(row: Any, status: str, page: int) -> str:
   события извлечения: {escape(row.events or "нет")}</p>
   <p>{escape(" ".join((row.start or "").split()))}…</p>
   <p class="muted">{escape(row.reason)}</p>
-  {f'<p class="warning">{escape(note)}</p>' if note else ""}
+  {f'<p class="warning">{_NOTE_LABELS.get(row.reader_verdict, "")}{escape(note)}</p>' if note else ""}
   <div class="actions">{actions}</div>
 </article>"""
 
@@ -164,7 +202,7 @@ def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> s
         f'<input type="hidden" name="articles" value="{",".join(map(str, group))}">'
         f'<input type="hidden" name="back" value="{escape(urlencode({"status": status, "page": page}), quote=True)}">'
         f'<button type="submit" class="secondary">Мусор — все {len(group)}</button></form>'
-        if status == HELD
+        if status in (HELD, MODEL_JUNK_VIEW)
         else ""
     )
     return (
@@ -178,19 +216,19 @@ def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> s
 
 @router.get("/ui/junk-holds", response_class=HTMLResponse)
 def ui_junk_holds(
-    status: str = Query(default=HELD, pattern=f"^({HELD}|{JUNK})$"),
+    status: str = Query(default=HELD, pattern=f"^({'|'.join(_STATUSES)})$"),
     page: int = Query(default=1, ge=1),
     released: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     counts = {str(key): int(value) for key, value in db.execute(_COUNTS).all()}
-    rows = db.execute(_HOLDS, {"status": status}).all()
+    rows = db.execute(_HOLDS, _view(status)).all()
     by_id = {row.article_id: row for row in rows}
     pairs = [
         (first, second)
         for first, second in [
-            *db.execute(_SAME_PERSON, {"status": status}).all(),
-            *db.execute(_SAME_TITLE, {"status": status, "similarity": TITLE_SIMILARITY}).all(),
+            *db.execute(_SAME_PERSON, _view(status)).all(),
+            *db.execute(_SAME_TITLE, {**_view(status), "similarity": TITLE_SIMILARITY}).all(),
         ]
     ]
     pages = _pages(same_news(list(by_id), pairs))
@@ -205,10 +243,20 @@ def ui_junk_holds(
         f'href="/ui/junk-holds?{urlencode({"status": key})}">{label} ({counts.get(key, 0)})</a>'
         for key, label in _STATUSES.items()
     )
-    empty = (
-        '<p class="empty">Ничего не удержано: отсев выключен или ничего не заподозрил.</p>'
-        if status == HELD
-        else '<p class="empty">Никто ничего не отметил как мусор.</p>'
+    empty = {
+        HELD: '<p class="empty">Ничего не ждёт вашего решения.</p>',
+        MODEL_JUNK_VIEW: '<p class="empty">Модель ничего не сочла мусором.</p>',
+        RELEASED: '<p class="empty">Модель ничего не выпустила в работу.</p>',
+        JUNK: '<p class="empty">Никто ничего не отметил как мусор.</p>',
+    }[status]
+    # Everything the model called junk goes by one press, once a person has looked.
+    everything = (
+        '<form method="post" action="/ui/junk-holds/junk-all" class="inline-form">'
+        f'<input type="hidden" name="articles" value="{",".join(map(str, by_id))}">'
+        f'<input type="hidden" name="back" value="{escape(urlencode({"status": status}), quote=True)}">'
+        f'<button type="submit">Мусор — все {len(by_id)}</button></form>'
+        if status == MODEL_JUNK_VIEW and by_id
+        else ""
     )
     notice = (
         f'<p class="notice">Статья <a href="/ui/articles/{released}">#{released}</a>: найдено '
@@ -218,11 +266,16 @@ def ui_junk_holds(
     )
     body = f"""<p><a href="/ui/cycle">Назад к циклу</a></p>
 {notice}<p class="chips">{chips}</p>
-<p class="muted">Статьи, в которых извлечение не нашло уголовного события, но модель отсева
-сочла их похожими на новость об уголовном деле. Они не удалены и дальше по конвейеру не идут:
-события в них нет. Высокая оценка — не доказательство дела. Если дело есть, исправьте правила
-извлечения и нажмите «Извлечь заново»: найденное событие вернёт статью в работу. Если нет —
-«Мусор»: статья удалится при следующей очистке.</p>
+<p class="muted">Статьи, в которых правила извлечения не нашли уголовного события, но отсев
+счёл их похожими на новость об уголовном деле. Каждую целиком читает модель. Где она видит
+уголовное дело — политическое или с неясным мотивом, — статья уходит в работу сама: список
+«Выпущено в работу». Обычную уголовщину и то, что делом не является, модель не удаляет, а
+складывает в «Модель считает мусором»: просмотрите причины и уберите всё одной кнопкой.
+«На проверке» остаётся только то, по чему модель не ответила.</p>
+<p class="muted">«Это дело — в работу» берёт статью в работу вопреки модели; «Мусор» у
+выпущенной статьи возвращает её под очистку. Статья удаляется при следующей очистке только
+после слова человека.</p>
+{f'<p class="actions">{everything}</p>' if everything else ""}
 {"".join(cards) or empty}
 {pager("/ui/junk-holds", {"status": status}, page, len(pages))}"""
     return _page(
@@ -269,6 +322,19 @@ async def ui_junk_holds_junk(
     form = await _form(request)
     article_id = _article(form)
     if not mark_junk(db, article_id):
+        raise HTTPException(status_code=404, detail="Статья не на проверке")
+    db.commit()
+    return RedirectResponse(_back(form, article_id), status_code=303)
+
+
+@router.post("/ui/junk-holds/release", response_model=None)
+async def ui_junk_holds_release(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    form = await _form(request)
+    article_id = _article(form)
+    if not release(db, article_id):
         raise HTTPException(status_code=404, detail="Статья не на проверке")
     db.commit()
     return RedirectResponse(_back(form, article_id), status_code=303)

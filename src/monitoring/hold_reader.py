@@ -234,7 +234,7 @@ _ADD_EVENT = text(
 )
 
 
-def _add_event(session: Session, article_id: int, event: str, explanation: str) -> None:
+def add_event(session: Session, article_id: int, event: str, explanation: str) -> None:
     session.execute(
         _ADD_EVENT,
         {
@@ -248,6 +248,33 @@ def _add_event(session: Session, article_id: int, event: str, explanation: str) 
     )
 
 
+# The event a person's release writes: the person says there is a case, not which step of it.
+PERSON_EVENT = "case_opened"
+PERSON_NOTE = "Выпущено в работу оператором."
+
+
+def release(session: Session, article_id: int) -> bool:
+    """A person's word that a held article tells of a case: into the work, as the model's
+    release. False when the article is not held."""
+    updated = session.execute(
+        text(
+            "UPDATE junk_screen_holds SET status = :released, decided_at = now(), "
+            "reader_event = :event, note = :note WHERE article_id = :article AND status = :held"
+        ),
+        {
+            "article": article_id,
+            "released": RELEASED,
+            "held": HELD,
+            "event": PERSON_EVENT,
+            "note": PERSON_NOTE,
+        },
+    )
+    if not updated.rowcount:  # type: ignore[attr-defined]
+        return False
+    add_event(session, article_id, PERSON_EVENT, PERSON_NOTE)
+    return True
+
+
 def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None) -> HoldsRead:
     """The held nobody read are read; each batch is written as it comes."""
     result = HoldsRead()
@@ -255,7 +282,7 @@ def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None
         for row in session.execute(
             _EVENTLESS, {"released": RELEASED, "extractor": EXTRACTOR_NAME}
         ).all():
-            _add_event(session, row.article_id, row.reader_event, row.note)
+            add_event(session, row.article_id, row.reader_event, row.note)
             result.restored += 1
     if reader is None:
         return result
@@ -284,7 +311,7 @@ def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None
         with session_factory.begin() as session:
             for answer in answers.values():
                 if answer.released:
-                    _add_event(session, answer.id, answer.event, answer.explanation)
+                    add_event(session, answer.id, answer.event, answer.explanation)
                     result.released += 1
                 else:
                     result.model_junk += 1

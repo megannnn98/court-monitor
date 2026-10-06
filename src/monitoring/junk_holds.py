@@ -21,6 +21,7 @@ from extraction.models import ExtractionRunStatus
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
+from monitoring.hold_reader import EXTRACTOR_NAME, RELEASED
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 from monitoring.junk_screen import HELD, JUNK
 
@@ -43,16 +44,28 @@ class Reextracted:
 
 
 def mark_junk(session: Session, article_id: int) -> bool:
-    """A person's word that a held article is junk; False when it is not held."""
+    """A person's word that a held article is junk, or one released by mistake; False when
+    it is neither. A released article loses the event that kept it: the purge judges an
+    article by its events."""
     updated = session.execute(
         text(
             "UPDATE junk_screen_holds SET status = :junk, decided_at = now(), "
             "note = 'Отмечено как мусор: удалится при следующей очистке.' "
-            "WHERE article_id = :article AND status = :held"
+            "WHERE article_id = :article AND status IN (:held, :released)"
         ),
-        {"article": article_id, "junk": JUNK, "held": HELD},
+        {"article": article_id, "junk": JUNK, "held": HELD, "released": RELEASED},
     )
-    return bool(updated.rowcount)  # type: ignore[attr-defined]
+    if not updated.rowcount:  # type: ignore[attr-defined]
+        return False
+    session.execute(
+        text(
+            "DELETE FROM extracted_events e USING article_extraction_runs r "
+            "WHERE r.id = e.extraction_run_id AND r.article_id = :article "
+            "AND e.extractor_name = :extractor"
+        ),
+        {"article": article_id, "extractor": EXTRACTOR_NAME},
+    )
+    return True
 
 
 def hold_again(session: Session, article_id: int) -> bool:

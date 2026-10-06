@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -12,10 +13,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import JunkScreenHoldRecord
+from monitoring.hold_reader import add_event
+from monitoring.junk_purge import JunkPurge
 from monitoring.junk_screen import reason
 from web.app import app
 from web.dependencies import get_db
 from web.ui.junk_holds import PAGE_SIZE, _pages, same_news
+from web.ui.run_cards import _holds_read
 
 
 @contextmanager
@@ -265,3 +269,134 @@ def test_two_articles_naming_one_person_are_one_story_and_a_surname_alone_is_not
         page = client.get("/ui/junk-holds").text
     assert page.count('<section class="same-news">') == 1
     assert f'name="articles" value="{first},{second}"' in page
+
+
+def _read(session_factory: sessionmaker[Session]) -> dict[str, int]:
+    """Four articles, as a model's reading left them: unread, its junk twice, a release."""
+    ids = {}
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        for name, status, verdict, note in (
+            ("unread", "held", None, ""),
+            ("bribe", "held", "junk", "взятки, обычное уголовное дело"),
+            ("fine", "held", "junk", "штраф по КоАП"),
+            ("donation", "released", "case", "приговор за донаты"),
+        ):
+            ids[name], _run = seed.article(
+                source, external_id=name, title=f"Заголовок {name}", text=f"Текст {name}."
+            )
+            session.add(
+                JunkScreenHoldRecord(
+                    article_id=ids[name],
+                    status=status,
+                    score=0.8,
+                    cutoff=0.5,
+                    screen="s",
+                    reason="r",
+                    note=note,
+                    reader="hold-reader-v1:m" if verdict else None,
+                    reader_verdict=verdict,
+                    reader_event="sentence" if verdict == "case" else None,
+                )
+            )
+        session.commit()
+    with session_factory.begin() as session:
+        add_event(session, ids["donation"], "sentence", "приговор за донаты")
+    return ids
+
+
+def _model_events(session_factory: sessionmaker[Session], article: int) -> list[str]:
+    with session_factory() as session:
+        return list(
+            session.scalars(
+                text(
+                    "SELECT e.event_type FROM extracted_events e JOIN article_extraction_runs r "
+                    "ON r.id = e.extraction_run_id WHERE r.article_id = :id "
+                    "AND e.extractor_name = 'hold-reader'"
+                ),
+                {"id": article},
+            )
+        )
+
+
+def _titles(page: str) -> list[str]:
+    return re.findall(r"Заголовок (\w+)</a></h3>", page)
+
+
+def test_the_held_are_four_lists_and_the_model_s_junk_goes_by_one_press(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _read(session_factory)
+
+    with _client(session_factory) as client:
+        pages = {
+            view: client.get("/ui/junk-holds", params={"status": view}).text
+            for view in ("held", "model_junk", "released", "junk")
+        }
+        gone = client.post(
+            "/ui/junk-holds/junk-all",
+            data={"articles": f"{ids['bribe']},{ids['fine']}", "back": "status=model_junk"},
+            follow_redirects=False,
+        )
+        after = client.get("/ui/junk-holds", params={"status": "model_junk"}).text
+
+    assert {view: _titles(page) for view, page in pages.items()} == {
+        "held": ["unread"],
+        "model_junk": ["bribe", "fine"],
+        "released": ["donation"],
+        "junk": [],
+    }
+    held = pages["held"]
+    assert "На проверке (1)" in held and "Модель считает мусором (2)" in held
+    assert "Выпущено в работу (1)" in held and "Отмечены как мусор (0)" in held
+    # The model's reason, as the model's; a person takes a case on against it.
+    assert "Модель: не дело — взятки, обычное уголовное дело" in pages["model_junk"]
+    assert "Модель: дело — приговор за донаты" in pages["released"]
+    assert "Это дело — в работу</button>" in pages["model_junk"]
+    # A release is undone by «Мусор» alone: there is nothing to extract or release again.
+    assert 'action="/ui/junk-holds/junk"' in pages["released"]
+    assert "Извлечь заново" not in pages["released"]
+    assert f'name="articles" value="{ids["bribe"]},{ids["fine"]}"' in pages["model_junk"]
+    assert "Мусор — все 2</button>" in pages["model_junk"] and "Мусор — все" not in held
+    assert gone.status_code == 303 and "status=model_junk" in gone.headers["location"]
+    assert "Модель считает мусором (0)" in after and "Отмечены как мусор (2)" in after
+
+
+def test_a_person_takes_a_case_on_against_the_model_and_undoes_a_release(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _read(session_factory)
+
+    with _client(session_factory) as client:
+        taken = client.post(
+            "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
+        )
+        twice = client.post(
+            "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
+        )
+        undone = client.post(
+            "/ui/junk-holds/junk", data={"article": str(ids["donation"])}, follow_redirects=False
+        )
+
+    assert (taken.status_code, twice.status_code, undone.status_code) == (303, 404, 303)
+    # A person's release is an event too: the later steps take an article by its event.
+    assert _status(session_factory, ids["fine"]) == "released"
+    assert _model_events(session_factory, ids["fine"]) == ["case_opened"]
+    # A release undone takes its event back, or the purge would never see the article.
+    assert _status(session_factory, ids["donation"]) == "junk"
+    assert _model_events(session_factory, ids["donation"]) == []
+    JunkPurge(session_factory).run()
+    with session_factory() as session:
+        left = set(session.scalars(text("SELECT id FROM parsed_articles")))
+    assert left == {ids["unread"], ids["bribe"], ids["fine"]}
+
+
+def test_the_purge_s_card_says_what_the_model_read() -> None:
+    log = "event=holds_read HoldsRead(released=24, model_junk=43, failures=0, restored=0)"
+
+    marks = "".join(_holds_read(log))
+
+    assert 'href="/ui/junk-holds?status=released"' in marks
+    assert "Модель выпустила в работу: 24" in marks and "Модель считает мусором: 43" in marks
+    assert _holds_read("event=junk_purge_started total=0") == []

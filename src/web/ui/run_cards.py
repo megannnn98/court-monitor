@@ -150,6 +150,24 @@ _PURGE_PROGRESS = re.compile(
 )
 
 
+def _holds_read(log: str) -> list[str]:
+    """The badges of the model's reading, each a link to its list; none before it ran."""
+    found = _HOLDS_READ.findall(log)
+    released, model_junk = (int(value) for value in (found[-1] if found else ("0", "0")))
+    return [
+        f'<a href="/ui/junk-holds?status={view}">{badge(f"{label}: {count}", css)}</a>'
+        for view, label, count, css in (
+            ("released", "Модель выпустила в работу", released, "succeeded"),
+            ("model_junk", "Модель считает мусором", model_junk, "pending"),
+        )
+        if count
+    ]
+
+
+# What a model read of the held (`monitoring.hold_reader.read_holds` logs its result).
+_HOLDS_READ = re.compile(r"event=holds_read HoldsRead\(released=(\d+), model_junk=(\d+)")
+
+
 def _purge_card(run: OperationRun) -> str:
     """A purge has no sources: its card counts what it removed, from its own log."""
     found = _PURGE_PROGRESS.findall(run.stderr)
@@ -177,6 +195,7 @@ def _purge_card(run: OperationRun) -> str:
                 if held
                 else []
             ),
+            *_holds_read(run.stderr),
         )
     )
     return card(
