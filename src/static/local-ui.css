@@ -1953,6 +1953,11 @@ form.inline-form {
   margin: 2px 4px 2px 0;
 }
 
+/* «Вернуть на разбор» on one line: the column is as wide as its button. */
+#screened form.inline-form button {
+  white-space: nowrap;
+}
+
 table.candidates th[scope="row"] {
   color: var(--text);
   font-size: 12.5px;
