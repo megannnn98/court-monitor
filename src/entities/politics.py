@@ -5,7 +5,9 @@ person is (the birth date, the place), it does not make a case known. A politica
 Criminal Code (the classifier's list: 207.3, 280.3, 275, …) settles it by the rules. For
 the rest a model reads the quotes, the articles and the «Мемориал» registry category and
 answers political, criminal or unknown; a failed or missing answer is «unclear», never
-«political». The articles and the category are evidence for the model, not a verdict:
+«political». Where the model cannot tell from the short quotes, it is asked once more
+with wide ones (`WIDE_CONTEXT`): a short quote is cut by a count of characters, often
+just before what the case is about. The articles and the category are evidence for the model, not a verdict:
 ст. 205 is both a café bombing and an arson of a recruitment office.
 
 Answers are cached by the entity key and a hash of what was sent.
@@ -32,7 +34,7 @@ from db.orm_models import (
     EntityPoliticsAnswerRecord,
     EntityPoliticsDecisionRecord,
 )
-from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.disputes import KeyIndex
 from entities.llm import (
     OPENROUTER_MODEL,
@@ -54,6 +56,10 @@ BATCH_SIZE = 50
 CONCURRENCY = 8
 MAX_TOKENS = 8_000
 INSERT_CHUNK = 5_000
+# Characters on each side of the mention when the short quotes did not tell. Of 23
+# «unclear» cases the same model then left 2, and of 100 it had decided it changed none
+# (2026-10-06).
+WIDE_CONTEXT = 600
 
 POLITICAL = "political"
 CRIMINAL = "criminal"
@@ -408,6 +414,28 @@ class PoliticsFinder:
         self._classifier = classifier
         self._on_stage = on_stage
 
+    def _ask(
+        self, items: Mapping[int, PoliticsItem], keys: Mapping[int, str], event: str
+    ) -> AskResult[PoliticsAnswer]:
+        return ask_missing(
+            self._session_factory,
+            POLITICS_CACHE,
+            self._classifier,
+            items,
+            keys,
+            {
+                group_id: input_hash(item.name, *item.quotes, *item.articles, item.memorial)
+                for group_id, item in items.items()
+            },
+            batch_size=BATCH_SIZE,
+            concurrency=CONCURRENCY,
+            value_of=lambda answer: answer.verdict,
+            explanation_of=lambda answer: answer.explanation,
+            on_stage=self._on_stage,
+            event=event,
+            errors=(PoliticsClassifierError,),
+        )
+
     def run(self) -> PoliticsResult:
         self._on_stage("reading")
         with self._session_factory() as session:
@@ -449,25 +477,33 @@ class PoliticsFinder:
             for row in asked_rows
         }
         keys = {row.id: row.key for row in asked_rows}
-        found = ask_missing(
-            self._session_factory,
-            POLITICS_CACHE,
-            self._classifier,
-            items,
-            keys,
-            {
-                group_id: input_hash(item.name, *item.quotes, *item.articles, item.memorial)
-                for group_id, item in items.items()
-            },
-            batch_size=BATCH_SIZE,
-            concurrency=CONCURRENCY,
-            value_of=lambda answer: answer.verdict,
-            explanation_of=lambda answer: answer.explanation,
-            on_stage=self._on_stage,
-            event="entity_politics",
-            errors=(PoliticsClassifierError,),
-        )
-        answers = found.answers
+        found = self._ask(items, keys, "entity_politics")
+        # Where the model answered and could not tell: the same question, wide quotes.
+        untold = [
+            group_id
+            for group_id, answer in found.answers.items()
+            if verdict_of(answer.verdict) == UNCLEAR
+        ]
+        wide_quotes: dict[int, list[str]] = {}
+        with self._session_factory() as session:
+            for group_id, quote in session.execute(
+                _QUOTES, {"groups": untold, "context": WIDE_CONTEXT, "quotes": QUOTES}
+            ).all():
+                wide_quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+        wide_items = {
+            group_id: PoliticsItem(
+                id=group_id,
+                name=items[group_id].name,
+                quotes=tuple(wide_quotes.get(group_id, [])),
+                articles=items[group_id].articles,
+                memorial=items[group_id].memorial,
+            )
+            for group_id in untold
+        }
+        # A text too short to widen is the same question: its answer is in the cache.
+        again = self._ask(wide_items, keys, "entity_politics_wide")
+        items = {**items, **{group_id: wide_items[group_id] for group_id in again.answers}}
+        answers = {**found.answers, **again.answers}
 
         rows: list[dict[str, object]] = [
             {
@@ -544,11 +580,12 @@ class PoliticsFinder:
             political_manual=verdicts[(POLITICAL, MANUAL)],
             criminal_manual=verdicts[(CRIMINAL, MANUAL)],
             unclear=sum(count for (verdict, _), count in verdicts.items() if verdict == UNCLEAR),
-            asked_now=found.asked,
+            asked_now=found.asked + again.asked,
             cached=found.cached,
-            failures=found.failures,
-            unasked=found.unasked,
-            cost_usd=round(found.cost_usd, 6),
+            failures=found.failures + again.failures,
+            unasked=found.unasked + again.unasked,
+            # One classifier, one count of spending: the later reading holds both.
+            cost_usd=round(max(found.cost_usd, again.cost_usd), 6),
         )
         logger.info("event=entity_politics_found %s", result)
         return result

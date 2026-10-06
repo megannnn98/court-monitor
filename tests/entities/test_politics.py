@@ -22,6 +22,7 @@ from entities.politics import (
     PoliticsClassifierError,
     PoliticsFinder,
     PoliticsItem,
+    Verdict,
     decide_politics,
     matched_answers,
     verdict_of,
@@ -45,7 +46,9 @@ def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name
     return mention_id
 
 
-def _seed(session_factory: sessionmaker[Session]) -> None:
+def _seed(
+    session_factory: sessionmaker[Session], extra: Sequence[tuple[str, str, str, str]] = ()
+) -> None:
     """Петров: a political article. Беда: a sentence the rules cannot read. Смирнова: a
     «Мемориал» card. Сирош: a lawyer. Орлов: on the list, judged all the same."""
     with session_factory() as session:
@@ -105,6 +108,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
                 "Анна Смирнова",
                 "Анна Смирнова",
             ),
+            *extra,
         ):
             _, run = seed.article(source, external_id=external_id, title=external_id, text=text_)
             _person(session, seed, run, surface, name)
@@ -217,6 +221,127 @@ def test_a_failed_model_leaves_unclear_never_political(
 
     assert (result.failures, result.unclear, result.political_model) == (3, 3, 0)
     assert _verdicts(session_factory)["Анна Смирнова"] == ("unclear", "model")
+
+
+# What the case is about stands further from the name than a short quote reaches.
+FAR = "за антивоенный пост"
+DOLGOV = (
+    "dolgov",
+    f"Суд арестовал Глеба Долгова. {'Заседание шло долго. ' * 12}Его судят {FAR}.",
+    "Глеба Долгова",
+    "Глеб Долгов",
+)
+# A long publication whose short quote already tells: nothing to ask again. A common
+# crime, since a political answer sticks to the person and would not be asked anyway.
+THEFT = "за кражу"
+BLIZKY = (
+    "blizky",
+    f"Суд арестовал Яна Близкого {THEFT}. {'Заседание шло долго. ' * 12}",
+    "Яна Близкого",
+    "Ян Близкий",
+)
+
+
+class ReadingClassifier:
+    """Tells a case only where its quotes say what it is about; Беда it never can."""
+
+    model = "fake-model"
+
+    def __init__(self, *, wide_fails: bool = False) -> None:
+        self.wide_fails = wide_fails
+        self.asked: list[list[PoliticsItem]] = []
+
+    def classify(self, items: Sequence[PoliticsItem]) -> dict[int, PoliticsAnswer]:
+        self.asked.append(list(items))
+        if self.wide_fails and len(self.asked) > 1:
+            raise PoliticsClassifierError("provider down")
+
+        def verdict(item: PoliticsItem) -> Verdict:
+            text_ = " ".join(item.quotes)
+            return "political" if FAR in text_ else "criminal" if THEFT in text_ else "unknown"
+
+        return {
+            item.id: PoliticsAnswer(
+                id=item.id,
+                source=item.name,
+                verdict=verdict(item),
+                explanation=f"по {len(' '.join(item.quotes))} знакам",
+            )
+            for item in items
+        }
+
+
+def _row(session_factory: sessionmaker[Session], name: str) -> tuple[str, str, str, str]:
+    with session_factory() as session:
+        row = session.execute(
+            select(
+                EntityGroupPoliticsRecord.verdict,
+                EntityGroupPoliticsRecord.method,
+                EntityGroupPoliticsRecord.reason,
+                EntityGroupPoliticsRecord.quote,
+            )
+            .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupPoliticsRecord.group_id)
+            .where(EntityGroupRecord.name == name)
+        ).one()
+    return row.verdict, row.method, row.reason, row.quote
+
+
+def test_what_short_quotes_do_not_tell_is_asked_again_with_wide_ones(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory, [DOLGOV, BLIZKY])
+    classifier = ReadingClassifier()
+
+    result = PoliticsFinder(session_factory, classifier=classifier).run()
+
+    first, second = classifier.asked
+    short = next(item for item in first if item.name == "Глеб Долгов")
+    assert FAR not in " ".join(short.quotes)
+    # Only who was not told and has more text to show is asked again: Близкий was told,
+    # and a short publication, widened, is the very question already answered.
+    assert [item.name for item in second] == ["Глеб Долгов"]
+    assert FAR in " ".join(second[0].quotes)
+    verdict, method, reason, quote = _row(session_factory, "Глеб Долгов")
+    # The answer, its reason and the quote shown for it are those of the wide reading.
+    assert (verdict, method) == ("political", "model")
+    assert reason == f"по {len(second[0].quotes[0])} знакам" and FAR in quote
+    assert _row(session_factory, "Александр Беда")[:2] == ("unclear", "model")
+    assert (result.political_model, result.criminal, result.unclear) == (1, 1, 3)
+    assert result.asked_now == 6
+
+
+def test_the_wide_answer_is_cached_as_any_other(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory, [DOLGOV])
+    PoliticsFinder(session_factory, classifier=ReadingClassifier()).run()
+    again = ReadingClassifier()
+
+    result = PoliticsFinder(session_factory, classifier=again).run()
+
+    assert again.asked == [] and result.asked_now == 0
+    assert _row(session_factory, "Глеб Долгов")[0] == "political"
+
+
+def test_a_failed_wide_asking_leaves_the_short_answer(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory, [DOLGOV])
+
+    result = PoliticsFinder(session_factory, classifier=ReadingClassifier(wide_fails=True)).run()
+
+    verdict, _, reason, quote = _row(session_factory, "Глеб Долгов")
+    assert verdict == "unclear" and FAR not in quote
+    assert reason == f"по {len(quote)} знакам"
+    assert (result.failures, result.unclear) == (1, 4)
+
+
+def test_a_failed_first_asking_is_not_asked_wide(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory, [DOLGOV])
+    classifier = FakeClassifier(VERDICTS, fail=True)
+
+    PoliticsFinder(session_factory, classifier=classifier).run()
+
+    # No answer is not «cannot tell»: one batch was sent, and no second.
+    assert len(classifier.asked) == 4
 
 
 def test_an_answer_that_names_someone_else_is_dropped() -> None:
