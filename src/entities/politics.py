@@ -46,7 +46,7 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.roles import _QUOTES, QUOTE_CONTEXT, QUOTES
+from entities.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
 from persecution.classifier import POLITICAL_ARTICLES
 
 logger = logging.getLogger("entities")
@@ -56,10 +56,8 @@ BATCH_SIZE = 50
 CONCURRENCY = 8
 MAX_TOKENS = 8_000
 INSERT_CHUNK = 5_000
-# Characters on each side of the mention when the short quotes did not tell. Of 23
-# «unclear» cases the same model then left 2, and of 100 it had decided it changed none
-# (2026-10-06).
-WIDE_CONTEXT = 600
+# `WIDE_CONTEXT` is asked when the short quotes did not tell. Of 23 «unclear» cases the
+# same model then left 2, and of 100 it had decided it changed none (2026-10-06).
 
 POLITICAL = "political"
 CRIMINAL = "criminal"
@@ -455,12 +453,7 @@ class PoliticsFinder:
                     MEMORIAL_CATEGORIES, {"groups": [row.id for row in rest]}
                 ).all()
             }
-            quotes: dict[int, list[str]] = {}
-            for group_id, quote in session.execute(
-                _QUOTES,
-                {"groups": [row.id for row in rest], "context": QUOTE_CONTEXT, "quotes": QUOTES},
-            ).all():
-                quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+            quotes = quotes_of(session, [row.id for row in rest])
         # Where the answer is known without asking (measured against the model's answers).
         settled = {
             row.id: rule for row in rest if (rule := _settled(row.articles, memorial.get(row.id)))

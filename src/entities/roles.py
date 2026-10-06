@@ -56,6 +56,7 @@ from entities.officials import (
     remember_titled,
     titled_entities,
 )
+from monitoring.hold_reader import EXTRACTOR_NAME
 
 logger = logging.getLogger("entities")
 
@@ -71,6 +72,9 @@ MAX_TOKENS = 8_000
 # Publications quoted per entity, and characters of text on each side of the mention.
 QUOTES = 2
 QUOTE_CONTEXT = 150
+# Characters on each side where the short quote is known not to do: step 5's second
+# asking, and whoever an article read by a model alone names (`quotes_of`).
+WIDE_CONTEXT = 600
 INSERT_CHUNK = 5_000
 
 Kind = Literal[
@@ -412,6 +416,35 @@ _QUOTES = text(
 )
 
 
+# The entities named in an article that is in the work by a model's reading alone
+# (`monitoring.hold_reader`): the rules found no case in it.
+_MODEL_READ = text(
+    """
+    SELECT DISTINCT gm.group_id
+    FROM entity_group_mentions gm
+    JOIN entity_mentions m ON m.id = gm.mention_id
+    JOIN extracted_events e ON e.extraction_run_id = m.extraction_run_id
+    WHERE gm.group_id = ANY(:groups) AND e.extractor_name = :extractor
+    """
+)
+
+
+def quotes_of(session: Session, groups: Sequence[int]) -> dict[int, list[str]]:
+    """The quotes a model is shown of each entity: short ones, and wide ones at once for
+    whoever an article read by a model alone names. The rules had no wording for such an
+    article, so what it tells stands where a short quote does not reach."""
+    quotes: dict[int, list[str]] = {}
+    wide = list(session.scalars(_MODEL_READ, {"groups": list(groups), "extractor": EXTRACTOR_NAME}))
+    for ids, context in ((list(groups), QUOTE_CONTEXT), (wide, WIDE_CONTEXT)):
+        found: dict[int, list[str]] = {}
+        for group_id, quote in session.execute(
+            _QUOTES, {"groups": ids, "context": context, "quotes": QUOTES}
+        ).all():
+            found.setdefault(group_id, []).append(" ".join((quote or "").split()))
+        quotes.update(found)
+    return quotes
+
+
 @dataclass(frozen=True)
 class FigurantResult:
     entities: int
@@ -482,11 +515,7 @@ class FigurantFinder:
             marks = official_marks(session, {row.id: row.key for row in entities})
             excluded = official_entity_ids(session, {row.id: row.key for row in entities})
             decisions = role_decisions(session, {row.id: row.key for row in entities})
-            quotes: dict[int, list[str]] = {}
-            for group_id, quote in session.execute(
-                _QUOTES, {"groups": ids, "context": QUOTE_CONTEXT, "quotes": QUOTES}
-            ).all():
-                quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+            quotes = quotes_of(session, ids)
         # An official is named in cases, never their figurant: no need to ask.
         # A person's mark first, either way; then a name they wrote on the exclusion
         # list; then a title before the name in the texts.

@@ -28,6 +28,8 @@ from entities.politics import (
     verdict_of,
 )
 from entities.rf_check import EntityRfCheck
+from entities.roles import quotes_of
+from monitoring.hold_reader import add_event
 
 RF_PAGE = """<!doctype html><html>
 <div class="panel-heading"><h4>Физические лица</h4></div>
@@ -342,6 +344,44 @@ def test_a_failed_first_asking_is_not_asked_wide(session_factory: sessionmaker[S
 
     # No answer is not «cannot tell»: one batch was sent, and no second.
     assert len(classifier.asked) == 4
+
+
+INOY = (
+    "inoy",
+    f"Суд арестовал Льва Иного. {'Заседание шло долго. ' * 12}Его судят {FAR}.",
+    "Льва Иного",
+    "Лев Иной",
+)
+
+
+def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_once(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory, [DOLGOV, INOY])
+    with session_factory.begin() as session:
+        # Долгов's article is in the work by a model's reading: the rules found no case.
+        article = session.scalar(text("SELECT id FROM parsed_articles WHERE title = 'dolgov'"))
+        add_event(session, article, "sentence", "прочитано моделью")
+        ids = dict(
+            session.execute(
+                select(EntityGroupRecord.name, EntityGroupRecord.id).where(
+                    EntityGroupRecord.name.in_(["Глеб Долгов", "Лев Иной"])
+                )
+            ).all()
+        )
+        shown = quotes_of(session, list(ids.values()))
+    classifier = ReadingClassifier()
+
+    PoliticsFinder(session_factory, classifier=classifier).run()
+
+    # What steps 4 and 5 both show: the whole telling of the one, a short quote of the other.
+    assert FAR in shown[ids["Глеб Долгов"]][0] and FAR not in shown[ids["Лев Иной"]][0]
+    first, second = classifier.asked
+    told = {item.name: FAR in " ".join(item.quotes) for item in first}
+    assert (told["Глеб Долгов"], told["Лев Иной"]) == (True, False)
+    # Asked wide at once, he is not asked a second time; the other is, as anyone.
+    assert [item.name for item in second] == ["Лев Иной"]
+    assert _row(session_factory, "Глеб Долгов")[:2] == ("political", "model")
 
 
 def test_an_answer_that_names_someone_else_is_dropped() -> None:
