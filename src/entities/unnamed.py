@@ -10,7 +10,10 @@ that sex, with that initial and born there, is a probable figurant; a person con
    person by age («N-летний», «подросток», «несовершеннолетний»).
 2. A model reads each sentence with a little text around it: is it a Russian criminal
    case against that person, is the person named anyway, and what the text tells of
-   them. Answers are cached by the sentence (`entities.answers`).
+   them. Answers are cached by the sentence (`entities.answers`). Whoever that leaves
+   is read once more with the whole publication around the sentence (`WIDE_CONTEXT`):
+   a press release tells the article and the age paragraphs away from the sentence
+   that describes the person, and names them further on.
 3. The unnamed figurants are rewritten; the list is searched for each on demand
    (`candidates`); a person's decisions are kept by key (`decide`).
 
@@ -40,7 +43,7 @@ from db.orm_models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
-from entities.answers import AnswerCache, ask_missing, input_hash
+from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -62,6 +65,10 @@ CONCURRENCY = 8
 MAX_TOKENS = 6_000
 # Characters of text around the sentence the model sees.
 CONTEXT = 300
+# The second reading's: a publication is mostly shorter, so it is the whole of it. Of 178
+# unnamed it removed 25 — 17 of common crime by an article the first reading did not see,
+# 7 named elsewhere in the text, 1 no case — and found the age of 9 of 38 (2026-10-06).
+WIDE_CONTEXT = 4_000
 CANDIDATES_SHOWN = 10
 
 # `unnamed_decisions.candidate` holds this many characters.
@@ -274,6 +281,8 @@ class Sentence:
     text: str
     context: str
     published_at: datetime | None
+    # The publication around the sentence, for the second reading.
+    wide: str = ""
 
     @property
     def key(self) -> str:
@@ -302,6 +311,7 @@ def described_sentences(
                         text_[max(begin - CONTEXT, 0) : min(finish + CONTEXT, len(text_))].split()
                     ),
                     published_at,
+                    " ".join(text_[max(begin - WIDE_CONTEXT, 0) : finish + WIDE_CONTEXT].split()),
                 )
             )
         if match is not None:
@@ -363,6 +373,11 @@ def common_crime_only(articles: Sequence[str]) -> bool:
     return bool(told) and told <= UNNAMED_COMMON_CRIME
 
 
+def _kept(answer: UnnamedAnswer) -> bool:
+    """An unnamed figurant by this answer: a case, no name, not common crime alone."""
+    return answer.is_case and not answer.named and not common_crime_only(answer.articles)
+
+
 def _initial(value: str) -> str | None:
     letter = value.strip().rstrip(".").upper()[:1]
     return letter if letter.isalpha() else None
@@ -382,6 +397,25 @@ class UnnamedFinder:
         self._reader = reader
         self._on_stage = on_stage
 
+    def _ask(
+        self, items: Mapping[int, UnnamedItem], keys: Mapping[int, str], event: str
+    ) -> AskResult[UnnamedAnswer]:
+        return ask_missing(
+            self._session_factory,
+            UNNAMED_CACHE,
+            self._reader,
+            items,
+            keys,
+            {position: input_hash(item.sentence, item.context) for position, item in items.items()},
+            batch_size=BATCH_SIZE,
+            concurrency=CONCURRENCY,
+            value_of=lambda answer: answer.model_dump_json(),
+            explanation_of=lambda answer: answer.explanation,
+            on_stage=self._on_stage,
+            event=event,
+            errors=(UnnamedReaderError,),
+        )
+
     def run(self) -> UnnamedResult:
         self._on_stage("reading")
         with self._session_factory() as session:
@@ -400,32 +434,28 @@ class UnnamedFinder:
             for position, sentence in enumerate(ordered)
         }
         keys = {position: sentence.key for position, sentence in enumerate(ordered)}
-        found = ask_missing(
-            self._session_factory,
-            UNNAMED_CACHE,
-            self._reader,
-            items,
-            keys,
-            {position: input_hash(item.sentence, item.context) for position, item in items.items()},
-            batch_size=BATCH_SIZE,
-            concurrency=CONCURRENCY,
-            value_of=lambda answer: answer.model_dump_json(),
-            explanation_of=lambda answer: answer.explanation,
-            on_stage=self._on_stage,
-            event="unnamed",
-            errors=(UnnamedReaderError,),
-        )
+        found = self._ask(items, keys, "unnamed")
+        # Whoever the short reading would keep, read with the whole publication.
+        wide_items = {
+            position: UnnamedItem(position, ordered[position].text, ordered[position].wide)
+            for position, answer in found.answers.items()
+            if _kept(answer)
+        }
+        # A publication no longer than the short context is the same question: cached.
+        again = self._ask(wide_items, keys, "unnamed_wide")
+        answers = {**found.answers, **again.answers}
         result = UnnamedResult(
             sentences=len(ordered),
-            asked_now=found.asked,
+            asked_now=found.asked + again.asked,
             cached=found.cached,
-            failures=found.failures,
-            unasked=found.unasked,
-            cost_usd=round(found.cost_usd, 6),
+            failures=found.failures + again.failures,
+            unasked=found.unasked + again.unasked,
+            # One reader, one count of spending: the later reading holds both.
+            cost_usd=round(max(found.cost_usd, again.cost_usd), 6),
         )
         rows: list[dict[str, Any]] = []
         for position, sentence in enumerate(ordered):
-            answer = found.answers.get(position)
+            answer = answers.get(position)
             if answer is None:
                 continue
             if not answer.is_case:

@@ -297,6 +297,101 @@ def test_a_case_of_common_crime_only_is_no_unnamed_figurant(
     assert [quote[:17] for quote in quotes] == ["В Тюмени задержан"]
 
 
+# Further from the sentence than the short context reaches.
+FAR = "Следствие продолжается. " * 20
+MURDER = f"Дело возбуждено по ст. 105 УК РФ, сыну 17 лет. {FAR}Подросток из Белолуцка задержан."
+TERROR = f"Дело возбуждено по ст. 205 УК РФ, ему 17 лет. {FAR}Подросток из Омска арестован."
+LATER_NAMED = f"Подросток из Тулы арестован. {FAR}Это Иван Петров, сообщил адвокат."
+NAMED_AT_ONCE = f"Подросток Иван Петров из Орла арестован. {FAR}Дело по ст. 205 УК РФ."
+LONG_VICTIM = f"На подростка из Кушвы напал сосед. {FAR}Дело возбуждено по ст. 205 УК РФ."
+
+
+class ContextReader:
+    """Tells of a person only what the context it was given says."""
+
+    model = "fake-model"
+
+    def __init__(self, *, wide_fails: bool = False) -> None:
+        self.wide_fails = wide_fails
+        self.asked: list[list[UnnamedItem]] = []
+
+    def classify(self, items: Sequence[UnnamedItem]) -> dict[int, UnnamedAnswer]:
+        self.asked.append(list(items))
+        if self.wide_fails and len(self.asked) > 1:
+            raise UnnamedReaderError("provider down")
+        return {
+            item.id: UnnamedAnswer(
+                id=item.id,
+                is_case="напал" not in item.sentence,
+                named="Петров" in item.context,
+                age=17 if "17 лет" in item.context else None,
+                gender="male",
+                place="",
+                initial="",
+                articles=[a for a in ("105", "205") if f"ст. {a}" in item.context],
+                event="detention",
+                explanation=f"по {len(item.context)} знакам",
+            )
+            for item in items
+        }
+
+
+def _publications(session_factory: sessionmaker[Session], *texts: str) -> None:
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        for number, text_ in enumerate(texts):
+            _, run = seed.article(
+                source, external_id=str(number), title=str(number), text=text_, published_at=None
+            )
+            seed.event(run, text_[:10], event_type="detention", event_date=None, links=[])
+        session.commit()
+
+
+def test_whoever_the_short_reading_keeps_is_read_with_the_whole_publication(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, MURDER, TERROR, LATER_NAMED, LONG_VICTIM, NAMED_AT_ONCE)
+    reader = ContextReader()
+
+    result = UnnamedFinder(session_factory, reader=reader).run()
+    again = ContextReader()
+    UnnamedFinder(session_factory, reader=again).run()
+
+    first, second = reader.asked
+    assert len(first) == 5 and all("ст." not in item.context for item in first)
+    # The victim and the one named at once are no unnamed figurants by the short
+    # reading: not read again.
+    assert sorted(item.sentence for item in second) == [
+        "Подросток из Белолуцка задержан.",
+        "Подросток из Омска арестован.",
+        "Подросток из Тулы арестован.",
+    ]
+    with session_factory() as session:
+        [figurant] = session.scalars(select(UnnamedFigurantRecord)).all()
+    # The murder is common crime and the third is named: both by the whole text alone.
+    # What stays has the age and the article the short context did not reach.
+    assert figurant.quote == "Подросток из Омска арестован."
+    assert (figurant.age, figurant.articles) == (17, ["205"])
+    assert figurant.explanation == f"по {len(' '.join(TERROR.split()))} знакам"
+    assert (result.unnamed, result.common_crime, result.named, result.not_cases) == (1, 1, 2, 1)
+    assert result.asked_now == 8 and again.asked == []
+
+
+def test_a_failed_second_reading_keeps_what_the_first_found(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, MURDER)
+
+    result = UnnamedFinder(session_factory, reader=ContextReader(wide_fails=True)).run()
+
+    with session_factory() as session:
+        [figurant] = session.scalars(select(UnnamedFigurantRecord)).all()
+    # Nothing is lost to a failure: the card stays as the short reading made it.
+    assert (figurant.age, figurant.articles) == (None, [])
+    assert (result.unnamed, result.failures) == (1, 1)
+
+
 def test_common_crime_only_is_every_article_common_none_political() -> None:
     assert common_crime_only(["150", "158"])
     # An attempt says nothing of the crime.
