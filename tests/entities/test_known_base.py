@@ -134,3 +134,25 @@ def test_a_case_is_tracked_by_the_one_record_of_the_name_and_a_shared_article() 
     assert cases.match("Пётр Котов", ["30"]) is None and cases.match("Пётр Котов", ["4"]) is None
     assert cases.match("Анна Лугин", ["110.2"]) is None
     assert cases.match("Никто Такой", ["228.1"]) is None
+
+
+def test_only_today_s_criminal_code_makes_a_case_the_same() -> None:
+    cases = TrackedCases(
+        [
+            ("Старов Иван Ильич", "ст. 64   УК РСФСР ч. 2 п. а"),
+            ("Штрафов Иван Ильич", "ст. 20.3.3 КоАП РФ"),
+            ("Двойнов Иван Ильич", "ст.ст. 205, 208 УК РФ"),
+            ("Словов Иван Ильич", "статья 205 УК РФ"),
+            ("Верный Иван Ильич", "ст. 226.1 УК РФ ч. 1,ст. 283 УК РФ ч. 1"),
+        ]
+    )
+
+    # Another code's number is another crime; a notation not known is not guessed at.
+    assert cases.match("Иван Старов", ["64"]) is None
+    assert (
+        cases.match("Иван Штрафов", ["20.3"]) is None
+        and cases.match("Иван Штрафов", ["20"]) is None
+    )
+    assert cases.match("Иван Двойнов", ["205"]) is None
+    assert cases.match("Иван Словов", ["205"]) is None
+    assert cases.match("Иван Верный", ["283"]) == TrackedCase("Верный Иван Ильич", ("283",))

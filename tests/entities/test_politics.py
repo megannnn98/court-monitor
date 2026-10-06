@@ -478,6 +478,23 @@ def test_a_record_the_operator_switched_off_tracks_no_case(
     assert _row(session_factory, "Александр Беда")[:2] == ("criminal", "model")
 
 
+def test_an_article_that_may_be_another_accused_s_makes_no_case_the_same(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _base(session_factory, "Беда Александр Петрович", "ст. 318 УК РФ ч. 1")
+    with session_factory.begin() as session:
+        # The event names another accused too: whose article 318 is, the event does not tell.
+        session.execute(
+            text("UPDATE entity_group_charges SET other_targets = 1 WHERE article = '318'")
+        )
+
+    result = PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+
+    assert _row(session_factory, "Александр Беда")[:2] == ("criminal", "model")
+    assert result.political_base == 0
+
+
 def test_a_person_s_word_outweighs_the_base(session_factory: sessionmaker[Session]) -> None:
     _seed(session_factory)
     _base(session_factory, "Беда Александр Петрович", "ст. 318 УК РФ ч. 1")

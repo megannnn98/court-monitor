@@ -304,7 +304,11 @@ _FIGURANTS = text(
     """
     SELECT g.id, g.key, g.name,
            coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
-                     FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles
+                     FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles,
+           -- Of events with no other accused: the person's own beyond doubt.
+           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
+                     FROM entity_group_charges c
+                     WHERE c.group_id = g.id AND c.other_targets = 0), '{}') AS own_articles
     FROM entity_groups g
     JOIN entity_group_roles r ON r.group_id = g.id AND r.role = 'figurant'
     ORDER BY g.id
@@ -467,7 +471,7 @@ class PoliticsFinder:
         # rules measured against the model's answers.
         settled = {}
         for row in rest:
-            tracked = tracked_cases.match(row.name, row.articles)
+            tracked = tracked_cases.match(row.name, row.own_articles)
             if tracked is not None:
                 shared = ", ".join(tracked.articles)
                 settled[row.id] = (

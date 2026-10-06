@@ -147,8 +147,11 @@ class KnownBase:
         return wanted <= spelled or spelled <= wanted
 
 
-# Articles as the base writes them: «ст. 228.1 УК РФ ч. 4 п. г,ст. 280 УК РФ» → 228.1, 280.
-_ARTICLE = re.compile(r"ст\.\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+# Articles of today's Criminal Code as the base writes them: «ст. 228.1 УК РФ ч. 4 п. г,
+# ст. 280 УК РФ» → 228.1, 280. Another code's number names another crime («ст. 64 УК
+# РСФСР», «ст. 20.3.3 КоАП»), and a notation not known here («ст.ст. 205, 208») is not
+# guessed at: neither is read, so neither can make a case the same.
+_ARTICLE = re.compile(r"ст\.\s*(\d+(?:\.\d+)?)\s+УК\s+РФ(?!\w)", re.IGNORECASE)
 # An attempt, complicity, a group: they say nothing of what the case is.
 _NEUTRAL_ARTICLES = frozenset({"30", "33", "35"})
 
@@ -168,7 +171,14 @@ class TrackedCases:
     base's record is of terrorism, the news of a bribe). The same article beside the one
     record of that name is the same case — and a case in the operator's base is one she
     tracks as political, whatever the article: a drug charge against a political
-    scientist reads as common crime to every rule and model."""
+    scientist reads as common crime to every rule and model.
+
+    This rests on what the base is, which no code checks: every active record of it is a
+    person whose case the operator tracks as political. A record of another kind entered
+    there would make a namesake's case political by this rule.
+
+    The articles given must be the person's own: one of an event with several accused may
+    be another's (`entity_group_charges.other_targets`)."""
 
     def __init__(self, records: Iterable[tuple[str, str | None]]) -> None:
         records = list(records)
