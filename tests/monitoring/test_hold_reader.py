@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import ExtractedEventRecord, JunkScreenHoldRecord, ParsedArticleRecord
-from entities.llm import ModelError
+from entities.llm import ModelError, Spend
 from monitoring.hold_reader import (
     EXTRACTOR_NAME,
     RELEASED,
@@ -18,6 +18,7 @@ from monitoring.hold_reader import (
     hold_reader_from_env,
     read_holds,
 )
+from monitoring.junk_holds import mark_junk
 from monitoring.junk_purge import JunkPurge
 from monitoring.junk_screen import HELD
 
@@ -201,3 +202,68 @@ def test_without_a_model_the_held_wait_for_a_person(
     assert (result.released, result.model_junk) == (0, 0)
     assert {status for status, *_ in _holds(session_factory).values()} == {HELD}
     assert len(ids) == 3
+
+
+class MeanwhileJunk(Reader):
+    """A person calls the donation junk while the model is reading."""
+
+    def __init__(self, session_factory: sessionmaker[Session], article: int) -> None:
+        super().__init__()
+        self._session_factory, self._article = session_factory, article
+
+    def read(self, items: Sequence[HoldItem]) -> dict[int, HoldAnswer]:
+        with self._session_factory.begin() as session:
+            assert mark_junk(session, self._article)
+        return super().read(items)
+
+
+def test_a_person_s_word_said_while_the_model_read_stands(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+
+    result = read_holds(session_factory, MeanwhileJunk(session_factory, ids["donation"]))
+    JunkPurge(session_factory).run()
+
+    # No event after «Мусор»: it would keep the article from every purge, unseen.
+    assert _events(session_factory, ids["donation"]) == []
+    assert _holds(session_factory).get(ids["donation"]) is None
+    with session_factory() as session:
+        assert set(session.scalars(select(ParsedArticleRecord.id))) == {ids["bribe"], ids["fine"]}
+    assert (result.released, result.model_junk, result.failures) == (0, 2, 0)
+
+
+def test_a_release_with_no_extraction_to_write_to_is_left_unread(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE article_extraction_runs SET status = 'failed' WHERE article_id = :id"),
+            {"id": ids["donation"]},
+        )
+
+    result = read_holds(session_factory, Reader())
+
+    # Released without its event, an article would be in no list and no step.
+    assert _holds(session_factory)[ids["donation"]] == (HELD, None, None, "")
+    assert (result.released, result.failures) == (0, 1)
+
+
+class Spending(Reader):
+    def __init__(self) -> None:
+        super().__init__()
+        self.spend = Spend(budget_usd=0.0)
+
+
+def test_what_the_budget_left_unasked_is_no_failure(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    reader = Spending()
+
+    result = read_holds(session_factory, reader)
+
+    assert reader.asked == []
+    assert (result.unasked, result.failures, result.released, result.model_junk) == (3, 0, 0, 0)
+    assert {status for status, *_ in _holds(session_factory).values()} == {HELD}

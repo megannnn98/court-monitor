@@ -34,6 +34,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from entities.llm import (
+    BudgetExceededError,
     Endpoint,
     ModelError,
     Spend,
@@ -189,6 +190,8 @@ class HoldsRead:
     model_junk: int = 0
     # Asked and not answered: the next run asks again.
     failures: int = 0
+    # Not asked, the run's budget being spent: the next run asks.
+    unasked: int = 0
     # A released article extracted anew: the model's event written again, nothing asked.
     restored: int = 0
     cost_usd: float = 0.0
@@ -234,8 +237,9 @@ _ADD_EVENT = text(
 )
 
 
-def add_event(session: Session, article_id: int, event: str, explanation: str) -> None:
-    session.execute(
+def add_event(session: Session, article_id: int, event: str, explanation: str) -> bool:
+    """False when the article has no successful extraction to write the event to."""
+    added = session.execute(
         _ADD_EVENT,
         {
             "article": article_id,
@@ -246,6 +250,7 @@ def add_event(session: Session, article_id: int, event: str, explanation: str) -
             "version": PROMPT_VERSION,
         },
     )
+    return bool(added.rowcount)  # type: ignore[attr-defined]
 
 
 # The event a person's release writes: the person says there is a case, not which step of it.
@@ -275,6 +280,48 @@ def release(session: Session, article_id: int) -> bool:
     return True
 
 
+class _NoExtraction(Exception):
+    """A released hold whose article has no successful extraction to hold the event."""
+
+
+def _write(
+    session_factory: sessionmaker[Session], reader_name: str, answer: HoldAnswer
+) -> bool | None:
+    """The answer written to its hold, and the event with it. None when the hold is no
+    longer one nobody read: a person decided while the model was reading, and their word
+    stands — an event written after «Мусор» would keep the article from every purge.
+    False when the event could not be written: the hold is left unread."""
+    try:
+        with session_factory.begin() as session:
+            # The hold first: only the one who takes it writes the event.
+            taken = session.execute(
+                text(
+                    "UPDATE junk_screen_holds SET status = :status, reader = :reader, "
+                    "reader_verdict = :verdict, reader_event = :event, note = :note "
+                    "WHERE article_id = :article AND status = :held AND reader IS NULL "
+                    "RETURNING article_id"
+                ),
+                {
+                    "article": answer.id,
+                    "status": RELEASED if answer.released else HELD,
+                    "reader": reader_name,
+                    "verdict": MODEL_CASE if answer.released else MODEL_JUNK,
+                    "event": answer.event if answer.released else None,
+                    "note": answer.explanation,
+                    "held": HELD,
+                },
+            ).first()
+            if taken is None:
+                return None
+            if answer.released and not add_event(
+                session, answer.id, answer.event, answer.explanation
+            ):
+                raise _NoExtraction
+    except _NoExtraction:
+        return False
+    return True
+
+
 def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None) -> HoldsRead:
     """The held nobody read are read; each batch is written as it comes."""
     result = HoldsRead()
@@ -299,6 +346,10 @@ def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None
     for batch, answers in ask_in_batches(
         batches, reader.read, concurrency=CONCURRENCY, spend=spend
     ):
+        if isinstance(answers, BudgetExceededError):
+            # Not sent at all: the next run asks, and no model failed.
+            result.unasked += len(batch)
+            continue
         if isinstance(answers, Exception):
             if not isinstance(answers, ModelError):
                 raise answers
@@ -308,29 +359,16 @@ def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None
             )
             continue
         result.failures += len(batch) - len(answers)
-        with session_factory.begin() as session:
-            for answer in answers.values():
-                if answer.released:
-                    add_event(session, answer.id, answer.event, answer.explanation)
-                    result.released += 1
-                else:
-                    result.model_junk += 1
-                session.execute(
-                    text(
-                        "UPDATE junk_screen_holds SET status = :status, reader = :reader, "
-                        "reader_verdict = :verdict, reader_event = :event, note = :note "
-                        "WHERE article_id = :article AND status = :held AND reader IS NULL"
-                    ),
-                    {
-                        "article": answer.id,
-                        "status": RELEASED if answer.released else HELD,
-                        "reader": reader.name,
-                        "verdict": MODEL_CASE if answer.released else MODEL_JUNK,
-                        "event": answer.event if answer.released else None,
-                        "note": answer.explanation,
-                        "held": HELD,
-                    },
-                )
+        for answer in answers.values():
+            written = _write(session_factory, reader.name, answer)
+            if written is None:
+                continue
+            if not written:
+                result.failures += 1
+            elif answer.released:
+                result.released += 1
+            else:
+                result.model_junk += 1
     result.cost_usd = round(spend.cost_usd, 6) if spend is not None else 0.0
     logger.info("event=holds_read %s", result)
     return result

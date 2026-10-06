@@ -76,7 +76,7 @@ def _sample[T](rows: Sequence[T], size: int, seed: int) -> list[T]:
 
 def _quotes(session: Session, ids: Sequence[int]) -> dict[int, list[str]]:
     quotes: dict[int, list[str]] = {}
-    for group_id, quote in session.execute(
+    for group_id, quote, _publication in session.execute(
         _QUOTES, {"groups": list(ids), "context": QUOTE_CONTEXT, "quotes": QUOTES}
     ).all():
         quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))

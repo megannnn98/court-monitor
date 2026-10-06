@@ -644,6 +644,7 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
             "holds_released": read.released,
             "holds_model_junk": read.model_junk,
             "holds_failures": read.failures,
+            "holds_unasked": read.unasked,
             "holds_restored": read.restored,
             "holds_cost_usd": read.cost_usd,
         }

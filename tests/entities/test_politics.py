@@ -352,12 +352,19 @@ INOY = (
     "Льва Иного",
     "Лев Иной",
 )
+# Another publication of Долгов, by the rules: what it tells far from the name stays unseen.
+DOLGOV_AGAIN = (
+    "dolgov-again",
+    f"Суд продлил арест Глебу Долгову. {'Заседание шло долго. ' * 12}Прежде его судили {THEFT}.",
+    "Глебу Долгову",
+    "Глеб Долгов",
+)
 
 
 def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_once(
     session_factory: sessionmaker[Session],
 ) -> None:
-    _seed(session_factory, [DOLGOV, INOY])
+    _seed(session_factory, [DOLGOV, DOLGOV_AGAIN, INOY])
     with session_factory.begin() as session:
         # Долгов's article is in the work by a model's reading: the rules found no case.
         article = session.scalar(text("SELECT id FROM parsed_articles WHERE title = 'dolgov'"))
@@ -375,10 +382,13 @@ def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_
     PoliticsFinder(session_factory, classifier=classifier).run()
 
     # What steps 4 and 5 both show: the whole telling of the one, a short quote of the other.
-    assert FAR in shown[ids["Глеб Долгов"]][0] and FAR not in shown[ids["Лев Иной"]][0]
+    assert FAR in " ".join(shown[ids["Глеб Долгов"]]) and FAR not in shown[ids["Лев Иной"]][0]
     first, second = classifier.asked
     told = {item.name: FAR in " ".join(item.quotes) for item in first}
     assert (told["Глеб Долгов"], told["Лев Иной"]) == (True, False)
+    # His other publication, the rules' own, keeps the short quote: only what the model
+    # alone read is shown wide.
+    assert len(shown[ids["Глеб Долгов"]]) == 2 and THEFT not in " ".join(shown[ids["Глеб Долгов"]])
     # Asked wide at once, he is not asked a second time; the other is, as anyone.
     assert [item.name for item in second] == ["Лев Иной"]
     assert _row(session_factory, "Глеб Долгов")[:2] == ("political", "model")

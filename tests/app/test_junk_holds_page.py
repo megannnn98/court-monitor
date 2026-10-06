@@ -356,7 +356,8 @@ def test_the_held_are_four_lists_and_the_model_s_junk_goes_by_one_press(
     assert "Модель: дело — приговор за донаты" in pages["released"]
     assert "Это дело — в работу</button>" in pages["model_junk"]
     # A release is undone by «Мусор» alone: there is nothing to extract or release again.
-    assert 'action="/ui/junk-holds/junk"' in pages["released"]
+    assert 'action="/ui/junk-holds/unrelease"' in pages["released"]
+    assert 'action="/ui/junk-holds/junk"' not in pages["released"]
     assert "Извлечь заново" not in pages["released"]
     assert f'name="articles" value="{ids["bribe"]},{ids["fine"]}"' in pages["model_junk"]
     assert "Мусор — все 2</button>" in pages["model_junk"] and "Мусор — все" not in held
@@ -377,10 +378,16 @@ def test_a_person_takes_a_case_on_against_the_model_and_undoes_a_release(
             "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
         )
         undone = client.post(
-            "/ui/junk-holds/junk", data={"article": str(ids["donation"])}, follow_redirects=False
+            "/ui/junk-holds/unrelease",
+            data={"article": str(ids["donation"])},
+            follow_redirects=False,
+        )
+        not_released = client.post(
+            "/ui/junk-holds/unrelease", data={"article": str(ids["bribe"])}, follow_redirects=False
         )
 
     assert (taken.status_code, twice.status_code, undone.status_code) == (303, 404, 303)
+    assert not_released.status_code == 404 and _status(session_factory, ids["bribe"]) == "held"
     # A person's release is an event too: the later steps take an article by its event.
     assert _status(session_factory, ids["fine"]) == "released"
     assert _model_events(session_factory, ids["fine"]) == ["case_opened"]
@@ -437,3 +444,51 @@ def test_two_articles_a_model_calls_junk_count_as_one(
 
     with session_factory() as session:
         assert workload(session).junk_holds == 1
+
+
+def test_a_page_opened_before_a_release_cannot_undo_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _read(session_factory)
+
+    with _client(session_factory) as client:
+        # The page of the model's junk is open; meanwhile another person takes one on.
+        client.post("/ui/junk-holds/release", data={"article": str(ids["fine"])})
+        stale_all = client.post(
+            "/ui/junk-holds/junk-all",
+            data={"articles": f"{ids['bribe']},{ids['fine']}"},
+            follow_redirects=False,
+        )
+        stale_one = client.post(
+            "/ui/junk-holds/junk", data={"article": str(ids["fine"])}, follow_redirects=False
+        )
+
+    # All or nothing, and nothing: the released keeps its event, the other stays held.
+    assert (stale_all.status_code, stale_one.status_code) == (404, 404)
+    assert _status(session_factory, ids["fine"]) == "released"
+    assert _model_events(session_factory, ids["fine"]) == ["case_opened"]
+    assert _status(session_factory, ids["bribe"]) == "held"
+
+
+def test_back_to_the_check_is_read_anew(session_factory: sessionmaker[Session]) -> None:
+    ids = _read(session_factory)
+
+    with _client(session_factory) as client:
+        client.post("/ui/junk-holds/unrelease", data={"article": str(ids["donation"])})
+        client.post("/ui/junk-holds/junk", data={"article": str(ids["bribe"])})
+        for name in ("donation", "bribe"):
+            client.post("/ui/junk-holds/hold", data={"article": str(ids[name])})
+        held = client.get("/ui/junk-holds", params={"status": "held"}).text
+    with session_factory() as session:
+        unread = set(
+            session.scalars(
+                text(
+                    "SELECT article_id FROM junk_screen_holds WHERE status = 'held' AND reader IS NULL"
+                )
+            )
+        )
+
+    # What a model said before goes with the person's «Мусор»: both wait to be read, in
+    # the list of the unread — neither stuck with an old verdict nor back among its junk.
+    assert unread == {ids["unread"], ids["donation"], ids["bribe"]}
+    assert sorted(_titles(held)) == ["bribe", "donation", "unread"]

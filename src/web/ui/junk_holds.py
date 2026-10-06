@@ -19,7 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from monitoring.hold_reader import MODEL_JUNK, RELEASED, release
-from monitoring.junk_holds import hold_again, mark_junk, reextract
+from monitoring.junk_holds import hold_again, mark_junk, reextract, unrelease
 from monitoring.junk_screen import HELD, JUNK
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page, pager
@@ -163,8 +163,9 @@ def _card(row: Any, status: str, page: int) -> str:
             + _button("junk", article_id, "Мусор", status, page)
         )
     elif row.status == RELEASED:
-        # The model's mistake, undone: the article waits for the purge again.
-        actions = _button("junk", article_id, "Мусор", status, page)
+        # The model's mistake, undone: the article waits for the purge again. Its own
+        # address: «Мусор» pressed on a page opened before a release must not undo it.
+        actions = _button("unrelease", article_id, "Мусор", status, page)
     else:
         actions = _button("hold", article_id, "Вернуть на проверку", status, page)
     note = row.note
@@ -326,6 +327,19 @@ async def ui_junk_holds_junk(
     article_id = _article(form)
     if not mark_junk(db, article_id):
         raise HTTPException(status_code=404, detail="Статья не на проверке")
+    db.commit()
+    return RedirectResponse(_back(form, article_id), status_code=303)
+
+
+@router.post("/ui/junk-holds/unrelease", response_model=None)
+async def ui_junk_holds_unrelease(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    form = await _form(request)
+    article_id = _article(form)
+    if not unrelease(db, article_id):
+        raise HTTPException(status_code=404, detail="Статья не выпущена в работу")
     db.commit()
     return RedirectResponse(_back(form, article_id), status_code=303)
 

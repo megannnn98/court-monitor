@@ -479,7 +479,7 @@ class PoliticsFinder:
         ]
         wide_quotes: dict[int, list[str]] = {}
         with self._session_factory() as session:
-            for group_id, quote in session.execute(
+            for group_id, quote, _publication in session.execute(
                 _QUOTES, {"groups": untold, "context": WIDE_CONTEXT, "quotes": QUOTES}
             ).all():
                 wide_quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))

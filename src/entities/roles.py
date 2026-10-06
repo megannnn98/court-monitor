@@ -406,42 +406,56 @@ _QUOTES = text(
         FROM person_evidence
         WHERE group_id = ANY(:groups)
     ), latest AS (
-        SELECT group_id, quote,
+        SELECT group_id, quote, publication,
                row_number() OVER (PARTITION BY group_id
                                   ORDER BY published_at DESC NULLS LAST, publication DESC) AS k
         FROM m WHERE n = 1
     )
-    SELECT group_id, quote FROM latest WHERE k <= :quotes ORDER BY group_id, k
+    SELECT group_id, quote, publication FROM latest WHERE k <= :quotes ORDER BY group_id, k
     """
 )
 
 
-# The entities named in an article that is in the work by a model's reading alone
-# (`monitoring.hold_reader`): the rules found no case in it.
+# The entities an article names that is in the work by a model's reading alone
+# (`monitoring.hold_reader`), each with that article: the rules found no case in it.
 _MODEL_READ = text(
     """
-    SELECT DISTINCT gm.group_id
+    SELECT DISTINCT gm.group_id, r.article_id
     FROM entity_group_mentions gm
     JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN extracted_events e ON e.extraction_run_id = m.extraction_run_id
+    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
+    JOIN extracted_events e ON e.extraction_run_id = r.id
     WHERE gm.group_id = ANY(:groups) AND e.extractor_name = :extractor
     """
 )
 
 
 def quotes_of(session: Session, groups: Sequence[int]) -> dict[int, list[str]]:
-    """The quotes a model is shown of each entity: short ones, and wide ones at once for
-    whoever an article read by a model alone names. The rules had no wording for such an
-    article, so what it tells stands where a short quote does not reach."""
+    """The quotes a model is shown of each entity: short ones, and a wide one at once of
+    an article read by a model alone. The rules had no wording for such an article, so
+    what it tells stands where a short quote does not reach; the entity's other articles
+    keep the short quote."""
+    model_read = {
+        (group_id, article_id)
+        for group_id, article_id in session.execute(
+            _MODEL_READ, {"groups": list(groups), "extractor": EXTRACTOR_NAME}
+        ).all()
+    }
+
+    def read(ids: Sequence[int], context: int) -> dict[tuple[int, int], str]:
+        return {
+            (group_id, publication): " ".join((quote or "").split())
+            for group_id, quote, publication in session.execute(
+                _QUOTES, {"groups": list(ids), "context": context, "quotes": QUOTES}
+            ).all()
+        }
+
+    wide = read(sorted({group_id for group_id, _article in model_read}), WIDE_CONTEXT)
     quotes: dict[int, list[str]] = {}
-    wide = list(session.scalars(_MODEL_READ, {"groups": list(groups), "extractor": EXTRACTOR_NAME}))
-    for ids, context in ((list(groups), QUOTE_CONTEXT), (wide, WIDE_CONTEXT)):
-        found: dict[int, list[str]] = {}
-        for group_id, quote in session.execute(
-            _QUOTES, {"groups": ids, "context": context, "quotes": QUOTES}
-        ).all():
-            found.setdefault(group_id, []).append(" ".join((quote or "").split()))
-        quotes.update(found)
+    # The order of the short reading: an entity's latest publication first.
+    for (group_id, publication), quote in read(groups, QUOTE_CONTEXT).items():
+        key = (group_id, publication)
+        quotes.setdefault(group_id, []).append(wide.get(key, quote) if key in model_read else quote)
     return quotes
 
 

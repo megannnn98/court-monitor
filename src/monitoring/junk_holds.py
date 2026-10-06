@@ -43,19 +43,29 @@ class Reextracted:
     note: str
 
 
-def mark_junk(session: Session, article_id: int) -> bool:
-    """A person's word that a held article is junk, or one released by mistake; False when
-    it is neither. A released article loses the event that kept it: the purge judges an
-    article by its events."""
+def _to_junk(session: Session, article_id: int, status: str) -> bool:
     updated = session.execute(
         text(
             "UPDATE junk_screen_holds SET status = :junk, decided_at = now(), "
             "note = 'Отмечено как мусор: удалится при следующей очистке.' "
-            "WHERE article_id = :article AND status IN (:held, :released)"
+            "WHERE article_id = :article AND status = :status"
         ),
-        {"article": article_id, "junk": JUNK, "held": HELD, "released": RELEASED},
+        {"article": article_id, "junk": JUNK, "status": status},
     )
-    if not updated.rowcount:  # type: ignore[attr-defined]
+    return bool(updated.rowcount)  # type: ignore[attr-defined]
+
+
+def mark_junk(session: Session, article_id: int) -> bool:
+    """A person's word that a held article is junk; False when it is not held. A released
+    one is not held: a page opened before the release must not undo it."""
+    return _to_junk(session, article_id, HELD)
+
+
+def unrelease(session: Session, article_id: int) -> bool:
+    """A person's word that an article was released by mistake; False when it is not
+    released. It loses the event that kept it: the purge judges an article by its
+    events."""
+    if not _to_junk(session, article_id, RELEASED):
         return False
     session.execute(
         text(
@@ -69,10 +79,12 @@ def mark_junk(session: Session, article_id: int) -> bool:
 
 
 def hold_again(session: Session, article_id: int) -> bool:
-    """Undo «Мусор» before the purge ran."""
+    """Undo «Мусор» before the purge ran. The article is to be read anew: what a model
+    said of it before goes, or it would be neither read again nor in the work."""
     updated = session.execute(
         text(
-            "UPDATE junk_screen_holds SET status = :held, decided_at = NULL, note = '' "
+            "UPDATE junk_screen_holds SET status = :held, decided_at = NULL, note = '', "
+            "reader = NULL, reader_verdict = NULL, reader_event = NULL "
             "WHERE article_id = :article AND status = :junk"
         ),
         {"article": article_id, "junk": JUNK, "held": HELD},
