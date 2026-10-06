@@ -20,11 +20,13 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
+    UnnamedScreenedRecord,
 )
 from entities.collector import EntityCollector
 from operator_console import OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
+from web.ui.workload import workload
 
 QUOTE = "В Тюмени задержан 17-летний житель города по делу о теракте <b>на железной дороге</b>."
 
@@ -517,3 +519,81 @@ def test_a_card_shows_who_another_publication_names_and_takes_a_word(
     assert 'name="candidate" value="person:' not in confirmed_table
     assert 'name="undo"' not in confirmed_table
     assert '<span class="badge succeeded">это он</span>' in found[found.index(caption) :]
+
+
+def _facts(key: str, article: int, quote_: str, age: int | None) -> dict[str, object]:
+    return {
+        "key": key,
+        "article_id": article,
+        "start_offset": 0,
+        "end_offset": len(quote_),
+        "quote": quote_,
+        "age": age,
+        "gender": "male",
+        "place": "Омск",
+        "initial": None,
+        "articles": [],
+        "event_type": "sentence",
+        "explanation": "осуждён за угон",
+        "published_at": datetime(2024, 11, 26, tzinfo=UTC),
+    }
+
+
+def _aside(session_factory: sessionmaker[Session]) -> None:
+    """Beside the Tyumen card: one with no age told, and one the search set aside."""
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        article = session.scalar(text("SELECT id FROM parsed_articles LIMIT 1"))
+        session.add(
+            UnnamedFigurantRecord(**_facts("n" * 64, article, "Подросток арестован.", None))
+        )
+        session.add(
+            UnnamedScreenedRecord(
+                **_facts("s" * 64, article, "Подросток осуждён за угон.", 16),
+                reason="criminal_motive",
+            )
+        )
+
+
+def test_a_card_without_an_age_waits_apart_from_the_queue(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _aside(session_factory)
+
+    with _client(session_factory) as client:
+        queue = client.get("/ui/unnamed").text
+        apart = client.get("/ui/unnamed", params={"status": "no_age"}).text
+    with session_factory() as session:
+        counted = workload(session).unnamed
+
+    # Nobody of the list is offered without an age: not work to do, still there to read.
+    assert "Не разобраны (1)" in queue and "Без возраста (1)" in queue
+    assert f'id="u-{"n" * 64}"' not in queue and f'id="u-{"k" * 64}"' in queue
+    assert f'id="u-{"n" * 64}"' in apart and f'id="u-{"k" * 64}"' not in apart
+    assert counted == 1
+
+
+def test_whom_the_search_set_aside_is_listed_and_taken_back_by_a_press(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _aside(session_factory)
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/unnamed").text
+        folded = page[page.index('<details class="band" id="screened">') :]
+        taken = client.post(
+            "/ui/unnamed/keep", data={"figurant": "s" * 64, "back": "status=open&page=1"}
+        )
+        after = client.get("/ui/unnamed").text
+        twice = client.post("/ui/unnamed/keep", data={"figurant": "s" * 64}, follow_redirects=False)
+
+    assert "<summary>Отсеяно автоматически (1)</summary>" in folded
+    assert "Подросток осуждён за угон." in folded and "обычное уголовное дело" in folded
+    assert "осуждён за угон</span>" in folded and "Вернуть на разбор</button>" in folded
+    # Not a card until taken back.
+    assert f'id="u-{"s" * 64}"' not in page
+    assert taken.history[0].status_code == 303
+    assert taken.history[0].headers["location"].endswith(f"#u-{'s' * 64}")
+    assert f'id="u-{"s" * 64}"' in after and "Отсеяно автоматически" not in after
+    assert "Не разобраны (2)" in after
+    assert twice.status_code == 400

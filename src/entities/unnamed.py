@@ -17,7 +17,10 @@ that sex, with that initial and born there, is a probable figurant; a person con
    common crime the text gives no article number for («за секс с несовершеннолетним»):
    such a person is no figurant either.
 3. The unnamed figurants are rewritten; the list is searched for each on demand
-   (`candidates`); a person's decisions are kept by key (`decide`).
+   (`candidates`); a person's decisions are kept by key (`decide`). Whom the search
+   sets aside on its own — a common crime, one more sentence about a person already on
+   a card — is kept beside them with the reason (`UnnamedScreenedRecord`), and a person
+   takes any of them back (`keep`). Whoever a person spoke of is never set aside.
 
 The list has no date of inclusion; an entry's first snapshot is the earliest we know.
 """
@@ -35,7 +38,7 @@ from typing import Any, Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, text
+from sqlalchemy import delete, insert, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -44,6 +47,8 @@ from db.orm_models import (
     UnnamedDecisionRecord,
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
+    UnnamedKeepRecord,
+    UnnamedScreenedRecord,
 )
 from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.llm import (
@@ -84,6 +89,10 @@ EXISTING_PERSON = "existing_person"
 SUPPLIED_NAME = "supplied_name"
 NO_RF_MATCH = "no_rf_match"
 INSUFFICIENT = "insufficient"
+# Why the search set an unnamed person aside (`UnnamedScreenedRecord.reason`).
+COMMON_CRIME = "common_crime"
+CRIMINAL_MOTIVE = "criminal_motive"
+DUPLICATE = "duplicate"
 IDENTIFIED = frozenset({RF_ENTRY, EXISTING_PERSON, SUPPLIED_NAME})
 RESOLUTIONS = frozenset({RF_ENTRY, EXISTING_PERSON, SUPPLIED_NAME, NO_RF_MATCH, INSUFFICIENT})
 
@@ -376,6 +385,8 @@ class UnnamedResult:
     common_crime: int = 0
     # A common crime by the whole publication's telling, no article number given.
     criminal_motive: int = 0
+    # One more sentence of a publication about a person already on a card.
+    duplicates: int = 0
     asked_now: int = 0
     cached: int = 0
     failures: int = 0
@@ -400,6 +411,15 @@ def common_crime_only(articles: Sequence[str]) -> bool:
 def _kept(answer: UnnamedAnswer) -> bool:
     """An unnamed figurant by this answer: a case, no name, not common crime alone."""
     return answer.is_case and not answer.named and not common_crime_only(answer.articles)
+
+
+def _person(row: Mapping[str, Any]) -> tuple[object, ...] | None:
+    """Who a row is about, as far as one publication tells its people apart: the age, the
+    sex, the place and the initial. None without an age: too little to call two
+    sentences one person."""
+    if row["age"] is None:
+        return None
+    return (row["article_id"], row["age"], row["gender"], row["place"].casefold(), row["initial"])
 
 
 def _initial(value: str) -> str | None:
@@ -477,49 +497,73 @@ class UnnamedFinder:
             # One reader, one count of spending: the later reading holds both.
             cost_usd=round(max(found.cost_usd, again.cost_usd), 6),
         )
-        rows: list[dict[str, Any]] = []
+        with self._session_factory() as session:
+            # A person's word: taken back from the set-aside, or decided on.
+            held = set(session.scalars(select(UnnamedKeepRecord.key))) | set(
+                session.scalars(select(UnnamedIdentityResolutionRecord.figurant_key))
+            )
+        found_rows: list[tuple[dict[str, Any], bool]] = []
+        screened: list[dict[str, Any]] = []
         for position, sentence in enumerate(ordered):
             answer = answers.get(position)
             if answer is None:
                 continue
-            if not answer.is_case:
+            kept_by_word = sentence.key in held
+            if not kept_by_word and not answer.is_case:
                 result.not_cases += 1
                 continue
-            if answer.named:
+            if not kept_by_word and answer.named:
                 result.named += 1
                 continue
-            if common_crime_only(answer.articles):
+            row = {
+                "key": sentence.key,
+                "article_id": sentence.article_id,
+                "start_offset": sentence.start,
+                "end_offset": sentence.end,
+                "quote": sentence.text,
+                "age": answer.age,
+                "gender": None if answer.gender == "unknown" else answer.gender,
+                "place": answer.place.strip(),
+                "initial": _initial(answer.initial),
+                "articles": sorted(
+                    {article.strip() for article in answer.articles if article.strip()}
+                ),
+                "event_type": answer.event,
+                "explanation": answer.explanation,
+                "published_at": sentence.published_at,
+            }
+            if kept_by_word:
+                found_rows.append((row, True))
+            elif common_crime_only(answer.articles):
                 result.common_crime += 1
-                continue
+                screened.append({**row, "reason": COMMON_CRIME})
             # Only by the whole publication: a failed second reading drops nobody.
-            if position in again.answers and answer.motive == "criminal":
+            elif position in again.answers and answer.motive == "criminal":
                 result.criminal_motive += 1
-                continue
-            rows.append(
-                {
-                    "key": sentence.key,
-                    "article_id": sentence.article_id,
-                    "start_offset": sentence.start,
-                    "end_offset": sentence.end,
-                    "quote": sentence.text,
-                    "age": answer.age,
-                    "gender": None if answer.gender == "unknown" else answer.gender,
-                    "place": answer.place.strip(),
-                    "initial": _initial(answer.initial),
-                    "articles": sorted(
-                        {article.strip() for article in answer.articles if article.strip()}
-                    ),
-                    "event_type": answer.event,
-                    "explanation": answer.explanation,
-                    "published_at": sentence.published_at,
-                }
-            )
+                screened.append({**row, "reason": CRIMINAL_MOTIVE})
+            else:
+                found_rows.append((row, False))
+        # One publication tells of a person in several sentences: one card, the first.
+        # Those a person spoke of all stay, and stand for their own.
+        told = {_person(row) for row, kept_by_word in found_rows if kept_by_word}
+        rows: list[dict[str, Any]] = []
+        for row, kept_by_word in found_rows:
+            person = _person(row)
+            if kept_by_word or person is None or person not in told:
+                told.add(person)
+                rows.append(row)
+            else:
+                result.duplicates += 1
+                screened.append({**row, "reason": DUPLICATE})
         result.unnamed = len(rows)
         self._on_stage("writing")
         with self._session_factory.begin() as session:
             session.execute(delete(UnnamedFigurantRecord))
+            session.execute(delete(UnnamedScreenedRecord))
             if rows:
                 session.execute(insert(UnnamedFigurantRecord), rows)
+            if screened:
+                session.execute(insert(UnnamedScreenedRecord), screened)
         logger.info("event=unnamed_found %s", result)
         return result
 
@@ -813,3 +857,25 @@ def clear_resolution(session: Session, figurant_key: str) -> None:
             UnnamedIdentityResolutionRecord.figurant_key == figurant_key
         )
     )
+
+
+def keep(session: Session, figurant_key: str) -> bool:
+    """A person takes back a figurant the search set aside: on a card at once, and through
+    every search to come. False when the search set no such figurant aside."""
+    screened = session.scalar(
+        select(UnnamedScreenedRecord).where(UnnamedScreenedRecord.key == figurant_key)
+    )
+    if screened is None:
+        return False
+    session.execute(pg_insert(UnnamedKeepRecord).values(key=figurant_key).on_conflict_do_nothing())
+    session.add(
+        UnnamedFigurantRecord(
+            **{
+                column.name: getattr(screened, column.name)
+                for column in UnnamedFigurantRecord.__table__.columns
+                if column.name != "id"
+            }
+        )
+    )
+    session.delete(screened)
+    return True

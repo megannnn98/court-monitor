@@ -328,6 +328,47 @@ class UnnamedFigurantRecord(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class UnnamedScreenedRecord(Base):
+    """An unnamed person the search set aside on its own — a common crime, or one more
+    sentence about a person already on a card — kept so that the operator can see who
+    was set aside and why, and take them back (`UnnamedKeepRecord`).
+
+    Derived: rewritten by every search beside `unnamed_figurants`, with its columns."""
+
+    __tablename__ = "unnamed_screened"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    start_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    place: Mapped[str] = mapped_column(Text, nullable=False)
+    initial: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    articles: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # common_crime, criminal_motive or duplicate (`entities.unnamed`).
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class UnnamedKeepRecord(Base):
+    """A person's word that an unnamed figurant stays on a card whatever the search
+    makes of it. Not derived: kept through every search, by the figurant's key."""
+
+    __tablename__ = "unnamed_keeps"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class UnnamedAnswerRecord(Base):
     """A model's reading of a sentence about an unnamed person, for this very sentence:
     reused until the sentence or the prompt changes."""

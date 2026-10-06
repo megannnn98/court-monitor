@@ -15,6 +15,9 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
     UnnamedAnswerRecord,
     UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
+    UnnamedKeepRecord,
+    UnnamedScreenedRecord,
 )
 from entities.answers import input_hash
 from entities.unnamed import (
@@ -29,6 +32,7 @@ from entities.unnamed import (
     common_crime_only,
     decide,
     described_sentences,
+    keep,
     resolve_identity,
 )
 
@@ -472,6 +476,81 @@ def test_an_earlier_prompt_s_answer_holds_unless_it_made_a_figurant(
     # Who was no figurant needs no motive; who was is asked for it — and has one.
     assert [[item.sentence for item in batch] for batch in reader.asked] == [[THEFT_SHORT]]
     assert _quotes(session_factory) == []
+
+
+# One publication, one person, two sentences; and two sentences that tell no age.
+TWICE = "Дело по ст. 205 УК РФ, ему 17 лет. Подросток из Омска арестован. Подростка этапировали."
+NO_AGE_TWICE = "Подросток из Читы арестован. Подростка этапировали в Москву."
+
+
+def _screened(session_factory: sessionmaker[Session]) -> dict[str, str]:
+    with session_factory() as session:
+        return dict(
+            session.execute(select(UnnamedScreenedRecord.quote, UnnamedScreenedRecord.reason)).all()
+        )
+
+
+def test_whom_the_search_sets_aside_is_kept_with_the_reason(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, MURDER, THEFT_SHORT, TWICE, NO_AGE_TWICE, LONG_VICTIM)
+
+    result = UnnamedFinder(session_factory, reader=ContextReader()).run()
+
+    # The victim is no case at all: not a figurant set aside, nobody to take back.
+    assert _screened(session_factory) == {
+        "Подросток из Белолуцка задержан.": "common_crime",
+        THEFT_SHORT: "criminal_motive",
+        "Подростка этапировали.": "duplicate",
+    }
+    # Without an age two sentences are not called one person.
+    assert _quotes(session_factory) == [
+        "Подростка этапировали в Москву.",
+        "Подросток из Омска арестован.",
+        "Подросток из Читы арестован.",
+    ]
+    assert (result.unnamed, result.duplicates) == (3, 1)
+    with session_factory() as session:
+        row = session.scalars(
+            select(UnnamedScreenedRecord).where(UnnamedScreenedRecord.reason == "duplicate")
+        ).one()
+    assert (row.age, row.articles, row.start_offset) == (17, ["205"], TWICE.index("Подростка"))
+
+
+def _key(session_factory: sessionmaker[Session], record: type, quote: str) -> str:
+    with session_factory() as session:
+        return session.scalars(select(record.key).where(record.quote == quote)).one()
+
+
+def test_whoever_a_person_spoke_of_is_never_set_aside(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, THEFT_SHORT, TWICE)
+    UnnamedFinder(session_factory, reader=ContextReader()).run()
+    with session_factory.begin() as session:
+        # A decision on the second sentence; the theft taken back by a press.
+        session.add(
+            UnnamedIdentityResolutionRecord(
+                figurant_key=_key(session_factory, UnnamedScreenedRecord, "Подростка этапировали."),
+                resolution="no_rf_match",
+            )
+        )
+        assert keep(session, _key(session_factory, UnnamedScreenedRecord, THEFT_SHORT))
+        assert not keep(session, "no such key")
+    # Taken back: a card at once, before any search.
+    assert THEFT_SHORT in _quotes(session_factory)
+    assert THEFT_SHORT not in _screened(session_factory)
+
+    UnnamedFinder(session_factory, reader=ContextReader()).run()
+
+    # Both hold through the search; the sentence nobody spoke of gives way to the one
+    # somebody did.
+    assert _quotes(session_factory) == ["Подростка этапировали.", THEFT_SHORT]
+    assert _screened(session_factory) == {"Подросток из Омска арестован.": "duplicate"}
+    with session_factory() as session:
+        assert session.scalar(select(UnnamedKeepRecord.key)) == _key(
+            session_factory, UnnamedFigurantRecord, THEFT_SHORT
+        )
 
 
 def test_common_crime_only_is_every_article_common_none_political() -> None:

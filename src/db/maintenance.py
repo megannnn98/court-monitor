@@ -14,6 +14,8 @@ DISPOSABLE_TABLES = (
     "unnamed_decisions",
     "unnamed_answers",
     "unnamed_figurants",
+    "unnamed_screened",
+    "unnamed_keeps",
     "entity_name_normalizations",
     "entity_name_overrides",
     "entity_official_marks",

@@ -110,7 +110,8 @@ def next_operator_task(work: Workload) -> OperatorTask | None:
 _OPEN_UNNAMED = text(
     """
     SELECT count(*) FROM unnamed_figurants f
-    WHERE NOT EXISTS (
+    -- Without an age nobody of the list is offered: «Без возраста», out of the queue.
+    WHERE f.age IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM unnamed_identity_resolutions r
         WHERE r.figurant_key = f.key
           AND r.resolution IN ('rf_entry', 'existing_person', 'supplied_name', 'insufficient')

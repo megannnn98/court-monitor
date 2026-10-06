@@ -71,6 +71,7 @@
  "POST /ui/queue/reset-decisions",
  "POST /ui/roles/decide",
  "POST /ui/unnamed/clear",
+ "POST /ui/unnamed/keep",
  "POST /ui/unnamed/reject",
  "POST /ui/unnamed/resolve"
 ]

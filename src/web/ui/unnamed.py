@@ -22,6 +22,7 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
+    UnnamedScreenedRecord,
 )
 from entities.base_candidates import BaseCandidates, base_candidates
 from entities.jurisdiction import CourtHints, Jurisdiction
@@ -32,7 +33,10 @@ from entities.named_candidates import (
 )
 from entities.unnamed import (
     CANDIDATE_KEY_LENGTH,
+    COMMON_CRIME,
+    CRIMINAL_MOTIVE,
     DIFFERENT,
+    DUPLICATE,
     EVENT_LABELS,
     EXISTING_PERSON,
     IDENTIFIED,
@@ -47,6 +51,7 @@ from entities.unnamed import (
     clear_resolution,
     decide,
     forget,
+    keep,
     resolve_identity,
 )
 from web.dependencies import get_db
@@ -60,10 +65,18 @@ PAGE_SIZE = 20
 RF_SEARCH_LIMIT = 10
 _STATUSES = {
     "open": "Не разобраны",
+    # Not matched with the list without an age: out of the queue, still to be read.
+    "no_age": "Без возраста",
     "found": "Опознаны",
     "no_rf": "Нет записи РФМ",
     "insufficient": "Недостаточно данных",
     "all": "Все",
+}
+# Why the search set a person aside, as the operator reads it.
+_SCREENED_REASONS = {
+    COMMON_CRIME: "обычная уголовная статья",
+    CRIMINAL_MOTIVE: "обычное уголовное дело",
+    DUPLICATE: "тот же человек уже есть на карточке этой публикации",
 }
 # Per figurant: the stable operator identification.
 _WORDS = text(
@@ -127,7 +140,7 @@ def _rf_display_name(full_name: str) -> str:
     return " ".join(word.strip("*").lower().capitalize() for word in full_name.split())
 
 
-def _facts(figurant: UnnamedFigurantRecord) -> str:
+def _facts(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
     parts = []
     if figurant.age is not None:
         parts.append(f"{figurant.age} лет")
@@ -141,6 +154,40 @@ def _facts(figurant: UnnamedFigurantRecord) -> str:
     if figurant.articles:
         parts.append("ст. " + ", ".join(escape(str(article)) for article in figurant.articles))
     return " · ".join(parts)
+
+
+def _screened_html(db: Session, back: str) -> str:
+    """Whom the search set aside on its own, folded: nothing is lost, and any of them
+    goes back to the cards by a press."""
+    screened = db.scalars(
+        select(UnnamedScreenedRecord).order_by(
+            UnnamedScreenedRecord.published_at.desc().nulls_last(), UnnamedScreenedRecord.id
+        )
+    ).all()
+    if not screened:
+        return ""
+    rows = "".join(
+        f"""<tr><td><a href="/ui/articles/{item.article_id}?start={item.start_offset}&amp;end={
+            item.end_offset
+        }">{escape(item.quote)}</a></td>
+<td>{_day(item.published_at)}</td><td>{_facts(item)}</td>
+<td>{escape(_SCREENED_REASONS.get(item.reason, item.reason))}<br><span class="muted">{
+            escape(item.explanation)
+        }</span></td>
+<td>{
+            _post_form("/ui/unnamed/keep", item.key, "Вернуть на разбор", "secondary", back, {})
+        }</td></tr>"""
+        for item in screened
+    )
+    return f"""<details class="band" id="screened">
+<summary>Отсеяно автоматически ({len(screened)})</summary>
+<p class="muted">Поиск сам убрал этих людей с разбора: дело — обычная уголовщина (по статье или
+по тексту публикации), либо о человеке уже есть карточка по другому предложению той же
+публикации. Если кто-то убран зря, верните его: он останется на разборе и после следующих
+запусков.</p>
+<table class="candidates"><thead><tr><th>Предложение</th><th>Дата</th><th>Что известно</th>
+<th>Почему отсеяно</th><th>Действие</th></tr></thead><tbody>{rows}</tbody></table>
+</details>"""
 
 
 def _post_form(
@@ -461,7 +508,7 @@ def _card(
 
 @router.get("/ui/unnamed", response_class=HTMLResponse)
 def ui_unnamed(
-    status: str = Query(default="open", pattern="^(open|found|no_rf|insufficient|all)$"),
+    status: str = Query(default="open", pattern="^(open|no_age|found|no_rf|insufficient|all)$"),
     page: int = Query(default=1, ge=1),
     person_q: str = Query(default="", max_length=100),
     rf_q: str = Query(default="", max_length=100),
@@ -488,11 +535,11 @@ def ui_unnamed(
             return "found"
         if resolution == INSUFFICIENT:
             return "insufficient"
-        return "open"
+        return "open" if figurant.age is not None else "no_age"
 
     counts = {
         key: sum(state(item) == key for item in figurants)
-        for key in ("open", "found", "insufficient")
+        for key in ("open", "no_age", "found", "insufficient")
     }
     counts["no_rf"] = sum(
         words.get(item.key, ("", None, None, None, None, None))[0] == NO_RF_MATCH
@@ -635,6 +682,7 @@ def ui_unnamed(
 дело. «Это он» создаёт человека с именем из базы.</p>
 <p class="muted">Опознанный человек попадёт в результат после следующих шагов 3–5.</p>
 {cards or empty}
+{_screened_html(db, back)}
 {pager("/ui/unnamed", {"status": status, "person_q": person_q.strip(), "rf_q": rf_q.strip(), "rf_key": rf_key}, page, pages)}"""
     return _page(
         "Безымянные",
@@ -675,6 +723,19 @@ def _known(db: Session, figurant: str) -> None:
     )
     if not known:
         raise HTTPException(status_code=400, detail="Неизвестный безымянный")
+
+
+@router.post("/ui/unnamed/keep", response_model=None)
+async def keep_unnamed(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    form = await _form(request)
+    figurant = form.get("figurant", "")
+    if not keep(db, figurant):
+        raise HTTPException(status_code=400, detail="Неизвестный отсеянный")
+    db.commit()
+    return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
 
 
 @router.post("/ui/unnamed/reject", response_model=None)

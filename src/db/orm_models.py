@@ -27,6 +27,8 @@ from db.models.entities import (
     UnnamedDecisionRecord,
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
+    UnnamedKeepRecord,
+    UnnamedScreenedRecord,
 )
 from db.models.extraction import (
     ArticleExtractionRunRecord,
@@ -137,4 +139,6 @@ __all__ = [
     "UnnamedDecisionRecord",
     "UnnamedFigurantRecord",
     "UnnamedIdentityResolutionRecord",
+    "UnnamedKeepRecord",
+    "UnnamedScreenedRecord",
 ]
