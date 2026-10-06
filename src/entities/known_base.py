@@ -145,3 +145,54 @@ class KnownBase:
         """The same words, or one name holds the other's («Андрей Попов» in «Попов Андрей
         Иванович»): two words at least on the shorter side, which the callers ensure."""
         return wanted <= spelled or spelled <= wanted
+
+
+# Articles as the base writes them: «ст. 228.1 УК РФ ч. 4 п. г,ст. 280 УК РФ» → 228.1, 280.
+_ARTICLE = re.compile(r"ст\.\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+# An attempt, complicity, a group: they say nothing of what the case is.
+_NEUTRAL_ARTICLES = frozenset({"30", "33", "35"})
+
+
+@dataclass(frozen=True)
+class TrackedCase:
+    """The base's one record of a person, charged under an article the news names too."""
+
+    name: str
+    articles: tuple[str, ...]
+
+
+class TrackedCases:
+    """Whose case the operator already tracks, as far as a name and an article tell.
+
+    A name alone is a namesake nineteen times in twenty-two (measured 2026-10-06: the
+    base's record is of terrorism, the news of a bribe). The same article beside the one
+    record of that name is the same case — and a case in the operator's base is one she
+    tracks as political, whatever the article: a drug charge against a political
+    scientist reads as common crime to every rule and model."""
+
+    def __init__(self, records: Iterable[tuple[str, str | None]]) -> None:
+        records = list(records)
+        self._base = KnownBase(name for name, _articles in records)
+        self._articles: dict[str, set[str]] = defaultdict(set)
+        for name, articles in records:
+            self._articles[" ".join(name.split())] |= (
+                set(_ARTICLE.findall(articles or "")) - _NEUTRAL_ARTICLES
+            )
+
+    @classmethod
+    def from_session(cls, session: Session) -> TrackedCases:
+        return cls(
+            (name, articles)
+            for name, articles in session.execute(
+                select(
+                    AirtableKnownPersonRecord.full_name, AirtableKnownPersonRecord.articles
+                ).where(AirtableKnownPersonRecord.active)
+            )
+        )
+
+    def match(self, name: str, articles: Iterable[str]) -> TrackedCase | None:
+        found = self._base.match(name)
+        if found is None or found.level not in ("in_base", "probably"):
+            return None
+        shared = sorted(self._articles[found.names[0]] & set(articles))
+        return TrackedCase(found.names[0], tuple(shared)) if shared else None

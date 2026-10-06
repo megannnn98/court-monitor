@@ -36,6 +36,7 @@ from db.orm_models import (
 )
 from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.disputes import KeyIndex
+from entities.known_base import TrackedCases
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -149,6 +150,10 @@ class PoliticsClassifier(Protocol):
 def verdict_of(answer: str) -> str:
     return {"political": POLITICAL, "criminal": CRIMINAL}.get(answer, UNCLEAR)
 
+
+# The method of a verdict the operator's base gave: her one record of that name, charged
+# under an article the news names too (`entities.known_base.TrackedCases`).
+BASE = "base"
 
 # The verdicts a person may name on «Неясная политичность»: «unclear» is never decided.
 MANUAL = "manual"
@@ -341,6 +346,8 @@ class PoliticsResult:
     failures: int
     # By the «Мемориал» category alone; common-crime articles alone: no model asked.
     political_memorial: int = 0
+    # By the operator's base: her record of that name, the same article.
+    political_base: int = 0
     criminal_rules: int = 0
     # Verdicts a person decided by hand: its own field, so a decision over an article
     # that carries a political charge stops being counted as a rule's political case.
@@ -454,10 +461,22 @@ class PoliticsFinder:
                 ).all()
             }
             quotes = quotes_of(session, [row.id for row in rest])
-        # Where the answer is known without asking (measured against the model's answers).
-        settled = {
-            row.id: rule for row in rest if (rule := _settled(row.articles, memorial.get(row.id)))
-        }
+            tracked_cases = TrackedCases.from_session(session)
+        # Where the answer is known without asking: the operator's own base first — a
+        # case she tracks is political though its article is common crime — then the
+        # rules measured against the model's answers.
+        settled = {}
+        for row in rest:
+            tracked = tracked_cases.match(row.name, row.articles)
+            if tracked is not None:
+                shared = ", ".join(tracked.articles)
+                settled[row.id] = (
+                    POLITICAL,
+                    BASE,
+                    f"в базе оператора: {tracked.name}, та же ст. {shared} УК",
+                )
+            elif rule := _settled(row.articles, memorial.get(row.id)):
+                settled[row.id] = rule
         asked_rows = [row for row in rest if row.id not in settled]
         items = {
             row.id: PoliticsItem(
@@ -567,6 +586,7 @@ class PoliticsFinder:
             # counting it here too put one entity into two numbers of the same summary.
             political_rules=verdicts[(POLITICAL, "article")],
             political_memorial=verdicts[(POLITICAL, "memorial")],
+            political_base=verdicts[(POLITICAL, BASE)],
             political_model=verdicts[(POLITICAL, "model")],
             criminal=sum(count for (verdict, _), count in verdicts.items() if verdict == CRIMINAL),
             criminal_rules=verdicts[(CRIMINAL, "article")],

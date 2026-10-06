@@ -429,6 +429,7 @@ def _political_card(run: OperationRun) -> str:
                 ("political_rules", "Политические по статье УК", "succeeded"),
                 ("political_model", "Политические по ответу модели", "succeeded"),
                 ("political_memorial", "Политические по категории «Мемориала»", "succeeded"),
+                ("political_base", "Политические по базе оператора", "succeeded"),
                 ("political_manual", "Политические по решению оператора", "succeeded"),
                 ("criminal_rules", "Уголовные по статье (без модели)", ""),
                 ("criminal_manual", "Уголовные по решению оператора", ""),

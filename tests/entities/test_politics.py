@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import (
+    AirtableKnownPersonRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
@@ -427,6 +428,69 @@ def test_an_article_a_model_read_is_shown_once_beside_the_entity_s_other(
 
     # Wide, and not once more short: the second place is the other article's.
     assert FAR in shown[0] and shown[1] == "Суд продлил арест Петру Котову."
+
+
+def _base(
+    session_factory: sessionmaker[Session], name: str, articles: str, *, active: bool = True
+) -> None:
+    with session_factory.begin() as session:
+        session.add(
+            AirtableKnownPersonRecord(
+                external_id=name,
+                full_name=name,
+                normalized_name=name.lower(),
+                matching_key=name.lower().replace(" ", ""),
+                articles=articles,
+                active=active,
+            )
+        )
+
+
+def test_a_case_the_operator_s_base_tracks_is_political_whatever_the_model_reads(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    # Her one record of that name, the same article; and a namesake of another crime.
+    _base(session_factory, "Беда Александр Петрович", "ст. 318 УК РФ ч. 1")
+    _base(session_factory, "Смирнова Анна Олеговна", "ст. 205.2 УК РФ")
+    classifier = FakeClassifier(VERDICTS)
+
+    result = PoliticsFinder(session_factory, classifier=classifier).run()
+
+    # The model would call Беда's case common crime; it is not asked.
+    assert "Александр Беда" not in {item.name for item in classifier.asked}
+    verdict, method, reason, _quote = _row(session_factory, "Александр Беда")
+    assert (verdict, method) == ("political", "base")
+    assert reason == "в базе оператора: Беда Александр Петрович, та же ст. 318 УК"
+    # A name alone is a namesake: the model reads her as before.
+    assert _row(session_factory, "Анна Смирнова")[:2] == ("political", "model")
+    assert (result.political_base, result.political_model, result.criminal) == (1, 2, 0)
+
+
+def test_a_record_the_operator_switched_off_tracks_no_case(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _base(session_factory, "Беда Александр Петрович", "ст. 318 УК РФ ч. 1", active=False)
+
+    PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+
+    assert _row(session_factory, "Александр Беда")[:2] == ("criminal", "model")
+
+
+def test_a_person_s_word_outweighs_the_base(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    _base(session_factory, "Беда Александр Петрович", "ст. 318 УК РФ ч. 1")
+    with session_factory.begin() as session:
+        beda = session.scalars(
+            select(EntityGroupRecord).where(EntityGroupRecord.name == "Александр Беда")
+        ).one()
+        decide_politics(session, beda, "criminal")
+
+    result = PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+
+    assert _row(session_factory, "Александр Беда")[:2] == ("criminal", "manual")
+    assert (result.political_base, result.criminal_manual) == (0, 1)
 
 
 def test_an_answer_that_names_someone_else_is_dropped() -> None:

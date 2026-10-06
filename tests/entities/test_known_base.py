@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import AirtableKnownPersonRecord
-from entities.known_base import KnownBase
+from entities.known_base import KnownBase, TrackedCase, TrackedCases
 
 
 def _answer(base: KnownBase, name: str) -> tuple[str, int] | None:
@@ -112,3 +112,25 @@ def test_only_the_active_records_of_the_base_count(
 
     assert len(base) == 1
     assert base.match("Анна Смирнова") is not None and base.match("Пётр Петров") is None
+
+
+def test_a_case_is_tracked_by_the_one_record_of_the_name_and_a_shared_article() -> None:
+    cases = TrackedCases(
+        [
+            ("Котов Пётр Ильич", "ст. 228.1 УК РФ ч. 4 п. г,ст. 30 УК РФ ч. 3"),
+            ("Быков Алексей Викторович", "ст. 205.2 УК РФ"),
+            ("Орлов Иван Олегович", "ст. 228.1 УК РФ"),
+            ("Орлов Иван Петрович", "ст. 228.1 УК РФ"),
+            ("Лугин Анна", None),
+        ]
+    )
+
+    assert cases.match("Пётр Котов", ["228.1"]) == TrackedCase("Котов Пётр Ильич", ("228.1",))
+    # A namesake: the record is of another crime.
+    assert cases.match("Алексей Быков", ["159"]) is None
+    # Two records by the name: which one, a shared article does not tell.
+    assert cases.match("Иван Орлов", ["228.1"]) is None
+    # An attempt is no article of a case: «ч. 4» and «ст. 30» name nothing.
+    assert cases.match("Пётр Котов", ["30"]) is None and cases.match("Пётр Котов", ["4"]) is None
+    assert cases.match("Анна Лугин", ["110.2"]) is None
+    assert cases.match("Никто Такой", ["228.1"]) is None

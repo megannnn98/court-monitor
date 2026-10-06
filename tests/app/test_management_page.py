@@ -744,7 +744,7 @@ def test_step_six_finds_the_political_cases_from_management(
                 {
                     "id": run_id,
                     "out": '{"rf_full": 3605, "rf_possible": 950, "figurants": 4831, '
-                    '"political_rules": 1378, "political_model": 1500, '
+                    '"political_rules": 1378, "political_model": 1500, "political_base": 7, '
                     '"criminal": 1800, "unclear": 150, "asked_now": 3450, "cached": 0, '
                     '"failures": 3}',
                 },
@@ -756,6 +756,7 @@ def test_step_six_finds_the_political_cases_from_management(
     assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
     assert "Политические по статье УК: 1378" in done
     assert "Политические по ответу модели: 1500" in done
+    assert "Политические по базе оператора: 7" in done
     assert "В перечне (ФИО с отчеством): 3605" in done
     assert "Уголовные: 1800" in done and 'href="/ui/political">Результат</a>' in done
     # The counts are read by what they are about: a line per group, an empty group none.
