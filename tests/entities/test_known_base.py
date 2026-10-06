@@ -125,7 +125,14 @@ def test_a_case_is_tracked_by_the_one_record_of_the_name_and_a_shared_article() 
         ]
     )
 
-    assert cases.match("Пётр Котов", ["228.1"]) == TrackedCase("Котов Пётр Ильич", ("228.1",))
+    # The news leaves the patronymic out: the same case, and said to be so by a part of
+    # the name; with the patronymic, by the whole of it.
+    assert cases.match("Пётр Котов", ["228.1"]) == TrackedCase(
+        "Котов Пётр Ильич", ("228.1",), full_name=False
+    )
+    assert cases.match("Пётр Ильич Котов", ["228.1"]) == TrackedCase(
+        "Котов Пётр Ильич", ("228.1",), full_name=True
+    )
     # A namesake: the record is of another crime.
     assert cases.match("Алексей Быков", ["159"]) is None
     # Two records by the name: which one, a shared article does not tell.
@@ -155,4 +162,6 @@ def test_only_today_s_criminal_code_makes_a_case_the_same() -> None:
     )
     assert cases.match("Иван Двойнов", ["205"]) is None
     assert cases.match("Иван Словов", ["205"]) is None
-    assert cases.match("Иван Верный", ["283"]) == TrackedCase("Верный Иван Ильич", ("283",))
+    assert cases.match("Иван Верный", ["283"]) == TrackedCase(
+        "Верный Иван Ильич", ("283",), full_name=False
+    )

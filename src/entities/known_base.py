@@ -162,6 +162,9 @@ class TrackedCase:
 
     name: str
     articles: tuple[str, ...]
+    # The record has the very name the news gives. False: one of them holds more words —
+    # mostly the base's patronymic the news leaves out — and a namesake fits as well.
+    full_name: bool = True
 
 
 class TrackedCases:
@@ -205,4 +208,6 @@ class TrackedCases:
         if found is None or found.level not in ("in_base", "probably"):
             return None
         shared = sorted(self._articles[found.names[0]] & set(articles))
-        return TrackedCase(found.names[0], tuple(shared)) if shared else None
+        if not shared:
+            return None
+        return TrackedCase(found.names[0], tuple(shared), found.level == "in_base")

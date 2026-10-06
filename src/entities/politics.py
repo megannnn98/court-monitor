@@ -36,7 +36,7 @@ from db.orm_models import (
 )
 from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.disputes import KeyIndex
-from entities.known_base import TrackedCases
+from entities.known_base import TrackedCase, TrackedCases
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -386,6 +386,13 @@ COMMON_CRIME_ARTICLES = frozenset(
 )  # fmt: skip
 
 
+def base_reason(tracked: TrackedCase) -> str:
+    """Why the base makes the case political — and, said first, how far the name goes: the
+    operator sees a match by a part of the name before trusting it."""
+    partly = "" if tracked.full_name else "имя совпало не полностью; "
+    return f"{partly}запись «{tracked.name}», та же ст. {', '.join(tracked.articles)} УК"
+
+
 def _settled(articles: Sequence[str], memorial: str | None) -> tuple[str, str, str] | None:
     """(verdict, method, reason) where the rules know the model's answer; None to ask."""
     if memorial in POLITICAL_CATEGORIES:
@@ -473,12 +480,7 @@ class PoliticsFinder:
         for row in rest:
             tracked = tracked_cases.match(row.name, row.own_articles)
             if tracked is not None:
-                shared = ", ".join(tracked.articles)
-                settled[row.id] = (
-                    POLITICAL,
-                    BASE,
-                    f"запись «{tracked.name}», та же ст. {shared} УК",
-                )
+                settled[row.id] = (POLITICAL, BASE, base_reason(tracked))
             elif rule := _settled(row.articles, memorial.get(row.id)):
                 settled[row.id] = rule
         asked_rows = [row for row in rest if row.id not in settled]

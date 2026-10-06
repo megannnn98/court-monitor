@@ -17,6 +17,7 @@ from db.orm_models import (
     EntityMentionRecord,
 )
 from entities.collector import EntityCollector
+from entities.known_base import TrackedCase
 from entities.politics import (
     POLITICAL,
     PoliticsAnswer,
@@ -24,6 +25,7 @@ from entities.politics import (
     PoliticsFinder,
     PoliticsItem,
     Verdict,
+    base_reason,
     decide_politics,
     matched_answers,
     verdict_of,
@@ -461,10 +463,21 @@ def test_a_case_the_operator_s_base_tracks_is_political_whatever_the_model_reads
     assert "Александр Беда" not in {item.name for item in classifier.asked}
     verdict, method, reason, _quote = _row(session_factory, "Александр Беда")
     assert (verdict, method) == ("political", "base")
-    assert reason == "запись «Беда Александр Петрович», та же ст. 318 УК"
+    # The news gives no patronymic: the reason says how far the name goes.
+    assert reason == "имя совпало не полностью; запись «Беда Александр Петрович», та же ст. 318 УК"
     # A name alone is a namesake: the model reads her as before.
     assert _row(session_factory, "Анна Смирнова")[:2] == ("political", "model")
     assert (result.political_base, result.political_model, result.criminal) == (1, 2, 0)
+
+
+def test_the_base_s_reason_warns_only_of_a_name_matched_in_part() -> None:
+    whole = TrackedCase("Котов Пётр Ильич", ("205", "280"), full_name=True)
+    part = TrackedCase("Котов Пётр Ильич", ("205",), full_name=False)
+
+    assert base_reason(whole) == "запись «Котов Пётр Ильич», та же ст. 205, 280 УК"
+    assert (
+        base_reason(part) == "имя совпало не полностью; запись «Котов Пётр Ильич», та же ст. 205 УК"
+    )
 
 
 def test_a_record_the_operator_switched_off_tracks_no_case(
