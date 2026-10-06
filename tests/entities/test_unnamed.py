@@ -13,8 +13,10 @@ from support.db_fixtures import DatabaseSeeder
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
+    UnnamedAnswerRecord,
     UnnamedFigurantRecord,
 )
+from entities.answers import input_hash
 from entities.unnamed import (
     DIFFERENT,
     RF_ENTRY,
@@ -330,6 +332,7 @@ class ContextReader:
                 initial="",
                 articles=[a for a in ("105", "205") if f"ст. {a}" in item.context],
                 event="detention",
+                motive="criminal" if "за угон" in item.context else "unknown",
                 explanation=f"по {len(item.context)} знакам",
             )
             for item in items
@@ -390,6 +393,85 @@ def test_a_failed_second_reading_keeps_what_the_first_found(
     # Nothing is lost to a failure: the card stays as the short reading made it.
     assert (figurant.age, figurant.articles) == (None, [])
     assert (result.unnamed, result.failures) == (1, 1)
+
+
+# A common crime told in words: no article number for the rule to drop it by.
+THEFT_SHORT = "Подросток из Тулы осуждён за угон."
+THEFT_FAR = f"Подросток из Орла осуждён. {FAR}Его судили за угон машины."
+THEFT_NEAR = f"Подросток из Уфы осуждён за угон. {FAR}Приговор обжалуют."
+
+
+def _quotes(session_factory: sessionmaker[Session]) -> list[str]:
+    with session_factory() as session:
+        return sorted(session.scalars(select(UnnamedFigurantRecord.quote)).all())
+
+
+def test_a_common_crime_told_in_words_is_no_unnamed_figurant(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, THEFT_SHORT, THEFT_FAR, TERROR)
+
+    result = UnnamedFinder(session_factory, reader=ContextReader()).run()
+
+    # The short publication is whole in the first reading; the long one tells the crime
+    # only to the second.
+    assert _quotes(session_factory) == ["Подросток из Омска арестован."]
+    assert (result.unnamed, result.criminal_motive, result.common_crime) == (1, 2, 0)
+
+
+def test_a_motive_read_from_a_part_of_the_text_drops_nobody(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, THEFT_NEAR)
+
+    result = UnnamedFinder(session_factory, reader=ContextReader(wide_fails=True)).run()
+
+    # The whole publication was not read: «не потерять» outweighs a shorter queue.
+    assert _quotes(session_factory) == ["Подросток из Уфы осуждён за угон."]
+    assert (result.unnamed, result.criminal_motive) == (1, 0)
+
+
+def test_an_earlier_prompt_s_answer_holds_unless_it_made_a_figurant(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _publications(session_factory, LONG_VICTIM, THEFT_SHORT)
+    earlier = UnnamedAnswer(
+        id=0,
+        is_case=False,
+        named=False,
+        age=None,
+        gender="male",
+        place="",
+        initial="",
+        articles=[],
+        event="other",
+        explanation="прежний ответ",
+    )
+    with session_factory.begin() as session:
+        for number, text_ in enumerate((LONG_VICTIM, THEFT_SHORT), start=1):
+            article_id = session.scalar(
+                text("SELECT id FROM parsed_articles WHERE title = :title"),
+                {"title": str(number - 1)},
+            )
+            [sentence] = described_sentences(article_id, text_, None)
+            answer = earlier.model_copy(update={"is_case": text_ == THEFT_SHORT})
+            session.add(
+                UnnamedAnswerRecord(
+                    key=sentence.key,
+                    input_hash=input_hash(sentence.text, sentence.context),
+                    prompt_version="unnamed-v1",
+                    model="fake-model",
+                    answer=answer.model_dump_json(),
+                    explanation=answer.explanation,
+                )
+            )
+    reader = ContextReader()
+
+    UnnamedFinder(session_factory, reader=reader).run()
+
+    # Who was no figurant needs no motive; who was is asked for it — and has one.
+    assert [[item.sentence for item in batch] for batch in reader.asked] == [[THEFT_SHORT]]
+    assert _quotes(session_factory) == []
 
 
 def test_common_crime_only_is_every_article_common_none_political() -> None:
