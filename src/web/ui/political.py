@@ -24,6 +24,7 @@ from db.orm_models import (
 )
 from entities.known_base import COUNTED, KnownMatch
 from entities.news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE, UNKNOWN
+from entities.rf_articles import AWAITED
 from entities.rf_check import FULL
 from entities.rf_entry import (
     INCLUSION_NOTES,
@@ -50,6 +51,7 @@ from web.ui.political_filters import (
     KNOWN_FILTERS,
     NEWS_FILTERS,
     PERIODS,
+    RFM_FILTERS,
     WHO_FILTERS,
     Filters,
     date_field,
@@ -131,6 +133,16 @@ def _done_box(row: ListRow, back: str) -> str:
     )
 
 
+def _listing_mark(row: ListRow) -> str:
+    """Under the list's entry: what the person's articles say of the list. The one awaited
+    — charged under an article of the перечень and not on it — stands out."""
+    found = row.listing
+    if found is None:
+        return ""
+    css = "badge pending" if found.kind == AWAITED else "muted"
+    return f'<div><span class="{css}">{escape(found.text)}</span></div>'
+
+
 def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: str = "") -> str:
     articles = ", ".join(
         f"<b>{escape(article)}</b>" if article in POLITICAL_ARTICLES else escape(article)
@@ -169,7 +181,7 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: 
         f"<td>{_news_mark(row)}</td>"
         f"<td>{_known_mark(row, loaded=known_loaded)}</td>"
         f"<td>{escape(row.regions)}</td>"
-        f'<td class="muted">{escape(row.rf_entry)}</td>'
+        f'<td><span class="muted">{escape(row.rf_entry)}</span>{_listing_mark(row)}</td>'
         f"<td>{articles}</td>"
         f'<td>{escape(_basis(row))}<br><span class="muted">{escape(row.basis.quote[:200])}</span></td>'
         f"<td>{escape(row.memorial or '')}</td>"
@@ -189,10 +201,11 @@ def ui_political(
     known: str = Query(default="all", max_length=16),
     done: str = Query(default="hide", max_length=8),
     who: str = Query(default="all", max_length=8),
+    rfm: str = Query(default="all", max_length=8),
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    chosen = filters(months, date_from, date_to, news, known, done, who)
+    chosen = filters(months, date_from, date_to, news, known, done, who, rfm)
     # No filters in the address: the last ones chosen, not «all the time».
     if not any(name in request.query_params for name in FILTER_NAMES):
         chosen = remembered(request.cookies.get(FILTERS_COOKIE, "")) or chosen
@@ -208,6 +221,11 @@ def ui_political(
     who_options = "".join(
         f'<option value="{key}"{" selected" if key == chosen.who else ""}>{label}</option>'
         for key, label in WHO_FILTERS.items()
+    )
+    rfm_options = "".join(
+        f'<option value="{key}"{" selected" if key == chosen.rfm else ""}>{label}'
+        f"{f' ({result.awaited})' if key == 'awaited' else ''}</option>"
+        for key, label in RFM_FILTERS.items()
     )
     # Beside the filters and always there, so the way back to a ticked person is in plain
     # sight: the first person to tick a row could not find them again.
@@ -263,6 +281,9 @@ def ui_political(
     <label class="field">Кто <select name="who" onchange="this.form.submit()">{
         who_options
     }</select></label>
+    <label class="field">Перечень РФМ <select name="rfm" onchange="this.form.submit()">{
+        rfm_options
+    }</select></label>
     {done_toggle}
     <button type="submit" class="secondary" formaction="/ui/political/export.xlsx">Скачать Excel</button>
   </div>
@@ -277,6 +298,10 @@ def ui_political(
 него — рядом с именем; «возможно в перечне» — совпали только имя и фамилия, может быть тёзка.
 Дата включения — свойство записи перечня, а не человека: под именем она читается как
 «запись перечня включена …» и не делает совпадение подтверждением личности.
+«Статья перечня» — человеку вменяют статью, по которой включают в перечень (все 205-е, 281-е
+и 282-е, 208); «в перечне пока нет» — по статье он должен там быть, а записи нет: свежее дело
+или имя в новости записано иначе. Фильтр «Ждём в перечне» показывает только таких. Статья
+известна не у всех: без пометки — не значит, что статья другая.
 {escape(INCLUSION_ATTRIBUTION)}.
 Жирная статья — из списка политических; «Последняя новость» показывает, свежий ли случай.
 «В базе Airtable» — есть ли человек в вашей таблице «Найденные люди». Названных сверяем по
@@ -365,6 +390,8 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
         *(f"Источник {number}" for number in range(1, LINKS + 1)),
         "Свежая новость",
         "В базе Airtable",
+        # Last: the files she already works from keep their columns where they were.
+        "Статья перечня",
     ]
     first_source = headers.index("Источник 1") + 1
     sources = [
@@ -390,6 +417,7 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
                 *(None for _ in range(LINKS - len(found))),
                 KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
                 _known_text(row, loaded=known_loaded),
+                row.listing.text if row.listing else None,
             ]
             for position, (row, found) in enumerate(zip(rows, sources, strict=True), start=1)
         ],
@@ -423,10 +451,11 @@ def ui_political_export(
     known: str = Query(default="all", max_length=16),
     done: str = Query(default="hide", max_length=8),
     who: str = Query(default="all", max_length=8),
+    rfm: str = Query(default="all", max_length=8),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Every row of the page's filters, not only one page."""
-    chosen = filters(months, date_from, date_to, news, known, done, who)
+    chosen = filters(months, date_from, date_to, news, known, done, who, rfm)
     result = result_rows(db, chosen)
     name = export_name(chosen, result.rows, datetime.now(UTC).date())
     return Response(

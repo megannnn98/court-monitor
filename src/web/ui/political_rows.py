@@ -28,6 +28,7 @@ from entities.known_base import KnownBase, KnownMatch
 from entities.known_nameless import NamelessBase
 from entities.news import NEW_CASE, ONGOING, OTHER, SENTENCE
 from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
+from entities.rf_articles import AWAITED, Listing, listing
 from entities.rf_check import FULL
 from entities.rf_entry import strongest_entries
 from entities.unnamed_cases import KEY_PREFIX, Case, political_cases
@@ -123,6 +124,14 @@ class ListRow:
     @property
     def unnamed(self) -> bool:
         return self.group_id is None
+
+    @property
+    def listing(self) -> Listing | None:
+        """What the articles say of the перечень. Only of a person with a name: one the
+        text does not name cannot be on a list of names, and is looked for on «Безымянные»."""
+        if self.unnamed:
+            return None
+        return listing((article for article, _ in self.articles), self.rf_level)
 
     @property
     def maybe_listed(self) -> bool:
@@ -234,6 +243,8 @@ class Result:
     base_size: int
     # Everybody marked «обработано», whatever the filters.
     done_total: int
+    # The people charged under an article of the перечень and not on it, before the choice.
+    awaited: int = 0
 
 
 def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Result:
@@ -270,7 +281,18 @@ def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Re
     base_size = len(base) + len(nameless)
     if chosen.known != "all" and base_size:
         found = [row for row in found if known_answer(row.known) == chosen.known]
+    # What the articles say of the list is asked of everybody, not of a page: the choice
+    # and its count are of the whole list.
+    named = {row.group_id: row for row in found if row.group_id is not None}
+    for group_id, articles in _articles_by_group(db, list(named)).items():
+        named[group_id].articles = articles
+    for group_id, entry in strongest_entries(db, list(named)).items():
+        named[group_id].rf_level = entry.level
+    awaited = sum(1 for row in found if row.listing and row.listing.kind == AWAITED)
+    if chosen.rfm == "awaited":
+        found = [row for row in found if row.listing and row.listing.kind == AWAITED]
     return Result(
+        awaited=awaited,
         rows=found,
         news_counts=dict(news_counts),
         known_counts=dict(known_counts),

@@ -18,11 +18,13 @@ from entities.news import CLOSED, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
-FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done", "who")
+FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done", "who", "rfm")
 # Named people, or the figurants a publication does not name (`entities.unnamed_cases`).
 WHO_FILTERS = {"all": "Все", "named": "С именем", "unnamed": "Без имени"}
 # The people the operator marked «обработано»: hidden unless she asks to see them.
 DONE_FILTERS = ("hide", "show")
+# By what the person's articles say of the Rosfinmonitoring list (`entities.rf_articles`).
+RFM_FILTERS = {"all": "Все", "awaited": "Ждём в перечне"}
 # What the latest news is (`entities.news`): the operator's new cases and sentences first.
 NEWS_FILTERS = {
     "all": "Любая свежая новость",
@@ -58,6 +60,7 @@ class Filters:
     known: str = "all"
     done: str = "hide"
     who: str = "all"
+    rfm: str = "all"
 
     @property
     def custom(self) -> bool:
@@ -73,6 +76,7 @@ class Filters:
             "known": self.known,
             "done": self.done,
             "who": self.who,
+            "rfm": self.rfm,
         }
 
     def window(self, now: datetime) -> tuple[datetime | None, datetime | None]:
@@ -139,6 +143,7 @@ def filters(
     known: str = "all",
     done: str = "hide",
     who: str = "all",
+    rfm: str = "all",
 ) -> Filters:
     """Dates, when given, win over the months."""
     start, end = _parse_date(date_from), _parse_date(date_to)
@@ -150,6 +155,7 @@ def filters(
         known=known if known in KNOWN_FILTERS else "all",
         done=done if done in DONE_FILTERS else "hide",
         who=who if who in WHO_FILTERS else "all",
+        rfm=rfm if rfm in RFM_FILTERS else "all",
     )
 
 
@@ -171,4 +177,5 @@ def remembered(cookie: str) -> Filters | None:
         values.get("known", "all"),
         values.get("done", "hide"),
         values.get("who", "all"),
+        values.get("rfm", "all"),
     )

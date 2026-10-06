@@ -19,7 +19,7 @@ from urllib.parse import quote
 import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import (
@@ -397,3 +397,111 @@ def test_a_day_of_the_ovd_info_copy_carries_no_mark() -> None:
         "запись перечня включена 14.03.2024 (по таблице оператора)"
     )
     assert entry_included_text(None, "operator") == ""
+
+
+def _charged(session_factory: sessionmaker[Session], charges: dict[str, str]) -> None:
+    """Give each of these people (by key; made if not there, with a political verdict)
+    one article."""
+    from support.db_fixtures import DatabaseSeeder
+
+    from db.orm_models import EntityGroupChargeRecord
+
+    now = datetime.now(UTC)
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        article, run = seed.article(
+            source, external_id="c1", title="Дело", text="Суд.", published_at=now
+        )
+        event = seed.event(run, "Суд", event_type="arrest", event_date=now, links=[])
+        for key, number in charges.items():
+            group = session.scalars(
+                select(EntityGroupRecord).where(EntityGroupRecord.key == key)
+            ).one_or_none()
+            if group is None:
+                group = EntityGroupRecord(
+                    key=key,
+                    name=key.title(),
+                    variants=[[key.title(), 1]],
+                    mention_count=1,
+                    article_count=1,
+                    event_types={},
+                    regions=[],
+                    last_published_at=now - timedelta(days=1),
+                )
+                session.add(group)
+                session.flush()
+                session.add(
+                    EntityGroupPoliticsRecord(
+                        group_id=group.id,
+                        verdict="political",
+                        method="model",
+                        reason="r",
+                        quote="q",
+                    )
+                )
+            if number:
+                session.add(
+                    EntityGroupChargeRecord(
+                        group_id=group.id,
+                        event_id=event,
+                        publication_id=article,
+                        article=number,
+                        event_type="arrest",
+                        other_targets=0,
+                        quote="q",
+                    )
+                )
+        session.commit()
+
+
+def test_a_person_charged_under_an_article_of_the_list_is_marked_and_can_be_chosen(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """On the list with the patronymic — it agrees; a namesake's entry or none at all — the
+    person is awaited, and those are the ones the choice shows."""
+    _seed(session_factory)
+    _charged(
+        session_factory,
+        {
+            "анна смирнова": "205.2",  # the list holds her, with the patronymic
+            "иван иванов": "282.2",  # only a name and a surname matched
+            "пётр новый": "205.5",  # nobody by the name on the list
+            "олег иногда": "280",
+            "глеб простой": "159",
+            "яков безстатьи": "",
+        },
+    )
+
+    with _client(session_factory) as client:
+        everyone = client.get("/ui/political?known=all&months=0").text
+        awaited = client.get("/ui/political?known=all&months=0&rfm=awaited").text
+        book = client.get("/ui/political/export.xlsx?known=all&months=0").content
+        dossier = client.get(f"/ui/investigations/{quote('пётр новый')}").text
+        listed_dossier = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
+
+    assert '<span class="muted">статья перечня: 205.2 — в перечне</span>' in everyone
+    for words in (
+        "статья перечня: 282.2 — в перечне пока нет",
+        "статья перечня: 205.5 — в перечне пока нет",
+    ):
+        assert f'<span class="badge pending">{words}</span>' in everyone
+    assert '<span class="muted">статья 280 — в перечень включают иногда</span>' in everyone
+    assert everyone.count("статья перечня:") == 3
+    # The count is of the whole list, and the choice leaves the two awaited.
+    assert '<option value="awaited">Ждём в перечне (2)</option>' in everyone
+    assert '<option value="awaited" selected>Ждём в перечне (2)</option>' in awaited
+    assert "Найдено: 2." in awaited
+    # Surname first, as the page writes a name.
+    assert "Новый Пётр" in awaited and "Иванов Иван" in awaited
+    assert "Смирнова Анна" not in awaited
+    assert "rfm=awaited" in awaited  # the choice rides on to the pager and the file
+    sheet = load_workbook(BytesIO(book)).worksheets[0]
+    header = [cell.value for cell in sheet[1]]
+    assert header[-1] == "Статья перечня"
+    by_name = {row[1].value: row[-1].value for row in sheet.iter_rows(min_row=2)}
+    assert by_name["Новый Пётр"] == "статья перечня: 205.5 — в перечне пока нет"
+    assert by_name["Смирнова Анна"] == "статья перечня: 205.2 — в перечне"
+    assert by_name["Простой Глеб"] is None and by_name["Безстатьи Яков"] is None
+    assert "<p>статья перечня: 205.5 — в перечне пока нет.</p>" in dossier
+    assert "<p>статья перечня: 205.2 — в перечне.</p>" in listed_dossier

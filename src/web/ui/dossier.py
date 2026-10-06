@@ -38,6 +38,7 @@ from entities.news import KIND_LABELS as NEWS_LABELS
 from entities.news import NEW_CASE, SENTENCE
 from entities.officials import OFFICIAL_KINDS
 from entities.politics import CRIMINAL, POLITICAL, VERDICT_LABELS
+from entities.rf_articles import listing
 from entities.rf_check import FULL
 from entities.rf_entry import source_mark
 from entities.roles import FIGURANT
@@ -571,6 +572,11 @@ def _decision(dossier: Dossier) -> str:
         "</li>"
         for row in dossier.rf
     )
+    # What the person's articles say of the list, beside what the list itself says.
+    expected = listing(
+        dossier.charges, FULL if any(row.level == FULL for row in dossier.rf) else None
+    )
+    rf_expected = f"<p>{escape(expected.text)}.</p>" if expected else ""
     warnings = ["Даты событий — даты публикаций: точной даты события в базе нет."]
     if any(not charge["sole"] for charge in dossier.charges.values()):
         warnings.append("Часть статей УК «общая»: в событии обвиняемыми названы и другие люди.")
@@ -590,6 +596,7 @@ def _decision(dossier: Dossier) -> str:
     <div><h3>Росфинмониторинг</h3>
       <p>{_badge(rf_label, rf_badge)}</p>
       {f"<ul>{rf_items}</ul>" if rf_items else ""}
+      {rf_expected}
       <p class="muted">Перечень подтверждает личность: дата рождения и место. Последний снимок
       перечня: {_day(dossier.snapshot_date)}. Даты рождения в новостях нет — тёзку отличает
       только отчество. Дата включения — свойство записи перечня, а не человека: она не
