@@ -461,7 +461,7 @@ def test_a_case_the_operator_s_base_tracks_is_political_whatever_the_model_reads
     assert "Александр Беда" not in {item.name for item in classifier.asked}
     verdict, method, reason, _quote = _row(session_factory, "Александр Беда")
     assert (verdict, method) == ("political", "base")
-    assert reason == "в базе оператора: Беда Александр Петрович, та же ст. 318 УК"
+    assert reason == "запись «Беда Александр Петрович», та же ст. 318 УК"
     # A name alone is a namesake: the model reads her as before.
     assert _row(session_factory, "Анна Смирнова")[:2] == ("political", "model")
     assert (result.political_base, result.political_model, result.criminal) == (1, 2, 0)

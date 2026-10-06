@@ -473,7 +473,7 @@ class PoliticsFinder:
                 settled[row.id] = (
                     POLITICAL,
                     BASE,
-                    f"в базе оператора: {tracked.name}, та же ст. {shared} УК",
+                    f"запись «{tracked.name}», та же ст. {shared} УК",
                 )
             elif rule := _settled(row.articles, memorial.get(row.id)):
                 settled[row.id] = rule
