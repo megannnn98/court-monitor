@@ -120,6 +120,17 @@ _OPEN_UNNAMED = text(
 )
 
 
+# The held a person decides one by one, and one more for all a model read as junk: those
+# go by a single press («Мусор — все»), so they are one piece of work, not forty.
+_HELD = text(
+    """
+    SELECT count(*) FILTER (WHERE reader_verdict IS DISTINCT FROM 'junk')
+           + (count(*) FILTER (WHERE reader_verdict = 'junk') > 0)::int
+    FROM junk_screen_holds WHERE status = 'held'
+    """
+)
+
+
 def workload(db: Session) -> Workload:
     unclear_roles = db.scalar(
         select(func.count())
@@ -136,5 +147,5 @@ def workload(db: Session) -> Workload:
         unclear_roles or 0,
         unclear_verdicts or 0,
         db.scalar(_OPEN_UNNAMED) or 0,
-        db.scalar(text("SELECT count(*) FROM junk_screen_holds WHERE status = 'held'")) or 0,
+        db.scalar(_HELD) or 0,
     )

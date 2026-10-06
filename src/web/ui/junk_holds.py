@@ -216,12 +216,15 @@ def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> s
 
 @router.get("/ui/junk-holds", response_class=HTMLResponse)
 def ui_junk_holds(
-    status: str = Query(default=HELD, pattern=f"^({'|'.join(_STATUSES)})$"),
+    status: str | None = Query(default=None, pattern=f"^({'|'.join(_STATUSES)})$"),
     page: int = Query(default=1, ge=1),
     released: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     counts = {str(key): int(value) for key, value in db.execute(_COUNTS).all()}
+    if status is None:
+        # Opened from the queue: the list there is work in, the model's when it is all.
+        status = MODEL_JUNK_VIEW if not counts.get(HELD) and counts.get(MODEL_JUNK_VIEW) else HELD
     rows = db.execute(_HOLDS, _view(status)).all()
     by_id = {row.article_id: row for row in rows}
     pairs = [

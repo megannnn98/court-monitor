@@ -20,6 +20,7 @@ from web.app import app
 from web.dependencies import get_db
 from web.ui.junk_holds import PAGE_SIZE, _pages, same_news
 from web.ui.run_cards import _holds_read
+from web.ui.workload import workload
 
 
 @contextmanager
@@ -400,3 +401,39 @@ def test_the_purge_s_card_says_what_the_model_read() -> None:
     assert 'href="/ui/junk-holds?status=released"' in marks
     assert "Модель выпустила в работу: 24" in marks and "Модель считает мусором: 43" in marks
     assert _holds_read("event=junk_purge_started total=0") == []
+
+
+def test_all_a_model_read_as_junk_is_one_piece_of_work_and_opens_first(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _read(session_factory)
+
+    with session_factory() as session:
+        with_unread = workload(session).junk_holds
+    with _client(session_factory) as client:
+        opened_with_unread = client.get("/ui/junk-holds").text
+        client.post("/ui/junk-holds/junk", data={"article": str(ids["unread"])})
+        opened = client.get("/ui/junk-holds").text
+        client.post("/ui/junk-holds/junk-all", data={"articles": f"{ids['bribe']},{ids['fine']}"})
+    with session_factory() as session:
+        nothing_left = workload(session).junk_holds
+
+    # One the model did not answer about, and one press for the two it calls junk.
+    assert with_unread == 2
+    assert _titles(opened_with_unread) == ["unread"]
+    # Nothing unread: the queue's link opens the list there is work in.
+    assert _titles(opened) == ["bribe", "fine"]
+    assert nothing_left == 0
+
+
+def test_two_articles_a_model_calls_junk_count_as_one(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _read(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("DELETE FROM junk_screen_holds WHERE article_id = :id"), {"id": ids["unread"]}
+        )
+
+    with session_factory() as session:
+        assert workload(session).junk_holds == 1
