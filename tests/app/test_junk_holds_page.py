@@ -351,7 +351,7 @@ def test_the_held_are_four_lists_and_the_model_s_junk_goes_by_one_press(
     assert "На проверке (1)" in held and "Модель считает мусором (2)" in held
     assert "Выпущено в работу (1)" in held and "Отмечены как мусор (0)" in held
     # The model's reason, as the model's; a person takes a case on against it.
-    assert "Модель: не дело — взятки, обычное уголовное дело" in pages["model_junk"]
+    assert "Модель: в работу не брать — взятки, обычное уголовное дело" in pages["model_junk"]
     assert "Модель: дело — приговор за донаты" in pages["released"]
     assert "Это дело — в работу</button>" in pages["model_junk"]
     # A release is undone by «Мусор» alone: there is nothing to extract or release again.

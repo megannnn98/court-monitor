@@ -151,7 +151,7 @@ def _button(action: str, article_id: int, label: str, status: str, page: int) ->
 
 
 # Whose word the note is, when it is a model's.
-_NOTE_LABELS = {MODEL_JUNK: "Модель: не дело — ", "case": "Модель: дело — "}
+_NOTE_LABELS = {MODEL_JUNK: "Модель: в работу не брать — ", "case": "Модель: дело — "}
 
 
 def _card(row: Any, status: str, page: int) -> str:

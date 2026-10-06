@@ -1613,7 +1613,8 @@ table caption {
 
 /* Cards, not a publication's text: the layout's line breaks are no text's. */
 article.evidence,
-article.pair-card {
+article.pair-card,
+article.band {
   white-space: normal;
 }
 
