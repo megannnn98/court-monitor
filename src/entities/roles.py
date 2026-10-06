@@ -430,11 +430,16 @@ _MODEL_READ = text(
 )
 
 
+# No limit of publications per entity, for `_QUOTES`.
+_EVERY = 1_000_000
+
+
 def quotes_of(session: Session, groups: Sequence[int]) -> dict[int, list[str]]:
-    """The quotes a model is shown of each entity: short ones, and a wide one at once of
-    an article read by a model alone. The rules had no wording for such an article, so
-    what it tells stands where a short quote does not reach; the entity's other articles
-    keep the short quote."""
+    """The quotes a model is shown of each entity: short ones of its latest articles, and
+    before them a wide one of each article read by a model alone, however old. The rules
+    had no wording for such an article, so what it tells stands where a short quote does
+    not reach — and the article is in the work for this entity's sake, so it is shown
+    even when later ones would crowd it out. `QUOTES` in all, as for anyone."""
     model_read = {
         (group_id, article_id)
         for group_id, article_id in session.execute(
@@ -442,21 +447,25 @@ def quotes_of(session: Session, groups: Sequence[int]) -> dict[int, list[str]]:
         ).all()
     }
 
-    def read(ids: Sequence[int], context: int) -> dict[tuple[int, int], str]:
+    def read(ids: Sequence[int], context: int, limit: int) -> dict[tuple[int, int], str]:
+        """Per entity and publication, the latest publication first."""
         return {
             (group_id, publication): " ".join((quote or "").split())
             for group_id, quote, publication in session.execute(
-                _QUOTES, {"groups": list(ids), "context": context, "quotes": QUOTES}
+                _QUOTES, {"groups": list(ids), "context": context, "quotes": limit}
             ).all()
         }
 
-    wide = read(sorted({group_id for group_id, _article in model_read}), WIDE_CONTEXT)
     quotes: dict[int, list[str]] = {}
-    # The order of the short reading: an entity's latest publication first.
-    for (group_id, publication), quote in read(groups, QUOTE_CONTEXT).items():
-        key = (group_id, publication)
-        quotes.setdefault(group_id, []).append(wide.get(key, quote) if key in model_read else quote)
-    return quotes
+    # Every publication of these entities: the one a model read may not be among the latest.
+    wide = read(sorted({group_id for group_id, _article in model_read}), WIDE_CONTEXT, _EVERY)
+    for (group_id, publication), quote in wide.items():
+        if (group_id, publication) in model_read:
+            quotes.setdefault(group_id, []).append(quote)
+    for (group_id, publication), quote in read(groups, QUOTE_CONTEXT, QUOTES).items():
+        if (group_id, publication) not in model_read:
+            quotes.setdefault(group_id, []).append(quote)
+    return {group_id: shown[:QUOTES] for group_id, shown in quotes.items()}
 
 
 @dataclass(frozen=True)

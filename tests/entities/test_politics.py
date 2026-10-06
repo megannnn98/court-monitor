@@ -359,12 +359,19 @@ DOLGOV_AGAIN = (
     "Глебу Долгову",
     "Глеб Долгов",
 )
+DOLGOV_THIRD = (
+    "dolgov-third",
+    "Глебу Долгову отказали в свидании.",
+    "Глебу Долгову",
+    "Глеб Долгов",
+)
 
 
 def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_once(
     session_factory: sessionmaker[Session],
 ) -> None:
-    _seed(session_factory, [DOLGOV, DOLGOV_AGAIN, INOY])
+    # The article a model read is the oldest of his three: later ones do not crowd it out.
+    _seed(session_factory, [DOLGOV, DOLGOV_AGAIN, DOLGOV_THIRD, INOY])
     with session_factory.begin() as session:
         # Долгов's article is in the work by a model's reading: the rules found no case.
         article = session.scalar(text("SELECT id FROM parsed_articles WHERE title = 'dolgov'"))
@@ -389,9 +396,37 @@ def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_
     # His other publication, the rules' own, keeps the short quote: only what the model
     # alone read is shown wide.
     assert len(shown[ids["Глеб Долгов"]]) == 2 and THEFT not in " ".join(shown[ids["Глеб Долгов"]])
+    # The wide one first, then the latest of the rest.
+    assert (
+        FAR in shown[ids["Глеб Долгов"]][0]
+        and "отказали в свидании" in shown[ids["Глеб Долгов"]][1]
+    )
     # Asked wide at once, he is not asked a second time; the other is, as anyone.
     assert [item.name for item in second] == ["Лев Иной"]
     assert _row(session_factory, "Глеб Долгов")[:2] == ("political", "model")
+
+
+def test_an_article_a_model_read_is_shown_once_beside_the_entity_s_other(
+    session_factory: sessionmaker[Session],
+) -> None:
+    earlier = ("kot-earlier", "Суд продлил арест Петру Котову.", "Петру Котову", "Пётр Котов")
+    latest = (
+        "kot",
+        f"Суд арестовал Петра Котова. {'Шло долго. ' * 20}{FAR}.",
+        "Петра Котова",
+        "Пётр Котов",
+    )
+    _seed(session_factory, [earlier, latest])
+    with session_factory.begin() as session:
+        article = session.scalar(text("SELECT id FROM parsed_articles WHERE title = 'kot'"))
+        add_event(session, article, "sentence", "прочитано моделью")
+        group = session.scalar(
+            select(EntityGroupRecord.id).where(EntityGroupRecord.name == "Пётр Котов")
+        )
+        shown = quotes_of(session, [group])[group]
+
+    # Wide, and not once more short: the second place is the other article's.
+    assert FAR in shown[0] and shown[1] == "Суд продлил арест Петру Котову."
 
 
 def test_an_answer_that_names_someone_else_is_dropped() -> None:

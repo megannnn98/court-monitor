@@ -377,6 +377,9 @@ def test_a_person_takes_a_case_on_against_the_model_and_undoes_a_release(
         twice = client.post(
             "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
         )
+        released_page = client.get("/ui/junk-holds", params={"status": "released"}).text
+        released_page = released_page[released_page.index(f'id="a-{ids["fine"]}"') :]
+        released_page = released_page[: released_page.index("</article>")]
         undone = client.post(
             "/ui/junk-holds/unrelease",
             data={"article": str(ids["donation"])},
@@ -391,6 +394,8 @@ def test_a_person_takes_a_case_on_against_the_model_and_undoes_a_release(
     # A person's release is an event too: the later steps take an article by its event.
     assert _status(session_factory, ids["fine"]) == "released"
     assert _model_events(session_factory, ids["fine"]) == ["case_opened"]
+    # The word is the person's: the card no longer says what the model thought of it.
+    assert "Модель:" not in released_page and "Выпущено в работу оператором." in released_page
     # A release undone takes its event back, or the purge would never see the article.
     assert _status(session_factory, ids["donation"]) == "junk"
     assert _model_events(session_factory, ids["donation"]) == []
@@ -492,3 +497,24 @@ def test_back_to_the_check_is_read_anew(session_factory: sessionmaker[Session]) 
     # the list of the unread — neither stuck with an old verdict nor back among its junk.
     assert unread == {ids["unread"], ids["donation"], ids["bribe"]}
     assert sorted(_titles(held)) == ["bribe", "donation", "unread"]
+
+
+def test_an_article_with_no_extraction_to_write_to_is_not_released(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _read(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE article_extraction_runs SET status = 'failed' WHERE article_id = :id"),
+            {"id": ids["fine"]},
+        )
+
+    with _client(session_factory) as client:
+        refused = client.post(
+            "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
+        )
+
+    # Released without its event it would be in no list and no step, and never purged.
+    assert refused.status_code == 404
+    assert _status(session_factory, ids["fine"]) == "held"
+    assert _model_events(session_factory, ids["fine"]) == []

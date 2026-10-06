@@ -258,26 +258,35 @@ PERSON_EVENT = "case_opened"
 PERSON_NOTE = "Выпущено в работу оператором."
 
 
+PERSON_READER = "operator"
+
+
 def release(session: Session, article_id: int) -> bool:
     """A person's word that a held article tells of a case: into the work, as the model's
-    release. False when the article is not held."""
+    release. False when the article is not held, or has no successful extraction to
+    write the event to — released without it, it would be in no list and no step.
+
+    The word is the person's now: what a model said of the article goes."""
     updated = session.execute(
         text(
-            "UPDATE junk_screen_holds SET status = :released, decided_at = now(), "
-            "reader_event = :event, note = :note WHERE article_id = :article AND status = :held"
+            "UPDATE junk_screen_holds h SET status = :released, decided_at = now(), "
+            "reader = :reader, reader_verdict = NULL, reader_event = :event, note = :note "
+            "WHERE h.article_id = :article AND h.status = :held AND EXISTS ("
+            "SELECT 1 FROM article_extraction_runs r "
+            "WHERE r.article_id = h.article_id AND r.status = 'succeeded')"
         ),
         {
             "article": article_id,
             "released": RELEASED,
             "held": HELD,
+            "reader": PERSON_READER,
             "event": PERSON_EVENT,
             "note": PERSON_NOTE,
         },
     )
     if not updated.rowcount:  # type: ignore[attr-defined]
         return False
-    add_event(session, article_id, PERSON_EVENT, PERSON_NOTE)
-    return True
+    return add_event(session, article_id, PERSON_EVENT, PERSON_NOTE)
 
 
 class _NoExtraction(Exception):

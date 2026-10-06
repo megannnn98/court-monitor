@@ -17,6 +17,7 @@ from monitoring.hold_reader import (
     HoldItem,
     hold_reader_from_env,
     read_holds,
+    release,
 )
 from monitoring.junk_holds import mark_junk
 from monitoring.junk_purge import JunkPurge
@@ -267,3 +268,25 @@ def test_what_the_budget_left_unasked_is_no_failure(
     assert reader.asked == []
     assert (result.unasked, result.failures, result.released, result.model_junk) == (3, 0, 0, 0)
     assert {status for status, *_ in _holds(session_factory).values()} == {HELD}
+
+
+def test_a_person_s_release_needs_an_extraction_to_write_to(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE article_extraction_runs SET status = 'failed' WHERE article_id = :id"),
+            {"id": ids["fine"]},
+        )
+
+    # Committed whatever it answers: a refusal must leave nothing behind.
+    with session_factory.begin() as session:
+        refused = release(session, ids["fine"])
+    with session_factory.begin() as session:
+        taken = release(session, ids["bribe"])
+
+    holds = _holds(session_factory)
+    assert (refused, taken) == (False, True)
+    assert holds[ids["fine"]][0] == HELD and holds[ids["bribe"]][0] == RELEASED
+    assert [event.event_type for event in _events(session_factory, ids["bribe"])] == ["case_opened"]
