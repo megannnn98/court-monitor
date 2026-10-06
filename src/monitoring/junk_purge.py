@@ -61,7 +61,10 @@ _JUNK_ARTICLES = text(
         WHERE e.extraction_run_id = latest.id AND e.event_type IN :criminal
     )
       AND NOT EXISTS (
-        SELECT 1 FROM junk_screen_holds h WHERE h.article_id = a.id AND h.status = :held
+        -- Held for a person, or released by a model's reading: its event may be gone
+        -- with a new extraction until the next reading writes it again.
+        SELECT 1 FROM junk_screen_holds h
+        WHERE h.article_id = a.id AND h.status IN ('held', 'released')
     )
     ORDER BY a.id
     LIMIT :limit
@@ -166,7 +169,7 @@ class JunkPurge:
         return list(
             session.scalars(
                 _JUNK_ARTICLES,
-                {"criminal": list(CRIMINAL_EVENT_TYPES), "limit": limit, "held": HELD},
+                {"criminal": list(CRIMINAL_EVENT_TYPES), "limit": limit},
             ).all()
         )
 

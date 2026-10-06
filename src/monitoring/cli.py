@@ -26,6 +26,7 @@ from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck, RfCheckResult
 from entities.roles import FigurantFinder, role_classifier_from_env
 from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
+from monitoring.hold_reader import hold_reader_from_env, read_holds
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
 from monitoring.junk_screen import screen_from_env
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
@@ -630,6 +631,9 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
     total = purge.count()
     logger.info("event=junk_purge_started total=%d since=%s", total, since.date() if since else "-")
     result = purge.run()
+    # What the screen held, a model reads whole: a case goes on into the work, the rest
+    # waits for a person with the model's reason.
+    read = read_holds(session_factory, hold_reader_from_env())
     _print(
         {
             "articles": result.articles,
@@ -637,6 +641,11 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
             "held": result.held,
             "persons": result.persons,
             "reviews": result.reviews,
+            "holds_released": read.released,
+            "holds_model_junk": read.model_junk,
+            "holds_failures": read.failures,
+            "holds_restored": read.restored,
+            "holds_cost_usd": read.cost_usd,
         }
     )
     return True
