@@ -2117,6 +2117,127 @@ export type RosfinmonitoringSnapshotResponse = {
 };
 
 /**
+ * SentenceListResponse
+ *
+ * «Приговоры» under the filters, or (`view=hidden`) what was taken out.
+ */
+export type SentenceListResponse = {
+    /**
+     * View
+     */
+    view: string;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Region
+     */
+    region: string;
+    /**
+     * Items
+     */
+    items: Array<SentenceRowResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * Read
+     */
+    read: number;
+    /**
+     * Cases
+     */
+    cases: number;
+    /**
+     * Hidden
+     */
+    hidden: number;
+    /**
+     * Reasons
+     */
+    reasons: Array<OptionResponse>;
+    /**
+     * Regions
+     */
+    regions: Array<string>;
+};
+
+/**
+ * SentenceRowResponse
+ *
+ * One case of «Приговоры» (several rows of one sentence told by several sources), or
+ * one row a person took out of the counts.
+ */
+export type SentenceRowResponse = {
+    /**
+     * Row Ids
+     */
+    row_ids: Array<number>;
+    /**
+     * Person
+     */
+    person: string;
+    /**
+     * Region
+     */
+    region: string | null;
+    /**
+     * Kind Label
+     */
+    kind_label: string;
+    /**
+     * In Absentia
+     */
+    in_absentia: boolean;
+    /**
+     * Term
+     */
+    term: string;
+    /**
+     * Sentenced On
+     */
+    sentenced_on: string | null;
+    /**
+     * Reason Label
+     */
+    reason_label: string;
+    /**
+     * Reason Text
+     */
+    reason_text: string;
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Source
+     */
+    source: string | null;
+    /**
+     * More Publications
+     */
+    more_publications: number;
+    /**
+     * Quote
+     */
+    quote: string;
+};
+
+/**
  * SourceCountResponse
  */
 export type SourceCountResponse = {
@@ -3165,3 +3286,45 @@ export type GetDossierV1Responses = {
 };
 
 export type GetDossierV1Response = GetDossierV1Responses[keyof GetDossierV1Responses];
+
+export type ListSentencesV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Reason
+         */
+        reason?: string;
+        /**
+         * Region
+         */
+        region?: string;
+        /**
+         * View
+         */
+        view?: string;
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/v1/sentences';
+};
+
+export type ListSentencesV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSentencesV1Error = ListSentencesV1Errors[keyof ListSentencesV1Errors];
+
+export type ListSentencesV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: SentenceListResponse;
+};
+
+export type ListSentencesV1Response = ListSentencesV1Responses[keyof ListSentencesV1Responses];

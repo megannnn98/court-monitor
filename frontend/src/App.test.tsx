@@ -53,8 +53,9 @@ it("sends a moved item to React and the rest to the legacy page, marked", () => 
   expect(within(menu).getByRole("link", { name: "О системе" }).getAttribute("href")).toBe("/about");
   expect(within(menu).getByRole("link", { name: "Перечень РФМ" }).getAttribute("href")).toBe("/rfm");
   expect(within(menu).getByRole("link", { name: /^Публикации/ }).getAttribute("href")).toBe("/publications");
-  const legacy = within(menu).getByRole("link", { name: /Приговоры/ });
-  expect(legacy.getAttribute("href")).toBe("/ui/sentences");
+  expect(within(menu).getByRole("link", { name: /^Приговоры/ }).getAttribute("href")).toBe("/sentences");
+  const legacy = within(menu).getByRole("link", { name: /Вики/ });
+  expect(legacy.getAttribute("href")).toBe("/ui/wiki");
   expect(within(legacy).getByLabelText("старый интерфейс")).toBeTruthy();
 });
 

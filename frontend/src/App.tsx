@@ -7,6 +7,7 @@ import { CandidatesPage } from "@/pages/CandidatesPage";
 import { DossierPage } from "@/pages/DossierPage";
 import { EntitiesPage } from "@/pages/EntitiesPage";
 import { InvestigationsPage } from "@/pages/InvestigationsPage";
+import { LogsPage } from "@/pages/LogsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PersonPage } from "@/pages/PersonPage";
@@ -15,6 +16,7 @@ import { PoliticalPage } from "@/pages/PoliticalPage";
 import { PublicationsPage } from "@/pages/PublicationsPage";
 import { RfmPage } from "@/pages/RfmPage";
 import { RunsPage } from "@/pages/RunsPage";
+import { SentencesPage } from "@/pages/SentencesPage";
 
 export function App() {
   return (
@@ -31,6 +33,8 @@ export function App() {
         <Route path="persons/:personId" element={<PersonPage />} />
         <Route path="articles/:articleId" element={<ArticlePage />} />
         <Route path="runs" element={<RunsPage />} />
+        <Route path="logs" element={<LogsPage />} />
+        <Route path="sentences" element={<SentencesPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
         <Route path="about" element={<AboutPage />} />
