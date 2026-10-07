@@ -292,6 +292,8 @@ GROUPS: dict[str, Callable[[Case], Sequence[str]]] = {
     ),
 }
 SORTS = ("cases", "mean_years", "median_years", "max_years")
+# How many of the groups too small to rank are given: the head of them, as examples.
+SMALL_SHOWN = 5
 
 
 def _years(months: float) -> float:
@@ -367,7 +369,7 @@ def stats(
         unknown=unknown,
         year_unknown=selection.year_unknown,
         small=len(small),
-        small_groups=tuple(small[:limit]),
+        small_groups=tuple(small[:SMALL_SHOWN]),
     )
 
 
