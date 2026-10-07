@@ -582,23 +582,10 @@ class FigurantFinder:
                 }
             )
             officials.add(row.id)
-        # A surname alone names nobody for certain («Алексеев»): no figurant.
-        surname_only = {
-            row.id for row in entities if row.id not in officials and len(row.name.split()) < 2
-        }
-        for row in entities:
-            if row.id not in surname_only:
-                continue
-            rows.append(
-                {
-                    "group_id": row.id,
-                    "role": UNCLEAR,
-                    "kind": None,
-                    "method": "rules",
-                    "reason": "известна только фамилия: кто это, не ясно",
-                    "quote": row.quote or next(iter(quotes.get(row.id, [])), ""),
-                }
-            )
+        # A surname alone («Алексеев») is read as anyone is: whether a case is opened
+        # against the person does not hang on the name. Who it is matters only for a
+        # political case, and step 5 asks a person then (`politics.NAMELESS`). Sent to a
+        # person here, a bribe-taker named by his surname waited in the queue unread.
         operator_rows = [
             row for row in entities if row.id not in officials and row.operator_identified
         ]
@@ -617,7 +604,7 @@ class FigurantFinder:
         # sentence names a target («дело против мужчины, оскорбившего главу СК …»). The
         # charge's sentence is the first quote.
         operator_ids = {row.id for row in operator_rows}
-        rest = [row for row in entities if row.id not in officials | surname_only | operator_ids]
+        rest = [row for row in entities if row.id not in officials | operator_ids]
         items = {
             row.id: RoleItem(
                 id=row.id,

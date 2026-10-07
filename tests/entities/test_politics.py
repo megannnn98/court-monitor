@@ -19,6 +19,7 @@ from db.orm_models import (
 from entities.collector import EntityCollector
 from entities.known_base import TrackedCase
 from entities.politics import (
+    NAMELESS,
     POLITICAL,
     PoliticsAnswer,
     PoliticsClassifierError,
@@ -616,6 +617,66 @@ def test_hooliganism_is_no_common_crime_for_the_rules(
     PoliticsFinder(session_factory, classifier=classifier).run()
 
     assert "Александр Беда" in [item.name for item in classifier.asked]
+
+
+def _one_word_names(session_factory: sessionmaker[Session]) -> None:
+    """Three of the seeded people as the news sometimes write them: by the surname alone."""
+    with session_factory.begin() as session:
+        for full, short in (
+            ("Иван Петров", "Петров"),
+            ("Александр Беда", "Беда"),
+            ("Анна Смирнова", "Смирнова"),
+        ):
+            session.execute(
+                text("UPDATE entity_groups SET name = :short WHERE name = :full"),
+                {"short": short, "full": full},
+            )
+
+
+ONE_WORD = {"Беда": "criminal", "Смирнова": "political", "Олег Иванович Орлов": "political"}
+
+
+def test_a_common_crime_needs_no_name_and_a_political_case_of_one_word_waits_for_a_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _one_word_names(session_factory)
+
+    result = PoliticsFinder(session_factory, classifier=FakeClassifier(ONE_WORD)).run()
+
+    verdicts = _verdicts(session_factory)
+    # The bribe-taker known by his surname is gone without a person's look.
+    assert verdicts["Беда"] == ("criminal", "model")
+    # Political by the model and by the article alike: who it is, a person says.
+    assert verdicts["Смирнова"] == ("unclear", "model")
+    assert verdicts["Петров"] == ("unclear", "article")
+    assert verdicts["Олег Иванович Орлов"] == ("political", "model")
+    assert (result.political_rules, result.political_model, result.unclear) == (0, 1, 2)
+    with session_factory() as session:
+        reason = session.scalar(
+            select(EntityGroupPoliticsRecord.reason)
+            .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupPoliticsRecord.group_id)
+            .where(EntityGroupRecord.name == "Смирнова")
+        )
+    assert reason == f"{NAMELESS} (так про Смирнова)"
+
+
+def test_a_person_s_word_makes_a_one_word_case_political(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    _one_word_names(session_factory)
+    PoliticsFinder(session_factory, classifier=FakeClassifier(ONE_WORD)).run()
+    with session_factory.begin() as session:
+        smirnova = session.scalar(
+            select(EntityGroupRecord).where(EntityGroupRecord.name == "Смирнова")
+        )
+        assert smirnova is not None
+        decide_politics(session, smirnova, POLITICAL)
+
+    PoliticsFinder(session_factory, classifier=FakeClassifier(ONE_WORD)).run()
+
+    assert _verdicts(session_factory)["Смирнова"] == ("political", "manual")
 
 
 def test_a_person_s_word_on_politics_survives_the_next_run(

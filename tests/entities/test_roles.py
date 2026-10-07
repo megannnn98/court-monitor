@@ -525,18 +525,20 @@ def test_a_person_s_no_outranks_a_row_of_the_list(
     assert _roles(session_factory)["Иван Иванов"] == ("figurant", "accused", "model")
 
 
-def test_a_surname_alone_is_nobody_for_certain(session_factory: sessionmaker[Session]) -> None:
+def test_a_surname_alone_is_read_as_anyone_is(session_factory: sessionmaker[Session]) -> None:
+    """Whether a case is opened does not hang on the name: who a political case is of,
+    step 5 asks a person. Sent to a person here, a bribe-taker waited in the queue unread."""
     _seed(session_factory)
     with session_factory.begin() as session:
         session.execute(
             text("UPDATE entity_groups SET name = 'Беда' WHERE name = 'Александр Беда'")
         )
-    classifier = FakeClassifier(KINDS)
+    classifier = FakeClassifier({**KINDS, "Беда": "accused"})
 
     FigurantFinder(session_factory, classifier=classifier).run()
 
-    assert "Беда" not in [item.name for item in classifier.asked]
-    assert _roles(session_factory)["Беда"] == ("unclear", None, "rules")
+    assert "Беда" in [item.name for item in classifier.asked]
+    assert _roles(session_factory)["Беда"] == ("figurant", "accused", "model")
 
 
 def test_a_rebuild_that_changes_the_keys_asks_nothing_again(

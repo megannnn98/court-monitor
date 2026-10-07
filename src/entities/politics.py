@@ -157,6 +157,8 @@ BASE = "base"
 
 # The verdicts a person may name on «Неясная политичность»: «unclear» is never decided.
 MANUAL = "manual"
+# Why a political case waits for a person though the rules or the model were sure.
+NAMELESS = "дело политическое, но человек назван одним словом: кто это, не ясно"
 
 
 def politics_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
@@ -568,6 +570,14 @@ class PoliticsFinder:
                 }
             )
 
+        # A political case of a person known by one word — a surname, a given name — is
+        # a person's to look at: who it is, nothing says. A common crime needs no name.
+        names = {row.id: row.name for row in figurants}
+        for entry in rows:
+            name = names.get(cast(int, entry["group_id"]), "")
+            if entry["verdict"] == POLITICAL and len(name.split()) < 2:
+                entry["verdict"] = UNCLEAR
+                entry["reason"] = f"{NAMELESS} ({entry['reason']})"
         # A person's word last: it overrides the rules and the model.
         for entry in rows:
             decided = decisions.get(cast(int, entry["group_id"]))
