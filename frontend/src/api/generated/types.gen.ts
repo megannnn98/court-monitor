@@ -267,6 +267,36 @@ export type ComponentHealth = {
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
 
 /**
+ * DoneRequest
+ *
+ * «обработано» on a person of «Результат»: ticked or not.
+ */
+export type DoneRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Done
+     */
+    done: boolean;
+};
+
+/**
+ * DoneResponse
+ */
+export type DoneResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Done
+     */
+    done: boolean;
+};
+
+/**
  * DossierKnownResponse
  *
  * What the operator's base says, by the name alone; `loaded` False: no base to ask.
@@ -3226,6 +3256,31 @@ export type ListPoliticalV1Responses = {
 };
 
 export type ListPoliticalV1Response = ListPoliticalV1Responses[keyof ListPoliticalV1Responses];
+
+export type MarkPoliticalDoneV1Data = {
+    body: DoneRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/political/done';
+};
+
+export type MarkPoliticalDoneV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type MarkPoliticalDoneV1Error = MarkPoliticalDoneV1Errors[keyof MarkPoliticalDoneV1Errors];
+
+export type MarkPoliticalDoneV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DoneResponse;
+};
+
+export type MarkPoliticalDoneV1Response = MarkPoliticalDoneV1Responses[keyof MarkPoliticalDoneV1Responses];
 
 export type SearchInvestigationsV1Data = {
     body?: never;

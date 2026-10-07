@@ -1311,6 +1311,45 @@
         }
       }
     },
+    "/api/v1/political/done": {
+      "post": {
+        "summary": "Mark Political Done",
+        "description": "Tick or untick «обработано»: a ticked person leaves the list until a later news.",
+        "operationId": "mark_political_done_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoneResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/investigations": {
       "get": {
         "summary": "Search Investigations",
@@ -1854,6 +1893,43 @@
           "not_configured"
         ],
         "title": "ComponentStatus"
+      },
+      "DoneRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "done"
+        ],
+        "title": "DoneRequest",
+        "description": "«обработано» on a person of «Результат»: ticked or not."
+      },
+      "DoneResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "done"
+        ],
+        "title": "DoneResponse"
       },
       "DossierKnownResponse": {
         "properties": {

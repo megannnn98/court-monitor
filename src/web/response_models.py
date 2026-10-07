@@ -600,3 +600,15 @@ class SentenceListResponse(BaseModel):
     hidden: int
     reasons: list[OptionResponse]
     regions: list[str]
+
+
+class DoneRequest(BaseModel):
+    """«обработано» on a person of «Результат»: ticked or not."""
+
+    key: str
+    done: bool
+
+
+class DoneResponse(BaseModel):
+    key: str
+    done: bool

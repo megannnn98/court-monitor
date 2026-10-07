@@ -84,6 +84,8 @@ ROUTES_AFTER_SPLIT = [
     "GET /api/v1/investigations",
     "GET /api/v1/investigations/{key}",
     "GET /api/v1/sentences",
+    # The console's actions, behind the same-origin check (ADR 0022).
+    "POST /api/v1/political/done",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.
