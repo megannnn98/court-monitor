@@ -194,7 +194,9 @@ def test_an_article_before_the_working_date_goes_though_it_is_criminal(
         assert session.scalar(select(func.count()).select_from(ParsedArticleRecord)) == 0
         # Tombstones all; the ones before the working date are marked so.
         types = dict(
-            session.execute(select(SourceDocument.external_id, SourceDocument.content_type)).all()
+            session.execute(select(SourceDocument.external_id, SourceDocument.content_type))
+            .tuples()
+            .all()
         )
         assert types["criminal"] == types["unjudged"] == EXPIRED_CONTENT_TYPE
         assert types["junk"] != EXPIRED_CONTENT_TYPE
@@ -242,9 +244,9 @@ def _articles(session_factory: sessionmaker[Session]) -> set[int]:
 def _holds(session_factory: sessionmaker[Session]) -> dict[int, str]:
     with session_factory() as session:
         return dict(
-            session.execute(
-                select(JunkScreenHoldRecord.article_id, JunkScreenHoldRecord.status)
-            ).all()
+            session.execute(select(JunkScreenHoldRecord.article_id, JunkScreenHoldRecord.status))
+            .tuples()
+            .all()
         )
 
 

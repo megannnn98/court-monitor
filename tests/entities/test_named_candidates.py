@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,6 +16,14 @@ from entities.unnamed import DIFFERENT, EXISTING_PERSON, SAME, decide, forget, r
 
 COURT = "Суд вынес приговор 53-летней жительнице Якутии."
 KEY = "u" * 64
+
+
+class _Told(TypedDict, total=False):
+    """What a publication tells beyond the name and the sentence."""
+
+    day: int
+    event: str
+    article: str | None
 
 
 def _named(
@@ -71,7 +79,7 @@ def _seed(session_factory: sessionmaker[Session], **told: Any) -> UnnamedFiguran
             text=COURT,
             published_at=datetime(2026, 10, 2, 9, tzinfo=UTC),
         )
-        people = [
+        people: list[tuple[str, str, _Told]] = [
             ("Мария Ханова", "В Якутии осуждена Мария Ханова, 53 года, по ст. 205.5 УК РФ.", {}),
             # The same place, days and event — and nothing of the person fits.
             (

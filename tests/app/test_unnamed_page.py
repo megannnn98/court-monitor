@@ -219,12 +219,13 @@ def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Ses
     assert "В этом разделе никого." in still_open
     assert incomplete.status_code == 400 and unknown.status_code == 400
     with session_factory() as session:
-        assert session.execute(
+        rows = session.execute(
             text(
                 "SELECT resolution, normalized_name, rf_name, rf_birth_date "
                 "FROM unnamed_identity_resolutions"
             )
-        ).all() == [
+        ).all()
+        assert [tuple(row) for row in rows] == [
             (
                 "rf_entry",
                 "Пуртов Егор Владимирович",

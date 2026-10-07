@@ -14,10 +14,10 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from airtable.client import AirtableError, AirtableRecord
+from airtable.client import AirtableClient, AirtableError, AirtableRecord
 from airtable.files import FileTableClient, ImportSettings
-from airtable.models import TABLES
-from airtable.service import MODE_FILES, AirtableSyncService, SyncSource
+from airtable.models import MODE_FILES, TABLES
+from airtable.service import AirtableSyncService, SyncSource
 
 CONFIGURED_ENV = {
     "AIRTABLE_TOKEN": "secret-token",
@@ -72,7 +72,7 @@ FAKE_TABLES = {
 }
 
 
-def fake_source(fake: FakeAirtable, mode: str = "api") -> SyncSource:
+def fake_source(fake: AirtableClient, mode: str = "api") -> SyncSource:
     """A `SyncSource` reading `fake`, so a test builds the service the way the app does."""
     return SyncSource(mode=mode, client=fake, tables=FAKE_TABLES)
 

@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from airtable.client import AirtableError
+from airtable.client import AirtableError, AirtableRecord
 from airtable.links import FallbackTableClient, ShareTableClient, share_links
 from airtable.models import MODE_SHARE, TABLES
 from airtable.service import build_sync_source
@@ -70,7 +70,14 @@ class _Session:
         self.params: dict[str, Any] | None = None
         self.headers: dict[str, str] | None = None
 
-    def get(self, url: str, *, params=None, headers=None, timeout=None):
+    def get(
+        self,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> _Response:
         self.calls.append(url)
         self.params = params
         self.headers = headers
@@ -85,7 +92,9 @@ class _Session:
 
 def test_the_share_link_names_the_base_and_the_share() -> None:
     assert share_url_of(RF_LINK) == ("appExample0000001", "shrExample0000003")
-    assert share_url_of(SOURCES_LINK)[0] == "appExample0000002"
+    sources = share_url_of(SOURCES_LINK)
+    assert sources is not None
+    assert sources[0] == "appExample0000002"
     assert share_url_of("https://example.com/table") is None
 
 
@@ -218,7 +227,7 @@ class _DeadToken:
     """A token that is valid but has no rights to the base: the API answers 401 for
     every table, which is what happens with a base owned by someone else."""
 
-    def list_records(self, table: str):
+    def list_records(self, table: str) -> list[AirtableRecord]:
         raise AirtableError(f"Airtable answered 401 for table {table!r}")
 
 
@@ -232,7 +241,7 @@ def test_a_token_without_rights_does_not_break_the_lists() -> None:
         ),
         {"sources": "Sources", "known_persons": "Known", "officials": "Officials"},
     )
-    client._links = _FakeLinks()  # type: ignore[attr-defined]
+    client._links = _FakeLinks()
 
     assert client.list_records("Sources")
     assert client.list_records("Known")
@@ -247,29 +256,27 @@ def test_a_list_with_no_link_reports_the_api_failure_itself() -> None:
         client.list_records("Officials")
 
 
-class _FakeLinks:
+class _FakeLinks(ShareTableClient):
     """Stands in for the share reader so the fallback is tested without a network."""
 
     def __init__(self) -> None:
-        self.links = {"sources": SOURCES_LINK, "known_persons": RF_LINK}
+        super().__init__({"sources": SOURCES_LINK, "known_persons": RF_LINK})
 
-    def list_records(self, name: str):
-        from airtable.client import AirtableRecord
-
+    def list_records(self, table: str) -> list[AirtableRecord]:
         return [AirtableRecord("share:1", {"full_name": "Иванов Иван"})]
 
 
-class _RefusingLinks:
+class _RefusingLinks(ShareTableClient):
     def __init__(self) -> None:
-        self.links = {"sources": SOURCES_LINK}
+        super().__init__({"sources": SOURCES_LINK})
 
-    def list_records(self, name: str):
+    def list_records(self, table: str) -> list[AirtableRecord]:
         raise AirtableError("ссылка отозвана")
 
 
 def test_a_link_that_stops_answering_is_reported_as_such() -> None:
     client = FallbackTableClient(_DeadToken(), {}, {"sources": "Sources"})
-    client._links = _RefusingLinks()  # type: ignore[attr-defined]
+    client._links = _RefusingLinks()
 
     with pytest.raises(AirtableError, match="ни API, ни публичная ссылка"):
         client.list_records("Sources")
@@ -295,7 +302,7 @@ def test_the_published_list_is_downloaded(monkeypatch: pytest.MonkeyPatch) -> No
 
     class _Client:
         @staticmethod
-        def get(url, **kwargs):
+        def get(url: str, **kwargs: object) -> _RfResponse:
             assert kwargs.get("impersonate") == download.IMPERSONATE
             return _RfResponse(
                 200,
@@ -314,7 +321,7 @@ def test_a_403_is_not_a_list(monkeypatch: pytest.MonkeyPatch) -> None:
 
     class _Client:
         @staticmethod
-        def get(url, **kwargs):
+        def get(url: str, **kwargs: object) -> _RfResponse:
             return _RfResponse(403, b"forbidden")
 
     monkeypatch.setattr("curl_cffi.requests", _Client)
@@ -334,7 +341,7 @@ def test_a_200_that_is_not_the_list_is_refused(monkeypatch: pytest.MonkeyPatch) 
 
     class _Client:
         @staticmethod
-        def get(url, **kwargs):
+        def get(url: str, **kwargs: object) -> _RfResponse:
             return _RfResponse(200, b"<html><h1>Technical work</h1></html>")
 
     monkeypatch.setattr("curl_cffi.requests", _Client)

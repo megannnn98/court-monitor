@@ -725,14 +725,18 @@ def test_a_disputed_pair_with_one_side_on_the_list_is_one_person_without_asking(
     assert result.merged == 1
     with session_factory() as session:
         names = set(session.scalars(select(EntityGroupRecord.name)))
-        decisions = session.execute(
-            select(
-                EntityPairDecisionRecord.key_a,
-                EntityPairDecisionRecord.key_b,
-                EntityPairDecisionRecord.decision,
-                EntityPairDecisionRecord.source,
+        decisions = (
+            session.execute(
+                select(
+                    EntityPairDecisionRecord.key_a,
+                    EntityPairDecisionRecord.key_b,
+                    EntityPairDecisionRecord.decision,
+                    EntityPairDecisionRecord.source,
+                )
             )
-        ).all()
+            .tuples()
+            .all()
+        )
     assert "Абдулла Абабакаров" not in names and "Абдулла Гасанович Абабакаров" in names
     assert {"Иван Иванов", "Иван Иванович Иванов", "Иван Петрович Иванов"} <= names
     assert decisions == [("абдулла абабакаров", "абдулла гасанович абабакаров", "same", "rf")]
@@ -820,7 +824,9 @@ def _sources_of(session_factory: sessionmaker[Session]) -> dict[str, str | None]
                     RosfinmonitoringEntryRecord.full_name,
                     RosfinmonitoringEntryRecord.inclusion_source,
                 )
-            ).all()
+            )
+            .tuples()
+            .all()
         )
 
 

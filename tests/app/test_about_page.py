@@ -72,7 +72,7 @@ def test_a_stamped_build_says_which_tag_it_stands_on() -> None:
 # The page
 
 
-def test_the_page_shows_the_commit_and_the_counts(session_factory) -> None:
+def test_the_page_shows_the_commit_and_the_counts(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         page = client.get("/ui/about").text
 
@@ -85,7 +85,7 @@ def test_the_page_shows_the_commit_and_the_counts(session_factory) -> None:
     assert "entity_groups" in page
 
 
-def test_the_page_is_in_the_menu(session_factory) -> None:
+def test_the_page_is_in_the_menu(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         page = client.get("/ui/about").text
 
@@ -93,7 +93,7 @@ def test_the_page_is_in_the_menu(session_factory) -> None:
     assert "О системе" in page
 
 
-def test_the_page_decides_nothing(session_factory) -> None:
+def test_the_page_decides_nothing(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         page = client.get("/ui/about").text
 
@@ -102,7 +102,7 @@ def test_the_page_decides_nothing(session_factory) -> None:
     assert "Очистить" not in page and "Удалить" not in page
 
 
-def test_the_totals_match_the_database(session_factory) -> None:
+def test_the_totals_match_the_database(session_factory: sessionmaker[Session]) -> None:
     with session_factory.begin() as session:
         session.execute(
             text(
@@ -120,7 +120,7 @@ def test_the_totals_match_the_database(session_factory) -> None:
     assert f"{before:,}".replace(",", " ") in page
 
 
-def test_an_empty_run_table_does_not_break_the_page(session_factory) -> None:
+def test_an_empty_run_table_does_not_break_the_page(session_factory: sessionmaker[Session]) -> None:
     with session_factory.begin() as session:
         session.execute(text("DELETE FROM operator_operation_runs"))
 
@@ -132,7 +132,9 @@ def test_an_empty_run_table_does_not_break_the_page(session_factory) -> None:
 
 
 @pytest.mark.parametrize("path", ["/ui/about"])
-def test_the_page_needs_no_query_parameters(session_factory, path: str) -> None:
+def test_the_page_needs_no_query_parameters(
+    session_factory: sessionmaker[Session], path: str
+) -> None:
     with _client(session_factory) as client:
         assert client.get(path).status_code == 200
 

@@ -486,7 +486,9 @@ NO_AGE_TWICE = "Подросток из Читы арестован. Подро�
 def _screened(session_factory: sessionmaker[Session]) -> dict[str, str]:
     with session_factory() as session:
         return dict(
-            session.execute(select(UnnamedScreenedRecord.quote, UnnamedScreenedRecord.reason)).all()
+            session.execute(select(UnnamedScreenedRecord.quote, UnnamedScreenedRecord.reason))
+            .tuples()
+            .all()
         )
 
 
@@ -517,7 +519,11 @@ def test_whom_the_search_sets_aside_is_kept_with_the_reason(
     assert (row.age, row.articles, row.start_offset) == (17, ["205"], TWICE.index("Подростка"))
 
 
-def _key(session_factory: sessionmaker[Session], record: type, quote: str) -> str:
+def _key(
+    session_factory: sessionmaker[Session],
+    record: type[UnnamedScreenedRecord | UnnamedFigurantRecord],
+    quote: str,
+) -> str:
     with session_factory() as session:
         return session.scalars(select(record.key).where(record.quote == quote)).one()
 

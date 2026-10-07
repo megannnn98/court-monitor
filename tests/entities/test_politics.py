@@ -386,7 +386,9 @@ def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_
                 select(EntityGroupRecord.name, EntityGroupRecord.id).where(
                     EntityGroupRecord.name.in_(["Глеб Долгов", "Лев Иной"])
                 )
-            ).all()
+            )
+            .tuples()
+            .all()
         )
         shown = quotes_of(session, list(ids.values()))
     classifier = ReadingClassifier()
@@ -428,6 +430,7 @@ def test_an_article_a_model_read_is_shown_once_beside_the_entity_s_other(
         group = session.scalar(
             select(EntityGroupRecord.id).where(EntityGroupRecord.name == "Пётр Котов")
         )
+        assert group is not None
         shown = quotes_of(session, [group])[group]
 
     # Wide, and not once more short: the second place is the other article's.

@@ -93,6 +93,13 @@ def _seed(session_factory: sessionmaker[Session]) -> list[int]:
     return [first, second]
 
 
+def _items(value: object) -> list[dict[str, object]]:
+    """A list of rows from a tool's result, checked to be one."""
+    assert isinstance(value, list)
+    assert all(isinstance(item, dict) for item in value)
+    return value
+
+
 def _stats_plan(**fields: Any) -> Plan:
     return Plan(calls=[Call(tool="stats", group_by="region", sort="mean_years", **fields)])
 
@@ -108,7 +115,7 @@ def test_the_model_reads_the_counts_and_the_journal_keeps_them(
     assert (asked.outcome, asked.answer) == (ANSWERED, "В Москве 6 лет.")
     (result,) = asker.results
     # What a person hid is in no count: Тула's mean is its one visible sentence.
-    assert [(g["name"], g["cases"], g["mean_years"]) for g in result["groups"]] == [  # type: ignore[index,union-attr]
+    assert [(g["name"], g["cases"], g["mean_years"]) for g in _items(result["groups"])] == [
         ("Москва", 2, 6.0),
         ("Тульская область", 1, 2.0),
     ]
@@ -132,8 +139,8 @@ def test_a_group_too_small_to_rank_is_given_apart(session_factory: sessionmaker[
     ask(session_factory, asker, "Где суровее?")
 
     (result,) = asker.results
-    assert [group["name"] for group in result["groups"]] == ["Москва"]  # type: ignore[index,union-attr]
-    assert [group["name"] for group in result["small_groups"]] == ["Тульская область"]  # type: ignore[index,union-attr]
+    assert [group["name"] for group in _items(result["groups"])] == ["Москва"]
+    assert [group["name"] for group in _items(result["small_groups"])] == ["Тульская область"]
     assert result["small_groups_left_out"] == 1
     assert result["notes"] == ["Групп, слишком маленьких для сравнения: 1."]
 
@@ -211,7 +218,7 @@ def test_a_list_gives_the_cases_with_their_publication(
 
     (result,) = asker.results
     assert result["total"] == 2
-    (case,) = result["cases"]  # type: ignore[misc]
+    (case,) = _items(result["cases"])
     assert (case["person"], case["years"], case["article_id"]) == ("Петров Иван", 7.0, first)
     assert case["punishment"] == "лишение свободы"
 
@@ -238,9 +245,11 @@ def test_a_search_finds_the_articles_by_any_form_of_a_word(
 
     (result,) = asker.results
     assert result["total"] == 1
-    (found,) = result["publications"]  # type: ignore[misc]
+    (found,) = _items(result["publications"])
     assert found["article_id"] == first
-    assert "[[пикете]]" in found["snippet"]
+    snippet = found["snippet"]
+    assert isinstance(snippet, str)
+    assert "[[пикете]]" in snippet
 
 
 def test_a_search_without_words_finds_nothing(session_factory: sessionmaker[Session]) -> None:

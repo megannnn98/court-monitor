@@ -15,13 +15,13 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
-from rosfinmonitoring.inclusion_dates import read_inclusion_dates
+from rosfinmonitoring.inclusion_dates import InclusionDates, read_inclusion_dates
 from rosfinmonitoring.inclusion_store import write_inclusion_dates
 
 SNAPSHOT_DATE = datetime(2026, 9, 30, 6, 0, tzinfo=UTC)
 
 
-def _dates(*rows: tuple[str, date | None, date | None]) -> object:
+def _dates(*rows: tuple[str, date | None, date | None]) -> InclusionDates:
     """The ОВД-Инфо file's three columns, as the reader returns it."""
     import pyarrow
     from pyarrow import parquet
@@ -88,7 +88,9 @@ def _entry(
 
 
 def _inclusion_date(session: Session, entry_id: int) -> datetime | None:
-    return session.get(RosfinmonitoringEntryRecord, entry_id).inclusion_date
+    entry = session.get(RosfinmonitoringEntryRecord, entry_id)
+    assert entry is not None
+    return entry.inclusion_date
 
 
 def test_a_day_is_written_where_the_name_and_the_birth_date_both_agree(

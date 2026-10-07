@@ -22,8 +22,7 @@ from db.orm_models import (
     ExcludedPersonRecord,
 )
 from web.app import app
-from web.dependencies import get_db
-from web.routers.operations import get_operation_registry
+from web.dependencies import get_db, get_operation_registry
 
 
 @contextmanager

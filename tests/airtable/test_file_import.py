@@ -18,13 +18,8 @@ from support.airtable_fakes import CONFIGURED_ENV, FakeAirtable, fake_source, fi
 from airtable.client import AirtableError
 from airtable.config import AirtableConfigurationError
 from airtable.files import FileTableClient, ImportSettings
-from airtable.models import TABLES, TableStatus
-from airtable.service import (
-    MODE_API,
-    MODE_FILES,
-    AirtableSyncService,
-    build_sync_source,
-)
+from airtable.models import MODE_API, MODE_FILES, TABLES, TableStatus
+from airtable.service import AirtableSyncService, build_sync_source
 from db.orm_models import (
     AirtableKnownPersonRecord,
     ExcludedPersonRecord,

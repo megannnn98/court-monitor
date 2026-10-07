@@ -7,7 +7,6 @@ import json
 import httpx
 import pytest
 
-from monitoring import decision_screen
 from monitoring.article_screen import JunkScreenError
 from monitoring.decision_screen import (
     ARTICLE_CHARS,
@@ -141,7 +140,7 @@ def test_a_connection_that_fails_stops_the_purge() -> None:
 def _answer_with(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport) -> None:
     """The client `decision_screen_from_env` makes talks to `transport`, not the network."""
     real = httpx.Client
-    monkeypatch.setattr(decision_screen.httpx, "Client", lambda: real(transport=transport))
+    monkeypatch.setattr(httpx, "Client", lambda: real(transport=transport))
 
 
 def test_turned_on_the_decision_screen_is_tried_before_the_purge(
