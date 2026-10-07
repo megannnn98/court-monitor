@@ -34,7 +34,7 @@ _NAME_SOURCE_LABELS = {"model": "ИИ", MANUAL: "исправлено"}
 _VERDICT_LABELS = {"political": "политическое", "unclear": "политичность неясна"}
 
 
-def _rf_label(level: str | None) -> str | None:
+def rf_label(level: str | None) -> str | None:
     if level is None:
         return None
     return "в перечне" if level == FULL else "возможно в перечне"
@@ -50,7 +50,7 @@ def _row(entity: EntityGroupRecord, data: EntityPage) -> EntityRowResponse:
         name=display_name(entity.name),
         name_source_label=_NAME_SOURCE_LABELS.get(entity.name_source),
         rf_level=level,
-        rf_label=_rf_label(level),
+        rf_label=rf_label(level),
         role=role[0] if role else None,
         role_label=role_label(*role) if role else None,
         verdict=verdict,

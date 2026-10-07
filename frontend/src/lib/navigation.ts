@@ -21,6 +21,10 @@ export const NAV: NavGroup[] = [
     title: "Каждый день",
     items: [
       { key: "cycle", label: "Работа", legacy: "/ui/cycle", count: "queue" },
+      // The review stations of «Работа»: in the legacy UI they are reached from it.
+      { key: "pairs", label: "Пары", legacy: "/ui/pairs", path: "/review/pairs" },
+      { key: "roles", label: "Неясные роли", legacy: "/ui/roles", path: "/review/roles" },
+      { key: "politics-review", label: "Неясная политичность", legacy: "/ui/politics-review", path: "/review/politics" },
       { key: "political", label: "Результаты", legacy: "/ui/political", path: "/political", count: "result" },
       { key: "investigations", label: "Найти человека", legacy: "/ui/investigations", path: "/investigations" },
       { key: "ask", label: "Спросить", legacy: "/ui/ask" }

@@ -1506,6 +1506,225 @@
           }
         }
       }
+    },
+    "/api/v1/review/roles": {
+      "get": {
+        "summary": "List Unclear Roles",
+        "description": "The people step 4 could not place, most mentioned first.",
+        "operationId": "list_unclear_roles_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/roles/decide": {
+      "post": {
+        "summary": "Decide Role",
+        "description": "A person's word on a role: applied at once and kept for every rebuild.",
+        "operationId": "decide_role_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/politics": {
+      "get": {
+        "summary": "List Unclear Politics",
+        "description": "The cases step 5 could not judge, most mentioned first.",
+        "operationId": "list_unclear_politics_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/politics/decide": {
+      "post": {
+        "summary": "Decide Politics",
+        "description": "A person's word on a case's politics: applied at once and kept for every rebuild.",
+        "operationId": "decide_politics_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerdictDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/pairs": {
+      "get": {
+        "summary": "List Pairs",
+        "description": "Two entities that may be one person, fifty a page; `key` brings that person's\npairs first.",
+        "operationId": "list_pairs_v1",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(all|patronymic|similar|region)$",
+              "default": "all",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 300,
+              "default": "",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/pairs/decide": {
+      "post": {
+        "summary": "Decide Pair",
+        "description": "«same»: one person, merged now and at every rebuild; «different»: off the list.",
+        "operationId": "decide_pair_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1893,6 +2112,24 @@
           "not_configured"
         ],
         "title": "ComponentStatus"
+      },
+      "DecisionResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "decision"
+        ],
+        "title": "DecisionResponse"
       },
       "DoneRequest": {
         "properties": {
@@ -3643,6 +3880,196 @@
         ],
         "title": "OrgResponse"
       },
+      "PairDecisionRequest": {
+        "properties": {
+          "key_a": {
+            "type": "string",
+            "title": "Key A"
+          },
+          "key_b": {
+            "type": "string",
+            "title": "Key B"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key_a",
+          "key_b",
+          "decision"
+        ],
+        "title": "PairDecisionRequest"
+      },
+      "PairListResponse": {
+        "properties": {
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Kinds"
+          },
+          "open_pairs": {
+            "type": "integer",
+            "title": "Open Pairs"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PairResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "decided": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Decided"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kinds",
+          "open_pairs",
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "decided"
+        ],
+        "title": "PairListResponse",
+        "description": "«Пары»: two entities that may be one person, for the operator to decide."
+      },
+      "PairResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "left": {
+            "$ref": "#/components/schemas/PairSideResponse"
+          },
+          "right": {
+            "$ref": "#/components/schemas/PairSideResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "hint",
+          "note",
+          "left",
+          "right"
+        ],
+        "title": "PairResponse"
+      },
+      "PairSideResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "rf_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Label"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/NameFormResponse"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "mention_count": {
+            "type": "integer",
+            "title": "Mention Count"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/EntityArticleResponse"
+            },
+            "type": "array",
+            "title": "Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "role_label",
+          "rf_label",
+          "variants",
+          "mention_count",
+          "article_count",
+          "regions",
+          "articles"
+        ],
+        "title": "PairSideResponse"
+      },
       "PersecutionClassificationResponse": {
         "properties": {
           "id": {
@@ -4853,6 +5280,64 @@
         ],
         "title": "ReviewComponent"
       },
+      "ReviewItemResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "reason"
+        ],
+        "title": "ReviewItemResponse"
+      },
+      "ReviewListResponse": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Choices"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "explanation",
+          "choices",
+          "items"
+        ],
+        "title": "ReviewListResponse",
+        "description": "A review station: the people a step could not decide, and the operator's choices."
+      },
       "ReviewResponse": {
         "properties": {
           "id": {
@@ -5012,6 +5497,24 @@
           "text"
         ],
         "title": "RfEntryResponse"
+      },
+      "RoleDecisionRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "role"
+        ],
+        "title": "RoleDecisionRequest"
       },
       "RosfinmonitoringEntryResponse": {
         "properties": {
@@ -5553,6 +6056,24 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerdictDecisionRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "verdict"
+        ],
+        "title": "VerdictDecisionRequest"
       }
     }
   }

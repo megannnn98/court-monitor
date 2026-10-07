@@ -267,6 +267,20 @@ export type ComponentHealth = {
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
 
 /**
+ * DecisionResponse
+ */
+export type DecisionResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Decision
+     */
+    decision: string;
+};
+
+/**
  * DoneRequest
  *
  * «обработано» on a person of «Результат»: ticked or not.
@@ -1273,6 +1287,124 @@ export type OrgResponse = {
 };
 
 /**
+ * PairDecisionRequest
+ */
+export type PairDecisionRequest = {
+    /**
+     * Key A
+     */
+    key_a: string;
+    /**
+     * Key B
+     */
+    key_b: string;
+    /**
+     * Decision
+     */
+    decision: string;
+};
+
+/**
+ * PairListResponse
+ *
+ * «Пары»: two entities that may be one person, for the operator to decide.
+ */
+export type PairListResponse = {
+    /**
+     * Kinds
+     */
+    kinds: Array<OptionResponse>;
+    /**
+     * Open Pairs
+     */
+    open_pairs: number;
+    /**
+     * Items
+     */
+    items: Array<PairResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * Decided
+     */
+    decided: {
+        [key: string]: number;
+    };
+};
+
+/**
+ * PairResponse
+ */
+export type PairResponse = {
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Hint
+     */
+    hint: string;
+    /**
+     * Note
+     */
+    note: string | null;
+    left: PairSideResponse;
+    right: PairSideResponse;
+};
+
+/**
+ * PairSideResponse
+ */
+export type PairSideResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Role Label
+     */
+    role_label: string | null;
+    /**
+     * Rf Label
+     */
+    rf_label: string | null;
+    /**
+     * Variants
+     */
+    variants: Array<NameFormResponse>;
+    /**
+     * Mention Count
+     */
+    mention_count: number;
+    /**
+     * Article Count
+     */
+    article_count: number;
+    /**
+     * Regions
+     */
+    regions: Array<string>;
+    /**
+     * Articles
+     */
+    articles: Array<EntityArticleResponse>;
+};
+
+/**
  * PersecutionClassificationResponse
  *
  * Persecution classification response model.
@@ -1999,6 +2131,48 @@ export type ReviewComponent = {
 };
 
 /**
+ * ReviewItemResponse
+ */
+export type ReviewItemResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewListResponse
+ *
+ * A review station: the people a step could not decide, and the operator's choices.
+ */
+export type ReviewListResponse = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Explanation
+     */
+    explanation: string;
+    /**
+     * Choices
+     */
+    choices: Array<OptionResponse>;
+    /**
+     * Items
+     */
+    items: Array<ReviewItemResponse>;
+};
+
+/**
  * ReviewResponse
  *
  * Review response model.
@@ -2080,6 +2254,20 @@ export type RfEntryResponse = {
      * Text
      */
     text: string;
+};
+
+/**
+ * RoleDecisionRequest
+ */
+export type RoleDecisionRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Role
+     */
+    role: string;
 };
 
 /**
@@ -2417,6 +2605,20 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * VerdictDecisionRequest
+ */
+export type VerdictDecisionRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Verdict
+     */
+    verdict: string;
 };
 
 export type ListPersonsV1Data = {
@@ -3383,3 +3585,148 @@ export type ListSentencesV1Responses = {
 };
 
 export type ListSentencesV1Response = ListSentencesV1Responses[keyof ListSentencesV1Responses];
+
+export type ListUnclearRolesV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/roles';
+};
+
+export type ListUnclearRolesV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewListResponse;
+};
+
+export type ListUnclearRolesV1Response = ListUnclearRolesV1Responses[keyof ListUnclearRolesV1Responses];
+
+export type DecideRoleV1Data = {
+    body: RoleDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/roles/decide';
+};
+
+export type DecideRoleV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecideRoleV1Error = DecideRoleV1Errors[keyof DecideRoleV1Errors];
+
+export type DecideRoleV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DecisionResponse;
+};
+
+export type DecideRoleV1Response = DecideRoleV1Responses[keyof DecideRoleV1Responses];
+
+export type ListUnclearPoliticsV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/politics';
+};
+
+export type ListUnclearPoliticsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewListResponse;
+};
+
+export type ListUnclearPoliticsV1Response = ListUnclearPoliticsV1Responses[keyof ListUnclearPoliticsV1Responses];
+
+export type DecidePoliticsV1Data = {
+    body: VerdictDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/politics/decide';
+};
+
+export type DecidePoliticsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecidePoliticsV1Error = DecidePoliticsV1Errors[keyof DecidePoliticsV1Errors];
+
+export type DecidePoliticsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DecisionResponse;
+};
+
+export type DecidePoliticsV1Response = DecidePoliticsV1Responses[keyof DecidePoliticsV1Responses];
+
+export type ListPairsV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Kind
+         */
+        kind?: string;
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Key
+         */
+        key?: string;
+    };
+    url: '/api/v1/review/pairs';
+};
+
+export type ListPairsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPairsV1Error = ListPairsV1Errors[keyof ListPairsV1Errors];
+
+export type ListPairsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: PairListResponse;
+};
+
+export type ListPairsV1Response = ListPairsV1Responses[keyof ListPairsV1Responses];
+
+export type DecidePairV1Data = {
+    body: PairDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/pairs/decide';
+};
+
+export type DecidePairV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecidePairV1Error = DecidePairV1Errors[keyof DecidePairV1Errors];
+
+export type DecidePairV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DecisionResponse;
+};
+
+export type DecidePairV1Response = DecidePairV1Responses[keyof DecidePairV1Responses];

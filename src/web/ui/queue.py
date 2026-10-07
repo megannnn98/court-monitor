@@ -103,9 +103,23 @@ VERDICT_CHOICES: tuple[tuple[str, str], ...] = (
 )
 
 
-@router.get("/ui/roles", response_class=HTMLResponse)
-def ui_roles(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
-    rows = [
+ROLES_TITLE = "Неясная роль в деле"
+ROLES_EXPLANATION = (
+    "Шаг 4 не понял, заведено ли на человека дело. Проверьте цитаты в досье и решите: "
+    "фигурант, задержан или обыскан, либо только упомянут. Решение сохраняется и "
+    "применяется при каждой пересборке."
+)
+POLITICS_TITLE = "Неясная политичность"
+POLITICS_EXPLANATION = (
+    "Шаг 5 не смог отнести дело ни к политическим, ни к обычным уголовным. Решите по "
+    "досье и исходным публикациям. Решение сохраняется и применяется при каждой "
+    "пересборке."
+)
+
+
+def unclear_roles(db: Session) -> list[tuple[str, str, str]]:
+    """(key, name, why) of the people step 4 could not place, most mentioned first."""
+    return [
         (key, name, reason)
         for key, name, reason in db.execute(
             select(EntityGroupRecord.key, EntityGroupRecord.name, EntityGroupRoleRecord.reason)
@@ -115,22 +129,11 @@ def ui_roles(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
             .limit(LIST_LIMIT)
         ).all()
     ]
-    return _review_page(
-        "Неясная роль в деле",
-        "Шаг 4 не понял, заведено ли на человека дело. Проверьте цитаты в досье и решите: "
-        "фигурант, задержан или обыскан, либо только упомянут. Решение сохраняется и "
-        "применяется при каждой пересборке.",
-        rows,
-        db,
-        "/ui/roles/decide",
-        "role",
-        ROLE_CHOICES,
-    )
 
 
-@router.get("/ui/politics-review", response_class=HTMLResponse)
-def ui_politics_review(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
-    rows = [
+def unclear_verdicts(db: Session) -> list[tuple[str, str, str]]:
+    """(key, name, why) of the cases step 5 could not judge, most mentioned first."""
+    return [
         (key, name, reason)
         for key, name, reason in db.execute(
             select(
@@ -147,12 +150,52 @@ def ui_politics_review(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: 
             .limit(LIST_LIMIT)
         ).all()
     ]
+
+
+def settle_role(db: Session, key: str, role: str) -> EntityGroupRecord:
+    """A person's word on an entity's role, committed and kept for every rebuild.
+    HTTPException 400/404 for no key, an unknown person or an unknown role."""
+    entity = entity_by_key(db, key)
+    try:
+        decide_role(db, entity, role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Неизвестная роль") from exc
+    db.commit()
+    logger.info("event=entity_role_decided key=%s", entity.key)
+    return entity
+
+
+def settle_politics(db: Session, key: str, verdict: str) -> EntityGroupRecord:
+    """A person's word on a case's politics, committed and kept for every rebuild."""
+    entity = entity_by_key(db, key)
+    try:
+        decide_politics(db, entity, verdict)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Неизвестный вердикт") from exc
+    db.commit()
+    logger.info("event=entity_politics_decided key=%s", entity.key)
+    return entity
+
+
+@router.get("/ui/roles", response_class=HTMLResponse)
+def ui_roles(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     return _review_page(
-        "Неясная политичность",
-        "Шаг 5 не смог отнести дело ни к политическим, ни к обычным уголовным. Решите по "
-        "досье и исходным публикациям. Решение сохраняется и применяется при каждой "
-        "пересборке.",
-        rows,
+        ROLES_TITLE,
+        ROLES_EXPLANATION,
+        unclear_roles(db),
+        db,
+        "/ui/roles/decide",
+        "role",
+        ROLE_CHOICES,
+    )
+
+
+@router.get("/ui/politics-review", response_class=HTMLResponse)
+def ui_politics_review(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
+    return _review_page(
+        POLITICS_TITLE,
+        POLITICS_EXPLANATION,
+        unclear_verdicts(db),
         db,
         "/ui/politics-review/decide",
         "verdict",
@@ -160,7 +203,7 @@ def ui_politics_review(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: 
     )
 
 
-def _entity_by_key(db: Session, key: str) -> EntityGroupRecord:
+def entity_by_key(db: Session, key: str) -> EntityGroupRecord:
     if not key:
         raise HTTPException(status_code=400, detail="Не указан человек")
     entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
@@ -176,13 +219,7 @@ async def decide_entity_role(
 ) -> RedirectResponse:
     """A person's word on an entity's role: applied at once and kept for every rebuild."""
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    entity = _entity_by_key(db, (form.get("key") or [""])[0])
-    try:
-        decide_role(db, entity, (form.get("role") or [""])[0])
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Неизвестная роль") from exc
-    db.commit()
-    logger.info("event=entity_role_decided key=%s", entity.key)
+    settle_role(db, (form.get("key") or [""])[0], (form.get("role") or [""])[0])
     return RedirectResponse("/ui/roles", status_code=303)
 
 
@@ -193,13 +230,7 @@ async def decide_entity_politics(
 ) -> RedirectResponse:
     """A person's word on a case's politics: applied at once and kept for every rebuild."""
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    entity = _entity_by_key(db, (form.get("key") or [""])[0])
-    try:
-        decide_politics(db, entity, (form.get("verdict") or [""])[0])
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Неизвестный вердикт") from exc
-    db.commit()
-    logger.info("event=entity_politics_decided key=%s", entity.key)
+    settle_politics(db, (form.get("key") or [""])[0], (form.get("verdict") or [""])[0])
     return RedirectResponse("/ui/politics-review", status_code=303)
 
 

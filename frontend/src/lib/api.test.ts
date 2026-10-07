@@ -14,6 +14,7 @@ it("reads the app's own error body", () => {
 });
 
 it("falls back to the status, or to the silence", () => {
+  expect(errorMessage({ detail: null }, 500)).toBe("Сервер ответил 500");
   expect(errorMessage(undefined, 502)).toBe("Сервер ответил 502");
   expect(errorMessage(undefined, undefined)).toBe("Сервер не ответил");
 });
