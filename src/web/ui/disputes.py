@@ -5,6 +5,7 @@ the pair off the list."""
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from html import escape
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode
@@ -46,13 +47,13 @@ from web.ui.layout import _page, pager
 router = APIRouter()
 
 PAGE_SIZE = 50
-_KINDS = {
+KINDS = {
     "all": "Все",
     PATRONYMIC: "С отчеством и без",
     SIMILAR: "Похожее имя",
     REGION: "Регион у одной",
 }
-_KIND_HINTS = {
+KIND_HINTS = {
     PATRONYMIC: "одно имя и фамилия, у одной сущности есть отчество, у другой нет",
     SIMILAR: "одна фамилия, имена отличаются окончанием («Лида» и «Лидия»)",
     REGION: "одно ФИО с отчеством; у одной сущности регион из карточки реестра, у другой нет",
@@ -79,20 +80,26 @@ def _side(
     )
 
 
-@router.get("/ui/disputes", response_class=RedirectResponse)
-def legacy_disputes(request: Request) -> RedirectResponse:
-    query = f"?{request.url.query}" if request.url.query else ""
-    return RedirectResponse(f"/ui/pairs{query}", status_code=303)
+@dataclass(frozen=True)
+class PairPage:
+    """«Пары» under its kind: every open pair, the page of them with their entities, and
+    the counts. Read by the legacy page and `GET /api/v1/review/pairs`."""
+
+    pairs: list[Pair]
+    counts: dict[str, int]
+    # Why a pair was left to a person, by its keys.
+    notes: dict[tuple[str, str], str]
+    shown: list[Pair]
+    on_page: list[Pair]
+    records: dict[int, EntityGroupRecord]
+    roles: dict[int, tuple[str, str | None]]
+    listed: dict[int, str]
+    charges: dict[int, list[tuple[str, bool]]]
+    decided: dict[str, int]
 
 
-@router.get("/ui/pairs", response_class=HTMLResponse)
-def ui_disputes(
-    kind: str = Query(default="all", pattern="^(all|patronymic|similar|region)$"),
-    page: int = Query(default=1, ge=1),
-    reset: int | None = Query(default=None, ge=0),
-    key: str = Query(default="", max_length=300),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> HTMLResponse:
+def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
+    """`key` brings that person's pairs first."""
     refs = [
         EntityRef(id=row.id, key=row.key, name=row.name, mention_count=row.mention_count)
         for row in db.execute(
@@ -107,8 +114,9 @@ def ui_disputes(
     pairs = find_pairs(refs, decided_pairs(db))
     if key:
         pairs.sort(key=lambda pair: key not in pair.keys)
-    counts = {key: sum(pair.kind == key for pair in pairs) for key in (PATRONYMIC, SIMILAR, REGION)}
-    notes = _why_not_merged(db, pairs)
+    counts = {
+        name: sum(pair.kind == name for pair in pairs) for name in (PATRONYMIC, SIMILAR, REGION)
+    }
     shown = [pair for pair in pairs if kind == "all" or pair.kind == kind]
     on_page = shown[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
     ids = [ref.id for pair in on_page for ref in (pair.left, pair.right)]
@@ -116,7 +124,51 @@ def ui_disputes(
         record.id: record
         for record in db.scalars(select(EntityGroupRecord).where(EntityGroupRecord.id.in_(ids)))
     }
-    roles, listed, charges = _roles(db, ids), _rf_levels(db, ids), _articles_by_group(db, ids)
+    return PairPage(
+        pairs=pairs,
+        counts=counts,
+        notes=_why_not_merged(db, pairs),
+        shown=shown,
+        on_page=on_page,
+        records=records,
+        roles=_roles(db, ids),
+        listed=_rf_levels(db, ids),
+        charges=_articles_by_group(db, ids),
+        decided=decision_counts(db),
+    )
+
+
+def settle_pair(db: Session, key_a: str, key_b: str, decision: str) -> None:
+    """«Один человек» or «Разные люди», committed; HTTPException 400 for a half decision."""
+    if not key_a or not key_b or key_a == key_b or decision not in (SAME, DIFFERENT):
+        raise HTTPException(status_code=400, detail="Неполное решение")
+    decide(db, key_a, key_b, decision)
+    db.commit()
+
+
+@router.get("/ui/disputes", response_class=RedirectResponse)
+def legacy_disputes(request: Request) -> RedirectResponse:
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(f"/ui/pairs{query}", status_code=303)
+
+
+@router.get("/ui/pairs", response_class=HTMLResponse)
+def ui_disputes(
+    kind: str = Query(default="all", pattern="^(all|patronymic|similar|region)$"),
+    page: int = Query(default=1, ge=1),
+    reset: int | None = Query(default=None, ge=0),
+    key: str = Query(default="", max_length=300),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    data = read_pairs(db, kind=kind, page=page, key=key)
+    pairs, counts, notes, shown, on_page = (
+        data.pairs,
+        data.counts,
+        data.notes,
+        data.shown,
+        data.on_page,
+    )
+    records, roles, listed, charges = data.records, data.roles, data.listed, data.charges
     sections = "".join(
         _pair_section(pair, records, roles, listed, charges, kind, page, notes.get(pair.keys, ""))
         for pair in on_page
@@ -125,11 +177,11 @@ def ui_disputes(
         f'<a class="chip{" active" if key == kind else ""}" '
         f'href="/ui/pairs?{urlencode({"kind": key})}">{label}'
         f"{f' ({counts[key]})' if key in counts else f' ({len(pairs)})'}</a>"
-        for key, label in _KINDS.items()
+        for key, label in KINDS.items()
     )
     pages = (len(shown) + PAGE_SIZE - 1) // PAGE_SIZE
     pages_html = pager("/ui/pairs", {"kind": kind}, page, pages)
-    decided = decision_counts(db)
+    decided = data.decided
     total_decided = sum(decided.values())
     confirm = (
         f"Удалить все решения по спорным парам ({total_decided}, из них вручную "
@@ -232,7 +284,7 @@ def _pair_section(
         return ""
     key_a, key_b = pair.keys
     return f"""<section class="band pair" id="pair-{left.id}-{right.id}">
-  <p class="muted">{escape(_KIND_HINTS[pair.kind])}</p>
+  <p class="muted">{escape(KIND_HINTS[pair.kind])}</p>
   {f'<p class="warning">{escape(note)}</p>' if note else ""}
   <div class="pair-sides">{_side(left, roles, listed, charges)}{_side(right, roles, listed, charges)}</div>
   <form method="post" action="/ui/disputes/decide" class="run-bar">
@@ -255,13 +307,10 @@ async def decide_dispute(
     form: dict[str, Any] = {key: values[0] for key, values in fields.items()}
     key_a, key_b = str(form.get("key_a", "")), str(form.get("key_b", ""))
     decision = str(form.get("decision", ""))
-    if not key_a or not key_b or key_a == key_b or decision not in (SAME, DIFFERENT):
-        raise HTTPException(status_code=400, detail="Неполное решение")
-    decide(db, key_a, key_b, decision)
-    db.commit()
+    settle_pair(db, key_a, key_b, decision)
     if form.get("back") in {"queue", "pairs"}:
         return RedirectResponse("/ui/pairs", status_code=303)
-    kind = form.get("kind") if form.get("kind") in _KINDS else "all"
+    kind = form.get("kind") if form.get("kind") in KINDS else "all"
     page = str(form.get("page", "1"))
     return RedirectResponse(
         f"/ui/pairs?{urlencode({'kind': kind, 'page': page if page.isdigit() else '1'})}",

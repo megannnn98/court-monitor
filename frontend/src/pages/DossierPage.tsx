@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
 import { getDossierV1, type QuoteResponse } from "@/api/generated";
+import { EventGraph } from "@/components/EventGraph";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
 import { Badge } from "@/components/ui/badge";
@@ -77,10 +78,11 @@ export function DossierPage() {
               </Badge>
             </div>
             <p className="text-sm">
-              <a className="underline" href={`/ui/investigations/${encodeURIComponent(person.key)}#graph`}>
-                Граф событий
-              </a>{" "}
-              и ручные решения (исправить имя, «должностное лицо») — в старом интерфейсе.
+              Ручные решения (исправить имя, «должностное лицо») — в{" "}
+              <a className="underline" href={`/ui/investigations/${encodeURIComponent(person.key)}`}>
+                старом интерфейсе
+              </a>
+              .
             </p>
           </PageHeader>
 
@@ -331,6 +333,15 @@ export function DossierPage() {
             ) : (
               <p className="text-sm text-muted-foreground">Публикаций нет.</p>
             )}
+          </Section>
+
+          <Section id="graph" title="Граф событий">
+            <p className="mb-2 text-sm text-muted-foreground">
+              Человек связан с событием, в котором он назван; событие — со своими публикациями, судом, органом и статьёй. Двое
+              связаны только через событие, где названы оба. «Назван в событии» — не «обвиняемый». «Совместные упоминания» — счёт
+              общих публикаций, а не установленная связь.
+            </p>
+            <EventGraph graphUrl={person.graph_url} name={person.name} />
           </Section>
 
           {person.related.length ? (

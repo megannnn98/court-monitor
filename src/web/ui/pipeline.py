@@ -78,7 +78,7 @@ def _stage_of(run: OperationRun) -> str:
     return "figurants" if mode == "rosfin" else mode if mode in STAGES else "resolve"
 
 
-def _title_of(run: OperationRun) -> str:
+def title_of(run: OperationRun) -> str:
     """What a live run does, by its own mode: an old «rosfin» run is no figurants' search."""
     return TITLES.get(run.parameters.mode or "", TITLES[_stage_of(run)])
 
@@ -124,7 +124,7 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
     """Why `stage` may not start now, or None when it is its turn."""
     if state.live is not None:
         return (
-            f"Идёт запуск #{state.live.id} ({_title_of(state.live)}): дождитесь его или остановите."
+            f"Идёт запуск #{state.live.id} ({title_of(state.live)}): дождитесь его или остановите."
         )
     if stage != state.current:
         number = STAGES.index(state.current) + 1
@@ -163,6 +163,12 @@ def ask(question: str) -> str:
 def chain_stopped(state: PipelineState) -> str:
     """Why «Сделать всё» did not reach the last step, said where the button stands: a
     chain that stopped leaves the page looking as if the steps had been pressed one by one."""
+    text = chain_stopped_text(state)
+    return f'<p class="warning chain-stopped">{escape(text)}</p>' if text else ""
+
+
+def chain_stopped_text(state: PipelineState) -> str:
+    """The words of `chain_stopped`; empty when no chain stopped short."""
     run = state.latest
     if run is None or state.live is not None or not run.parameters.chain:
         return ""
@@ -179,8 +185,8 @@ def chain_stopped(state: PipelineState) -> str:
     else:
         why = "шаг был остановлен или потерян"
     return (
-        f'<p class="warning chain-stopped">«Сделать всё» остановилось на шаге {number} '
-        f"(запуск #{run.id}): {why}. Кнопка продолжит с шага {STAGES.index(state.current) + 1}.</p>"
+        f"«Сделать всё» остановилось на шаге {number} "
+        f"(запуск #{run.id}): {why}. Кнопка продолжит с шага {STAGES.index(state.current) + 1}."
     )
 
 
@@ -206,15 +212,21 @@ def chain_confirmation(stage: str) -> str:
 
 def chain_note(state: PipelineState) -> str:
     """Under a live chained step: what happens when it ends."""
+    text = chain_note_text(state)
+    return f'<p class="muted chain-note">{escape(text)}</p>' if text else ""
+
+
+def chain_note_text(state: PipelineState) -> str:
+    """The words of `chain_note`; empty when no chain is live."""
     if state.live is None or not state.live.parameters.chain:
         return ""
     stage = _stage_of(state.live)
     if stage not in STAGES or stage == STAGES[-1]:
-        return '<p class="muted chain-note">Идёт «Сделать всё»: это последний шаг.</p>'
+        return "Идёт «Сделать всё»: это последний шаг."
     following = TITLES[STAGES[STAGES.index(stage) + 1]]
     return (
-        f'<p class="muted chain-note">Идёт «Сделать всё»: после этого шага сам запустится '
-        f"«{escape(following)}». «Остановить» прерывает и цепочку.</p>"
+        f"Идёт «Сделать всё»: после этого шага сам запустится «{following}». "
+        "«Остановить» прерывает и цепочку."
     )
 
 
@@ -242,7 +254,7 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
                 f'formaction="/ui/management/runs/{state.live.id}/stop" name="back" '
                 f'value="{back}" title="{hint}" '
                 "onclick=\"return confirm('Остановить запуск? Уже сделанное останется.')\">"
-                f"■ Остановить: {escape(_title_of(state.live))}</button>"
+                f"■ Остановить: {escape(title_of(state.live))}</button>"
             )
         elif stage == state.current:
             needs_sources = stage in _WITH_SOURCES
@@ -282,7 +294,7 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
     elif _stage_of(state.live) in STAGES:
         running = f"Идёт шаг {current + 1}: {escape(TITLES[state.current])}."
     else:
-        running = f"Идёт {escape(_title_of(state.live).lower())}."
+        running = f"Идёт {escape(title_of(state.live).lower())}."
     return (
         f"{everything}"
         f'<div class="pipeline">{arrows.join(steps)}</div>'

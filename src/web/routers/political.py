@@ -1,10 +1,10 @@
 """«Результат» for the React console: the legacy list under its filters, a page of rows
-and every count the filters show. Read-only: the operator's «обработано» stays a legacy
-form until the authentication of mutations is decided."""
+and every count the filters show, and the operator's «обработано» (protected against
+cross-site requests by `web.csrf`, ADR 0022)."""
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from entities.news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE
@@ -15,6 +15,8 @@ from persecution.classifier import POLITICAL_ARTICLES
 from web.dependencies import get_db
 from web.exports import is_web_link
 from web.response_models import (
+    DoneRequest,
+    DoneResponse,
     KnownResponse,
     OptionResponse,
     PoliticalArticleResponse,
@@ -22,7 +24,7 @@ from web.response_models import (
     PoliticalRowResponse,
     PublicationLinkResponse,
 )
-from web.ui.political import PAGE_SIZE, basis_text
+from web.ui.political import PAGE_SIZE, basis_text, set_done
 from web.ui.political_filters import (
     KNOWN_FILTERS,
     NEWS_FILTERS,
@@ -149,3 +151,16 @@ def list_political(
             for key, label in RFM_FILTERS.items()
         ],
     )
+
+
+@router.post("/political/done", response_model=DoneResponse)
+def mark_political_done(
+    body: DoneRequest,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> DoneResponse:
+    """Tick or untick «обработано»: a ticked person leaves the list until a later news."""
+    try:
+        set_done(db, body.key, done=body.done)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Человек не найден") from None
+    return DoneResponse(key=body.key, done=body.done)

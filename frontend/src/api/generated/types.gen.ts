@@ -267,6 +267,169 @@ export type ComponentHealth = {
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
 
 /**
+ * CycleResponse
+ *
+ * «Работа»: the one review to do first, the other queues, and the automatic steps
+ * with the one press that runs what is left of the round.
+ */
+export type CycleResponse = {
+    attention: CycleTaskResponse | null;
+    /**
+     * Tasks
+     */
+    tasks: Array<CycleTaskResponse>;
+    /**
+     * Steps
+     */
+    steps: Array<CycleStepResponse>;
+    /**
+     * Current Stage
+     */
+    current_stage: string;
+    live: LiveRunResponse | null;
+    /**
+     * Latest Run Id
+     */
+    latest_run_id: number;
+    /**
+     * Chain Span
+     */
+    chain_span: string;
+    /**
+     * Chain Question
+     */
+    chain_question: string;
+    /**
+     * Chain Note
+     */
+    chain_note: string;
+    /**
+     * Chain Stopped
+     */
+    chain_stopped: string;
+};
+
+/**
+ * CycleStartRequest
+ *
+ * «Сделать всё»: the steps from the current one to the end of the round.
+ */
+export type CycleStartRequest = {
+    /**
+     * After
+     */
+    after: number;
+};
+
+/**
+ * CycleStartResponse
+ */
+export type CycleStartResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Stage
+     */
+    stage: string;
+};
+
+/**
+ * CycleStepResponse
+ */
+export type CycleStepResponse = {
+    /**
+     * Stage
+     */
+    stage: string;
+    /**
+     * Number
+     */
+    number: number;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
+ * CycleTaskResponse
+ *
+ * A manual queue of «Работа»: what waits for the operator and where.
+ */
+export type CycleTaskResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Href
+     */
+    href: string;
+    /**
+     * Description
+     */
+    description: string;
+};
+
+/**
+ * DecisionResponse
+ */
+export type DecisionResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Decision
+     */
+    decision: string;
+};
+
+/**
+ * DoneRequest
+ *
+ * «обработано» on a person of «Результат»: ticked or not.
+ */
+export type DoneRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Done
+     */
+    done: boolean;
+};
+
+/**
+ * DoneResponse
+ */
+export type DoneResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Done
+     */
+    done: boolean;
+};
+
+/**
  * DossierKnownResponse
  *
  * What the operator's base says, by the name alone; `loaded` False: no base to ask.
@@ -852,6 +1015,20 @@ export type LiveOperationResponse = {
 };
 
 /**
+ * LiveRunResponse
+ */
+export type LiveRunResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
  * LivenessReport
  */
 export type LivenessReport = {
@@ -1240,6 +1417,124 @@ export type OrgResponse = {
      * Role Label
      */
     role_label: string;
+};
+
+/**
+ * PairDecisionRequest
+ */
+export type PairDecisionRequest = {
+    /**
+     * Key A
+     */
+    key_a: string;
+    /**
+     * Key B
+     */
+    key_b: string;
+    /**
+     * Decision
+     */
+    decision: string;
+};
+
+/**
+ * PairListResponse
+ *
+ * «Пары»: two entities that may be one person, for the operator to decide.
+ */
+export type PairListResponse = {
+    /**
+     * Kinds
+     */
+    kinds: Array<OptionResponse>;
+    /**
+     * Open Pairs
+     */
+    open_pairs: number;
+    /**
+     * Items
+     */
+    items: Array<PairResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * Decided
+     */
+    decided: {
+        [key: string]: number;
+    };
+};
+
+/**
+ * PairResponse
+ */
+export type PairResponse = {
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Hint
+     */
+    hint: string;
+    /**
+     * Note
+     */
+    note: string | null;
+    left: PairSideResponse;
+    right: PairSideResponse;
+};
+
+/**
+ * PairSideResponse
+ */
+export type PairSideResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Role Label
+     */
+    role_label: string | null;
+    /**
+     * Rf Label
+     */
+    rf_label: string | null;
+    /**
+     * Variants
+     */
+    variants: Array<NameFormResponse>;
+    /**
+     * Mention Count
+     */
+    mention_count: number;
+    /**
+     * Article Count
+     */
+    article_count: number;
+    /**
+     * Regions
+     */
+    regions: Array<string>;
+    /**
+     * Articles
+     */
+    articles: Array<EntityArticleResponse>;
 };
 
 /**
@@ -1969,6 +2264,48 @@ export type ReviewComponent = {
 };
 
 /**
+ * ReviewItemResponse
+ */
+export type ReviewItemResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewListResponse
+ *
+ * A review station: the people a step could not decide, and the operator's choices.
+ */
+export type ReviewListResponse = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Explanation
+     */
+    explanation: string;
+    /**
+     * Choices
+     */
+    choices: Array<OptionResponse>;
+    /**
+     * Items
+     */
+    items: Array<ReviewItemResponse>;
+};
+
+/**
  * ReviewResponse
  *
  * Review response model.
@@ -2050,6 +2387,20 @@ export type RfEntryResponse = {
      * Text
      */
     text: string;
+};
+
+/**
+ * RoleDecisionRequest
+ */
+export type RoleDecisionRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Role
+     */
+    role: string;
 };
 
 /**
@@ -2320,6 +2671,20 @@ export type StatusResponse = {
 };
 
 /**
+ * StopResponse
+ */
+export type StopResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Stopped
+     */
+    stopped: boolean;
+};
+
+/**
  * TimelineItemResponse
  */
 export type TimelineItemResponse = {
@@ -2387,6 +2752,20 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * VerdictDecisionRequest
+ */
+export type VerdictDecisionRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Verdict
+     */
+    verdict: string;
 };
 
 export type ListPersonsV1Data = {
@@ -3227,6 +3606,31 @@ export type ListPoliticalV1Responses = {
 
 export type ListPoliticalV1Response = ListPoliticalV1Responses[keyof ListPoliticalV1Responses];
 
+export type MarkPoliticalDoneV1Data = {
+    body: DoneRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/political/done';
+};
+
+export type MarkPoliticalDoneV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type MarkPoliticalDoneV1Error = MarkPoliticalDoneV1Errors[keyof MarkPoliticalDoneV1Errors];
+
+export type MarkPoliticalDoneV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DoneResponse;
+};
+
+export type MarkPoliticalDoneV1Response = MarkPoliticalDoneV1Responses[keyof MarkPoliticalDoneV1Responses];
+
 export type SearchInvestigationsV1Data = {
     body?: never;
     path?: never;
@@ -3328,3 +3732,219 @@ export type ListSentencesV1Responses = {
 };
 
 export type ListSentencesV1Response = ListSentencesV1Responses[keyof ListSentencesV1Responses];
+
+export type ListUnclearRolesV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/roles';
+};
+
+export type ListUnclearRolesV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewListResponse;
+};
+
+export type ListUnclearRolesV1Response = ListUnclearRolesV1Responses[keyof ListUnclearRolesV1Responses];
+
+export type DecideRoleV1Data = {
+    body: RoleDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/roles/decide';
+};
+
+export type DecideRoleV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecideRoleV1Error = DecideRoleV1Errors[keyof DecideRoleV1Errors];
+
+export type DecideRoleV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DecisionResponse;
+};
+
+export type DecideRoleV1Response = DecideRoleV1Responses[keyof DecideRoleV1Responses];
+
+export type ListUnclearPoliticsV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/politics';
+};
+
+export type ListUnclearPoliticsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewListResponse;
+};
+
+export type ListUnclearPoliticsV1Response = ListUnclearPoliticsV1Responses[keyof ListUnclearPoliticsV1Responses];
+
+export type DecidePoliticsV1Data = {
+    body: VerdictDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/politics/decide';
+};
+
+export type DecidePoliticsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecidePoliticsV1Error = DecidePoliticsV1Errors[keyof DecidePoliticsV1Errors];
+
+export type DecidePoliticsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DecisionResponse;
+};
+
+export type DecidePoliticsV1Response = DecidePoliticsV1Responses[keyof DecidePoliticsV1Responses];
+
+export type ListPairsV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Kind
+         */
+        kind?: string;
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Key
+         */
+        key?: string;
+    };
+    url: '/api/v1/review/pairs';
+};
+
+export type ListPairsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPairsV1Error = ListPairsV1Errors[keyof ListPairsV1Errors];
+
+export type ListPairsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: PairListResponse;
+};
+
+export type ListPairsV1Response = ListPairsV1Responses[keyof ListPairsV1Responses];
+
+export type DecidePairV1Data = {
+    body: PairDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/pairs/decide';
+};
+
+export type DecidePairV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecidePairV1Error = DecidePairV1Errors[keyof DecidePairV1Errors];
+
+export type DecidePairV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DecisionResponse;
+};
+
+export type DecidePairV1Response = DecidePairV1Responses[keyof DecidePairV1Responses];
+
+export type GetCycleV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/cycle';
+};
+
+export type GetCycleV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CycleResponse;
+};
+
+export type GetCycleV1Response = GetCycleV1Responses[keyof GetCycleV1Responses];
+
+export type StartCycleV1Data = {
+    body: CycleStartRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/cycle/start';
+};
+
+export type StartCycleV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartCycleV1Error = StartCycleV1Errors[keyof StartCycleV1Errors];
+
+export type StartCycleV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CycleStartResponse;
+};
+
+export type StartCycleV1Response = StartCycleV1Responses[keyof StartCycleV1Responses];
+
+export type StopCycleRunV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: number;
+    };
+    query?: never;
+    url: '/api/v1/cycle/runs/{run_id}/stop';
+};
+
+export type StopCycleRunV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StopCycleRunV1Error = StopCycleRunV1Errors[keyof StopCycleRunV1Errors];
+
+export type StopCycleRunV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: StopResponse;
+};
+
+export type StopCycleRunV1Response = StopCycleRunV1Responses[keyof StopCycleRunV1Responses];

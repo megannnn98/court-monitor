@@ -25,7 +25,7 @@ export function errorMessage(error: unknown, status: number | undefined): string
       return body.message;
     }
   }
-  if (error && typeof error === "object" && "detail" in error) {
+  if (error && typeof error === "object" && "detail" in error && (error as { detail: unknown }).detail != null) {
     const detail = (error as { detail: unknown }).detail;
     if (typeof detail === "string") {
       return detail;

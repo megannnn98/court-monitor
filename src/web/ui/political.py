@@ -466,6 +466,24 @@ def ui_political_export(
     )
 
 
+def set_done(db: Session, key: str, *, done: bool) -> None:
+    """Tick or untick «обработано» and commit; read by the legacy form and
+    `POST /api/v1/political/done`. LookupError for nobody by this key.
+
+    A tick remembers the latest news the operator has seen: a later one brings the person
+    back to the list."""
+    seen = latest_news(db, key)
+    mark = db.get(EntityDoneMarkRecord, key)
+    if done:
+        if mark is None:
+            mark = EntityDoneMarkRecord(key=key)
+            db.add(mark)
+        mark.news_at = seen
+    elif mark is not None:
+        db.delete(mark)
+    db.commit()
+
+
 @router.post("/ui/political/done")
 async def ui_political_done(
     request: Request,
@@ -476,21 +494,10 @@ async def ui_political_done(
         name: values[0]
         for name, values in parse_qs((await request.body()).decode("utf-8", "replace")).items()
     }
-    key = form.get("key", "")
     try:
-        seen = latest_news(db, key)
+        set_done(db, form.get("key", ""), done=form.get("done") == "1")
     except LookupError:
         raise HTTPException(status_code=404, detail="Человек не найден") from None
-    mark = db.get(EntityDoneMarkRecord, key)
-    if form.get("done") == "1":
-        if mark is None:
-            mark = EntityDoneMarkRecord(key=key)
-            db.add(mark)
-        # The news the operator has seen: a later one brings the person back.
-        mark.news_at = seen
-    elif mark is not None:
-        db.delete(mark)
-    db.commit()
     # Only the list's own address: the form's `back` is its query, never a place to go.
     return RedirectResponse(
         f"/ui/political?{urlencode(parse_qs(form.get('back', '')), doseq=True)}", 303

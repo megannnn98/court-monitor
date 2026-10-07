@@ -232,3 +232,38 @@ def test_the_result_is_the_legacy_list_s(session_factory: sessionmaker[Session])
     assert [option["value"] for option in body["periods"]] == ["0", "1", "3", "6", "12"]
     # The latest news a year old is outside three months.
     assert [row["name"] for row in fresh["items"]] == ["Смирнова Анна"]
+
+
+def test_done_takes_a_person_off_the_result_and_back(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _political(session_factory)
+
+    with _client(session_factory) as client:
+        ticked = client.post("/api/v1/political/done", json={"key": "анна смирнова", "done": True})
+        hidden = client.get("/api/v1/political").json()
+        shown = client.get("/api/v1/political", params={"done": "show"}).json()
+        legacy = client.get("/ui/political", params={"months": 0}).text
+        unticked = client.post(
+            "/api/v1/political/done", json={"key": "анна смирнова", "done": False}
+        )
+        back = client.get("/api/v1/political").json()
+        nobody = client.post("/api/v1/political/done", json={"key": "никто", "done": True})
+        foreign = client.post(
+            "/api/v1/political/done",
+            json={"key": "анна смирнова", "done": True},
+            headers={"Origin": "https://evil.example"},
+        )
+        after_foreign = client.get("/api/v1/political").json()
+
+    assert ticked.status_code == 200 and ticked.json() == {"key": "анна смирнова", "done": True}
+    assert [row["name"] for row in hidden["items"]] == ["Иванов Иван"]
+    assert hidden["done_total"] == 1
+    assert {row["name"]: row["done"] for row in shown["items"]}["Смирнова Анна"] is True
+    # The legacy page reads the same mark.
+    assert "Показать обработанных (1)" in legacy
+    assert unticked.json() == {"key": "анна смирнова", "done": False}
+    assert back["total"] == 2 and back["done_total"] == 0
+    assert nobody.status_code == 404 and nobody.json() == {"detail": "Человек не найден"}
+    # Another site cannot tick for the operator.
+    assert foreign.status_code == 403 and after_foreign["done_total"] == 0

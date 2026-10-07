@@ -1,13 +1,14 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { listPoliticalV1 } from "@/api/generated";
+import { listPoliticalV1, markPoliticalDoneV1 } from "@/api/generated";
 import { PoliticalPage } from "@/pages/PoliticalPage";
 import { dossierPath } from "@/lib/navigation";
 import { failed, ok, renderPage } from "@/test/render";
 
-vi.mock("@/api/generated", () => ({ listPoliticalV1: vi.fn() }));
+vi.mock("@/api/generated", () => ({ listPoliticalV1: vi.fn(), markPoliticalDoneV1: vi.fn() }));
 const list = vi.mocked(listPoliticalV1);
+const mark = vi.mocked(markPoliticalDoneV1);
 
 const ROW = {
   key: "анна смирнова",
@@ -66,7 +67,10 @@ const PAGE = {
 };
 const QUERY = { months: 0, date_from: "", date_to: "", news: "all", known: "all", done: "hide", who: "all", rfm: "all", page: 1 };
 
-beforeEach(() => list.mockReset());
+beforeEach(() => {
+  list.mockReset();
+  mark.mockReset();
+});
 
 it("shows the result as the legacy page does", async () => {
   list.mockReturnValue(ok(PAGE) as never);
@@ -103,4 +107,28 @@ it("shows the API's own error", async () => {
   renderPage(<PoliticalPage />);
 
   expect(await screen.findByText("known base unreadable")).toBeTruthy();
+});
+
+it("ticks «обработано» and reads the list again", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+  mark.mockReturnValue(ok({ key: "анна смирнова", done: true }) as never);
+
+  renderPage(<PoliticalPage />);
+  fireEvent.click(await screen.findByRole("checkbox", { name: "Обработано: Смирнова Анна" }));
+
+  await waitFor(() => expect(mark).toHaveBeenCalledWith({ body: { key: "анна смирнова", done: true } }));
+  await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  expect(screen.getByRole("link", { name: "Скачать Excel" }).getAttribute("href")).toBe(
+    "/ui/political/export.xlsx?months=0&news=all&known=all&done=hide&who=all&rfm=all"
+  );
+});
+
+it("says why a tick was refused", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+  mark.mockReturnValue(failed(404, "Человек не найден") as never);
+
+  renderPage(<PoliticalPage />);
+  fireEvent.click(await screen.findByRole("checkbox", { name: "Обработано: Смирнова Анна" }));
+
+  expect(await screen.findByText("Человек не найден")).toBeTruthy();
 });

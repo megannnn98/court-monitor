@@ -19,19 +19,21 @@ describe("filterOpenApiV1", () => {
     expect(filtered.paths).toEqual({});
   });
 
-  it("removes a versioned endpoint with POST", () => {
-    const filtered = filterOpenApiV1(
-      schema({ "/api/v1/x": { get: { operationId: "x" }, post: { operationId: "createX" } } }),
-    );
+  it("keeps the actions of a versioned endpoint", () => {
+    const paths = { "/api/v1/x": { get: { operationId: "x" }, post: { operationId: "createX" } } };
 
-    expect(filtered.paths).toEqual({});
+    expect(filterOpenApiV1(schema(paths)).paths).toEqual(paths);
   });
 
-  it("removes a versioned endpoint with GET and DELETE", () => {
+  it("keeps every versioned endpoint and drops the rest", () => {
     const filtered = filterOpenApiV1(
-      schema({ "/api/v1/x": { get: { operationId: "x" }, delete: { operationId: "deleteX" } } }),
+      schema({
+        "/api/v1/x": { post: { operationId: "doX" } },
+        "/ui/x": { post: { operationId: "legacyX" } },
+        "/api/investigations/k/graph": { get: { operationId: "graph" } }
+      })
     );
 
-    expect(filtered.paths).toEqual({});
+    expect(Object.keys(filtered.paths)).toEqual(["/api/v1/x"]);
   });
 });

@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import { listPoliticalV1 } from "@/api/generated";
+import { listPoliticalV1, markPoliticalDoneV1, type PoliticalRowResponse } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OptionSelect } from "@/components/OptionSelect";
 import { Pager } from "@/components/Pager";
@@ -18,6 +18,43 @@ import { unwrap } from "@/lib/api";
 import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+
+/** «Обработано»: the person leaves the list until a later news brings them back. */
+function DoneBox({ row }: { row: PoliticalRowResponse }) {
+  const client = useQueryClient();
+  const mark = useMutation({
+    mutationFn: (done: boolean) => unwrap(markPoliticalDoneV1({ body: { key: row.key, done } })),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["political"] }),
+        client.invalidateQueries({ queryKey: ["status"] })
+      ]);
+    }
+  });
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Checkbox
+        aria-label={`Обработано: ${row.name}`}
+        title="Обработано"
+        checked={row.done}
+        disabled={mark.isPending}
+        onCheckedChange={(checked) => mark.mutate(checked === true)}
+      />
+      {mark.isError ? <span className="text-xs text-destructive">{mark.error.message}</span> : null}
+    </div>
+  );
+}
+
+/** The legacy file of the list under the same filters (GET: it changes nothing). */
+function exportHref(query: Record<string, string | number>): string {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(query)) {
+    if (name !== "page" && value !== "") {
+      params.set(name, String(value));
+    }
+  }
+  return `/ui/political/export.xlsx?${params.toString()}`;
+}
 
 export function PoliticalPage() {
   const url = useUrlState();
@@ -54,11 +91,11 @@ export function PoliticalPage() {
         instruction="Люди, против которых заведены политические уголовные дела; перечень Росфинмониторинга подтверждает их личность."
       >
         <p className="text-sm text-muted-foreground">
-          Отметка «обработано» и выгрузка в Excel пока в{" "}
-          <a className="underline" href="/ui/political">
-            старом интерфейсе
-          </a>
-          .
+          Галочка в начале строки — «обработано»: человек уходит из списка и вернётся, когда о нём появится новая новость.{" "}
+          <a className="underline" href={exportHref(query)}>
+            Скачать Excel
+          </a>{" "}
+          — те же фильтры.
         </p>
       </PageHeader>
       <QueryState query={result}>
@@ -115,6 +152,7 @@ export function PoliticalPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead title="Обработано">✓</TableHead>
                     <TableHead>№</TableHead>
                     <TableHead>Фамилия Имя</TableHead>
                     <TableHead>Свежая новость</TableHead>
@@ -132,6 +170,9 @@ export function PoliticalPage() {
                 <TableBody>
                   {data.items.map((row, index) => (
                     <TableRow key={row.key} className={cn(row.done && "opacity-60")}>
+                      <TableCell>
+                        <DoneBox row={row} />
+                      </TableCell>
                       <TableCell>{(query.page - 1) * data.page_size + index + 1}</TableCell>
                       <TableCell className="whitespace-normal">
                         {row.unnamed ? (

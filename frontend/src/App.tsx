@@ -10,13 +10,16 @@ import { InvestigationsPage } from "@/pages/InvestigationsPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { PairsPage } from "@/pages/PairsPage";
 import { PersonPage } from "@/pages/PersonPage";
 import { PersonsPage } from "@/pages/PersonsPage";
 import { PoliticalPage } from "@/pages/PoliticalPage";
 import { PublicationsPage } from "@/pages/PublicationsPage";
+import { ReviewPage } from "@/pages/ReviewPage";
 import { RfmPage } from "@/pages/RfmPage";
 import { RunsPage } from "@/pages/RunsPage";
 import { SentencesPage } from "@/pages/SentencesPage";
+import { WorkPage } from "@/pages/WorkPage";
 
 export function App() {
   return (
@@ -34,6 +37,10 @@ export function App() {
         <Route path="articles/:articleId" element={<ArticlePage />} />
         <Route path="runs" element={<RunsPage />} />
         <Route path="logs" element={<LogsPage />} />
+        <Route path="work" element={<WorkPage />} />
+        <Route path="review/roles" element={<ReviewPage kind="roles" />} />
+        <Route path="review/politics" element={<ReviewPage kind="politics" />} />
+        <Route path="review/pairs" element={<PairsPage />} />
         <Route path="sentences" element={<SentencesPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
