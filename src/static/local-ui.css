@@ -2242,3 +2242,53 @@ th button.sort:hover::after,
 th button.sort:focus-visible::after {
   opacity: 1;
 }
+
+/* «Спросить»: the question, the answer, and the counts the answer stands on. */
+form.ask-form {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  max-width: 760px;
+}
+
+form.ask-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+  resize: vertical;
+}
+
+form.ask-form button[type="submit"] {
+  justify-self: start;
+}
+
+section.answer > p {
+  max-width: 760px;
+  white-space: normal;
+}
+
+section.answer.failed > p:not(.muted) {
+  color: var(--warning);
+}
+
+details.basis {
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+details.basis h3 {
+  margin: 16px 0 6px;
+  font-size: 1rem;
+}
+
+details.basis tfoot th {
+  text-align: left;
+}
+
+ul.found li {
+  margin: 0 0 10px;
+}

@@ -75,6 +75,7 @@ services:
       ENTITY_NORMALIZE_MODEL: ${ENTITY_NORMALIZE_MODEL:-}
       # What one run of an entity step may spend on the model, in USD.
       ENTITY_MODEL_BUDGET_USD: ${ENTITY_MODEL_BUDGET_USD:-2}
+      ASK_DAILY_BUDGET_USD: ${ASK_DAILY_BUDGET_USD:-1}
       # The working date: step 2 deletes what was published before it.
       PIPELINE_SINCE: ${PIPELINE_SINCE:-2026-09-20}
       # Step 2 holds back junk that reads like a criminal case instead of deleting it

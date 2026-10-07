@@ -25,6 +25,7 @@ from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck, RfCheckResult
 from entities.roles import FigurantFinder, role_classifier_from_env
+from entities.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
 from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from monitoring.hold_reader import hold_reader_from_env, read_holds
 from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
@@ -51,6 +52,7 @@ MONITORING_COMMANDS = frozenset(
         "find-political",
         "find-unnamed",
         "find-news",
+        "find-sentences",
         "compare-entity-models",
         "monitoring-status",
         "monitoring-findings",
@@ -188,6 +190,14 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         help=(
             "Tell what each political case's latest news is: a new case, a sentence, or "
             "more of an old one"
+        ),
+    )
+
+    subparsers.add_parser(
+        "find-sentences",
+        help=(
+            "Read the sentences the articles tell of: the region, the punishment and the "
+            "reason of each, for the counts of «Спросить»"
         ),
     )
 
@@ -365,6 +375,8 @@ def run_monitoring_command(
         news = _find_news(session_factory)
         # The final step ends with unnamed figurants: their cases are read the same way.
         unnamed = _find_unnamed(session_factory)
+        # Last: what the sentences are, for the counts of «Спросить». Nothing above reads it.
+        sentences = _find_sentences(session_factory)
         _print(
             {
                 **_rf_totals(rf_checked),
@@ -384,11 +396,19 @@ def run_monitoring_command(
                 "unnamed_asked_now": unnamed.asked_now,
                 "unnamed_failures": unnamed.failures,
                 "unnamed_cost_usd": unnamed.cost_usd,
+                "sentences": sentences.sentences,
+                "sentences_asked_now": sentences.asked_now,
+                "sentences_failures": sentences.failures,
+                "sentences_unasked": sentences.unasked,
+                "sentences_cost_usd": sentences.cost_usd,
             }
         )
         return True
     if args.command == "find-news":
         _print(dataclasses.asdict(_find_news(session_factory)))
+        return True
+    if args.command == "find-sentences":
+        _print(dataclasses.asdict(_find_sentences(session_factory)))
         return True
     if args.command == "find-unnamed":
         _print(dataclasses.asdict(_find_unnamed(session_factory)))
@@ -604,6 +624,17 @@ def _find_unnamed(session_factory: sessionmaker[Session]) -> UnnamedResult:
         session_factory,
         reader=reader,
         on_stage=lambda stage: logger.info("event=unnamed_stage stage=%s", stage),
+    ).run()
+
+
+def _find_sentences(session_factory: sessionmaker[Session]) -> SentencesResult:
+    reader = sentence_reader_from_env()
+    if reader is None:
+        logger.warning("event=sentences_no_model: OPENROUTER_API_KEY is not set")
+    return SentenceFinder(
+        session_factory,
+        reader=reader,
+        on_stage=lambda stage: logger.info("event=sentences_stage stage=%s", stage),
     ).run()
 
 

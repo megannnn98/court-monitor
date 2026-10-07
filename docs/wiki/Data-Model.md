@@ -170,6 +170,9 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 | `entity_group_roles` | шаг 4 | роль: `figurant`, `possible`, `mentioned`, `unclear`; `kind` (accused, foreign, historical, support, …), способ (`model`, `article`, `official`, `rules`), причина, цитата |
 | `entity_group_politics` | шаг 5 | вердикт `political` / `criminal` / `unclear`, способ (`article`, `memorial`, `model`), причина, цитата |
 | `unnamed_figurants` | шаг 5 | безымянные фигуранты — [Unnamed Figurants](Unnamed-Figurants.md) |
+| `article_sentences` | шаг 5, оператор | приговоры, выписанные моделью из публикаций: регион, наказание, причина, цитата; `hidden` — оператор убрал из подсчётов — [Ask](Ask.md) |
+| `article_sentence_readings` | шаг 5 | какие публикации модель уже прочла на приговоры и какой версией вопроса |
+| `chat_questions` | страница «Спросить» | журнал вопросов: вопрос, подсчёты с результатами, ответ, расход |
 | `junk_screen_holds` | шаг 2, оператор | статьи, удержанные отсевом от удаления: оценка, порог, причина; `held` / `junk` — [Junk Screen](Junk-Screen.md) |
 | `entity_name_normalizations`, `entity_role_answers`, `entity_politics_answers`, `unnamed_answers` | шаги 3–5 | кэш ответов модели по хэшу вопроса и версии промпта |
 | `entity_pair_decisions` | оператор, шаг 5 (слияния по перечню и региону) | «один человек» / «разные люди» по паре ключей; `source`: `manual`, `rf`, `region` |

@@ -29,6 +29,7 @@ from web.routers import (
 )
 from web.ui import about as ui_about
 from web.ui import airtable as ui_airtable
+from web.ui import ask as ui_ask
 from web.ui import base_unnamed as ui_base_unnamed
 from web.ui import candidates as ui_candidates
 from web.ui import cycle as ui_cycle
@@ -47,6 +48,7 @@ from web.ui import political as ui_political
 from web.ui import publications as ui_publications
 from web.ui import queue as ui_queue
 from web.ui import rfm_list as ui_rfm_list
+from web.ui import sentences as ui_sentences
 from web.ui import unnamed as ui_unnamed
 from web.ui import wiki as ui_wiki
 
@@ -106,6 +108,8 @@ for module in (
     ui_unnamed,
     ui_base_unnamed,
     ui_junk_holds,
+    ui_ask,
+    ui_sentences,
     ui_political,
     ui_rfm_list,
     ui_officials,

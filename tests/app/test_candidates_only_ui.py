@@ -66,8 +66,8 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         title: re.findall(r"<span>([^<]+)</span><", body + "<")
         for title, body in zip(groups[1::2], groups[2::2], strict=True)
     } == {
-        "Каждый день": ["Работа", "Результаты", "Найти человека"],
-        "Данные": ["Все люди", "Публикации", "Перечень РФМ", "База Airtable"],
+        "Каждый день": ["Работа", "Результаты", "Найти человека", "Спросить"],
+        "Данные": ["Все люди", "Публикации", "Приговоры", "Перечень РФМ", "База Airtable"],
         "Система": ["Журнал запусков", "Логи", "Вики", "О системе"],
     }
     # The system's pages are the block kept at the bottom.
@@ -76,8 +76,10 @@ def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[S
         ("/ui/cycle", "Работа"),
         ("/ui/political", "Результаты"),
         ("/ui/investigations", "Найти человека"),
+        ("/ui/ask", "Спросить"),
         ("/ui/entities", "Все люди"),
         ("/ui/publications", "Публикации"),
+        ("/ui/sentences", "Приговоры"),
         ("/ui/rfm", "Перечень РФМ"),
         ("/ui/airtable", "База Airtable"),
         ("/ui/runs", "Журнал запусков"),

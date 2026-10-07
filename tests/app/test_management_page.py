@@ -1154,12 +1154,13 @@ def _set_run(session_factory: sessionmaker[Session], run_id: int, *, status: str
         ("article_digest_stage", 3, "Модель отличает сводки от новостей"),
         ("entity_news_stage", 4, "Модель определяет, что нового по делу"),
         ("unnamed_stage", 5, "Модель читает предложения о безымянных"),
+        ("sentences_stage", 6, "Модель выписывает приговоры из публикаций"),
     ],
 )
 def test_every_phase_of_the_final_step_that_reads_texts_has_its_own_bar(
     session_factory: sessionmaker[Session], event: str, phase: int, label: str
 ) -> None:
-    """The step has five phases; only the verdicts used to show a bar, and the three that
+    """The step has six phases; only the verdicts used to show a bar, and those that
     followed it left the card saying «Сохраняю…» for minutes."""
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
     with _client(session_factory, registry) as client:
@@ -1173,7 +1174,7 @@ def test_every_phase_of_the_final_step_that_reads_texts_has_its_own_bar(
         card = client.get(address).text
 
     assert '<progress class="overall" value="40" max="500">' in card
-    assert f"Этап {phase} из 5 · {label}: 40 из 500" in card
+    assert f"Этап {phase} из 6 · {label}: 40 из 500" in card
 
 
 def test_a_phase_without_a_count_still_says_which_one_it_is(
@@ -1194,8 +1195,8 @@ def test_a_phase_without_a_count_still_says_which_one_it_is(
         )
         unnamed = client.get(address).text
 
-    assert "Этап 1 из 5 · Сверяю сущности с перечнем…" in rf
-    assert "Этап 5 из 5 · Безымянные: читаю данные…" in unnamed
+    assert "Этап 1 из 6 · Сверяю сущности с перечнем…" in rf
+    assert "Этап 5 из 6 · Безымянные: читаю данные…" in unnamed
 
 
 def test_a_running_card_shows_the_last_three_things_the_run_said(

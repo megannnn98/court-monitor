@@ -124,6 +124,11 @@ _ICONS = {
     "about": '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="16"/>'
     '<line x1="12" x2="12" y1="12" y2="12"/>'
     '<line x1="12" x2="12.01" y1="8" y2="8"/>',
+    "ask": '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+    # A balance: what the courts weighed out.
+    "sentences": '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>'
+    '<path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/>'
+    '<path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
     "menu": '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/>'
     '<line x1="4" x2="20" y1="18" y2="18"/>',
 }
@@ -142,6 +147,8 @@ def _icon(name: str) -> str:
 _DATA = (
     ("entities", "Все люди", "/ui/entities"),
     ("publications", "Публикации", "/ui/publications"),
+    # What the courts gave, as the publications tell it: what «Спросить» counts over.
+    ("sentences", "Приговоры", "/ui/sentences"),
     # The list itself, with «who was added lately».
     ("rfm", "Перечень РФМ", "/ui/rfm"),
     ("airtable", "База Airtable", "/ui/airtable"),
@@ -185,6 +192,8 @@ def _nav(active: str, counts: dict[str, object]) -> str:
         link("cycle", "Работа", HOME, counts["queue"], "nav-daily")
         + link("political", "Результаты", "/ui/political", counts["result"], "nav-daily")
         + link("investigations", "Найти человека", "/ui/investigations", css="nav-daily")
+        # Not in the phone's bottom bar, so not hidden from its opened menu.
+        + link("ask", "Спросить", "/ui/ask")
     )
     data = "".join(link(*item) for item in _DATA)
     system = "".join(link(*item) for item in _SYSTEM)

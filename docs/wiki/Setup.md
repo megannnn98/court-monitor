@@ -41,6 +41,7 @@ uv run python src/main.py validate-config
 | `ER_AUTO_LINK_MIN_SCORE`, `ER_REVIEW_MIN_SCORE`, `ER_MIN_MARGIN` | пороги решения ER v2, по умолчанию `0.85`, `0.40`, `0.10` (подобраны по `evaluate-er`) |
 | `OPENROUTER_API_KEY` | ключ OpenRouter для модели шагов 3, 4, 5 и безымянных фигурантов; без него решают только правила, остальное «неясно» |
 | `ENTITY_NORMALIZE_MODEL` | модель OpenRouter для этих шагов; по умолчанию `deepseek/deepseek-v4.1-flash` |
+| `ASK_DAILY_BUDGET_USD` | сколько за день могут потратить вопросы страницы «Спросить» ([Ask](Ask.md)), по умолчанию `1` |
 | `ENTITY_MODEL_BUDGET_USD` | сколько может потратить один запуск шага, по умолчанию `2`; что не спросили — спросит следующий запуск |
 | `PIPELINE_SINCE` | рабочая дата (`YYYY-MM-DD`): шаг 2 удаляет публикации раньше неё; в `compose.yaml` — `2026-09-20`; пусто — по дате не удаляется |
 

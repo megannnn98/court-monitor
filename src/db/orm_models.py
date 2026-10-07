@@ -77,6 +77,9 @@ from db.models.semantic import (
 )
 from db.models.sources import (
     ArticleDigestAnswerRecord,
+    ArticleSentenceReadingRecord,
+    ArticleSentenceRecord,
+    ChatQuestionRecord,
     ParsedArticleRecord,
     Source,
     SourceDocument,
@@ -86,7 +89,10 @@ __all__ = [
     "AirtableKnownPersonRecord",
     "ArticleDigestAnswerRecord",
     "ArticleExtractionRunRecord",
+    "ArticleSentenceReadingRecord",
+    "ArticleSentenceRecord",
     "Base",
+    "ChatQuestionRecord",
     "CriminalArticleRecord",
     "EntityDoneMarkRecord",
     "EntityGroupChargeRecord",

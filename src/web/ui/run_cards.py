@@ -358,13 +358,15 @@ class _Phase:
     asking: str = ""
 
 
-# In order: the list, the verdicts, the roundup posts, the latest news, the unnamed.
+# In order: the list, the verdicts, the roundup posts, the latest news, the unnamed,
+# the sentences.
 _FINAL_PHASES = (
     _Phase("entities_rf_check_stage", "Сверка с перечнем"),
     _Phase("entity_politics_stage", "Политичность", "Модель читает дела"),
     _Phase("article_digest_stage", "Сводки новостей", "Модель отличает сводки от новостей"),
     _Phase("entity_news_stage", "Свежая новость", "Модель определяет, что нового по делу"),
     _Phase("unnamed_stage", "Безымянные", "Модель читает предложения о безымянных"),
+    _Phase("sentences_stage", "Приговоры", "Модель выписывает приговоры из публикаций"),
 )
 _FINAL_STAGE = re.compile(
     r"event=(" + "|".join(phase.event for phase in _FINAL_PHASES) + r") stage=([^\n]+)"
@@ -456,6 +458,7 @@ def _political_card(run: OperationRun) -> str:
                 ("news_closed", "Дело завершено", ""),
                 ("news_unknown", "Не определена", "pending"),
                 ("unnamed", "Безымянных фигурантов", "succeeded"),
+                ("sentences", "Приговоров выписано сейчас", ""),
             ),
         ),
         (
@@ -467,6 +470,9 @@ def _political_card(run: OperationRun) -> str:
                 ("unasked", "Не спрошено: лимит расходов", "failed"),
                 ("cost_usd", "Стоимость модели, $", ""),
                 ("unnamed_cost_usd", "Стоимость (безымянные), $", ""),
+                ("sentences_failures", "Приговоры: модель не ответила", "failed"),
+                ("sentences_unasked", "Приговоры: не спрошено из-за лимита", "failed"),
+                ("sentences_cost_usd", "Стоимость (приговоры), $", ""),
             ),
         ),
     )
