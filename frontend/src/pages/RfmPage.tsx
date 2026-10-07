@@ -68,8 +68,12 @@ export function RfmPage() {
     <>
       <PageHeader title="Перечень РФМ" instruction="Загруженные снимки перечня Росфинмониторинга и записи выбранного снимка.">
         <p className="text-sm">
+          <a className="underline" href="/ui/rfm/export.xlsx">
+            Скачать перечень в Excel
+          </a>{" "}
+          · выбор периода — в{" "}
           <a className="underline" href="/ui/rfm">
-            Перечень с периодом и выгрузкой в Excel — в старом интерфейсе
+            старом интерфейсе
           </a>
         </p>
       </PageHeader>

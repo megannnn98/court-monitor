@@ -100,6 +100,12 @@ export function CandidatesPage() {
               />
             </div>
             <Button type="submit">Обновить</Button>
+            <a
+              className="pb-2 text-sm underline"
+              href={`/ui/candidates/export.xlsx?${new URLSearchParams({ snapshot_id: String(snapshotId), min_confidence: String(minConfidence) })}`}
+            >
+              Скачать Excel
+            </a>
           </form>
         )}
       </QueryState>

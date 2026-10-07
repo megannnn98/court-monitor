@@ -40,6 +40,9 @@ it("opens on the newest snapshot and shows its candidates", async () => {
   expect(screen.getByText("antiwar_speech, article_207_3")).toBeTruthy();
   expect(screen.getByText("0.91")).toBeTruthy();
   expect(candidates).toHaveBeenCalledWith({ query: { snapshot_id: 12, min_persecution_confidence: 0.7, limit: 100 } });
+  expect(screen.getByRole("link", { name: "Скачать Excel" }).getAttribute("href")).toBe(
+    "/ui/candidates/export.xlsx?snapshot_id=12&min_confidence=0.7"
+  );
 });
 
 it("takes the snapshot and the filters from the address", async () => {
