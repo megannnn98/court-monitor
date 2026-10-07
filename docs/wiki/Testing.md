@@ -29,6 +29,12 @@ env -u DATABASE_URL uv run pytest
 
 База для integration tests должна называться `court_monitor_test`.
 
+Не запускайте `pytest` фоном через `&` (в том числе `nohup … &`): неинтерактивный shell
+отключает фоновым командам SIGINT, тесты это наследуют, и
+`test_the_real_process_runner_streams_output_and_interrupts_on_stop` падает через 30 секунд с
+кодом `-9` вместо `130`. Долгий прогон запускайте на переднем плане, вывод перенаправляйте
+в файл (`uv run pytest > pytest.log 2>&1`).
+
 ## Что покрыто
 
 Тесты разложены по тем же пакетам, что и `src/`:
