@@ -170,3 +170,24 @@ def test_the_decision_screen_without_a_key_or_an_answer_fails_before_the_purge(
     _answer_with(monkeypatch, httpx.MockTransport(lambda _request: httpx.Response(401)))
     with pytest.raises(JunkScreenError, match="refused"):
         screen_from_env({"JUNK_SCREEN": "jev", "OPENROUTER_API_KEY": "key"})
+
+
+def test_the_screen_counts_what_its_answers_cost() -> None:
+    priced = iter([0.00004, 0.00006, None])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        answer = _answer(0.9)
+        cost = next(priced)
+        if cost is not None:
+            answer["usage"] = {"input_tokens": 900, "output_tokens": 30, "cost": cost}
+        return httpx.Response(200, json=answer)
+
+    screen = _screen(httpx.MockTransport(handler))
+    assert screen.cost_usd == 0
+
+    screen.scores([("Суд", "приговор")])
+    screen.scores([("Суд", "арест")])
+    # An answer without a price is still an answer: it adds nothing.
+    screen.scores([("Суд", "обыск")])
+
+    assert screen.cost_usd == pytest.approx(0.0001)

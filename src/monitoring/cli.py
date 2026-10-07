@@ -678,6 +678,8 @@ def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
             "holds_unasked": read.unasked,
             "holds_restored": read.restored,
             "holds_cost_usd": read.cost_usd,
+            # What the screen's own model cost: of the embedding screen, nothing.
+            "screen_cost_usd": round(getattr(screen, "cost_usd", 0.0), 6),
         }
     )
     return True

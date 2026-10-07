@@ -125,7 +125,7 @@ def _processing(state: PipelineState, work: Workload) -> str:
     return f"""<section class="processing-status" aria-labelledby="processing-title">
   <div><h2 id="processing-title">Обработка данных</h2>
   <p class="muted">Автоматические шаги. Ручная проверка показана выше.</p></div>
-  {spend.balance_line()}{spend.notice(state.current) if state.live is None else ""}
+  {spend.balance_line()}{spend.notice(state.current, last=state.last_spent) if state.live is None else ""}
   <ol>{"".join(rows)}</ol>
   {tail_html(state.live) if state.live is not None else ""}
   {chain_note(state)}{chain_stopped(state)}

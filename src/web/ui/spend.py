@@ -10,10 +10,17 @@ The balance comes from OpenRouter's `/api/v1/credits` (credits bought minus cred
 with four dollars. The answer is cached for a minute and asked with a short timeout, so a
 page does not wait on OpenRouter and a dead OpenRouter does not slow every page: when it
 cannot be asked, the page says so and nothing else changes.
+
+What a run spent is kept with the run: every paid step prints the cost of its model calls
+among its totals (`…cost_usd`), and the journal of runs keeps what a run printed. So the
+history of spending is the history of runs: `run_cost` sums a run's costs, `last_spent`
+finds what the step cost the time before. A run that did not reach its totals — stopped,
+failed — printed none: its cost is not known, and is said so, not shown as zero.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 import time
@@ -25,6 +32,7 @@ import httpx
 
 from entities.llm import budget_from_env, endpoint_from_env
 from monitoring.junk_screen import DECISION
+from operator_console import OperationRun, OperationRunStatus
 
 CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 CACHE_SECONDS = 60.0
@@ -189,9 +197,83 @@ def confirm_text(stage: str, env: Mapping[str, str] | None = None) -> str:
     return " ".join(part for part in (found.text, balance_text(env)) if part) if found else ""
 
 
-def notice(stage: str, env: Mapping[str, str] | None = None) -> str:
-    """The visible warning of a paid step: the cost, the balance, and a red word when the
-    balance is under the step's limit. Empty for a step that is free."""
+def run_cost(run: OperationRun) -> float | None:
+    """What the run's model calls cost: the sum of the costs it printed at its end. None
+    when it printed none — a step that asks no model, or a run that did not end."""
+    try:
+        totals = json.loads(run.stdout) if run.stdout else {}
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(totals, dict):
+        return None
+    costs = [
+        value
+        for key, value in totals.items()
+        if key.endswith("cost_usd") and isinstance(value, int | float) and value is not True
+    ]
+    return round(sum(costs), 6) if costs else None
+
+
+def money(cost: float) -> str:
+    """Cents are what a run costs: four places, so that a run of half a cent is not «$0.00»."""
+    return f"${cost:.4f}"
+
+
+def previous(
+    runs: Sequence[OperationRun], stage: str | None, before: int | None = None
+) -> tuple[OperationRun, float] | None:
+    """The latest run of the step whose cost is known, of `runs` (newest first); with
+    `before`, the latest one older than that run."""
+    for run in runs:
+        if run.parameters.mode != stage or (before is not None and run.id >= before):
+            continue
+        cost = run_cost(run)
+        if cost is not None:
+            return run, cost
+    return None
+
+
+def _when(run: OperationRun) -> str:
+    return f"#{run.id}, {run.created_at.astimezone():%d.%m.%Y %H:%M}"
+
+
+def last_spent(runs: Sequence[OperationRun], stage: str | None) -> str:
+    """«В прошлый раз …» for a step about to start; empty when no run of it told a cost."""
+    found = previous(runs, stage)
+    if found is None:
+        return ""
+    run, cost = found
+    return f"В прошлый раз шаг потратил {money(cost)} ({_when(run)})."
+
+
+_ENDED = (
+    OperationRunStatus.SUCCEEDED,
+    OperationRunStatus.FAILED,
+    OperationRunStatus.INTERRUPTED,
+)
+
+
+def run_spent(run: OperationRun, runs: Sequence[OperationRun]) -> str:
+    """Under a run's card: what this run spent, and what the step spent the time before.
+    Empty for a step that asks no model."""
+    if run.parameters.mode not in AI_STAGES:
+        return ""
+    cost = run_cost(run)
+    parts = []
+    if cost is not None:
+        parts.append(f"Этот запуск потратил на модель {money(cost)}.")
+    elif run.status in _ENDED:
+        parts.append("Сколько потратил этот запуск, неизвестно: он не дошёл до итогов.")
+    before = previous(runs, run.parameters.mode, run.id)
+    if before is not None:
+        parts.append(f"Предыдущий запуск этого шага ({_when(before[0])}): {money(before[1])}.")
+    return f'<p class="muted run-spent">{escape(" ".join(parts))}</p>' if parts else ""
+
+
+def notice(stage: str, env: Mapping[str, str] | None = None, *, last: str = "") -> str:
+    """The visible warning of a paid step: the cost, the balance, what the step spent the
+    time before (`last`), and a red word when the balance is under the step's limit. Empty
+    for a step that is free."""
     found = cost(stage, env)
     if found is None:
         return ""
@@ -200,7 +282,7 @@ def notice(stage: str, env: Mapping[str, str] | None = None) -> str:
     css = "warning" if low else "muted"
     return (
         f'<p class="{css} ai-note">⚠ {escape(found.text)} {escape(balance_text(env))}'
-        f"{escape(extra)}</p>"
+        f"{escape(' ' + last if last else '')}{escape(extra)}</p>"
     )
 
 

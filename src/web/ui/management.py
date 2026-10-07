@@ -27,6 +27,7 @@ from operator_console import (
 )
 from sources.source_registry import news_sources
 from web.dependencies import get_db, get_operation_registry, session_factory_for
+from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
 from web.ui.layout import _page
 from web.ui.pipeline import (
@@ -53,6 +54,8 @@ _OPERATION = "monitor"
 # here so old standalone runs remain accessible in the UI.
 _WHOLE_DATABASE = ("purge", "entities", "rosfin", "figurants", "political")
 HISTORY_SIZE = 4
+# What the runs spent is read over several rounds of the five steps.
+SPENDING_SIZE = 20
 
 
 def _stop_form(run: OperationRun, back: str) -> str:
@@ -187,14 +190,50 @@ def _history(runs: Sequence[OperationRun], current: OperationRun | None) -> str:
         f"<td>{escape(local_time(run.created_at))}</td>"
         f"<td>{badge(RUN_STATUS_LABELS[run.status], RUN_STATUS_BADGES[run.status])}</td>"
         f'<td class="num">{len(run.parameters.sources or [])}</td>'
+        f'<td class="num">{_spent_cell(run)}</td>'
         "</tr>"
         for run in runs
     )
     return f"""<section class="band">
   <h2>Последние ручные запуски</h2>
-  <table><thead><tr><th>Запуск</th><th>Что</th><th>Начат</th><th>Статус</th><th>Источников</th></tr></thead>
+  <table><thead><tr><th>Запуск</th><th>Что</th><th>Начат</th><th>Статус</th><th>Источников</th><th>Потрачено на модель</th></tr></thead>
   <tbody>{rows}</tbody></table>
 </section>"""
+
+
+def _spending(runs: Sequence[OperationRun]) -> str:
+    """The history of what the paid steps spent, a run per row, folded: the money beside
+    the runs it went on."""
+    paid = [run for run in runs if run.parameters.mode in spend.AI_STAGES][:SPENDING_SIZE]
+    if not paid:
+        return ""
+    # «№», not «#»: the link of the list of runs above is the one with «#».
+    rows = "".join(
+        f'<tr><td><a href="/ui/runs?run_id={run.id}">№ {run.id}</a></td>'
+        f"<td>{MODE_TITLES[run.parameters.mode]}</td>"
+        f"<td>{escape(local_time(run.created_at))}</td>"
+        f"<td>{badge(RUN_STATUS_LABELS[run.status], RUN_STATUS_BADGES[run.status])}</td>"
+        f'<td class="num">{_spent_cell(run)}</td></tr>'
+        for run in paid
+    )
+    total = sum(cost for run in paid if (cost := spend.run_cost(run)) is not None)
+    return f"""<details class="band spending">
+  <summary>Расходы на модель по запускам: {spend.money(total)} за последние {len(paid)}</summary>
+  <table><thead><tr><th>Запуск</th><th>Шаг</th><th>Начат</th><th>Статус</th><th>Потрачено</th></tr></thead>
+  <tbody>{rows}</tbody>
+  <tfoot><tr><th colspan="4" scope="row">Всего</th><th class="num">{spend.money(total)}</th></tr></tfoot></table>
+  <p class="muted">«неизвестно» — запуск, который не дошёл до итогов: остановлен или упал.
+  Вопросы страницы «Спросить» и запуски из командной строки сюда не входят.</p>
+</details>"""
+
+
+def _spent_cell(run: OperationRun) -> str:
+    cost = spend.run_cost(run)
+    if cost is not None:
+        return spend.money(cost)
+    # A paid step that ended without its totals spent something nobody counted.
+    ended = run.status not in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+    return "неизвестно" if ended and run.parameters.mode in spend.AI_STAGES else "—"
 
 
 def _skipped_sources(run: OperationRun) -> dict[str, str]:
@@ -487,7 +526,11 @@ def _management_page(
     status_code: int = 200,
 ) -> HTMLResponse:
     definitions = news_sources()
-    run_html = _run_results(db, run, run.parameters.sources or []) if run else ""
+    run_html = (
+        _run_results(db, run, run.parameters.sources or []) + spend.run_spent(run, history)
+        if run
+        else ""
+    )
     error_html = f'<p class="warning">{escape(warning)}</p>' if warning else ""
     # What the page is opened for comes first: start, see the run, look back. The
     # funnel is the whole base, not a run, so it closes the page.
@@ -508,7 +551,8 @@ def _management_page(
   </details>
 </form>
 {run_html}
-{_history(history, run)}
+{_history(history[:HISTORY_SIZE], run)}
+{_spending(history)}
 {_source_errors(db)}
 {funnel_html(funnel(db))}"""
     page = _page(
@@ -528,12 +572,13 @@ def _management_page(
 
 
 def _recent_runs(registry: OperationRegistry) -> list[OperationRun]:
-    """The latest manual runs with a source selection, newest first."""
+    """The manual runs with a source selection or over the whole database, newest first:
+    the page lists the head of them and reads the spending over the rest."""
     return [
         item
         for item in registry.runs_of(_OPERATION, limit=50)
         if item.parameters.sources is not None or item.parameters.mode in _WHOLE_DATABASE
-    ][:HISTORY_SIZE]
+    ]
 
 
 @router.get("/ui/management", response_class=RedirectResponse)

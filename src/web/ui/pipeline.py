@@ -18,7 +18,7 @@ the question before it, the note under a live step, the word when it stopped —
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html import escape
 
 from operator_console import OperationRegistry, OperationRun, OperationRunStatus
@@ -66,6 +66,8 @@ class PipelineState:
     live: OperationRun | None = None
     # The latest run, live or ended: what a chain that stopped is told by.
     latest: OperationRun | None = None
+    # «В прошлый раз шаг потратил …» of the current step; empty when no run told.
+    last_spent: str = ""
 
 
 def _stage_of(run: OperationRun) -> str:
@@ -108,9 +110,14 @@ def pipeline_current(mode: str | None, status: OperationRunStatus | None) -> str
     return STAGES[(STAGES.index(stage) + 1) % len(STAGES)]
 
 
+# How far back the step's last cost is looked for: four rounds of the five steps.
+_SPENT_WINDOW = 20
+
+
 def current_state(registry: OperationRegistry) -> PipelineState:
-    latest = registry.runs_of(OPERATION, limit=1)
-    return pipeline_state(latest[0] if latest else None)
+    runs = registry.runs_of(OPERATION, limit=_SPENT_WINDOW)
+    state = pipeline_state(runs[0] if runs else None)
+    return replace(state, last_spent=spend.last_spent(runs, state.current))
 
 
 def out_of_turn(state: PipelineState, stage: str) -> str | None:
@@ -282,5 +289,5 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
         f"{chain_note(state)}"
         f'<p class="muted pipeline-note">{running} После шага {len(STAGES)} круг начинается '
         "заново.</p>"
-        f"{spend.notice(state.current) if state.live is None else ''}"
+        f"{spend.notice(state.current, last=state.last_spent) if state.live is None else ''}"
     )

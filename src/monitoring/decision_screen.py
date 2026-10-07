@@ -18,6 +18,7 @@ reading of the answer below — a changed shape must stop the purge, not pass as
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -75,6 +76,14 @@ class DecisionScreen:
         self._api_key = api_key
         self._model = model
         self._sleep = sleep
+        # What the answers cost so far, as the service priced each: asked from threads.
+        self._cost = 0.0
+        self._cost_lock = threading.Lock()
+
+    @property
+    def cost_usd(self) -> float:
+        with self._cost_lock:
+            return self._cost
 
     @property
     def name(self) -> str:
@@ -114,6 +123,10 @@ class DecisionScreen:
         }
         return _case_probability(self._ask(http, request))
 
+    def _count(self, answer: object) -> None:
+        with self._cost_lock:
+            self._cost += _price(answer)
+
     def _ask(self, http: httpx.Client, request: Mapping[str, object]) -> object:
         failure = "no attempt was made"
         for attempt in range(RETRIES + 1):
@@ -138,10 +151,20 @@ class DecisionScreen:
                     f"The decision model refused the junk screen: HTTP {response.status_code}"
                 )
             try:
-                return response.json()
+                answer = response.json()
             except ValueError as exc:
                 raise JunkScreenError("The decision model's answer is not JSON") from exc
+            self._count(answer)
+            return answer
         raise JunkScreenError(f"The decision model did not answer the junk screen: {failure}")
+
+
+def _price(answer: object) -> float:
+    """What the service says the answer cost; 0 when it does not say."""
+    try:
+        return max(float(answer["usage"]["cost"]), 0.0)  # type: ignore[index]
+    except (KeyError, TypeError, ValueError):
+        return 0.0
 
 
 def _case_probability(answer: object) -> float:

@@ -21,6 +21,7 @@ from operator_console import OperationParameters, OperationRegistry, OperationRu
 from sources.source_registry import news_sources
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
+from web.ui import spend
 
 
 @contextmanager
@@ -1255,3 +1256,107 @@ def test_the_log_tail_reads_a_log_without_the_noise() -> None:
     assert log_tail("event=a x=1\nevent=a x=2\n") == ["event=a x=2"]
     assert log_tail("event=a\nevent=b\nevent=c\nevent=d\n") == ["event=b", "event=c", "event=d"]
     assert log_tail("event=a\nevent=b\nevent=c\n", count=1) == ["event=c"]
+
+
+def _printed(session_factory: sessionmaker[Session], run_id: int, totals: str) -> None:
+    """What a run printed at its end: the journal keeps it as the run's output."""
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE operator_operation_runs SET stdout = :out WHERE id = :id"),
+            {"id": run_id, "out": totals},
+        )
+
+
+def test_a_run_says_what_it_spent_and_what_the_step_spent_before(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    first, entities, stopped, latest = finish_steps(
+        session_factory, registry, "political", "entities", "political", "political"
+    )
+    _printed(session_factory, first, '{"cost_usd": 0.01, "news_cost_usd": 0.02, "political": 3}')
+    _printed(session_factory, entities, '{"model_cost_usd": 0.005, "entities": 7}')
+    # A run that was stopped printed nothing: what it spent is not known, and is not zero.
+    _printed(session_factory, stopped, "")
+    _printed(
+        session_factory,
+        latest,
+        '{"cost_usd": 0.004, "unnamed_cost_usd": 0.0005, "sentences_cost_usd": 0.1, "rf_error": null}',
+    )
+
+    with _client(session_factory, registry) as client:
+        shown = client.get("/ui/runs").text
+        unknown = client.get("/ui/runs", params={"run_id": stopped}).text
+        earliest = client.get("/ui/runs", params={"run_id": first}).text
+        other = client.get("/ui/runs", params={"run_id": entities}).text
+
+    # The run's own sum; the time before is the latest run whose cost is known.
+    assert "Этот запуск потратил на модель $0.1045." in shown
+    assert f"Предыдущий запуск этого шага (#{first}, " in shown and "): $0.0300." in shown
+    assert "Сколько потратил этот запуск, неизвестно: он не дошёл до итогов." in unknown
+    assert "Этот запуск потратил на модель $0.0300." in earliest
+    assert "Предыдущий запуск этого шага" not in earliest
+    # Another step's cost is not this step's «before».
+    assert "Этот запуск потратил на модель $0.0050." in other
+    assert "Предыдущий запуск этого шага" not in other
+
+
+def test_the_spending_is_listed_beside_the_runs(session_factory: sessionmaker[Session]) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    load, purge, entities, figurants = finish_steps(
+        session_factory, registry, "load", "purge", "entities", "figurants"
+    )
+    _printed(session_factory, purge, '{"holds_cost_usd": 0.002, "screen_cost_usd": 0.03}')
+    _printed(session_factory, entities, '{"model_cost_usd": 0.005}')
+    _printed(session_factory, figurants, "not json")
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/runs").text
+        free = client.get("/ui/runs", params={"run_id": load}).text
+
+    # A step that asks no model spent nothing to speak of: its card says nothing of money.
+    assert "Этот запуск потратил" not in free and "Сколько потратил" not in free
+    spending = page[page.index('<details class="band spending">') :]
+    assert "Расходы на модель по запускам: $0.0370 за последние 3" in spending
+    rows = re.findall(
+        r"№ (\d+)</a></td>.*?<td class=\"num\">([^<]+)</td></tr>", spending, re.DOTALL
+    )
+    # Newest first; the load asks no model and is not among the paid.
+    assert rows == [
+        (str(figurants), "неизвестно"),
+        (str(entities), "$0.0050"),
+        (str(purge), "$0.0320"),
+    ]
+    assert '<th class="num">$0.0370</th>' in spending
+    # The list of runs itself carries the same figure, and a dash for a free step.
+    listed = page[
+        page.index("Последние ручные запуски") : page.index('<details class="band spending">')
+    ]
+    assert re.findall(r'<td class="num">([^<]+)</td></tr>', listed) == [
+        "неизвестно",
+        "$0.0050",
+        "$0.0320",
+        "—",
+    ]
+
+
+def test_the_next_step_is_told_what_it_spent_the_last_time(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("ENTITY_NORMALIZE_MODEL", raising=False)
+    monkeypatch.setattr(spend, "_request", lambda _key: None)
+    spend.reset_cache()
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    old, _load, purge = finish_steps(session_factory, registry, "entities", "load", "purge")
+    _printed(session_factory, old, '{"model_cost_usd": 0.0123}')
+    _printed(session_factory, purge, '{"holds_cost_usd": 0.5}')
+
+    with _client(session_factory, registry) as client:
+        runs = client.get("/ui/runs").text
+        cycle = client.get("/ui/cycle").text
+
+    # The next step is the entities: its own last cost, not the purge's that just ended.
+    told = f"В прошлый раз шаг потратил $0.0123 (#{old}, "
+    assert told in runs and told in cycle
+    assert "$0.5000 (#" not in cycle
