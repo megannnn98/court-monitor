@@ -39,6 +39,14 @@ def test_liveness_needs_no_dependencies(client: TestClient) -> None:
     assert response.json() == {"status": "alive"}
 
 
+def test_versioned_liveness_matches_legacy_path(client: TestClient) -> None:
+    legacy = client.get("/health/live")
+    versioned = client.get("/api/v1/health/live")
+
+    assert versioned.status_code == legacy.status_code == 200
+    assert versioned.json() == legacy.json()
+
+
 def test_ready_when_database_is_at_head(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:

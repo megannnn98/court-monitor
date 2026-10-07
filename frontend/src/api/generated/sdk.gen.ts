@@ -4,7 +4,7 @@ import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
 import type { GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses } from './types.gen';
 
-export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
+export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
      * You can provide a client instance returned by `createClient()` instead of
      * individual options. This might be also useful if you want to implement a
@@ -23,229 +23,129 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  *
  * List all persons.
  */
-export const listPersonsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListPersonsV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListPersonsV1Responses, ListPersonsV1Errors, ThrowOnError>({
-        url: '/api/v1/persons',
-        ...options
-    });
-};
+export const listPersonsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListPersonsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListPersonsV1Responses, ListPersonsV1Errors, ThrowOnError>({ url: '/api/v1/persons', ...options });
 
 /**
  * Get Person
  *
  * Get a person by ID.
  */
-export const getPersonV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetPersonV1Responses, GetPersonV1Errors, ThrowOnError>({
-        url: '/api/v1/persons/{person_id}',
-        ...options
-    });
-};
+export const getPersonV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonV1Data, ThrowOnError>) => (options.client ?? client).get<GetPersonV1Responses, GetPersonV1Errors, ThrowOnError>({ url: '/api/v1/persons/{person_id}', ...options });
 
 /**
  * Get Person Aliases
  *
  * Get all aliases for a person.
  */
-export const getPersonAliasesV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonAliasesV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetPersonAliasesV1Responses, GetPersonAliasesV1Errors, ThrowOnError>({
-        url: '/api/v1/persons/{person_id}/aliases',
-        ...options
-    });
-};
+export const getPersonAliasesV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonAliasesV1Data, ThrowOnError>) => (options.client ?? client).get<GetPersonAliasesV1Responses, GetPersonAliasesV1Errors, ThrowOnError>({ url: '/api/v1/persons/{person_id}/aliases', ...options });
 
 /**
  * Get Person Persecution
  *
  * Get persecution classification for a person.
  */
-export const getPersonPersecutionV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonPersecutionV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetPersonPersecutionV1Responses, GetPersonPersecutionV1Errors, ThrowOnError>({
-        url: '/api/v1/persons/{person_id}/persecution',
-        ...options
-    });
-};
+export const getPersonPersecutionV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonPersecutionV1Data, ThrowOnError>) => (options.client ?? client).get<GetPersonPersecutionV1Responses, GetPersonPersecutionV1Errors, ThrowOnError>({ url: '/api/v1/persons/{person_id}/persecution', ...options });
 
 /**
  * Get Person Events
  *
  * Events linked to a Person, each with its source article span.
  */
-export const getPersonEventsV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonEventsV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetPersonEventsV1Responses, GetPersonEventsV1Errors, ThrowOnError>({
-        url: '/api/v1/persons/{person_id}/events',
-        ...options
-    });
-};
+export const getPersonEventsV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonEventsV1Data, ThrowOnError>) => (options.client ?? client).get<GetPersonEventsV1Responses, GetPersonEventsV1Errors, ThrowOnError>({ url: '/api/v1/persons/{person_id}/events', ...options });
 
 /**
  * Get Person Detail
  *
  * Person card data: aliases, classifications, RF status and evidence-backed events.
  */
-export const getPersonDetailV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonDetailV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetPersonDetailV1Responses, GetPersonDetailV1Errors, ThrowOnError>({
-        url: '/api/v1/persons/{person_id}/detail',
-        ...options
-    });
-};
+export const getPersonDetailV1 = <ThrowOnError extends boolean = false>(options: Options<GetPersonDetailV1Data, ThrowOnError>) => (options.client ?? client).get<GetPersonDetailV1Responses, GetPersonDetailV1Errors, ThrowOnError>({ url: '/api/v1/persons/{person_id}/detail', ...options });
 
 /**
  * Get Article
  *
  * Full ParsedArticle text for evidence inspection.
  */
-export const getArticleV1 = <ThrowOnError extends boolean = false>(options: Options<GetArticleV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetArticleV1Responses, GetArticleV1Errors, ThrowOnError>({
-        url: '/api/v1/articles/{article_id}',
-        ...options
-    });
-};
+export const getArticleV1 = <ThrowOnError extends boolean = false>(options: Options<GetArticleV1Data, ThrowOnError>) => (options.client ?? client).get<GetArticleV1Responses, GetArticleV1Errors, ThrowOnError>({ url: '/api/v1/articles/{article_id}', ...options });
 
 /**
  * List Candidates
  *
  * List politically persecuted persons absent from Rosfinmonitoring.
  */
-export const listCandidatesV1 = <ThrowOnError extends boolean = false>(options: Options<ListCandidatesV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<ListCandidatesV1Responses, ListCandidatesV1Errors, ThrowOnError>({
-        url: '/api/v1/candidates',
-        ...options
-    });
-};
+export const listCandidatesV1 = <ThrowOnError extends boolean = false>(options: Options<ListCandidatesV1Data, ThrowOnError>) => (options.client ?? client).get<ListCandidatesV1Responses, ListCandidatesV1Errors, ThrowOnError>({ url: '/api/v1/candidates', ...options });
 
 /**
  * List Rosfinmonitoring Snapshots
  *
  * List Rosfinmonitoring snapshots.
  */
-export const listRosfinmonitoringSnapshotsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListRosfinmonitoringSnapshotsV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListRosfinmonitoringSnapshotsV1Responses, ListRosfinmonitoringSnapshotsV1Errors, ThrowOnError>({
-        url: '/api/v1/rosfinmonitoring/snapshots',
-        ...options
-    });
-};
+export const listRosfinmonitoringSnapshotsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListRosfinmonitoringSnapshotsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListRosfinmonitoringSnapshotsV1Responses, ListRosfinmonitoringSnapshotsV1Errors, ThrowOnError>({ url: '/api/v1/rosfinmonitoring/snapshots', ...options });
 
 /**
  * Get Rosfinmonitoring Snapshot
  *
  * Get a Rosfinmonitoring snapshot by ID.
  */
-export const getRosfinmonitoringSnapshotV1 = <ThrowOnError extends boolean = false>(options: Options<GetRosfinmonitoringSnapshotV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetRosfinmonitoringSnapshotV1Responses, GetRosfinmonitoringSnapshotV1Errors, ThrowOnError>({
-        url: '/api/v1/rosfinmonitoring/snapshots/{snapshot_id}',
-        ...options
-    });
-};
+export const getRosfinmonitoringSnapshotV1 = <ThrowOnError extends boolean = false>(options: Options<GetRosfinmonitoringSnapshotV1Data, ThrowOnError>) => (options.client ?? client).get<GetRosfinmonitoringSnapshotV1Responses, GetRosfinmonitoringSnapshotV1Errors, ThrowOnError>({ url: '/api/v1/rosfinmonitoring/snapshots/{snapshot_id}', ...options });
 
 /**
  * List Rosfinmonitoring Entries
  *
  * List entries in a Rosfinmonitoring snapshot.
  */
-export const listRosfinmonitoringEntriesV1 = <ThrowOnError extends boolean = false>(options: Options<ListRosfinmonitoringEntriesV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringEntriesV1Errors, ThrowOnError>({
-        url: '/api/v1/rosfinmonitoring/snapshots/{snapshot_id}/entries',
-        ...options
-    });
-};
+export const listRosfinmonitoringEntriesV1 = <ThrowOnError extends boolean = false>(options: Options<ListRosfinmonitoringEntriesV1Data, ThrowOnError>) => (options.client ?? client).get<ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringEntriesV1Errors, ThrowOnError>({ url: '/api/v1/rosfinmonitoring/snapshots/{snapshot_id}/entries', ...options });
 
 /**
  * Get Monitoring Status
  *
  * Running and latest monitoring runs, source checkpoints, active findings.
  */
-export const getMonitoringStatusV1 = <ThrowOnError extends boolean = false>(options?: Options<GetMonitoringStatusV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetMonitoringStatusV1Responses, unknown, ThrowOnError>({
-        url: '/api/v1/monitoring/status',
-        ...options
-    });
-};
+export const getMonitoringStatusV1 = <ThrowOnError extends boolean = false>(options?: Options<GetMonitoringStatusV1Data, ThrowOnError>) => (options?.client ?? client).get<GetMonitoringStatusV1Responses, unknown, ThrowOnError>({ url: '/api/v1/monitoring/status', ...options });
 
 /**
  * List Monitoring Runs
  */
-export const listMonitoringRunsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListMonitoringRunsV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListMonitoringRunsV1Responses, ListMonitoringRunsV1Errors, ThrowOnError>({
-        url: '/api/v1/monitoring/runs',
-        ...options
-    });
-};
+export const listMonitoringRunsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListMonitoringRunsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListMonitoringRunsV1Responses, ListMonitoringRunsV1Errors, ThrowOnError>({ url: '/api/v1/monitoring/runs', ...options });
 
 /**
  * Get Monitoring Run
  *
  * One run with its counters, stage metrics and failed items.
  */
-export const getMonitoringRunV1 = <ThrowOnError extends boolean = false>(options: Options<GetMonitoringRunV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetMonitoringRunV1Responses, GetMonitoringRunV1Errors, ThrowOnError>({
-        url: '/api/v1/monitoring/runs/{run_id}',
-        ...options
-    });
-};
+export const getMonitoringRunV1 = <ThrowOnError extends boolean = false>(options: Options<GetMonitoringRunV1Data, ThrowOnError>) => (options.client ?? client).get<GetMonitoringRunV1Responses, GetMonitoringRunV1Errors, ThrowOnError>({ url: '/api/v1/monitoring/runs/{run_id}', ...options });
 
 /**
  * List Monitoring Findings
  */
-export const listMonitoringFindingsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListMonitoringFindingsV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListMonitoringFindingsV1Responses, ListMonitoringFindingsV1Errors, ThrowOnError>({
-        url: '/api/v1/monitoring/findings',
-        ...options
-    });
-};
+export const listMonitoringFindingsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListMonitoringFindingsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListMonitoringFindingsV1Responses, ListMonitoringFindingsV1Errors, ThrowOnError>({ url: '/api/v1/monitoring/findings', ...options });
 
 /**
  * List Operation Runs
  */
-export const listOperationRunsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListOperationRunsV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListOperationRunsV1Responses, unknown, ThrowOnError>({
-        url: '/api/v1/operations/runs',
-        ...options
-    });
-};
+export const listOperationRunsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListOperationRunsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListOperationRunsV1Responses, unknown, ThrowOnError>({ url: '/api/v1/operations/runs', ...options });
 
 /**
  * Get Operation Run
  */
-export const getOperationRunV1 = <ThrowOnError extends boolean = false>(options: Options<GetOperationRunV1Data, ThrowOnError>) => {
-    return (options.client ?? client).get<GetOperationRunV1Responses, GetOperationRunV1Errors, ThrowOnError>({
-        url: '/api/v1/operations/runs/{run_id}',
-        ...options
-    });
-};
+export const getOperationRunV1 = <ThrowOnError extends boolean = false>(options: Options<GetOperationRunV1Data, ThrowOnError>) => (options.client ?? client).get<GetOperationRunV1Responses, GetOperationRunV1Errors, ThrowOnError>({ url: '/api/v1/operations/runs/{run_id}', ...options });
 
 /**
  * Health Check
  *
  * Liveness (kept for compatibility; prefer /health/live).
  */
-export const healthCheckV1 = <ThrowOnError extends boolean = false>(options?: Options<HealthCheckV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<HealthCheckV1Responses, unknown, ThrowOnError>({
-        url: '/api/v1/health',
-        ...options
-    });
-};
+export const healthCheckV1 = <ThrowOnError extends boolean = false>(options?: Options<HealthCheckV1Data, ThrowOnError>) => (options?.client ?? client).get<HealthCheckV1Responses, unknown, ThrowOnError>({ url: '/api/v1/health', ...options });
 
 /**
  * Health Live
  *
  * The process answers. Never checks dependencies.
  */
-export const healthLiveV1 = <ThrowOnError extends boolean = false>(options?: Options<HealthLiveV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<HealthLiveV1Responses, unknown, ThrowOnError>({
-        url: '/api/v1/health/live',
-        ...options
-    });
-};
+export const healthLiveV1 = <ThrowOnError extends boolean = false>(options?: Options<HealthLiveV1Data, ThrowOnError>) => (options?.client ?? client).get<HealthLiveV1Responses, unknown, ThrowOnError>({ url: '/api/v1/health/live', ...options });
 
 /**
  * Health Ready
  *
  * Database and schema are required; monitoring is reported.
  */
-export const healthReadyV1 = <ThrowOnError extends boolean = false>(options?: Options<HealthReadyV1Data, ThrowOnError>) => {
-    return (options?.client ?? client).get<HealthReadyV1Responses, HealthReadyV1Errors, ThrowOnError>({
-        url: '/api/v1/health/ready',
-        ...options
-    });
-};
+export const healthReadyV1 = <ThrowOnError extends boolean = false>(options?: Options<HealthReadyV1Data, ThrowOnError>) => (options?.client ?? client).get<HealthReadyV1Responses, HealthReadyV1Errors, ThrowOnError>({ url: '/api/v1/health/ready', ...options });
