@@ -127,6 +127,7 @@ curl -s http://127.0.0.1:8001/health/ready   # 503 unavailable: БД недос�
 |---|---|
 | `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` | пул на процесс (API worker, Dagster run), по умолчанию `5`, `10` |
 | `DATABASE_POOL_TIMEOUT`, `DATABASE_CONNECT_TIMEOUT` | ожидание соединения из пула и подключения к PostgreSQL, секунды, `30`, `10` |
+| `ALLOWED_ORIGINS` | откуда браузеру можно слать изменяющие запросы (POST и др.), через запятую; заменяет список по умолчанию `http://127.0.0.1:8001,http://localhost:8001,http://127.0.0.1:5173,http://localhost:5173`. Свой адрес (заголовок `Host`) разрешён всегда, так что SSH-туннель на любом порту работает без настройки; reverse proxy, переписывающему `Host`, нужен здесь свой публичный адрес (ADR 0022) |
 
 Все порты опубликованы только на `127.0.0.1` (PostgreSQL `5433`, API `8001`, Dagster `3000`). У API нет аутентификации и rate limiting — наружу только через reverse proxy с ними.
 
