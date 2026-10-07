@@ -182,7 +182,7 @@ def ui_sentences(
 
 async def _set_hidden(request: Request, db: Session, hidden: bool) -> RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    ids = [int(part) for part in form.get("rows", [""])[0].split(",") if part.isdigit()]
+    ids = {int(part) for part in form.get("rows", [""])[0].split(",") if part.isdigit()}
     if not ids:
         raise HTTPException(status_code=400, detail="Не указан приговор")
     changed = db.execute(
@@ -193,6 +193,12 @@ async def _set_hidden(request: Request, db: Session, hidden: bool) -> RedirectRe
     ).all()
     if not changed:
         raise HTTPException(status_code=404, detail="Такого приговора нет")
+    if len(changed) != len(ids):
+        # The page is older than the rows: a part of a case must not go alone. Nothing
+        # is committed, so nothing is hidden.
+        raise HTTPException(
+            status_code=409, detail="Список приговоров изменился. Обновите страницу."
+        )
     db.commit()
     kept = parse_qs(form.get("back", [""])[0])
     params: dict[str, str] = {

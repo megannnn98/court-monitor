@@ -10,7 +10,10 @@ Then it writes the answer from what they gave. So:
   (`unverified_numbers`).
 - The operator's base, the list of Rosfinmonitoring and operators' notes are in no
   count: only what the published articles tell goes to the model.
-- A day's questions spend at most `ASK_DAILY_BUDGET_USD`.
+- A day's questions spend `ASK_DAILY_BUDGET_USD`, give or take one question: a call's
+  price is known only when it is made, so the budget is checked before the question and
+  again before the answer is written, and what a call in flight costs may go over. A
+  call is at most `MAX_TOKENS` long, cents at the dearest.
 """
 
 from __future__ import annotations
@@ -567,26 +570,28 @@ def ask(
     *,
     budget_usd: float = DEFAULT_DAILY_BUDGET_USD,
 ) -> Asked:
-    """The question answered and written to the journal, whatever the outcome."""
+    """The question answered. Whatever a model was asked about is written to the journal
+    with its outcome; a question that reached no model (empty, no key, the day's budget
+    spent) is only answered."""
     question = " ".join(question.split())[:MAX_QUESTION]
     if not question:
         return Asked(None, REFUSED, "Вопрос пуст.")
     if asker is None:
         return Asked(None, FAILED, "Модель не настроена: не задан ключ OpenRouter.")
+    spent = f"Дневной предел расходов на вопросы (${budget_usd:.2f}) исчерпан. Спросите завтра."
     with session_factory() as session:
-        if spent_today(session) >= budget_usd:
-            return Asked(
-                None,
-                REFUSED,
-                f"Дневной предел расходов на вопросы (${budget_usd:.2f}) исчерпан. "
-                "Спросите завтра.",
-            )
+        left = budget_usd - spent_today(session)
+    if left <= 0:
+        return Asked(None, REFUSED, spent)
     calls: list[dict[str, Any]] = []
     try:
         plan = asker.plan(question)
         if not plan.calls:
             refusal = plan.refusal.strip() or "На этот вопрос база не отвечает."
             return _log(session_factory, question, calls, refusal, REFUSED, asker)
+        if asker.spend.cost_usd >= left:
+            # The choice of counts took what was left: the answer is not paid for.
+            return _log(session_factory, question, calls, spent, REFUSED, asker)
         with session_factory() as session:
             all_cases = cases(session)
             for call in plan.calls[:MAX_CALLS]:

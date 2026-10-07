@@ -166,14 +166,19 @@ def test_a_models_failure_is_said_and_kept(session_factory: sessionmaker[Session
 
 def test_past_the_days_budget_nothing_is_asked(session_factory: sessionmaker[Session]) -> None:
     _seed(session_factory)
-    ask(session_factory, FakeAsker(_stats_plan(), cost=0.6), "Первый?", budget_usd=1.0)
-    ask(session_factory, FakeAsker(_stats_plan(), cost=0.6), "Второй?", budget_usd=1.0)
+    first = ask(session_factory, FakeAsker(_stats_plan(), cost=0.6), "Первый?", budget_usd=1.0)
+    # The choice of counts takes what is left of the day: the answer is not paid for.
+    over = FakeAsker(_stats_plan(), cost=0.6)
+    second = ask(session_factory, over, "Второй?", budget_usd=1.0)
     third = FakeAsker(_stats_plan())
 
     asked = ask(session_factory, third, "Третий?", budget_usd=1.0)
 
+    assert first.outcome == ANSWERED
+    assert second.outcome == REFUSED and "предел" in second.answer
+    assert over.results == [] and second.id is not None
     assert asked.outcome == REFUSED and "предел" in asked.answer
-    assert third.spend.calls == 0
+    assert (third.spend.calls, asked.id) == (0, None)
     with session_factory() as session:
         assert len(session.scalars(select(ChatQuestionRecord)).all()) == 2
 

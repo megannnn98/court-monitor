@@ -361,8 +361,10 @@ def stats(
     unknown = len(members.pop("", []))
     groups = [_group(name, found) for name, found in members.items()]
     groups.sort(key=lambda group: (-getattr(group, sort), group.name))
-    kept = [group for group in groups if group.imprisoned >= min_imprisoned]
-    small = [group for group in groups if group.imprisoned < min_imprisoned]
+    # A count of cases ranks nothing by a term: every group is in it, whatever was asked.
+    floor = 0 if sort == "cases" else min_imprisoned
+    kept = [group for group in groups if group.imprisoned >= floor]
+    small = [group for group in groups if group.imprisoned < floor]
     return Stats(
         total=_group("", selection.cases),
         groups=kept[:limit],

@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("prompt_version", sa.String(length=32), nullable=False),
         sa.Column("model", sa.String(length=100), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
         sa.ForeignKeyConstraint(["article_id"], ["parsed_articles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("article_id"),

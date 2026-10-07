@@ -231,6 +231,14 @@ def test_a_group_with_too_few_terms_is_left_out_and_counted() -> None:
     ]
 
 
+def test_a_count_of_cases_leaves_no_group_out() -> None:
+    # The model may ask for «three terms at least» where nothing is ranked by a term.
+    counted = stats(_cases(), Filters(), group_by="region", sort="cases", min_imprisoned=3)
+
+    assert [group.name for group in counted.groups] == ["Москва", "Свердловская область"]
+    assert (counted.small, counted.small_groups) == (0, ())
+
+
 def test_filters_narrow_the_selection() -> None:
     all_cases = _cases()
 

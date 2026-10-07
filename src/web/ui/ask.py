@@ -13,6 +13,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -249,7 +250,10 @@ async def ui_ask_question(
 ) -> RedirectResponse:
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
     question = form.get("question", [""])[0]
-    asked = ask(session_factory_for(db), asker_from_env(), question, budget_usd=daily_budget())
+    # In a thread: the model takes up to twenty seconds, and the pages must not wait for it.
+    asked = await run_in_threadpool(
+        ask, session_factory_for(db), asker_from_env(), question, budget_usd=daily_budget()
+    )
     if asked.id is None:
         # Nothing was asked: the reason is all there is to show.
         return RedirectResponse(

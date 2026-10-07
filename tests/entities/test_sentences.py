@@ -81,7 +81,7 @@ def test_what_the_model_wrote_loosely_is_made_strict() -> None:
             _answer(
                 region="Екатеринбург",
                 months=7200,
-                fine_rub=-5,
+                fine_rub=10**100,
                 date="сентябрь 2026",
                 surname="Петров",
                 first_name="И.",
@@ -93,6 +93,8 @@ def test_what_the_model_wrote_loosely_is_made_strict() -> None:
     assert (row["region"], row["months"], row["fine_rub"]) == ("", 0, 0)
     assert row["sentenced_on"] == ""
     assert row["person_key"] is None
+    assert rows_of(_publication(), [_answer(fine_rub=-5)])[0]["fine_rub"] == 0
+    assert rows_of(_publication(), [_answer(fine_rub=200_000)])[0]["fine_rub"] == 200_000
 
 
 class FakeReader:

@@ -213,6 +213,8 @@ def test_a_wrong_sentence_is_taken_out_of_the_counts_and_put_back(
         apart = client.get("/ui/sentences", params={"view": "hidden"}).text
         shown = client.post("/ui/sentences/show", data={"rows": str(petrov)}).text
         nobody = client.post("/ui/sentences/hide", data={"rows": "999999"})
+        partly = client.post("/ui/sentences/hide", data={"rows": f"{petrov},999999"})
+        after = client.get("/ui/sentences").text
         nothing = client.post("/ui/sentences/hide", data={"rows": ""})
 
     assert "Петров Иван" in listed and "Сидоров Олег" in listed
@@ -222,6 +224,9 @@ def test_a_wrong_sentence_is_taken_out_of_the_counts_and_put_back(
     assert "Петров Иван" in apart and "Вернуть" in apart
     assert "Петров Иван" in shown and "Убранные: 0" in shown
     assert (nobody.status_code, nothing.status_code) == (404, 400)
+    # A page older than the rows hides nothing: a part of a case does not go alone.
+    assert partly.status_code == 409
+    assert "Петров Иван" in after and "Убранные: 0" in after
 
 
 def test_the_sentences_are_narrowed_by_reason_and_region(

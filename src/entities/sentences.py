@@ -306,6 +306,9 @@ def sentence_reader_from_env(env: Mapping[str, str] | None = None) -> SentenceRe
 _DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
 # A term over this is a misreading: the code's longest is 35 years, life is not a term.
 _MAX_MONTHS = 600
+# No fine of the code comes near; and a number past the column's size would fail the
+# whole article's writing.
+_MAX_FINE_RUB = 10**12
 _MAX_ARTICLES = 10
 
 
@@ -344,7 +347,7 @@ def rows_of(publication: Publication, answers: list[SentenceAnswer]) -> list[dic
                 "region": canonical(answer.region),
                 "kind": answer.kind,
                 "months": answer.months if 0 < answer.months <= _MAX_MONTHS else 0,
-                "fine_rub": max(answer.fine_rub, 0),
+                "fine_rub": answer.fine_rub if 0 < answer.fine_rub <= _MAX_FINE_RUB else 0,
                 "in_absentia": answer.in_absentia,
                 "sentenced_on": answer.date if _DATE.match(answer.date) else "",
                 "articles": [item.strip()[:32] for item in answer.articles[:_MAX_ARTICLES]],
