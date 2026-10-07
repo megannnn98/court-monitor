@@ -84,6 +84,7 @@ ROUTES_AFTER_SPLIT = [
     "GET /api/v1/investigations",
     "GET /api/v1/investigations/{key}",
     "GET /api/v1/sentences",
+    "GET /api/v1/candidates/table",
     # The console's actions, behind the same-origin check (ADR 0022).
     "POST /api/v1/political/done",
     "GET /api/v1/review/roles",

@@ -14,7 +14,7 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from web.candidate_rows import _CANDIDATE_CATEGORIES, _CandidateRow, _news_day, _surname_first
+from web.candidate_rows import CANDIDATE_CATEGORIES, _CandidateRow, news_day, surname_first
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 DAY_FORMAT = "DD.MM.YYYY"
@@ -79,15 +79,15 @@ def candidates_xlsx(rows: Sequence[_CandidateRow]) -> bytes:
     sheet.append(["№", "Фамилия Имя", "Дата новости", "Категория", "Причины", "Ссылка"])
     for position, (candidate, news) in enumerate(rows, start=1):
         link = news.url if news is not None else None
-        published = _news_day(news.published_at) if news is not None and news.published_at else None
+        published = news_day(news.published_at) if news is not None and news.published_at else None
         category = (
-            _CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)
+            CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)
             if news is not None and news.event_type
             else None
         )
         reasons = "; ".join(candidate.persecution_reasons) or None
         sheet.append(
-            [position, _surname_first(candidate.canonical_name), published, category, reasons, link]
+            [position, surname_first(candidate.canonical_name), published, category, reasons, link]
         )
         row = position + 1
         # Names and URLs come from scraped sources: never let a leading "=" become a formula.

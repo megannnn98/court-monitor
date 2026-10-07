@@ -225,6 +225,71 @@ export type CandidateResponse = {
 };
 
 /**
+ * CandidateRowResponse
+ *
+ * A row of the candidates' table, as the legacy page and its Excel file have it.
+ */
+export type CandidateRowResponse = {
+    /**
+     * Person Id
+     */
+    person_id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * News Day
+     */
+    news_day: string | null;
+    /**
+     * Category
+     */
+    category: string | null;
+    /**
+     * Persecution Confidence
+     */
+    persecution_confidence: number;
+    /**
+     * Event Count
+     */
+    event_count: number;
+    /**
+     * Rosfinmonitoring Status
+     */
+    rosfinmonitoring_status: string;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+};
+
+/**
+ * CandidateTableResponse
+ *
+ * The candidates under the legacy page's filters, in its order; the Excel file of the
+ * same filters holds every one of `total`.
+ */
+export type CandidateTableResponse = {
+    /**
+     * Snapshot Id
+     */
+    snapshot_id: number;
+    /**
+     * Period Start
+     */
+    period_start: string | null;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<CandidateRowResponse>;
+};
+
+/**
  * ChargeResponse
  */
 export type ChargeResponse = {
@@ -3948,3 +4013,57 @@ export type StopCycleRunV1Responses = {
 };
 
 export type StopCycleRunV1Response = StopCycleRunV1Responses[keyof StopCycleRunV1Responses];
+
+export type CandidateTableV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Snapshot Id
+         */
+        snapshot_id?: number | null;
+        /**
+         * Min Confidence
+         */
+        min_confidence?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Date From
+         */
+        date_from?: string | null;
+        /**
+         * Include Administrative
+         */
+        include_administrative?: boolean;
+        /**
+         * Criminal Only
+         */
+        criminal_only?: boolean;
+        /**
+         * Event Date Filter
+         */
+        event_date_filter?: boolean;
+    };
+    url: '/api/v1/candidates/table';
+};
+
+export type CandidateTableV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CandidateTableV1Error = CandidateTableV1Errors[keyof CandidateTableV1Errors];
+
+export type CandidateTableV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CandidateTableResponse;
+};
+
+export type CandidateTableV1Response = CandidateTableV1Responses[keyof CandidateTableV1Responses];

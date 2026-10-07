@@ -38,7 +38,7 @@ from operator_console import (
     OperationRun,
 )
 from persecution.classifier import POLITICAL_ARTICLES
-from web.candidate_rows import _surname_first
+from web.candidate_rows import surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager
 from web.ui.pipeline import PipelineState, current_state, out_of_turn, step_confirmation
@@ -78,13 +78,13 @@ def display_name(name: str) -> str:
     words = name.split()
     initials = [word for word in words if "." in word]
     if not initials:
-        return _surname_first(name)
+        return surname_first(name)
     full = [word for word in words if "." not in word]
     if len(full) == 1:
         if lookup_gender(full[0]) is not None:
             return " ".join([*initials, full[0]])
         return " ".join([full[0], *initials])
-    return " ".join([_surname_first(" ".join(full)), *initials])
+    return " ".join([surname_first(" ".join(full)), *initials])
 
 
 def _surname_key(entity: EntityGroupRecord) -> tuple[str, str]:
