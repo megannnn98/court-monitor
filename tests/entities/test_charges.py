@@ -133,6 +133,7 @@ def test_an_event_ties_its_criminal_code_article_to_its_target(
     assert (result.charges, result.charged_entities) == (3, 3)
     [(article, part, event_type, others, quote)] = charges["Иван Петров"]
     assert (article, part, event_type, others) == ("205.2", "2", "arrest", 0)
+    assert isinstance(quote, str)
     assert quote.startswith("Суд арестовал Ивана Петрова")
     # Two people of one sentence: the article is theirs, marked shared.
     assert charges["Анна Смирнова"] == [

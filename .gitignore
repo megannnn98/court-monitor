@@ -8,6 +8,11 @@ article.html
 .aider*
 /.qwen/
 
+# Frontend dependencies and reproducible Vite/TypeScript output.
+/frontend/node_modules/
+/frontend/dist/
+/frontend/*.tsbuildinfo
+
 # Real-world validation raw corpus cache and run artifacts (rebuilt from the sites)
 /var/
 /.codegraph

@@ -54,7 +54,7 @@ def test_the_place_may_be_a_city_and_the_article_any_of_several() -> None:
     courts = Jurisdiction(ROWS)
 
     assert [hint.court for hint in courts.courts("Рубцовск", ["205.1"]).shown] == [VOVS]
-    both = courts.courts("Барнаул", [280, "205.1"], shown=10)
+    both = courts.courts("Барнаул", ["280", "205.1"], shown=10)
     assert [(hint.court, hint.cases) for hint in both.shown] == [
         # One person under both articles is one sentence.
         (VOVS, 1),

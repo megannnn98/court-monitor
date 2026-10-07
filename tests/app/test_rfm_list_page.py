@@ -303,7 +303,9 @@ def test_the_dates_in_the_file_are_dates_and_not_text(
         assert isinstance(row[3].value, dt.datetime | dt.date), (
             "the day of inclusion must arrive as a date, or the operator cannot sort by it"
         )
-        assert sheet.cell(row=row[0].row, column=4).number_format == "DD.MM.YYYY"
+        line = row[0].row
+        assert line is not None
+        assert sheet.cell(row=line, column=4).number_format == "DD.MM.YYYY"
 
 
 def test_the_page_says_the_day_is_the_entry_s(

@@ -1,0 +1,4295 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Court Monitor API",
+    "description": "Read-only API for court-monitor data",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/persons": {
+      "get": {
+        "summary": "List Persons",
+        "description": "List all persons.",
+        "operationId": "list_persons_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonResponse"
+                  },
+                  "title": "Response List Persons V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/persons/{person_id}": {
+      "get": {
+        "summary": "Get Person",
+        "description": "Get a person by ID.",
+        "operationId": "get_person_v1",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/persons/{person_id}/aliases": {
+      "get": {
+        "summary": "Get Person Aliases",
+        "description": "Get all aliases for a person.",
+        "operationId": "get_person_aliases_v1",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonAliasResponse"
+                  },
+                  "title": "Response Get Person Aliases V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/persons/{person_id}/persecution": {
+      "get": {
+        "summary": "Get Person Persecution",
+        "description": "Get persecution classification for a person.",
+        "operationId": "get_person_persecution_v1",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PersecutionClassificationResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Person Persecution V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/persons/{person_id}/events": {
+      "get": {
+        "summary": "Get Person Events",
+        "description": "Events linked to a Person, each with its source article span.",
+        "operationId": "get_person_events_v1",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonEventResponse"
+                  },
+                  "title": "Response Get Person Events V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/persons/{person_id}/detail": {
+      "get": {
+        "summary": "Get Person Detail",
+        "description": "Person card data: aliases, classifications, RF status and evidence-backed events.",
+        "operationId": "get_person_detail_v1",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{article_id}": {
+      "get": {
+        "summary": "Get Article",
+        "description": "Full ParsedArticle text for evidence inspection.",
+        "operationId": "get_article_v1",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/candidates": {
+      "get": {
+        "summary": "List Candidates",
+        "description": "List politically persecuted persons absent from Rosfinmonitoring.",
+        "operationId": "list_candidates_v1",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Rosfinmonitoring snapshot ID",
+              "title": "Snapshot Id"
+            },
+            "description": "Rosfinmonitoring snapshot ID"
+          },
+          {
+            "name": "min_persecution_confidence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1,
+              "minimum": 0,
+              "default": 0.7,
+              "title": "Min Persecution Confidence"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CandidateResponse"
+                  },
+                  "title": "Response List Candidates V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rosfinmonitoring/snapshots": {
+      "get": {
+        "summary": "List Rosfinmonitoring Snapshots",
+        "description": "List Rosfinmonitoring snapshots.",
+        "operationId": "list_rosfinmonitoring_snapshots_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RosfinmonitoringSnapshotResponse"
+                  },
+                  "title": "Response List Rosfinmonitoring Snapshots V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rosfinmonitoring/snapshots/{snapshot_id}": {
+      "get": {
+        "summary": "Get Rosfinmonitoring Snapshot",
+        "description": "Get a Rosfinmonitoring snapshot by ID.",
+        "operationId": "get_rosfinmonitoring_snapshot_v1",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosfinmonitoringSnapshotResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rosfinmonitoring/snapshots/{snapshot_id}/entries": {
+      "get": {
+        "summary": "List Rosfinmonitoring Entries",
+        "description": "List entries in a Rosfinmonitoring snapshot.",
+        "operationId": "list_rosfinmonitoring_entries_v1",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Snapshot Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RosfinmonitoringEntryResponse"
+                  },
+                  "title": "Response List Rosfinmonitoring Entries V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitoring/status": {
+      "get": {
+        "summary": "Get Monitoring Status",
+        "description": "Running and latest monitoring runs, source checkpoints, active findings.",
+        "operationId": "get_monitoring_status_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringStatusView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitoring/runs": {
+      "get": {
+        "summary": "List Monitoring Runs",
+        "operationId": "list_monitoring_runs_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MonitoringRunStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MonitoringRunView"
+                  },
+                  "title": "Response List Monitoring Runs V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitoring/runs/{run_id}": {
+      "get": {
+        "summary": "Get Monitoring Run",
+        "description": "One run with its counters, stage metrics and failed items.",
+        "operationId": "get_monitoring_run_v1",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringRunDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitoring/findings": {
+      "get": {
+        "summary": "List Monitoring Findings",
+        "operationId": "list_monitoring_findings_v1",
+        "parameters": [
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Active Only"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MonitoringFindingView"
+                  },
+                  "title": "Response List Monitoring Findings V1"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/runs": {
+      "get": {
+        "summary": "List Operation Runs",
+        "operationId": "list_operation_runs_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperationRunResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Operation Runs V1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/runs/{run_id}": {
+      "get": {
+        "summary": "Get Operation Run",
+        "operationId": "get_operation_run_v1",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Liveness (kept for compatibility; prefer /health/live).",
+        "operationId": "health_check_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Check V1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "summary": "Health Live",
+        "description": "The process answers. Never checks dependencies.",
+        "operationId": "health_live_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "summary": "Health Ready",
+        "description": "Database and schema are required; monitoring is reported.",
+        "operationId": "health_ready_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessReport"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/about": {
+      "get": {
+        "summary": "Get About",
+        "description": "The build this instance runs, the document and person totals, the last\nsuccessful operator run.",
+        "operationId": "get_about_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/status": {
+      "get": {
+        "summary": "Get Status",
+        "description": "Publications, people, the result, the operator's queue, the latest monitoring run,\nthe step running now and the next thing to do.",
+        "operationId": "get_status_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities": {
+      "get": {
+        "summary": "List Entities",
+        "description": "The people of the publications with a criminal case, as the legacy «Все люди» lists\nthem: the same filters, the same order, a hundred a page.",
+        "operationId": "list_entities_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "article",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "default": "",
+              "title": "Article"
+            }
+          },
+          {
+            "name": "rf",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(hide|all)$",
+              "default": "all",
+              "title": "Rf"
+            }
+          },
+          {
+            "name": "rf_possible",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(hide|all)$",
+              "default": "all",
+              "title": "Rf Possible"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(figurant|all|possible|mentioned|unclear)$",
+              "default": "figurant",
+              "title": "Role"
+            }
+          },
+          {
+            "name": "verdict",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(all|political|criminal|unclear|none)$",
+              "default": "all",
+              "title": "Verdict"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Region"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(mentions|articles|recent|name)$",
+              "default": "mentions",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications": {
+      "get": {
+        "summary": "List Publications",
+        "description": "The publications with a criminal case, newest first, searched by title and text and\nfiltered by source; each with its people and events.",
+        "operationId": "list_publications_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Source"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{article_id}/mentions": {
+      "get": {
+        "summary": "Get Article Mentions",
+        "description": "The people an article names and the events found in it, as the legacy article\npage shows them above the text.",
+        "operationId": "get_article_mentions_v1",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleMentionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political": {
+      "get": {
+        "summary": "List Political",
+        "description": "The people with a political criminal case, latest news first, as the legacy\n«Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the\nlegacy page, filters are not remembered: the address is the state.",
+        "operationId": "list_political_v1",
+        "parameters": [
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Months"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 10,
+              "default": "",
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 10,
+              "default": "",
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "news",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "default": "all",
+              "title": "News"
+            }
+          },
+          {
+            "name": "known",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "default": "all",
+              "title": "Known"
+            }
+          },
+          {
+            "name": "done",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8,
+              "default": "hide",
+              "title": "Done"
+            }
+          },
+          {
+            "name": "who",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8,
+              "default": "all",
+              "title": "Who"
+            }
+          },
+          {
+            "name": "rfm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8,
+              "default": "all",
+              "title": "Rfm"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AboutResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "commit": {
+            "type": "string",
+            "title": "Commit"
+          },
+          "built_at": {
+            "type": "string",
+            "title": "Built At"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "last_successful_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Run At"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "tag",
+          "commit",
+          "built_at",
+          "articles",
+          "people",
+          "last_successful_run_at",
+          "checked_at"
+        ],
+        "title": "AboutResponse",
+        "description": "«О системе»: the build stamp, the totals behind the status strip, and the last\nsuccessful operator run. The same data the legacy `/ui/about` page shows."
+      },
+      "AirtableSyncResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "api"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "title": "Duration Seconds",
+            "default": 0
+          },
+          "tables": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AirtableTableSyncResponse"
+            },
+            "type": "object",
+            "title": "Tables"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "started_at",
+          "tables"
+        ],
+        "title": "AirtableSyncResponse",
+        "description": "The whole sync: success, partial (some list failed) or failed. `mode` says\nwhether the records came from the Airtable API or from exported files."
+      },
+      "AirtableTableSyncResponse": {
+        "properties": {
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "received": {
+            "type": "integer",
+            "title": "Received",
+            "default": 0
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "success"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed",
+            "default": 0
+          },
+          "removed_blocked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removed Blocked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "updated",
+          "unchanged",
+          "errors"
+        ],
+        "title": "AirtableTableSyncResponse",
+        "description": "One list's outcome. `error` is set only when that list itself failed, so the\nother three still report what they did; `status` is `skipped` when the operator\nexported no file for it, which leaves the list alone rather than emptying it."
+      },
+      "ArticleMentionsResponse": {
+        "properties": {
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonLinkResponse"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "people",
+          "events"
+        ],
+        "title": "ArticleMentionsResponse",
+        "description": "The people an article names, most mentioned first, and the events found in it."
+      },
+      "ArticleResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_name",
+          "external_id",
+          "title",
+          "published_at",
+          "url",
+          "text"
+        ],
+        "title": "ArticleResponse"
+      },
+      "CandidateResponse": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "canonical_name": {
+            "type": "string",
+            "title": "Canonical Name"
+          },
+          "normalized_name": {
+            "type": "string",
+            "title": "Normalized Name"
+          },
+          "persecution_status": {
+            "type": "string",
+            "title": "Persecution Status"
+          },
+          "persecution_confidence": {
+            "type": "number",
+            "title": "Persecution Confidence"
+          },
+          "persecution_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Persecution Reasons"
+          },
+          "rosfinmonitoring_status": {
+            "type": "string",
+            "title": "Rosfinmonitoring Status"
+          },
+          "rosfinmonitoring_match_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rosfinmonitoring Match Confidence"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count",
+            "default": 0
+          },
+          "alias_count": {
+            "type": "integer",
+            "title": "Alias Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "canonical_name",
+          "normalized_name",
+          "persecution_status",
+          "persecution_confidence",
+          "persecution_reasons",
+          "rosfinmonitoring_status"
+        ],
+        "title": "CandidateResponse",
+        "description": "Candidate response model."
+      },
+      "ComponentHealth": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ComponentStatus"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ComponentHealth"
+      },
+      "ComponentStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "degraded",
+          "unavailable",
+          "not_configured"
+        ],
+        "title": "ComponentStatus"
+      },
+      "EntityArticleResponse": {
+        "properties": {
+          "article": {
+            "type": "string",
+            "title": "Article"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "shared"
+        ],
+        "title": "EntityArticleResponse",
+        "description": "A Criminal Code article of a person; `shared` when every event naming it accuses\nother people too."
+      },
+      "EntityListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EntityRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "hidden_in_list": {
+            "type": "integer",
+            "title": "Hidden In List"
+          },
+          "hidden_maybe_listed": {
+            "type": "integer",
+            "title": "Hidden Maybe Listed"
+          },
+          "roles_known": {
+            "type": "boolean",
+            "title": "Roles Known"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "verdicts": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Verdicts"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "hidden_in_list",
+          "hidden_maybe_listed",
+          "roles_known",
+          "roles",
+          "verdicts",
+          "regions"
+        ],
+        "title": "EntityListResponse",
+        "description": "One page of «Все люди» under the filters, with the counts the legacy page shows."
+      },
+      "EntityRowResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "name_source_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Source Label"
+          },
+          "rf_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Level"
+          },
+          "rf_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Label"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "verdict_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Label"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/EntityArticleResponse"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "mention_count": {
+            "type": "integer",
+            "title": "Mention Count"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "variants": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "dossier_url": {
+            "type": "string",
+            "title": "Dossier Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "name_source_label",
+          "rf_level",
+          "rf_label",
+          "role",
+          "role_label",
+          "verdict",
+          "verdict_label",
+          "regions",
+          "articles",
+          "events",
+          "mention_count",
+          "article_count",
+          "last_published_at",
+          "variants",
+          "dossier_url"
+        ],
+        "title": "EntityRowResponse"
+      },
+      "EventCountResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label",
+          "count"
+        ],
+        "title": "EventCountResponse"
+      },
+      "EvidenceSpanResponse": {
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "start_offset": {
+            "type": "integer",
+            "title": "Start Offset"
+          },
+          "end_offset": {
+            "type": "integer",
+            "title": "End Offset"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "source_name",
+          "title",
+          "url",
+          "start_offset",
+          "end_offset",
+          "text"
+        ],
+        "title": "EvidenceSpanResponse"
+      },
+      "FailureKind": {
+        "type": "string",
+        "enum": [
+          "retryable",
+          "non_retryable"
+        ],
+        "title": "FailureKind"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "KnownResponse": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "label",
+          "names"
+        ],
+        "title": "KnownResponse",
+        "description": "What the operator's base says of a person."
+      },
+      "LatestRosfinMatchResponse": {
+        "properties": {
+          "snapshot_id": {
+            "type": "integer",
+            "title": "Snapshot Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "matched_entry_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Entry Id"
+          },
+          "matched_entry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Entry Name"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "status",
+          "confidence",
+          "matched_entry_id",
+          "matched_entry_name",
+          "reasons"
+        ],
+        "title": "LatestRosfinMatchResponse"
+      },
+      "LiveOperationResponse": {
+        "properties": {
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "title"
+        ],
+        "title": "LiveOperationResponse",
+        "description": "The step running now: its mode and the title the console gives it."
+      },
+      "LivenessReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "alive"
+          }
+        },
+        "type": "object",
+        "title": "LivenessReport"
+      },
+      "MonitoringFindingStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "acknowledged",
+          "resolved"
+        ],
+        "title": "MonitoringFindingStatus"
+      },
+      "MonitoringFindingView": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "finding_type": {
+            "type": "string",
+            "title": "Finding Type"
+          },
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "criteria_version": {
+            "type": "string",
+            "title": "Criteria Version"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MonitoringFindingStatus"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "first_seen_run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen Run Id"
+          },
+          "first_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen At"
+          },
+          "last_seen_run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen Run Id"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "persecution_classification_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persecution Classification Id"
+          },
+          "rosfin_match_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rosfin Match Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "finding_type",
+          "person_id",
+          "criteria_version",
+          "status",
+          "active",
+          "first_seen_run_id",
+          "first_seen_at",
+          "last_seen_run_id",
+          "last_seen_at",
+          "inactive_since",
+          "snapshot_id",
+          "persecution_classification_id",
+          "rosfin_match_id"
+        ],
+        "title": "MonitoringFindingView"
+      },
+      "MonitoringRunDetails": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/MonitoringRunView"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MonitoringRunItemView"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run"
+        ],
+        "title": "MonitoringRunDetails"
+      },
+      "MonitoringRunItemView": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/MonitoringStage"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "external_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ref"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "failure_kind": {
+            "$ref": "#/components/schemas/FailureKind"
+          },
+          "error_type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "error_message": {
+            "type": "string",
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "stage",
+          "entity_type",
+          "entity_id",
+          "external_ref",
+          "status",
+          "failure_kind",
+          "error_type",
+          "error_message",
+          "created_at"
+        ],
+        "title": "MonitoringRunItemView"
+      },
+      "MonitoringRunStatus": {
+        "type": "string",
+        "enum": [
+          "running",
+          "completed",
+          "completed_with_errors",
+          "failed",
+          "aborted"
+        ],
+        "title": "MonitoringRunStatus"
+      },
+      "MonitoringRunView": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "trigger_type": {
+            "$ref": "#/components/schemas/MonitoringTrigger"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MonitoringRunStatus"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "heartbeat_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Heartbeat At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "documents_discovered": {
+            "type": "integer",
+            "title": "Documents Discovered"
+          },
+          "documents_ingested": {
+            "type": "integer",
+            "title": "Documents Ingested"
+          },
+          "documents_skipped": {
+            "type": "integer",
+            "title": "Documents Skipped"
+          },
+          "documents_failed": {
+            "type": "integer",
+            "title": "Documents Failed"
+          },
+          "articles_extracted": {
+            "type": "integer",
+            "title": "Articles Extracted"
+          },
+          "events_created": {
+            "type": "integer",
+            "title": "Events Created"
+          },
+          "persons_created": {
+            "type": "integer",
+            "title": "Persons Created"
+          },
+          "persons_linked": {
+            "type": "integer",
+            "title": "Persons Linked"
+          },
+          "person_reviews_created": {
+            "type": "integer",
+            "title": "Person Reviews Created"
+          },
+          "classifications_created": {
+            "type": "integer",
+            "title": "Classifications Created"
+          },
+          "rf_matches_created": {
+            "type": "integer",
+            "title": "Rf Matches Created"
+          },
+          "semantic_entities_indexed": {
+            "type": "integer",
+            "title": "Semantic Entities Indexed"
+          },
+          "findings_created": {
+            "type": "integer",
+            "title": "Findings Created"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "rf_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Snapshot Id"
+          },
+          "stage_metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Stage Metrics"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scope",
+          "source",
+          "trigger_type",
+          "status",
+          "started_at",
+          "heartbeat_at",
+          "finished_at",
+          "duration_seconds",
+          "documents_discovered",
+          "documents_ingested",
+          "documents_skipped",
+          "documents_failed",
+          "articles_extracted",
+          "events_created",
+          "persons_created",
+          "persons_linked",
+          "person_reviews_created",
+          "classifications_created",
+          "rf_matches_created",
+          "semantic_entities_indexed",
+          "findings_created",
+          "error_count",
+          "rf_snapshot_id",
+          "error_message"
+        ],
+        "title": "MonitoringRunView"
+      },
+      "MonitoringStage": {
+        "type": "string",
+        "enum": [
+          "discovery",
+          "ingestion",
+          "extraction",
+          "resolution",
+          "ai_entity_review",
+          "classification",
+          "rf_matching",
+          "semantic_indexing",
+          "findings"
+        ],
+        "title": "MonitoringStage"
+      },
+      "MonitoringStatusView": {
+        "properties": {
+          "running": {
+            "items": {
+              "$ref": "#/components/schemas/MonitoringRunView"
+            },
+            "type": "array",
+            "title": "Running"
+          },
+          "latest_runs": {
+            "items": {
+              "$ref": "#/components/schemas/MonitoringRunView"
+            },
+            "type": "array",
+            "title": "Latest Runs"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceMonitoringStateView"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "active_findings": {
+            "type": "integer",
+            "title": "Active Findings",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MonitoringStatusView"
+      },
+      "MonitoringTrigger": {
+        "type": "string",
+        "enum": [
+          "schedule",
+          "manual",
+          "backfill",
+          "derived"
+        ],
+        "title": "MonitoringTrigger"
+      },
+      "OperationRunResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "operation": {
+            "type": "string",
+            "title": "Operation"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Command"
+          },
+          "return_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Code"
+          },
+          "stdout": {
+            "type": "string",
+            "title": "Stdout"
+          },
+          "stderr": {
+            "type": "string",
+            "title": "Stderr"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "operation",
+          "title",
+          "parameters",
+          "status",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "duration_seconds",
+          "command",
+          "return_code",
+          "stdout",
+          "stderr",
+          "error"
+        ],
+        "title": "OperationRunResponse"
+      },
+      "OptionResponse": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "OptionResponse",
+        "description": "One choice of a filter: its value, the console's words and, where the list counts\nit, how many rows it would show."
+      },
+      "PersecutionClassificationResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "evidence_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Types"
+          },
+          "classifier_name": {
+            "type": "string",
+            "title": "Classifier Name"
+          },
+          "classifier_version": {
+            "type": "string",
+            "title": "Classifier Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "person_id",
+          "status",
+          "confidence",
+          "reasons",
+          "evidence_types",
+          "classifier_name",
+          "classifier_version"
+        ],
+        "title": "PersecutionClassificationResponse",
+        "description": "Persecution classification response model."
+      },
+      "PersonAliasResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "surface_text": {
+            "type": "string",
+            "title": "Surface Text"
+          },
+          "normalized_text": {
+            "type": "string",
+            "title": "Normalized Text"
+          },
+          "matching_key": {
+            "type": "string",
+            "title": "Matching Key"
+          },
+          "origin": {
+            "type": "string",
+            "title": "Origin"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "person_id",
+          "surface_text",
+          "normalized_text",
+          "matching_key",
+          "origin",
+          "confidence"
+        ],
+        "title": "PersonAliasResponse",
+        "description": "Person alias response model."
+      },
+      "PersonDetailResponse": {
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonResponse"
+          },
+          "aliases": {
+            "items": {
+              "$ref": "#/components/schemas/PersonAliasResponse"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "persecution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersecutionClassificationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rosfinmonitoring": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestRosfinMatchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/PersonEventResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person",
+          "aliases",
+          "persecution",
+          "rosfinmonitoring",
+          "events"
+        ],
+        "title": "PersonDetailResponse"
+      },
+      "PersonEventResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceSpanResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_type",
+          "event_date",
+          "role",
+          "confidence",
+          "evidence"
+        ],
+        "title": "PersonEventResponse"
+      },
+      "PersonLinkResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "dossier_url": {
+            "type": "string",
+            "title": "Dossier Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "dossier_url"
+        ],
+        "title": "PersonLinkResponse"
+      },
+      "PersonResolutionReviewDecisionBody": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ResolutionReviewAction"
+          },
+          "person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Id"
+          },
+          "source_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Person Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "PersonResolutionReviewDecisionBody"
+      },
+      "PersonResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "canonical_name": {
+            "type": "string",
+            "title": "Canonical Name"
+          },
+          "normalized_name": {
+            "type": "string",
+            "title": "Normalized Name"
+          },
+          "matching_key": {
+            "type": "string",
+            "title": "Matching Key"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "merged_into_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "canonical_name",
+          "normalized_name",
+          "matching_key",
+          "status"
+        ],
+        "title": "PersonResponse",
+        "description": "Person response model."
+      },
+      "PoliticalArticleResponse": {
+        "properties": {
+          "article": {
+            "type": "string",
+            "title": "Article"
+          },
+          "political": {
+            "type": "boolean",
+            "title": "Political"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "political"
+        ],
+        "title": "PoliticalArticleResponse"
+      },
+      "PoliticalListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "done_total": {
+            "type": "integer",
+            "title": "Done Total"
+          },
+          "awaited": {
+            "type": "integer",
+            "title": "Awaited"
+          },
+          "base_loaded": {
+            "type": "boolean",
+            "title": "Base Loaded"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Periods"
+          },
+          "news": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "News"
+          },
+          "known": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Known"
+          },
+          "who": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Who"
+          },
+          "rfm": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Rfm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "done_total",
+          "awaited",
+          "base_loaded",
+          "periods",
+          "news",
+          "known",
+          "who",
+          "rfm"
+        ],
+        "title": "PoliticalListResponse",
+        "description": "«Результат» under the filters: one page of rows and every count the filters show."
+      },
+      "PoliticalRowResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "unnamed": {
+            "type": "boolean",
+            "title": "Unnamed"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "news_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Kind"
+          },
+          "news_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Label"
+          },
+          "news_reason": {
+            "type": "string",
+            "title": "News Reason"
+          },
+          "known": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnownResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "not_in_base": {
+            "type": "boolean",
+            "title": "Not In Base"
+          },
+          "regions": {
+            "type": "string",
+            "title": "Regions"
+          },
+          "rf_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Level"
+          },
+          "rf_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Label"
+          },
+          "rf_entry": {
+            "type": "string",
+            "title": "Rf Entry"
+          },
+          "rf_included": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Included"
+          },
+          "listing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listing"
+          },
+          "awaited": {
+            "type": "boolean",
+            "title": "Awaited"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalArticleResponse"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis"
+          },
+          "basis_quote": {
+            "type": "string",
+            "title": "Basis Quote"
+          },
+          "memorial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memorial"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationLinkResponse"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "url",
+          "unnamed",
+          "done",
+          "news_kind",
+          "news_label",
+          "news_reason",
+          "known",
+          "not_in_base",
+          "regions",
+          "rf_level",
+          "rf_label",
+          "rf_entry",
+          "rf_included",
+          "listing",
+          "awaited",
+          "articles",
+          "basis",
+          "basis_quote",
+          "memorial",
+          "first_published_at",
+          "last_published_at",
+          "links"
+        ],
+        "title": "PoliticalRowResponse"
+      },
+      "PublicationLinkResponse": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "url",
+          "source"
+        ],
+        "title": "PublicationLinkResponse"
+      },
+      "PublicationListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCountResponse"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "sources"
+        ],
+        "title": "PublicationListResponse"
+      },
+      "PublicationRowResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonLinkResponse"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "more_people": {
+            "type": "integer",
+            "title": "More People"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "published_at",
+          "source",
+          "url",
+          "people",
+          "more_people",
+          "events"
+        ],
+        "title": "PublicationRowResponse"
+      },
+      "QueueResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pairs": {
+            "type": "integer",
+            "title": "Pairs"
+          },
+          "unclear_roles": {
+            "type": "integer",
+            "title": "Unclear Roles"
+          },
+          "unclear_verdicts": {
+            "type": "integer",
+            "title": "Unclear Verdicts"
+          },
+          "unnamed": {
+            "type": "integer",
+            "title": "Unnamed"
+          },
+          "junk_holds": {
+            "type": "integer",
+            "title": "Junk Holds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "pairs",
+          "unclear_roles",
+          "unclear_verdicts",
+          "unnamed",
+          "junk_holds"
+        ],
+        "title": "QueueResponse",
+        "description": "What waits for the operator, by queue; `total` is the menu's «Работа» count."
+      },
+      "ReadinessReport": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ReadinessStatus"
+          },
+          "components": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ComponentHealth"
+            },
+            "type": "object",
+            "title": "Components"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ReadinessReport"
+      },
+      "ReadinessStatus": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "degraded",
+          "unavailable"
+        ],
+        "title": "ReadinessStatus"
+      },
+      "ResolutionReviewAction": {
+        "type": "string",
+        "enum": [
+          "link_to_person",
+          "create_new_person",
+          "merge_persons",
+          "keep_separate"
+        ],
+        "title": "ResolutionReviewAction"
+      },
+      "ResolutionReviewResult": {
+        "properties": {
+          "decision_id": {
+            "type": "integer",
+            "title": "Decision Id"
+          },
+          "action": {
+            "$ref": "#/components/schemas/ResolutionReviewAction"
+          },
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "created_person": {
+            "type": "boolean",
+            "title": "Created Person",
+            "default": false
+          },
+          "merge_record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Record Id"
+          },
+          "events_linked": {
+            "type": "integer",
+            "title": "Events Linked",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision_id",
+          "action",
+          "person_id"
+        ],
+        "title": "ResolutionReviewResult"
+      },
+      "ResolutionReviewView": {
+        "properties": {
+          "decision_id": {
+            "type": "integer",
+            "title": "Decision Id"
+          },
+          "review_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mention_id": {
+            "type": "integer",
+            "title": "Mention Id"
+          },
+          "incoming_name": {
+            "type": "string",
+            "title": "Incoming Name"
+          },
+          "surface_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Surface Text"
+          },
+          "normalized_form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Form"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "decision_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Margin"
+          },
+          "semantic_source": {
+            "type": "string",
+            "title": "Semantic Source"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReviewSource"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "known_distinct_pairs": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Known Distinct Pairs"
+          },
+          "resolver_version": {
+            "type": "string",
+            "title": "Resolver Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision_id",
+          "review_id",
+          "status",
+          "mention_id",
+          "incoming_name",
+          "surface_text",
+          "normalized_form",
+          "reasons",
+          "decision_margin",
+          "semantic_source",
+          "source",
+          "resolver_version",
+          "created_at"
+        ],
+        "title": "ResolutionReviewView"
+      },
+      "ReviewCandidate": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "canonical_name": {
+            "type": "string",
+            "title": "Canonical Name"
+          },
+          "person_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Status"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "resolution_score": {
+            "type": "number",
+            "title": "Resolution Score"
+          },
+          "compared_form": {
+            "type": "string",
+            "title": "Compared Form"
+          },
+          "compared_form_is_alias": {
+            "type": "boolean",
+            "title": "Compared Form Is Alias"
+          },
+          "surname": {
+            "$ref": "#/components/schemas/ReviewComponent"
+          },
+          "given_name": {
+            "$ref": "#/components/schemas/ReviewComponent"
+          },
+          "patronymic": {
+            "$ref": "#/components/schemas/ReviewComponent"
+          },
+          "order_differs": {
+            "type": "boolean",
+            "title": "Order Differs"
+          },
+          "exact_alias": {
+            "type": "boolean",
+            "title": "Exact Alias"
+          },
+          "trigram_similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigram Similarity"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Conflicts"
+          },
+          "score_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Score Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "canonical_name",
+          "person_status",
+          "aliases",
+          "sources",
+          "resolution_score",
+          "compared_form",
+          "compared_form_is_alias",
+          "surname",
+          "given_name",
+          "patronymic",
+          "order_differs",
+          "exact_alias",
+          "trigram_similarity",
+          "conflicts",
+          "score_rules"
+        ],
+        "title": "ReviewCandidate"
+      },
+      "ReviewComponent": {
+        "properties": {
+          "match": {
+            "type": "string",
+            "title": "Match"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "match"
+        ],
+        "title": "ReviewComponent"
+      },
+      "ReviewResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "subject_type": {
+            "type": "string",
+            "title": "Subject Type"
+          },
+          "subject_id": {
+            "type": "integer",
+            "title": "Subject Id"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reviewer_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Note"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "subject_type",
+          "subject_id",
+          "created_at"
+        ],
+        "title": "ReviewResponse",
+        "description": "Review response model."
+      },
+      "ReviewSource": {
+        "properties": {
+          "article_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id"
+        ],
+        "title": "ReviewSource"
+      },
+      "RosfinmonitoringEntryResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "snapshot_id": {
+            "type": "integer",
+            "title": "Snapshot Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "normalized_name": {
+            "type": "string",
+            "title": "Normalized Name"
+          },
+          "matching_key": {
+            "type": "string",
+            "title": "Matching Key"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
+          "inclusion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inclusion Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "snapshot_id",
+          "full_name",
+          "normalized_name",
+          "matching_key"
+        ],
+        "title": "RosfinmonitoringEntryResponse",
+        "description": "Rosfinmonitoring entry response model."
+      },
+      "RosfinmonitoringSnapshotResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "snapshot_date": {
+            "type": "string",
+            "title": "Snapshot Date"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "entry_count": {
+            "type": "integer",
+            "title": "Entry Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "snapshot_date",
+          "source_url",
+          "content_hash",
+          "entry_count"
+        ],
+        "title": "RosfinmonitoringSnapshotResponse",
+        "description": "Rosfinmonitoring snapshot response model."
+      },
+      "SourceCountResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "count"
+        ],
+        "title": "SourceCountResponse"
+      },
+      "SourceMonitoringStateView": {
+        "properties": {
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          },
+          "last_successful_run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Run Id"
+          },
+          "last_successful_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Run At"
+          },
+          "last_discovered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Discovered At"
+          },
+          "last_discovered_count": {
+            "type": "integer",
+            "title": "Last Discovered Count"
+          },
+          "last_external_marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last External Marker"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_name",
+          "last_successful_run_id",
+          "last_successful_run_at",
+          "last_discovered_at",
+          "last_discovered_count",
+          "last_external_marker",
+          "updated_at"
+        ],
+        "title": "SourceMonitoringStateView"
+      },
+      "StatusResponse": {
+        "properties": {
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "result": {
+            "type": "integer",
+            "title": "Result"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/QueueResponse"
+          },
+          "latest_monitoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Monitoring Status"
+          },
+          "live_operation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveOperationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_action": {
+            "type": "string",
+            "title": "Next Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "people",
+          "result",
+          "queue",
+          "latest_monitoring_status",
+          "live_operation",
+          "next_action"
+        ],
+        "title": "StatusResponse",
+        "description": "The legacy status strip and menu counters: the same numbers on every page."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

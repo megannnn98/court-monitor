@@ -91,6 +91,7 @@ def _row(
 
 def _source(session: Session, entry_id: int) -> tuple[datetime | None, str | None]:
     entry = session.get(RosfinmonitoringEntryRecord, entry_id)
+    assert entry is not None
     return entry.inclusion_date, entry.inclusion_source
 
 

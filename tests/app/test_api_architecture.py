@@ -13,6 +13,7 @@ import sys
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.routing import APIRoute
@@ -53,6 +54,33 @@ ROUTES_AFTER_SPLIT = [
     # The graph of an investigation: the first answer and what a node adds.
     "GET /api/investigations/{key}/graph",
     "GET /api/investigations/{key}/graph/expand",
+    # The React migration mirrors these read-only endpoints under /api/v1.
+    "GET /api/v1/persons",
+    "GET /api/v1/persons/{person_id}",
+    "GET /api/v1/persons/{person_id}/aliases",
+    "GET /api/v1/persons/{person_id}/persecution",
+    "GET /api/v1/persons/{person_id}/events",
+    "GET /api/v1/persons/{person_id}/detail",
+    "GET /api/v1/articles/{article_id}",
+    "GET /api/v1/candidates",
+    "GET /api/v1/rosfinmonitoring/snapshots",
+    "GET /api/v1/rosfinmonitoring/snapshots/{snapshot_id}",
+    "GET /api/v1/rosfinmonitoring/snapshots/{snapshot_id}/entries",
+    "GET /api/v1/operations/runs",
+    "GET /api/v1/operations/runs/{run_id}",
+    "GET /api/v1/monitoring/status",
+    "GET /api/v1/monitoring/runs",
+    "GET /api/v1/monitoring/runs/{run_id}",
+    "GET /api/v1/monitoring/findings",
+    "GET /api/v1/health",
+    "GET /api/v1/health/live",
+    "GET /api/v1/health/ready",
+    "GET /api/v1/about",
+    "GET /api/v1/status",
+    "GET /api/v1/entities",
+    "GET /api/v1/publications",
+    "GET /api/v1/articles/{article_id}/mentions",
+    "GET /api/v1/political",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.
@@ -66,12 +94,13 @@ ENGINE_FACTORIES = {
 
 def _routes(routes: Iterable[BaseRoute]) -> Iterator[APIRoute]:
     for route in routes:
-        # FastAPI keeps an included router as one entry; its routes are inside.
-        original = getattr(route, "original_router", None)
-        if original is not None:
-            yield from _routes(original.routes)
-        elif isinstance(route, APIRoute):
-            yield route
+        # FastAPI's included-router wrapper applies a prefix in its effective
+        # candidates. Unwrapping original_router directly loses that prefix.
+        effective_candidates = getattr(route, "effective_candidates", None)
+        if effective_candidates is not None:
+            yield from _routes(effective_candidates())
+        elif isinstance(getattr(route, "original_route", route), APIRoute):
+            yield cast(APIRoute, route)
 
 
 def _method_paths() -> list[str]:

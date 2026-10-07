@@ -620,7 +620,7 @@ def test_another_model_is_compared_on_what_the_steps_answered(
     FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
     # The other model takes the lawyer for the accused.
     other = FakeClassifier({**KINDS, "Фёдор Сирош": "accused"})
-    other.model = "local-model"  # type: ignore[misc]
+    other.model = "local-model"
 
     result = compare_roles(session_factory, other, size=10, seed=1)
 

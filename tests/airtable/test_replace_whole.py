@@ -165,7 +165,7 @@ def test_the_removal_and_the_write_are_one_piece_of_work(
         for n in range(1200)
     ]
 
-    def explode(_row: object, _values: object) -> None:
+    def explode(row: object, values: dict[str, object]) -> None:
         raise RuntimeError("сбой в середине записи")
 
     from airtable import repository

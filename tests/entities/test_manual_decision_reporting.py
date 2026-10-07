@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -39,9 +40,7 @@ MANUAL_REASON = "решено оператором вручную"
 
 
 @contextmanager
-def _client(session_factory: sessionmaker[Session]) -> Iterator[object]:
-    from fastapi.testclient import TestClient
-
+def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
     def override() -> Iterator[Session]:
         with session_factory() as session:
             yield session
@@ -90,7 +89,9 @@ def _seed(session: Session, name: str) -> EntityGroupRecord:
     return entity
 
 
-def test_a_manual_verdict_is_not_attributed_to_the_model(session_factory) -> None:
+def test_a_manual_verdict_is_not_attributed_to_the_model(
+    session_factory: sessionmaker[Session],
+) -> None:
     """`web.ui.political._basis` labels every method but «article» as «модель»."""
     with session_factory.begin() as session:
         _seed(session, "мария резова")
@@ -109,7 +110,9 @@ def test_a_manual_verdict_is_not_attributed_to_the_model(session_factory) -> Non
     )
 
 
-def test_a_manual_figurant_is_counted_in_exactly_one_category(session_factory) -> None:
+def test_a_manual_figurant_is_counted_in_exactly_one_category(
+    session_factory: sessionmaker[Session],
+) -> None:
     """A separate field, not a fold into the model's count: a sum alone would pass if the
     manual case were simply added to `figurant_model` and the label kept saying «модель»."""
     with session_factory.begin() as session:
@@ -132,7 +135,9 @@ def test_a_manual_figurant_is_counted_in_exactly_one_category(session_factory) -
     assert accounted == result.entities, f"{result.entities} entities, {accounted} counted"
 
 
-def test_a_manual_political_verdict_is_counted_in_exactly_one_category(session_factory) -> None:
+def test_a_manual_political_verdict_is_counted_in_exactly_one_category(
+    session_factory: sessionmaker[Session],
+) -> None:
     with session_factory.begin() as session:
         _seed(session, "мария резова")
 
@@ -220,12 +225,13 @@ def _seed_political_charge(session: Session, entity: EntityGroupRecord, article:
 
 
 def test_a_manual_criminal_verdict_over_a_political_charge_is_counted_once(
-    session_factory,
+    session_factory: sessionmaker[Session],
 ) -> None:
     """The double count the review named: `political_rules` was measured before the
     override, so an article with a political charge that a person calls an ordinary case
     landed in `political_rules` and `criminal` at once."""
-    from entities.politics import CRIMINAL, POLITICAL_ARTICLES, decide_politics
+    from entities.politics import CRIMINAL, decide_politics
+    from persecution.classifier import POLITICAL_ARTICLES
 
     political_article = min(POLITICAL_ARTICLES)
     with session_factory.begin() as session:
@@ -269,7 +275,9 @@ def test_a_decision_table_is_truncated_only_in_a_disposable_database(table: str)
         require_disposable_database(sa.create_engine("postgresql://x/production"))
 
 
-def test_the_exact_key_wins_over_a_surname_stem_match(session_factory) -> None:
+def test_the_exact_key_wins_over_a_surname_stem_match(
+    session_factory: sessionmaker[Session],
+) -> None:
     """Two records resolve to one entity through `KeyIndex`; the current key must win.
 
     Inserted in both orders, because the read is `select(...)` with no ORDER BY and a
@@ -294,7 +302,9 @@ def test_the_exact_key_wins_over_a_surname_stem_match(session_factory) -> None:
             session.execute(text("DELETE FROM entity_role_decisions"))
 
 
-def test_a_decision_does_not_silently_revert_after_a_marked_official(session_factory) -> None:
+def test_a_decision_does_not_silently_revert_after_a_marked_official(
+    session_factory: sessionmaker[Session],
+) -> None:
     """The immediate write and the next rebuild must agree.
 
     The rebuild honours an official mark (`FigurantFinder.run`), so `decide_role` has to
@@ -330,7 +340,9 @@ def test_a_decision_does_not_silently_revert_after_a_marked_official(session_fac
     assert after.kind in OFFICIAL_KINDS, "an official with no kind vanishes from the officials page"
 
 
-def test_dropping_a_figurant_to_mentioned_takes_it_off_the_political_list(session_factory) -> None:
+def test_dropping_a_figurant_to_mentioned_takes_it_off_the_political_list(
+    session_factory: sessionmaker[Session],
+) -> None:
     """`mark_official` deletes the verdict when an entity leaves the figurants; a manual
     role change must do the same, or the person stays on «Результат» until step 5."""
     from entities.roles import MENTIONED, decide_role

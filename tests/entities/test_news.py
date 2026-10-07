@@ -17,7 +17,7 @@ from db.orm_models import (
 )
 from entities.collector import EntityCollector
 from entities.news import KINDS as NEWS_SCHEMA_KINDS
-from entities.news import SYSTEM_PROMPT, NewsAnswer, NewsFinder, NewsItem, NewsReaderError
+from entities.news import SYSTEM_PROMPT, Kind, NewsAnswer, NewsFinder, NewsItem, NewsReaderError
 
 
 def _person(
@@ -91,13 +91,13 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
             )
 
 
-KINDS = {"Александр Моор": "ongoing", "Иван Петров": "sentence"}
+KINDS: dict[str, Kind] = {"Александр Моор": "ongoing", "Иван Петров": "sentence"}
 
 
 class FakeReader:
     model = "fake-model"
 
-    def __init__(self, *, fail: bool = False, kinds: dict[str, str] | None = None) -> None:
+    def __init__(self, *, fail: bool = False, kinds: dict[str, Kind] | None = None) -> None:
         self.fail = fail
         self.kinds = kinds or KINDS
         self.asked: list[NewsItem] = []
@@ -109,7 +109,7 @@ class FakeReader:
         return {
             item.id: NewsAnswer(
                 id=item.id, source=item.name, kind=self.kinds[item.name], explanation="так в тексте"
-            )  # type: ignore[arg-type]
+            )
             for item in items
         }
 
@@ -121,7 +121,9 @@ def _kinds(session_factory: sessionmaker[Session]) -> dict[str, str]:
                 select(EntityGroupRecord.name, EntityGroupNewsRecord.kind).join(
                     EntityGroupNewsRecord, EntityGroupNewsRecord.group_id == EntityGroupRecord.id
                 )
-            ).all()
+            )
+            .tuples()
+            .all()
         )
 
 

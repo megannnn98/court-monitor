@@ -12,7 +12,7 @@ conflict looks like, are the registry's own answers.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 
 from fastapi.routing import APIRoute
@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from db.orm_models import OperatorOperationRunRecord
 from operator_console import OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -47,9 +48,7 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_operation_registry, None)
 
 
-def registry_runs(session: Session) -> list:
-    from db.orm_models import OperatorOperationRunRecord
-
+def registry_runs(session: Session) -> list[OperatorOperationRunRecord]:
     return list(
         session.scalars(select(OperatorOperationRunRecord).order_by(OperatorOperationRunRecord.id))
     )
@@ -135,8 +134,8 @@ def test_the_route_is_registered_and_the_file_route_is_not() -> None:
     be walked into — the same way the architecture guard does it.
     """
 
-    def walk(routes: object) -> Iterator[object]:
-        for route in routes:  # type: ignore[attr-defined]
+    def walk(routes: Iterable[object]) -> Iterator[APIRoute]:
+        for route in routes:
             original = getattr(route, "original_router", None)
             if original is not None:
                 yield from walk(original.routes)

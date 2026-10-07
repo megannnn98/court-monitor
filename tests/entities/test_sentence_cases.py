@@ -11,7 +11,7 @@ from entities.sentence_cases import EXCLUDE, ONLY, POLITICAL, Filters, fold, lis
 _ids = iter(range(1, 10_000))
 
 
-def _row(person: str = "", **fields: Any) -> Any:
+def _row(person: str = "", /, **fields: Any) -> Any:
     """A row as the query gives it; a person named by two words has a key."""
     row_id = next(_ids)
     base: dict[str, Any] = {

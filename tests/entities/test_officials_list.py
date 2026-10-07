@@ -15,7 +15,7 @@ def _official(session: Session, name: str, **fields: object) -> ExcludedPersonRe
         full_name=name,
         normalized_name=name,
         category=str(fields.get("category", "judge")),
-        reason=fields.get("reason"),  # type: ignore[arg-type]
+        reason=fields.get("reason"),
         active=bool(fields.get("active", True)),
     )
     session.add(record)

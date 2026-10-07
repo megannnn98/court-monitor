@@ -18,7 +18,7 @@ from support.pipeline_runs import finish_steps
 from db.orm_models import EntityGroupPoliticsRecord, EntityMentionRecord
 from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
-from entities.roles import FigurantFinder, RoleAnswer, RoleItem
+from entities.roles import FigurantFinder, Kind, RoleAnswer, RoleItem
 from operator_console import OperationRegistry, OperationRunStatus
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -399,11 +399,11 @@ class _Roles:
     model = "fake-model"
 
     def classify(self, items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
-        kinds = {"Александр Моор": "accused", "Иван Иванов": "administrative"}
+        kinds: dict[str, Kind] = {"Александр Моор": "accused", "Иван Иванов": "administrative"}
         return {
             item.id: RoleAnswer(
                 id=item.id, source=item.name, kind=kinds[item.name], explanation="по цитате"
-            )  # type: ignore[arg-type]
+            )
             for item in items
         }
 
@@ -456,9 +456,10 @@ def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Se
 def _mark_of(session_factory: sessionmaker[Session]) -> bool | None:
     """Whether Moor is marked an official right now, read while the client is still up."""
     with session_factory() as session:
-        return session.scalar(
+        mark: bool | None = session.scalar(
             text("SELECT official FROM entity_official_marks WHERE key = 'александр моор'")
         )
+        return mark
 
 
 def test_an_official_is_marked_on_the_card_and_unmarked_there(

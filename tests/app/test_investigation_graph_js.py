@@ -21,8 +21,10 @@ def test_the_logic_of_the_graph_passes_its_own_tests() -> None:
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is not installed")
+    test_files = sorted(str(path) for path in (ROOT / "tests" / "js").glob("*.test.js"))
+    assert test_files, "tests/js must contain node --test files"
     result = subprocess.run(
-        [node, "--test", str(ROOT / "tests" / "js")],
+        [node, "--test", *test_files],
         capture_output=True,
         text=True,
         timeout=120,
@@ -76,5 +78,5 @@ def test_the_table_sorting_scripts_are_served_and_write_no_html() -> None:
             r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(", script.text
         )
     # Left alone: a table the server already sorts, merged cells, a column with no name.
-    script = client.get("/static/table-sort.js").text
-    assert 'table.querySelector("thead a, [rowspan], thead [colspan]")' in script
+    sorting = client.get("/static/table-sort.js").text
+    assert 'table.querySelector("thead a, [rowspan], thead [colspan]")' in sorting

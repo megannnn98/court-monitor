@@ -217,9 +217,13 @@ def test_the_excel_makes_each_source_a_separate_link() -> None:
     sheet = workbook.active
     assert sheet is not None
     assert sheet.cell(row=2, column=10).value == "Первый: Первый источник"
-    assert sheet.cell(row=2, column=10).hyperlink.target == "https://first.example.test"
+    first_link = sheet.cell(row=2, column=10).hyperlink
+    assert first_link is not None
+    assert first_link.target == "https://first.example.test"
     assert sheet.cell(row=2, column=11).value == "Второй: Второй источник"
-    assert sheet.cell(row=2, column=11).hyperlink.target == "https://second.example.test"
+    second_link = sheet.cell(row=2, column=11).hyperlink
+    assert second_link is not None
+    assert second_link.target == "https://second.example.test"
     assert sheet.cell(row=2, column=12).value is None
 
 
@@ -267,7 +271,9 @@ def test_a_period_of_dates_and_the_tick_box(session_factory: sessionmaker[Sessio
         f'filename="result_{old["date_from"]}_{old["date_to"]}.xlsx"'
         in (excel.headers["content-disposition"])
     )
-    rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
+    sheet = load_workbook(BytesIO(excel.content)).active
+    assert sheet is not None
+    rows = list(sheet.iter_rows(values_only=True))
     assert [row[1] for row in rows[1:]] == ["Иванов Иван"]
 
 
@@ -360,7 +366,9 @@ def test_the_latest_news_is_marked_and_chosen(session_factory: sessionmaker[Sess
     assert "Найдено: 1." in again and '<option value="new_case" selected>' in again
     assert "Найдено: 0." in sentences
     assert "Найдено: 2." in nonsense
-    rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
+    sheet = load_workbook(BytesIO(excel.content)).active
+    assert sheet is not None
+    rows = list(sheet.iter_rows(values_only=True))
     news = rows[0].index("Свежая новость")
     assert [(row[1], row[news]) for row in rows[1:]] == [("Смирнова Анна", "новое дело")]
 
@@ -469,7 +477,9 @@ def test_with_no_base_loaded_nobody_is_called_new(session_factory: sessionmaker[
 
     assert "нет в базе" not in page and 'name="known"' not in page
     assert "Найдено: 2." in page
-    rows = list(load_workbook(BytesIO(excel.content)).active.iter_rows(values_only=True))  # type: ignore[union-attr]
+    sheet = load_workbook(BytesIO(excel.content)).active
+    assert sheet is not None
+    rows = list(sheet.iter_rows(values_only=True))
     assert len(rows) == 3 and all(row[-1] is None for row in rows[1:])
 
 
@@ -483,10 +493,19 @@ def test_the_excel_has_the_base_s_answer_and_follows_the_choice(
         new = client.get("/ui/political/export.xlsx", params={"months": 0, "known": "none"})
 
     def answers(response: object) -> dict[str, str | None]:
-        sheet = load_workbook(BytesIO(response.content)).active  # type: ignore[attr-defined]
+        content = getattr(response, "content", None)
+        assert isinstance(content, bytes)
+        sheet = load_workbook(BytesIO(content)).active
+        assert sheet is not None
         rows = list(sheet.iter_rows(values_only=True))
         column = rows[0].index("В базе Airtable")
-        return {row[1]: row[column] for row in rows[1:]}
+        answer: dict[str, str | None] = {}
+        for row in rows[1:]:
+            assert isinstance(row[1], str)
+            value = row[column]
+            assert value is None or isinstance(value, str)
+            answer[row[1]] = value
+        return answer
 
     assert answers(everyone) == {
         "Смирнова Анна": "вероятно, есть в базе: Смирнова Анна Петровна",
@@ -689,10 +708,14 @@ def test_the_unnamed_with_a_political_article_are_rows_of_the_list_and_of_the_fi
             BytesIO(client.get("/ui/political/export.xlsx?months=0&who=unnamed").content)
         )
         rows = list(book["Результат"].iter_rows(min_row=2, values_only=True))
-        assert sorted(row[1] for row in rows) == ["15-летний житель Канаша", "житель Благовещенска"]
+        labels = [label for row in rows if isinstance(label := row[1], str)]
+        assert len(labels) == len(rows)
+        assert sorted(labels) == ["15-летний житель Канаша", "житель Благовещенска"]
         kanash = next(row for row in rows if row[1] == "15-летний житель Канаша")
         assert kanash[2] == "Канаш" and kanash[3] == "205.5"
+        assert isinstance(kanash[6], datetime) and isinstance(kanash[7], datetime)
         assert (kanash[6].date(), kanash[7].date()) == (date(2026, 9, 20), date(2026, 9, 21))
+        assert isinstance(kanash[9], str) and isinstance(kanash[10], str)
         assert kanash[9].endswith("Новость b") and kanash[10].endswith("Новость a")
 
 
@@ -771,7 +794,7 @@ def _nameless(
                 normalized_name=name.lower(),
                 matching_key=name.lower(),
                 case_opened_on=opened,
-                **{"gender": "male", "region": "Чувашия", "city": "Канаш", **values},  # type: ignore[arg-type]
+                **{"gender": "male", "region": "Чувашия", "city": "Канаш", **values},
             )
         )
 

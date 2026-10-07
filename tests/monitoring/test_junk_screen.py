@@ -71,7 +71,9 @@ def test_scores_are_the_logistic_regression_of_the_article_start(tmp_path: Path)
     "changes",
     [{"cutoff": 1.5}, {"coefficients": []}, {"article_chars": 0}, {"intercept": "x"}],
 )
-def test_a_model_file_that_cannot_judge_is_refused(tmp_path: Path, changes: dict) -> None:
+def test_a_model_file_that_cannot_judge_is_refused(
+    tmp_path: Path, changes: dict[str, object]
+) -> None:
     with pytest.raises(JunkScreenError):
         ScreenModel.load(_model(tmp_path, **changes))
 

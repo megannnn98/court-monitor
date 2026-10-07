@@ -63,9 +63,10 @@ def _held(session_factory: sessionmaker[Session], body: str) -> int:
 
 def _status(session_factory: sessionmaker[Session], article: int) -> str | None:
     with session_factory() as session:
-        return session.scalar(
+        status: str | None = session.scalar(
             text("SELECT status FROM junk_screen_holds WHERE article_id = :id"), {"id": article}
         )
+        return status
 
 
 def test_the_held_articles_are_listed_with_why_and_the_queue_counts_them(
@@ -91,13 +92,15 @@ def test_junk_and_back_again(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
         junk = client.post(
             "/ui/junk-holds/junk",
-            data={"article": article, "back": "status=held&page=1"},
+            data={"article": str(article), "back": "status=held&page=1"},
             follow_redirects=False,
         )
         marked = _status(session_factory, article)
         listed = client.get("/ui/junk-holds", params={"status": "junk"}).text
-        back = client.post("/ui/junk-holds/hold", data={"article": article}, follow_redirects=False)
-        twice = client.post("/ui/junk-holds/hold", data={"article": article})
+        back = client.post(
+            "/ui/junk-holds/hold", data={"article": str(article)}, follow_redirects=False
+        )
+        twice = client.post("/ui/junk-holds/hold", data={"article": str(article)})
         nothing = client.post("/ui/junk-holds/junk", data={"article": "999999"})
 
     assert junk.status_code == 303
@@ -114,10 +117,10 @@ def test_extracting_again_releases_an_article_whose_event_is_found(
 
     with _client(session_factory) as client:
         released = client.post(
-            "/ui/junk-holds/reextract", data={"article": article}, follow_redirects=False
+            "/ui/junk-holds/reextract", data={"article": str(article)}, follow_redirects=False
         )
         page = client.get(released.headers["location"]).text
-        gone = client.post("/ui/junk-holds/reextract", data={"article": article})
+        gone = client.post("/ui/junk-holds/reextract", data={"article": str(article)})
 
     assert released.status_code == 303 and f"released={article}" in released.headers["location"]
     assert _status(session_factory, article) is None
