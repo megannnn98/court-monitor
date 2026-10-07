@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DecidePairV1Data, DecidePairV1Errors, DecidePairV1Responses, DecidePoliticsV1Data, DecidePoliticsV1Errors, DecidePoliticsV1Responses, DecideRoleV1Data, DecideRoleV1Errors, DecideRoleV1Responses, GetAboutV1Data, GetAboutV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetDossierV1Data, GetDossierV1Errors, GetDossierV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPairsV1Data, ListPairsV1Errors, ListPairsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses, ListSentencesV1Data, ListSentencesV1Errors, ListSentencesV1Responses, ListUnclearPoliticsV1Data, ListUnclearPoliticsV1Responses, ListUnclearRolesV1Data, ListUnclearRolesV1Responses, MarkPoliticalDoneV1Data, MarkPoliticalDoneV1Errors, MarkPoliticalDoneV1Responses, SearchInvestigationsV1Data, SearchInvestigationsV1Errors, SearchInvestigationsV1Responses } from './types.gen';
+import type { DecidePairV1Data, DecidePairV1Errors, DecidePairV1Responses, DecidePoliticsV1Data, DecidePoliticsV1Errors, DecidePoliticsV1Responses, DecideRoleV1Data, DecideRoleV1Errors, DecideRoleV1Responses, GetAboutV1Data, GetAboutV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetCycleV1Data, GetCycleV1Responses, GetDossierV1Data, GetDossierV1Errors, GetDossierV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPairsV1Data, ListPairsV1Errors, ListPairsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses, ListSentencesV1Data, ListSentencesV1Errors, ListSentencesV1Responses, ListUnclearPoliticsV1Data, ListUnclearPoliticsV1Responses, ListUnclearRolesV1Data, ListUnclearRolesV1Responses, MarkPoliticalDoneV1Data, MarkPoliticalDoneV1Errors, MarkPoliticalDoneV1Responses, SearchInvestigationsV1Data, SearchInvestigationsV1Errors, SearchInvestigationsV1Responses, StartCycleV1Data, StartCycleV1Errors, StartCycleV1Responses, StopCycleRunV1Data, StopCycleRunV1Errors, StopCycleRunV1Responses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -299,3 +299,35 @@ export const decidePairV1 = <ThrowOnError extends boolean = false>(options: Opti
         ...options.headers
     }
 });
+
+/**
+ * Get Cycle
+ *
+ * What «Работа» shows: the first review to do, the other non-empty queues, and the
+ * state of the five automatic steps.
+ */
+export const getCycleV1 = <ThrowOnError extends boolean = false>(options?: Options<GetCycleV1Data, ThrowOnError>) => (options?.client ?? client).get<GetCycleV1Responses, unknown, ThrowOnError>({ url: '/api/v1/cycle', ...options });
+
+/**
+ * Start Cycle
+ *
+ * «Сделать всё»: the current step and, after it, every step to the end of the round.
+ * 409 when a run is live, when `after` is not the latest run any more (an old press),
+ * or when another worker started first.
+ */
+export const startCycleV1 = <ThrowOnError extends boolean = false>(options: Options<StartCycleV1Data, ThrowOnError>) => (options.client ?? client).post<StartCycleV1Responses, StartCycleV1Errors, ThrowOnError>({
+    url: '/api/v1/cycle/start',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Stop Cycle Run
+ *
+ * «Остановить»: the run, or the step its chain started after it ended a moment ago.
+ * What was done stays.
+ */
+export const stopCycleRunV1 = <ThrowOnError extends boolean = false>(options: Options<StopCycleRunV1Data, ThrowOnError>) => (options.client ?? client).post<StopCycleRunV1Responses, StopCycleRunV1Errors, ThrowOnError>({ url: '/api/v1/cycle/runs/{run_id}/stop', ...options });

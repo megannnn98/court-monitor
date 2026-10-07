@@ -683,3 +683,63 @@ class PairDecisionRequest(BaseModel):
     key_a: str
     key_b: str
     decision: str
+
+
+class CycleTaskResponse(BaseModel):
+    """A manual queue of «Работа»: what waits for the operator and where."""
+
+    key: str
+    title: str
+    count: int
+    # The legacy page of the queue.
+    href: str
+    description: str
+
+
+class CycleStepResponse(BaseModel):
+    stage: str
+    number: int
+    label: str
+    # done, running, ready or waiting.
+    status: str
+
+
+class LiveRunResponse(BaseModel):
+    run_id: int
+    title: str
+
+
+class CycleResponse(BaseModel):
+    """«Работа»: the one review to do first, the other queues, and the automatic steps
+    with the one press that runs what is left of the round."""
+
+    attention: CycleTaskResponse | None
+    tasks: list[CycleTaskResponse]
+    steps: list[CycleStepResponse]
+    current_stage: str
+    live: LiveRunResponse | None
+    # The latest run this answer was read for: «Сделать всё» names it, so an old press
+    # sent again cannot start a second round.
+    latest_run_id: int
+    chain_span: str
+    # What to ask before «Сделать всё»: an unfinished review, what is deleted, the cost.
+    chain_question: str
+    chain_note: str
+    chain_stopped: str
+
+
+class CycleStartRequest(BaseModel):
+    """«Сделать всё»: the steps from the current one to the end of the round."""
+
+    after: int
+
+
+class CycleStartResponse(BaseModel):
+    run_id: int
+    stage: str
+
+
+class StopResponse(BaseModel):
+    run_id: int
+    # False when the run had already ended: nothing was changed.
+    stopped: bool

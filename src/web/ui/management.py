@@ -670,21 +670,92 @@ def _refused(
     )
 
 
+class StepRefused(Exception):
+    """Why a step may not start, with the HTTP status that says so."""
+
+    def __init__(self, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+_Mode = Literal["load", "purge", "entities", "rosfin", "figurants", "political"]
+# A step's name as the run records it; a name not here is no step.
+_MODES: dict[str, _Mode] = {
+    "load": "load",
+    "purge": "purge",
+    "entities": "entities",
+    "rosfin": "rosfin",
+    "figurants": "figurants",
+    "political": "political",
+}
+
+STALE_CHAIN = (
+    "Это нажатие «Сделать всё» устарело: после него уже были запуски. Обновите страницу "
+    "и нажмите ещё раз, если шаги по-прежнему нужны."
+)
+
+
+def start_step(
+    registry: OperationRegistry,
+    mode: str,
+    *,
+    chain: bool,
+    after: str | None,
+    sources: list[str] | None = None,
+    published_from: date | None = None,
+    published_to: date | None = None,
+) -> OperationRun:
+    """Start a step of the cycle, or the steps from it to the end (`chain`). Read by the
+    legacy forms and `POST /api/v1/cycle/start`. StepRefused when it is not its turn,
+    when a chain press is stale (`after` is not the latest run any more), or for a source
+    that is not a news source.
+
+    `mode` is a stage of the cycle; any other one is refused as out of turn. `sources` is
+    for step 1 only: None there means every news source."""
+    state = current_state(registry)
+    # A chain press names the latest run its page was drawn for: when runs have happened
+    # since, it is an old press sent again, answered for another state of the base.
+    if chain and after != str(latest_run_id(state)):
+        raise StepRefused(STALE_CHAIN, 409)
+    refusal = out_of_turn(state, mode)
+    if refusal is not None:
+        raise StepRefused(refusal, 409)
+    stage = _MODES.get(mode)
+    if stage is None:
+        raise StepRefused(f"Неизвестный шаг: {mode}.", 400)
+    parameters = OperationParameters(mode=stage, chain=chain)
+    if stage == "load":
+        everything = [item.name for item in news_sources()]
+        selected = list(dict.fromkeys(sources or [])) or everything
+        if not set(selected) <= set(everything):
+            raise StepRefused("В запросе есть неизвестный или не новостной источник.", 400)
+        parameters = OperationParameters(
+            sources=selected,
+            mode=stage,
+            chain=chain,
+            published_from=published_from.isoformat() if published_from else None,
+            published_to=published_to.isoformat() if published_to else None,
+        )
+    try:
+        return registry.start(_OPERATION, parameters)
+    except OperationConflictError:
+        # Another worker started a run between the check and the start.
+        raise StepRefused("Идёт другой запуск.", 409) from None
+
+
 def _start_whole_database(
     request: Request,
     db: Session,
     registry: OperationRegistry,
     mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
 ) -> HTMLResponse | RedirectResponse:
-    state = current_state(registry)
-    refusal = _stale_chain(request, state) or out_of_turn(state, mode)
-    if refusal is not None:
-        return _refused(db, registry, refusal, 409)
     try:
-        run = registry.start(_OPERATION, OperationParameters(mode=mode, chain=_chained(request)))
-    except OperationConflictError:
-        # Another worker started a run between the check and the start.
-        return _refused(db, registry, "Идёт другой запуск.", 409)
+        run = start_step(
+            registry, mode, chain=_chained(request), after=request.query_params.get("after")
+        )
+    except StepRefused as refused:
+        return _refused(db, registry, refused.message, refused.status_code)
     return RedirectResponse(_started_at(request, run.id), status_code=303)
 
 
@@ -702,50 +773,25 @@ async def _start(
         and published_from > published_to
     ):
         return _refused(db, registry, "Дата «С» должна быть не позже даты «По».", 400)
-    everything = [item.name for item in news_sources()]
-    # The page sends no sources: all of them. The API may still name some.
-    selected = list(dict.fromkeys(form.get("sources", []))) or everything
-    state = current_state(registry)
-    refusal = _stale_chain(request, state) or out_of_turn(state, mode)
-    if refusal is not None:
-        return _refused(db, registry, refusal, 409)
-    if not set(selected) <= set(everything):
-        return _refused(db, registry, "В запросе есть неизвестный или не новостной источник.", 400)
     try:
-        run = registry.start(
-            _OPERATION,
-            OperationParameters(
-                sources=selected,
-                mode=mode,
-                chain=_chained(request),
-                published_from=published_from.isoformat()
-                if isinstance(published_from, date)
-                else None,
-                published_to=published_to.isoformat() if isinstance(published_to, date) else None,
-            ),
+        # The page sends no sources: all of them. The API may still name some.
+        run = start_step(
+            registry,
+            mode,
+            chain=_chained(request),
+            after=request.query_params.get("after"),
+            sources=form.get("sources", []),
+            published_from=published_from if isinstance(published_from, date) else None,
+            published_to=published_to if isinstance(published_to, date) else None,
         )
-    except OperationConflictError:
-        return _refused(db, registry, "Идёт другой запуск.", 409)
+    except StepRefused as refused:
+        return _refused(db, registry, refused.message, refused.status_code)
     return RedirectResponse(_started_at(request, run.id), status_code=303)
 
 
 def _chained(request: Request) -> bool:
     """«Сделать всё»: the step is the first of a chain to the end of the cycle."""
     return request.query_params.get("chain") == "1"
-
-
-def _stale_chain(request: Request, state: PipelineState) -> str | None:
-    """Why this «Сделать всё» may not start, or None. The press names the latest run its
-    page was drawn for; when runs have happened since, it is an old press sent again —
-    the question it was answered with was about another state of the base."""
-    if not _chained(request):
-        return None
-    if request.query_params.get("after") == str(latest_run_id(state)):
-        return None
-    return (
-        "Это нажатие «Сделать всё» устарело: после него уже были запуски. Обновите страницу "
-        "и нажмите ещё раз, если шаги по-прежнему нужны."
-    )
 
 
 def _started_at(request: Request, run_id: int) -> str:

@@ -267,6 +267,125 @@ export type ComponentHealth = {
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
 
 /**
+ * CycleResponse
+ *
+ * «Работа»: the one review to do first, the other queues, and the automatic steps
+ * with the one press that runs what is left of the round.
+ */
+export type CycleResponse = {
+    attention: CycleTaskResponse | null;
+    /**
+     * Tasks
+     */
+    tasks: Array<CycleTaskResponse>;
+    /**
+     * Steps
+     */
+    steps: Array<CycleStepResponse>;
+    /**
+     * Current Stage
+     */
+    current_stage: string;
+    live: LiveRunResponse | null;
+    /**
+     * Latest Run Id
+     */
+    latest_run_id: number;
+    /**
+     * Chain Span
+     */
+    chain_span: string;
+    /**
+     * Chain Question
+     */
+    chain_question: string;
+    /**
+     * Chain Note
+     */
+    chain_note: string;
+    /**
+     * Chain Stopped
+     */
+    chain_stopped: string;
+};
+
+/**
+ * CycleStartRequest
+ *
+ * «Сделать всё»: the steps from the current one to the end of the round.
+ */
+export type CycleStartRequest = {
+    /**
+     * After
+     */
+    after: number;
+};
+
+/**
+ * CycleStartResponse
+ */
+export type CycleStartResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Stage
+     */
+    stage: string;
+};
+
+/**
+ * CycleStepResponse
+ */
+export type CycleStepResponse = {
+    /**
+     * Stage
+     */
+    stage: string;
+    /**
+     * Number
+     */
+    number: number;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
+ * CycleTaskResponse
+ *
+ * A manual queue of «Работа»: what waits for the operator and where.
+ */
+export type CycleTaskResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Href
+     */
+    href: string;
+    /**
+     * Description
+     */
+    description: string;
+};
+
+/**
  * DecisionResponse
  */
 export type DecisionResponse = {
@@ -889,6 +1008,20 @@ export type LiveOperationResponse = {
      * Mode
      */
     mode: string | null;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
+ * LiveRunResponse
+ */
+export type LiveRunResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
     /**
      * Title
      */
@@ -2538,6 +2671,20 @@ export type StatusResponse = {
 };
 
 /**
+ * StopResponse
+ */
+export type StopResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Stopped
+     */
+    stopped: boolean;
+};
+
+/**
  * TimelineItemResponse
  */
 export type TimelineItemResponse = {
@@ -3730,3 +3877,74 @@ export type DecidePairV1Responses = {
 };
 
 export type DecidePairV1Response = DecidePairV1Responses[keyof DecidePairV1Responses];
+
+export type GetCycleV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/cycle';
+};
+
+export type GetCycleV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CycleResponse;
+};
+
+export type GetCycleV1Response = GetCycleV1Responses[keyof GetCycleV1Responses];
+
+export type StartCycleV1Data = {
+    body: CycleStartRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/cycle/start';
+};
+
+export type StartCycleV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartCycleV1Error = StartCycleV1Errors[keyof StartCycleV1Errors];
+
+export type StartCycleV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CycleStartResponse;
+};
+
+export type StartCycleV1Response = StartCycleV1Responses[keyof StartCycleV1Responses];
+
+export type StopCycleRunV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: number;
+    };
+    query?: never;
+    url: '/api/v1/cycle/runs/{run_id}/stop';
+};
+
+export type StopCycleRunV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StopCycleRunV1Error = StopCycleRunV1Errors[keyof StopCycleRunV1Errors];
+
+export type StopCycleRunV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: StopResponse;
+};
+
+export type StopCycleRunV1Response = StopCycleRunV1Responses[keyof StopCycleRunV1Responses];

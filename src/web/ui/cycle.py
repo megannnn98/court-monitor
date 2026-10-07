@@ -28,7 +28,7 @@ from web.ui.workload import OperatorTask, Workload, next_operator_task, operator
 
 router = APIRouter()
 
-_PROCESSING_LABELS = {
+PROCESSING_LABELS = {
     "load": "Публикации загружены",
     "purge": "Публикации проверены",
     "entities": "Люди определены",
@@ -72,16 +72,11 @@ def _next_tasks(work: Workload, current: OperatorTask | None) -> str:
 </section>"""
 
 
-def _pipeline_control(state: PipelineState, work: Workload) -> str:
-    if state.live is not None:
-        return (
-            f'<button class="danger" type="submit" formaction="/ui/management/runs/{state.live.id}/stop" '
-            'name="back" value="cycle" '
-            "onclick=\"return confirm('Остановить запуск? Уже сделанное останется.')\">"
-            "Остановить</button>"
-        )
+def chain_question(state: PipelineState, work: Workload) -> str:
+    """What is asked before «Сделать всё» on «Работа»: an unfinished review first, then
+    what the steps delete and cost. Read by the legacy page and `GET /api/v1/cycle`."""
     task = next_operator_task(work)
-    confirmation = " ".join(
+    return " ".join(
         item
         for item in (
             (
@@ -93,6 +88,33 @@ def _pipeline_control(state: PipelineState, work: Workload) -> str:
         )
         if item
     )
+
+
+def step_statuses(state: PipelineState) -> list[tuple[str, str]]:
+    """(stage, status) of each step of the round: done, running, ready or waiting."""
+    current = STAGES.index(state.current)
+    return [
+        (
+            stage,
+            "done"
+            if index < current
+            else ("running" if state.live is not None else "ready")
+            if index == current
+            else "waiting",
+        )
+        for index, stage in enumerate(STAGES)
+    ]
+
+
+def _pipeline_control(state: PipelineState, work: Workload) -> str:
+    if state.live is not None:
+        return (
+            f'<button class="danger" type="submit" formaction="/ui/management/runs/{state.live.id}/stop" '
+            'name="back" value="cycle" '
+            "onclick=\"return confirm('Остановить запуск? Уже сделанное останется.')\">"
+            "Остановить</button>"
+        )
+    confirmation = chain_question(state, work)
     # One press runs every step that is left; a single step is on «Журнал запусков».
     return (
         f'<button id="step-{state.current}" class="secondary" type="submit" '
@@ -104,23 +126,18 @@ def _pipeline_control(state: PipelineState, work: Workload) -> str:
 
 
 def _processing(state: PipelineState, work: Workload) -> str:
-    current_index = STAGES.index(state.current)
+    marks = {
+        "done": ("✓", "готово"),
+        "running": ("●", "выполняется"),
+        "ready": ("○", "ожидает запуска"),
+        "waiting": ("○", "ожидает"),
+    }
     rows = []
-    for index, stage in enumerate(STAGES):
-        if index < current_index:
-            marker, css, status = "✓", "done", "готово"
-        elif index == current_index:
-            marker = "●" if state.live is not None else "○"
-            css, status = (
-                ("running", "выполняется")
-                if state.live is not None
-                else ("ready", "ожидает запуска")
-            )
-        else:
-            marker, css, status = "○", "waiting", "ожидает"
+    for stage, css in step_statuses(state):
+        marker, status = marks[css]
         rows.append(
             f'<li class="{css}"><span aria-hidden="true">{marker}</span>'
-            f"{escape(_PROCESSING_LABELS[stage])}<small>{status}</small></li>"
+            f"{escape(PROCESSING_LABELS[stage])}<small>{status}</small></li>"
         )
     return f"""<section class="processing-status" aria-labelledby="processing-title">
   <div><h2 id="processing-title">Обработка данных</h2>

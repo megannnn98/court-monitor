@@ -22,6 +22,7 @@ from web.routers import (
     airtable,
     articles,
     candidates,
+    cycle,
     dossier,
     entities,
     health,
@@ -164,5 +165,6 @@ for module in (
     dossier,
     sentences,
     review,
+    cycle,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

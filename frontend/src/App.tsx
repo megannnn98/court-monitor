@@ -19,6 +19,7 @@ import { ReviewPage } from "@/pages/ReviewPage";
 import { RfmPage } from "@/pages/RfmPage";
 import { RunsPage } from "@/pages/RunsPage";
 import { SentencesPage } from "@/pages/SentencesPage";
+import { WorkPage } from "@/pages/WorkPage";
 
 export function App() {
   return (
@@ -36,6 +37,7 @@ export function App() {
         <Route path="articles/:articleId" element={<ArticlePage />} />
         <Route path="runs" element={<RunsPage />} />
         <Route path="logs" element={<LogsPage />} />
+        <Route path="work" element={<WorkPage />} />
         <Route path="review/roles" element={<ReviewPage kind="roles" />} />
         <Route path="review/politics" element={<ReviewPage kind="politics" />} />
         <Route path="review/pairs" element={<PairsPage />} />

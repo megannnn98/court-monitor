@@ -43,7 +43,8 @@ it("shows the legacy menu's groups and words", () => {
   for (const group of ["Каждый день", "Данные", "Система"]) {
     expect(within(menu).getByText(group)).toBeTruthy();
   }
-  expect(within(menu).getByRole("link", { name: /^Работа/ }).getAttribute("href")).toBe("/ui/cycle");
+  expect(within(menu).getByRole("link", { name: /^Работа/ }).getAttribute("href")).toBe("/work");
+  expect(within(menu).getByRole("link", { name: /^Спросить/ }).getAttribute("href")).toBe("/ui/ask");
 });
 
 it("sends a moved item to React and the rest to the legacy page, marked", () => {

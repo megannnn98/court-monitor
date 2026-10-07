@@ -1725,6 +1725,104 @@
           }
         }
       }
+    },
+    "/api/v1/cycle": {
+      "get": {
+        "summary": "Get Cycle",
+        "description": "What «Работа» shows: the first review to do, the other non-empty queues, and the\nstate of the five automatic steps.",
+        "operationId": "get_cycle_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CycleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cycle/start": {
+      "post": {
+        "summary": "Start Cycle",
+        "description": "«Сделать всё»: the current step and, after it, every step to the end of the round.\n409 when a run is live, when `after` is not the latest run any more (an old press),\nor when another worker started first.",
+        "operationId": "start_cycle_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CycleStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CycleStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cycle/runs/{run_id}/stop": {
+      "post": {
+        "summary": "Stop Cycle Run",
+        "description": "«Остановить»: the run, or the step its chain started after it ended a moment ago.\nWhat was done stays.",
+        "operationId": "stop_cycle_run_v1",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2112,6 +2210,177 @@
           "not_configured"
         ],
         "title": "ComponentStatus"
+      },
+      "CycleResponse": {
+        "properties": {
+          "attention": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CycleTaskResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/CycleTaskResponse"
+            },
+            "type": "array",
+            "title": "Tasks"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/CycleStepResponse"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "current_stage": {
+            "type": "string",
+            "title": "Current Stage"
+          },
+          "live": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveRunResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_run_id": {
+            "type": "integer",
+            "title": "Latest Run Id"
+          },
+          "chain_span": {
+            "type": "string",
+            "title": "Chain Span"
+          },
+          "chain_question": {
+            "type": "string",
+            "title": "Chain Question"
+          },
+          "chain_note": {
+            "type": "string",
+            "title": "Chain Note"
+          },
+          "chain_stopped": {
+            "type": "string",
+            "title": "Chain Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attention",
+          "tasks",
+          "steps",
+          "current_stage",
+          "live",
+          "latest_run_id",
+          "chain_span",
+          "chain_question",
+          "chain_note",
+          "chain_stopped"
+        ],
+        "title": "CycleResponse",
+        "description": "«Работа»: the one review to do first, the other queues, and the automatic steps\nwith the one press that runs what is left of the round."
+      },
+      "CycleStartRequest": {
+        "properties": {
+          "after": {
+            "type": "integer",
+            "title": "After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "after"
+        ],
+        "title": "CycleStartRequest",
+        "description": "«Сделать всё»: the steps from the current one to the end of the round."
+      },
+      "CycleStartResponse": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "stage"
+        ],
+        "title": "CycleStartResponse"
+      },
+      "CycleStepResponse": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "number",
+          "label",
+          "status"
+        ],
+        "title": "CycleStepResponse"
+      },
+      "CycleTaskResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "href": {
+            "type": "string",
+            "title": "Href"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "count",
+          "href",
+          "description"
+        ],
+        "title": "CycleTaskResponse",
+        "description": "A manual queue of «Работа»: what waits for the operator and where."
       },
       "DecisionResponse": {
         "properties": {
@@ -3212,6 +3481,24 @@
         ],
         "title": "LiveOperationResponse",
         "description": "The step running now: its mode and the title the console gives it."
+      },
+      "LiveRunResponse": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "title"
+        ],
+        "title": "LiveRunResponse"
       },
       "LivenessReport": {
         "properties": {
@@ -5939,6 +6226,24 @@
         ],
         "title": "StatusResponse",
         "description": "The legacy status strip and menu counters: the same numbers on every page."
+      },
+      "StopResponse": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "stopped": {
+            "type": "boolean",
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "stopped"
+        ],
+        "title": "StopResponse"
       },
       "TimelineItemResponse": {
         "properties": {

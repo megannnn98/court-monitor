@@ -20,7 +20,7 @@ export const NAV: NavGroup[] = [
   {
     title: "Каждый день",
     items: [
-      { key: "cycle", label: "Работа", legacy: "/ui/cycle", count: "queue" },
+      { key: "cycle", label: "Работа", legacy: "/ui/cycle", path: "/work", count: "queue" },
       // The review stations of «Работа»: in the legacy UI they are reached from it.
       { key: "pairs", label: "Пары", legacy: "/ui/pairs", path: "/review/pairs" },
       { key: "roles", label: "Неясные роли", legacy: "/ui/roles", path: "/review/roles" },

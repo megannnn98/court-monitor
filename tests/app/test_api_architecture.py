@@ -92,6 +92,9 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/v1/review/politics/decide",
     "GET /api/v1/review/pairs",
     "POST /api/v1/review/pairs/decide",
+    "GET /api/v1/cycle",
+    "POST /api/v1/cycle/start",
+    "POST /api/v1/cycle/runs/{run_id}/stop",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.
