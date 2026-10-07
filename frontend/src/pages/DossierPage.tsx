@@ -341,7 +341,8 @@ export function DossierPage() {
               связаны только через событие, где названы оба. «Назван в событии» — не «обвиняемый». «Совместные упоминания» — счёт
               общих публикаций, а не установленная связь.
             </p>
-            <EventGraph graphUrl={person.graph_url} name={person.name} />
+            {/* Keyed by the person: another dossier is another graph, never this one redrawn. */}
+            <EventGraph key={person.key} graphUrl={person.graph_url} name={person.name} />
           </Section>
 
           {person.related.length ? (
