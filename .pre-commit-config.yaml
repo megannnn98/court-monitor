@@ -1,5 +1,5 @@
 # A vendored browser bundle is somebody else's file: kept byte for byte.
-exclude: ^src/static/vendor/
+exclude: ^(src/static/vendor/|frontend/(src/api/generated|openapi)/)
 
 repos:
   # Базовые проверки файлов

@@ -146,3 +146,31 @@ def test_openapi_lists_main_endpoints(client: TestClient) -> None:
         "/person-resolution/reviews",
     ):
         assert path in paths
+
+
+def test_openapi_lists_versioned_read_endpoints(client: TestClient) -> None:
+    paths = client.get("/openapi.json").json()["paths"]
+
+    for path in (
+        "/api/v1/health/live",
+        "/api/v1/candidates",
+        "/api/v1/persons",
+        "/api/v1/articles/{article_id}",
+        "/api/v1/operations/runs",
+    ):
+        assert path in paths
+
+    assert all(set(item) == {"get"} for path, item in paths.items() if path.startswith("/api/v1/"))
+
+
+def test_openapi_keeps_legacy_operation_ids_and_has_no_duplicates(client: TestClient) -> None:
+    paths = client.get("/openapi.json").json()["paths"]
+    operation_ids = [
+        operation["operationId"]
+        for path in paths.values()
+        for operation in path.values()
+        if isinstance(operation, dict) and "operationId" in operation
+    ]
+
+    assert paths["/persons"]["get"]["operationId"] == "list_persons_persons_get"
+    assert len(operation_ids) == len(set(operation_ids))

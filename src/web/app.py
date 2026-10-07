@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 
 from observability import configure_logging
@@ -53,6 +54,11 @@ from web.ui import unnamed as ui_unnamed
 from web.ui import wiki as ui_wiki
 
 logger = logging.getLogger("api")
+
+
+def _operation_id(route: APIRoute) -> str:
+    """Keep generated client names stable while versioned routes are added gradually."""
+    return f"{route.name}_v1"
 
 
 @asynccontextmanager
@@ -123,3 +129,18 @@ for module in (
     investigations,
 ):
     app.include_router(module.router)
+
+# The React migration consumes a versioned, read-only API.  Keep the original routes
+# untouched for existing automation while the frontend moves page by page.  Routers
+# with mutations deliberately stay out until the production authentication and CSRF
+# contract is agreed.
+for module in (
+    persons,
+    articles,
+    candidates,
+    rosfinmonitoring,
+    monitoring,
+    operations,
+    health,
+):
+    app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)
