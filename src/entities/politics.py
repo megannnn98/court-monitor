@@ -314,7 +314,7 @@ def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> Politi
 # The figurants, with their Criminal Code articles.
 _FIGURANTS = text(
     """
-    SELECT g.id, g.key, g.name,
+    SELECT g.id, g.key, g.name, r.method AS role_method,
            coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
                      FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles,
            -- Of events with no other accused: the person's own beyond doubt.
@@ -585,10 +585,11 @@ class PoliticsFinder:
 
         # A political case of a person known by one word — a surname, a given name — is
         # a person's to look at: who it is, nothing says. A common crime needs no name.
-        names = {row.id: row.name for row in figurants}
+        # Not where a person made the entity a figurant: that person has looked at who
+        # it is, and the case was in the result by that word.
+        unknown = {row.id for row in figurants if nameless(row.name) and row.role_method != MANUAL}
         for entry in rows:
-            name = names.get(cast(int, entry["group_id"]), "")
-            if entry["verdict"] == POLITICAL and nameless(name):
+            if entry["verdict"] == POLITICAL and entry["group_id"] in unknown:
                 entry["verdict"] = UNCLEAR
                 entry["reason"] = f"{NAMELESS} ({entry['reason']})"
         # A person's word last: it overrides the rules and the model.

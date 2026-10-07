@@ -725,6 +725,29 @@ def test_the_article_s_rule_does_not_close_a_one_word_case_unread(
     assert _verdicts(session_factory)["Беда"] == ("criminal", "model")
 
 
+def test_a_figurant_by_a_person_s_word_keeps_the_political_verdict(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The operator made «Смирнова» a figurant by hand: who it is, she has looked at, and
+    the case stood in the result. It must not go back to her queue for its one word."""
+    _seed(session_factory)
+    _one_word_names(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE entity_group_roles SET method = 'manual' WHERE group_id = "
+                "(SELECT id FROM entity_groups WHERE name = 'Смирнова')"
+            )
+        )
+
+    PoliticsFinder(session_factory, classifier=FakeClassifier(ONE_WORD)).run()
+
+    verdicts = _verdicts(session_factory)
+    assert verdicts["Смирнова"] == ("political", "model")
+    # The model's own figurant of one word still waits for a person.
+    assert verdicts["Петров"] == ("unclear", "article")
+
+
 @pytest.mark.parametrize("word", [POLITICAL, "criminal"])
 def test_a_person_s_word_decides_a_one_word_case(
     session_factory: sessionmaker[Session], word: str
