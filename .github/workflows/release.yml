@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        type: choice
+        required: true
+        default: minor
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Calculate next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          tags = subprocess.check_output(["git", "tag", "--list"], text=True).splitlines()
+          versions = [
+              tuple(map(int, tag.split(".")))
+              for tag in tags
+              if re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag)
+          ]
+          major, minor, patch = max(versions, default=(0, 0, 0))
+          bump = os.environ["BUMP"]
+          if bump == "major":
+              major, minor, patch = major + 1, 0, 0
+          elif bump == "minor":
+              minor, patch = minor + 1, 0
+          elif bump == "patch":
+              patch += 1
+          else:
+              raise ValueError(f"Unknown version increment: {bump}")
+          version = f"{major}.{minor}.{patch}"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"tag={version}\n")
+          print(f"Next release: {version}")
+          PY
+
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --target "$RELEASE_SHA" \
+            --title "$RELEASE_TAG" \
+            --generate-notes
