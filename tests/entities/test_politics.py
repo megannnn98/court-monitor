@@ -29,6 +29,7 @@ from entities.politics import (
     base_reason,
     decide_politics,
     matched_answers,
+    nameless,
     verdict_of,
 )
 from entities.rf_check import EntityRfCheck
@@ -661,8 +662,67 @@ def test_a_common_crime_needs_no_name_and_a_political_case_of_one_word_waits_for
     assert reason == f"{NAMELESS} (так про Смирнова)"
 
 
-def test_a_person_s_word_makes_a_one_word_case_political(
+@pytest.mark.parametrize(
+    ("name", "named"),
+    [
+        ("Иванов", False),
+        ("Наталья", False),
+        ("Иванов И.", False),
+        ("И. И. Иванов", False),
+        ("Иван П.", False),
+        ("И И Иванов", False),
+        ("", False),
+        ("Иван Иванов", True),
+        ("Иван Иванович Иванов", True),
+        ("Анна-Мария Ли", True),
+    ],
+)
+def test_initials_name_nobody_any_more_than_one_word(name: str, named: bool) -> None:
+    assert nameless(name) is not named
+
+
+def test_a_political_case_of_a_surname_with_initials_waits_for_a_person_too(
     session_factory: sessionmaker[Session],
+) -> None:
+    _seed(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE entity_groups SET name = 'И. П. Петров' WHERE name = 'Иван Петров'")
+        )
+
+    PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+
+    assert _verdicts(session_factory)["И. П. Петров"] == ("unclear", "article")
+
+
+def test_the_article_s_rule_does_not_close_a_one_word_case_unread(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Before, such a person waited for a person's look; a common article bound to the
+    surname by the extraction must not take the case out of every queue by itself."""
+    _seed(session_factory)
+    _one_word_names(session_factory)
+    with session_factory.begin() as session:
+        session.execute(
+            text("UPDATE entity_group_charges SET article = '105' WHERE article = '318'")
+        )
+    silent = FakeClassifier(ONE_WORD, fail=True)
+
+    PoliticsFinder(session_factory, classifier=silent).run()
+
+    # Asked, though the article alone would settle a person with a full name.
+    assert "Беда" in [item.name for item in silent.asked]
+    assert _verdicts(session_factory)["Беда"] == ("unclear", "model")
+
+    PoliticsFinder(session_factory, classifier=FakeClassifier(ONE_WORD)).run()
+
+    # The model's «criminal» still lets the common crime go without a person.
+    assert _verdicts(session_factory)["Беда"] == ("criminal", "model")
+
+
+@pytest.mark.parametrize("word", [POLITICAL, "criminal"])
+def test_a_person_s_word_decides_a_one_word_case(
+    session_factory: sessionmaker[Session], word: str
 ) -> None:
     _seed(session_factory)
     _one_word_names(session_factory)
@@ -672,11 +732,11 @@ def test_a_person_s_word_makes_a_one_word_case_political(
             select(EntityGroupRecord).where(EntityGroupRecord.name == "Смирнова")
         )
         assert smirnova is not None
-        decide_politics(session, smirnova, POLITICAL)
+        decide_politics(session, smirnova, word)
 
     PoliticsFinder(session_factory, classifier=FakeClassifier(ONE_WORD)).run()
 
-    assert _verdicts(session_factory)["Смирнова"] == ("political", "manual")
+    assert _verdicts(session_factory)["Смирнова"] == (word, "manual")
 
 
 def test_a_person_s_word_on_politics_survives_the_next_run(

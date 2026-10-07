@@ -158,7 +158,13 @@ BASE = "base"
 # The verdicts a person may name on «Неясная политичность»: «unclear» is never decided.
 MANUAL = "manual"
 # Why a political case waits for a person though the rules or the model were sure.
-NAMELESS = "дело политическое, но человек назван одним словом: кто это, не ясно"
+NAMELESS = "дело политическое, но у человека нет полного имени: кто это, не ясно"
+
+
+def nameless(name: str) -> bool:
+    """A name that names nobody for certain: fewer than two words that are no initials
+    («Иванов», «Иванов И.», «И. И. Иванов»)."""
+    return sum(len(word.rstrip(".")) > 1 for word in name.split()) < 2
 
 
 def politics_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
@@ -483,7 +489,10 @@ class PoliticsFinder:
             tracked = tracked_cases.match(row.name, row.own_articles)
             if tracked is not None:
                 settled[row.id] = (POLITICAL, BASE, base_reason(tracked))
-            elif rule := _settled(row.articles, memorial.get(row.id)):
+            # A person named by one word was a person's to look at before: the article's
+            # rule does not close such a case unread. The model reads it, and without
+            # its answer the case stays «не ясно».
+            elif not nameless(row.name) and (rule := _settled(row.articles, memorial.get(row.id))):
                 settled[row.id] = rule
         asked_rows = [row for row in rest if row.id not in settled]
         items = {
@@ -570,12 +579,13 @@ class PoliticsFinder:
                 }
             )
 
-        # A political case of a person known by one word — a surname, a given name — is
-        # a person's to look at: who it is, nothing says. A common crime needs no name.
+        # A political case of a person known by one word — a surname, a given name, the
+        # same with initials — is a person's to look at: who it is, nothing says. A
+        # common crime needs no name.
         names = {row.id: row.name for row in figurants}
         for entry in rows:
             name = names.get(cast(int, entry["group_id"]), "")
-            if entry["verdict"] == POLITICAL and len(name.split()) < 2:
+            if entry["verdict"] == POLITICAL and nameless(name):
                 entry["verdict"] = UNCLEAR
                 entry["reason"] = f"{NAMELESS} ({entry['reason']})"
         # A person's word last: it overrides the rules and the model.
