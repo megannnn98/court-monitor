@@ -135,6 +135,7 @@ def test_a_group_too_small_to_rank_is_given_apart(session_factory: sessionmaker[
     assert [group["name"] for group in result["groups"]] == ["Москва"]  # type: ignore[index,union-attr]
     assert [group["name"] for group in result["small_groups"]] == ["Тульская область"]  # type: ignore[index,union-attr]
     assert result["small_groups_left_out"] == 1
+    assert result["notes"] == ["Групп, слишком маленьких для сравнения: 1."]
 
 
 def test_a_question_the_base_does_not_answer_is_refused(

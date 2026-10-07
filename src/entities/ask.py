@@ -106,6 +106,13 @@ SORT_LABELS = {
     "max_years": "по наибольшему сроку",
 }
 
+# What a case lacks when it is in no group of the count.
+GROUP_UNKNOWN = {
+    "region": "регион не назван",
+    "year": "год приговора не назван",
+    "article": "статья УК не названа",
+}
+
 STATS, LIST, SEARCH = "stats", "list", "search"
 TOOLS = (STATS, LIST, SEARCH)
 
@@ -157,10 +164,8 @@ ANSWER_PROMPT = """Ты отвечаешь оператору базы об уг
 переводи месяцы в годы.
 - Начни с прямого ответа на вопрос, затем подтверди его цифрами. Без нумерованных списков.
 - Скажи, на скольких делах основан ответ.
-- Оговорки называй только те, что есть в результатах с ненулевым числом: group_unknown — \
-у стольких дел группа (регион, год, статья) не названа; year_unknown — у стольких год \
-неизвестен, они не вошли; small_groups_left_out — столько групп слишком малы для \
-сравнения. О том, чего в результатах нет или что равно нулю, не пиши вовсе.
+- Оговорки бери из notes и передавай их смысл точно; если notes пуст, оговорок нет — не \
+выдумывай их.
 - groups — группы, которые можно сравнивать. small_groups — группы, где сроков слишком \
 мало: их можно назвать как отдельные случаи («в такой-то области один приговор — 17 \
 лет»), но не как «самые суровые».
@@ -482,9 +487,21 @@ def run_call(session: Session, all_cases: Sequence[Case], call: Call) -> dict[st
         min_imprisoned=min(max(call.min_imprisoned, 0), 50),
         limit=min(max(call.limit, 1), LISTED) if call.limit else 15,
     )
+    notes = [
+        f"У {counted.unknown} дел {GROUP_UNKNOWN.get(group_by, 'группа не названа')}: "
+        "в группы они не вошли."
+        if counted.unknown
+        else "",
+        f"У {counted.year_unknown} дел год приговора неизвестен: в подсчёт они не вошли."
+        if counted.year_unknown
+        else "",
+        f"Групп, слишком маленьких для сравнения: {counted.small}." if counted.small else "",
+    ]
     return {
         "tool": STATS,
         "what": f"приговоры {GROUP_LABELS[group_by]} ({selection}), {SORT_LABELS[sort]}",
+        # The reservations in words: a model retold the bare numbers wrongly.
+        "notes": [note for note in notes if note],
         "total": asdict(counted.total) | {"name": "всего"},
         "groups": [
             asdict(group) | {"name": _group_name(group_by, group.name)} for group in counted.groups
