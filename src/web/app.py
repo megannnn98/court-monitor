@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from observability import configure_logging
 from settings import ApplicationConfigurationError, ApplicationSettings
+from web.csrf import same_origin_only
 from web.middleware import request_context
 from web.routers import (
     about,
@@ -94,7 +95,11 @@ app = FastAPI(
 )
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
 # No CORS middleware: the API is meant for private deployment behind a reverse
-# proxy (ADR 0014); browsers on other origins are not a supported client.
+# proxy (ADR 0014); browsers on other origins are not a supported client. Missing CORS
+# does not stop a cross-site form POST, so an unsafe request must come from the
+# console's own origin (ADR 0022). Registered first, so it runs inside the request
+# context and its refusal carries the request id.
+app.middleware("http")(same_origin_only)
 app.middleware("http")(request_context)
 
 # In the order the routes were declared before the split: a request matches the first

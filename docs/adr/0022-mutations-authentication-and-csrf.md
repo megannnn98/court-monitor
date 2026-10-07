@@ -2,9 +2,11 @@
 
 ## Status
 
-Proposed, 2026-10-07. Awaiting the owner's decision. Blocks moving the console's actions
-(«Работа», «обработано», Excel exports, starting and stopping steps, manual decisions)
-to the React console and `/api/v1`.
+Accepted, 2026-10-07: option A, implemented in `web/csrf.py`. Option C stays the plan for
+when the console has to be reachable without an SSH tunnel; the open questions below
+decide it then. Unblocks moving the console's actions («Работа», «обработано», Excel
+exports, starting and stopping steps, manual decisions) to the React console and
+`/api/v1`.
 
 ## Context
 
@@ -95,12 +97,23 @@ Regardless of the option, React's mutating calls go through one helper that send
 `Content-Type: application/json`: a cross-site form cannot send JSON without a
 preflight, which adds a second line of defence for the new routes.
 
-## Consequences if A is accepted
+## Consequences
 
-- A setting `ALLOWED_ORIGINS` (comma-separated), with the local origins as the default.
-- The middleware answers a refused request with 403 and `{"detail": "cross-origin
-  request refused: <origin>"}`, and logs `event=csrf_refused` with the method, path and
-  origin.
+- A request is served when its method is safe, when `Sec-Fetch-Site` is `same-origin`,
+  when its `Origin` (else the origin of its `Referer`) has the host the request came to
+  (`Host`), or when that origin is in `ALLOWED_ORIGINS`; a request with none of the three
+  headers is not a browser's and passes. The own-host rule covers an SSH tunnel on any
+  local port and the Vite proxy without configuration.
+- `ALLOWED_ORIGINS` (comma-separated) replaces the default list
+  (`http://127.0.0.1:8001`, `http://localhost:8001`, `http://127.0.0.1:5173`,
+  `http://localhost:5173`). A reverse proxy that rewrites `Host` needs its public origin
+  there.
+- A refused request gets 403 with the app's error body (`error.code` `csrf_refused`,
+  `error.message` `cross-origin request refused: <origin>`, the request id), before the
+  route runs, and is logged as `event=csrf_refused` with the method, path and origin.
+  The React client shows `error.message`.
+- Checked in a real browser (headless Chromium): a form auto-submitted from a page on
+  another port got 403; the same form from the console's own page reached the route.
 - Tests: same-origin form, foreign `Origin`, foreign `Referer` without `Origin`,
   `Sec-Fetch-Site: cross-site`, no headers at all (allowed), each legacy POST route
   still answering from its own page.

@@ -16,8 +16,15 @@ type ClientResult<T> = {
   response?: Response;
 };
 
-/** The API's own words: FastAPI puts them in `detail`, a string or a list of problems. */
+/** The API's own words: FastAPI puts them in `detail`, a string or a list of problems;
+ * the app's own errors (a refused cross-origin request, a crash) in `error.message`. */
 export function errorMessage(error: unknown, status: number | undefined): string {
+  if (error && typeof error === "object" && "error" in error) {
+    const body = (error as { error: unknown }).error;
+    if (body && typeof body === "object" && "message" in body && typeof body.message === "string") {
+      return body.message;
+    }
+  }
   if (error && typeof error === "object" && "detail" in error) {
     const detail = (error as { detail: unknown }).detail;
     if (typeof detail === "string") {
