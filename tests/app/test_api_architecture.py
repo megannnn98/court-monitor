@@ -75,6 +75,7 @@ ROUTES_AFTER_SPLIT = [
     "GET /api/v1/health",
     "GET /api/v1/health/live",
     "GET /api/v1/health/ready",
+    "GET /api/v1/about",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

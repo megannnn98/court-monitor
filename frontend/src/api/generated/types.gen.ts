@@ -5,6 +5,47 @@ export type ClientOptions = {
 };
 
 /**
+ * AboutResponse
+ *
+ * «О системе»: the build stamp, the totals behind the status strip, and the last
+ * successful operator run. The same data the legacy `/ui/about` page shows.
+ */
+export type AboutResponse = {
+    /**
+     * Version
+     */
+    version: string;
+    /**
+     * Tag
+     */
+    tag: string;
+    /**
+     * Commit
+     */
+    commit: string;
+    /**
+     * Built At
+     */
+    built_at: string;
+    /**
+     * Articles
+     */
+    articles: number;
+    /**
+     * People
+     */
+    people: number;
+    /**
+     * Last Successful Run At
+     */
+    last_successful_run_at: string | null;
+    /**
+     * Checked At
+     */
+    checked_at: string;
+};
+
+/**
  * AirtableSyncResponse
  *
  * The whole sync: success, partial (some list failed) or failed. `mode` says
@@ -1771,3 +1812,19 @@ export type HealthReadyV1Responses = {
 };
 
 export type HealthReadyV1Response = HealthReadyV1Responses[keyof HealthReadyV1Responses];
+
+export type GetAboutV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/about';
+};
+
+export type GetAboutV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: AboutResponse;
+};
+
+export type GetAboutV1Response = GetAboutV1Responses[keyof GetAboutV1Responses];

@@ -8,18 +8,17 @@ the last monitoring run. Read-only, and it decides nothing.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from html import escape
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
-from sqlalchemy import text
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import TextClause
 
-from db.orm_models import EntityGroupRecord, ParsedArticleRecord
-from web.build_info import build_info
+from web.about import read_about
+from web.build_info import BuildInfo
 from web.dependencies import get_db
+from web.response_models import AboutResponse
 from web.ui.layout import _page
 
 router = APIRouter()
@@ -27,49 +26,37 @@ router = APIRouter()
 __all__ = ["router", "ui_about"]
 
 
-def _counts(db: Session) -> list[tuple[str, str]]:
+def _counts(about: AboutResponse) -> list[tuple[str, str]]:
     """The totals behind the status strip, so a number on another page can be checked."""
-    articles = db.scalar(_count(ParsedArticleRecord.__tablename__)) or 0
-    people = db.scalar(_count(EntityGroupRecord.__tablename__)) or 0
     return [
-        ("Публикаций в базе", f"{articles:,}".replace(",", " ")),
-        ("Людей в базе", f"{people:,}".replace(",", " ")),
+        ("Публикаций в базе", f"{about.articles:,}".replace(",", " ")),
+        ("Людей в базе", f"{about.people:,}".replace(",", " ")),
     ]
 
 
-def _count(table: str) -> TextClause:
-    """A COUNT over one table by name. The names are literals in this module, never
-    anything a request can reach."""
-    return text(f"SELECT count(*) FROM {table}")
-
-
-def _last_run(db: Session) -> str:
-    row = db.execute(
-        text(
-            """
-            SELECT started_at FROM operator_operation_runs
-            WHERE status = 'succeeded' ORDER BY id DESC LIMIT 1
-            """
-        )
-    ).first()
-    if row is None or row[0] is None:
+def _last_run(started: datetime | None) -> str:
+    if started is None:
         return "неизвестно"
-    started = row[0]
-    if started.tzinfo is None:
-        started = started.replace(tzinfo=UTC)
     return str(started.astimezone().strftime("%d.%m.%Y %H:%M"))
 
 
 @router.get("/ui/about", response_class=HTMLResponse)
 def ui_about(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     """Build stamp, the totals behind the status strip, and the last successful run."""
-    info = build_info()
-    rows = [*info.rows(), *_counts(db), ("Последний успешный запуск", _last_run(db))]
+    about = read_about(db)
+    info = BuildInfo(
+        commit=about.commit, built_at=about.built_at, version=about.version, tag=about.tag
+    )
+    rows = [
+        *info.rows(),
+        *_counts(about),
+        ("Последний успешный запуск", _last_run(about.last_successful_run_at)),
+    ]
     table = "".join(
         f'<tr><th scope="row">{escape(name)}</th><td>{escape(value)}</td></tr>'
         for name, value in rows
     )
-    now = datetime.now(UTC).astimezone().strftime("%d.%m.%Y %H:%M")
+    now = about.checked_at.astimezone().strftime("%d.%m.%Y %H:%M")
     body = f"""<section class="band">
   <h2>Сборка</h2>
   <table><tbody>{table}</tbody></table>

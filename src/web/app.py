@@ -17,6 +17,7 @@ from observability import configure_logging
 from settings import ApplicationConfigurationError, ApplicationSettings
 from web.middleware import request_context
 from web.routers import (
+    about,
     airtable,
     articles,
     candidates,
@@ -142,5 +143,7 @@ for module in (
     monitoring,
     operations,
     health,
+    # Only under /api/v1: the legacy page renders the same data itself.
+    about,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

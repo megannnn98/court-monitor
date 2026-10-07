@@ -909,10 +909,87 @@
           }
         }
       }
+    },
+    "/api/v1/about": {
+      "get": {
+        "summary": "Get About",
+        "description": "The build this instance runs, the document and person totals, the last\nsuccessful operator run.",
+        "operationId": "get_about_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AboutResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "commit": {
+            "type": "string",
+            "title": "Commit"
+          },
+          "built_at": {
+            "type": "string",
+            "title": "Built At"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "last_successful_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Run At"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "tag",
+          "commit",
+          "built_at",
+          "articles",
+          "people",
+          "last_successful_run_at",
+          "checked_at"
+        ],
+        "title": "AboutResponse",
+        "description": "«О системе»: the build stamp, the totals behind the status strip, and the last\nsuccessful operator run. The same data the legacy `/ui/about` page shows."
+      },
       "AirtableSyncResponse": {
         "properties": {
           "status": {

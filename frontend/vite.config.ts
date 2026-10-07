@@ -13,8 +13,11 @@ export default defineConfig({
   server: {
     proxy: {
       "/api/v1": apiTarget,
-      "/health": apiTarget
+      "/health": apiTarget,
+      // Pages not moved yet open in the legacy UI, served by the same API.
+      "/ui": apiTarget,
+      "/static": apiTarget
     }
   },
-  test: { environment: "jsdom" }
+  test: { environment: "jsdom", setupFiles: ["./src/test/setup.ts"] }
 });

@@ -1,5 +1,7 @@
 """Pydantic response models of the REST API."""
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -203,3 +205,17 @@ class OperationRunResponse(BaseModel):
     stdout: str
     stderr: str
     error: str | None
+
+
+class AboutResponse(BaseModel):
+    """«О системе»: the build stamp, the totals behind the status strip, and the last
+    successful operator run. The same data the legacy `/ui/about` page shows."""
+
+    version: str
+    tag: str
+    commit: str
+    built_at: str
+    articles: int
+    people: int
+    last_successful_run_at: datetime | None
+    checked_at: datetime
