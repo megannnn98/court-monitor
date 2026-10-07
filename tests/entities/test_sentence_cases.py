@@ -100,20 +100,82 @@ def test_unnamed_rows_of_one_sentence_are_one_case() -> None:
     assert sorted(len(case.publications) for case in found) == [1, 2]
 
 
-def test_an_unnamed_row_that_tells_too_little_is_its_own_case() -> None:
-    # No region, no term, or no month: nothing says two such rows are one sentence.
-    found = fold(
+def test_a_day_and_an_added_fine_do_not_split_an_unnamed_persecution() -> None:
+    # Four articles on one sentence: a day or a month apart, the fine told or not.
+    (case,) = fold(
         [
-            _row(region=""),
-            _row(region=""),
-            _row(months=0),
-            _row(months=0),
-            _row(sentenced_on="2026"),
-            _row(sentenced_on="2026"),
+            _row(months=228, fine_rub=200_000, sentenced_on="2026-09-30"),
+            _row(months=228, sentenced_on="2026-09-29"),
+            _row(months=228, fine_rub=200_000, sentenced_on="2026"),
+            # The latest tells no fine: the fine is still the case's.
+            _row(months=228, sentenced_on="2026-10-01"),
         ]
     )
 
-    assert len(found) == 6
+    assert (len(case.publications), case.fine_rub) == (4, 200_000)
+
+
+def test_another_year_or_another_term_is_another_persecution() -> None:
+    found = fold(
+        [
+            _row(months=228, sentenced_on="2026-09-23"),
+            _row(months=228, sentenced_on="2025-09-23"),
+            _row(months=216, sentenced_on="2026-09-23"),
+            _row(months=228, sentenced_on="2026-09-23", kind="suspended"),
+        ]
+    )
+
+    assert len(found) == 4
+
+
+def test_common_crimes_are_one_case_only_within_a_month() -> None:
+    # «Два года условно» is given every week: the year alone says nothing.
+    crime = {"reason": "not_political", "kind": "suspended", "months": 24}
+    found = fold(
+        [
+            _row(**crime, sentenced_on="2026-09-23"),
+            _row(**crime, sentenced_on="2026-09-25"),
+            _row(**crime, sentenced_on="2026-08-25"),
+            _row(**crime, sentenced_on="2026"),
+            _row(**crime, sentenced_on="2026"),
+        ]
+    )
+
+    assert sorted(len(case.publications) for case in found) == [1, 1, 1, 2]
+
+
+def test_a_fine_as_the_punishment_tells_cases_apart() -> None:
+    fine = {"kind": "fine", "months": 0}
+    found = fold(
+        [
+            _row(**fine, fine_rub=35_000),
+            _row(**fine, fine_rub=35_000),
+            _row(**fine, fine_rub=50_000),
+        ]
+    )
+
+    assert sorted(len(case.publications) for case in found) == [1, 2]
+
+
+def test_a_row_without_a_date_joins_the_one_case_of_its_region_and_term() -> None:
+    (case,) = fold([_row("Антонович Михаил", months=96), _row(months=96, sentenced_on="")])
+
+    assert len(case.publications) == 2
+
+
+def test_a_row_without_a_date_that_fits_two_cases_or_none_stays_apart() -> None:
+    two = fold([_row("Ронжес Оксана"), _row("Сахаров Артём"), _row(sentenced_on="")])
+    none = fold([_row(sentenced_on=""), _row(sentenced_on="")])
+
+    assert len(two) == 3
+    assert len(none) == 2
+
+
+def test_an_unnamed_row_that_tells_too_little_is_its_own_case() -> None:
+    # No region or no punishment: nothing says two such rows are one sentence.
+    found = fold([_row(region=""), _row(region=""), _row(months=0), _row(months=0)])
+
+    assert len(found) == 4
 
 
 def test_a_case_takes_from_other_rows_what_its_latest_lacks() -> None:
@@ -162,7 +224,11 @@ def test_a_group_with_too_few_terms_is_left_out_and_counted() -> None:
     counted = stats(_cases(), Filters(), group_by="region", sort="mean_years", min_imprisoned=3)
 
     assert [group.name for group in counted.groups] == ["Москва"]
+    # Not ranked, yet named: the answer may say what the one sentence there was.
     assert counted.small == 1
+    assert [(group.name, group.imprisoned) for group in counted.small_groups] == [
+        ("Свердловская область", 2)
+    ]
 
 
 def test_filters_narrow_the_selection() -> None:

@@ -99,7 +99,7 @@ def test_the_answer_is_shown_with_the_counts_it_stands_on(
             Call(tool="list", sort="months", limit=5),
         ]
     )
-    asker = FakeAsker(plan, "Суровее всего в Москве: 7 лет.\nВсего дел: 2. См. [№ 5].")
+    asker = FakeAsker(plan, "Суровее всего в Москве: 7 лет.\nВсего дел: 2. См. [№ 5] и [12345].")
 
     with _client(session_factory) as client:
         page = _ask(client, monkeypatch, asker, "Где суровее?").text
@@ -108,14 +108,29 @@ def test_the_answer_is_shown_with_the_counts_it_stands_on(
     assert "<h2>Где суровее?</h2>" in page
     assert "<p>Суровее всего в Москве: 7 лет.</p>" in page
     assert '<a href="/ui/articles/5">[№ 5]</a>' in page
+    assert '<a href="/ui/articles/12345">[№ 12345]</a>' in page
     # The counts themselves: the table by region, and the list with its publication.
     assert "приговоры по регионам (все приговоры), по среднему сроку" in page
     assert "<td>Москва</td><td>1</td><td>1</td><td>7</td>" in page
     assert f'<a href="/ui/articles/{article}">Два приговора</a>' in page
     # «5» of the reference is in no count; the rest of the answer's numbers are.
-    assert "проверьте по таблицам: 5." in page
+    assert "проверьте по таблицам: 5, 12345." in page
     assert "Сегодня потрачено $0.00 из $1.00" in empty_form
     assert "Где суровее?" in empty_form
+
+
+def test_groups_too_small_to_rank_stand_apart_in_the_table(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(session_factory)
+    plan = Plan(calls=[Call(tool="stats", group_by="region", sort="mean_years", min_imprisoned=2)])
+
+    with _client(session_factory) as client:
+        page = _ask(client, monkeypatch, FakeAsker(plan, "Данных мало."), "Где суровее?").text
+
+    apart = page.index("Слишком мало сроков для сравнения")
+    assert apart < page.index("<td>Москва</td>") < page.index("<tfoot>")
+    assert "групп отброшено как слишком маленькие: 2" in page
 
 
 def test_a_refusal_and_an_empty_question_are_said(

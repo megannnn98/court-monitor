@@ -125,6 +125,18 @@ def test_the_model_reads_the_counts_and_the_journal_keeps_them(
         assert spent_today(session) == 0.01
 
 
+def test_a_group_too_small_to_rank_is_given_apart(session_factory: sessionmaker[Session]) -> None:
+    _seed(session_factory)
+    asker = FakeAsker(_stats_plan(min_imprisoned=2))
+
+    ask(session_factory, asker, "Где суровее?")
+
+    (result,) = asker.results
+    assert [group["name"] for group in result["groups"]] == ["Москва"]  # type: ignore[index,union-attr]
+    assert [group["name"] for group in result["small_groups"]] == ["Тульская область"]  # type: ignore[index,union-attr]
+    assert result["small_groups_left_out"] == 1
+
+
 def test_a_question_the_base_does_not_answer_is_refused(
     session_factory: sessionmaker[Session],
 ) -> None:

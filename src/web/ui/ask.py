@@ -45,12 +45,18 @@ EXAMPLES = (
     "Что известно о задержаниях на одиночных пикетах?",
 )
 
-_REFERENCE = re.compile(r"\[№\s*(\d+)\]")
+# «[№ 123]»; a model may drop the sign, so a bare number of an id's length is one too.
+_REFERENCE = re.compile(r"\[(?:№\s*(\d+)|(\d{3,}))\]")
 
 
 def _answer_html(answer: str) -> str:
     """The answer by paragraphs; «[№ 123]» is a link to the publication."""
-    linked = _REFERENCE.sub(r'<a href="/ui/articles/\1">[№ \1]</a>', escape(answer))
+
+    def link(found: re.Match[str]) -> str:
+        article = found.group(1) or found.group(2)
+        return f'<a href="/ui/articles/{article}">[№ {article}]</a>'
+
+    linked = _REFERENCE.sub(link, escape(answer))
     return "".join(f"<p>{part}</p>" for part in linked.split("\n") if part.strip())
 
 
@@ -80,6 +86,12 @@ def _stats_html(result: dict[str, Any]) -> str:
 
     head = "".join(f'<th scope="col">{label}</th>' for _, label in _STATS_COLUMNS)
     rows = "".join(line(group) for group in result.get("groups", []))
+    small = "".join(line(group) for group in result.get("small_groups", []))
+    if small:
+        rows += (
+            f'<tr><th colspan="{len(_STATS_COLUMNS)}" scope="colgroup">'
+            f"Слишком мало сроков для сравнения</th></tr>{small}"
+        )
     notes = [
         f"без этой группы (не названа в публикации): {result['group_unknown']}"
         if result.get("group_unknown")

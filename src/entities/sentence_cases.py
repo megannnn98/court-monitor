@@ -6,10 +6,16 @@ one sentence are five rows. A count needs each sentence once, so the rows are fo
 - A named person's rows are one case when they share the reason or the punishment. The
   reason alone would split a case two articles call by different reasons; the
   punishment alone would split a sentence an appeal changed.
-- An unnamed person's rows are one case when the region, the punishment and the month
-  agree; with one named case of the same there, they join it («житель Тюмени» and the
-  article that names him). A row that tells neither the region nor the punishment is a
-  case of its own: nothing says whose it is.
+- An unnamed person's rows are one case when the region, the term and the time agree;
+  with one named case of the same there, they join it («житель Тюмени» and the article
+  that names him). The time is the year for a persecution — nineteen years for treason
+  are not given twice a year in one region — and the month for a common crime, where
+  «два года условно» is given every week. A row without a date joins the one case of
+  its region and term, if there is one.
+- An added fine is no part of what must agree: one article tells of it, the next does
+  not. Nor is the day: articles differ by a day or give the year alone.
+- A row that tells neither the region nor the punishment is a case of its own: nothing
+  says whose it is.
 
 A case shows what its latest row tells, and takes from the others what that one lacks.
 
@@ -79,8 +85,11 @@ class Case:
         return self.kind == COLONY and self.months > 0
 
 
-def _punishment(row: Any) -> tuple[str, int, int] | None:
-    return (row.kind, row.months, row.fine_rub) if row.months or row.fine_rub else None
+def _term(row: Any) -> tuple[str, int, int] | None:
+    """The main punishment: the term, or the fine when there is no term."""
+    if row.months:
+        return (row.kind, row.months, 0)
+    return (row.kind, 0, row.fine_rub) if row.fine_rub else None
 
 
 def _named_cases(rows: Sequence[Any]) -> list[list[Any]]:
@@ -92,7 +101,7 @@ def _named_cases(rows: Sequence[Any]) -> list[list[Any]]:
             for case in cases
             if any(
                 other.reason == row.reason
-                or (_punishment(row) is not None and _punishment(other) == _punishment(row))
+                or (_term(row) is not None and _term(other) == _term(row))
                 for other in case
             )
         ]
@@ -102,12 +111,20 @@ def _named_cases(rows: Sequence[Any]) -> list[list[Any]]:
     return cases
 
 
+def _place(row: Any) -> tuple[object, ...] | None:
+    """Where and what, whenever: None for a row that does not tell both."""
+    term = _term(row)
+    return (row.region, *term) if row.region and term is not None else None
+
+
 def _signature(row: Any) -> tuple[object, ...] | None:
-    """What tells an unnamed sentence from another: where, what, which month."""
-    punishment = _punishment(row)
-    if not row.region or punishment is None or len(row.sentenced_on) < 7:
+    """What tells an unnamed sentence from another: where, what, and the year of a
+    persecution or the month of a common crime."""
+    place = _place(row)
+    exact = 4 if row.reason in POLITICAL_REASONS else 7
+    if place is None or len(row.sentenced_on) < exact:
         return None
-    return (row.region, *punishment, row.sentenced_on[:7])
+    return (*place, row.sentenced_on[:exact])
 
 
 def _latest(rows: Sequence[Any]) -> Any:
@@ -129,14 +146,15 @@ def _case(rows: Sequence[Any]) -> Case:
         return next((value(row) for row in (shown, *rows) if value(row)), value(shown))
 
     named = next((row for row in rows if row.person_key), None)
-    term = next((row for row in (shown, *rows) if _punishment(row)), shown)
+    term = next((row for row in (shown, *rows) if _term(row)), shown)
     return Case(
         person=(named or shown).person,
         named=named is not None,
         region=told(lambda row: row.region),
         kind=term.kind,
         months=term.months,
-        fine_rub=term.fine_rub,
+        # An added fine is told by some of the articles only.
+        fine_rub=max(row.fine_rub for row in rows if _term(row) == _term(term)),
         in_absentia=any(row.in_absentia for row in rows),
         sentenced_on=told(lambda row: row.sentenced_on),
         articles=tuple(told(lambda row: row.articles)),
@@ -166,10 +184,11 @@ def fold(rows: Iterable[Any]) -> list[Case]:
         for signature in {_signature(row) for row in group} - {None}:
             by_signature[signature].append(group)  # type: ignore[index]
     nameless: dict[tuple[object, ...], list[Any]] = {}
+    undated: list[Any] = []
     for row in unnamed:
         signature = _signature(row)
         if signature is None:
-            groups.append([row])
+            undated.append(row)
         elif len(by_signature[signature]) == 1:
             by_signature[signature][0].append(row)
         elif signature in nameless:
@@ -177,6 +196,17 @@ def fold(rows: Iterable[Any]) -> list[Case]:
         else:
             nameless[signature] = [row]
             groups.append(nameless[signature])
+    # A row without a date: the one case of its region and term, if there is but one.
+    by_place: dict[tuple[object, ...], list[list[Any]]] = defaultdict(list)
+    for group in groups:
+        for place in {_place(row) for row in group} - {None}:
+            by_place[place].append(group)  # type: ignore[index]
+    for row in undated:
+        place = _place(row)
+        if place is not None and len(by_place[place]) == 1:
+            by_place[place][0].append(row)
+        else:
+            groups.append([row])
     return sorted((_case(group) for group in groups), key=lambda case: case.row_ids)
 
 
@@ -304,8 +334,10 @@ class Stats:
     # Cases of the selection whose group is not known (no region, no year, no article).
     unknown: int
     year_unknown: int
-    # Groups left out as smaller than `min_imprisoned`.
+    # Groups with fewer prison terms than `min_imprisoned`: counted, and the largest
+    # of them given apart — too few to rank, enough to be named.
     small: int = 0
+    small_groups: tuple[Group, ...] = ()
 
 
 def stats(
@@ -326,14 +358,16 @@ def stats(
             members[name].append(case)
     unknown = len(members.pop("", []))
     groups = [_group(name, found) for name, found in members.items()]
+    groups.sort(key=lambda group: (-getattr(group, sort), group.name))
     kept = [group for group in groups if group.imprisoned >= min_imprisoned]
-    kept.sort(key=lambda group: (-getattr(group, sort), group.name))
+    small = [group for group in groups if group.imprisoned < min_imprisoned]
     return Stats(
         total=_group("", selection.cases),
         groups=kept[:limit],
         unknown=unknown,
         year_unknown=selection.year_unknown,
-        small=len(groups) - len(kept),
+        small=len(small),
+        small_groups=tuple(small[:limit]),
     )
 
 
