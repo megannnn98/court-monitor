@@ -1823,6 +1823,124 @@
           }
         }
       }
+    },
+    "/api/v1/candidates/table": {
+      "get": {
+        "summary": "Candidate Table",
+        "description": "The legacy `/ui/candidates` table: the newest snapshot unless one is named; news of\nthe last 45 days unless `date_from` says otherwise (empty: every day).",
+        "operationId": "candidate_table_v1",
+        "parameters": [
+          {
+            "name": "snapshot_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Snapshot Id"
+            }
+          },
+          {
+            "name": "min_confidence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1,
+              "minimum": 0,
+              "default": 0.7,
+              "title": "Min Confidence"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "include_administrative",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Administrative"
+            }
+          },
+          {
+            "name": "criminal_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Criminal Only"
+            }
+          },
+          {
+            "name": "event_date_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Event Date Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateTableResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2141,6 +2259,113 @@
         ],
         "title": "CandidateResponse",
         "description": "Candidate response model."
+      },
+      "CandidateRowResponse": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "news_day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Day"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "persecution_confidence": {
+            "type": "number",
+            "title": "Persecution Confidence"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          },
+          "rosfinmonitoring_status": {
+            "type": "string",
+            "title": "Rosfinmonitoring Status"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "news_day",
+          "category",
+          "persecution_confidence",
+          "event_count",
+          "rosfinmonitoring_status",
+          "reasons"
+        ],
+        "title": "CandidateRowResponse",
+        "description": "A row of the candidates' table, as the legacy page and its Excel file have it."
+      },
+      "CandidateTableResponse": {
+        "properties": {
+          "snapshot_id": {
+            "type": "integer",
+            "title": "Snapshot Id"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "period_start",
+          "total",
+          "items"
+        ],
+        "title": "CandidateTableResponse",
+        "description": "The candidates under the legacy page's filters, in its order; the Excel file of the\nsame filters holds every one of `total`."
       },
       "ChargeResponse": {
         "properties": {

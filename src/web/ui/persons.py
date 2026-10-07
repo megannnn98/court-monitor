@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from web.candidate_rows import _surname_first
+from web.candidate_rows import surname_first
 from web.dependencies import get_db
 from web.routers.articles import _article_response
 from web.routers.persons import get_person_detail
@@ -42,7 +42,7 @@ def ui_get_person(
     persecution = detail.persecution.status if detail.persecution else "—"
     rosfin = detail.rosfinmonitoring.status if detail.rosfinmonitoring else "—"
     return _page(
-        _surname_first(detail.person.canonical_name),
+        surname_first(detail.person.canonical_name),
         f"""<section class="band">
   <dl>
     <dt>ID</dt><dd>{detail.person.id}</dd>

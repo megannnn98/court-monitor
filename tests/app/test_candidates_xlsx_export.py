@@ -141,16 +141,16 @@ def test_export_returns_downloadable_xlsx_with_candidate_row(
 
 def test_names_are_written_surname_first() -> None:
     """Customer request: «сначала фамилию, потом имя», for searching the table."""
-    from web.candidate_rows import _surname_first
+    from web.candidate_rows import surname_first
 
-    assert _surname_first("Иван Иванов") == "Иванов Иван"
-    assert _surname_first("Владимир Николаевич Казанцев") == "Казанцев Владимир Николаевич"
+    assert surname_first("Иван Иванов") == "Иванов Иван"
+    assert surname_first("Владимир Николаевич Казанцев") == "Казанцев Владимир Николаевич"
     # Already surname first: a patronymic closes the name.
-    assert _surname_first("Корнилов Алексей Леонидович") == "Корнилов Алексей Леонидович"
-    assert _surname_first("Е.А. Аничкина") == "Аничкина Е.А."
-    assert _surname_first("Навальный") == "Навальный"
+    assert surname_first("Корнилов Алексей Леонидович") == "Корнилов Алексей Леонидович"
+    assert surname_first("Е.А. Аничкина") == "Аничкина Е.А."
+    assert surname_first("Навальный") == "Навальный"
     # A surname in «-ович» after a given name is a surname, not a patronymic.
-    assert _surname_first("Михаил Антонович") == "Антонович Михаил"
+    assert surname_first("Михаил Антонович") == "Антонович Михаил"
 
 
 def test_new_cases_and_sentences_come_first_then_the_newest(
@@ -479,3 +479,35 @@ def test_an_unparsable_period_is_rejected_by_every_export(
         ]
 
     assert [response.status_code for response in responses] == [422, 422]
+
+
+def test_the_new_table_and_the_file_hold_the_same_people(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The React page reads `/api/v1/candidates/table` and links this file with the same
+    filters: a person on the page is a person in the file, an old one in neither."""
+    today = datetime.now(ZoneInfo("Europe/Moscow"))
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        snapshot_id = seed.snapshot()
+        _seed_candidate(seed, snapshot_id, "Иван Свежий", published_at=today - timedelta(days=40))
+        _seed_candidate(seed, snapshot_id, "Петр Старый", published_at=today - timedelta(days=50))
+        session.commit()
+
+    with _client(session_factory) as client:
+        table = client.get("/api/v1/candidates/table").json()
+        file = client.get("/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id})
+        every = client.get("/api/v1/candidates/table", params={"date_from": ""}).json()
+        every_file = client.get(
+            "/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id, "date_from": ""}
+        )
+
+    in_file = [row[1] for row in _rows(file.content)[1:]]
+    assert [item["name"] for item in table["items"]] == in_file == ["Свежий Иван"]
+    assert table["snapshot_id"] == snapshot_id and table["total"] == 1
+    assert table["period_start"] == (today - timedelta(days=45)).date().isoformat()
+    assert table["items"][0]["category"] == "Арест"
+    assert [item["name"] for item in every["items"]] == [
+        row[1] for row in _rows(every_file.content)[1:]
+    ]
+    assert len(every["items"]) == 2 and every["period_start"] is None

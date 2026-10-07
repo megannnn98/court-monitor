@@ -7,13 +7,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from web.candidate_rows import (
-    _CANDIDATE_CATEGORIES,
-    _candidate_filters,
-    _candidate_rows,
-    _news_day,
-    _period_start,
-    _surname_first,
+    CANDIDATE_CATEGORIES,
+    candidate_filters,
     latest_snapshot_id,
+    news_day,
+    news_period_start,
+    read_candidate_rows,
+    surname_first,
 )
 from web.dependencies import get_db
 from web.exports import XLSX, candidates_xlsx
@@ -54,9 +54,9 @@ def ui_candidates(
             warning="Без snapshot нельзя отличить подтверждённое отсутствие от отсутствия проверки.",
         )
 
-    period_start = _period_start(date_from)
+    period_start = news_period_start(date_from)
     try:
-        candidate_rows = _candidate_rows(
+        candidate_rows = read_candidate_rows(
             db,
             snapshot_id=selected_snapshot_id,
             min_confidence=min_confidence,
@@ -79,9 +79,9 @@ def ui_candidates(
         f"""<tr>
   <td>{position}</td>
   <td><a href="/ui/persons/{candidate.person_id}">{candidate.person_id}</a></td>
-  <td><a href="/ui/persons/{candidate.person_id}">{escape(_surname_first(candidate.canonical_name))}</a></td>
-  <td>{_news_day(news.published_at).strftime("%d.%m.%Y") if news and news.published_at else ""}</td>
-  <td>{escape(_CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)) if news and news.event_type else ""}</td>
+  <td><a href="/ui/persons/{candidate.person_id}">{escape(surname_first(candidate.canonical_name))}</a></td>
+  <td>{news_day(news.published_at).strftime("%d.%m.%Y") if news and news.published_at else ""}</td>
+  <td>{escape(CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)) if news and news.event_type else ""}</td>
   <td>{candidate.persecution_confidence:.2f}</td>
   <td>{candidate.event_count}</td>
   <td>{escape(candidate.rosfinmonitoring_status)}</td>
@@ -89,7 +89,7 @@ def ui_candidates(
 </tr>"""
         for position, (candidate, news) in enumerate(candidate_rows[:limit], start=1)
     )
-    filters = _candidate_filters(
+    filters = candidate_filters(
         selected_snapshot_id,
         min_confidence,
         period_start,
@@ -133,11 +133,11 @@ def ui_candidates_export_xlsx(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """The page's candidates in the page's order; the page `limit` is deliberately not applied."""
-    rows = _candidate_rows(
+    rows = read_candidate_rows(
         db,
         snapshot_id=snapshot_id,
         min_confidence=min_confidence,
-        period_start=_period_start(date_from),
+        period_start=news_period_start(date_from),
         include_administrative=include_administrative,
         criminal_only=criminal_only,
         event_date_filter=event_date_filter,

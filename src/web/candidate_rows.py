@@ -40,7 +40,7 @@ class _CandidateRow(NamedTuple):
 
 
 # The categories of the customer's table, by the event the row links to.
-_CANDIDATE_CATEGORIES = {
+CANDIDATE_CATEGORIES = {
     "case_opened": "Возбуждено дело",
     "charge": "Обвинение",
     "arrest": "Арест",
@@ -148,11 +148,11 @@ def _candidate_news(db: Session, person_ids: list[int]) -> dict[int, _CandidateN
     return news
 
 
-def _news_day(moment: datetime) -> date:
+def news_day(moment: datetime) -> date:
     return moment.astimezone(_NEWS_TIMEZONE).date()
 
 
-def _period_start(date_from: str | None) -> date | None:
+def news_period_start(date_from: str | None) -> date | None:
     """The first news day to show: the default period when not given, none when empty."""
     if date_from is None:
         return datetime.now(_NEWS_TIMEZONE).date() - _DEFAULT_NEWS_PERIOD
@@ -223,7 +223,7 @@ def latest_snapshot_id(db: Session) -> int | None:
     )
 
 
-def _candidate_rows(
+def read_candidate_rows(
     db: Session,
     *,
     snapshot_id: int,
@@ -300,12 +300,10 @@ def select_candidate_rows(
 
         # Filter by article date (publication date).
         if period_start is not None and (
-            published_at is None or _news_day(published_at) < period_start
+            published_at is None or news_day(published_at) < period_start
         ):
             continue
-        if period_end is not None and (
-            published_at is None or _news_day(published_at) > period_end
-        ):
+        if period_end is not None and (published_at is None or news_day(published_at) > period_end):
             continue
 
         # Filter by event date: exclude old events mentioned in fresh articles.
@@ -313,7 +311,7 @@ def select_candidate_rows(
             event_date_filter
             and period_start is not None
             and event_date is not None
-            and _news_day(event_date) < period_start
+            and news_day(event_date) < period_start
         ):
             continue
 
@@ -332,7 +330,7 @@ def select_candidate_rows(
     return sorted(rows, key=order)
 
 
-def _surname_first(name: str) -> str:
+def surname_first(name: str) -> str:
     """«Иван Иванов» → «Иванов Иван»; a name ending in a patronymic already starts with it."""
     words = name.split()
     if len(words) < 2:
@@ -349,7 +347,7 @@ def _surname_first(name: str) -> str:
     return " ".join([words[-1], *words[:-1]])
 
 
-def _candidate_filters(
+def candidate_filters(
     snapshot_id: int,
     min_confidence: float,
     period_start: date | None,

@@ -1,6 +1,6 @@
 """Pydantic response models of the REST API."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -743,3 +743,29 @@ class StopResponse(BaseModel):
     run_id: int
     # False when the run had already ended: nothing was changed.
     stopped: bool
+
+
+class CandidateRowResponse(BaseModel):
+    """A row of the candidates' table, as the legacy page and its Excel file have it."""
+
+    person_id: int
+    # Surname first.
+    name: str
+    # The Moscow day of the news the row is about.
+    news_day: date | None
+    category: str | None
+    persecution_confidence: float
+    event_count: int
+    rosfinmonitoring_status: str
+    reasons: list[str]
+
+
+class CandidateTableResponse(BaseModel):
+    """The candidates under the legacy page's filters, in its order; the Excel file of the
+    same filters holds every one of `total`."""
+
+    snapshot_id: int
+    # The first news day shown; None: every day.
+    period_start: date | None
+    total: int
+    items: list[CandidateRowResponse]

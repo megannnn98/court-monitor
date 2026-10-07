@@ -4,8 +4,14 @@ import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 /** One page under its route, with a fresh query cache that does not retry. */
-export function renderPage(element: ReactElement, { path = "/", url = "/" }: { path?: string; url?: string } = {}) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+export function renderPage(
+  element: ReactElement,
+  {
+    path = "/",
+    url = "/",
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  }: { path?: string; url?: string; client?: QueryClient } = {}
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[url]}>
