@@ -156,7 +156,7 @@ def test_openapi_lists_main_endpoints(client: TestClient) -> None:
         assert path in paths
 
 
-def test_openapi_lists_versioned_read_endpoints(client: TestClient) -> None:
+def test_openapi_lists_versioned_reads_and_only_the_known_actions(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
 
     for path in (
@@ -168,7 +168,23 @@ def test_openapi_lists_versioned_read_endpoints(client: TestClient) -> None:
     ):
         assert path in paths
 
-    assert all(set(item) == {"get"} for path, item in paths.items() if path.startswith("/api/v1/"))
+    # Reads, and exactly the console's actions (refused from other origins, ADR 0022):
+    # a mutation added by accident fails here.
+    actions = {
+        (method, path)
+        for path, item in paths.items()
+        if path.startswith("/api/v1/")
+        for method in item
+        if method != "get"
+    }
+    assert actions == {
+        ("post", "/api/v1/political/done"),
+        ("post", "/api/v1/review/roles/decide"),
+        ("post", "/api/v1/review/politics/decide"),
+        ("post", "/api/v1/review/pairs/decide"),
+        ("post", "/api/v1/cycle/start"),
+        ("post", "/api/v1/cycle/runs/{run_id}/stop"),
+    }
 
 
 def test_openapi_keeps_legacy_operation_ids_and_has_no_duplicates(client: TestClient) -> None:

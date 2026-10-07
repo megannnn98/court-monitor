@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { getDossierV1 } from "@/api/generated";
@@ -89,7 +89,19 @@ it("shows the person, the decisions, the charges, the timeline and the evidence"
   expect(screen.getAllByRole("link", { name: "Арест Моора" })[0].getAttribute("href")).toBe("/articles/77?start=100&end=116");
   expect(container.querySelector("mark")?.textContent).toBe("Александра Моора");
   expect(screen.getAllByRole("link", { name: "Иванов Иван" })[0].getAttribute("href")).toBe(dossierPath("иван иванов"));
-  expect(screen.getByRole("link", { name: "Граф событий" }).getAttribute("href")).toContain("/ui/investigations/");
+  const graph = container.querySelector<HTMLElement>("#investigation-graph");
+  expect(graph?.dataset.graphUrl).toBe("/api/investigations/x/graph");
+  expect(graph?.dataset.expandUrl).toBe("/api/investigations/x/graph/expand");
+  expect([...(graph?.querySelectorAll<HTMLInputElement>("input[data-filter]") ?? [])].map((box) => [box.dataset.filter, box.checked])).toEqual([
+    ["events", true],
+    ["people", true],
+    ["publications", true],
+    ["orgs", true],
+    ["articles", true],
+    ["cooccurrence", false]
+  ]);
+  // The library is asked for once, from the same server.
+  await waitFor(() => expect(document.querySelector('script[data-graph-src="/static/vendor/vis-network/vis-network.min.js"]')).not.toBeNull());
 });
 
 it("says what the system has not decided", async () => {

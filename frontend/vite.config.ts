@@ -16,7 +16,9 @@ export default defineConfig({
       "/health": apiTarget,
       // Pages not moved yet open in the legacy UI, served by the same API.
       "/ui": apiTarget,
-      "/static": apiTarget
+      "/static": apiTarget,
+      // The dossier's graph is read from the legacy JSON route.
+      "/api/investigations": apiTarget
     }
   },
   test: { environment: "jsdom", setupFiles: ["./src/test/setup.ts"] }
