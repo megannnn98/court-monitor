@@ -222,8 +222,8 @@ def _spending(runs: Sequence[OperationRun]) -> str:
   <table><thead><tr><th>Запуск</th><th>Шаг</th><th>Начат</th><th>Статус</th><th>Потрачено</th></tr></thead>
   <tbody>{rows}</tbody>
   <tfoot><tr><th colspan="4" scope="row">Всего</th><th class="num">{spend.money(total)}</th></tr></tfoot></table>
-  <p class="muted">«неизвестно» — запуск, который не дошёл до итогов: остановлен или упал.
-  Вопросы страницы «Спросить» и запуски из командной строки сюда не входят.</p>
+  <p class="muted">«неизвестно» — запуск, который не дошёл до итогов: остановлен или упал;
+  «не записан» — шаг тогда ещё не считал свой расход. Вопросы страницы «Спросить» и запуски из командной строки сюда не входят.</p>
 </details>"""
 
 
@@ -231,9 +231,8 @@ def _spent_cell(run: OperationRun) -> str:
     cost = spend.run_cost(run)
     if cost is not None:
         return spend.money(cost)
-    # A paid step that ended without its totals spent something nobody counted.
-    ended = run.status not in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-    return "неизвестно" if ended and run.parameters.mode in spend.AI_STAGES else "—"
+    # A paid step that ended without a cost spent something nobody counted.
+    return spend.unknown_cost(run) or "—"
 
 
 def _skipped_sources(run: OperationRun) -> dict[str, str]:

@@ -1271,9 +1271,9 @@ def test_a_run_says_what_it_spent_and_what_the_step_spent_before(
     session_factory: sessionmaker[Session],
 ) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    first, entities, stopped, latest = finish_steps(
-        session_factory, registry, "political", "entities", "political", "political"
-    )
+    first, entities = finish_steps(session_factory, registry, "political", "entities")
+    (stopped,) = finish_steps(session_factory, registry, "political", status="interrupted")
+    (latest,) = finish_steps(session_factory, registry, "political")
     _printed(session_factory, first, '{"cost_usd": 0.01, "news_cost_usd": 0.02, "political": 3}')
     _printed(session_factory, entities, '{"model_cost_usd": 0.005, "entities": 7}')
     # A run that was stopped printed nothing: what it spent is not known, and is not zero.
@@ -1290,6 +1290,8 @@ def test_a_run_says_what_it_spent_and_what_the_step_spent_before(
         earliest = client.get("/ui/runs", params={"run_id": first}).text
         other = client.get("/ui/runs", params={"run_id": entities}).text
 
+    # A stopped run is not one whose step did not count: the words differ.
+    assert "Расход этого запуска не записан" not in unknown
     # The run's own sum; the time before is the latest run whose cost is known.
     assert "Этот запуск потратил на модель $0.1045." in shown
     assert f"Предыдущий запуск этого шага (#{first}, " in shown and "): $0.0300." in shown
@@ -1303,9 +1305,12 @@ def test_a_run_says_what_it_spent_and_what_the_step_spent_before(
 
 def test_the_spending_is_listed_beside_the_runs(session_factory: sessionmaker[Session]) -> None:
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    load, purge, entities, figurants = finish_steps(
-        session_factory, registry, "load", "purge", "entities", "figurants"
+    old, load, purge, entities = finish_steps(
+        session_factory, registry, "purge", "load", "purge", "entities"
     )
+    (figurants,) = finish_steps(session_factory, registry, "figurants", status="interrupted")
+    # A purge of the days when the step did not count what it spent.
+    _printed(session_factory, old, '{"articles": 3}')
     _printed(session_factory, purge, '{"holds_cost_usd": 0.002, "screen_cost_usd": 0.03}')
     _printed(session_factory, entities, '{"model_cost_usd": 0.005}')
     _printed(session_factory, figurants, "not json")
@@ -1313,11 +1318,12 @@ def test_the_spending_is_listed_beside_the_runs(session_factory: sessionmaker[Se
     with _client(session_factory, registry) as client:
         page = client.get("/ui/runs").text
         free = client.get("/ui/runs", params={"run_id": load}).text
+        uncounted = client.get("/ui/runs", params={"run_id": old}).text
 
     # A step that asks no model spent nothing to speak of: its card says nothing of money.
     assert "Этот запуск потратил" not in free and "Сколько потратил" not in free
     spending = page[page.index('<details class="band spending">') :]
-    assert "Расходы на модель по запускам: $0.0370 за последние 3" in spending
+    assert "Расходы на модель по запускам: $0.0370 за последние 4" in spending
     rows = re.findall(
         r"№ (\d+)</a></td>.*?<td class=\"num\">([^<]+)</td></tr>", spending, re.DOTALL
     )
@@ -1326,6 +1332,7 @@ def test_the_spending_is_listed_beside_the_runs(session_factory: sessionmaker[Se
         (str(figurants), "неизвестно"),
         (str(entities), "$0.0050"),
         (str(purge), "$0.0320"),
+        (str(old), "не записан"),
     ]
     assert '<th class="num">$0.0370</th>' in spending
     # The list of runs itself carries the same figure, and a dash for a free step.
@@ -1338,6 +1345,8 @@ def test_the_spending_is_listed_beside_the_runs(session_factory: sessionmaker[Se
         "$0.0320",
         "—",
     ]
+    assert "Расход этого запуска не записан" not in page
+    assert "Расход этого запуска не записан: тогда шаг его ещё не считал." in uncounted
 
 
 def test_the_next_step_is_told_what_it_spent_the_last_time(

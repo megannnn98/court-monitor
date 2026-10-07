@@ -15,7 +15,9 @@ What a run spent is kept with the run: every paid step prints the cost of its mo
 among its totals (`…cost_usd`), and the journal of runs keeps what a run printed. So the
 history of spending is the history of runs: `run_cost` sums a run's costs, `last_spent`
 finds what the step cost the time before. A run that did not reach its totals — stopped,
-failed — printed none: its cost is not known, and is said so, not shown as zero.
+failed — printed none: its cost is not known, and is said so, not shown as zero. Nor did
+a step that ended well before it began to count its cost (the purge, until 07.10.2026):
+that run's cost is «не записан».
 """
 
 from __future__ import annotations
@@ -246,11 +248,16 @@ def last_spent(runs: Sequence[OperationRun], stage: str | None) -> str:
     return f"В прошлый раз шаг потратил {money(cost)} ({_when(run)})."
 
 
-_ENDED = (
-    OperationRunStatus.SUCCEEDED,
-    OperationRunStatus.FAILED,
-    OperationRunStatus.INTERRUPTED,
-)
+_LIVE = (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
+
+
+def unknown_cost(run: OperationRun) -> str:
+    """Why an ended run of a paid step has no cost, in a word: «не записан» for one that
+    ended well (the step did not count its cost then), «неизвестно» for one that did not
+    reach its totals. Empty for a live run or a free step."""
+    if run.parameters.mode not in AI_STAGES or run.status in _LIVE:
+        return ""
+    return "не записан" if run.status is OperationRunStatus.SUCCEEDED else "неизвестно"
 
 
 def run_spent(run: OperationRun, runs: Sequence[OperationRun]) -> str:
@@ -262,8 +269,10 @@ def run_spent(run: OperationRun, runs: Sequence[OperationRun]) -> str:
     parts = []
     if cost is not None:
         parts.append(f"Этот запуск потратил на модель {money(cost)}.")
-    elif run.status in _ENDED:
+    elif unknown_cost(run) == "неизвестно":
         parts.append("Сколько потратил этот запуск, неизвестно: он не дошёл до итогов.")
+    elif unknown_cost(run):
+        parts.append("Расход этого запуска не записан: тогда шаг его ещё не считал.")
     before = previous(runs, run.parameters.mode, run.id)
     if before is not None:
         parts.append(f"Предыдущий запуск этого шага ({_when(before[0])}): {money(before[1])}.")
