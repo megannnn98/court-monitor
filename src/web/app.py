@@ -21,13 +21,17 @@ from web.routers import (
     airtable,
     articles,
     candidates,
+    entities,
     health,
     investigations,
     monitoring,
     operations,
     persons,
+    political,
+    publications,
     reviews,
     rosfinmonitoring,
+    status,
 )
 from web.ui import about as ui_about
 from web.ui import airtable as ui_airtable
@@ -143,7 +147,11 @@ for module in (
     monitoring,
     operations,
     health,
-    # Only under /api/v1: the legacy page renders the same data itself.
+    # Only under /api/v1: the legacy pages render the same data themselves.
     about,
+    status,
+    entities,
+    publications,
+    political,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

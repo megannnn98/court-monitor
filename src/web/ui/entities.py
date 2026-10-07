@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime
 from html import escape
 from typing import Any
@@ -376,24 +377,39 @@ def _all_regions(db: Session) -> list[str]:
     )
 
 
-@router.get("/ui/entities", response_class=HTMLResponse)
-def ui_entities(
-    q: str = Query(default="", max_length=200),
-    article: str = Query(default="", max_length=32),
-    # The list confirms who a person is: shown by default, hidden only on request.
-    rf: str = Query(default="all", pattern="^(hide|all)$"),
-    rf_possible: str = Query(default="all", pattern="^(hide|all)$"),
-    # The old «only the figurants» box: `role` says more; kept for the old links.
-    figurants: str = Query(default="only", pattern="^(only|all)$"),
-    role: str = Query(default="", pattern="^(|figurant|all|possible|mentioned|unclear)$"),
-    verdict: str = Query(default="all", pattern="^(all|political|criminal|unclear|none)$"),
-    region: str = Query(default="", max_length=200),
-    sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
-    page: int = Query(default=1, ge=1),
-    db: Session = Depends(get_db),  # noqa: B008
-    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
-) -> HTMLResponse:
-    role = role or ("figurant" if figurants == "only" else "all")
+@dataclass(frozen=True)
+class EntityPage:
+    """One page of «Все люди» under its filters, and what the filters' labels count. Read
+    by the legacy page and by `GET /api/v1/entities`."""
+
+    entities: list[EntityGroupRecord]
+    total: int
+    # In the list for certain, and maybe (a namesake), before those are hidden.
+    hidden: int
+    hidden_possible: int
+    # Before step 4 has run nobody has a role, and the role filters nothing.
+    roles_known: bool
+    charges: dict[int, list[tuple[str, bool]]]
+    listed: dict[int, str]
+    roles: dict[int, tuple[str, str | None]]
+    verdicts: dict[int, str]
+    regions: list[str]
+
+
+def read_entity_page(
+    db: Session,
+    *,
+    q: str,
+    article: str,
+    rf: str,
+    rf_possible: str,
+    role: str,
+    verdict: str,
+    region: str,
+    sort: str,
+    page: int,
+) -> EntityPage:
+    """`article` and `region` come stripped; `role` is one of the filters, never empty."""
     query = select(EntityGroupRecord)
     if q.strip():
         pattern = f"%{q.strip()}%"
@@ -403,7 +419,6 @@ def ui_entities(
                 cast(EntityGroupRecord.variants, Text).ilike(pattern),
             )
         )
-    article = article.strip()
     if article:
         query = query.where(
             exists().where(
@@ -411,7 +426,6 @@ def ui_entities(
                 EntityGroupChargeRecord.article == article,
             )
         )
-    region = region.strip()
     if region:
         query = query.where(cast(EntityGroupRecord.regions, Text).ilike(f"%{region}%"))
     if verdict != "all":
@@ -450,6 +464,68 @@ def ui_entities(
                 EntityGroupRoleRecord.role == (FIGURANT if role == "figurant" else role),
             )
         )
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    if sort == "name":
+        # By the name as shown: the surname is not a column, and ten thousand short rows
+        # sort here in milliseconds.
+        ordered = sorted(db.scalars(query).all(), key=_surname_key)
+        entities = ordered[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+    else:
+        entities = list(
+            db.scalars(
+                query.order_by(*_SORTS[sort]).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
+            ).all()
+        )
+    ids = [entity.id for entity in entities]
+    charges, listed, roles = _articles_by_group(db, ids), _rf_levels(db, ids), _roles(db, ids)
+    verdicts = _verdicts(db, ids)
+    return EntityPage(
+        entities=entities,
+        total=total,
+        hidden=hidden,
+        hidden_possible=hidden_possible,
+        roles_known=bool(roles_known),
+        charges=charges,
+        listed=listed,
+        roles=roles,
+        verdicts=verdicts,
+        regions=_all_regions(db),
+    )
+
+
+@router.get("/ui/entities", response_class=HTMLResponse)
+def ui_entities(
+    q: str = Query(default="", max_length=200),
+    article: str = Query(default="", max_length=32),
+    # The list confirms who a person is: shown by default, hidden only on request.
+    rf: str = Query(default="all", pattern="^(hide|all)$"),
+    rf_possible: str = Query(default="all", pattern="^(hide|all)$"),
+    # The old «only the figurants» box: `role` says more; kept for the old links.
+    figurants: str = Query(default="only", pattern="^(only|all)$"),
+    role: str = Query(default="", pattern="^(|figurant|all|possible|mentioned|unclear)$"),
+    verdict: str = Query(default="all", pattern="^(all|political|criminal|unclear|none)$"),
+    region: str = Query(default="", max_length=200),
+    sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
+    page: int = Query(default=1, ge=1),
+    db: Session = Depends(get_db),  # noqa: B008
+    registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
+) -> HTMLResponse:
+    role = role or ("figurant" if figurants == "only" else "all")
+    article = article.strip()
+    region = region.strip()
+    data = read_entity_page(
+        db,
+        q=q,
+        article=article,
+        rf=rf,
+        rf_possible=rf_possible,
+        role=role,
+        verdict=verdict,
+        region=region,
+        sort=sort,
+        page=page,
+    )
+    hidden, hidden_possible, roles_known = data.hidden, data.hidden_possible, data.roles_known
     # The list's state, kept by every link of the page.
     keep = {
         "rf": rf,
@@ -482,21 +558,8 @@ def ui_entities(
         '<a href="/ui/runs">«Журнале запусков»</a>; пока показаны все.</p>'
     )
     found_by = f" по статье УК {escape(article)}" if article else ""
-    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    if sort == "name":
-        # By the name as shown: the surname is not a column, and ten thousand short rows
-        # sort here in milliseconds.
-        ordered = sorted(db.scalars(query).all(), key=_surname_key)
-        entities = ordered[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
-    else:
-        entities = list(
-            db.scalars(
-                query.order_by(*_SORTS[sort]).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
-            ).all()
-        )
-    ids = [entity.id for entity in entities]
-    charges, listed, roles = _articles_by_group(db, ids), _rf_levels(db, ids), _roles(db, ids)
-    verdicts = _verdicts(db, ids)
+    total, entities = data.total, data.entities
+    charges, listed, roles, verdicts = data.charges, data.listed, data.roles, data.verdicts
     rows = "".join(
         f'<tr data-href="/ui/investigations/{quote(entity.key)}">'
         f'<th scope="row"><a href="/ui/investigations/{quote(entity.key)}">'
@@ -514,7 +577,7 @@ def ui_entities(
     base = {"q": q, "article": article, **keep}
     headers = "".join(_column(key, label, sort, base) for key, label in _COLUMNS)
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-    regions = _all_regions(db)
+    regions = data.regions
     region_filter = (
         _select("region", "Регион", {"": "Все регионы", **{name: name for name in regions}}, region)
         if regions

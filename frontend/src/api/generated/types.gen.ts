@@ -127,6 +127,22 @@ export type AirtableTableSyncResponse = {
 };
 
 /**
+ * ArticleMentionsResponse
+ *
+ * The people an article names, most mentioned first, and the events found in it.
+ */
+export type ArticleMentionsResponse = {
+    /**
+     * People
+     */
+    people: Array<PersonLinkResponse>;
+    /**
+     * Events
+     */
+    events: Array<EventCountResponse>;
+};
+
+/**
  * ArticleResponse
  */
 export type ArticleResponse = {
@@ -225,6 +241,167 @@ export type ComponentHealth = {
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
 
 /**
+ * EntityArticleResponse
+ *
+ * A Criminal Code article of a person; `shared` when every event naming it accuses
+ * other people too.
+ */
+export type EntityArticleResponse = {
+    /**
+     * Article
+     */
+    article: string;
+    /**
+     * Shared
+     */
+    shared: boolean;
+};
+
+/**
+ * EntityListResponse
+ *
+ * One page of «Все люди» under the filters, with the counts the legacy page shows.
+ */
+export type EntityListResponse = {
+    /**
+     * Items
+     */
+    items: Array<EntityRowResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * Hidden In List
+     */
+    hidden_in_list: number;
+    /**
+     * Hidden Maybe Listed
+     */
+    hidden_maybe_listed: number;
+    /**
+     * Roles Known
+     */
+    roles_known: boolean;
+    /**
+     * Roles
+     */
+    roles: Array<OptionResponse>;
+    /**
+     * Verdicts
+     */
+    verdicts: Array<OptionResponse>;
+    /**
+     * Regions
+     */
+    regions: Array<string>;
+};
+
+/**
+ * EntityRowResponse
+ */
+export type EntityRowResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Name Source Label
+     */
+    name_source_label: string | null;
+    /**
+     * Rf Level
+     */
+    rf_level: string | null;
+    /**
+     * Rf Label
+     */
+    rf_label: string | null;
+    /**
+     * Role
+     */
+    role: string | null;
+    /**
+     * Role Label
+     */
+    role_label: string | null;
+    /**
+     * Verdict
+     */
+    verdict: string | null;
+    /**
+     * Verdict Label
+     */
+    verdict_label: string | null;
+    /**
+     * Regions
+     */
+    regions: Array<string>;
+    /**
+     * Articles
+     */
+    articles: Array<EntityArticleResponse>;
+    /**
+     * Events
+     */
+    events: Array<EventCountResponse>;
+    /**
+     * Mention Count
+     */
+    mention_count: number;
+    /**
+     * Article Count
+     */
+    article_count: number;
+    /**
+     * Last Published At
+     */
+    last_published_at: string | null;
+    /**
+     * Variants
+     */
+    variants: Array<string>;
+    /**
+     * Dossier Url
+     */
+    dossier_url: string;
+};
+
+/**
+ * EventCountResponse
+ */
+export type EventCountResponse = {
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * EvidenceSpanResponse
  */
 export type EvidenceSpanResponse = {
@@ -274,6 +451,26 @@ export type HttpValidationError = {
 };
 
 /**
+ * KnownResponse
+ *
+ * What the operator's base says of a person.
+ */
+export type KnownResponse = {
+    /**
+     * Level
+     */
+    level: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Names
+     */
+    names: Array<string>;
+};
+
+/**
  * LatestRosfinMatchResponse
  */
 export type LatestRosfinMatchResponse = {
@@ -301,6 +498,22 @@ export type LatestRosfinMatchResponse = {
      * Reasons
      */
     reasons: Array<string>;
+};
+
+/**
+ * LiveOperationResponse
+ *
+ * The step running now: its mode and the title the console gives it.
+ */
+export type LiveOperationResponse = {
+    /**
+     * Mode
+     */
+    mode: string | null;
+    /**
+     * Title
+     */
+    title: string;
 };
 
 /**
@@ -646,6 +859,27 @@ export type OperationRunResponse = {
 };
 
 /**
+ * OptionResponse
+ *
+ * One choice of a filter: its value, the console's words and, where the list counts
+ * it, how many rows it would show.
+ */
+export type OptionResponse = {
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Count
+     */
+    count?: number | null;
+};
+
+/**
  * PersecutionClassificationResponse
  *
  * Persecution classification response model.
@@ -766,6 +1000,24 @@ export type PersonEventResponse = {
 };
 
 /**
+ * PersonLinkResponse
+ */
+export type PersonLinkResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Dossier Url
+     */
+    dossier_url: string;
+};
+
+/**
  * PersonResolutionReviewDecisionBody
  */
 export type PersonResolutionReviewDecisionBody = {
@@ -814,6 +1066,289 @@ export type PersonResponse = {
      * Merged Into Id
      */
     merged_into_id?: number | null;
+};
+
+/**
+ * PoliticalArticleResponse
+ */
+export type PoliticalArticleResponse = {
+    /**
+     * Article
+     */
+    article: string;
+    /**
+     * Political
+     */
+    political: boolean;
+};
+
+/**
+ * PoliticalListResponse
+ *
+ * «Результат» under the filters: one page of rows and every count the filters show.
+ */
+export type PoliticalListResponse = {
+    /**
+     * Items
+     */
+    items: Array<PoliticalRowResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * Done Total
+     */
+    done_total: number;
+    /**
+     * Awaited
+     */
+    awaited: number;
+    /**
+     * Base Loaded
+     */
+    base_loaded: boolean;
+    /**
+     * Periods
+     */
+    periods: Array<OptionResponse>;
+    /**
+     * News
+     */
+    news: Array<OptionResponse>;
+    /**
+     * Known
+     */
+    known: Array<OptionResponse>;
+    /**
+     * Who
+     */
+    who: Array<OptionResponse>;
+    /**
+     * Rfm
+     */
+    rfm: Array<OptionResponse>;
+};
+
+/**
+ * PoliticalRowResponse
+ */
+export type PoliticalRowResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Unnamed
+     */
+    unnamed: boolean;
+    /**
+     * Done
+     */
+    done: boolean;
+    /**
+     * News Kind
+     */
+    news_kind: string | null;
+    /**
+     * News Label
+     */
+    news_label: string | null;
+    /**
+     * News Reason
+     */
+    news_reason: string;
+    known: KnownResponse | null;
+    /**
+     * Not In Base
+     */
+    not_in_base: boolean;
+    /**
+     * Regions
+     */
+    regions: string;
+    /**
+     * Rf Level
+     */
+    rf_level: string | null;
+    /**
+     * Rf Label
+     */
+    rf_label: string | null;
+    /**
+     * Rf Entry
+     */
+    rf_entry: string;
+    /**
+     * Rf Included
+     */
+    rf_included: string | null;
+    /**
+     * Listing
+     */
+    listing: string | null;
+    /**
+     * Awaited
+     */
+    awaited: boolean;
+    /**
+     * Articles
+     */
+    articles: Array<PoliticalArticleResponse>;
+    /**
+     * Basis
+     */
+    basis: string;
+    /**
+     * Basis Quote
+     */
+    basis_quote: string;
+    /**
+     * Memorial
+     */
+    memorial: string | null;
+    /**
+     * First Published At
+     */
+    first_published_at: string | null;
+    /**
+     * Last Published At
+     */
+    last_published_at: string | null;
+    /**
+     * Links
+     */
+    links: Array<PublicationLinkResponse>;
+};
+
+/**
+ * PublicationLinkResponse
+ */
+export type PublicationLinkResponse = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Source
+     */
+    source: string;
+};
+
+/**
+ * PublicationListResponse
+ */
+export type PublicationListResponse = {
+    /**
+     * Items
+     */
+    items: Array<PublicationRowResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * Sources
+     */
+    sources: Array<SourceCountResponse>;
+};
+
+/**
+ * PublicationRowResponse
+ */
+export type PublicationRowResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * People
+     */
+    people: Array<PersonLinkResponse>;
+    /**
+     * More People
+     */
+    more_people: number;
+    /**
+     * Events
+     */
+    events: Array<EventCountResponse>;
+};
+
+/**
+ * QueueResponse
+ *
+ * What waits for the operator, by queue; `total` is the menu's «Работа» count.
+ */
+export type QueueResponse = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Pairs
+     */
+    pairs: number;
+    /**
+     * Unclear Roles
+     */
+    unclear_roles: number;
+    /**
+     * Unclear Verdicts
+     */
+    unclear_verdicts: number;
+    /**
+     * Unnamed
+     */
+    unnamed: number;
+    /**
+     * Junk Holds
+     */
+    junk_holds: number;
 };
 
 /**
@@ -1138,6 +1673,24 @@ export type RosfinmonitoringSnapshotResponse = {
 };
 
 /**
+ * SourceCountResponse
+ */
+export type SourceCountResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * SourceMonitoringStateView
  */
 export type SourceMonitoringStateView = {
@@ -1169,6 +1722,36 @@ export type SourceMonitoringStateView = {
      * Updated At
      */
     updated_at: string;
+};
+
+/**
+ * StatusResponse
+ *
+ * The legacy status strip and menu counters: the same numbers on every page.
+ */
+export type StatusResponse = {
+    /**
+     * Articles
+     */
+    articles: number;
+    /**
+     * People
+     */
+    people: number;
+    /**
+     * Result
+     */
+    result: number;
+    queue: QueueResponse;
+    /**
+     * Latest Monitoring Status
+     */
+    latest_monitoring_status: string | null;
+    live_operation: LiveOperationResponse | null;
+    /**
+     * Next Action
+     */
+    next_action: string;
 };
 
 /**
@@ -1828,3 +2411,211 @@ export type GetAboutV1Responses = {
 };
 
 export type GetAboutV1Response = GetAboutV1Responses[keyof GetAboutV1Responses];
+
+export type GetStatusV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/status';
+};
+
+export type GetStatusV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: StatusResponse;
+};
+
+export type GetStatusV1Response = GetStatusV1Responses[keyof GetStatusV1Responses];
+
+export type ListEntitiesV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Article
+         */
+        article?: string;
+        /**
+         * Rf
+         */
+        rf?: string;
+        /**
+         * Rf Possible
+         */
+        rf_possible?: string;
+        /**
+         * Role
+         */
+        role?: string;
+        /**
+         * Verdict
+         */
+        verdict?: string;
+        /**
+         * Region
+         */
+        region?: string;
+        /**
+         * Sort
+         */
+        sort?: string;
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/v1/entities';
+};
+
+export type ListEntitiesV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEntitiesV1Error = ListEntitiesV1Errors[keyof ListEntitiesV1Errors];
+
+export type ListEntitiesV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: EntityListResponse;
+};
+
+export type ListEntitiesV1Response = ListEntitiesV1Responses[keyof ListEntitiesV1Responses];
+
+export type ListPublicationsV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Source
+         */
+        source?: number;
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/v1/publications';
+};
+
+export type ListPublicationsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPublicationsV1Error = ListPublicationsV1Errors[keyof ListPublicationsV1Errors];
+
+export type ListPublicationsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: PublicationListResponse;
+};
+
+export type ListPublicationsV1Response = ListPublicationsV1Responses[keyof ListPublicationsV1Responses];
+
+export type GetArticleMentionsV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Article Id
+         */
+        article_id: number;
+    };
+    query?: never;
+    url: '/api/v1/articles/{article_id}/mentions';
+};
+
+export type GetArticleMentionsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetArticleMentionsV1Error = GetArticleMentionsV1Errors[keyof GetArticleMentionsV1Errors];
+
+export type GetArticleMentionsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ArticleMentionsResponse;
+};
+
+export type GetArticleMentionsV1Response = GetArticleMentionsV1Responses[keyof GetArticleMentionsV1Responses];
+
+export type ListPoliticalV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Months
+         */
+        months?: number;
+        /**
+         * Date From
+         */
+        date_from?: string;
+        /**
+         * Date To
+         */
+        date_to?: string;
+        /**
+         * News
+         */
+        news?: string;
+        /**
+         * Known
+         */
+        known?: string;
+        /**
+         * Done
+         */
+        done?: string;
+        /**
+         * Who
+         */
+        who?: string;
+        /**
+         * Rfm
+         */
+        rfm?: string;
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/v1/political';
+};
+
+export type ListPoliticalV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPoliticalV1Error = ListPoliticalV1Errors[keyof ListPoliticalV1Errors];
+
+export type ListPoliticalV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: PoliticalListResponse;
+};
+
+export type ListPoliticalV1Response = ListPoliticalV1Responses[keyof ListPoliticalV1Responses];

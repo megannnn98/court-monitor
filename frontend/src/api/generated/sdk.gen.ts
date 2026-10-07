@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetAboutV1Data, GetAboutV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses } from './types.gen';
+import type { GetAboutV1Data, GetAboutV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -157,3 +157,44 @@ export const healthReadyV1 = <ThrowOnError extends boolean = false>(options?: Op
  * successful operator run.
  */
 export const getAboutV1 = <ThrowOnError extends boolean = false>(options?: Options<GetAboutV1Data, ThrowOnError>) => (options?.client ?? client).get<GetAboutV1Responses, unknown, ThrowOnError>({ url: '/api/v1/about', ...options });
+
+/**
+ * Get Status
+ *
+ * Publications, people, the result, the operator's queue, the latest monitoring run,
+ * the step running now and the next thing to do.
+ */
+export const getStatusV1 = <ThrowOnError extends boolean = false>(options?: Options<GetStatusV1Data, ThrowOnError>) => (options?.client ?? client).get<GetStatusV1Responses, unknown, ThrowOnError>({ url: '/api/v1/status', ...options });
+
+/**
+ * List Entities
+ *
+ * The people of the publications with a criminal case, as the legacy «Все люди» lists
+ * them: the same filters, the same order, a hundred a page.
+ */
+export const listEntitiesV1 = <ThrowOnError extends boolean = false>(options?: Options<ListEntitiesV1Data, ThrowOnError>) => (options?.client ?? client).get<ListEntitiesV1Responses, ListEntitiesV1Errors, ThrowOnError>({ url: '/api/v1/entities', ...options });
+
+/**
+ * List Publications
+ *
+ * The publications with a criminal case, newest first, searched by title and text and
+ * filtered by source; each with its people and events.
+ */
+export const listPublicationsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListPublicationsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListPublicationsV1Responses, ListPublicationsV1Errors, ThrowOnError>({ url: '/api/v1/publications', ...options });
+
+/**
+ * Get Article Mentions
+ *
+ * The people an article names and the events found in it, as the legacy article
+ * page shows them above the text.
+ */
+export const getArticleMentionsV1 = <ThrowOnError extends boolean = false>(options: Options<GetArticleMentionsV1Data, ThrowOnError>) => (options.client ?? client).get<GetArticleMentionsV1Responses, GetArticleMentionsV1Errors, ThrowOnError>({ url: '/api/v1/articles/{article_id}/mentions', ...options });
+
+/**
+ * List Political
+ *
+ * The people with a political criminal case, latest news first, as the legacy
+ * «Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the
+ * legacy page, filters are not remembered: the address is the state.
+ */
+export const listPoliticalV1 = <ThrowOnError extends boolean = false>(options?: Options<ListPoliticalV1Data, ThrowOnError>) => (options?.client ?? client).get<ListPoliticalV1Responses, ListPoliticalV1Errors, ThrowOnError>({ url: '/api/v1/political', ...options });

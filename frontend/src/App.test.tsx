@@ -7,7 +7,22 @@ import { App } from "@/App";
 import { NAV } from "@/lib/navigation";
 
 vi.mock("@/api/generated", () => ({
-  getAboutV1: vi.fn(() => new Promise(() => undefined))
+  getAboutV1: vi.fn(() => new Promise(() => undefined)),
+  getStatusV1: vi.fn(() =>
+    Promise.resolve({
+      data: {
+        articles: 128450,
+        people: 13765,
+        result: 412,
+        queue: { total: 37, pairs: 5, unclear_roles: 10, unclear_verdicts: 12, unnamed: 8, junk_holds: 2 },
+        latest_monitoring_status: "completed_with_errors",
+        live_operation: { mode: "entities", title: "Сборка сущностей" },
+        next_action: "Дождаться окончания шага."
+      },
+      error: undefined,
+      response: new Response(null, { status: 200 })
+    })
+  )
 }));
 
 function renderApp(url: string) {
@@ -37,8 +52,9 @@ it("sends a moved item to React and the rest to the legacy page, marked", () => 
 
   expect(within(menu).getByRole("link", { name: "О системе" }).getAttribute("href")).toBe("/about");
   expect(within(menu).getByRole("link", { name: "Перечень РФМ" }).getAttribute("href")).toBe("/rfm");
-  const legacy = within(menu).getByRole("link", { name: /Публикации/ });
-  expect(legacy.getAttribute("href")).toBe("/ui/publications");
+  expect(within(menu).getByRole("link", { name: /^Публикации/ }).getAttribute("href")).toBe("/publications");
+  const legacy = within(menu).getByRole("link", { name: /Приговоры/ });
+  expect(legacy.getAttribute("href")).toBe("/ui/sentences");
   expect(within(legacy).getByLabelText("старый интерфейс")).toBeTruthy();
 });
 
@@ -51,4 +67,16 @@ it("keeps every item reachable", () => {
 it("says an address it does not know is not a page", () => {
   renderApp("/nowhere-yet");
   expect(screen.getByRole("heading", { name: "Страница не найдена" })).toBeTruthy();
+});
+
+it("shows the legacy strip, the menu's counters and the step running now", async () => {
+  renderApp("/about");
+  const strip = await screen.findByRole("region", { name: "Показатели" });
+
+  expect(within(strip).getByText("Идёт: Сборка сущностей")).toBeTruthy();
+  expect(within(strip).getByText("Завершён с ошибками")).toBeTruthy();
+  expect(within(strip).getByText(/^128\s450$/)).toBeTruthy();
+  const menu = screen.getByRole("navigation", { name: "Главное меню" });
+  expect(within(within(menu).getByRole("link", { name: /^Работа/ })).getByText("37")).toBeTruthy();
+  expect(within(within(menu).getByRole("link", { name: /^Результаты/ })).getByText("412")).toBeTruthy();
 });

@@ -1,12 +1,13 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getArticleV1 } from "@/api/generated";
+import { getArticleMentionsV1, getArticleV1 } from "@/api/generated";
 import { ArticlePage } from "@/pages/ArticlePage";
 import { failed, ok, renderPage } from "@/test/render";
 
-vi.mock("@/api/generated", () => ({ getArticleV1: vi.fn() }));
+vi.mock("@/api/generated", () => ({ getArticleV1: vi.fn(), getArticleMentionsV1: vi.fn() }));
 const article = vi.mocked(getArticleV1);
+const mentions = vi.mocked(getArticleMentionsV1);
 
 const ARTICLE = {
   id: 77,
@@ -18,7 +19,11 @@ const ARTICLE = {
   text: "Сегодня суд приговорил Олега Орлова к сроку."
 };
 
-beforeEach(() => article.mockReset());
+beforeEach(() => {
+  article.mockReset();
+  mentions.mockReset();
+  mentions.mockReturnValue(ok({ people: [], events: [] }) as never);
+});
 
 it("shows the text with the quoted span marked", async () => {
   article.mockReturnValue(ok(ARTICLE) as never);
@@ -46,4 +51,20 @@ it("shows the API's own error", async () => {
   renderPage(<ArticlePage />, { path: "/articles/:articleId", url: "/articles/1" });
 
   expect(await screen.findByText("Article not found")).toBeTruthy();
+});
+
+it("shows the people the article names and its events", async () => {
+  article.mockReturnValue(ok(ARTICLE) as never);
+  mentions.mockReturnValue(
+    ok({
+      people: [{ key: "олег орлов", name: "Орлов Олег", dossier_url: "/ui/investigations/%D0%BE" }],
+      events: [{ kind: "sentence", label: "Приговор", count: 2 }]
+    }) as never
+  );
+
+  renderPage(<ArticlePage />, { path: "/articles/:articleId", url: "/articles/77" });
+
+  expect((await screen.findByRole("link", { name: "Орлов Олег" })).getAttribute("href")).toBe("/ui/investigations/%D0%BE");
+  expect(screen.getByText("Приговор: 2")).toBeTruthy();
+  expect(mentions).toHaveBeenCalledWith({ path: { article_id: 77 } });
 });

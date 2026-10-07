@@ -5,12 +5,15 @@ three queries whatever its size: the rows, their people, their events."""
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
+from dataclasses import dataclass
 from html import escape
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
-from sqlalchemy import text
+from sqlalchemy import Row, text
 from sqlalchemy.orm import Session
 
 from entities.evidence import person_evidence_cte
@@ -64,6 +67,44 @@ _EVENTS = text(
 )
 
 
+def people_and_events(
+    db: Session, article_ids: Sequence[int]
+) -> tuple[dict[int, list[tuple[str, str, int]]], dict[int, list[tuple[str, int]]]]:
+    """Per article, the people it names (key, name, mentions) and its events (type, count)."""
+    people: dict[int, list[tuple[str, str, int]]] = defaultdict(list)
+    events: dict[int, list[tuple[str, int]]] = defaultdict(list)
+    if article_ids:
+        for article_id, key, name, mentions in db.execute(
+            _PEOPLE, {"articles": list(article_ids), "context": 0}
+        ).all():
+            people[article_id].append((key, name, mentions))
+        for article_id, event_type, count in db.execute(
+            _EVENTS, {"articles": list(article_ids)}
+        ).all():
+            events[article_id].append((event_type, count))
+    return people, events
+
+
+@dataclass(frozen=True)
+class PublicationPage:
+    """One page of «Публикации»; read by the legacy page and `GET /api/v1/publications`."""
+
+    total: int
+    rows: Sequence[Row[Any]]
+    people: dict[int, list[tuple[str, str, int]]]
+    events: dict[int, list[tuple[str, int]]]
+    # Every source with its count of publications, for the filter.
+    sources: Sequence[Row[Any]]
+
+
+def read_publications(db: Session, *, q: str, source: int, page: int) -> PublicationPage:
+    params = {"q": q.strip(), "pattern": f"%{q.strip()}%", "source": source}
+    total = db.scalar(_COUNT, params) or 0
+    rows = db.execute(_ROWS, {**params, "limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}).all()
+    people, events = people_and_events(db, [row.id for row in rows])
+    return PublicationPage(total, rows, people, events, db.execute(_SOURCES).all())
+
+
 @router.get("/ui/publications", response_class=HTMLResponse)
 def ui_publications(
     q: str = Query(default="", max_length=200),
@@ -71,20 +112,14 @@ def ui_publications(
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    params = {"q": q.strip(), "pattern": f"%{q.strip()}%", "source": source}
-    total = db.scalar(_COUNT, params) or 0
-    rows = db.execute(_ROWS, {**params, "limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}).all()
-    ids = [row.id for row in rows]
-    people: dict[int, list[tuple[str, str, int]]] = defaultdict(list)
-    events: dict[int, list[tuple[str, int]]] = defaultdict(list)
-    if ids:
-        for article_id, key, name, mentions in db.execute(
-            _PEOPLE, {"articles": ids, "context": 0}
-        ).all():
-            people[article_id].append((key, name, mentions))
-        for article_id, event_type, count in db.execute(_EVENTS, {"articles": ids}).all():
-            events[article_id].append((event_type, count))
-    sources = db.execute(_SOURCES).all()
+    data = read_publications(db, q=q, source=source, page=page)
+    total, rows, people, events, sources = (
+        data.total,
+        data.rows,
+        data.people,
+        data.events,
+        data.sources,
+    )
     options = "".join(
         f'<option value="{source_id}"{" selected" if source_id == source else ""}>'
         f"{escape(name)} ({count})</option>"

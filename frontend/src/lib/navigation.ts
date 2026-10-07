@@ -7,6 +7,8 @@ export type NavItem = {
   label: string;
   legacy: string | null;
   path?: string;
+  /** A counter from `/api/v1/status` beside the label, as in the legacy menu. */
+  count?: "queue" | "result";
 };
 
 export type NavGroup = {
@@ -18,8 +20,8 @@ export const NAV: NavGroup[] = [
   {
     title: "Каждый день",
     items: [
-      { key: "cycle", label: "Работа", legacy: "/ui/cycle" },
-      { key: "political", label: "Результаты", legacy: "/ui/political" },
+      { key: "cycle", label: "Работа", legacy: "/ui/cycle", count: "queue" },
+      { key: "political", label: "Результаты", legacy: "/ui/political", path: "/political", count: "result" },
       { key: "investigations", label: "Найти человека", legacy: "/ui/investigations" },
       { key: "ask", label: "Спросить", legacy: "/ui/ask" }
     ]
@@ -27,8 +29,8 @@ export const NAV: NavGroup[] = [
   {
     title: "Данные",
     items: [
-      { key: "entities", label: "Все люди", legacy: "/ui/entities" },
-      { key: "publications", label: "Публикации", legacy: "/ui/publications" },
+      { key: "entities", label: "Все люди", legacy: "/ui/entities", path: "/entities" },
+      { key: "publications", label: "Публикации", legacy: "/ui/publications", path: "/publications" },
       { key: "sentences", label: "Приговоры", legacy: "/ui/sentences" },
       { key: "rfm", label: "Перечень РФМ", legacy: "/ui/rfm", path: "/rfm" },
       { key: "airtable", label: "База Airtable", legacy: "/ui/airtable" },

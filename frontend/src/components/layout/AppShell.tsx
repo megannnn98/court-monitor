@@ -3,11 +3,23 @@ import { ExternalLink, Menu } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { StatusStrip } from "@/components/layout/StatusStrip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useStatus } from "@/hooks/useStatus";
+import { formatNumber } from "@/lib/format";
 import { isMoved, NAV, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 const ITEM = "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground";
+
+function Count({ item }: { item: NavItem }) {
+  const status = useStatus();
+  if (!item.count || !status.data) {
+    return null;
+  }
+  const value = item.count === "queue" ? status.data.queue.total : status.data.result;
+  return <span className="ml-auto rounded-full bg-muted px-1.5 text-xs text-muted-foreground">{formatNumber(value)}</span>;
+}
 
 function Item({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   if (isMoved(item)) {
@@ -18,6 +30,7 @@ function Item({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) 
         className={({ isActive }) => cn(ITEM, isActive && "bg-accent font-medium text-accent-foreground")}
       >
         {item.label}
+        <Count item={item} />
       </NavLink>
     );
   }
@@ -28,7 +41,8 @@ function Item({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) 
   return (
     <a href={item.legacy} className={cn(ITEM, "text-muted-foreground")} title="Старый интерфейс">
       <span>{item.label}</span>
-      <ExternalLink className="ml-auto size-3.5" aria-label="старый интерфейс" />
+      <Count item={item} />
+      <ExternalLink className={item.count ? "size-3.5" : "ml-auto size-3.5"} aria-label="старый интерфейс" />
     </a>
   );
 }
@@ -75,6 +89,7 @@ export function AppShell() {
           <span className="font-semibold">court-monitor</span>
         </header>
         <main className="mx-auto max-w-6xl p-4 md:p-6">
+          <StatusStrip />
           <Outlet />
         </main>
       </div>

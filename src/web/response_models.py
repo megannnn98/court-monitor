@@ -219,3 +219,201 @@ class AboutResponse(BaseModel):
     people: int
     last_successful_run_at: datetime | None
     checked_at: datetime
+
+
+class QueueResponse(BaseModel):
+    """What waits for the operator, by queue; `total` is the menu's «Работа» count."""
+
+    total: int
+    pairs: int
+    unclear_roles: int
+    unclear_verdicts: int
+    unnamed: int
+    junk_holds: int
+
+
+class LiveOperationResponse(BaseModel):
+    """The step running now: its mode and the title the console gives it."""
+
+    mode: str | None
+    title: str
+
+
+class StatusResponse(BaseModel):
+    """The legacy status strip and menu counters: the same numbers on every page."""
+
+    articles: int
+    people: int
+    result: int
+    queue: QueueResponse
+    latest_monitoring_status: str | None
+    live_operation: LiveOperationResponse | None
+    next_action: str
+
+
+class OptionResponse(BaseModel):
+    """One choice of a filter: its value, the console's words and, where the list counts
+    it, how many rows it would show."""
+
+    value: str
+    label: str
+    count: int | None = None
+
+
+class EventCountResponse(BaseModel):
+    kind: str
+    label: str
+    count: int
+
+
+class EntityArticleResponse(BaseModel):
+    """A Criminal Code article of a person; `shared` when every event naming it accuses
+    other people too."""
+
+    article: str
+    shared: bool
+
+
+class EntityRowResponse(BaseModel):
+    id: int
+    key: str
+    # Surname first, as the legacy list writes it.
+    name: str
+    # «ИИ» or «исправлено» when a model gave the name or a person corrected it.
+    name_source_label: str | None
+    rf_level: str | None
+    rf_label: str | None
+    role: str | None
+    role_label: str | None
+    verdict: str | None
+    verdict_label: str | None
+    regions: list[str]
+    articles: list[EntityArticleResponse]
+    events: list[EventCountResponse]
+    mention_count: int
+    article_count: int
+    last_published_at: datetime | None
+    variants: list[str]
+    dossier_url: str
+
+
+class EntityListResponse(BaseModel):
+    """One page of «Все люди» under the filters, with the counts the legacy page shows."""
+
+    items: list[EntityRowResponse]
+    total: int
+    page: int
+    page_size: int
+    hidden_in_list: int
+    hidden_maybe_listed: int
+    roles_known: bool
+    roles: list[OptionResponse]
+    verdicts: list[OptionResponse]
+    regions: list[str]
+
+
+class PersonLinkResponse(BaseModel):
+    key: str
+    # Surname first.
+    name: str
+    dossier_url: str
+
+
+class PublicationRowResponse(BaseModel):
+    id: int
+    title: str
+    published_at: datetime | None
+    source: str
+    url: str
+    people: list[PersonLinkResponse]
+    # People beyond the ones shown.
+    more_people: int
+    events: list[EventCountResponse]
+
+
+class SourceCountResponse(BaseModel):
+    id: int
+    name: str
+    count: int
+
+
+class PublicationListResponse(BaseModel):
+    items: list[PublicationRowResponse]
+    total: int
+    page: int
+    page_size: int
+    sources: list[SourceCountResponse]
+
+
+class ArticleMentionsResponse(BaseModel):
+    """The people an article names, most mentioned first, and the events found in it."""
+
+    people: list[PersonLinkResponse]
+    events: list[EventCountResponse]
+
+
+class KnownResponse(BaseModel):
+    """What the operator's base says of a person."""
+
+    level: str
+    label: str
+    names: list[str]
+
+
+class PoliticalArticleResponse(BaseModel):
+    article: str
+    # On the list of political articles: the legacy page writes it bold.
+    political: bool
+
+
+class PublicationLinkResponse(BaseModel):
+    title: str
+    url: str
+    source: str
+
+
+class PoliticalRowResponse(BaseModel):
+    key: str
+    # Surname first for a person, as told for an unnamed figurant.
+    name: str
+    # The dossier, or the figurant's sentences on «Безымянные» (legacy pages).
+    url: str
+    unnamed: bool
+    done: bool
+    news_kind: str | None
+    news_label: str | None
+    news_reason: str
+    # None while the operator's base is not loaded: then nobody is «not in the base».
+    known: KnownResponse | None
+    not_in_base: bool
+    regions: str
+    rf_level: str | None
+    rf_label: str | None
+    rf_entry: str
+    rf_included: str | None
+    listing: str | None
+    awaited: bool
+    articles: list[PoliticalArticleResponse]
+    basis: str
+    basis_quote: str
+    memorial: str | None
+    first_published_at: datetime | None
+    last_published_at: datetime | None
+    links: list[PublicationLinkResponse]
+
+
+class PoliticalListResponse(BaseModel):
+    """«Результат» under the filters: one page of rows and every count the filters show."""
+
+    items: list[PoliticalRowResponse]
+    total: int
+    page: int
+    page_size: int
+    done_total: int
+    awaited: int
+    base_loaded: bool
+    periods: list[OptionResponse]
+    news: list[OptionResponse]
+    known: list[OptionResponse]
+    who: list[OptionResponse]
+    rfm: list[OptionResponse]

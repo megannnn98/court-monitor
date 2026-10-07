@@ -1,6 +1,7 @@
 """The operator console's page frame and small HTML helpers."""
 
 import hashlib
+from dataclasses import dataclass
 from html import escape
 from pathlib import Path
 from typing import cast
@@ -50,23 +51,45 @@ def copy_button(text: str) -> str:
     )
 
 
-def _status_counts(db: Session, work: Workload | None = None) -> dict[str, object]:
-    work = work or workload(db)
+@dataclass(frozen=True)
+class StripNumbers:
+    """The status strip's own numbers; `/api/v1/status` reads them too."""
+
+    articles: int
+    people: int
+    result: int
+    # The latest monitoring run's status code, or None before the first run.
+    latest_monitoring_status: str | None
+
+
+def strip_numbers(db: Session) -> StripNumbers:
     latest_run = db.scalars(
         select(MonitoringRunRecord).order_by(MonitoringRunRecord.started_at.desc()).limit(1)
     ).first()
-    return {
-        "articles": db.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0,
-        "people": db.scalar(select(func.count()).select_from(EntityGroupRecord)) or 0,
-        "queue": work.total,
-        "work": work,
-        "latest_run": _run_status_label(latest_run.status if latest_run is not None else None),
-        "result": db.scalar(
+    status = getattr(latest_run.status, "value", latest_run.status) if latest_run else None
+    return StripNumbers(
+        articles=db.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0,
+        people=db.scalar(select(func.count()).select_from(EntityGroupRecord)) or 0,
+        result=db.scalar(
             select(func.count())
             .select_from(EntityGroupPoliticsRecord)
             .where(EntityGroupPoliticsRecord.verdict == "political")
         )
         or 0,
+        latest_monitoring_status=None if status is None else str(status),
+    )
+
+
+def _status_counts(db: Session, work: Workload | None = None) -> dict[str, object]:
+    work = work or workload(db)
+    numbers = strip_numbers(db)
+    return {
+        "articles": numbers.articles,
+        "people": numbers.people,
+        "queue": work.total,
+        "work": work,
+        "latest_run": _run_status_label(numbers.latest_monitoring_status),
+        "result": numbers.result,
     }
 
 
@@ -213,7 +236,7 @@ _TABS = (
     ("investigations", "Найти", "/ui/investigations", None),
 )
 # The step that is running now, if any: its mode, to say which.
-_LIVE_RUN = text(
+LIVE_RUN = text(
     """
     SELECT parameters ->> 'mode' FROM operator_operation_runs
     WHERE status IN ('pending', 'running') ORDER BY id DESC LIMIT 1
@@ -246,7 +269,7 @@ def _live_strip(db: Session) -> str:
     on a phone the card of the run is two screens down."""
     from web.ui.run_cards import MODE_TITLES
 
-    row = db.execute(_LIVE_RUN).first()
+    row = db.execute(LIVE_RUN).first()
     if row is None:
         return ""
     title = MODE_TITLES.get(row[0], MODE_TITLES[None])

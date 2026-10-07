@@ -928,6 +928,388 @@
           }
         }
       }
+    },
+    "/api/v1/status": {
+      "get": {
+        "summary": "Get Status",
+        "description": "Publications, people, the result, the operator's queue, the latest monitoring run,\nthe step running now and the next thing to do.",
+        "operationId": "get_status_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities": {
+      "get": {
+        "summary": "List Entities",
+        "description": "The people of the publications with a criminal case, as the legacy «Все люди» lists\nthem: the same filters, the same order, a hundred a page.",
+        "operationId": "list_entities_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "article",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "default": "",
+              "title": "Article"
+            }
+          },
+          {
+            "name": "rf",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(hide|all)$",
+              "default": "all",
+              "title": "Rf"
+            }
+          },
+          {
+            "name": "rf_possible",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(hide|all)$",
+              "default": "all",
+              "title": "Rf Possible"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(figurant|all|possible|mentioned|unclear)$",
+              "default": "figurant",
+              "title": "Role"
+            }
+          },
+          {
+            "name": "verdict",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(all|political|criminal|unclear|none)$",
+              "default": "all",
+              "title": "Verdict"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Region"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(mentions|articles|recent|name)$",
+              "default": "mentions",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications": {
+      "get": {
+        "summary": "List Publications",
+        "description": "The publications with a criminal case, newest first, searched by title and text and\nfiltered by source; each with its people and events.",
+        "operationId": "list_publications_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Source"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{article_id}/mentions": {
+      "get": {
+        "summary": "Get Article Mentions",
+        "description": "The people an article names and the events found in it, as the legacy article\npage shows them above the text.",
+        "operationId": "get_article_mentions_v1",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleMentionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political": {
+      "get": {
+        "summary": "List Political",
+        "description": "The people with a political criminal case, latest news first, as the legacy\n«Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the\nlegacy page, filters are not remembered: the address is the state.",
+        "operationId": "list_political_v1",
+        "parameters": [
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Months"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 10,
+              "default": "",
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 10,
+              "default": "",
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "news",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "default": "all",
+              "title": "News"
+            }
+          },
+          {
+            "name": "known",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "default": "all",
+              "title": "Known"
+            }
+          },
+          {
+            "name": "done",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8,
+              "default": "hide",
+              "title": "Done"
+            }
+          },
+          {
+            "name": "who",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8,
+              "default": "all",
+              "title": "Who"
+            }
+          },
+          {
+            "name": "rfm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8,
+              "default": "all",
+              "title": "Rfm"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1104,6 +1486,31 @@
         "title": "AirtableTableSyncResponse",
         "description": "One list's outcome. `error` is set only when that list itself failed, so the\nother three still report what they did; `status` is `skipped` when the operator\nexported no file for it, which leaves the list alone rather than emptying it."
       },
+      "ArticleMentionsResponse": {
+        "properties": {
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonLinkResponse"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "people",
+          "events"
+        ],
+        "title": "ArticleMentionsResponse",
+        "description": "The people an article names, most mentioned first, and the events found in it."
+      },
       "ArticleResponse": {
         "properties": {
           "id": {
@@ -1255,6 +1662,286 @@
         ],
         "title": "ComponentStatus"
       },
+      "EntityArticleResponse": {
+        "properties": {
+          "article": {
+            "type": "string",
+            "title": "Article"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "shared"
+        ],
+        "title": "EntityArticleResponse",
+        "description": "A Criminal Code article of a person; `shared` when every event naming it accuses\nother people too."
+      },
+      "EntityListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EntityRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "hidden_in_list": {
+            "type": "integer",
+            "title": "Hidden In List"
+          },
+          "hidden_maybe_listed": {
+            "type": "integer",
+            "title": "Hidden Maybe Listed"
+          },
+          "roles_known": {
+            "type": "boolean",
+            "title": "Roles Known"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "verdicts": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Verdicts"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "hidden_in_list",
+          "hidden_maybe_listed",
+          "roles_known",
+          "roles",
+          "verdicts",
+          "regions"
+        ],
+        "title": "EntityListResponse",
+        "description": "One page of «Все люди» under the filters, with the counts the legacy page shows."
+      },
+      "EntityRowResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "name_source_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Source Label"
+          },
+          "rf_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Level"
+          },
+          "rf_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Label"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "verdict_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Label"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/EntityArticleResponse"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "mention_count": {
+            "type": "integer",
+            "title": "Mention Count"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "variants": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "dossier_url": {
+            "type": "string",
+            "title": "Dossier Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "name_source_label",
+          "rf_level",
+          "rf_label",
+          "role",
+          "role_label",
+          "verdict",
+          "verdict_label",
+          "regions",
+          "articles",
+          "events",
+          "mention_count",
+          "article_count",
+          "last_published_at",
+          "variants",
+          "dossier_url"
+        ],
+        "title": "EntityRowResponse"
+      },
+      "EventCountResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label",
+          "count"
+        ],
+        "title": "EventCountResponse"
+      },
       "EvidenceSpanResponse": {
         "properties": {
           "article_id": {
@@ -1319,6 +2006,33 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "KnownResponse": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "label",
+          "names"
+        ],
+        "title": "KnownResponse",
+        "description": "What the operator's base says of a person."
+      },
       "LatestRosfinMatchResponse": {
         "properties": {
           "snapshot_id": {
@@ -1373,6 +2087,32 @@
           "reasons"
         ],
         "title": "LatestRosfinMatchResponse"
+      },
+      "LiveOperationResponse": {
+        "properties": {
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "title"
+        ],
+        "title": "LiveOperationResponse",
+        "description": "The step running now: its mode and the title the console gives it."
       },
       "LivenessReport": {
         "properties": {
@@ -1975,6 +2715,36 @@
         ],
         "title": "OperationRunResponse"
       },
+      "OptionResponse": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "OptionResponse",
+        "description": "One choice of a filter: its value, the console's words and, where the list counts\nit, how many rows it would show."
+      },
       "PersecutionClassificationResponse": {
         "properties": {
           "id": {
@@ -2168,6 +2938,29 @@
         ],
         "title": "PersonEventResponse"
       },
+      "PersonLinkResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "dossier_url": {
+            "type": "string",
+            "title": "Dossier Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "dossier_url"
+        ],
+        "title": "PersonLinkResponse"
+      },
       "PersonResolutionReviewDecisionBody": {
         "properties": {
           "action": {
@@ -2259,6 +3052,479 @@
         ],
         "title": "PersonResponse",
         "description": "Person response model."
+      },
+      "PoliticalArticleResponse": {
+        "properties": {
+          "article": {
+            "type": "string",
+            "title": "Article"
+          },
+          "political": {
+            "type": "boolean",
+            "title": "Political"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "political"
+        ],
+        "title": "PoliticalArticleResponse"
+      },
+      "PoliticalListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "done_total": {
+            "type": "integer",
+            "title": "Done Total"
+          },
+          "awaited": {
+            "type": "integer",
+            "title": "Awaited"
+          },
+          "base_loaded": {
+            "type": "boolean",
+            "title": "Base Loaded"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Periods"
+          },
+          "news": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "News"
+          },
+          "known": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Known"
+          },
+          "who": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Who"
+          },
+          "rfm": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Rfm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "done_total",
+          "awaited",
+          "base_loaded",
+          "periods",
+          "news",
+          "known",
+          "who",
+          "rfm"
+        ],
+        "title": "PoliticalListResponse",
+        "description": "«Результат» under the filters: one page of rows and every count the filters show."
+      },
+      "PoliticalRowResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "unnamed": {
+            "type": "boolean",
+            "title": "Unnamed"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "news_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Kind"
+          },
+          "news_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "News Label"
+          },
+          "news_reason": {
+            "type": "string",
+            "title": "News Reason"
+          },
+          "known": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnownResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "not_in_base": {
+            "type": "boolean",
+            "title": "Not In Base"
+          },
+          "regions": {
+            "type": "string",
+            "title": "Regions"
+          },
+          "rf_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Level"
+          },
+          "rf_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Label"
+          },
+          "rf_entry": {
+            "type": "string",
+            "title": "Rf Entry"
+          },
+          "rf_included": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Included"
+          },
+          "listing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listing"
+          },
+          "awaited": {
+            "type": "boolean",
+            "title": "Awaited"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalArticleResponse"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis"
+          },
+          "basis_quote": {
+            "type": "string",
+            "title": "Basis Quote"
+          },
+          "memorial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memorial"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationLinkResponse"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "url",
+          "unnamed",
+          "done",
+          "news_kind",
+          "news_label",
+          "news_reason",
+          "known",
+          "not_in_base",
+          "regions",
+          "rf_level",
+          "rf_label",
+          "rf_entry",
+          "rf_included",
+          "listing",
+          "awaited",
+          "articles",
+          "basis",
+          "basis_quote",
+          "memorial",
+          "first_published_at",
+          "last_published_at",
+          "links"
+        ],
+        "title": "PoliticalRowResponse"
+      },
+      "PublicationLinkResponse": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "url",
+          "source"
+        ],
+        "title": "PublicationLinkResponse"
+      },
+      "PublicationListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCountResponse"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "sources"
+        ],
+        "title": "PublicationListResponse"
+      },
+      "PublicationRowResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonLinkResponse"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "more_people": {
+            "type": "integer",
+            "title": "More People"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "published_at",
+          "source",
+          "url",
+          "people",
+          "more_people",
+          "events"
+        ],
+        "title": "PublicationRowResponse"
+      },
+      "QueueResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pairs": {
+            "type": "integer",
+            "title": "Pairs"
+          },
+          "unclear_roles": {
+            "type": "integer",
+            "title": "Unclear Roles"
+          },
+          "unclear_verdicts": {
+            "type": "integer",
+            "title": "Unclear Verdicts"
+          },
+          "unnamed": {
+            "type": "integer",
+            "title": "Unnamed"
+          },
+          "junk_holds": {
+            "type": "integer",
+            "title": "Junk Holds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "pairs",
+          "unclear_roles",
+          "unclear_verdicts",
+          "unnamed",
+          "junk_holds"
+        ],
+        "title": "QueueResponse",
+        "description": "What waits for the operator, by queue; `total` is the menu's «Работа» count."
       },
       "ReadinessReport": {
         "properties": {
@@ -2831,6 +4097,29 @@
         "title": "RosfinmonitoringSnapshotResponse",
         "description": "Rosfinmonitoring snapshot response model."
       },
+      "SourceCountResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "count"
+        ],
+        "title": "SourceCountResponse"
+      },
       "SourceMonitoringStateView": {
         "properties": {
           "source_name": {
@@ -2904,6 +4193,62 @@
           "updated_at"
         ],
         "title": "SourceMonitoringStateView"
+      },
+      "StatusResponse": {
+        "properties": {
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "result": {
+            "type": "integer",
+            "title": "Result"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/QueueResponse"
+          },
+          "latest_monitoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Monitoring Status"
+          },
+          "live_operation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveOperationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_action": {
+            "type": "string",
+            "title": "Next Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "people",
+          "result",
+          "queue",
+          "latest_monitoring_status",
+          "live_operation",
+          "next_action"
+        ],
+        "title": "StatusResponse",
+        "description": "The legacy status strip and menu counters: the same numbers on every page."
       },
       "ValidationError": {
         "properties": {
