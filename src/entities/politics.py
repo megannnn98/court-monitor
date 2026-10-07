@@ -158,13 +158,17 @@ BASE = "base"
 # The verdicts a person may name on «Неясная политичность»: «unclear» is never decided.
 MANUAL = "manual"
 # Why a political case waits for a person though the rules or the model were sure.
-NAMELESS = "дело политическое, но у человека нет полного имени: кто это, не ясно"
+NAMELESS = "дело политическое, но человек назван одним словом: кто это, не ясно"
 
 
 def nameless(name: str) -> bool:
-    """A name that names nobody for certain: fewer than two words that are no initials
-    («Иванов», «Иванов И.», «И. И. Иванов»)."""
-    return sum(len(word.rstrip(".")) > 1 for word in name.split()) < 2
+    """A name of one word: a surname alone, a given name alone.
+
+    «Алексей Е.» and «Иванов И.» are names here, though they name nobody for certain:
+    so a court's press service writes the very people the operator looks for, and their
+    political cases belong in the result at once. Counted as nameless, four such cases
+    left the result of the operator's base for the queue (07.10.2026)."""
+    return len(name.split()) < 2
 
 
 def politics_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
@@ -579,9 +583,8 @@ class PoliticsFinder:
                 }
             )
 
-        # A political case of a person known by one word — a surname, a given name, the
-        # same with initials — is a person's to look at: who it is, nothing says. A
-        # common crime needs no name.
+        # A political case of a person known by one word — a surname, a given name — is
+        # a person's to look at: who it is, nothing says. A common crime needs no name.
         names = {row.id: row.name for row in figurants}
         for entry in rows:
             name = names.get(cast(int, entry["group_id"]), "")

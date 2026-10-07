@@ -667,32 +667,37 @@ def test_a_common_crime_needs_no_name_and_a_political_case_of_one_word_waits_for
     [
         ("Иванов", False),
         ("Наталья", False),
-        ("Иванов И.", False),
-        ("И. И. Иванов", False),
-        ("Иван П.", False),
-        ("И И Иванов", False),
         ("", False),
+        # As a court's press service writes a person: a name, and a case for the result.
+        ("Иванов И.", True),
+        ("Алексей Е.", True),
+        ("И. И. Иванов", True),
         ("Иван Иванов", True),
         ("Иван Иванович Иванов", True),
-        ("Анна-Мария Ли", True),
     ],
 )
-def test_initials_name_nobody_any_more_than_one_word(name: str, named: bool) -> None:
+def test_one_word_is_no_name_and_a_name_with_an_initial_is(name: str, named: bool) -> None:
     assert nameless(name) is not named
 
 
-def test_a_political_case_of_a_surname_with_initials_waits_for_a_person_too(
+def test_a_political_case_of_a_name_with_an_initial_goes_to_the_result(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
     with session_factory.begin() as session:
         session.execute(
-            text("UPDATE entity_groups SET name = 'И. П. Петров' WHERE name = 'Иван Петров'")
+            text("UPDATE entity_groups SET name = 'Иван П.' WHERE name = 'Иван Петров'")
         )
+        session.execute(
+            text("UPDATE entity_groups SET name = 'Смирнова А.' WHERE name = 'Анна Смирнова'")
+        )
+    verdicts = {**VERDICTS, "Смирнова А.": "political"}
 
-    PoliticsFinder(session_factory, classifier=FakeClassifier(VERDICTS)).run()
+    PoliticsFinder(session_factory, classifier=FakeClassifier(verdicts)).run()
 
-    assert _verdicts(session_factory)["И. П. Петров"] == ("unclear", "article")
+    found = _verdicts(session_factory)
+    assert found["Иван П."] == ("political", "article")
+    assert found["Смирнова А."] == ("political", "model")
 
 
 def test_the_article_s_rule_does_not_close_a_one_word_case_unread(
