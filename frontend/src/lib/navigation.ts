@@ -31,7 +31,7 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "entities", label: "Все люди", legacy: "/ui/entities", path: "/entities" },
       { key: "publications", label: "Публикации", legacy: "/ui/publications", path: "/publications" },
-      { key: "sentences", label: "Приговоры", legacy: "/ui/sentences" },
+      { key: "sentences", label: "Приговоры", legacy: "/ui/sentences", path: "/sentences" },
       { key: "rfm", label: "Перечень РФМ", legacy: "/ui/rfm", path: "/rfm" },
       { key: "airtable", label: "База Airtable", legacy: "/ui/airtable" },
       // Not in the legacy menu: reachable there only by address.
@@ -44,7 +44,7 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "management", label: "Журнал запусков", legacy: "/ui/runs", path: "/runs" },
       { key: "monitoring", label: "Мониторинг", legacy: null, path: "/monitoring" },
-      { key: "logs", label: "Логи", legacy: "/ui/logs" },
+      { key: "logs", label: "Логи", legacy: "/ui/logs", path: "/logs" },
       { key: "wiki", label: "Вики", legacy: "/ui/wiki" },
       { key: "about", label: "О системе", legacy: "/ui/about", path: "/about" }
     ]

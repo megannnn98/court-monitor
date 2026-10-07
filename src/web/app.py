@@ -32,6 +32,7 @@ from web.routers import (
     publications,
     reviews,
     rosfinmonitoring,
+    sentences,
     status,
 )
 from web.ui import about as ui_about
@@ -155,5 +156,6 @@ for module in (
     publications,
     political,
     dossier,
+    sentences,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

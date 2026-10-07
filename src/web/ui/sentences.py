@@ -8,13 +8,15 @@ a list of its own, to be put back.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from html import escape
 from typing import Any
 from urllib.parse import parse_qs, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select, text, update
+from sqlalchemy import Row, func, select, text, update
 from sqlalchemy.orm import Session
 
 from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
@@ -40,7 +42,8 @@ _HIDDEN_ROWS = text(
 )
 
 
-def _term(months: int, fine_rub: int) -> str:
+def term_text(months: int, fine_rub: int) -> str:
+    """«2 г. 6 мес.», «штраф 35 000 ₽», or a dash."""
     years, rest = divmod(months, 12)
     parts = [f"{years} г." if years else "", f"{rest} мес." if rest else ""]
     if fine_rub:
@@ -63,7 +66,7 @@ def _case_row(case: Case, back: str) -> str:
     return (
         f"<tr><td>{escape(case.person)}</td><td>{escape(case.region or '—')}</td>"
         f"<td>{escape(KIND_LABELS[case.kind] + absentia)}</td>"
-        f"<td>{escape(_term(case.months, case.fine_rub))}</td>"
+        f"<td>{escape(term_text(case.months, case.fine_rub))}</td>"
         f"<td>{escape(case.sentenced_on or '—')}</td>"
         f"<td>{escape(REASON_LABELS[case.reason])}"
         f'<br><span class="muted">{escape(case.reason_text)}</span></td>'
@@ -78,7 +81,7 @@ def _hidden_row(row: Any, back: str) -> str:
     return (
         f"<tr><td>{escape(row.person)}</td><td>{escape(row.region or '—')}</td>"
         f"<td>{escape(KIND_LABELS.get(row.kind, row.kind))}</td>"
-        f"<td>{escape(_term(row.months, row.fine_rub))}</td>"
+        f"<td>{escape(term_text(row.months, row.fine_rub))}</td>"
         f"<td>{escape(row.sentenced_on or '—')}</td>"
         f"<td>{escape(REASON_LABELS.get(row.reason, row.reason))}"
         f'<br><span class="muted">{escape(row.reason_text)}</span></td>'
@@ -96,6 +99,42 @@ _HEAD = (
 )
 
 
+@dataclass(frozen=True)
+class SentencePage:
+    """«Приговоры» under its filters; read by the legacy page and `GET /api/v1/sentences`."""
+
+    # The filters as understood: an unknown reason is «political», a region canonical.
+    reason: str
+    region: str
+    all_cases: list[Case]
+    # The cases of the page, newest sentence first, and how many pass the filters.
+    cases: list[Case]
+    total: int
+    # The rows a person took out of every count, newest first.
+    hidden: Sequence[Row[Any]]
+    # How many publications the model has read for a sentence.
+    read: int
+
+
+def read_sentences(db: Session, *, reason: str, region: str, page: int) -> SentencePage:
+    all_cases = cases(db)
+    reason = reason if reason in ("", POLITICAL, *REASON_LABELS) else POLITICAL
+    region = canonical(region)
+    found = select_cases(
+        all_cases, Filters(reasons=(reason,) if reason else (), region=region)
+    ).cases
+    found.sort(key=lambda case: (case.sentenced_on, case.row_ids), reverse=True)
+    return SentencePage(
+        reason=reason,
+        region=region,
+        all_cases=all_cases,
+        cases=found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE],
+        total=len(found),
+        hidden=db.execute(_HIDDEN_ROWS).all(),
+        read=db.scalar(select(func.count()).select_from(ArticleSentenceReadingRecord)) or 0,
+    )
+
+
 @router.get("/ui/sentences", response_class=HTMLResponse)
 def ui_sentences(
     reason: str = Query(default=POLITICAL, max_length=32),
@@ -104,29 +143,21 @@ def ui_sentences(
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    all_cases = cases(db)
-    reason = reason if reason in ("", POLITICAL, *REASON_LABELS) else POLITICAL
-    region = canonical(region)
+    data = read_sentences(db, reason=reason, region=region, page=page)
+    reason, region, all_cases, hidden_rows = data.reason, data.region, data.all_cases, data.hidden
     params = {"reason": reason, "region": region}
-    hidden_rows = db.execute(_HIDDEN_ROWS).all()
     if view == HIDDEN:
         back = urlencode({**params, "view": HIDDEN})
         rows = "".join(_hidden_row(row, back) for row in hidden_rows)
         total, pages = len(hidden_rows), 1
         empty = "Ничего не убрано."
     else:
-        found = select_cases(
-            all_cases, Filters(reasons=(reason,) if reason else (), region=region)
-        ).cases
-        found.sort(key=lambda case: (case.sentenced_on, case.row_ids), reverse=True)
-        total = len(found)
+        total = data.total
         pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
         back = urlencode({**params, "page": page})
-        rows = "".join(
-            _case_row(case, back) for case in found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
-        )
+        rows = "".join(_case_row(case, back) for case in data.cases)
         empty = "Таких приговоров нет."
-    read = db.scalar(select(func.count()).select_from(ArticleSentenceReadingRecord)) or 0
+    read = data.read
     reasons = "".join(
         f'<option value="{key}"{" selected" if key == reason else ""}>{escape(label)}</option>'
         for key, label in (

@@ -16,7 +16,7 @@ import { OPERATION_STATUS } from "@/lib/labels";
 export const POLL_MS = 5_000;
 const LIVE = new Set(["pending", "running"]);
 
-function isLive(run: OperationRunResponse): boolean {
+export function isLive(run: OperationRunResponse): boolean {
   return LIVE.has(run.status);
 }
 
@@ -29,7 +29,7 @@ function Output({ title, text }: { title: string; text: string }) {
   );
 }
 
-function RunDetail({ runId }: { runId: number }) {
+export function RunDetail({ runId }: { runId: number }) {
   const run = useQuery({
     queryKey: ["operations", "runs", runId],
     queryFn: () => unwrap(getOperationRunV1({ path: { run_id: runId } })),

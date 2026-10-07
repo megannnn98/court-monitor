@@ -1392,6 +1392,81 @@
           }
         }
       }
+    },
+    "/api/v1/sentences": {
+      "get": {
+        "summary": "List Sentences",
+        "description": "The sentences a model read from the publications, folded into cases, newest first;\n`view=hidden` lists the rows a person took out of every count.",
+        "operationId": "list_sentences_v1",
+        "parameters": [
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "default": "political",
+              "title": "Reason"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "default": "",
+              "title": "Region"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(hidden)?$",
+              "default": "",
+              "title": "View"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentenceListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4951,6 +5026,187 @@
         ],
         "title": "RosfinmonitoringSnapshotResponse",
         "description": "Rosfinmonitoring snapshot response model."
+      },
+      "SentenceListResponse": {
+        "properties": {
+          "view": {
+            "type": "string",
+            "title": "View"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SentenceRowResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "read": {
+            "type": "integer",
+            "title": "Read"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "hidden": {
+            "type": "integer",
+            "title": "Hidden"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "view",
+          "reason",
+          "region",
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "read",
+          "cases",
+          "hidden",
+          "reasons",
+          "regions"
+        ],
+        "title": "SentenceListResponse",
+        "description": "«Приговоры» under the filters, or (`view=hidden`) what was taken out."
+      },
+      "SentenceRowResponse": {
+        "properties": {
+          "row_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Row Ids"
+          },
+          "person": {
+            "type": "string",
+            "title": "Person"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "kind_label": {
+            "type": "string",
+            "title": "Kind Label"
+          },
+          "in_absentia": {
+            "type": "boolean",
+            "title": "In Absentia"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "sentenced_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentenced On"
+          },
+          "reason_label": {
+            "type": "string",
+            "title": "Reason Label"
+          },
+          "reason_text": {
+            "type": "string",
+            "title": "Reason Text"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "more_publications": {
+            "type": "integer",
+            "title": "More Publications"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row_ids",
+          "person",
+          "region",
+          "kind_label",
+          "in_absentia",
+          "term",
+          "sentenced_on",
+          "reason_label",
+          "reason_text",
+          "article_id",
+          "title",
+          "source",
+          "more_publications",
+          "quote"
+        ],
+        "title": "SentenceRowResponse",
+        "description": "One case of «Приговоры» (several rows of one sentence told by several sources), or\none row a person took out of the counts."
       },
       "SourceCountResponse": {
         "properties": {

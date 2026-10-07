@@ -561,3 +561,42 @@ class DossierResponse(BaseModel):
     publications: list[EvidenceResponse]
     related: list[RelatedPersonResponse]
     graph_url: str
+
+
+class SentenceRowResponse(BaseModel):
+    """One case of «Приговоры» (several rows of one sentence told by several sources), or
+    one row a person took out of the counts."""
+
+    row_ids: list[int]
+    person: str
+    region: str | None
+    kind_label: str
+    in_absentia: bool
+    # «2 г. 6 мес.», «штраф 35 000 ₽» or a dash, as the legacy page writes it.
+    term: str
+    sentenced_on: str | None
+    reason_label: str
+    reason_text: str
+    article_id: int
+    title: str
+    # The source the case is shown by; None for a hidden row.
+    source: str | None
+    more_publications: int
+    quote: str
+
+
+class SentenceListResponse(BaseModel):
+    """«Приговоры» under the filters, or (`view=hidden`) what was taken out."""
+
+    view: str
+    reason: str
+    region: str
+    items: list[SentenceRowResponse]
+    total: int
+    page: int
+    page_size: int
+    read: int
+    cases: int
+    hidden: int
+    reasons: list[OptionResponse]
+    regions: list[str]
