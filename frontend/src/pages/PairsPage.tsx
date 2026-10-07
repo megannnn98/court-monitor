@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 
@@ -39,10 +40,7 @@ function Pair({ pair }: { pair: PairResponse }) {
     mutationFn: (decision: "same" | "different") =>
       unwrap(decidePairV1({ body: { key_a: pair.left.key, key_b: pair.right.key, decision } })),
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["review", "pairs"] }),
-        client.invalidateQueries({ queryKey: ["status"] })
-      ]);
+      await readAgainAfterDecision(client, ["review", "pairs"]);
     }
   });
   return (

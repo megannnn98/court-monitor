@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -25,10 +26,7 @@ function DoneBox({ row }: { row: PoliticalRowResponse }) {
   const mark = useMutation({
     mutationFn: (done: boolean) => unwrap(markPoliticalDoneV1({ body: { key: row.key, done } })),
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["political"] }),
-        client.invalidateQueries({ queryKey: ["status"] })
-      ]);
+      await readAgainAfterDecision(client, ["political"]);
     }
   });
   return (

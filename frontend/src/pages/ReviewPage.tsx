@@ -14,6 +14,7 @@ import { QueryState } from "@/components/QueryState";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { dossierPath } from "@/lib/navigation";
 
 type Station = {
@@ -40,10 +41,7 @@ function Decision({ station, item, choices }: { station: Station; item: ReviewIt
   const decide = useMutation({
     mutationFn: (choice: string) => station.decide(item.key, choice),
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: station.queryKey }),
-        client.invalidateQueries({ queryKey: ["status"] })
-      ]);
+      await readAgainAfterDecision(client, station.queryKey);
     }
   });
   return (

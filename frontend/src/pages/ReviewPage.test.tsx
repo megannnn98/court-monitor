@@ -1,3 +1,4 @@
+import { QueryClient } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -68,4 +69,19 @@ it("says when nothing is open", async () => {
   renderPage(<ReviewPage kind="roles" />);
 
   expect(await screen.findByText("Неясная роль в деле: открытых случаев нет.")).toBeTruthy();
+});
+
+it("leaves «Работа» to be read again: the closed review must not stay there", async () => {
+  roles.mockReturnValue(ok(ROLES) as never);
+  decideRole.mockReturnValue(ok({ key: "фёдор сирош", decision: "figurant" }) as never);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+  // «Работа» was open a moment ago: its queues are in the cache, fresh for 30 s.
+  client.setQueryData(["cycle"], { attention: { key: "roles", count: 1 } });
+  client.setQueryData(["status"], { queue: { total: 1 } });
+
+  renderPage(<ReviewPage kind="roles" />, { client });
+  fireEvent.click(await screen.findByRole("button", { name: "Фигурант" }));
+
+  await waitFor(() => expect(client.getQueryState(["cycle"])?.isInvalidated).toBe(true));
+  expect(client.getQueryState(["status"])?.isInvalidated).toBe(true);
 });
