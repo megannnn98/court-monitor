@@ -22,7 +22,7 @@ from web.response_models import (
     PoliticalRowResponse,
     PublicationLinkResponse,
 )
-from web.ui.political import PAGE_SIZE, _basis
+from web.ui.political import PAGE_SIZE, basis_text
 from web.ui.political_filters import (
     KNOWN_FILTERS,
     NEWS_FILTERS,
@@ -77,7 +77,7 @@ def _row(row: ListRow, *, base_loaded: bool) -> PoliticalRowResponse:
             PoliticalArticleResponse(article=article, political=article in POLITICAL_ARTICLES)
             for article, _ in row.articles
         ],
-        basis=_basis(row),
+        basis=basis_text(row),
         basis_quote=row.basis.quote[:200],
         memorial=row.memorial,
         first_published_at=row.first_published,

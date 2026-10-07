@@ -11,7 +11,7 @@ from web.candidate_rows import _surname_first
 from web.dependencies import get_db
 from web.routers.articles import _article_response
 from web.routers.persons import get_person_detail
-from web.ui.entities import _EVENT_LABELS, display_name
+from web.ui.entities import EVENT_LABELS, display_name
 from web.ui.layout import _fmt, _page, external_url
 from web.ui.publications import _EVENTS, _PEOPLE
 
@@ -86,7 +86,7 @@ def ui_get_article(
         for _article, key, name, _mentions in sorted(people, key=lambda row: -row[3])
     )
     events_html = " ".join(
-        f'<span class="badge">{escape(_EVENT_LABELS.get(kind, kind))}'
+        f'<span class="badge">{escape(EVENT_LABELS.get(kind, kind))}'
         f"{f': {count}' if count > 1 else ''}</span>"
         for _article, kind, count in sorted(events, key=lambda row: row[1])
     )

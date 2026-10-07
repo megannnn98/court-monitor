@@ -15,7 +15,7 @@ from web.response_models import (
     PublicationRowResponse,
     SourceCountResponse,
 )
-from web.ui.entities import _EVENT_LABELS, display_name
+from web.ui.entities import EVENT_LABELS, display_name
 from web.ui.publications import PAGE_SIZE, PEOPLE_SHOWN, people_and_events, read_publications
 
 router = APIRouter()
@@ -33,7 +33,7 @@ def _people(found: list[tuple[str, str, int]]) -> list[PersonLinkResponse]:
 
 def _events(found: list[tuple[str, int]]) -> list[EventCountResponse]:
     return [
-        EventCountResponse(kind=kind, label=_EVENT_LABELS.get(kind, kind), count=count)
+        EventCountResponse(kind=kind, label=EVENT_LABELS.get(kind, kind), count=count)
         for kind, count in sorted(found)
     ]
 

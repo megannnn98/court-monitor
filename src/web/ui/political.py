@@ -85,7 +85,7 @@ _BASIS_LABELS = {
 _MANUAL_REASON = "решено оператором вручную"
 
 
-def _basis(row: ListRow) -> str:
+def basis_text(row: ListRow) -> str:
     """Who decided the verdict, and why — the two never say the same thing twice."""
     label = _BASIS_LABELS.get(row.basis.method, "модель")
     reason = row.basis.reason
@@ -184,7 +184,7 @@ def _html_row(position: int, row: ListRow, *, known_loaded: bool = False, back: 
         f"<td>{escape(row.regions)}</td>"
         f'<td><span class="muted">{escape(row.rf_entry)}</span>{_listing_mark(row)}</td>'
         f"<td>{articles}</td>"
-        f'<td>{escape(_basis(row))}<br><span class="muted">{escape(row.basis.quote[:200])}</span></td>'
+        f'<td>{escape(basis_text(row))}<br><span class="muted">{escape(row.basis.quote[:200])}</span></td>'
         f"<td>{escape(row.memorial or '')}</td>"
         f"<td>{escape(_date(row.first_published))}</td>"
         f"<td>{escape(_date(row.last_published))}</td>"
@@ -408,7 +408,7 @@ def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
                 row.shown_name,
                 row.regions or None,
                 _article_text(row.articles) or None,
-                _basis(row),
+                basis_text(row),
                 row.memorial,
                 excel_day(row.first_published),
                 excel_day(row.last_published),

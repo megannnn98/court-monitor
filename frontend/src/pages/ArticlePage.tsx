@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { getArticleMentionsV1, getArticleV1 } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -7,6 +7,7 @@ import { QueryState } from "@/components/QueryState";
 import { Badge } from "@/components/ui/badge";
 import { unwrap } from "@/lib/api";
 import { DASH, externalUrl, formatDateTime } from "@/lib/format";
+import { dossierPath } from "@/lib/navigation";
 
 /** The quoted span marked, as on the legacy page; an out-of-range span marks nothing. */
 function ArticleText({ text, start, end }: { text: string; start: number | null; end: number | null }) {
@@ -43,9 +44,9 @@ function Mentions({ articleId }: { articleId: number }) {
               ? people.map((person, index) => (
                   <span key={person.key}>
                     {index ? ", " : ""}
-                    <a className="underline" href={person.dossier_url}>
+                    <Link className="underline" to={dossierPath(person.key)}>
                       {person.name}
-                    </a>
+                    </Link>
                   </span>
                 ))
               : DASH}

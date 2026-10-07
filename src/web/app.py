@@ -21,6 +21,7 @@ from web.routers import (
     airtable,
     articles,
     candidates,
+    dossier,
     entities,
     health,
     investigations,
@@ -153,5 +154,6 @@ for module in (
     entities,
     publications,
     political,
+    dossier,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

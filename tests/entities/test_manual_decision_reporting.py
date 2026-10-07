@@ -92,7 +92,7 @@ def _seed(session: Session, name: str) -> EntityGroupRecord:
 def test_a_manual_verdict_is_not_attributed_to_the_model(
     session_factory: sessionmaker[Session],
 ) -> None:
-    """`web.ui.political._basis` labels every method but «article» as «модель»."""
+    """`web.ui.political.basis_text` labels every method but «article» as «модель»."""
     with session_factory.begin() as session:
         _seed(session, "мария резова")
 

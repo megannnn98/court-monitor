@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { listEntitiesV1 } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -15,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
 import { DASH, formatDateTime, formatNumber } from "@/lib/format";
+import { dossierPath } from "@/lib/navigation";
 
 const SORTS = [
   { value: "mentions", label: "Упоминаний" },
@@ -157,9 +159,9 @@ export function EntitiesPage() {
                   {data.items.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell className="whitespace-normal">
-                        <a className="font-medium underline" href={row.dossier_url}>
+                        <Link className="font-medium underline" to={dossierPath(row.key)}>
                           {row.name}
-                        </a>
+                        </Link>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {[row.name_source_label, row.rf_label, row.role_label, row.verdict_label]
                             .filter((label): label is string => Boolean(label))

@@ -45,9 +45,9 @@ from entities.roles import FIGURANT
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
 from web.ui.entities import (
-    _EVENT_LABELS,
-    _NAME_SOURCES,
-    _ROLE_METHODS,
+    EVENT_LABELS,
+    NAME_SOURCES,
+    ROLE_METHODS,
     _events,
     _political,
     _regions,
@@ -88,14 +88,14 @@ RELATED_LIMIT = 30
 QUOTE_CONTEXT = 160
 
 _VERDICT_BADGES = {POLITICAL: "succeeded", CRIMINAL: "", "unclear": "pending"}
-_VERDICT_METHODS = {
+VERDICT_METHODS = {
     "article": "правило: статья УК из списка политических (или только обычной уголовщины)",
     "memorial": "правило: категория реестра «Мемориала»",
     "base": "база оператора: её запись с этим именем и той же статьёй УК",
     "model": "модель по цитатам из публикаций",
     "manual": "решено оператором вручную",
 }
-_ORG_ROLES = {"court": "суд", "authority": "орган"}
+ORG_ROLES = {"court": "суд", "authority": "орган"}
 
 # Q1 — the entity with its role, its verdict and its first and latest publication.
 _ENTITY = text(
@@ -512,7 +512,7 @@ def _header(dossier: Dossier) -> str:
     <dt>Первая публикация</dt><dd>{_day(entity.first_published_at)}</dd>
     <dt>Последняя публикация</dt><dd>{_day(entity.last_published_at)}</dd>
     <dt>События дела</dt><dd>{_events(entity.event_types) or "—"}</dd>
-    <dt>Имя</dt><dd>{_NAME_SOURCES.get(entity.name_source, "по правилам склейки")}{
+    <dt>Имя</dt><dd>{NAME_SOURCES.get(entity.name_source, "по правилам склейки")}{
         {"male": " · мужчина", "female": " · женщина"}.get(entity.gender or "", "")
     }</dd>
   </dl>
@@ -536,6 +536,34 @@ def _header(dossier: Dossier) -> str:
 </section>"""
 
 
+def rf_entry_text(row: Any) -> str:
+    """One matched entry of the list as text. The day of inclusion is said about the entry,
+    and only where it was matched with the patronymic: on a namesake the day is somebody
+    else's."""
+    return (
+        f"{row.full_name}{f', {row.birth_date:%d.%m.%Y} г.р.' if row.birth_date else ''}"
+        f"{f', {row.birth_place}' if row.birth_place else ''}"
+        f"{f' — запись перечня включена {row.inclusion_date:%d.%m.%Y}{source_mark(row.inclusion_source)}' if row.level == FULL and row.inclusion_date else ''}"
+    )
+
+
+def warnings(dossier: Dossier) -> list[str]:
+    """What the dossier cannot vouch for; read by the legacy page and the v1 route."""
+    entity = dossier.entity
+    found = ["Даты событий — даты публикаций: точной даты события в базе нет."]
+    if any(not charge["sole"] for charge in dossier.charges.values()):
+        found.append("Часть статей УК «общая»: в событии обвиняемыми названы и другие люди.")
+    if dossier.rf and not any(row.level == FULL for row in dossier.rf):
+        found.append("Совпадение с перечнем только по имени и фамилии: может быть тёзка.")
+    if entity.verdict == "unclear" or entity.role == "unclear":
+        found.append("Система не смогла решить — случай в «Очереди».")
+    if dossier.disputes:
+        found.append("Есть нерешённые спорные пары: возможно, это тот же человек.")
+    if entity.name_source == "rules":
+        found.append("Имя собрано правилами, не проверено моделью или человеком.")
+    return found
+
+
 def _decision(dossier: Dossier) -> str:
     entity = dossier.entity
     evidence = (
@@ -545,7 +573,7 @@ def _decision(dossier: Dossier) -> str:
     )
     if entity.verdict:
         verdict = f"""<p>{_badge(VERDICT_LABELS.get(entity.verdict, entity.verdict), _VERDICT_BADGES.get(entity.verdict, ""))}
-      <span class="muted">— {escape(_VERDICT_METHODS.get(entity.verdict_method, entity.verdict_method))}</span></p>
+      <span class="muted">— {escape(VERDICT_METHODS.get(entity.verdict_method, entity.verdict_method))}</span></p>
     <p><b>Причина:</b> {escape(entity.verdict_reason)}</p>
     {f"<blockquote>{escape(entity.verdict_quote)}</blockquote>" if entity.verdict_quote else ""}
     <p class="muted">Доказательство: {evidence}. Уверенность не хранится: шаг 5 пишет вердикт,
@@ -557,7 +585,7 @@ def _decision(dossier: Dossier) -> str:
         )
     if entity.role:
         role = f"""<p>{_badge(role_label(entity.role, entity.kind))}
-      <span class="muted">— {escape(_ROLE_METHODS.get(entity.role_method, entity.role_method))}</span></p>
+      <span class="muted">— {escape(ROLE_METHODS.get(entity.role_method, entity.role_method))}</span></p>
     <p><b>Причина:</b> {escape(entity.role_reason)}</p>
     {f"<blockquote>{escape(entity.role_quote)}</blockquote>" if entity.role_quote else ""}"""
     else:
@@ -567,10 +595,7 @@ def _decision(dossier: Dossier) -> str:
     # with the patronymic: on a namesake the day belongs to somebody else.
     rf_items = "".join(
         f"<li>{_badge('ФИО с отчеством' if row.level == FULL else 'имя и фамилия', '' if row.level == FULL else 'pending')} "
-        f"{escape(row.full_name)}{f', {row.birth_date:%d.%m.%Y} г.р.' if row.birth_date else ''}"
-        f"{f', {escape(row.birth_place)}' if row.birth_place else ''}"
-        f"{f' — запись перечня включена {row.inclusion_date:%d.%m.%Y}{source_mark(row.inclusion_source)}' if row.level == FULL and row.inclusion_date else ''}"
-        "</li>"
+        f"{escape(rf_entry_text(row))}</li>"
         for row in dossier.rf
     )
     # What the person's articles say of the list, beside what the list itself says.
@@ -578,17 +603,6 @@ def _decision(dossier: Dossier) -> str:
         dossier.charges, FULL if any(row.level == FULL for row in dossier.rf) else None
     )
     rf_expected = f"<p>{escape(expected.text)}.</p>" if expected else ""
-    warnings = ["Даты событий — даты публикаций: точной даты события в базе нет."]
-    if any(not charge["sole"] for charge in dossier.charges.values()):
-        warnings.append("Часть статей УК «общая»: в событии обвиняемыми названы и другие люди.")
-    if dossier.rf and not any(row.level == FULL for row in dossier.rf):
-        warnings.append("Совпадение с перечнем только по имени и фамилии: может быть тёзка.")
-    if entity.verdict == "unclear" or entity.role == "unclear":
-        warnings.append("Система не смогла решить — случай в «Очереди».")
-    if dossier.disputes:
-        warnings.append("Есть нерешённые спорные пары: возможно, это тот же человек.")
-    if entity.name_source == "rules":
-        warnings.append("Имя собрано правилами, не проверено моделью или человеком.")
     return f"""<section class="band decision" aria-labelledby="decision-title">
   <h2 id="decision-title">Решение системы</h2>
   <div class="decision-grid">
@@ -605,7 +619,7 @@ def _decision(dossier: Dossier) -> str:
     </div>
   </div>
   <h3>Ограничения</h3>
-  <ul class="warnings">{"".join(f"<li>{escape(item)}</li>" for item in warnings)}</ul>
+  <ul class="warnings">{"".join(f"<li>{escape(item)}</li>" for item in warnings(dossier))}</ul>
 </section>"""
 
 
@@ -691,7 +705,7 @@ def _timeline(dossier: Dossier) -> str:
             _article_link(article) for article in sorted(item.articles, key=article_order)
         )
         orgs = ", ".join(
-            f'{escape(name)} <span class="muted">({_ORG_ROLES.get(role, role)})</span>'
+            f'{escape(name)} <span class="muted">({ORG_ROLES.get(role, role)})</span>'
             for role, name in sorted(item.orgs)
         )
         sources = "".join(
@@ -706,7 +720,7 @@ def _timeline(dossier: Dossier) -> str:
             f"""<li class="timeline-item">
   <div class="timeline-date">{date}</div>
   <div class="timeline-body">
-    <p><b>{escape(_EVENT_LABELS.get(item.event_type, item.event_type))}</b>
+    <p><b>{escape(EVENT_LABELS.get(item.event_type, item.event_type))}</b>
       {f"· {articles}" if articles else ""}
       <span class="muted">· источников: {len(item.sources)} · {escape(confidence)}
       · извлечено: {"правилами" if "rule" in item.extractor else escape(item.extractor)}</span></p>
@@ -789,6 +803,28 @@ def _event_graph(dossier: Dossier) -> str:
 </section>"""
 
 
+def identification(publication: Publication) -> str | None:
+    """For a publication that names nobody, how the operator identified the person."""
+    if publication.evidence_kind != "unnamed_resolution":
+        return None
+    source = (
+        f"запись РФМ {publication.rf_name}, {publication.rf_birth_date:%d.%m.%Y}"
+        if publication.resolution == "rf_entry"
+        and publication.rf_name
+        and publication.rf_birth_date
+        else "существующий человек"
+        if publication.resolution == "existing_person"
+        else "имя указано вручную"
+        if publication.resolution == "supplied_name"
+        else "ручное решение"
+    )
+    return (
+        f"Опознан оператором: {source}"
+        f"{f', {_day(publication.decided_at)}' if publication.decided_at else ''}. "
+        "Цитата оставлена как в публикации."
+    )
+
+
 def _evidence(dossier: Dossier) -> str:
     if not dossier.publications:
         return """<section class="band" id="evidence" aria-labelledby="evidence-title">
@@ -800,7 +836,7 @@ def _evidence(dossier: Dossier) -> str:
             for key, name in sorted(publication.others, key=lambda item: item[1])[:12]
         )
         events = ", ".join(
-            escape(_EVENT_LABELS.get(event, event)) for event in sorted(publication.events)
+            escape(EVENT_LABELS.get(event, event)) for event in sorted(publication.events)
         )
         articles = ", ".join(
             _article_link(article) for article in sorted(publication.articles, key=article_order)
@@ -812,29 +848,15 @@ def _evidence(dossier: Dossier) -> str:
             if url
             else ""
         )
-        identification = ""
-        if publication.evidence_kind == "unnamed_resolution":
-            source = (
-                f"запись РФМ {publication.rf_name}, {publication.rf_birth_date:%d.%m.%Y}"
-                if publication.resolution == "rf_entry"
-                and publication.rf_name
-                and publication.rf_birth_date
-                else "существующий человек"
-                if publication.resolution == "existing_person"
-                else "имя указано вручную"
-                if publication.resolution == "supplied_name"
-                else "ручное решение"
-            )
-            identification = (
-                f'<p class="muted">Опознан оператором: {escape(source)}'
-                f"{f', {_day(publication.decided_at)}' if publication.decided_at else ''}. "
-                "Цитата оставлена как в публикации.</p>"
-            )
+        identified = identification(publication)
+        identification_html = (
+            f'<p class="muted">{escape(identified)}</p>' if identified is not None else ""
+        )
         cards.append(
             f"""<article class="evidence">
   <h3><a href="/ui/articles/{publication.article_id}?start={publication.text_start}&amp;end={publication.text_end}">{escape(publication.title)}</a></h3>
   <p class="muted">{escape(publication.source)} · {_day(publication.published_at)}{external}</p>
-  {identification}
+  {identification_html}
   <p class="quote">{_marked(publication.quote, publication.start, publication.end)}</p>
   <dl class="facts compact">
     {f"<dt>События</dt><dd>{events}</dd>" if events else ""}
@@ -883,11 +905,15 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
     )
 
 
-@router.get("/ui/investigations", response_class=HTMLResponse)
-def ui_investigations(
-    q: str = Query(default="", max_length=200),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> HTMLResponse:
+SEARCH_LIMIT = 50
+
+
+def search(
+    db: Session, q: str
+) -> tuple[list[EntityGroupRecord], dict[int, tuple[str, str | None]]]:
+    """By any form of the name, the most mentioned first; with no name, the latest
+    political cases. With each found person's role. Read by the legacy page and the v1
+    route."""
     query = select(EntityGroupRecord).outerjoin(
         EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id
     )
@@ -899,13 +925,11 @@ def ui_investigations(
                 cast(EntityGroupRecord.variants, Text).ilike(pattern),
             )
         ).order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
-        heading = f"Найдено по «{escape(q.strip())}»"
     else:
         query = query.where(EntityGroupPoliticsRecord.verdict == POLITICAL).order_by(
             EntityGroupRecord.last_published_at.desc().nulls_last(), EntityGroupRecord.key
         )
-        heading = "Свежие политические дела"
-    found = db.scalars(query.limit(50)).all()
+    found = list(db.scalars(query.limit(SEARCH_LIMIT)).all())
     roles = {
         group_id: (role, kind)
         for group_id, role, kind in db.execute(
@@ -916,6 +940,16 @@ def ui_investigations(
             ).where(EntityGroupRoleRecord.group_id.in_([entity.id for entity in found]))
         ).all()
     }
+    return found, roles
+
+
+@router.get("/ui/investigations", response_class=HTMLResponse)
+def ui_investigations(
+    q: str = Query(default="", max_length=200),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    found, roles = search(db, q)
+    heading = f"Найдено по «{escape(q.strip())}»" if q.strip() else "Свежие политические дела"
     rows = "".join(
         f'<tr><td><a href="/ui/investigations/{quote(entity.key)}">'
         f"{escape(display_name(entity.name))}</a></td>"

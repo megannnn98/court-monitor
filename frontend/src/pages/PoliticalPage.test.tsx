@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { listPoliticalV1 } from "@/api/generated";
 import { PoliticalPage } from "@/pages/PoliticalPage";
+import { dossierPath } from "@/lib/navigation";
 import { failed, ok, renderPage } from "@/test/render";
 
 vi.mock("@/api/generated", () => ({ listPoliticalV1: vi.fn() }));
@@ -72,7 +73,7 @@ it("shows the result as the legacy page does", async () => {
 
   renderPage(<PoliticalPage />);
 
-  expect((await screen.findByRole("link", { name: "Смирнова Анна" })).getAttribute("href")).toBe("/ui/investigations/x");
+  expect((await screen.findByRole("link", { name: "Смирнова Анна" })).getAttribute("href")).toBe(dossierPath("анна смирнова"));
   for (const text of ["в перечне РФМ", "запись перечня включена 01.03.2025", "нет в базе", "модель: так про Анна Смирнова", "статья перечня: 205.2"]) {
     expect(screen.getByText(text)).toBeTruthy();
   }

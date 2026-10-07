@@ -4,7 +4,9 @@ import { AppShell } from "@/components/layout/AppShell";
 import { AboutPage } from "@/pages/AboutPage";
 import { ArticlePage } from "@/pages/ArticlePage";
 import { CandidatesPage } from "@/pages/CandidatesPage";
+import { DossierPage } from "@/pages/DossierPage";
 import { EntitiesPage } from "@/pages/EntitiesPage";
+import { InvestigationsPage } from "@/pages/InvestigationsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PersonPage } from "@/pages/PersonPage";
@@ -23,6 +25,8 @@ export function App() {
         <Route path="entities" element={<EntitiesPage />} />
         <Route path="publications" element={<PublicationsPage />} />
         <Route path="political" element={<PoliticalPage />} />
+        <Route path="investigations" element={<InvestigationsPage />} />
+        <Route path="investigations/:personKey" element={<DossierPage />} />
         <Route path="persons" element={<PersonsPage />} />
         <Route path="persons/:personId" element={<PersonPage />} />
         <Route path="articles/:articleId" element={<ArticlePage />} />

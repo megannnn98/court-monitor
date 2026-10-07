@@ -22,7 +22,7 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "cycle", label: "Работа", legacy: "/ui/cycle", count: "queue" },
       { key: "political", label: "Результаты", legacy: "/ui/political", path: "/political", count: "result" },
-      { key: "investigations", label: "Найти человека", legacy: "/ui/investigations" },
+      { key: "investigations", label: "Найти человека", legacy: "/ui/investigations", path: "/investigations" },
       { key: "ask", label: "Спросить", legacy: "/ui/ask" }
     ]
   },
@@ -53,4 +53,9 @@ export const NAV: NavGroup[] = [
 
 export function isMoved(item: NavItem): item is NavItem & { path: string } {
   return item.path !== undefined;
+}
+
+/** The dossier of a person in the new console, by the person's key. */
+export function dossierPath(key: string): string {
+  return `/investigations/${encodeURIComponent(key)}`;
 }

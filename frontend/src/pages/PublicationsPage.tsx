@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
 import { DASH, formatDate, formatNumber } from "@/lib/format";
+import { dossierPath } from "@/lib/navigation";
 
 export function PublicationsPage() {
   const url = useUrlState();
@@ -89,9 +90,9 @@ export function PublicationsPage() {
                           ? row.people.map((person, index) => (
                               <span key={person.key}>
                                 {index ? ", " : ""}
-                                <a className="underline" href={person.dossier_url}>
+                                <Link className="underline" to={dossierPath(person.key)}>
                                   {person.name}
-                                </a>
+                                </Link>
                               </span>
                             ))
                           : DASH}

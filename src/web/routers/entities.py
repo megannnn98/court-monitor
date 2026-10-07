@@ -17,10 +17,10 @@ from web.response_models import (
     OptionResponse,
 )
 from web.ui.entities import (
-    _EVENT_LABELS,
-    _ROLE_FILTERS,
-    _VERDICT_FILTERS,
+    EVENT_LABELS,
     PAGE_SIZE,
+    ROLE_FILTERS,
+    VERDICT_FILTERS,
     EntityPage,
     display_name,
     read_entity_page,
@@ -61,7 +61,7 @@ def _row(entity: EntityGroupRecord, data: EntityPage) -> EntityRowResponse:
             for article, sole in data.charges.get(entity.id, [])
         ],
         events=[
-            EventCountResponse(kind=kind, label=_EVENT_LABELS.get(kind, kind), count=count)
+            EventCountResponse(kind=kind, label=EVENT_LABELS.get(kind, kind), count=count)
             for kind, count in sorted(entity.event_types.items(), key=lambda item: -item[1])
         ],
         mention_count=entity.mention_count,
@@ -107,9 +107,9 @@ def list_entities(
         hidden_in_list=data.hidden,
         hidden_maybe_listed=data.hidden_possible,
         roles_known=data.roles_known,
-        roles=[OptionResponse(value=value, label=label) for value, label in _ROLE_FILTERS.items()],
+        roles=[OptionResponse(value=value, label=label) for value, label in ROLE_FILTERS.items()],
         verdicts=[
-            OptionResponse(value=value, label=label) for value, label in _VERDICT_FILTERS.items()
+            OptionResponse(value=value, label=label) for value, label in VERDICT_FILTERS.items()
         ],
         regions=data.regions,
     )

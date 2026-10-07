@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { listPoliticalV1 } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -15,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
 import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
+import { dossierPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 export function PoliticalPage() {
@@ -132,9 +134,16 @@ export function PoliticalPage() {
                     <TableRow key={row.key} className={cn(row.done && "opacity-60")}>
                       <TableCell>{(query.page - 1) * data.page_size + index + 1}</TableCell>
                       <TableCell className="whitespace-normal">
-                        <a className="font-medium underline" href={row.url}>
-                          {row.name}
-                        </a>
+                        {row.unnamed ? (
+                          // A figurant the text does not name: their sentences on the legacy «Безымянные».
+                          <a className="font-medium underline" href={row.url}>
+                            {row.name}
+                          </a>
+                        ) : (
+                          <Link className="font-medium underline" to={dossierPath(row.key)}>
+                            {row.name}
+                          </Link>
+                        )}
                         <div className="mt-1 flex flex-wrap gap-1">
                           {row.rf_label ? <Badge variant="outline">{row.rf_label}</Badge> : null}
                           {row.unnamed ? <Badge variant="outline">без имени</Badge> : null}

@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { listPublicationsV1 } from "@/api/generated";
 import { PublicationsPage } from "@/pages/PublicationsPage";
+import { dossierPath } from "@/lib/navigation";
 import { failed, ok, renderPage } from "@/test/render";
 
 vi.mock("@/api/generated", () => ({ listPublicationsV1: vi.fn() }));
@@ -38,7 +39,7 @@ it("shows each publication with its people and events", async () => {
   renderPage(<PublicationsPage />);
 
   expect((await screen.findByRole("link", { name: "Приговор Моору" })).getAttribute("href")).toBe("/articles/77");
-  expect(screen.getByRole("link", { name: "Моор Александр" }).getAttribute("href")).toBe("/ui/investigations/x");
+  expect(screen.getByRole("link", { name: "Моор Александр" }).getAttribute("href")).toBe(dossierPath("александр моор"));
   expect(screen.getByText("и ещё 3")).toBeTruthy();
   expect(screen.getByText("Приговор")).toBeTruthy();
   expect(screen.getByText("Арест: 2")).toBeTruthy();

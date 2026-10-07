@@ -40,7 +40,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from entities.evidence import person_evidence_cte
-from web.ui.entities import _EVENT_LABELS, display_name
+from web.ui.entities import EVENT_LABELS, display_name
 
 INITIAL_EVENTS = 20
 PERSON_EVENTS = 20
@@ -297,7 +297,7 @@ def _event_node(graph: Graph, event: _Event) -> str:
     return graph.node(
         f"{EVENT}:{root.id}",
         EVENT,
-        _EVENT_LABELS.get(root.event_type, root.event_type),
+        EVENT_LABELS.get(root.event_type, root.event_type),
         event_type=root.event_type,
         date=event.day.isoformat() if event.day else None,
         dated=any(report.row.event_date is not None for report in event.reports),

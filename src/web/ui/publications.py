@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from entities.evidence import person_evidence_cte
 from web.dependencies import get_db
-from web.ui.entities import _EVENT_LABELS, display_name
+from web.ui.entities import EVENT_LABELS, display_name
 from web.ui.layout import _page, pager
 
 router = APIRouter()
@@ -142,7 +142,7 @@ def ui_publications(
     def events_of(article_id: int) -> str:
         return (
             " ".join(
-                f'<span class="badge">{escape(_EVENT_LABELS.get(kind, kind))}'
+                f'<span class="badge">{escape(EVENT_LABELS.get(kind, kind))}'
                 f"{f': {count}' if count > 1 else ''}</span>"
                 for kind, count in sorted(events.get(article_id, []))
             )

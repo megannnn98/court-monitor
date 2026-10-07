@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { listEntitiesV1 } from "@/api/generated";
 import { EntitiesPage } from "@/pages/EntitiesPage";
+import { dossierPath } from "@/lib/navigation";
 import { failed, ok, renderPage } from "@/test/render";
 
 vi.mock("@/api/generated", () => ({ listEntitiesV1: vi.fn() }));
@@ -66,7 +67,7 @@ it("shows the people with their marks, articles and events", async () => {
 
   renderPage(<EntitiesPage />);
 
-  expect((await screen.findByRole("link", { name: "Моор Александр" })).getAttribute("href")).toBe("/ui/investigations/%D0%B0");
+  expect((await screen.findByRole("link", { name: "Моор Александр" })).getAttribute("href")).toBe(dossierPath("александр моор"));
   for (const mark of ["ИИ", "в перечне", "фигурант дела", "политическое", "Арест: 2", "Моора, Моору"]) {
     expect(screen.getByText(mark)).toBeTruthy();
   }

@@ -50,7 +50,7 @@ router = APIRouter()
 PAGE_SIZE = 100
 RELATED_LIMIT = 30
 QUOTE_CONTEXT = 160
-_EVENT_LABELS = {
+EVENT_LABELS = {
     "case_opened": "Возбуждение дела",
     "charge": "Обвинение",
     "arrest": "Арест",
@@ -93,7 +93,7 @@ def _surname_key(entity: EntityGroupRecord) -> tuple[str, str]:
 
 def _events(event_types: dict[str, int]) -> str:
     return " ".join(
-        badge(f"{_EVENT_LABELS.get(kind, kind)}: {count}")
+        badge(f"{EVENT_LABELS.get(kind, kind)}: {count}")
         for kind, count in sorted(event_types.items(), key=lambda item: -item[1])
     )
 
@@ -107,7 +107,7 @@ def _source_mark(name_source: str) -> str:
     return ""
 
 
-_NAME_SOURCES = {"model": "дала модель", MANUAL: "исправлено вручную"}
+NAME_SOURCES = {"model": "дала модель", MANUAL: "исправлено вручную"}
 
 
 def article_order(article: str) -> tuple[int, ...]:
@@ -217,7 +217,7 @@ def _role_mark(found: tuple[str, str | None] | None) -> str:
     return f' <span class="badge {badge}">{escape(role_label(role, kind))}</span>'
 
 
-_ROLE_METHODS = {
+ROLE_METHODS = {
     "article": "статья УК в событии",
     "model": "ответ модели по цитатам",
     "official": "должностное лицо",
@@ -317,14 +317,14 @@ def _last_collect(registry: OperationRegistry) -> OperationRun | None:
     )
 
 
-_ROLE_FILTERS = {
+ROLE_FILTERS = {
     "figurant": "Фигуранты дел",
     "all": "Все роли",
     POSSIBLE: "Задержан, обыск, административное",
     MENTIONED: "Только упомянуты",
     UNCLEAR: "Роль неясна",
 }
-_VERDICT_FILTERS = {
+VERDICT_FILTERS = {
     "all": "Любой вердикт",
     POLITICAL: "Политические",
     CRIMINAL: "Обычные уголовные",
@@ -598,8 +598,8 @@ def ui_entities(
   <label class="field">Статья УК <input type="search" name="article" value="{
         escape(article, quote=True)
     }" placeholder="напр. 207.3" size="10"></label>
-  {_select("role", "Роль", _ROLE_FILTERS, role)}
-  {_select("verdict", "Вердикт", _VERDICT_FILTERS, verdict)}
+  {_select("role", "Роль", ROLE_FILTERS, role)}
+  {_select("verdict", "Вердикт", VERDICT_FILTERS, verdict)}
   {region_filter}
   <button type="submit">Найти</button>
   <div class="filter-row">

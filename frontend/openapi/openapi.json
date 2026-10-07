@@ -1310,6 +1310,88 @@
           }
         }
       }
+    },
+    "/api/v1/investigations": {
+      "get": {
+        "summary": "Search Investigations",
+        "description": "By any form of the name, the most mentioned first; with no name, the latest\npolitical cases. Fifty at most, as on the legacy page.",
+        "operationId": "search_investigations_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationSearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investigations/{key}": {
+      "get": {
+        "summary": "Get Dossier",
+        "description": "The dossier of one person, as the legacy page reads it.",
+        "operationId": "get_dossier_v1",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1629,6 +1711,42 @@
         "title": "CandidateResponse",
         "description": "Candidate response model."
       },
+      "ChargeResponse": {
+        "properties": {
+          "article": {
+            "type": "string",
+            "title": "Article"
+          },
+          "parts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parts"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared"
+          },
+          "political": {
+            "type": "boolean",
+            "title": "Political"
+          },
+          "publications": {
+            "type": "integer",
+            "title": "Publications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "parts",
+          "shared",
+          "political",
+          "publications"
+        ],
+        "title": "ChargeResponse"
+      },
       "ComponentHealth": {
         "properties": {
           "status": {
@@ -1661,6 +1779,427 @@
           "not_configured"
         ],
         "title": "ComponentStatus"
+      },
+      "DossierKnownResponse": {
+        "properties": {
+          "loaded": {
+            "type": "boolean",
+            "title": "Loaded"
+          },
+          "not_in_base": {
+            "type": "boolean",
+            "title": "Not In Base"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names"
+          },
+          "more": {
+            "type": "integer",
+            "title": "More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loaded",
+          "not_in_base",
+          "label",
+          "names",
+          "more"
+        ],
+        "title": "DossierKnownResponse",
+        "description": "What the operator's base says, by the name alone; `loaded` False: no base to ask."
+      },
+      "DossierNewsResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label",
+          "reason"
+        ],
+        "title": "DossierNewsResponse"
+      },
+      "DossierResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "role_method_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Method Label"
+          },
+          "role_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Reason"
+          },
+          "role_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Quote"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "verdict_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Label"
+          },
+          "verdict_method_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Method Label"
+          },
+          "verdict_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Reason"
+          },
+          "verdict_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Quote"
+          },
+          "verdict_source_article_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Source Article Id"
+          },
+          "rf_label": {
+            "type": "string",
+            "title": "Rf Label"
+          },
+          "rf_maybe": {
+            "type": "boolean",
+            "title": "Rf Maybe"
+          },
+          "rf_entries": {
+            "items": {
+              "$ref": "#/components/schemas/RfEntryResponse"
+            },
+            "type": "array",
+            "title": "Rf Entries"
+          },
+          "rf_expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Expected"
+          },
+          "snapshot_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Date"
+          },
+          "inclusion_attribution": {
+            "type": "string",
+            "title": "Inclusion Attribution"
+          },
+          "disputes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Disputes"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/NameFormResponse"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regions"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "mention_count": {
+            "type": "integer",
+            "title": "Mention Count"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCountResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "name_source_label": {
+            "type": "string",
+            "title": "Name Source Label"
+          },
+          "gender_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender Label"
+          },
+          "news": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DossierNewsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "known": {
+            "$ref": "#/components/schemas/DossierKnownResponse"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "charges": {
+            "items": {
+              "$ref": "#/components/schemas/ChargeResponse"
+            },
+            "type": "array",
+            "title": "Charges"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineItemResponse"
+            },
+            "type": "array",
+            "title": "Timeline"
+          },
+          "timeline_capped": {
+            "type": "boolean",
+            "title": "Timeline Capped"
+          },
+          "timeline_limit": {
+            "type": "integer",
+            "title": "Timeline Limit"
+          },
+          "publications": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceResponse"
+            },
+            "type": "array",
+            "title": "Publications"
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedPersonResponse"
+            },
+            "type": "array",
+            "title": "Related"
+          },
+          "graph_url": {
+            "type": "string",
+            "title": "Graph Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "role",
+          "role_label",
+          "role_method_label",
+          "role_reason",
+          "role_quote",
+          "verdict",
+          "verdict_label",
+          "verdict_method_label",
+          "verdict_reason",
+          "verdict_quote",
+          "verdict_source_article_id",
+          "rf_label",
+          "rf_maybe",
+          "rf_entries",
+          "rf_expected",
+          "snapshot_date",
+          "inclusion_attribution",
+          "disputes",
+          "variants",
+          "regions",
+          "article_count",
+          "mention_count",
+          "first_published_at",
+          "last_published_at",
+          "events",
+          "name_source_label",
+          "gender_label",
+          "news",
+          "known",
+          "warnings",
+          "charges",
+          "timeline",
+          "timeline_capped",
+          "timeline_limit",
+          "publications",
+          "related",
+          "graph_url"
+        ],
+        "title": "DossierResponse",
+        "description": "The legacy dossier: who, the system's decisions with their reasons and quotes, the\nlist, the charges, the timeline and the publications behind each conclusion."
       },
       "EntityArticleResponse": {
         "properties": {
@@ -1942,6 +2481,108 @@
         ],
         "title": "EventCountResponse"
       },
+      "EvidenceResponse": {
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "text_start": {
+            "type": "integer",
+            "title": "Text Start"
+          },
+          "text_end": {
+            "type": "integer",
+            "title": "Text End"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "identification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identification"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "articles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/PersonLinkResponse"
+            },
+            "type": "array",
+            "title": "Others"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "title",
+          "source",
+          "published_at",
+          "quote",
+          "start",
+          "end",
+          "text_start",
+          "text_end",
+          "url",
+          "identification",
+          "events",
+          "articles",
+          "others"
+        ],
+        "title": "EvidenceResponse"
+      },
       "EvidenceSpanResponse": {
         "properties": {
           "article_id": {
@@ -2005,6 +2646,76 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "InvestigationFoundResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "role_label",
+          "article_count",
+          "last_published_at"
+        ],
+        "title": "InvestigationFoundResponse"
+      },
+      "InvestigationSearchResponse": {
+        "properties": {
+          "heading": {
+            "type": "string",
+            "title": "Heading"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InvestigationFoundResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "heading",
+          "items"
+        ],
+        "title": "InvestigationSearchResponse",
+        "description": "«Найти человека»: by any form of the name, or the latest political cases."
       },
       "KnownResponse": {
         "properties": {
@@ -2598,6 +3309,24 @@
         ],
         "title": "MonitoringTrigger"
       },
+      "NameFormResponse": {
+        "properties": {
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "form",
+          "count"
+        ],
+        "title": "NameFormResponse"
+      },
       "OperationRunResponse": {
         "properties": {
           "id": {
@@ -2744,6 +3473,24 @@
         ],
         "title": "OptionResponse",
         "description": "One choice of a filter: its value, the console's words and, where the list counts\nit, how many rows it would show."
+      },
+      "OrgResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role_label": {
+            "type": "string",
+            "title": "Role Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "role_label"
+        ],
+        "title": "OrgResponse"
       },
       "PersecutionClassificationResponse": {
         "properties": {
@@ -3526,6 +4273,68 @@
         "title": "QueueResponse",
         "description": "What waits for the operator, by queue; `total` is the menu's «Работа» count."
       },
+      "QuoteResponse": {
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "text_start": {
+            "type": "integer",
+            "title": "Text Start"
+          },
+          "text_end": {
+            "type": "integer",
+            "title": "Text End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "title",
+          "source",
+          "published_at",
+          "quote",
+          "start",
+          "end",
+          "text_start",
+          "text_end"
+        ],
+        "title": "QuoteResponse",
+        "description": "An excerpt with the mention or the event's trigger at [start, end); the article\ntext offsets open the full text with the same mark."
+      },
       "ReadinessReport": {
         "properties": {
           "status": {
@@ -3553,6 +4362,29 @@
           "unavailable"
         ],
         "title": "ReadinessStatus"
+      },
+      "RelatedPersonResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "shared": {
+            "type": "integer",
+            "title": "Shared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "shared"
+        ],
+        "title": "RelatedPersonResponse"
       },
       "ResolutionReviewAction": {
         "type": "string",
@@ -4007,6 +4839,29 @@
         ],
         "title": "ReviewSource"
       },
+      "RfEntryResponse": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "level_label": {
+            "type": "string",
+            "title": "Level Label"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "level_label",
+          "text"
+        ],
+        "title": "RfEntryResponse"
+      },
       "RosfinmonitoringEntryResponse": {
         "properties": {
           "id": {
@@ -4249,6 +5104,83 @@
         ],
         "title": "StatusResponse",
         "description": "The legacy status strip and menu counters: the same numbers on every page."
+      },
+      "TimelineItemResponse": {
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "dated": {
+            "type": "boolean",
+            "title": "Dated"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "extractor_label": {
+            "type": "string",
+            "title": "Extractor Label"
+          },
+          "articles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "orgs": {
+            "items": {
+              "$ref": "#/components/schemas/OrgResponse"
+            },
+            "type": "array",
+            "title": "Orgs"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteResponse"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_type",
+          "label",
+          "day",
+          "dated",
+          "confidence",
+          "extractor_label",
+          "articles",
+          "orgs",
+          "sources"
+        ],
+        "title": "TimelineItemResponse"
       },
       "ValidationError": {
         "properties": {

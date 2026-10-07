@@ -225,6 +225,32 @@ export type CandidateResponse = {
 };
 
 /**
+ * ChargeResponse
+ */
+export type ChargeResponse = {
+    /**
+     * Article
+     */
+    article: string;
+    /**
+     * Parts
+     */
+    parts: Array<string>;
+    /**
+     * Shared
+     */
+    shared: boolean;
+    /**
+     * Political
+     */
+    political: boolean;
+    /**
+     * Publications
+     */
+    publications: number;
+};
+
+/**
  * ComponentHealth
  */
 export type ComponentHealth = {
@@ -239,6 +265,211 @@ export type ComponentHealth = {
  * ComponentStatus
  */
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
+
+/**
+ * DossierKnownResponse
+ *
+ * What the operator's base says, by the name alone; `loaded` False: no base to ask.
+ */
+export type DossierKnownResponse = {
+    /**
+     * Loaded
+     */
+    loaded: boolean;
+    /**
+     * Not In Base
+     */
+    not_in_base: boolean;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * Names
+     */
+    names: Array<string>;
+    /**
+     * More
+     */
+    more: number;
+};
+
+/**
+ * DossierNewsResponse
+ */
+export type DossierNewsResponse = {
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * DossierResponse
+ *
+ * The legacy dossier: who, the system's decisions with their reasons and quotes, the
+ * list, the charges, the timeline and the publications behind each conclusion.
+ */
+export type DossierResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Role
+     */
+    role: string | null;
+    /**
+     * Role Label
+     */
+    role_label: string | null;
+    /**
+     * Role Method Label
+     */
+    role_method_label: string | null;
+    /**
+     * Role Reason
+     */
+    role_reason: string | null;
+    /**
+     * Role Quote
+     */
+    role_quote: string | null;
+    /**
+     * Verdict
+     */
+    verdict: string | null;
+    /**
+     * Verdict Label
+     */
+    verdict_label: string | null;
+    /**
+     * Verdict Method Label
+     */
+    verdict_method_label: string | null;
+    /**
+     * Verdict Reason
+     */
+    verdict_reason: string | null;
+    /**
+     * Verdict Quote
+     */
+    verdict_quote: string | null;
+    /**
+     * Verdict Source Article Id
+     */
+    verdict_source_article_id: number | null;
+    /**
+     * Rf Label
+     */
+    rf_label: string;
+    /**
+     * Rf Maybe
+     */
+    rf_maybe: boolean;
+    /**
+     * Rf Entries
+     */
+    rf_entries: Array<RfEntryResponse>;
+    /**
+     * Rf Expected
+     */
+    rf_expected: string | null;
+    /**
+     * Snapshot Date
+     */
+    snapshot_date: string | null;
+    /**
+     * Inclusion Attribution
+     */
+    inclusion_attribution: string;
+    /**
+     * Disputes
+     */
+    disputes: Array<string>;
+    /**
+     * Variants
+     */
+    variants: Array<NameFormResponse>;
+    /**
+     * Regions
+     */
+    regions: Array<string>;
+    /**
+     * Article Count
+     */
+    article_count: number;
+    /**
+     * Mention Count
+     */
+    mention_count: number;
+    /**
+     * First Published At
+     */
+    first_published_at: string | null;
+    /**
+     * Last Published At
+     */
+    last_published_at: string | null;
+    /**
+     * Events
+     */
+    events: Array<EventCountResponse>;
+    /**
+     * Name Source Label
+     */
+    name_source_label: string;
+    /**
+     * Gender Label
+     */
+    gender_label: string | null;
+    news: DossierNewsResponse | null;
+    known: DossierKnownResponse;
+    /**
+     * Warnings
+     */
+    warnings: Array<string>;
+    /**
+     * Charges
+     */
+    charges: Array<ChargeResponse>;
+    /**
+     * Timeline
+     */
+    timeline: Array<TimelineItemResponse>;
+    /**
+     * Timeline Capped
+     */
+    timeline_capped: boolean;
+    /**
+     * Timeline Limit
+     */
+    timeline_limit: number;
+    /**
+     * Publications
+     */
+    publications: Array<EvidenceResponse>;
+    /**
+     * Related
+     */
+    related: Array<RelatedPersonResponse>;
+    /**
+     * Graph Url
+     */
+    graph_url: string;
+};
 
 /**
  * EntityArticleResponse
@@ -402,6 +633,68 @@ export type EventCountResponse = {
 };
 
 /**
+ * EvidenceResponse
+ */
+export type EvidenceResponse = {
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Quote
+     */
+    quote: string;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Text Start
+     */
+    text_start: number;
+    /**
+     * Text End
+     */
+    text_end: number;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Identification
+     */
+    identification: string | null;
+    /**
+     * Events
+     */
+    events: Array<string>;
+    /**
+     * Articles
+     */
+    articles: Array<string>;
+    /**
+     * Others
+     */
+    others: Array<PersonLinkResponse>;
+};
+
+/**
  * EvidenceSpanResponse
  */
 export type EvidenceSpanResponse = {
@@ -448,6 +741,48 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * InvestigationFoundResponse
+ */
+export type InvestigationFoundResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Role Label
+     */
+    role_label: string | null;
+    /**
+     * Article Count
+     */
+    article_count: number;
+    /**
+     * Last Published At
+     */
+    last_published_at: string | null;
+};
+
+/**
+ * InvestigationSearchResponse
+ *
+ * «Найти человека»: by any form of the name, or the latest political cases.
+ */
+export type InvestigationSearchResponse = {
+    /**
+     * Heading
+     */
+    heading: string;
+    /**
+     * Items
+     */
+    items: Array<InvestigationFoundResponse>;
 };
 
 /**
@@ -795,6 +1130,20 @@ export type MonitoringStatusView = {
 export type MonitoringTrigger = 'schedule' | 'manual' | 'backfill' | 'derived';
 
 /**
+ * NameFormResponse
+ */
+export type NameFormResponse = {
+    /**
+     * Form
+     */
+    form: string;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * OperationRunResponse
  */
 export type OperationRunResponse = {
@@ -877,6 +1226,20 @@ export type OptionResponse = {
      * Count
      */
     count?: number | null;
+};
+
+/**
+ * OrgResponse
+ */
+export type OrgResponse = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Role Label
+     */
+    role_label: string;
 };
 
 /**
@@ -1352,6 +1715,51 @@ export type QueueResponse = {
 };
 
 /**
+ * QuoteResponse
+ *
+ * An excerpt with the mention or the event's trigger at [start, end); the article
+ * text offsets open the full text with the same mark.
+ */
+export type QuoteResponse = {
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Quote
+     */
+    quote: string;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Text Start
+     */
+    text_start: number;
+    /**
+     * Text End
+     */
+    text_end: number;
+};
+
+/**
  * ReadinessReport
  */
 export type ReadinessReport = {
@@ -1368,6 +1776,24 @@ export type ReadinessReport = {
  * ReadinessStatus
  */
 export type ReadinessStatus = 'ready' | 'degraded' | 'unavailable';
+
+/**
+ * RelatedPersonResponse
+ */
+export type RelatedPersonResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Shared
+     */
+    shared: number;
+};
 
 /**
  * ResolutionReviewAction
@@ -1609,6 +2035,24 @@ export type ReviewSource = {
 };
 
 /**
+ * RfEntryResponse
+ */
+export type RfEntryResponse = {
+    /**
+     * Level
+     */
+    level: string;
+    /**
+     * Level Label
+     */
+    level_label: string;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * RosfinmonitoringEntryResponse
  *
  * Rosfinmonitoring entry response model.
@@ -1752,6 +2196,48 @@ export type StatusResponse = {
      * Next Action
      */
     next_action: string;
+};
+
+/**
+ * TimelineItemResponse
+ */
+export type TimelineItemResponse = {
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Day
+     */
+    day: string | null;
+    /**
+     * Dated
+     */
+    dated: boolean;
+    /**
+     * Confidence
+     */
+    confidence: number | null;
+    /**
+     * Extractor Label
+     */
+    extractor_label: string;
+    /**
+     * Articles
+     */
+    articles: Array<string>;
+    /**
+     * Orgs
+     */
+    orgs: Array<OrgResponse>;
+    /**
+     * Sources
+     */
+    sources: Array<QuoteResponse>;
 };
 
 /**
@@ -2619,3 +3105,63 @@ export type ListPoliticalV1Responses = {
 };
 
 export type ListPoliticalV1Response = ListPoliticalV1Responses[keyof ListPoliticalV1Responses];
+
+export type SearchInvestigationsV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+    };
+    url: '/api/v1/investigations';
+};
+
+export type SearchInvestigationsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SearchInvestigationsV1Error = SearchInvestigationsV1Errors[keyof SearchInvestigationsV1Errors];
+
+export type SearchInvestigationsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: InvestigationSearchResponse;
+};
+
+export type SearchInvestigationsV1Response = SearchInvestigationsV1Responses[keyof SearchInvestigationsV1Responses];
+
+export type GetDossierV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/v1/investigations/{key}';
+};
+
+export type GetDossierV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDossierV1Error = GetDossierV1Errors[keyof GetDossierV1Errors];
+
+export type GetDossierV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: DossierResponse;
+};
+
+export type GetDossierV1Response = GetDossierV1Responses[keyof GetDossierV1Responses];
