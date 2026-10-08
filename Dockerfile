@@ -1,4 +1,14 @@
 # Application image: API (uvicorn), Dagster webserver/daemon/run workers, migrations.
+
+# The React console (`frontend/`), built once and served by the API (`web.spa`). The
+# generated API client is committed, so the build needs no Python.
+FROM node:24-bookworm-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
 FROM python:3.13-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /usr/local/bin/uv
@@ -47,6 +57,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY src ./src
+COPY --from=frontend /frontend/dist ./frontend/dist
+ENV FRONTEND_DIST=/app/frontend/dist
 COPY migrations ./migrations
 COPY docs/wiki ./docs/wiki
 COPY alembic.ini ./
