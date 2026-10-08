@@ -598,3 +598,70 @@ def test_whom_the_search_set_aside_is_listed_and_taken_back_by_a_press(
     assert f'id="u-{"s" * 64}"' in after and "Отсеяно автоматически" not in after
     assert "Не разобраны (2)" in after
     assert twice.status_code == 400
+
+
+def test_the_api_reads_the_cards_and_takes_the_words_the_page_does(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """`/api/v1/unnamed` for the React page: the same cards, counts and words."""
+    _seed(session_factory)
+    figurant = "k" * 64
+    word = {
+        "figurant": figurant,
+        "resolution": "rf_entry",
+        "normalized_name": "Пуртов Егор Владимирович",
+        "rf_name": "пуртов егор владимирович",
+        "rf_birth_date": "2007-02-17",
+    }
+
+    with _client(session_factory) as client:
+        opened = client.get("/api/v1/unnamed").json()
+        searched = client.get("/api/v1/unnamed", params={"rf_q": "пуртов"}).json()
+        rejected = client.post(
+            "/api/v1/unnamed/reject",
+            json={"figurant": figurant, "candidate": "пуртов егор владимирович|2007-02-17"},
+        )
+        after_reject = client.get("/api/v1/unnamed").json()
+        client.post(
+            "/api/v1/unnamed/reject",
+            json={
+                "figurant": figurant,
+                "candidate": "пуртов егор владимирович|2007-02-17",
+                "undo": True,
+            },
+        )
+        resolved = client.post("/api/v1/unnamed/resolve", json=word)
+        found = client.get("/api/v1/unnamed", params={"status": "found"}).json()
+        legacy = client.get("/ui/unnamed", params={"status": "found"}).text
+        incomplete = client.post(
+            "/api/v1/unnamed/resolve", json={"figurant": figurant, "resolution": "rf_entry"}
+        )
+        foreign = client.post(
+            "/api/v1/unnamed/clear",
+            json={"figurant": figurant},
+            headers={"Origin": "https://evil.example"},
+        )
+        cleared = client.post("/api/v1/unnamed/clear", json={"figurant": figurant})
+        back = client.get("/api/v1/unnamed").json()
+
+    counts = {option["value"]: option["count"] for option in opened["statuses"]}
+    assert counts["open"] == 1 and counts["found"] == 0 and counts["all"] == 1
+    card = opened["items"][0]
+    assert card["facts"] == "17 лет · мужчина · Тюмень · задержание · ст. 205"
+    assert card["quote"] == QUOTE and card["resolution"] == "" and card["has_age"] is True
+    candidate = card["rf_candidates"][0]
+    assert candidate["full_name"] == "ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ"
+    assert candidate["display_name"] == "Пуртов Егор Владимирович"
+    assert candidate["rf_name"] == "пуртов егор владимирович" and candidate["decision"] is None
+    assert searched["rf_entries"][0]["key"] == "пуртов егор владимирович|2007-02-17"
+    assert rejected.status_code == 200
+    assert after_reject["items"][0]["rf_candidates"][0]["decision"] == "different"
+    assert resolved.json() == {"figurant": figurant}
+    assert found["items"][0]["identified_as"] == "Пуртов Егор Владимирович"
+    assert found["items"][0]["note"].startswith(
+        "Опознан оператором: запись РФМ пуртов егор владимирович, 17.02.2007"
+    )
+    assert "опознан: Пуртов Егор Владимирович" in legacy
+    assert incomplete.status_code == 400 and incomplete.json()["detail"] == "Неполное решение"
+    assert foreign.status_code == 403
+    assert cleared.status_code == 200 and back["items"][0]["resolution"] == ""

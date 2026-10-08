@@ -336,6 +336,24 @@ export type ComponentHealth = {
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
 
 /**
+ * CourtHintResponse
+ */
+export type CourtHintResponse = {
+    /**
+     * Court
+     */
+    court: string;
+    /**
+     * Cases
+     */
+    cases: number;
+    /**
+     * Site
+     */
+    site: string | null;
+};
+
+/**
  * CycleResponse
  *
  * «Работа»: the one review to do first, the other queues, and the automatic steps
@@ -1683,6 +1701,20 @@ export type PersonAliasResponse = {
 };
 
 /**
+ * PersonChoiceResponse
+ */
+export type PersonChoiceResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * PersonDetailResponse
  */
 export type PersonDetailResponse = {
@@ -2801,6 +2833,398 @@ export type TimelineItemResponse = {
      * Sources
      */
     sources: Array<QuoteResponse>;
+};
+
+/**
+ * UnnamedActionRequest
+ *
+ * A word on an unnamed figurant; the fields the action needs, as the legacy form
+ * sends them.
+ */
+export type UnnamedActionRequest = {
+    /**
+     * Figurant
+     */
+    figurant: string;
+    /**
+     * Candidate
+     */
+    candidate?: string;
+    /**
+     * Undo
+     */
+    undo?: boolean;
+    /**
+     * Resolution
+     */
+    resolution?: string;
+    /**
+     * Normalized Name
+     */
+    normalized_name?: string;
+    /**
+     * Existing Person Key
+     */
+    existing_person_key?: string;
+    /**
+     * Rf Name
+     */
+    rf_name?: string;
+    /**
+     * Rf Birth Date
+     */
+    rf_birth_date?: string;
+};
+
+/**
+ * UnnamedActionResponse
+ */
+export type UnnamedActionResponse = {
+    /**
+     * Figurant
+     */
+    figurant: string;
+};
+
+/**
+ * UnnamedBaseCandidateResponse
+ *
+ * A person of the operator's base who may be the unnamed figurant.
+ */
+export type UnnamedBaseCandidateResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Birth Date
+     */
+    birth_date: string;
+    /**
+     * Place
+     */
+    place: string;
+    /**
+     * Articles
+     */
+    articles: string;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Decision
+     */
+    decision: string | null;
+};
+
+/**
+ * UnnamedCardResponse
+ *
+ * One unnamed figurant: the sentence, what it tells, the operator's word and the
+ * candidates from the list, other publications and the base.
+ */
+export type UnnamedCardResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Start Offset
+     */
+    start_offset: number;
+    /**
+     * End Offset
+     */
+    end_offset: number;
+    /**
+     * Quote
+     */
+    quote: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Facts
+     */
+    facts: string;
+    /**
+     * Explanation
+     */
+    explanation: string;
+    /**
+     * Has Age
+     */
+    has_age: boolean;
+    /**
+     * Resolution
+     */
+    resolution: string;
+    /**
+     * Identified As
+     */
+    identified_as: string | null;
+    /**
+     * Note
+     */
+    note: string | null;
+    /**
+     * Rf Candidates
+     */
+    rf_candidates: Array<UnnamedRfCandidateResponse>;
+    /**
+     * Rf Total
+     */
+    rf_total: number;
+    /**
+     * Rf Snapshot Date
+     */
+    rf_snapshot_date: string | null;
+    /**
+     * Named Candidates
+     */
+    named_candidates: Array<UnnamedNamedCandidateResponse>;
+    /**
+     * Base Candidates
+     */
+    base_candidates: Array<UnnamedBaseCandidateResponse>;
+    /**
+     * Base Total
+     */
+    base_total: number;
+    /**
+     * Courts
+     */
+    courts: Array<CourtHintResponse>;
+    /**
+     * Courts Total
+     */
+    courts_total: number;
+};
+
+/**
+ * UnnamedListResponse
+ *
+ * «Безымянные»: one tab of cards, the tabs' counts, and the searches' answers.
+ */
+export type UnnamedListResponse = {
+    /**
+     * Statuses
+     */
+    statuses: Array<OptionResponse>;
+    /**
+     * Items
+     */
+    items: Array<UnnamedCardResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * None Yet
+     */
+    none_yet: boolean;
+    /**
+     * People
+     */
+    people: Array<PersonChoiceResponse>;
+    /**
+     * Rf Entries
+     */
+    rf_entries: Array<UnnamedRfEntryResponse>;
+    /**
+     * Reverse
+     */
+    reverse: Array<UnnamedReverseResponse>;
+    /**
+     * Screened
+     */
+    screened: Array<UnnamedScreenedResponse>;
+};
+
+/**
+ * UnnamedNamedCandidateResponse
+ *
+ * A named figurant of another publication who may be the unnamed one.
+ */
+export type UnnamedNamedCandidateResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Candidate Key
+     */
+    candidate_key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Decision
+     */
+    decision: string | null;
+};
+
+/**
+ * UnnamedReverseResponse
+ */
+export type UnnamedReverseResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Quote
+     */
+    quote: string;
+    /**
+     * Facts
+     */
+    facts: string;
+};
+
+/**
+ * UnnamedRfCandidateResponse
+ *
+ * An entry of the list that may be the unnamed figurant.
+ */
+export type UnnamedRfCandidateResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Rf Name
+     */
+    rf_name: string;
+    /**
+     * Birth Date
+     */
+    birth_date: string;
+    /**
+     * Birth Place
+     */
+    birth_place: string;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Seen
+     */
+    seen: string;
+    /**
+     * Decision
+     */
+    decision: string | null;
+};
+
+/**
+ * UnnamedRfEntryResponse
+ */
+export type UnnamedRfEntryResponse = {
+    /**
+     * Key
+     */
+    key: string | null;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Birth Date
+     */
+    birth_date: string | null;
+};
+
+/**
+ * UnnamedScreenedResponse
+ *
+ * Whom the search set aside on its own.
+ */
+export type UnnamedScreenedResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Start Offset
+     */
+    start_offset: number;
+    /**
+     * End Offset
+     */
+    end_offset: number;
+    /**
+     * Quote
+     */
+    quote: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Facts
+     */
+    facts: string;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Explanation
+     */
+    explanation: string;
 };
 
 /**
@@ -4083,3 +4507,149 @@ export type CandidateTableV1Responses = {
 };
 
 export type CandidateTableV1Response = CandidateTableV1Responses[keyof CandidateTableV1Responses];
+
+export type ListUnnamedV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Status
+         */
+        status?: string;
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Person Q
+         */
+        person_q?: string;
+        /**
+         * Rf Q
+         */
+        rf_q?: string;
+        /**
+         * Rf Key
+         */
+        rf_key?: string;
+    };
+    url: '/api/v1/unnamed';
+};
+
+export type ListUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListUnnamedV1Error = ListUnnamedV1Errors[keyof ListUnnamedV1Errors];
+
+export type ListUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: UnnamedListResponse;
+};
+
+export type ListUnnamedV1Response = ListUnnamedV1Responses[keyof ListUnnamedV1Responses];
+
+export type KeepUnnamedV1Data = {
+    body: UnnamedActionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/unnamed/keep';
+};
+
+export type KeepUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type KeepUnnamedV1Error = KeepUnnamedV1Errors[keyof KeepUnnamedV1Errors];
+
+export type KeepUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: UnnamedActionResponse;
+};
+
+export type KeepUnnamedV1Response = KeepUnnamedV1Responses[keyof KeepUnnamedV1Responses];
+
+export type RejectUnnamedV1Data = {
+    body: UnnamedActionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/unnamed/reject';
+};
+
+export type RejectUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RejectUnnamedV1Error = RejectUnnamedV1Errors[keyof RejectUnnamedV1Errors];
+
+export type RejectUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: UnnamedActionResponse;
+};
+
+export type RejectUnnamedV1Response = RejectUnnamedV1Responses[keyof RejectUnnamedV1Responses];
+
+export type ResolveUnnamedV1Data = {
+    body: UnnamedActionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/unnamed/resolve';
+};
+
+export type ResolveUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResolveUnnamedV1Error = ResolveUnnamedV1Errors[keyof ResolveUnnamedV1Errors];
+
+export type ResolveUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: UnnamedActionResponse;
+};
+
+export type ResolveUnnamedV1Response = ResolveUnnamedV1Responses[keyof ResolveUnnamedV1Responses];
+
+export type ClearUnnamedV1Data = {
+    body: UnnamedActionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/unnamed/clear';
+};
+
+export type ClearUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ClearUnnamedV1Error = ClearUnnamedV1Errors[keyof ClearUnnamedV1Errors];
+
+export type ClearUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: UnnamedActionResponse;
+};
+
+export type ClearUnnamedV1Response = ClearUnnamedV1Responses[keyof ClearUnnamedV1Responses];

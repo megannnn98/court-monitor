@@ -38,6 +38,7 @@ MOVED = {
     "/ui/candidates": "/candidates",
     "/ui/logs": "/logs",
     "/ui/about": "/about",
+    "/ui/unnamed": "/unnamed",
 }
 # A person's dossier: /ui/investigations/<key> → /investigations/<key>.
 DOSSIER = "/ui/investigations/"

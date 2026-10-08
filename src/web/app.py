@@ -38,6 +38,7 @@ from web.routers import (
     rosfinmonitoring,
     sentences,
     status,
+    unnamed,
 )
 from web.spa import react_console
 from web.ui import about as ui_about
@@ -172,5 +173,6 @@ for module in (
     review,
     cycle,
     candidate_table,
+    unnamed,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

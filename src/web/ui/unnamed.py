@@ -8,8 +8,10 @@ person's word: «Это он», «Не он», «Никого нет в пере
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from html import escape
+from typing import Any
 from urllib.parse import parse_qs, quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -88,13 +90,13 @@ _WORDS = text(
 )
 
 
-def _rf_key(entry: RosfinmonitoringEntryRecord) -> str | None:
+def rf_entry_key(entry: RosfinmonitoringEntryRecord) -> str | None:
     if entry.birth_date is None:
         return None
     return candidate_key(entry.normalized_name, entry.birth_date.date())
 
 
-def _rf_search(db: Session, query: str) -> list[RosfinmonitoringEntryRecord]:
+def rf_search(db: Session, query: str) -> list[RosfinmonitoringEntryRecord]:
     value = query.strip()
     if not value:
         return []
@@ -121,7 +123,7 @@ def _rf_search(db: Session, query: str) -> list[RosfinmonitoringEntryRecord]:
     )
 
 
-def _reverse_matches(
+def reverse_matches(
     db: Session, figurants: list[UnnamedFigurantRecord], rf_key: str
 ) -> list[UnnamedFigurantRecord]:
     """Unresolved figurants whose existing candidate lookup includes this RF entry."""
@@ -136,35 +138,51 @@ def _day(moment: datetime | None) -> str:
     return moment.astimezone().strftime("%d.%m.%Y") if moment else "—"
 
 
-def _rf_display_name(full_name: str) -> str:
+def rf_display_name(full_name: str) -> str:
     return " ".join(word.strip("*").lower().capitalize() for word in full_name.split())
 
 
-def _facts(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
+def facts_text(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
+    """What the text tells of the figurant, as one line; read by this page and the API."""
     parts = []
     if figurant.age is not None:
         parts.append(f"{figurant.age} лет")
     if figurant.gender:
         parts.append("мужчина" if figurant.gender == "male" else "женщина")
     if figurant.place:
-        parts.append(escape(figurant.place))
+        parts.append(figurant.place)
     if figurant.initial:
-        parts.append(f"фамилия на «{escape(figurant.initial)}»")
-    parts.append(escape(EVENT_LABELS.get(figurant.event_type, figurant.event_type)))
+        parts.append(f"фамилия на «{figurant.initial}»")
+    parts.append(EVENT_LABELS.get(figurant.event_type, figurant.event_type))
     if figurant.articles:
-        parts.append("ст. " + ", ".join(escape(str(article)) for article in figurant.articles))
+        parts.append("ст. " + ", ".join(str(article) for article in figurant.articles))
     return " · ".join(parts)
+
+
+def _facts(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
+    return escape(facts_text(figurant))
+
+
+def screened(db: Session) -> list[UnnamedScreenedRecord]:
+    """Whom the search set aside on its own, latest first."""
+    return list(
+        db.scalars(
+            select(UnnamedScreenedRecord).order_by(
+                UnnamedScreenedRecord.published_at.desc().nulls_last(), UnnamedScreenedRecord.id
+            )
+        ).all()
+    )
+
+
+def screened_reason(reason: str) -> str:
+    return _SCREENED_REASONS.get(reason, reason)
 
 
 def _screened_html(db: Session, back: str) -> str:
     """Whom the search set aside on its own, folded: nothing is lost, and any of them
     goes back to the cards by a press."""
-    screened = db.scalars(
-        select(UnnamedScreenedRecord).order_by(
-            UnnamedScreenedRecord.published_at.desc().nulls_last(), UnnamedScreenedRecord.id
-        )
-    ).all()
-    if not screened:
+    aside = screened(db)
+    if not aside:
         return ""
     rows = "".join(
         f"""<tr><td><a href="/ui/articles/{item.article_id}?start={item.start_offset}&amp;end={
@@ -177,10 +195,10 @@ def _screened_html(db: Session, back: str) -> str:
 <td>{
             _post_form("/ui/unnamed/keep", item.key, "Вернуть на разбор", "secondary", back, {})
         }</td></tr>"""
-        for item in screened
+        for item in aside
     )
     return f"""<details class="band" id="screened">
-<summary>Отсеяно автоматически ({len(screened)})</summary>
+<summary>Отсеяно автоматически ({len(aside)})</summary>
 <p class="muted">Поиск сам убрал этих людей с разбора: дело — обычная уголовщина (по статье или
 по тексту публикации), либо о человеке уже есть карточка по другому предложению той же
 публикации. Если кто-то убран зря, верните его: он останется на разборе и после следующих
@@ -224,6 +242,23 @@ def _reject_form(figurant_key: str, candidate: str, back: str) -> str:
     )
 
 
+def seen_text(item: Any) -> str:
+    """Since when the list holds a candidate, or that it no longer does."""
+    if item.removed:
+        # Said of the row of the operator's table, not of the list: the list no
+        # longer holds this person.
+        return (
+            f"включён {item.added_on:%d.%m.%Y}, позже исключён"
+            if item.added_on
+            else "был в перечне, исключён"
+        ) + " — по таблице оператора"
+    return (
+        f"в перечне с {_day(item.first_seen)} или раньше"
+        if item.first_seen
+        else "дата включения неизвестна"
+    )
+
+
 def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: str) -> str:
     if figurant.age is None:
         return '<p class="muted">Возраст не назван — по перечню не подобрать.</p>'
@@ -255,7 +290,7 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
                 back,
                 {
                     "resolution": RF_ENTRY,
-                    "normalized_name": _rf_display_name(item.full_name),
+                    "normalized_name": rf_display_name(item.full_name),
                     "rf_name": item.key.split("|")[0],
                     "rf_birth_date": item.birth_date.isoformat(),
                 },
@@ -263,20 +298,7 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
             if item.decision != SAME
             else ""
         ) + (_reject_form(figurant.key, item.key, back) if item.decision != DIFFERENT else "")
-        if item.removed:
-            # Said of the row of the operator's table, not of the list: the list no
-            # longer holds this person.
-            seen = (
-                f"включён {item.added_on:%d.%m.%Y}, позже исключён"
-                if item.added_on
-                else "был в перечне, исключён"
-            ) + " — по таблице оператора"
-        else:
-            seen = (
-                f"в перечне с {_day(item.first_seen)} или раньше"
-                if item.first_seen
-                else "дата включения неизвестна"
-            )
+        seen = seen_text(item)
         rows.append(
             f'<tr><th scope="row">{escape(item.full_name)}{verdict}</th>'
             f"<td>{item.birth_date:%d.%m.%Y}</td><td>{escape(item.birth_place)}</td>"
@@ -506,16 +528,30 @@ def _card(
 </article>"""
 
 
-@router.get("/ui/unnamed", response_class=HTMLResponse)
-def ui_unnamed(
-    status: str = Query(default="open", pattern="^(open|no_age|found|no_rf|insufficient|all)$"),
-    page: int = Query(default=1, ge=1),
-    person_q: str = Query(default="", max_length=100),
-    rf_q: str = Query(default="", max_length=100),
-    rf_key: str = Query(default="", max_length=600),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> HTMLResponse:
-    words = {
+Resolution = tuple[str, str | None, str | None, str | None, date | None, datetime | None]
+
+
+@dataclass(frozen=True)
+class Listing:
+    """The figurants of one tab of «Безымянные», with every tab's count."""
+
+    words: dict[str, Resolution]
+    figurants: list[UnnamedFigurantRecord]
+    counts: dict[str, int]
+    chosen: list[UnnamedFigurantRecord]
+
+    def state(self, figurant: UnnamedFigurantRecord) -> str:
+        resolution = self.words.get(figurant.key, ("", None, None, None, None, None))[0]
+        if resolution in IDENTIFIED:
+            return "found"
+        if resolution == INSUFFICIENT:
+            return "insufficient"
+        return "open" if figurant.age is not None else "no_age"
+
+
+def unnamed_listing(db: Session, status: str) -> Listing:
+    """The tab's figurants, latest first; read by the legacy page and `GET /api/v1/unnamed`."""
+    words: dict[str, Resolution] = {
         key: (resolution, normalized_name, existing_key, rf_name, rf_birth_date, decided_at)
         for key, resolution, normalized_name, existing_key, rf_name, rf_birth_date, decided_at in db.execute(
             _WORDS
@@ -528,17 +564,9 @@ def ui_unnamed(
             )
         ).all()
     )
-
-    def state(figurant: UnnamedFigurantRecord) -> str:
-        resolution = words.get(figurant.key, ("", None, None, None, None, None))[0]
-        if resolution in IDENTIFIED:
-            return "found"
-        if resolution == INSUFFICIENT:
-            return "insufficient"
-        return "open" if figurant.age is not None else "no_age"
-
+    listing = Listing(words, figurants, {}, [])
     counts = {
-        key: sum(state(item) == key for item in figurants)
+        key: sum(listing.state(item) == key for item in figurants)
         for key in ("open", "no_age", "found", "insufficient")
     }
     counts["no_rf"] = sum(
@@ -550,36 +578,59 @@ def ui_unnamed(
         item
         for item in figurants
         if status == "all"
-        or state(item) == status
+        or listing.state(item) == status
         or (
             status == "no_rf"
             and words.get(item.key, ("", None, None, None, None, None))[0] == NO_RF_MATCH
         )
     ]
-    on_page = chosen[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
-    people = (
-        list(
-            db.scalars(
-                select(EntityGroupRecord)
-                .where(EntityGroupRecord.name.ilike(f"%{person_q.strip()}%"))
-                .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.name)
-                .limit(20)
-            )
+    return Listing(words, figurants, counts, chosen)
+
+
+def people_search(db: Session, person_q: str) -> list[EntityGroupRecord]:
+    """The existing people a figurant may be, by a part of the name."""
+    if not person_q.strip():
+        return []
+    return list(
+        db.scalars(
+            select(EntityGroupRecord)
+            .where(EntityGroupRecord.name.ilike(f"%{person_q.strip()}%"))
+            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.name)
+            .limit(20)
         )
-        if person_q.strip()
-        else []
     )
-    rf_entries = _rf_search(db, rf_q)
-    rf_keys = {key for entry in rf_entries if (key := _rf_key(entry)) is not None}
+
+
+@router.get("/ui/unnamed", response_class=HTMLResponse)
+def ui_unnamed(
+    status: str = Query(default="open", pattern="^(open|no_age|found|no_rf|insufficient|all)$"),
+    page: int = Query(default=1, ge=1),
+    person_q: str = Query(default="", max_length=100),
+    rf_q: str = Query(default="", max_length=100),
+    rf_key: str = Query(default="", max_length=600),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    listing = unnamed_listing(db, status)
+    words, figurants, counts, chosen = (
+        listing.words,
+        listing.figurants,
+        listing.counts,
+        listing.chosen,
+    )
+    state = listing.state
+    on_page = chosen[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+    people = people_search(db, person_q)
+    rf_entries = rf_search(db, rf_q)
+    rf_keys = {key for entry in rf_entries if (key := rf_entry_key(entry)) is not None}
     selected_rf_key = rf_key if rf_key in rf_keys else ""
     reverse = (
-        _reverse_matches(db, [item for item in figurants if state(item) == "open"], selected_rf_key)
+        reverse_matches(db, [item for item in figurants if state(item) == "open"], selected_rf_key)
         if selected_rf_key
         else []
     )
     rf_rows = []
     for entry in rf_entries:
-        entry_key = _rf_key(entry)
+        entry_key = rf_entry_key(entry)
         name = escape(entry.full_name)
         birth = (
             entry.birth_date.strftime("%d.%m.%Y")
@@ -651,7 +702,7 @@ def ui_unnamed(
     placeholder="Имя существующего человека">
   <button type="submit" class="secondary">Найти</button>
 </form>"""
-    rf_search = f"""<form method="get" class="toolbar" role="search">
+    rf_search_form = f"""<form method="get" class="toolbar" role="search">
   <input type="hidden" name="status" value="{escape(status, quote=True)}">
   <input type="search" name="rf_q" value="{escape(rf_q, quote=True)}"
     placeholder="Имя из перечня РФМ">
@@ -661,7 +712,7 @@ def ui_unnamed(
 в базе Airtable: кандидаты из перечня</a></p>
 <p class="chips">{chips}</p>
 {search}
-{rf_search}
+{rf_search_form}
 {rf_results}
 {reverse_results}
 <p class="muted">Люди, которых публикации не называют («17-летний житель Тюмени»), и кто из
@@ -725,55 +776,43 @@ def _known(db: Session, figurant: str) -> None:
         raise HTTPException(status_code=400, detail="Неизвестный безымянный")
 
 
-@router.post("/ui/unnamed/keep", response_model=None)
-async def keep_unnamed(
-    request: Request,
-    db: Session = Depends(get_db),  # noqa: B008
-) -> RedirectResponse:
-    form = await _form(request)
-    figurant = form.get("figurant", "")
+def apply_keep(db: Session, fields: dict[str, str]) -> str:
+    """Back to the cards, whom the search set aside; commits. The figurant's key."""
+    figurant = fields.get("figurant", "")
     if not keep(db, figurant):
         raise HTTPException(status_code=400, detail="Неизвестный отсеянный")
     db.commit()
-    return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
+    return figurant
 
 
-@router.post("/ui/unnamed/reject", response_model=None)
-async def reject_unnamed(
-    request: Request,
-    db: Session = Depends(get_db),  # noqa: B008
-) -> RedirectResponse:
-    form = await _form(request)
-    figurant = form.get("figurant", "")
+def apply_reject(db: Session, fields: dict[str, str]) -> str:
+    """«Не он» of a candidate, or with `undo` its taking back; commits."""
+    figurant = fields.get("figurant", "")
     _known(db, figurant)
-    if not 0 < len(form.get("candidate", "")) <= CANDIDATE_KEY_LENGTH:
+    if not 0 < len(fields.get("candidate", "")) <= CANDIDATE_KEY_LENGTH:
         raise HTTPException(status_code=400, detail="Не выбран человек из перечня")
-    if form.get("undo") == "1":
+    if fields.get("undo") == "1":
         # «Не он» said by mistake: back to no word at all.
-        forget(db, figurant, form.get("candidate", ""))
+        forget(db, figurant, fields.get("candidate", ""))
     else:
-        decide(db, figurant, form.get("candidate", ""), DIFFERENT)
+        decide(db, figurant, fields.get("candidate", ""), DIFFERENT)
     db.commit()
-    return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
+    return figurant
 
 
-@router.post("/ui/unnamed/resolve", response_model=None)
-async def resolve_unnamed(
-    request: Request,
-    db: Session = Depends(get_db),  # noqa: B008
-) -> RedirectResponse:
-    form = await _form(request)
-    figurant = form.get("figurant", "")
+def apply_resolve(db: Session, fields: dict[str, str]) -> str:
+    """Who the figurant is, or that nobody fits, or that too little is known; commits."""
+    figurant = fields.get("figurant", "")
     _known(db, figurant)
-    resolution = form.get("resolution", "")
+    resolution = fields.get("resolution", "")
     birth = None
-    if form.get("rf_birth_date"):
+    if fields.get("rf_birth_date"):
         try:
-            birth = date.fromisoformat(form["rf_birth_date"])
+            birth = date.fromisoformat(fields["rf_birth_date"])
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Некорректная дата рождения") from exc
     if resolution == EXISTING_PERSON:
-        key = form.get("existing_person_key", "")
+        key = fields.get("existing_person_key", "")
         person = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
         if person is None:
             raise HTTPException(status_code=400, detail="Не выбран существующий человек")
@@ -790,8 +829,8 @@ async def resolve_unnamed(
                 db,
                 figurant,
                 resolution,
-                normalized_name=form.get("normalized_name") or form.get("rf_name") or None,
-                rf_name=form.get("rf_name") or None,
+                normalized_name=fields.get("normalized_name") or fields.get("rf_name") or None,
+                rf_name=fields.get("rf_name") or None,
                 rf_birth_date=birth,
             )
         except ValueError as exc:
@@ -799,6 +838,45 @@ async def resolve_unnamed(
     else:
         raise HTTPException(status_code=400, detail="Неполное решение")
     db.commit()
+    return figurant
+
+
+def apply_clear(db: Session, fields: dict[str, str]) -> str:
+    """The figurant's word taken back; commits."""
+    figurant = fields.get("figurant", "")
+    _known(db, figurant)
+    clear_resolution(db, figurant)
+    db.commit()
+    return figurant
+
+
+@router.post("/ui/unnamed/keep", response_model=None)
+async def keep_unnamed(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    form = await _form(request)
+    figurant = apply_keep(db, form)
+    return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
+
+
+@router.post("/ui/unnamed/reject", response_model=None)
+async def reject_unnamed(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    form = await _form(request)
+    figurant = apply_reject(db, form)
+    return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
+
+
+@router.post("/ui/unnamed/resolve", response_model=None)
+async def resolve_unnamed(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    form = await _form(request)
+    figurant = apply_resolve(db, form)
     return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
 
 
@@ -808,8 +886,5 @@ async def clear_unnamed(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> RedirectResponse:
     form = await _form(request)
-    figurant = form.get("figurant", "")
-    _known(db, figurant)
-    clear_resolution(db, figurant)
-    db.commit()
+    figurant = apply_clear(db, form)
     return RedirectResponse(_back_location(form.get("back", ""), figurant), status_code=303)
