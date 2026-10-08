@@ -47,6 +47,8 @@ def test_a_moved_legacy_page_opens_in_react_with_its_query(built: Path) -> None:
         ("/ui/political?months=3", "/political?months=3"),
         ("/ui/entities?region=Москва", "/entities?region=Москва"),
         ("/ui/investigations/анна%20смирнова", "/investigations/анна смирнова"),
+        ("/ui/articles/12", "/articles/12"),
+        ("/ui/persons/5", "/persons/5"),
     ):
         response = client.get(legacy)
         assert response.status_code == 302, legacy
