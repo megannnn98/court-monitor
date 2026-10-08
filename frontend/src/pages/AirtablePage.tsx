@@ -65,7 +65,7 @@ export function AirtablePage() {
     // journal, «Работа» and the strip read again: none of them polls for a run it has not seen.
     onSuccess: async (started) => {
       await readAgainAfterDecision(client, ["operations", "runs"]);
-      navigate(`/runs?run=${started.run_id}`);
+      navigate(`/runs?run_id=${started.run_id}`);
     }
   });
 

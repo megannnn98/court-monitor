@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { useStatus } from "@/hooks/useStatus";
 import { formatNumber } from "@/lib/format";
 import { labelOf, MONITORING_RUN_STATUS } from "@/lib/labels";
@@ -23,11 +25,11 @@ export function StatusStrip() {
   return (
     <section aria-label="Показатели" className="mb-4 space-y-2">
       {live ? (
-        <a href="/ui/cycle#processing-title" className="flex items-center gap-2 rounded-md bg-amber-100 px-3 py-1.5 text-sm text-amber-900">
+        <Link to="/work" className="flex items-center gap-2 rounded-md bg-amber-100 px-3 py-1.5 text-sm text-amber-900">
           <span className="size-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
           Идёт: {live.title}
           <span className="ml-auto">ход →</span>
-        </a>
+        </Link>
       ) : null}
       <dl className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
         {items.map(([name, value]) => (

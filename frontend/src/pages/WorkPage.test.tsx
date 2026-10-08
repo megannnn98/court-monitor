@@ -64,7 +64,7 @@ it("stops a live run and shows a refusal", async () => {
 
   renderPage(<WorkPage />);
   expect(await screen.findByText("Идёт автоматическая обработка")).toBeTruthy();
-  expect(screen.getByRole("link", { name: /Ход запуска #42/ }).getAttribute("href")).toBe("/logs?run=42");
+  expect(screen.getByRole("link", { name: /Ход запуска #42/ }).getAttribute("href")).toBe("/logs?run_id=42");
   fireEvent.click(screen.getByRole("button", { name: "Остановить" }));
   fireEvent.click(await screen.findByRole("button", { name: "Остановить" }));
 

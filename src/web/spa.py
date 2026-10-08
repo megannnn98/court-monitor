@@ -4,7 +4,10 @@ The image builds `frontend/` and names the build in `FRONTEND_DIST` (Dockerfile)
 the site is the React console: an address no route answers returns `index.html` (the
 router picks the page in the browser) or the build's file, and a legacy page that has
 moved to React sends the browser to the React page, query kept. The legacy pages not moved
-yet, the Excel files, the forms (any method but GET) and the API stay where they are.
+yet, the Excel files, the forms (any method but GET) and the API stay where they are. So
+does a legacy page the console itself asks for (`PIECE_HEADER`): the journal of runs, the
+logs, the list of Rosfinmonitoring and the sentences are the legacy pages' own pieces,
+shown under the console's menu.
 
 Without `FRONTEND_DIST` — the tests, a working copy run with uvicorn — nothing changes:
 the legacy pages answer as before.
@@ -57,6 +60,9 @@ ONE_OF = {
 }
 # Files under those addresses stay where they are: the wiki's PDF.
 _FILES = (".pdf", ".csv", ".xlsx")
+# The console itself asks for a legacy page to show a piece of it under its own menu
+# (`frontend/src/components/LegacyPage.tsx`): the page is then served, not moved.
+PIECE_HEADER = "x-console-piece"
 # Never the console's: a missing API route is a 404, not a page.
 _NOT_PAGES = ("/api/", "/ui/", "/static/", "/health", "/docs", "/redoc", "/openapi.json")
 
@@ -96,7 +102,7 @@ async def react_console(
     if root is None or request.method != "GET":
         return await call_next(request)
     path = request.url.path
-    target = react_address(path)
+    target = None if PIECE_HEADER in request.headers else react_address(path)
     if target is not None:
         query = request.url.query
         return RedirectResponse(f"{target}?{query}" if query else target, status_code=302)

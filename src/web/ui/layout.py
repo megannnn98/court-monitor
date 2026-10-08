@@ -107,6 +107,9 @@ def _run_status_label(status: object | None) -> str:
 
 # The home page: what is found and what waits for the operator.
 HOME = "/ui/cycle"
+# Around what a page shows under its head: the React console takes that piece of a
+# legacy page and shows it under its own menu (`frontend/src/components/LegacyPage.tsx`).
+PIECE_OPEN, PIECE_CLOSE = "<!--piece-->", "<!--/piece-->"
 
 # Menu icons: Lucide's (lucide.dev, ISC), inline so the page needs no file; they take the
 # text's colour.
@@ -342,8 +345,8 @@ def _page(
         </div>
       </details>
     </header>
-    {warning_html}
-    {body}
+    {PIECE_OPEN}{warning_html}
+    {body}{PIECE_CLOSE}
   </main>
 </body>
 </html>"""

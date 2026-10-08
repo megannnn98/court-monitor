@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session, sessionmaker
 
 from web.app import app
-from web.spa import react_address
+from web.dependencies import get_db
+from web.spa import PIECE_HEADER, react_address
+from web.ui.layout import PIECE_CLOSE, PIECE_OPEN
 
 
 @pytest.fixture
@@ -69,3 +73,31 @@ def test_without_the_build_the_legacy_pages_answer(
 
     assert client.get("/ui/cycle", follow_redirects=False).status_code != 302
     assert client.get("/work").status_code == 404
+
+
+def test_the_console_is_served_a_legacy_page_it_asks_for(
+    built: Path, session_factory: sessionmaker[Session]
+) -> None:
+    """The console shows the piece of a legacy page under its own menu: asked for with
+    its header, the page is served, not moved; the piece stands between two marks."""
+
+    def override() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override
+    try:
+        client = TestClient(app, follow_redirects=False)
+        moved = client.get("/ui/about")
+        asked = client.get("/ui/about", headers={PIECE_HEADER: "1"})
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert moved.status_code == 302
+    assert asked.status_code == 200
+    page = asked.text
+    piece = page[page.index(PIECE_OPEN) + len(PIECE_OPEN) : page.index(PIECE_CLOSE)]
+    # What the page shows under its head, and nothing of the page around it.
+    assert "<h2>Сборка</h2>" in piece
+    assert "<nav" not in piece and "<h1>" not in piece and "status-strip" not in piece
+    assert page.index("<h1>О системе</h1>") < page.index(PIECE_OPEN)

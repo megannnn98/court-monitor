@@ -90,7 +90,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
               >
                 Остановить
               </ConfirmButton>
-              <Link className="underline" to={`/logs?run=${cycle.live.run_id}`}>
+              <Link className="underline" to={`/logs?run_id=${cycle.live.run_id}`}>
                 Ход запуска #{cycle.live.run_id}: {cycle.live.title}
               </Link>
             </>
@@ -107,9 +107,9 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
               </ConfirmButton>
               <span className="text-muted-foreground">
                 {cycle.chain_span}; по одному шагу — в{" "}
-                <a className="underline" href="/ui/runs">
+                <Link className="underline" to="/runs">
                   журнале запусков
-                </a>
+                </Link>
               </span>
             </>
           )}

@@ -11,6 +11,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
+    "generate:legacy-css": "node scripts/scope-legacy-css.mjs",
     "generate:api": "cd .. && PYTHONPATH=src uv run python -c \"import json; from web.app import app; print(json.dumps(app.openapi()))\" > frontend/openapi/openapi.json && cd frontend && node scripts/filter-openapi-v1.mjs && openapi-ts"
   },
   "dependencies": {
