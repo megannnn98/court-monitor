@@ -5,6 +5,8 @@ the site is the React console: an address no route answers returns `index.html` 
 router picks the page in the browser) or the build's file, and a legacy page that has
 moved to React sends the browser to the React page, query kept. The legacy pages not moved
 yet, the Excel files, the forms (any method but GET) and the API stay where they are. So
+does the unversioned API for a program that asks it: only a browser opening an address
+(it accepts `text/html`) is given the console's page at an address the API also has. So
 does a legacy page the console itself asks for (`PIECE_HEADER`): the journal of runs, the
 logs, the list of Rosfinmonitoring and the sentences are the legacy pages' own pieces,
 shown under the console's menu.
@@ -106,7 +108,13 @@ async def react_console(
     if target is not None:
         query = request.url.query
         return RedirectResponse(f"{target}?{query}" if query else target, status_code=302)
+    page = not path.startswith(_NOT_PAGES)
+    # A browser opening an address asks for a page; the unversioned API of the same
+    # address («/articles/12», «/persons», «/candidates») is for programs, which do not.
+    # Without this the browser was shown the API's JSON for a publication's page.
+    if page and "text/html" in request.headers.get("accept", ""):
+        return _console(root, path)
     response = await call_next(request)
-    if response.status_code == 404 and not path.startswith(_NOT_PAGES):
+    if response.status_code == 404 and page:
         return _console(root, path)
     return response

@@ -42,6 +42,38 @@ def test_every_console_address_is_the_page_and_a_file_is_the_file(built: Path) -
         assert client.get(address).status_code == 404, address
 
 
+def test_a_browser_is_given_the_page_where_the_old_api_has_the_same_address(
+    built: Path, session_factory: sessionmaker[Session]
+) -> None:
+    """«/articles/12», «/persons» and «/candidates» are console pages and addresses of the
+    unversioned API at once: a browser opening one was shown JSON."""
+
+    def override() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override
+    try:
+        client = TestClient(app)
+        browser = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
+        for address in ("/persons", "/persons/1", "/articles/12", "/candidates", "/work"):
+            opened = client.get(address, headers=browser)
+            assert opened.status_code == 200 and "<div id=root>" in opened.text, address
+        # A program asking the same address is answered by the API, as before.
+        program = client.get("/persons", headers={"Accept": "application/json"})
+        default = client.get("/persons")
+        # The API under /api, the legacy pages and the files are never the page.
+        versioned = client.get("/api/v1/nothing", headers=browser)
+        asset = client.get("/assets/app.js", headers=browser)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert program.headers["content-type"] == "application/json" and program.json() == []
+    assert default.headers["content-type"] == "application/json"
+    assert versioned.status_code == 404
+    assert asset.text == "console.log(1)"
+
+
 def test_a_moved_legacy_page_opens_in_react_with_its_query(built: Path) -> None:
     client = TestClient(app, follow_redirects=False)
 
