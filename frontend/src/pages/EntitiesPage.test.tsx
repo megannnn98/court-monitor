@@ -98,6 +98,18 @@ it("filters from the column on the left and shows the choice as chips", async ()
   await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, region: "Москва" } }));
 });
 
+it("says the list holds political and common cases alike, until one kind is chosen", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+  renderPage(<EntitiesPage />);
+
+  expect(await screen.findByText(/и политические дела, и обычные уголовные/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: "«Результатах»" }).getAttribute("href")).toBe("/political");
+  fireEvent.click(screen.getByRole("button", { name: "фильтром «Вердикт: политические»" }));
+
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: expect.objectContaining({ verdict: "political" }) }));
+  expect(screen.queryByText(/и политические дела, и обычные уголовные/)).toBeNull();
+});
+
 it("looks for a region among the regions", async () => {
   list.mockReturnValue(ok({ ...PAGE, regions: ["Москва", "Якутия"] }) as never);
 

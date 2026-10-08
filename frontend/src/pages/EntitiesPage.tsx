@@ -115,7 +115,26 @@ export function EntitiesPage() {
 
   return (
     <>
-      <PageHeader title="Все люди" />
+      <PageHeader
+        title="Все люди"
+        instruction="Люди из публикаций с уголовными делами, собранные из упоминаний: «Моора», «Моору» и «Моор» — один человек."
+      >
+        {/* The list is not the result: said in sight, where a common criminal's name surprised. */}
+        {query.verdict === "all" ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Здесь все, на кого заведено уголовное дело: и политические дела, и обычные уголовные. Какое дело — написано рядом с
+            именем. Только политические — в{" "}
+            <Link className="underline" to="/political">
+              «Результатах»
+            </Link>{" "}
+            или здесь{" "}
+            <button type="button" className="underline" onClick={() => url.set({ verdict: "political", page: null })}>
+              фильтром «Вердикт: политические»
+            </button>
+            .
+          </p>
+        ) : null}
+      </PageHeader>
       <QueryState query={entities}>
         {(data) => {
           const label = (options: OptionResponse[], value: string) => options.find((option) => option.value === value)?.label ?? value;
