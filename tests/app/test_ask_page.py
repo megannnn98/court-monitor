@@ -242,3 +242,34 @@ def test_the_sentences_are_narrowed_by_reason_and_region(
     assert "Петров Иван" in moscow and "Сидоров Олег" not in moscow
     assert "Таких приговоров нет." in religion
     assert 'href="/ui/ask"' in menu and 'href="/ui/sentences"' in menu
+
+
+def test_the_api_asks_and_reads_the_answer_the_page_does(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`/api/v1/ask` for the React page: the same answer, counts and history."""
+    _seed(session_factory)
+    plan = Plan(calls=[Call(tool="stats", group_by="region", sort="mean_years")])
+    monkeypatch.setattr(
+        ask_page, "asker_from_env", lambda: FakeAsker(plan, "В Москве 7 лет. См. [№ 5].")
+    )
+
+    with _client(session_factory) as client:
+        before = client.get("/api/v1/ask").json()
+        asked = client.post("/api/v1/ask", json={"question": "Где суровее?"}).json()
+        page = client.get("/api/v1/ask", params={"q": asked["id"]}).json()
+        empty = client.post("/api/v1/ask", json={"question": "  "}).json()
+        foreign = client.post(
+            "/api/v1/ask", json={"question": "Где?"}, headers={"Origin": "https://evil.example"}
+        )
+
+    assert before["answer"] is None and before["history"] == []
+    assert before["budget"] == 1.0 and before["examples"]
+    answer = page["answer"]
+    assert answer["question"] == "Где суровее?" and answer["answer"] == "В Москве 7 лет. См. [№ 5]."
+    assert answer["results"][0]["tool"] == "stats"
+    assert answer["results"][0]["groups"][0]["name"] == "Москва"
+    assert answer["unverified"] == ["5"]
+    assert [one["question"] for one in page["history"]] == ["Где суровее?"]
+    assert empty == {"id": None, "note": "Вопрос пуст."}
+    assert foreign.status_code == 403

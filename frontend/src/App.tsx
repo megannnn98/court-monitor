@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { AboutPage } from "@/pages/AboutPage";
 import { ArticlePage } from "@/pages/ArticlePage";
+import { AskPage } from "@/pages/AskPage";
 import { BaseUnnamedPage } from "@/pages/BaseUnnamedPage";
 import { CandidatesPage } from "@/pages/CandidatesPage";
 import { DossierPage } from "@/pages/DossierPage";
@@ -48,6 +49,7 @@ export function App() {
         <Route path="unnamed" element={<UnnamedPage />} />
         <Route path="base-unnamed" element={<BaseUnnamedPage />} />
         <Route path="junk-holds" element={<JunkHoldsPage />} />
+        <Route path="ask" element={<AskPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
         <Route path="about" element={<AboutPage />} />
