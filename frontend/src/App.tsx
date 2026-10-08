@@ -25,7 +25,7 @@ export function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/candidates" replace />} />
+        <Route index element={<Navigate to="/work" replace />} />
         <Route path="candidates" element={<CandidatesPage />} />
         <Route path="entities" element={<EntitiesPage />} />
         <Route path="publications" element={<PublicationsPage />} />
