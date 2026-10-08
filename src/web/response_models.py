@@ -415,6 +415,8 @@ class PoliticalListResponse(BaseModel):
     # The legacy Excel file of exactly these filters, every row, built on the server.
     export_url: str
     periods: list[OptionResponse]
+    # Asked with a `queue`: every queue with its count in the period; else empty.
+    queues: list[OptionResponse]
     news: list[OptionResponse]
     known: list[OptionResponse]
     who: list[OptionResponse]

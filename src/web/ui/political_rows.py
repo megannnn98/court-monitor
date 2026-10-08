@@ -254,7 +254,7 @@ def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Re
         row
         for row in everyone
         if chosen.who in ("all", "unnamed" if row.unnamed else "named")
-        and (chosen.done == "show" or not row.done)
+        and (chosen.done == "show" or row.done == (chosen.done == "only"))
         and _within(row.last_published, start, end)
     ]
     news_counts = Counter(row.news_kind for row in in_period if row.news_kind)
@@ -299,6 +299,30 @@ def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Re
         base_size=base_size,
         done_total=sum(row.done for row in everyone),
     )
+
+
+def queue_counts(db: Session, chosen: Filters, now: datetime | None = None) -> dict[str, int]:
+    """How many people each queue holds in the period of `chosen`, whatever queue is open:
+    one reading of the period, with everybody, «обработано» included."""
+    everyone = result_rows(
+        db,
+        Filters(
+            months=chosen.months, date_from=chosen.date_from, date_to=chosen.date_to, done="show"
+        ),
+        now,
+    )
+    open_rows = [row for row in everyone.rows if not row.done]
+    counts = {
+        "all": len(open_rows),
+        "new_case": sum(row.news_kind == NEW_CASE for row in open_rows),
+        "sentence": sum(row.news_kind == SENTENCE for row in open_rows),
+        "unnamed": sum(row.unnamed for row in open_rows),
+        "awaited": sum(bool(row.listing and row.listing.kind == AWAITED) for row in open_rows),
+        "done": len(everyone.rows) - len(open_rows),
+    }
+    if everyone.base_size:
+        counts["not_in_base"] = sum(known_answer(row.known) == "none" for row in open_rows)
+    return counts
 
 
 def _within(moment: datetime | None, start: datetime | None, end: datetime | None) -> bool:

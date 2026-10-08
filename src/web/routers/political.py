@@ -30,11 +30,13 @@ from web.ui.political_filters import (
     KNOWN_FILTERS,
     NEWS_FILTERS,
     PERIODS,
+    QUEUES,
     RFM_FILTERS,
     WHO_FILTERS,
     filters,
+    in_queue,
 )
-from web.ui.political_rows import ListRow, result_rows, with_details
+from web.ui.political_rows import ListRow, queue_counts, result_rows, with_details
 
 router = APIRouter()
 
@@ -104,13 +106,20 @@ def list_political(
     who: str = Query(default="all", max_length=8),
     rfm: str = Query(default="all", max_length=8),
     page: int = Query(default=1, ge=1),
+    queue: str = Query(default="", max_length=16),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> PoliticalListResponse:
     """The people with a political criminal case, latest news first, as the legacy
     «Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the
-    legacy page, filters are not remembered: the address is the state."""
+    legacy page, filters are not remembered: the address is the state. A `queue` keeps
+    only the period and takes the queue's own filters; the queues' counts are of the
+    period, whatever queue is open."""
+    now = datetime.now(UTC)
     chosen = filters(months, date_from, date_to, news, known, done, who, rfm)
-    result = result_rows(db, chosen, datetime.now(UTC))
+    if queue:
+        chosen = in_queue(chosen, queue)
+    result = result_rows(db, chosen, now)
+    counts = queue_counts(db, chosen, now) if queue else {}
     base_loaded = bool(result.base_size)
     on_page = with_details(db, result.rows[(page - 1) * PAGE_SIZE : page * PAGE_SIZE])
     return PoliticalListResponse(
@@ -123,6 +132,11 @@ def list_political(
         base_loaded=base_loaded,
         export_url=f"/ui/political/export.xlsx?{urlencode(chosen.query())}",
         periods=[OptionResponse(value=str(key), label=label) for key, label in PERIODS.items()],
+        queues=[
+            OptionResponse(value=key, label=label, count=counts[key])
+            for key, (label, _) in QUEUES.items()
+            if key in counts
+        ],
         # The rarer kinds are offered only when somebody has them, as on the legacy page.
         news=[
             OptionResponse(

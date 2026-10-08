@@ -195,7 +195,9 @@ export const getArticleMentionsV1 = <ThrowOnError extends boolean = false>(optio
  *
  * The people with a political criminal case, latest news first, as the legacy
  * «Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the
- * legacy page, filters are not remembered: the address is the state.
+ * legacy page, filters are not remembered: the address is the state. A `queue` keeps
+ * only the period and takes the queue's own filters; the queues' counts are of the
+ * period, whatever queue is open.
  */
 export const listPoliticalV1 = <ThrowOnError extends boolean = false>(options?: Options<ListPoliticalV1Data, ThrowOnError>) => (options?.client ?? client).get<ListPoliticalV1Responses, ListPoliticalV1Errors, ThrowOnError>({ url: '/api/v1/political', ...options });
 

@@ -1852,6 +1852,10 @@ export type PoliticalListResponse = {
      */
     periods: Array<OptionResponse>;
     /**
+     * Queues
+     */
+    queues: Array<OptionResponse>;
+    /**
      * News
      */
     news: Array<OptionResponse>;
@@ -3657,6 +3661,10 @@ export type ListPoliticalV1Data = {
          * Page
          */
         page?: number;
+        /**
+         * Queue
+         */
+        queue?: string;
     };
     url: '/api/v1/political';
 };

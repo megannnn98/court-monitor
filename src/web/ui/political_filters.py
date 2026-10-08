@@ -21,8 +21,9 @@ FILTERS_COOKIE = "political_filters"
 FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done", "who", "rfm")
 # Named people, or the figurants a publication does not name (`entities.unnamed_cases`).
 WHO_FILTERS = {"all": "Все", "named": "С именем", "unnamed": "Без имени"}
-# The people the operator marked «обработано»: hidden unless she asks to see them.
-DONE_FILTERS = ("hide", "show")
+# The people the operator marked «обработано»: hidden unless she asks to see them;
+# «only» shows them alone.
+DONE_FILTERS = ("hide", "show", "only")
 # By what the person's articles say of the Rosfinmonitoring list (`entities.rf_articles`).
 RFM_FILTERS = {"all": "Все", "awaited": "Ждём в перечне"}
 # What the latest news is (`entities.news`): the operator's new cases and sentences first.
@@ -45,6 +46,19 @@ KNOWN_FILTERS = {
     "probably": LEVEL_LABELS["probably"].capitalize(),
     "namesakes": LEVEL_LABELS["namesakes"].capitalize(),
     "similar": LEVEL_LABELS["similar"].capitalize(),
+}
+
+
+# The queues of the React «Результат»: each tab one choice of the filters, every other one
+# left at its default. «not_in_base» is offered only with the base loaded.
+QUEUES: dict[str, tuple[str, dict[str, str]]] = {
+    "all": ("Все", {}),
+    "new_case": ("Новые дела", {"news": NEW_CASE}),
+    "sentence": ("Приговоры", {"news": SENTENCE}),
+    "unnamed": ("Без имени", {"who": "unnamed"}),
+    "awaited": ("Ждём в перечне", {"rfm": "awaited"}),
+    "not_in_base": ("Нет в Airtable", {"known": "none"}),
+    "done": ("Обработанные", {"done": "only"}),
 }
 
 
@@ -156,6 +170,14 @@ def filters(
         done=done if done in DONE_FILTERS else "hide",
         who=who if who in WHO_FILTERS else "all",
         rfm=rfm if rfm in RFM_FILTERS else "all",
+    )
+
+
+def in_queue(chosen: Filters, queue: str) -> Filters:
+    """The period of `chosen` and the filters of the queue; an unknown queue is «all»."""
+    _, preset = QUEUES.get(queue, QUEUES["all"])
+    return Filters(
+        months=chosen.months, date_from=chosen.date_from, date_to=chosen.date_to, **preset
     )
 
 
