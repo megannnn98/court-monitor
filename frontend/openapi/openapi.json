@@ -5181,7 +5181,6 @@
               "type": "integer"
             },
             "type": "array",
-            "maxItems": 5000,
             "minItems": 1,
             "title": "Articles"
           }

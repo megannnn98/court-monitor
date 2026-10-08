@@ -18,9 +18,12 @@ export function WikiPage() {
 
   // A link to another wiki page opens it here, without reloading the console.
   function follow(event: MouseEvent<HTMLDivElement>) {
+    // A click that asks for another tab or window is the browser's, as on any link.
+    const plain = event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
     const link = (event.target as HTMLElement).closest("a");
     const href = link?.getAttribute("href") ?? "";
-    if (href.startsWith("/wiki/")) {
+    const here = !link?.target || link.target === "_self";
+    if (plain && here && !event.defaultPrevented && href.startsWith("/wiki/")) {
       event.preventDefault();
       navigate(href);
     }

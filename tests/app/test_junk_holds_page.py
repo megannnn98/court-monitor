@@ -538,6 +538,10 @@ def test_the_api_reads_the_stories_and_takes_the_words_the_page_does(
         twice = client.post("/api/v1/junk-holds/junk", json={"article": alone})
         stale = client.post("/api/v1/junk-holds/junk-all", json={"articles": [first, 999999]})
         after_stale = _status(session_factory, first)
+        # A list longer than any page: it reaches the action, which takes all or none.
+        many = [first, second, *range(1_000_000, 1_005_000)]
+        long_stale = client.post("/api/v1/junk-holds/junk-all", json={"articles": many})
+        after_long = _status(session_factory, second)
         foreign = client.post(
             "/api/v1/junk-holds/hold",
             json={"article": alone},
@@ -559,6 +563,7 @@ def test_the_api_reads_the_stories_and_takes_the_words_the_page_does(
     assert [story["articles"][0]["article_id"] for story in as_junk["stories"]] == [alone]
     assert twice.status_code == 404 and twice.json()["detail"] == "Статья не на проверке"
     assert stale.status_code == 404 and after_stale == "held"
+    assert (long_stale.status_code, after_long) == (404, "held")
     assert foreign.status_code == 403
     assert back.status_code == 200 and _status(session_factory, alone) == "held"
     assert both.status_code == 200 and _status(session_factory, second) == "junk"

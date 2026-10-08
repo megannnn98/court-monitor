@@ -1014,7 +1014,9 @@ class HeldArticleRequest(BaseModel):
 
 
 class HeldArticlesRequest(BaseModel):
-    articles: list[int] = Field(min_length=1, max_length=5000)
+    # No upper bound: «Мусор — все» sends every article of the list, as the legacy form
+    # does, and takes all of them or none.
+    articles: list[int] = Field(min_length=1)
 
 
 class HeldActionResponse(BaseModel):

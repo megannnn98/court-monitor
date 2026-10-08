@@ -33,6 +33,20 @@ it("shows Home and follows a link to another page in place", async () => {
   expect(await screen.findByRole("heading", { name: "Установка" })).toBeTruthy();
 });
 
+it("leaves a click that asks for another tab to the browser", async () => {
+  renderPage(<WikiPage />, { path: "/wiki/:slug?", url: "/wiki" });
+  const link = await screen.findByRole("link", { name: "установку" });
+
+  for (const key of ["ctrlKey", "metaKey", "shiftKey", "altKey"]) {
+    fireEvent.click(link, { [key]: true });
+  }
+  fireEvent.click(link, { button: 1 });
+
+  // No page was opened in place: the last one asked for is still Home.
+  expect(get).toHaveBeenLastCalledWith({ path: { slug: "Home" } });
+  expect(screen.getByRole("heading", { name: "Court monitor" })).toBeTruthy();
+});
+
 it("says a page that is not there", async () => {
   renderPage(<WikiPage />, { path: "/wiki/:slug?", url: "/wiki/nothing" });
 
