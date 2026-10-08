@@ -101,6 +101,13 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/v1/junk-holds/reextract",
     "GET /api/v1/ask",
     "POST /api/v1/ask",
+    "GET /api/v1/airtable",
+    "GET /api/v1/officials",
+    "POST /api/v1/airtable/sync",
+    "POST /api/v1/airtable/rosfin",
+    "POST /api/v1/officials/add",
+    "POST /api/v1/officials/add-suggested",
+    "POST /api/v1/officials/deactivate",
     # The console's actions, behind the same-origin check (ADR 0022).
     "POST /api/v1/political/done",
     "GET /api/v1/review/roles",

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CandidateTableV1Data, CandidateTableV1Errors, CandidateTableV1Responses, ClearUnnamedV1Data, ClearUnnamedV1Errors, ClearUnnamedV1Responses, DecideBaseUnnamedV1Data, DecideBaseUnnamedV1Errors, DecideBaseUnnamedV1Responses, DecidePairV1Data, DecidePairV1Errors, DecidePairV1Responses, DecidePoliticsV1Data, DecidePoliticsV1Errors, DecidePoliticsV1Responses, DecideRoleV1Data, DecideRoleV1Errors, DecideRoleV1Responses, GetAboutV1Data, GetAboutV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetAskV1Data, GetAskV1Errors, GetAskV1Responses, GetCycleV1Data, GetCycleV1Responses, GetDossierV1Data, GetDossierV1Errors, GetDossierV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, HoldHeldV1Data, HoldHeldV1Errors, HoldHeldV1Responses, JunkAllHeldV1Data, JunkAllHeldV1Errors, JunkAllHeldV1Responses, JunkHeldV1Data, JunkHeldV1Errors, JunkHeldV1Responses, KeepUnnamedV1Data, KeepUnnamedV1Errors, KeepUnnamedV1Responses, ListBaseUnnamedV1Data, ListBaseUnnamedV1Errors, ListBaseUnnamedV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListJunkHoldsV1Data, ListJunkHoldsV1Errors, ListJunkHoldsV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPairsV1Data, ListPairsV1Errors, ListPairsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses, ListSentencesV1Data, ListSentencesV1Errors, ListSentencesV1Responses, ListUnclearPoliticsV1Data, ListUnclearPoliticsV1Responses, ListUnclearRolesV1Data, ListUnclearRolesV1Responses, ListUnnamedV1Data, ListUnnamedV1Errors, ListUnnamedV1Responses, MarkPoliticalDoneV1Data, MarkPoliticalDoneV1Errors, MarkPoliticalDoneV1Responses, PostAskV1Data, PostAskV1Errors, PostAskV1Responses, ReextractHeldV1Data, ReextractHeldV1Errors, ReextractHeldV1Responses, RejectUnnamedV1Data, RejectUnnamedV1Errors, RejectUnnamedV1Responses, ReleaseHeldV1Data, ReleaseHeldV1Errors, ReleaseHeldV1Responses, ResolveUnnamedV1Data, ResolveUnnamedV1Errors, ResolveUnnamedV1Responses, SearchInvestigationsV1Data, SearchInvestigationsV1Errors, SearchInvestigationsV1Responses, StartCycleV1Data, StartCycleV1Errors, StartCycleV1Responses, StopCycleRunV1Data, StopCycleRunV1Errors, StopCycleRunV1Responses, UnreleaseHeldV1Data, UnreleaseHeldV1Errors, UnreleaseHeldV1Responses } from './types.gen';
+import type { AddOfficialV1Data, AddOfficialV1Errors, AddOfficialV1Responses, AddSuggestedOfficialV1Data, AddSuggestedOfficialV1Errors, AddSuggestedOfficialV1Responses, CandidateTableV1Data, CandidateTableV1Errors, CandidateTableV1Responses, ClearUnnamedV1Data, ClearUnnamedV1Errors, ClearUnnamedV1Responses, DeactivateOfficialV1Data, DeactivateOfficialV1Errors, DeactivateOfficialV1Responses, DecideBaseUnnamedV1Data, DecideBaseUnnamedV1Errors, DecideBaseUnnamedV1Responses, DecidePairV1Data, DecidePairV1Errors, DecidePairV1Responses, DecidePoliticsV1Data, DecidePoliticsV1Errors, DecidePoliticsV1Responses, DecideRoleV1Data, DecideRoleV1Errors, DecideRoleV1Responses, GetAboutV1Data, GetAboutV1Responses, GetAirtableV1Data, GetAirtableV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetAskV1Data, GetAskV1Errors, GetAskV1Responses, GetCycleV1Data, GetCycleV1Responses, GetDossierV1Data, GetDossierV1Errors, GetDossierV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOfficialsV1Data, GetOfficialsV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, HoldHeldV1Data, HoldHeldV1Errors, HoldHeldV1Responses, JunkAllHeldV1Data, JunkAllHeldV1Errors, JunkAllHeldV1Responses, JunkHeldV1Data, JunkHeldV1Errors, JunkHeldV1Responses, KeepUnnamedV1Data, KeepUnnamedV1Errors, KeepUnnamedV1Responses, ListBaseUnnamedV1Data, ListBaseUnnamedV1Errors, ListBaseUnnamedV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListJunkHoldsV1Data, ListJunkHoldsV1Errors, ListJunkHoldsV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPairsV1Data, ListPairsV1Errors, ListPairsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses, ListSentencesV1Data, ListSentencesV1Errors, ListSentencesV1Responses, ListUnclearPoliticsV1Data, ListUnclearPoliticsV1Responses, ListUnclearRolesV1Data, ListUnclearRolesV1Responses, ListUnnamedV1Data, ListUnnamedV1Errors, ListUnnamedV1Responses, MarkPoliticalDoneV1Data, MarkPoliticalDoneV1Errors, MarkPoliticalDoneV1Responses, PostAskV1Data, PostAskV1Errors, PostAskV1Responses, ReextractHeldV1Data, ReextractHeldV1Errors, ReextractHeldV1Responses, RefreshRosfinV1Data, RefreshRosfinV1Errors, RefreshRosfinV1Responses, RejectUnnamedV1Data, RejectUnnamedV1Errors, RejectUnnamedV1Responses, ReleaseHeldV1Data, ReleaseHeldV1Errors, ReleaseHeldV1Responses, ResolveUnnamedV1Data, ResolveUnnamedV1Errors, ResolveUnnamedV1Responses, SearchInvestigationsV1Data, SearchInvestigationsV1Errors, SearchInvestigationsV1Responses, StartCycleV1Data, StartCycleV1Errors, StartCycleV1Responses, StopCycleRunV1Data, StopCycleRunV1Errors, StopCycleRunV1Responses, SyncReferenceListsV1Data, SyncReferenceListsV1Errors, SyncReferenceListsV1Responses, UnreleaseHeldV1Data, UnreleaseHeldV1Errors, UnreleaseHeldV1Responses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -532,6 +532,71 @@ export const getAskV1 = <ThrowOnError extends boolean = false>(options?: Options
  */
 export const postAskV1 = <ThrowOnError extends boolean = false>(options: Options<PostAskV1Data, ThrowOnError>) => (options.client ?? client).post<PostAskV1Responses, PostAskV1Errors, ThrowOnError>({
     url: '/api/v1/ask',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Airtable
+ *
+ * The legacy «База Airtable»: the lists, where they come from, the published list.
+ */
+export const getAirtableV1 = <ThrowOnError extends boolean = false>(options?: Options<GetAirtableV1Data, ThrowOnError>) => (options?.client ?? client).get<GetAirtableV1Responses, unknown, ThrowOnError>({ url: '/api/v1/airtable', ...options });
+
+/**
+ * Sync Reference Lists
+ *
+ * The four lists into PostgreSQL, as `POST /api/admin/airtable/sync`.
+ */
+export const syncReferenceListsV1 = <ThrowOnError extends boolean = false>(options?: Options<SyncReferenceListsV1Data, ThrowOnError>) => (options?.client ?? client).post<SyncReferenceListsV1Responses, SyncReferenceListsV1Errors, ThrowOnError>({ url: '/api/v1/airtable/sync', ...options });
+
+/**
+ * Refresh Rosfin
+ *
+ * Download the published list, a new snapshot only if it changed, and check every
+ * person against it again: the `check-entities-rosfin` run, in the background.
+ */
+export const refreshRosfinV1 = <ThrowOnError extends boolean = false>(options?: Options<RefreshRosfinV1Data, ThrowOnError>) => (options?.client ?? client).post<RefreshRosfinV1Responses, RefreshRosfinV1Errors, ThrowOnError>({ url: '/api/v1/airtable/rosfin', ...options });
+
+/**
+ * Get Officials
+ *
+ * The officials list as it stands, and the people the model calls officials.
+ */
+export const getOfficialsV1 = <ThrowOnError extends boolean = false>(options?: Options<GetOfficialsV1Data, ThrowOnError>) => (options?.client ?? client).get<GetOfficialsV1Responses, unknown, ThrowOnError>({ url: '/api/v1/officials', ...options });
+
+/**
+ * Add Official
+ */
+export const addOfficialV1 = <ThrowOnError extends boolean = false>(options: Options<AddOfficialV1Data, ThrowOnError>) => (options.client ?? client).post<AddOfficialV1Responses, AddOfficialV1Errors, ThrowOnError>({
+    url: '/api/v1/officials/add',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Add Suggested Official
+ */
+export const addSuggestedOfficialV1 = <ThrowOnError extends boolean = false>(options: Options<AddSuggestedOfficialV1Data, ThrowOnError>) => (options.client ?? client).post<AddSuggestedOfficialV1Responses, AddSuggestedOfficialV1Errors, ThrowOnError>({
+    url: '/api/v1/officials/add-suggested',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Deactivate Official
+ */
+export const deactivateOfficialV1 = <ThrowOnError extends boolean = false>(options: Options<DeactivateOfficialV1Data, ThrowOnError>) => (options.client ?? client).post<DeactivateOfficialV1Responses, DeactivateOfficialV1Errors, ThrowOnError>({
+    url: '/api/v1/officials/deactivate',
     ...options,
     headers: {
         'Content-Type': 'application/json',

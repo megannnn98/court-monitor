@@ -13,6 +13,7 @@ through the Airtable API, or from CSVs the operator exported and dropped into
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from html import escape
 from typing import Any
 
@@ -106,6 +107,52 @@ def _official_html(db: Session) -> str:
         f"{summary.snapshot_date.astimezone().strftime('%d.%m.%Y %H:%M')}, "
         f"записей {summary.entry_count:,}, сверено {summary.match_count:,}.</p>"
     )
+
+
+@dataclass(frozen=True)
+class Overview:
+    """Where the lists come from and what PostgreSQL holds; read by this page and the API."""
+
+    configured: bool
+    reason: str
+    mode_note: str
+    # The lists whose file is missing, in file mode: they stay as they were.
+    missing: list[str]
+    source_column: str
+    # (list, label, rows in PostgreSQL, what it is read from)
+    inventory: list[tuple[str, str, int, str]]
+
+
+def airtable_overview(db: Session) -> Overview:
+    try:
+        source = build_sync_source()
+        configured, reason = True, ""
+    except AirtableConfigurationError as exc:
+        source, configured, reason = None, False, str(exc)
+    present = FileTableClient(ImportSettings.from_env()).present() if configured else {}
+    names = _source_names(source, present)
+    missing = (
+        [TABLE_LABELS[name] for name in TABLES if name not in present]
+        if source is not None and source.mode == MODE_FILES
+        else []
+    )
+    return Overview(
+        configured=configured,
+        reason=reason,
+        mode_note=_MODE_NOTES[source.mode] if source else "",
+        missing=missing,
+        source_column=_source_column_title(source),
+        inventory=[
+            (name, label, count, names.get(name) or "") for name, label, count in _inventory(db)
+        ],
+    )
+
+
+def official_summary(db: Session) -> Any:
+    """The published list the database works against now; None before the first."""
+    return SqlAlchemyRosfinmonitoringSnapshotLookup(
+        session_factory_for(db)
+    ).latest_imported_snapshot()
 
 
 @router.get("/ui/airtable", response_class=HTMLResponse)

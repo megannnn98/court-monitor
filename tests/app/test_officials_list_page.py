@@ -299,3 +299,42 @@ def test_a_suggested_name_is_escaped(session_factory: sessionmaker[Session]) -> 
 
     assert "<script>alert(1)</script>" not in page and "&lt;script&gt;" in page
     assert "<b>почему</b>" not in page
+
+
+def test_the_api_reads_and_changes_the_list_the_page_does(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """`/api/v1/officials` for the React page: the same rows, suggestions and words."""
+    _entity(session_factory, "ольга минакова", "Ольга Минакова")
+
+    with _client(session_factory) as client:
+        empty = client.get("/api/v1/officials").json()
+        added = client.post(
+            "/api/v1/officials/add",
+            json={"full_name": "  Ольга   Минакова ", "category": "judge", "reason": "судья"},
+        ).json()
+        again = client.post("/api/v1/officials/add", json={"full_name": "Ольга Минакова"}).json()
+        nameless = client.post("/api/v1/officials/add", json={"full_name": "  "})
+        listed = client.get("/api/v1/officials").json()
+        foreign = client.post(
+            "/api/v1/officials/deactivate",
+            json={"external_id": "console:ольга минакова"},
+            headers={"Origin": "https://evil.example"},
+        )
+        off = client.post(
+            "/api/v1/officials/deactivate", json={"external_id": "console:ольга минакова"}
+        ).json()
+        nobody = client.post("/api/v1/officials/deactivate", json={"external_id": "x"})
+        nothing = client.post("/api/v1/officials/add-suggested", json={"key": "ольга минакова"})
+
+    assert empty["total"] == 0 and empty["rows"] == []
+    assert {"value": "judge", "label": "судья", "count": None} in empty["categories"]
+    assert added == {"status": "added"} and again == {"status": "already"}
+    assert nameless.status_code == 400
+    row = listed["rows"][0]
+    assert row["full_name"] == "Ольга Минакова" and row["category"] == "судья"
+    assert row["entity_key"] == "ольга минакова" and row["active"] is True
+    assert foreign.status_code == 403
+    assert off == {"status": "deactivated"} and _rows(session_factory)[0].active is False
+    assert nobody.status_code == 404
+    assert nothing.status_code == 404 and nothing.json()["detail"] == "Такого предложения нет"

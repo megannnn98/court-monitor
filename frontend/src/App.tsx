@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { AboutPage } from "@/pages/AboutPage";
+import { AirtablePage } from "@/pages/AirtablePage";
 import { ArticlePage } from "@/pages/ArticlePage";
 import { AskPage } from "@/pages/AskPage";
 import { BaseUnnamedPage } from "@/pages/BaseUnnamedPage";
@@ -13,6 +14,7 @@ import { JunkHoldsPage } from "@/pages/JunkHoldsPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { OfficialsPage } from "@/pages/OfficialsPage";
 import { PairsPage } from "@/pages/PairsPage";
 import { PersonPage } from "@/pages/PersonPage";
 import { PersonsPage } from "@/pages/PersonsPage";
@@ -50,6 +52,8 @@ export function App() {
         <Route path="base-unnamed" element={<BaseUnnamedPage />} />
         <Route path="junk-holds" element={<JunkHoldsPage />} />
         <Route path="ask" element={<AskPage />} />
+        <Route path="airtable" element={<AirtablePage />} />
+        <Route path="officials" element={<OfficialsPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
         <Route path="about" element={<AboutPage />} />

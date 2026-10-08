@@ -54,7 +54,7 @@ REFERENCE_URL = "/ui/airtable/officials"
 CATEGORIES = ("judge", "prosecutor", "police", "official", "lawyer", "witness", "other")
 
 
-def _category_label(value: str) -> str:
+def category_label(value: str) -> str:
     return KIND_LABELS.get(value, "прочее") if value != "other" else "прочее"
 
 
@@ -67,7 +67,7 @@ _INTRO = (
 )
 
 
-def _listing(db: Session) -> tuple[list[tuple[ExcludedPersonRecord, str, str]], int]:
+def officials_listing(db: Session) -> tuple[list[tuple[ExcludedPersonRecord, str, str]], int]:
     """The rows of the list, with the name each one has actually landed on.
 
     A row that matches no entity yet is shown too, but with a blank name and a mark
@@ -92,7 +92,7 @@ def _listing(db: Session) -> tuple[list[tuple[ExcludedPersonRecord, str, str]], 
     return [(row, *found.get(id(row), ("", ""))) for row in rows], int(total)
 
 
-def _suggestions(db: Session) -> list[tuple[str, str, str, str]]:
+def official_suggestions(db: Session) -> list[tuple[str, str, str, str]]:
     """The people the model calls officials and the list does not name: (key, name, kind,
     why the model thinks so). Not offered: anyone the list names, active or switched off
     (that was an answer), and anyone with a mark of their own."""
@@ -119,7 +119,7 @@ def _suggestions_html(items: list[tuple[str, str, str, str]]) -> str:
         return ""
     rows = "".join(
         f'<tr><td><a href="/ui/entities/{quote(key)}">{escape(name)}</a></td>'
-        f"<td>{escape(_category_label(kind))}</td><td>{escape(reason)}</td>"
+        f"<td>{escape(category_label(kind))}</td><td>{escape(reason)}</td>"
         '<td><form method="post" action="/ui/airtable/officials/add-suggested">'
         f'<input type="hidden" name="key" value="{escape(key, quote=True)}">'
         '<button type="submit" class="secondary">Добавить в список</button></form></td></tr>'
@@ -152,7 +152,7 @@ def _rows_html(rows: list[tuple[ExcludedPersonRecord, str, str]]) -> str:
         )
         cells.append(
             f"<tr><td>{escape(row.full_name)}</td><td>{where}</td>"
-            f"<td>{escape(_category_label(row.category or ''))}</td>"
+            f"<td>{escape(category_label(row.category or ''))}</td>"
             f"<td>{escape(row.reason or '—')}</td>"
             f"<td>{'да' if row.active else 'нет'}</td>"
             f"<td>{switch}</td></tr>"
@@ -163,9 +163,9 @@ def _rows_html(rows: list[tuple[ExcludedPersonRecord, str, str]]) -> str:
 @router.get("/ui/airtable/officials", response_class=HTMLResponse)
 def officials_page(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     """The list as it stands, and the form that adds to it."""
-    rows, total = _listing(db)
+    rows, total = officials_listing(db)
     options = "".join(
-        f'<option value="{escape(value)}">{escape(_category_label(value))}</option>'
+        f'<option value="{escape(value)}">{escape(category_label(value))}</option>'
         for value in CATEGORIES
     )
     body = f"""<p class="muted">{_INTRO}</p>
@@ -180,7 +180,7 @@ def officials_page(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
 </form>
 <p class="muted">Всего в списке: {total}. Судей, прокуроров и других, чьё звание стоит в
 текстах перед именем, шаг «Найти фигурантов» добавляет сам («автоматически» в причине).</p>
-{_suggestions_html(_suggestions(db))}
+{_suggestions_html(official_suggestions(db))}
 <table><thead><tr><th>ФИО в списке</th><th>Кого нашли в статьях</th><th>Категория</th>
 <th>Причина</th><th>В силе</th><th></th></tr></thead>
 <tbody>{_rows_html(rows)}</tbody></table>"""
@@ -204,21 +204,9 @@ def officials_csv(db: Session = Depends(get_db)) -> Response:  # noqa: B008
     )
 
 
-@router.post("/ui/airtable/officials/add", response_model=None)
-async def officials_add(
-    request: Request,
-    db: Session = Depends(get_db),  # noqa: B008
-) -> RedirectResponse:
-    """Add a person to the list, saying plainly when the name fits nobody.
-
-    A row added for a name that matches no entity is not an error — the articles may not
-    have mentioned the person yet — but it is written with a mark saying it does not yet
-    apply, so the page does not claim the system will treat them as an official.
-    """
-    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    name = " ".join((form.get("full_name") or [""])[0].split())
-    category = (form.get("category") or ["other"])[0]
-    reason = (form.get("reason") or [""])[0]
+def apply_add(db: Session, full_name: str, category: str, reason: str) -> str:
+    """Add a person to the list; "added", or "already" for a name it holds. Commits."""
+    name = " ".join(full_name.split())
     if not name:
         raise HTTPException(status_code=400, detail="ФИО не указано")
     if category not in CATEGORIES:
@@ -229,7 +217,7 @@ async def officials_add(
     )
     if existing is not None:
         db.commit()
-        return RedirectResponse(f"{REFERENCE_URL}?status=already", status_code=303)
+        return "already"
     db.add(
         ExcludedPersonRecord(
             external_id=external_id,
@@ -242,21 +230,12 @@ async def officials_add(
     )
     db.commit()
     logger.info("event=official_added name=%s category=%s", name, category)
-    return RedirectResponse(f"{REFERENCE_URL}?status=added", status_code=303)
+    return "added"
 
 
-@router.post("/ui/airtable/officials/add-suggested", response_model=None)
-async def officials_add_suggested(
-    request: Request,
-    db: Session = Depends(get_db),  # noqa: B008
-) -> RedirectResponse:
-    """Accept the model's suggestion: the person goes on the list as a person's decision.
-
-    Refused with 404 when the key is no suggestion — no such entity, or the model does not
-    call it an official — so the button cannot put an arbitrary name on the list.
-    """
-    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    key = (form.get("key") or [""])[0]
+def apply_add_suggested(db: Session, key: str) -> str:
+    """Accept the model's suggestion; "added" or "already". 404 for a key that is no
+    suggestion, so the button cannot put an arbitrary name on the list. Commits."""
     entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
     role = db.get(EntityGroupRoleRecord, entity.id) if entity is not None else None
     if (
@@ -269,7 +248,7 @@ async def officials_add_suggested(
     keys = {group.id: group.key for group in db.scalars(select(EntityGroupRecord))}
     if entity.id in official_entity_ids(db, keys, active_only=False):
         db.commit()
-        return RedirectResponse(f"{REFERENCE_URL}?status=already", status_code=303)
+        return "already"
     name = " ".join(entity.name.split())
     db.add(
         ExcludedPersonRecord(
@@ -283,7 +262,55 @@ async def officials_add_suggested(
     )
     db.commit()
     logger.info("event=official_suggestion_accepted name=%s kind=%s", name, role.kind)
-    return RedirectResponse(f"{REFERENCE_URL}?status=added", status_code=303)
+    return "added"
+
+
+def apply_deactivate(db: Session, external_id: str) -> None:
+    """Out of force, the row kept; commits."""
+    row = db.scalar(
+        select(ExcludedPersonRecord).where(ExcludedPersonRecord.external_id == external_id)
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Человека нет в списке")
+    row.active = False
+    db.commit()
+    logger.info("event=official_deactivated name=%s", row.full_name)
+
+
+@router.post("/ui/airtable/officials/add", response_model=None)
+async def officials_add(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """Add a person to the list, saying plainly when the name fits nobody.
+
+    A row added for a name that matches no entity is not an error — the articles may not
+    have mentioned the person yet — but it is written with a mark saying it does not yet
+    apply, so the page does not claim the system will treat them as an official.
+    """
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    status = apply_add(
+        db,
+        (form.get("full_name") or [""])[0],
+        (form.get("category") or ["other"])[0],
+        (form.get("reason") or [""])[0],
+    )
+    return RedirectResponse(f"{REFERENCE_URL}?status={status}", status_code=303)
+
+
+@router.post("/ui/airtable/officials/add-suggested", response_model=None)
+async def officials_add_suggested(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """Accept the model's suggestion: the person goes on the list as a person's decision.
+
+    Refused with 404 when the key is no suggestion — no such entity, or the model does not
+    call it an official — so the button cannot put an arbitrary name on the list.
+    """
+    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
+    status = apply_add_suggested(db, (form.get("key") or [""])[0])
+    return RedirectResponse(f"{REFERENCE_URL}?status={status}", status_code=303)
 
 
 @router.post("/ui/airtable/officials/deactivate", response_model=None)
@@ -297,13 +324,5 @@ async def officials_deactivate(
     list that cannot remember it will be asked the same question again.
     """
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    external_id = (form.get("external_id") or [""])[0]
-    row = db.scalar(
-        select(ExcludedPersonRecord).where(ExcludedPersonRecord.external_id == external_id)
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Человека нет в списке")
-    row.active = False
-    db.commit()
-    logger.info("event=official_deactivated name=%s", row.full_name)
+    apply_deactivate(db, (form.get("external_id") or [""])[0])
     return RedirectResponse(f"{REFERENCE_URL}?status=deactivated", status_code=303)
