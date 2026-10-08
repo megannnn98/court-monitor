@@ -87,6 +87,21 @@ def react_address(path: str) -> str | None:
     return None
 
 
+def accepts_html(accept: str) -> bool:
+    """Whether the `Accept` header names `text/html` as wanted: a browser's does. One
+    that names it with `q=0` refuses it."""
+    for item in accept.split(","):
+        media, *parameters = (part.strip().lower() for part in item.split(";"))
+        if media != "text/html":
+            continue
+        quality = next((p[2:] for p in parameters if p.startswith("q=")), "1")
+        try:
+            return float(quality) > 0
+        except ValueError:
+            return True
+    return False
+
+
 def _console(root: Path, path: str) -> FileResponse:
     """A file of the build, or `index.html` for any other address of the console."""
     file = (root / path.lstrip("/")).resolve()
@@ -112,7 +127,7 @@ async def react_console(
     # A browser opening an address asks for a page; the unversioned API of the same
     # address («/articles/12», «/persons», «/candidates») is for programs, which do not.
     # Without this the browser was shown the API's JSON for a publication's page.
-    if page and "text/html" in request.headers.get("accept", ""):
+    if page and accepts_html(request.headers.get("accept", "")):
         return _console(root, path)
     response = await call_next(request)
     if response.status_code == 404 and page:

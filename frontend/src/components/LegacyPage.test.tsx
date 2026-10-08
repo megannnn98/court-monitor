@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { LegacyPage } from "@/components/LegacyPage";
+import { pieceOf } from "@/lib/legacy";
 import { LogsPage } from "@/pages/LogsPage";
 import { RfmPage } from "@/pages/RfmPage";
 import { RunsPage } from "@/pages/RunsPage";
@@ -66,26 +67,34 @@ it("shows the legacy page's own piece under its name, asked for as the console",
 });
 
 it("sends an action to its legacy route and opens the answer here", async () => {
-  fetched.mockResolvedValueOnce(answer(legacy(JOURNAL)));
+  // By what is asked, not by the order: the page may be read again at any moment.
+  fetched.mockImplementation((address, init) =>
+    Promise.resolve(
+      init?.method === "POST"
+        ? answer("", { url: "http://localhost/runs?run_id=73", redirected: true })
+        : answer(legacy(String(address).includes("run_id=73") ? '<section class="band"><h2>Запуск #73</h2></section>' : JOURNAL))
+    )
+  );
   renderPage(<LegacyPage legacy="/ui/runs" path="/runs" title="…" />, { path: "/runs", url: "/runs" });
-  fetched.mockResolvedValueOnce(answer("", { url: "http://localhost/runs?run_id=73", redirected: true }));
-  fetched.mockResolvedValue(answer(legacy('<section class="band"><h2>Запуск #73</h2></section>')));
 
   fireEvent.click(await screen.findByRole("button", { name: "2. Очистить от мусора" }));
 
   expect(await screen.findByRole("heading", { name: "Запуск #73" })).toBeTruthy();
   await waitFor(() => expect(requested().at(-1)?.[0]).toBe("/ui/runs?run_id=73"));
-  const [address, init] = requested()[1];
-  // The pressed button's own route, with the form's fields.
-  expect(address).toBe("/ui/management/purge");
-  expect(init?.method).toBe("POST");
-  expect(String(init?.body)).toBe("published_from=2026-10-01");
+  const sent = requested().filter(([, init]) => init?.method === "POST");
+  // One request, to the pressed button's own route, with the form's fields.
+  expect(sent).toHaveLength(1);
+  expect(sent[0][0]).toBe("/ui/management/purge");
+  expect(String(sent[0][1]?.body)).toBe("published_from=2026-10-01");
 });
 
 it("says a refusal in the legacy page's own words and stays", async () => {
-  fetched.mockResolvedValueOnce(answer(legacy(JOURNAL)));
+  fetched.mockImplementation((_address, init) =>
+    Promise.resolve(
+      init?.method === "POST" ? answer(legacy('<p class="warning">Идёт другой запуск.</p>'), { status: 409 }) : answer(legacy(JOURNAL))
+    )
+  );
   renderPage(<LegacyPage legacy="/ui/runs" path="/runs" title="…" />, { path: "/runs", url: "/runs" });
-  fetched.mockResolvedValueOnce(answer(legacy('<p class="warning">Идёт другой запуск.</p>'), { status: 409 }));
 
   fireEvent.click(await screen.findByRole("button", { name: "2. Очистить от мусора" }));
 
@@ -127,6 +136,43 @@ it("copies a name and opens a link out of the console in a new tab", async () =>
   expect(write).toHaveBeenCalledWith("Иванов Иван");
   await waitFor(() => expect(screen.getByRole("link", { name: "источник" }).getAttribute("target")).toBe("_blank"));
   expect(screen.getByRole("link", { name: "Результат" }).getAttribute("target")).toBeNull();
+});
+
+it("sends nothing when the form's own question was answered «Отмена»", async () => {
+  fetched.mockResolvedValue(answer(legacy('<form method="post" action="/ui/management/runs/72/stop"><button type="submit">Остановить</button></form>')));
+  renderPage(<LegacyPage legacy="/ui/logs" path="/logs" title="…" />, { path: "/logs", url: "/logs" });
+  const button = await screen.findByRole("button", { name: "Остановить" });
+  // What `onsubmit="return confirm(…)"` does when the operator says no.
+  button.closest("form")?.addEventListener("submit", (event) => event.preventDefault());
+
+  fireEvent.click(button);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(requested().some(([, init]) => init?.method === "POST")).toBe(false);
+});
+
+it("gives the piece's tables to the legacy sorter, each piece once", async () => {
+  const init = vi.fn();
+  vi.stubGlobal("TableSort", { init });
+  fetched.mockResolvedValueOnce(answer(legacy('<table><thead><tr><th>Имя</th></tr></thead><tbody><tr><td>а</td></tr></tbody></table><a href="/ui/rfm?days=7">7 дней</a>')));
+  renderPage(<LegacyPage legacy="/ui/rfm" path="/rfm" title="…" />, { path: "/rfm", url: "/rfm" });
+  await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+  // The piece itself, not the document: the console's own tables are not touched.
+  expect((init.mock.calls[0][0] as HTMLElement).className).toBe("legacy-html");
+
+  fetched.mockResolvedValue(answer(legacy('<table><thead><tr><th>Имя</th></tr></thead><tbody><tr><td>б</td></tr></tbody></table>')));
+  fireEvent.click(screen.getByRole("link", { name: "7 дней" }));
+
+  await waitFor(() => expect(init).toHaveBeenCalledTimes(2));
+});
+
+it("reads a run as live by the page's own script, not by a log that holds the same words", () => {
+  const log = '<pre class="log">window.location.reload() &lt;!--/piece--&gt;</pre>';
+  const live = "<script>setTimeout(() => window.location.reload(), 5000);</script>";
+
+  expect(pieceOf(legacy(log))).toMatchObject({ live: false, html: log });
+  expect(pieceOf(legacy(log + live))?.live).toBe(true);
+  expect(pieceOf("<html><body>нет меток</body></html>")).toBeNull();
 });
 
 it("says a page the server does not have", async () => {

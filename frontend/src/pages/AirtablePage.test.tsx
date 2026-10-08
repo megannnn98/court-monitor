@@ -76,7 +76,7 @@ it("cannot sync when nothing is set up, and says why a refresh was refused", asy
 it("a started check is read again by the journal, «Работа» and the strip", async () => {
   // Each was read while nothing ran: none of them polls for a run it has not seen.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
-  const seen = [["operations", "runs"], ["cycle"], ["status"]];
+  const seen = [["operations", "runs"], ["cycle"], ["status"], ["legacy", "/ui/runs", ""]];
   for (const key of seen) {
     client.setQueryData(key, []);
   }
@@ -85,5 +85,5 @@ it("a started check is read again by the journal, «Работа» and the strip
 
   fireEvent.click(await screen.findByRole("button", { name: "Обновить перечень и сверить с РФМ" }));
 
-  await waitFor(() => expect(seen.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true, true]));
+  await waitFor(() => expect(seen.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true, true, true]));
 });

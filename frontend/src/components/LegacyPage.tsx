@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 
@@ -20,8 +21,20 @@ export function LegacyPage({ legacy, path, title }: Here & { title: string }) {
   const page = useQuery({
     queryKey: ["legacy", legacy, search],
     queryFn: () => readLegacyPage(`${legacy}${search}`),
+    // The piece is the server's word of this moment: read on every return to the page,
+    // whatever was started from another page meanwhile.
+    staleTime: 0,
     refetchInterval: (query) => (query.state.data?.live ? POLL_MS : false)
   });
+  // The run the piece showed has ended: the strip and «Работа» said «Идёт» till now.
+  const live = page.data?.live ?? false;
+  const wasLive = useRef(false);
+  useEffect(() => {
+    if (wasLive.current && !live) {
+      void readAgainAfterDecision(client, ["operations", "runs"]);
+    }
+    wasLive.current = live;
+  }, [live, client]);
 
   return (
     <>

@@ -85,7 +85,8 @@ export function PersonPage() {
                       ["Статус", rosfinmonitoring.status],
                       ["Confidence", formatConfidence(rosfinmonitoring.confidence)],
                       ["Запись", rosfinmonitoring.matched_entry_name ?? DASH],
-                      ["Snapshot", <Link className="underline" to={`/rfm?snapshot=${rosfinmonitoring.snapshot_id}`}>{rosfinmonitoring.snapshot_id}</Link>],
+                      // The list's page shows the latest snapshot only: no link that would pass it for this one.
+                      ["Snapshot", rosfinmonitoring.snapshot_id],
                       ["Причины", rosfinmonitoring.reasons.join(", ") || DASH]
                     ]}
                   />

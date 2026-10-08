@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from web.app import app
 from web.dependencies import get_db
-from web.spa import PIECE_HEADER, react_address
+from web.spa import PIECE_HEADER, accepts_html, react_address
 from web.ui.layout import PIECE_CLOSE, PIECE_OPEN
 
 
@@ -62,6 +62,7 @@ def test_a_browser_is_given_the_page_where_the_old_api_has_the_same_address(
         # A program asking the same address is answered by the API, as before.
         program = client.get("/persons", headers={"Accept": "application/json"})
         default = client.get("/persons")
+        refusing = client.get("/persons", headers={"Accept": "application/json, text/html;q=0"})
         # The API under /api, the legacy pages and the files are never the page.
         versioned = client.get("/api/v1/nothing", headers=browser)
         asset = client.get("/assets/app.js", headers=browser)
@@ -70,6 +71,8 @@ def test_a_browser_is_given_the_page_where_the_old_api_has_the_same_address(
 
     assert program.headers["content-type"] == "application/json" and program.json() == []
     assert default.headers["content-type"] == "application/json"
+    # Named with q=0, HTML is refused: the program gets the API.
+    assert refusing.headers["content-type"] == "application/json"
     assert versioned.status_code == 404
     assert asset.text == "console.log(1)"
 
@@ -133,3 +136,20 @@ def test_the_console_is_served_a_legacy_page_it_asks_for(
     assert "<h2>Сборка</h2>" in piece
     assert "<nav" not in piece and "<h1>" not in piece and "status-strip" not in piece
     assert page.index("<h1>О системе</h1>") < page.index(PIECE_OPEN)
+
+
+@pytest.mark.parametrize(
+    ("accept", "wanted"),
+    [
+        ("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", True),
+        ("text/html;q=0.5", True),
+        ("TEXT/HTML", True),
+        ("application/json, text/html;q=0", False),
+        ("text/html; q=0.0", False),
+        ("*/*", False),
+        ("application/json", False),
+        ("", False),
+    ],
+)
+def test_html_is_wanted_only_where_the_header_says_so(accept: str, wanted: bool) -> None:
+    assert accepts_html(accept) is wanted

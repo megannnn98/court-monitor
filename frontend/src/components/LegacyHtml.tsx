@@ -23,6 +23,8 @@ function fieldsOf(form: HTMLFormElement, submitter: HTMLElement | null): URLSear
   return fields;
 }
 
+type Sorter = { init: (root: ParentNode) => void };
+
 function script(src: string): Promise<void> {
   return new Promise((resolve) => {
     const tag = document.createElement("script");
@@ -33,9 +35,24 @@ function script(src: string): Promise<void> {
   });
 }
 
+let sorter: Promise<Sorter | undefined> | undefined;
+
+/** The legacy pages' own sorting of tables (`src/static/table-sort*.js`), loaded once
+ * for the console however many pieces ask for it. */
+function tableSorter(): Promise<Sorter | undefined> {
+  const loaded = () => (window as { TableSort?: Sorter }).TableSort;
+  sorter ??= loaded()
+    ? Promise.resolve(loaded())
+    : script("/static/table-sort-core.js")
+        .then(() => script("/static/table-sort.js"))
+        .then(loaded);
+  return sorter;
+}
+
 /** What the legacy pages' own scripts do once a page is loaded (`src/static/local-ui.js`,
- * `table-sort.js`), done for a piece: a link out of the console opens in a new tab, and
- * every table sorts by a press on a column's header — by the legacy script itself. */
+ * `table-sort.js`, `web.ui.logs`), done for a piece and for nothing outside it: a link
+ * out of the console opens in a new tab, a log is shown at its last lines, and every
+ * table sorts by a press on a column's header. */
 async function enhance(piece: HTMLElement) {
   for (const link of piece.querySelectorAll<HTMLAnchorElement>('a[href^="http"]')) {
     if (link.host !== window.location.host) {
@@ -43,12 +60,15 @@ async function enhance(piece: HTMLElement) {
       link.rel = "noopener noreferrer";
     }
   }
+  for (const log of piece.querySelectorAll<HTMLElement>("pre.log")) {
+    log.scrollTop = log.scrollHeight;
+  }
   if (piece.querySelector("table")) {
-    if (!("TableSortCore" in window)) {
-      await script("/static/table-sort-core.js");
+    const found = await tableSorter();
+    // The piece may have gone while the scripts loaded: its page was left.
+    if (piece.isConnected) {
+      found?.init(piece);
     }
-    // The script gives every table of the page its headers; these tables are new.
-    await script("/static/table-sort.js");
   }
 }
 
@@ -72,6 +92,10 @@ export function LegacyHtml({ html, here, onDone }: { html: string; here: Here; o
   }, [html]);
 
   async function submit(event: FormEvent<HTMLDivElement>) {
+    // The form's own «Остановить запуск?» was answered «Отмена»: nothing is sent.
+    if (event.defaultPrevented) {
+      return;
+    }
     const form = event.target as HTMLFormElement;
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const action = submitter?.getAttribute("formaction") ?? form.getAttribute("action") ?? here.legacy;

@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +48,7 @@ const MARKS: Record<string, [string, string]> = {
 function Steps({ cycle }: { cycle: CycleResponse }) {
   const client = useQueryClient();
   const refresh = async () => {
-    await Promise.all([client.invalidateQueries({ queryKey: ["cycle"] }), client.invalidateQueries({ queryKey: ["status"] })]);
+    await readAgainAfterDecision(client);
   };
   const start = useMutation({ mutationFn: () => unwrap(startCycleV1({ body: { after: cycle.latest_run_id } })), onSettled: refresh });
   const stop = useMutation({

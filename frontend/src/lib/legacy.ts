@@ -26,11 +26,13 @@ export function pieceOf(page: string): LegacyPiece | null {
   }
   const html = page.slice(start + OPEN.length, end);
   const head = new DOMParser().parseFromString(page.slice(0, start), "text/html");
+  // By the page's own script, not by its text: a log may hold the same words.
+  const scripts = new DOMParser().parseFromString(html, "text/html").querySelectorAll("script");
   return {
     title: head.querySelector("h1")?.textContent?.trim() ?? "",
     instruction: head.querySelector(".hint-body p")?.textContent?.trim() ?? "",
     html,
-    live: html.includes(RELOADS)
+    live: Array.from(scripts).some((script) => script.textContent?.includes(RELOADS))
   };
 }
 
