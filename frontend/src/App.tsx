@@ -19,6 +19,7 @@ import { ReviewPage } from "@/pages/ReviewPage";
 import { RfmPage } from "@/pages/RfmPage";
 import { RunsPage } from "@/pages/RunsPage";
 import { SentencesPage } from "@/pages/SentencesPage";
+import { UnnamedPage } from "@/pages/UnnamedPage";
 import { WorkPage } from "@/pages/WorkPage";
 
 export function App() {
@@ -42,6 +43,7 @@ export function App() {
         <Route path="review/politics" element={<ReviewPage kind="politics" />} />
         <Route path="review/pairs" element={<PairsPage />} />
         <Route path="sentences" element={<SentencesPage />} />
+        <Route path="unnamed" element={<UnnamedPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
         <Route path="about" element={<AboutPage />} />

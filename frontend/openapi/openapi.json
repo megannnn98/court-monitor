@@ -1952,6 +1952,248 @@
           }
         }
       }
+    },
+    "/api/v1/unnamed": {
+      "get": {
+        "summary": "List Unnamed",
+        "description": "One tab of «Безымянные», as the legacy page shows it.",
+        "operationId": "list_unnamed_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(open|no_age|found|no_rf|insufficient|all)$",
+              "default": "open",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "person_q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Person Q"
+            }
+          },
+          {
+            "name": "rf_q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Rf Q"
+            }
+          },
+          {
+            "name": "rf_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 600,
+              "default": "",
+              "title": "Rf Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnnamedListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/unnamed/keep": {
+      "post": {
+        "summary": "Keep Unnamed",
+        "description": "«Вернуть на разбор»: back to the cards, whom the search set aside.",
+        "operationId": "keep_unnamed_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnnamedActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnnamedActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/unnamed/reject": {
+      "post": {
+        "summary": "Reject Unnamed",
+        "description": "«Не он» of a candidate; with `undo`, taken back.",
+        "operationId": "reject_unnamed_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnnamedActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnnamedActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/unnamed/resolve": {
+      "post": {
+        "summary": "Resolve Unnamed",
+        "description": "«Это он», «Подходящей записи РФМ нет», «Недостаточно данных».",
+        "operationId": "resolve_unnamed_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnnamedActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnnamedActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/unnamed/clear": {
+      "post": {
+        "summary": "Clear Unnamed",
+        "description": "«Отменить решение».",
+        "operationId": "clear_unnamed_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnnamedActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnnamedActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2451,6 +2693,36 @@
           "not_configured"
         ],
         "title": "ComponentStatus"
+      },
+      "CourtHintResponse": {
+        "properties": {
+          "court": {
+            "type": "string",
+            "title": "Court"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          }
+        },
+        "type": "object",
+        "required": [
+          "court",
+          "cases",
+          "site"
+        ],
+        "title": "CourtHintResponse"
       },
       "CycleResponse": {
         "properties": {
@@ -4697,6 +4969,24 @@
         "title": "PersonAliasResponse",
         "description": "Person alias response model."
       },
+      "PersonChoiceResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "PersonChoiceResponse"
+      },
       "PersonDetailResponse": {
         "properties": {
           "person": {
@@ -6575,6 +6865,610 @@
           "sources"
         ],
         "title": "TimelineItemResponse"
+      },
+      "UnnamedActionRequest": {
+        "properties": {
+          "figurant": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Figurant"
+          },
+          "candidate": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Candidate",
+            "default": ""
+          },
+          "undo": {
+            "type": "boolean",
+            "title": "Undo",
+            "default": false
+          },
+          "resolution": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Resolution",
+            "default": ""
+          },
+          "normalized_name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Normalized Name",
+            "default": ""
+          },
+          "existing_person_key": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Existing Person Key",
+            "default": ""
+          },
+          "rf_name": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Rf Name",
+            "default": ""
+          },
+          "rf_birth_date": {
+            "type": "string",
+            "maxLength": 10,
+            "title": "Rf Birth Date",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "figurant"
+        ],
+        "title": "UnnamedActionRequest",
+        "description": "A word on an unnamed figurant; the fields the action needs, as the legacy form\nsends them."
+      },
+      "UnnamedActionResponse": {
+        "properties": {
+          "figurant": {
+            "type": "string",
+            "title": "Figurant"
+          }
+        },
+        "type": "object",
+        "required": [
+          "figurant"
+        ],
+        "title": "UnnamedActionResponse"
+      },
+      "UnnamedBaseCandidateResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "birth_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Birth Date"
+          },
+          "place": {
+            "type": "string",
+            "title": "Place"
+          },
+          "articles": {
+            "type": "string",
+            "title": "Articles"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "birth_date",
+          "place",
+          "articles",
+          "reasons",
+          "decision"
+        ],
+        "title": "UnnamedBaseCandidateResponse",
+        "description": "A person of the operator's base who may be the unnamed figurant."
+      },
+      "UnnamedCardResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "start_offset": {
+            "type": "integer",
+            "title": "Start Offset"
+          },
+          "end_offset": {
+            "type": "integer",
+            "title": "End Offset"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "facts": {
+            "type": "string",
+            "title": "Facts"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "has_age": {
+            "type": "boolean",
+            "title": "Has Age"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "identified_as": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identified As"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "rf_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedRfCandidateResponse"
+            },
+            "type": "array",
+            "title": "Rf Candidates"
+          },
+          "rf_total": {
+            "type": "integer",
+            "title": "Rf Total"
+          },
+          "rf_snapshot_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rf Snapshot Date"
+          },
+          "named_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedNamedCandidateResponse"
+            },
+            "type": "array",
+            "title": "Named Candidates"
+          },
+          "base_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedBaseCandidateResponse"
+            },
+            "type": "array",
+            "title": "Base Candidates"
+          },
+          "base_total": {
+            "type": "integer",
+            "title": "Base Total"
+          },
+          "courts": {
+            "items": {
+              "$ref": "#/components/schemas/CourtHintResponse"
+            },
+            "type": "array",
+            "title": "Courts"
+          },
+          "courts_total": {
+            "type": "integer",
+            "title": "Courts Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "article_id",
+          "start_offset",
+          "end_offset",
+          "quote",
+          "published_at",
+          "facts",
+          "explanation",
+          "has_age",
+          "resolution",
+          "identified_as",
+          "note",
+          "rf_candidates",
+          "rf_total",
+          "rf_snapshot_date",
+          "named_candidates",
+          "base_candidates",
+          "base_total",
+          "courts",
+          "courts_total"
+        ],
+        "title": "UnnamedCardResponse",
+        "description": "One unnamed figurant: the sentence, what it tells, the operator's word and the\ncandidates from the list, other publications and the base."
+      },
+      "UnnamedListResponse": {
+        "properties": {
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Statuses"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedCardResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "none_yet": {
+            "type": "boolean",
+            "title": "None Yet"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonChoiceResponse"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "rf_entries": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedRfEntryResponse"
+            },
+            "type": "array",
+            "title": "Rf Entries"
+          },
+          "reverse": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedReverseResponse"
+            },
+            "type": "array",
+            "title": "Reverse"
+          },
+          "screened": {
+            "items": {
+              "$ref": "#/components/schemas/UnnamedScreenedResponse"
+            },
+            "type": "array",
+            "title": "Screened"
+          }
+        },
+        "type": "object",
+        "required": [
+          "statuses",
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "none_yet",
+          "people",
+          "rf_entries",
+          "reverse",
+          "screened"
+        ],
+        "title": "UnnamedListResponse",
+        "description": "«Безымянные»: one tab of cards, the tabs' counts, and the searches' answers."
+      },
+      "UnnamedNamedCandidateResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "candidate_key": {
+            "type": "string",
+            "title": "Candidate Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "candidate_key",
+          "name",
+          "article_id",
+          "title",
+          "start",
+          "end",
+          "reasons",
+          "decision"
+        ],
+        "title": "UnnamedNamedCandidateResponse",
+        "description": "A named figurant of another publication who may be the unnamed one."
+      },
+      "UnnamedReverseResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "facts": {
+            "type": "string",
+            "title": "Facts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "quote",
+          "facts"
+        ],
+        "title": "UnnamedReverseResponse"
+      },
+      "UnnamedRfCandidateResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "rf_name": {
+            "type": "string",
+            "title": "Rf Name"
+          },
+          "birth_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Birth Date"
+          },
+          "birth_place": {
+            "type": "string",
+            "title": "Birth Place"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "seen": {
+            "type": "string",
+            "title": "Seen"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "full_name",
+          "display_name",
+          "rf_name",
+          "birth_date",
+          "birth_place",
+          "reasons",
+          "seen",
+          "decision"
+        ],
+        "title": "UnnamedRfCandidateResponse",
+        "description": "An entry of the list that may be the unnamed figurant."
+      },
+      "UnnamedRfEntryResponse": {
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "full_name",
+          "birth_date"
+        ],
+        "title": "UnnamedRfEntryResponse"
+      },
+      "UnnamedScreenedResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "start_offset": {
+            "type": "integer",
+            "title": "Start Offset"
+          },
+          "end_offset": {
+            "type": "integer",
+            "title": "End Offset"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "facts": {
+            "type": "string",
+            "title": "Facts"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "article_id",
+          "start_offset",
+          "end_offset",
+          "quote",
+          "published_at",
+          "facts",
+          "reason",
+          "explanation"
+        ],
+        "title": "UnnamedScreenedResponse",
+        "description": "Whom the search set aside on its own."
       },
       "ValidationError": {
         "properties": {
