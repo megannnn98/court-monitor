@@ -72,22 +72,10 @@ def _next_tasks(work: Workload, current: OperatorTask | None) -> str:
 </section>"""
 
 
-def chain_question(state: PipelineState, work: Workload) -> str:
-    """What is asked before «Сделать всё» on «Работа»: an unfinished review first, then
-    what the steps delete and cost. Read by the legacy page and `GET /api/v1/cycle`."""
-    task = next_operator_task(work)
-    return " ".join(
-        item
-        for item in (
-            (
-                f"Проверка «{task.title}» не завершена: {task.count}. Всё равно запустить?"
-                if task is not None
-                else ""
-            ),
-            chain_confirmation(state.current),
-        )
-        if item
-    )
+def chain_question(state: PipelineState) -> str:
+    """What is asked before «Сделать всё» on «Работа»: only what it costs. Read by the
+    legacy page and `GET /api/v1/cycle`."""
+    return chain_confirmation(state.current)
 
 
 def step_statuses(state: PipelineState) -> list[tuple[str, str]]:
@@ -114,7 +102,7 @@ def _pipeline_control(state: PipelineState, work: Workload) -> str:
             "onclick=\"return confirm('Остановить запуск? Уже сделанное останется.')\">"
             "Остановить</button>"
         )
-    confirmation = chain_question(state, work)
+    confirmation = chain_question(state)
     # One press runs every step that is left; a single step is on «Журнал запусков».
     return (
         f'<button id="step-{state.current}" class="secondary" type="submit" '

@@ -73,7 +73,7 @@ def get_cycle(
         ),
         latest_run_id=latest_run_id(state),
         chain_span=chain_span(state.current),
-        chain_question=chain_question(state, work),
+        chain_question=chain_question(state),
         chain_note=chain_note_text(state),
         chain_stopped=chain_stopped_text(state),
     )

@@ -573,7 +573,7 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
         '<button id="do-all" class="primary-action" type="submit" '
         f'formaction="/ui/management/purge?chain=1&amp;after={loaded}"'
     ) in idle
-    assert "Выполнить шаги 2–5 подряд? Остановится на первой ошибке. Шаг 2. Удалить из базы" in idle
+    assert 'data-ask="Выполнить шаги 2–5 подряд?"' in idle
     assert 'id="do-all"' not in page, "no second start while a run is live"
     assert "Очистка от мусора" in page
     assert '<progress class="overall" value="1000" max="16046">' in page
@@ -593,7 +593,7 @@ def test_do_all_on_the_runs_page_names_the_last_step_as_one(
     assert "шаг 5, без остановок; кнопки ниже запускают по одному шагу" in page
     assert "шаги 5–5" not in page
     # The question is data the handler reads, not text inside the handler.
-    assert 'data-ask="Выполнить шаг 5? Остановится на первой ошибке.' in page
+    assert 'data-ask="Выполнить шаг 5?"' in page
     assert 'onclick="return confirm(this.dataset.ask)"' in page and "confirm('Выполнить" not in page
 
 

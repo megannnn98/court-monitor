@@ -53,9 +53,8 @@ def test_a_fresh_base_waits_for_step_one(session_factory: sessionmaker[Session])
     for step in cycle["steps"]:
         assert step["label"] in page
     assert cycle["chain_span"] == "шаги 1–5 подряд"
-    # The question names what a single start of each step would ask: the deletion.
-    assert "Выполнить шаги 1–5 подряд?" in cycle["chain_question"]
-    assert "Это необратимо." in cycle["chain_question"]
+    # Nothing is paid here: the question only asks to start.
+    assert cycle["chain_question"] == "Выполнить шаги 1–5 подряд?"
 
 
 def test_do_all_starts_once_and_a_stale_press_is_refused(

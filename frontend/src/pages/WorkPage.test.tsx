@@ -22,7 +22,7 @@ const IDLE = {
   live: null,
   latest_run_id: 41,
   chain_span: "шаги 1–5 подряд",
-  chain_question: "Выполнить шаги 1–5 подряд? Шаг 2. Удалить … Это необратимо.",
+  chain_question: "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. Остаток: $9.16. Запустить?",
   chain_note: "",
   chain_stopped: ""
 };
@@ -50,7 +50,7 @@ it("asks before «Сделать всё» and names the latest run it was read f
   renderPage(<WorkPage />);
   fireEvent.click(await screen.findByRole("button", { name: "Сделать всё" }));
 
-  expect(await screen.findByText(/Это необратимо/)).toBeTruthy();
+  expect(await screen.findByText(/спишутся деньги/)).toBeTruthy();
   expect(start).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
   await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41 } }));

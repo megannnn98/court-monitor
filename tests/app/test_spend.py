@@ -219,35 +219,27 @@ def test_the_strip_says_a_dash_when_openrouter_does_not_answer_and_nothing_witho
     assert "<small>Публикации</small>" in _strip(session_factory)
 
 
-def test_do_all_warns_when_the_account_cannot_pay_for_every_step_to_its_limit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """$4.26 on the account; three steps of $2 each may spend $6."""
+def test_do_all_asks_only_of_the_money(monkeypatch: pytest.MonkeyPatch) -> None:
+    """$4.26 on the account; three steps of $2 each may spend $6. The question says what
+    a day of news costs and what is left — no steps, no deletion, no limits."""
     _paid(monkeypatch)
     _credits(monkeypatch)
-    # The purge is paid by the article and has no limit: it is not in the sum, and the
-    # warning says so.
-    shortfall = (
-        "Остатка меньше суммы лимитов этих шагов ($6.00): цепочка может остановиться, "
-        "не дойдя до конца. Шаг без лимита (оплата за каждую статью) в эту сумму не входит."
-    )
 
     whole = chain_confirmation("load")
     two = chain_confirmation("figurants")
 
-    assert whole.startswith("Выполнить шаги 1–5 подряд? Остановится на первой ошибке. Шаг 2. ")
-    assert whole.endswith(
-        "Остаток на OpenRouter: $4.26 (куплено $15.00, потрачено $10.74). " + shortfall
+    assert whole == (
+        "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. "
+        "Остаток: $4.26. Остатка может не хватить на все шаги. Запустить?"
     )
-    # Two steps of $2 are within $4.26: no warning, and the steps already done are not asked of.
-    assert two.startswith("Выполнить шаги 4–5 подряд?") and "Остатка меньше" not in two
-    assert "Шаг 3." not in two and "Удалить из базы" not in two
+    # Two steps of $2 are within $4.26: nothing is said of a shortfall.
+    assert two == (
+        "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. "
+        "Остаток: $4.26. Запустить?"
+    )
+    _credits(monkeypatch, None)
+    assert "Остаток узнать не удалось." in chain_confirmation("load")
     assert spend.chain_shortfall(["load"]) == ""
-    # Three steps with limits and no step paid by the piece: nothing is said of one.
-    assert spend.chain_shortfall(["entities", "figurants", "political"]) == (
-        "Остатка меньше суммы лимитов этих шагов ($6.00): цепочка может остановиться, "
-        "не дойдя до конца."
-    )
 
 
 def test_a_question_with_an_apostrophe_is_still_asked() -> None:
@@ -264,13 +256,8 @@ def test_a_question_with_an_apostrophe_is_still_asked() -> None:
     assert ask("") == ""
 
 
-def test_do_all_without_a_key_asks_only_of_what_it_deletes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_do_all_without_a_key_asks_only_to_start(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
-    assert chain_confirmation("load") == (
-        "Выполнить шаги 1–5 подряд? Остановится на первой ошибке. Шаг 2. Удалить из базы все "
-        "статьи без уголовных дел и людей, которых после этого ничто не упоминает? Это необратимо."
-    )
-    assert chain_confirmation("political") == "Выполнить шаг 5? Остановится на первой ошибке."
+    assert chain_confirmation("load") == "Выполнить шаги 1–5 подряд?"
+    assert chain_confirmation("political") == "Выполнить шаг 5?"
