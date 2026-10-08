@@ -16,7 +16,8 @@
   --secondary: #edf1f5;
   --secondary-foreground: #334155;
   --muted: #edf1f5;
-  --muted-foreground: #64748b;
+  /* Darker than the legacy #64748b: 4.5:1 on --muted and --background (WCAG AA). */
+  --muted-foreground: #5f6f85;
   --accent: #e8f1f8;
   --accent-foreground: #174b72;
   --destructive: #c9363e;

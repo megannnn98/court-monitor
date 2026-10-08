@@ -79,45 +79,48 @@ export function RfmPage() {
       </PageHeader>
       <QueryState query={snapshots} isEmpty={isEmptyList} empty="Перечень ещё не загружен.">
         {(items) => (
-          <Table className="mb-6">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Snapshot</TableHead>
-                <TableHead>Дата</TableHead>
-                <TableHead>Записей</TableHead>
-                <TableHead>Источник</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => {
-                const link = externalUrl(item.source_url);
-                return (
-                  <TableRow key={item.id} data-state={item.id === selected ? "selected" : undefined}>
-                    <TableCell>
-                      <button
-                        type="button"
-                        className={cn("underline", item.id === selected && "font-semibold")}
-                        onClick={() => url.set({ snapshot: item.id, page: null })}
-                      >
-                        {item.id}
-                      </button>
-                    </TableCell>
-                    <TableCell>{formatDate(item.snapshot_date)}</TableCell>
-                    <TableCell>{formatNumber(item.entry_count)}</TableCell>
-                    <TableCell className="break-all whitespace-normal">
-                      {link ? (
-                        <a className="underline" href={link} rel="noopener noreferrer" target="_blank">
-                          {link}
-                        </a>
-                      ) : (
-                        item.source_url
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          // The gap after the snapshots, outside the table's white surface.
+          <div className="mb-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Snapshot</TableHead>
+                  <TableHead>Дата</TableHead>
+                  <TableHead>Записей</TableHead>
+                  <TableHead>Источник</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const link = externalUrl(item.source_url);
+                  return (
+                    <TableRow key={item.id} data-state={item.id === selected ? "selected" : undefined}>
+                      <TableCell>
+                        <button
+                          type="button"
+                          className={cn("underline", item.id === selected && "font-semibold")}
+                          onClick={() => url.set({ snapshot: item.id, page: null })}
+                        >
+                          {item.id}
+                        </button>
+                      </TableCell>
+                      <TableCell>{formatDate(item.snapshot_date)}</TableCell>
+                      <TableCell>{formatNumber(item.entry_count)}</TableCell>
+                      <TableCell className="break-all whitespace-normal">
+                        {link ? (
+                          <a className="underline" href={link} rel="noopener noreferrer" target="_blank">
+                            {link}
+                          </a>
+                        ) : (
+                          item.source_url
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </QueryState>
       {selected > 0 ? (
