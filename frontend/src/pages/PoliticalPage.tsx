@@ -284,7 +284,7 @@ export function PoliticalPage() {
               {data.items.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">За этот период в этой очереди никого нет.</p>
               ) : (
-                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
                   <div>
                     <Table>
                       <TableHeader>
@@ -295,9 +295,15 @@ export function PoliticalPage() {
                           <TableHead>Человек</TableHead>
                           <TableHead>Новость</TableHead>
                           <TableHead>Статьи УК</TableHead>
-                          <TableHead>Регион</TableHead>
-                          {extra ? <TableHead>{extra.head}</TableHead> : null}
-                          <TableHead>Последняя новость</TableHead>
+                          {/* A queue's own column takes the region's place: both do not fit beside the
+                              panel, and the panel names the region. */}
+                          {extra ? (
+                            <TableHead className="max-w-36 leading-tight whitespace-normal">{extra.head}</TableHead>
+                          ) : (
+                            <TableHead>Регион</TableHead>
+                          )}
+                          {/* Two lines, so the date's column is as narrow as a date: the table must fit beside the panel. */}
+                          <TableHead className="w-24 leading-tight whitespace-normal">Последняя новость</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -318,13 +324,16 @@ export function PoliticalPage() {
                             <TableCell>
                               <News row={row} />
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="max-w-32 whitespace-normal">
                               <Articles row={row} />
                             </TableCell>
-                            <TableCell className="max-w-40 truncate" title={row.regions}>
-                              {row.regions || DASH}
-                            </TableCell>
-                            {extra ? <TableCell className="max-w-64 whitespace-normal">{extra.cell(row)}</TableCell> : null}
+                            {extra ? (
+                              <TableCell className="max-w-48 whitespace-normal">{extra.cell(row)}</TableCell>
+                            ) : (
+                              <TableCell className="max-w-32 truncate" title={row.regions}>
+                                {row.regions || DASH}
+                              </TableCell>
+                            )}
                             <TableCell>{formatDate(row.last_published_at)}</TableCell>
                           </TableRow>
                         ))}
