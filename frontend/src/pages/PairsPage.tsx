@@ -3,13 +3,14 @@ import { Link } from "react-router-dom";
 
 import { decidePairV1, listPairsV1, type PairResponse, type PairSideResponse } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { Pager } from "@/components/Pager";
 import { QueryState } from "@/components/QueryState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUrlState } from "@/hooks/useUrlState";
-import { unwrap } from "@/lib/api";
+import { ApiError, unwrap } from "@/lib/api";
 import { readAgainAfterDecision } from "@/lib/decisions";
 import { formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
@@ -66,6 +67,51 @@ function Pair({ pair }: { pair: PairResponse }) {
   );
 }
 
+/** «Сбросить все решения по парам», as on the legacy page: the operator starts the pairs
+ * over. Sent to the legacy route, which answers with how many decisions it forgot. */
+function Reset({ decided }: { decided: Record<string, number> }) {
+  const client = useQueryClient();
+  const total = Object.values(decided).reduce((sum, count) => sum + count, 0);
+  const reset = useMutation({
+    mutationFn: async () => {
+      const answer = await fetch("/ui/pairs/reset-decisions", { method: "POST" });
+      if (!answer.ok) {
+        throw new ApiError(`Сервер ответил ${answer.status}`, answer.status);
+      }
+      return new URL(answer.url, window.location.origin).searchParams.get("reset") ?? String(total);
+    },
+    onSuccess: async () => {
+      await readAgainAfterDecision(client, ["review", "pairs"]);
+    }
+  });
+  if (!total && !reset.isSuccess) {
+    return <p className="mt-4 text-sm text-muted-foreground">Сохранённых решений по парам нет.</p>;
+  }
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+      {total ? (
+        <ConfirmButton
+          variant="destructive"
+          title="Сбросить все решения по парам?"
+          question={`Удалить все решения по спорным парам (${total}, из них вручную ${decided.manual ?? 0})? Пары «Разные люди» вернутся сразу, слитые люди разделятся при следующей сборке сущностей. Это необратимо.`}
+          confirm="Сбросить"
+          disabled={reset.isPending}
+          onConfirm={() => reset.mutate()}
+        >
+          Сбросить все решения по парам
+        </ConfirmButton>
+      ) : null}
+      {total ? (
+        <span className="text-muted-foreground">
+          Сохранено решений: {total} (вручную: {decided.manual ?? 0}, по перечню: {decided.rf ?? 0}, по региону: {decided.region ?? 0}).
+        </span>
+      ) : null}
+      {reset.isSuccess ? <span role="status">Решения по парам сброшены: {reset.data}.</span> : null}
+      {reset.isError ? <span className="text-destructive">{reset.error.message}</span> : null}
+    </div>
+  );
+}
+
 export function PairsPage() {
   const url = useUrlState();
   const query = { kind: url.get("kind", "all"), page: Math.max(1, url.getNumber("page", 1)), key: url.get("key") };
@@ -82,12 +128,7 @@ export function PairsPage() {
         instruction="Сущности, которые могут быть одним человеком: реестр пишет ФИО с отчеством, новости — без; имя бывает записано по-разному («Лида» и «Лидия»)."
       >
         <p className="text-sm text-muted-foreground">
-          «Один человек» сливает две сущности сразу и при каждой следующей сборке; «Разные люди» убирает пару из списка. Сброс всех
-          решений — в{" "}
-          <a className="underline" href="/ui/pairs">
-            старом интерфейсе
-          </a>
-          .
+          «Один человек» сливает две сущности сразу и при каждой следующей сборке; «Разные люди» убирает пару из списка.
         </p>
       </PageHeader>
       <QueryState query={pairs}>
@@ -122,6 +163,7 @@ export function PairsPage() {
               total={data.total}
               onPage={(next) => url.set({ page: next === 1 ? null : next })}
             />
+            <Reset decided={data.decided} />
           </>
         )}
       </QueryState>

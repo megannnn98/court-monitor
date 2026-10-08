@@ -4,7 +4,12 @@ The image builds `frontend/` and names the build in `FRONTEND_DIST` (Dockerfile)
 the site is the React console: an address no route answers returns `index.html` (the
 router picks the page in the browser) or the build's file, and a legacy page that has
 moved to React sends the browser to the React page, query kept. The legacy pages not moved
-yet, the Excel files, the forms (any method but GET) and the API stay where they are.
+yet, the Excel files, the forms (any method but GET) and the API stay where they are. So
+does the unversioned API for a program that asks it: only a browser opening an address
+(it accepts `text/html`) is given the console's page at an address the API also has. So
+does a legacy page the console itself asks for (`PIECE_HEADER`): the journal of runs, the
+logs, the list of Rosfinmonitoring and the sentences are the legacy pages' own pieces,
+shown under the console's menu.
 
 Without `FRONTEND_DIST` — the tests, a working copy run with uvicorn — nothing changes:
 the legacy pages answer as before.
@@ -57,6 +62,9 @@ ONE_OF = {
 }
 # Files under those addresses stay where they are: the wiki's PDF.
 _FILES = (".pdf", ".csv", ".xlsx")
+# The console itself asks for a legacy page to show a piece of it under its own menu
+# (`frontend/src/components/LegacyPage.tsx`): the page is then served, not moved.
+PIECE_HEADER = "x-console-piece"
 # Never the console's: a missing API route is a 404, not a page.
 _NOT_PAGES = ("/api/", "/ui/", "/static/", "/health", "/docs", "/redoc", "/openapi.json")
 
@@ -79,6 +87,21 @@ def react_address(path: str) -> str | None:
     return None
 
 
+def accepts_html(accept: str) -> bool:
+    """Whether the `Accept` header names `text/html` as wanted: a browser's does. One
+    that names it with `q=0` refuses it."""
+    for item in accept.split(","):
+        media, *parameters = (part.strip().lower() for part in item.split(";"))
+        if media != "text/html":
+            continue
+        quality = next((p[2:] for p in parameters if p.startswith("q=")), "1")
+        try:
+            return float(quality) > 0
+        except ValueError:
+            return True
+    return False
+
+
 def _console(root: Path, path: str) -> FileResponse:
     """A file of the build, or `index.html` for any other address of the console."""
     file = (root / path.lstrip("/")).resolve()
@@ -96,11 +119,17 @@ async def react_console(
     if root is None or request.method != "GET":
         return await call_next(request)
     path = request.url.path
-    target = react_address(path)
+    target = None if PIECE_HEADER in request.headers else react_address(path)
     if target is not None:
         query = request.url.query
         return RedirectResponse(f"{target}?{query}" if query else target, status_code=302)
+    page = not path.startswith(_NOT_PAGES)
+    # A browser opening an address asks for a page; the unversioned API of the same
+    # address («/articles/12», «/persons», «/candidates») is for programs, which do not.
+    # Without this the browser was shown the API's JSON for a publication's page.
+    if page and accepts_html(request.headers.get("accept", "")):
+        return _console(root, path)
     response = await call_next(request)
-    if response.status_code == 404 and not path.startswith(_NOT_PAGES):
+    if response.status_code == 404 and page:
         return _console(root, path)
     return response

@@ -3445,6 +3445,35 @@
         ],
         "title": "AskedQuestionResponse"
       },
+      "BalanceResponse": {
+        "properties": {
+          "figure": {
+            "type": "string",
+            "title": "Figure"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint"
+          },
+          "low": {
+            "type": "boolean",
+            "title": "Low"
+          },
+          "known": {
+            "type": "boolean",
+            "title": "Known"
+          }
+        },
+        "type": "object",
+        "required": [
+          "figure",
+          "hint",
+          "low",
+          "known"
+        ],
+        "title": "BalanceResponse",
+        "description": "The OpenRouter balance of the strip: the figure («$2.91», a dash when OpenRouter\ndid not answer), its hint, and whether it is under one run's limit."
+      },
       "BaseUnnamedCandidateResponse": {
         "properties": {
           "key": {
@@ -8594,6 +8623,16 @@
           "next_action": {
             "type": "string",
             "title": "Next Action"
+          },
+          "balance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BalanceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

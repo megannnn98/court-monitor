@@ -261,3 +261,47 @@ def test_do_all_without_a_key_asks_only_to_start(monkeypatch: pytest.MonkeyPatch
 
     assert chain_confirmation("load") == "Выполнить шаги 1–5 подряд?"
     assert chain_confirmation("political") == "Выполнить шаг 5?"
+
+
+def _status(session_factory: sessionmaker[Session]) -> dict[str, object]:
+    def override_get_db() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        answer: dict[str, object] = TestClient(app).get("/api/v1/status").json()
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+    return answer
+
+
+def test_the_react_strip_is_told_the_same_balance(
+    monkeypatch: pytest.MonkeyPatch, session_factory: sessionmaker[Session]
+) -> None:
+    _paid(monkeypatch)
+    _credits(monkeypatch)
+    known = _status(session_factory)["balance"]
+    _credits(monkeypatch, {"data": {"total_credits": 15, "total_usage": 14.0}})
+    low = _status(session_factory)["balance"]
+    _credits(monkeypatch, None)
+    silent = _status(session_factory)["balance"]
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    spend.reset_cache()
+
+    assert known == {
+        "figure": "$4.26",
+        "hint": "Куплено $15.00, потрачено $10.74. Лимит одного запуска — $2.00.",
+        "low": False,
+        "known": True,
+    }
+    assert isinstance(low, dict) and (low["figure"], low["low"]) == ("$1.00", True)
+    assert "Остатка меньше" in str(low["hint"])
+    assert silent == {
+        "figure": "—",
+        "hint": "OpenRouter сейчас не ответил",
+        "low": False,
+        "known": False,
+    }
+    # No key: the console spends nothing, and the strip says nothing of money.
+    assert _status(session_factory)["balance"] is None

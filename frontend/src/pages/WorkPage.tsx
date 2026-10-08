@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +48,7 @@ const MARKS: Record<string, [string, string]> = {
 function Steps({ cycle }: { cycle: CycleResponse }) {
   const client = useQueryClient();
   const refresh = async () => {
-    await Promise.all([client.invalidateQueries({ queryKey: ["cycle"] }), client.invalidateQueries({ queryKey: ["status"] })]);
+    await readAgainAfterDecision(client);
   };
   const start = useMutation({ mutationFn: () => unwrap(startCycleV1({ body: { after: cycle.latest_run_id } })), onSettled: refresh });
   const stop = useMutation({
@@ -90,7 +91,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
               >
                 Остановить
               </ConfirmButton>
-              <Link className="underline" to={`/logs?run=${cycle.live.run_id}`}>
+              <Link className="underline" to={`/logs?run_id=${cycle.live.run_id}`}>
                 Ход запуска #{cycle.live.run_id}: {cycle.live.title}
               </Link>
             </>
@@ -107,9 +108,9 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
               </ConfirmButton>
               <span className="text-muted-foreground">
                 {cycle.chain_span}; по одному шагу — в{" "}
-                <a className="underline" href="/ui/runs">
+                <Link className="underline" to="/runs">
                   журнале запусков
-                </a>
+                </Link>
               </span>
             </>
           )}

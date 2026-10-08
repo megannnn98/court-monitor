@@ -5,7 +5,13 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from web.response_models import LiveOperationResponse, QueueResponse, StatusResponse
+from web.response_models import (
+    BalanceResponse,
+    LiveOperationResponse,
+    QueueResponse,
+    StatusResponse,
+)
+from web.ui import spend
 from web.ui.layout import LIVE_RUN, strip_numbers
 from web.ui.run_cards import MODE_TITLES
 from web.ui.work_cycle import live_next_action
@@ -38,4 +44,12 @@ def read_status(db: Session) -> StatusResponse:
         latest_monitoring_status=numbers.latest_monitoring_status,
         live_operation=live,
         next_action=live_next_action(db, work),
+        balance=_balance(),
     )
+
+
+def _balance() -> BalanceResponse | None:
+    found = spend.strip_balance()
+    if found is None:
+        return None
+    return BalanceResponse(figure=found.figure, hint=found.hint, low=found.low, known=found.known)

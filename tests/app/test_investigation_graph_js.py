@@ -77,6 +77,10 @@ def test_the_table_sorting_scripts_are_served_and_write_no_html() -> None:
         assert not re.search(
             r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(", script.text
         )
-    # Left alone: a table the server already sorts, merged cells, a column with no name.
+    # Left alone: a table the server already sorts, merged cells, a column with no name —
+    # and a table that has its buttons already (the React console asks again per piece).
     sorting = client.get("/static/table-sort.js").text
-    assert 'table.querySelector("thead a, [rowspan], thead [colspan]")' in sorting
+    assert (
+        'table.querySelector("thead a, [rowspan], thead [colspan], thead button.sort")' in sorting
+    )
+    assert "window.TableSort = { init: init };" in sorting

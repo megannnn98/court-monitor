@@ -48,13 +48,21 @@
     });
   }
 
-  document.querySelectorAll("table").forEach(function (table) {
+  // The tables under `root`, each once: a header that has its button is left as it is,
+  // so the React console may call this again for a piece of a page it has just shown.
+  function init(root) {
+    root.querySelectorAll("table").forEach(function (table) {
+      prepare(table);
+    });
+  }
+
+  function prepare(table) {
     const head = table.tHead && table.tHead.rows.length === 1 ? table.tHead.rows[0] : null;
     const body = table.tBodies.length === 1 ? table.tBodies[0] : null;
     if (!head || !body || body.rows.length < 2) {
       return;
     }
-    if (table.querySelector("thead a, [rowspan], thead [colspan]")) {
+    if (table.querySelector("thead a, [rowspan], thead [colspan], thead button.sort")) {
       return;
     }
     Array.from(head.cells).forEach(function (header, column) {
@@ -74,5 +82,8 @@
         sortBy(table, column, core.nextDirection(header.getAttribute("aria-sort")));
       });
     });
-  });
+  }
+
+  window.TableSort = { init: init };
+  init(document);
 })();

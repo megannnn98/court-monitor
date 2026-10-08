@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session, sessionmaker
 
 from web.app import app
-from web.spa import react_address
+from web.dependencies import get_db
+from web.spa import PIECE_HEADER, accepts_html, react_address
+from web.ui.layout import PIECE_CLOSE, PIECE_OPEN
 
 
 @pytest.fixture
@@ -36,6 +40,41 @@ def test_every_console_address_is_the_page_and_a_file_is_the_file(built: Path) -
     # A missing API route stays a 404, never the page.
     for address in ("/api/v1/nothing", "/static/nothing.js", "/health/nothing"):
         assert client.get(address).status_code == 404, address
+
+
+def test_a_browser_is_given_the_page_where_the_old_api_has_the_same_address(
+    built: Path, session_factory: sessionmaker[Session]
+) -> None:
+    """«/articles/12», «/persons» and «/candidates» are console pages and addresses of the
+    unversioned API at once: a browser opening one was shown JSON."""
+
+    def override() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override
+    try:
+        client = TestClient(app)
+        browser = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
+        for address in ("/persons", "/persons/1", "/articles/12", "/candidates", "/work"):
+            opened = client.get(address, headers=browser)
+            assert opened.status_code == 200 and "<div id=root>" in opened.text, address
+        # A program asking the same address is answered by the API, as before.
+        program = client.get("/persons", headers={"Accept": "application/json"})
+        default = client.get("/persons")
+        refusing = client.get("/persons", headers={"Accept": "application/json, text/html;q=0"})
+        # The API under /api, the legacy pages and the files are never the page.
+        versioned = client.get("/api/v1/nothing", headers=browser)
+        asset = client.get("/assets/app.js", headers=browser)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert program.headers["content-type"] == "application/json" and program.json() == []
+    assert default.headers["content-type"] == "application/json"
+    # Named with q=0, HTML is refused: the program gets the API.
+    assert refusing.headers["content-type"] == "application/json"
+    assert versioned.status_code == 404
+    assert asset.text == "console.log(1)"
 
 
 def test_a_moved_legacy_page_opens_in_react_with_its_query(built: Path) -> None:
@@ -69,3 +108,48 @@ def test_without_the_build_the_legacy_pages_answer(
 
     assert client.get("/ui/cycle", follow_redirects=False).status_code != 302
     assert client.get("/work").status_code == 404
+
+
+def test_the_console_is_served_a_legacy_page_it_asks_for(
+    built: Path, session_factory: sessionmaker[Session]
+) -> None:
+    """The console shows the piece of a legacy page under its own menu: asked for with
+    its header, the page is served, not moved; the piece stands between two marks."""
+
+    def override() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override
+    try:
+        client = TestClient(app, follow_redirects=False)
+        moved = client.get("/ui/about")
+        asked = client.get("/ui/about", headers={PIECE_HEADER: "1"})
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert moved.status_code == 302
+    assert asked.status_code == 200
+    page = asked.text
+    piece = page[page.index(PIECE_OPEN) + len(PIECE_OPEN) : page.index(PIECE_CLOSE)]
+    # What the page shows under its head, and nothing of the page around it.
+    assert "<h2>Сборка</h2>" in piece
+    assert "<nav" not in piece and "<h1>" not in piece and "status-strip" not in piece
+    assert page.index("<h1>О системе</h1>") < page.index(PIECE_OPEN)
+
+
+@pytest.mark.parametrize(
+    ("accept", "wanted"),
+    [
+        ("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", True),
+        ("text/html;q=0.5", True),
+        ("TEXT/HTML", True),
+        ("application/json, text/html;q=0", False),
+        ("text/html; q=0.0", False),
+        ("*/*", False),
+        ("application/json", False),
+        ("", False),
+    ],
+)
+def test_html_is_wanted_only_where_the_header_says_so(accept: str, wanted: bool) -> None:
+    assert accepts_html(accept) is wanted

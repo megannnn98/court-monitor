@@ -65,3 +65,34 @@ it("says when no pair is open and shows the API's error", async () => {
   renderPage(<PairsPage />);
   expect(await screen.findByText("pairs unreadable")).toBeTruthy();
 });
+
+it("resets every decision after asking, and says how many it forgot", async () => {
+  list.mockReturnValue(ok({ ...PAGE, decided: { manual: 3, rf: 2 } }) as never);
+  const sent = vi.fn(() => {
+    const answer = new Response("", { status: 200 });
+    Object.defineProperty(answer, "url", { value: "http://localhost/review/pairs?reset=5" });
+    return Promise.resolve(answer);
+  });
+  vi.stubGlobal("fetch", sent);
+  renderPage(<PairsPage />);
+
+  expect(await screen.findByText("Сохранено решений: 5 (вручную: 3, по перечню: 2, по региону: 0).")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Сбросить все решения по парам" }));
+  // Nothing is sent before the operator says so.
+  expect(sent).not.toHaveBeenCalled();
+  expect(screen.getByText(/Удалить все решения по спорным парам \(5, из них вручную 3\)/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Сбросить" }));
+
+  expect(await screen.findByText("Решения по парам сброшены: 5.")).toBeTruthy();
+  expect(sent).toHaveBeenCalledWith("/ui/pairs/reset-decisions", { method: "POST" });
+  await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(1));
+  vi.unstubAllGlobals();
+});
+
+it("offers no reset when no decision is kept", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+  renderPage(<PairsPage />);
+
+  expect(await screen.findByText("Сохранённых решений по парам нет.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Сбросить все решения по парам" })).toBeNull();
+});

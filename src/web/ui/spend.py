@@ -314,29 +314,46 @@ def balance_line(env: Mapping[str, str] | None = None) -> str:
     return f'<p class="muted ai-note">{escape(text)}</p>' if text else ""
 
 
-def strip_item(env: Mapping[str, str] | None = None) -> str:
+@dataclass(frozen=True)
+class StripBalance:
+    """The balance as the strip shows it: the figure, the hint under the pointer, and
+    whether it is under what one run of a step may spend. `known` is False when OpenRouter
+    could not be asked: the figure is then a dash."""
+
+    figure: str
+    hint: str
+    low: bool = False
+    known: bool = True
+
+
+def strip_balance(env: Mapping[str, str] | None = None) -> StripBalance | None:
     """The balance for the strip at the top of every page: a figure to see, not to look for.
 
-    Nothing with no key at all (the console then spends nothing). A dash when OpenRouter
-    cannot be asked; red when the balance is under what one run of a step may spend."""
+    None with no key at all (the console then spends nothing). A dash when OpenRouter
+    cannot be asked; low when the balance is under what one run of a step may spend."""
     key = _api_key(os.environ if env is None else env)
     if not key:
-        return ""
+        return None
     found = balance(env)
-    label = "<small>Баланс OpenRouter</small>"
     if found is None:
-        return (
-            '<span class="balance unknown" title="OpenRouter сейчас не ответил">'
-            f"{label}<strong>—</strong></span>"
-        )
+        return StripBalance("—", "OpenRouter сейчас не ответил", known=False)
     limit = budget_from_env(env)
     low = _is_low(limit, env)
-    title = (
+    hint = (
         f"Куплено ${found.bought:.2f}, потрачено ${found.used:.2f}. "
         f"Лимит одного запуска — ${limit:.2f}."
         + (" Остатка меньше: шаг может остановиться, не закончив." if low else "")
     )
+    return StripBalance(f"${found.remaining:.2f}", hint, low=low)
+
+
+def strip_item(env: Mapping[str, str] | None = None) -> str:
+    """`strip_balance` as the legacy strip's chip; empty with no key."""
+    found = strip_balance(env)
+    if found is None:
+        return ""
+    css = "balance" + (" low" if found.low else "") + ("" if found.known else " unknown")
     return (
-        f'<span class="balance{" low" if low else ""}" title="{escape(title, quote=True)}">'
-        f"{label}<strong>${found.remaining:.2f}</strong></span>"
+        f'<span class="{css}" title="{escape(found.hint, quote=True)}">'
+        f"<small>Баланс OpenRouter</small><strong>{found.figure}</strong></span>"
     )
