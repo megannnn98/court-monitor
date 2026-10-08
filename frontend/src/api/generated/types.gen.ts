@@ -1844,6 +1844,10 @@ export type PoliticalListResponse = {
      */
     base_loaded: boolean;
     /**
+     * Export Url
+     */
+    export_url: string;
+    /**
      * Periods
      */
     periods: Array<OptionResponse>;

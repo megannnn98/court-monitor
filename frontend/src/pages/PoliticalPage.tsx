@@ -43,17 +43,6 @@ function DoneBox({ row }: { row: PoliticalRowResponse }) {
   );
 }
 
-/** The legacy file of the list under the same filters (GET: it changes nothing). */
-function exportHref(query: Record<string, string | number>): string {
-  const params = new URLSearchParams();
-  for (const [name, value] of Object.entries(query)) {
-    if (name !== "page" && value !== "") {
-      params.set(name, String(value));
-    }
-  }
-  return `/ui/political/export.xlsx?${params.toString()}`;
-}
-
 export function PoliticalPage() {
   const url = useUrlState();
   const query = {
@@ -89,11 +78,17 @@ export function PoliticalPage() {
         instruction="Люди, против которых заведены политические уголовные дела; перечень Росфинмониторинга подтверждает их личность."
       >
         <p className="text-sm text-muted-foreground">
-          Галочка в начале строки — «обработано»: человек уходит из списка и вернётся, когда о нём появится новая новость.{" "}
-          <a className="underline" href={exportHref(query)}>
-            Скачать Excel
-          </a>{" "}
-          — те же фильтры.
+          Галочка в начале строки — «обработано»: человек уходит из списка и вернётся, когда о нём появится новая новость.
+          {/* The server names the file of the rows shown, even while the next filters are read. */}
+          {result.data ? (
+            <>
+              {" "}
+              <a className="underline" href={result.data.export_url}>
+                Скачать Excel
+              </a>{" "}
+              — те же фильтры.
+            </>
+          ) : null}
         </p>
       </PageHeader>
       <QueryState query={result}>
