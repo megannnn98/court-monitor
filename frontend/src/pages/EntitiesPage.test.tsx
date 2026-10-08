@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { listEntitiesV1 } from "@/api/generated";
@@ -20,7 +20,10 @@ const PAGE = {
     { value: "figurant", label: "Фигуранты дел" },
     { value: "all", label: "Все роли" }
   ],
-  verdicts: [{ value: "all", label: "Любой вердикт" }],
+  verdicts: [
+    { value: "all", label: "Любой вердикт" },
+    { value: "political", label: "Политические", count: 7 }
+  ],
   regions: ["Москва"],
   items: [
     {
@@ -68,12 +71,42 @@ it("shows the people with their marks, articles and events", async () => {
   renderPage(<EntitiesPage />);
 
   expect((await screen.findByRole("link", { name: "Моор Александр" })).getAttribute("href")).toBe(dossierPath("александр моор"));
-  for (const mark of ["ИИ", "в перечне", "фигурант дела", "политическое", "Арест: 2", "Моора, Моору"]) {
-    expect(screen.getByText(mark)).toBeTruthy();
+  const table = screen.getByRole("table");
+  for (const mark of ["в перечне", "политическое", "Арест 2"]) {
+    expect(within(table).getByText(mark)).toBeTruthy();
   }
-  expect(screen.getByRole("button", { name: "280.3" }).getAttribute("title")).toBe("общая");
-  expect(screen.getByText(/Скрыть тех, кто в перечне РФМ \(4\)/)).toBeTruthy();
+  expect(within(table).getByText("Москва · 2 написания").getAttribute("title")).toBe("Как писали: Моора, Моору\nИмя: ИИ");
+  // The usual role is not repeated on every row.
+  expect(within(table).queryByText("фигурант дела")).toBeNull();
+  expect(screen.getByRole("button", { name: "280.3" }).getAttribute("title")).toMatch(/^общая/);
+  expect(screen.getByText(/Скрыть, кто в перечне \(4\)/)).toBeTruthy();
   expect(list).toHaveBeenCalledWith({ query: QUERY });
+});
+
+it("filters from the column on the left and shows the choice as chips", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+
+  renderPage(<EntitiesPage />);
+  const filters = await screen.findByRole("complementary", { name: "Фильтры" });
+  fireEvent.click(within(filters).getByRole("button", { name: "Политические 7" }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, verdict: "political" } }));
+  fireEvent.click(within(filters).getByRole("button", { name: "Москва" }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, verdict: "political", region: "Москва" } }));
+
+  // A chip names the choice in words and takes it back.
+  fireEvent.click(screen.getByRole("button", { name: "Убрать фильтр: Политические" }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, region: "Москва" } }));
+});
+
+it("looks for a region among the regions", async () => {
+  list.mockReturnValue(ok({ ...PAGE, regions: ["Москва", "Якутия"] }) as never);
+
+  renderPage(<EntitiesPage />);
+  const regions = await screen.findByRole("region", { name: "Регион" });
+  fireEvent.change(within(regions).getByLabelText("Найти регион"), { target: { value: "як" } });
+
+  expect(within(regions).getByRole("button", { name: "Якутия" })).toBeTruthy();
+  expect(within(regions).queryByRole("button", { name: "Москва" })).toBeNull();
 });
 
 it("sends the filters of the address", async () => {
@@ -85,7 +118,9 @@ it("sends the filters of the address", async () => {
   expect(list).toHaveBeenCalledWith({
     query: { ...QUERY, q: "Моор", article: "207.3", role: "all", rf: "hide", sort: "name", page: 2 }
   });
-  expect(screen.getByText(/по статье УК 207.3/)).toBeTruthy();
+  for (const chip of ["имя: Моор", "статья 207.3", "Все роли", "без тех, кто в перечне"]) {
+    expect(screen.getByRole("button", { name: `Убрать фильтр: ${chip}` })).toBeTruthy();
+  }
 });
 
 it("shows the API's own error", async () => {
