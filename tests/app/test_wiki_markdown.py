@@ -73,3 +73,20 @@ def test_code_blocks_are_escaped_and_plantuml_becomes_svg(monkeypatch: pytest.Mo
 
     assert "<pre><code>if a &lt; b:\n    pass</code></pre>" in html
     assert '<figure class="wiki-diagram"><svg>diagram</svg></figure>' in html
+
+
+def test_the_api_lists_the_pages_and_gives_one_with_links_on_the_console() -> None:
+    """`/api/v1/wiki` for the React page: the pages, one as HTML, links to `/wiki/`."""
+    from fastapi.testclient import TestClient
+
+    from web.app import app
+
+    client = TestClient(app)
+    pages = client.get("/api/v1/wiki").json()
+    home = client.get("/api/v1/wiki/Home").json()
+    missing = client.get("/api/v1/wiki/nothing-here")
+
+    assert {"slug": "Home"} in pages
+    assert home["slug"] == "Home" and "<h1" in home["html"]
+    assert 'href="/wiki/' in home["html"] and 'href="/ui/wiki/' not in home["html"]
+    assert missing.status_code == 404

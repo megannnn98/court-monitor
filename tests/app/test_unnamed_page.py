@@ -665,3 +665,19 @@ def test_the_api_reads_the_cards_and_takes_the_words_the_page_does(
     assert incomplete.status_code == 400 and incomplete.json()["detail"] == "Неполное решение"
     assert foreign.status_code == 403
     assert cleared.status_code == 200 and back["items"][0]["resolution"] == ""
+
+
+def test_the_api_overview_shows_what_the_page_does(session_factory: sessionmaker[Session]) -> None:
+    """`/api/v1/overview` for the React page: the same unnamed, counts and decisions."""
+    _seed(session_factory)
+
+    with _client(session_factory) as client:
+        overview = client.get("/api/v1/overview").json()
+
+    assert overview["unnamed"] == 1
+    item = overview["latest_unnamed"][0]
+    assert item["key"] == "k" * 64 and item["quote"] == QUOTE
+    assert item["facts"] == "17 лет · мужчина · Тюмень · задержание · ст. 205"
+    assert item["found"] == "вероятных в перечне: 1"
+    assert overview["new_cases"] == 0 and overview["latest_sentences"] == []
+    assert {"pairs", "unclear_roles", "unclear_verdicts", "source_errors"} <= set(overview)

@@ -7,6 +7,7 @@ import { QueryState } from "@/components/QueryState";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { formatDateTime, formatNumber } from "@/lib/format";
 
 const SECTION = "space-y-3 rounded-lg border bg-card p-4";
@@ -60,8 +61,12 @@ export function AirtablePage() {
   });
   const refresh = useMutation({
     mutationFn: () => unwrap(refreshRosfinV1()),
-    // The download and the check run in the background: their card is in the journal.
-    onSuccess: (started) => navigate(`/runs?run=${started.run_id}`)
+    // The download and the check run in the background: their card is in the journal. The
+    // journal, «Работа» and the strip read again: none of them polls for a run it has not seen.
+    onSuccess: async (started) => {
+      await readAgainAfterDecision(client, ["operations", "runs"]);
+      navigate(`/runs?run=${started.run_id}`);
+    }
   });
 
   return (

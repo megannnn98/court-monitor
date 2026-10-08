@@ -2863,6 +2863,88 @@
           }
         }
       }
+    },
+    "/api/v1/wiki": {
+      "get": {
+        "summary": "List Wiki",
+        "operationId": "list_wiki_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WikiPageLinkResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Wiki V1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wiki/{slug}": {
+      "get": {
+        "summary": "Get Wiki Page",
+        "operationId": "get_wiki_page_v1",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikiPageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/overview": {
+      "get": {
+        "summary": "Get Overview",
+        "operationId": "get_overview_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5099,7 +5181,6 @@
               "type": "integer"
             },
             "type": "array",
-            "maxItems": 5000,
             "minItems": 1,
             "title": "Articles"
           }
@@ -6249,6 +6330,151 @@
           "role_label"
         ],
         "title": "OrgResponse"
+      },
+      "OverviewNewsResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "published_at",
+          "reason"
+        ],
+        "title": "OverviewNewsResponse"
+      },
+      "OverviewResponse": {
+        "properties": {
+          "source_errors": {
+            "type": "integer",
+            "title": "Source Errors"
+          },
+          "new_cases": {
+            "type": "integer",
+            "title": "New Cases"
+          },
+          "latest_new_cases": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewNewsResponse"
+            },
+            "type": "array",
+            "title": "Latest New Cases"
+          },
+          "sentences": {
+            "type": "integer",
+            "title": "Sentences"
+          },
+          "latest_sentences": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewNewsResponse"
+            },
+            "type": "array",
+            "title": "Latest Sentences"
+          },
+          "unnamed": {
+            "type": "integer",
+            "title": "Unnamed"
+          },
+          "latest_unnamed": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewUnnamedResponse"
+            },
+            "type": "array",
+            "title": "Latest Unnamed"
+          },
+          "pairs": {
+            "type": "integer",
+            "title": "Pairs"
+          },
+          "unclear_roles": {
+            "type": "integer",
+            "title": "Unclear Roles"
+          },
+          "unclear_verdicts": {
+            "type": "integer",
+            "title": "Unclear Verdicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_errors",
+          "new_cases",
+          "latest_new_cases",
+          "sentences",
+          "latest_sentences",
+          "unnamed",
+          "latest_unnamed",
+          "pairs",
+          "unclear_roles",
+          "unclear_verdicts"
+        ],
+        "title": "OverviewResponse",
+        "description": "«Обзор»: the political cases' new cases and sentences, the unnamed to identify, and\nwhat waits for the operator."
+      },
+      "OverviewUnnamedResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "facts": {
+            "type": "string",
+            "title": "Facts"
+          },
+          "found": {
+            "type": "string",
+            "title": "Found"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "quote",
+          "published_at",
+          "facts",
+          "found"
+        ],
+        "title": "OverviewUnnamedResponse"
       },
       "PairDecisionRequest": {
         "properties": {
@@ -9139,6 +9365,38 @@
           "verdict"
         ],
         "title": "VerdictDecisionRequest"
+      },
+      "WikiPageLinkResponse": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug"
+        ],
+        "title": "WikiPageLinkResponse"
+      },
+      "WikiPageResponse": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "html": {
+            "type": "string",
+            "title": "Html"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "html"
+        ],
+        "title": "WikiPageResponse",
+        "description": "A wiki page as HTML: CommonMark from the repository's own docs, raw HTML in it shown\nas text, links to other pages on `/wiki/`."
       }
     }
   }

@@ -1,3 +1,4 @@
+import { QueryClient } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -70,4 +71,19 @@ it("cannot sync when nothing is set up, and says why a refresh was refused", asy
   fireEvent.click(screen.getByRole("button", { name: "Обновить перечень и сверить с РФМ" }));
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(await screen.findByText("Идёт другой запуск.")).toBeTruthy();
+});
+
+it("a started check is read again by the journal, «Работа» and the strip", async () => {
+  // Each was read while nothing ran: none of them polls for a run it has not seen.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+  const seen = [["operations", "runs"], ["cycle"], ["status"]];
+  for (const key of seen) {
+    client.setQueryData(key, []);
+  }
+  refresh.mockReturnValue(ok({ run_id: 73 }) as never);
+  renderPage(<AirtablePage />, { client });
+
+  fireEvent.click(await screen.findByRole("button", { name: "Обновить перечень и сверить с РФМ" }));
+
+  await waitFor(() => expect(seen.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true, true]));
 });

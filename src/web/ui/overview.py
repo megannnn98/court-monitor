@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape
+from typing import Any
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends
@@ -61,8 +62,41 @@ def _day(moment: datetime | None) -> str:
     return moment.astimezone().strftime("%d.%m") if moment else "—"
 
 
+def latest_news(db: Session, kind: str) -> list[Any]:
+    """A political case's latest news of one kind: (key, name, published_at, reason)."""
+    return list(
+        db.execute(_LATEST_NEWS, {"political": POLITICAL, "kind": kind, "limit": LATEST}).all()
+    )
+
+
+def news_counts(db: Session) -> dict[str, int]:
+    return {
+        str(kind): int(count)
+        for kind, count in db.execute(_NEWS_COUNTS, {"political": POLITICAL}).all()
+    }
+
+
+def open_unnamed(db: Session) -> list[UnnamedFigurantRecord]:
+    """The latest unnamed nobody has identified or closed yet."""
+    return list(
+        db.scalars(
+            select(UnnamedFigurantRecord)
+            .where(text(_OPEN))
+            .order_by(
+                UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id
+            )
+            .limit(UNNAMED)
+        ).all()
+    )
+
+
+def short_quote(quote_text: str) -> str:
+    text_ = " ".join(quote_text.split())
+    return text_[:QUOTE_LIMIT].rstrip() + "…" if len(text_) > QUOTE_LIMIT else text_
+
+
 def _news_band(db: Session, kind: str, title: str, count: int, empty: str) -> str:
-    rows = db.execute(_LATEST_NEWS, {"political": POLITICAL, "kind": kind, "limit": LATEST}).all()
+    rows = latest_news(db, kind)
     items = "".join(
         f'<li><span class="when">{_day(published_at)}</span> '
         f'<a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a>'
@@ -77,6 +111,10 @@ def _news_band(db: Session, kind: str, title: str, count: int, empty: str) -> st
 </section>"""
 
 
+def found_text(found: Candidates, *, age_told: bool = True) -> str:
+    return _found(found, age_told=age_told)
+
+
 def _found(found: Candidates, *, age_told: bool = True) -> str:
     """How many of the list may be this person — the ones worth looking at."""
     if not age_told:
@@ -89,18 +127,10 @@ def _found(found: Candidates, *, age_told: bool = True) -> str:
 
 
 def _unnamed_band(db: Session, open_count: int) -> str:
-    latest = db.scalars(
-        select(UnnamedFigurantRecord)
-        .where(text(_OPEN))
-        .order_by(UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id)
-        .limit(UNNAMED)
-    ).all()
     items = []
-    for figurant in latest:
+    for figurant in open_unnamed(db):
         found = candidates(db, figurant)
-        quote_text = " ".join(figurant.quote.split())
-        if len(quote_text) > QUOTE_LIMIT:
-            quote_text = quote_text[:QUOTE_LIMIT].rstrip() + "…"
+        quote_text = short_quote(figurant.quote)
         items.append(
             f'<li><span class="when">{_day(figurant.published_at)}</span> '
             f"«{escape(quote_text)}»"
@@ -122,10 +152,7 @@ def _unnamed_band(db: Session, open_count: int) -> str:
 @router.get("/ui/overview", response_class=HTMLResponse)
 def ui_overview(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: B008
     work = workload(db)
-    counts = {
-        str(kind): int(count)
-        for kind, count in db.execute(_NEWS_COUNTS, {"political": POLITICAL}).all()
-    }
+    counts = news_counts(db)
     new_cases, sentences = counts.get(NEW_CASE, 0), counts.get(SENTENCE, 0)
     decisions = work.pairs + work.unclear_roles + work.unclear_verdicts
     queue = (

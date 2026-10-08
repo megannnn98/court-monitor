@@ -51,7 +51,7 @@ it("shows the legacy menu's groups and words", () => {
   }
 });
 
-it("sends a moved item to React and the rest to the legacy page, marked", () => {
+it("sends every item to its React page", () => {
   renderApp("/about");
   const menu = screen.getByRole("navigation", { name: "Главное меню" });
 
@@ -59,9 +59,9 @@ it("sends a moved item to React and the rest to the legacy page, marked", () => 
   expect(within(menu).getByRole("link", { name: "Перечень РФМ" }).getAttribute("href")).toBe("/rfm");
   expect(within(menu).getByRole("link", { name: /^Публикации/ }).getAttribute("href")).toBe("/publications");
   expect(within(menu).getByRole("link", { name: /^Приговоры/ }).getAttribute("href")).toBe("/sentences");
-  const legacy = within(menu).getByRole("link", { name: /Вики/ });
-  expect(legacy.getAttribute("href")).toBe("/ui/wiki");
-  expect(within(legacy).getByLabelText("старый интерфейс")).toBeTruthy();
+  expect(within(menu).getByRole("link", { name: "Вики" }).getAttribute("href")).toBe("/wiki");
+  // Every page is in React now: no item opens the legacy interface.
+  expect(within(menu).queryAllByLabelText("старый интерфейс")).toHaveLength(0);
 });
 
 it("keeps every item reachable", () => {
