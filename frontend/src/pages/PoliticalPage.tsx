@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
 import { readAgainAfterDecision } from "@/lib/decisions";
@@ -218,12 +220,15 @@ export function PoliticalPage() {
   }
 
   const extra = EXTRA[query.queue];
+  // Tailwind's `xl`: from there the panel stands beside the table.
+  const beside = useMediaQuery("(min-width: 1280px)", true);
   return (
     <>
       <PageHeader title="Результат" instruction="Люди, против которых заведены политические уголовные дела." />
       <QueryState query={result}>
         {(data) => {
-          const shown = data.items.find((row) => row.key === selected) ?? data.items[0];
+          const tapped = data.items.find((row) => row.key === selected);
+          const shown = tapped ?? data.items[0];
           return (
             <>
               <nav aria-label="Очереди" className="mb-1 flex flex-wrap border-b">
@@ -261,7 +266,7 @@ export function PoliticalPage() {
                     </Button>
                   );
                 })}
-                <form onSubmit={showDates} className="flex items-center gap-1">
+                <form onSubmit={showDates} className="flex flex-wrap items-center gap-1">
                   <Label htmlFor="date-from" className="text-sm">
                     с
                   </Label>
@@ -284,7 +289,7 @@ export function PoliticalPage() {
               {data.items.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">За этот период в этой очереди никого нет.</p>
               ) : (
-                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+                <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
                   <div>
                     <Table>
                       <TableHeader>
@@ -294,25 +299,26 @@ export function PoliticalPage() {
                           </TableHead>
                           <TableHead>Человек</TableHead>
                           <TableHead>Новость</TableHead>
-                          <TableHead>Статьи УК</TableHead>
+                          {/* On a phone the table is the person and the news; the rest is a tap away. */}
+                          <TableHead className="hidden md:table-cell">Статьи УК</TableHead>
                           {/* A queue's own column takes the region's place: both do not fit beside the
                               panel, and the panel names the region. */}
                           {extra ? (
-                            <TableHead className="max-w-36 leading-tight whitespace-normal">{extra.head}</TableHead>
+                            <TableHead className="hidden max-w-36 leading-tight whitespace-normal md:table-cell">{extra.head}</TableHead>
                           ) : (
-                            <TableHead>Регион</TableHead>
+                            <TableHead className="hidden md:table-cell">Регион</TableHead>
                           )}
                           {/* Two lines, so the date's column is as narrow as a date: the table must fit beside the panel. */}
-                          <TableHead className="w-24 leading-tight whitespace-normal">Последняя новость</TableHead>
+                          <TableHead className="hidden w-24 leading-tight whitespace-normal sm:table-cell">Последняя новость</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {data.items.map((row) => (
                           <TableRow
                             key={row.key}
-                            aria-selected={row.key === shown?.key}
+                            aria-selected={row.key === (beside ? shown : tapped)?.key}
                             onClick={() => setSelected(row.key)}
-                            className={cn("cursor-pointer", row.key === shown?.key && "bg-muted", row.done && "opacity-60")}
+                            className={cn("cursor-pointer", row.key === (beside ? shown : tapped)?.key && "bg-muted", row.done && "opacity-60")}
                           >
                             <TableCell onClick={(event) => event.stopPropagation()}>
                               <DoneBox row={row} />
@@ -323,18 +329,19 @@ export function PoliticalPage() {
                             </TableCell>
                             <TableCell>
                               <News row={row} />
+                              <div className="mt-1 text-xs text-muted-foreground sm:hidden">{formatDate(row.last_published_at)}</div>
                             </TableCell>
-                            <TableCell className="max-w-32 whitespace-normal">
+                            <TableCell className="hidden max-w-32 whitespace-normal md:table-cell">
                               <Articles row={row} />
                             </TableCell>
                             {extra ? (
-                              <TableCell className="max-w-48 whitespace-normal">{extra.cell(row)}</TableCell>
+                              <TableCell className="hidden max-w-48 whitespace-normal md:table-cell">{extra.cell(row)}</TableCell>
                             ) : (
-                              <TableCell className="max-w-32 truncate" title={row.regions}>
+                              <TableCell className="hidden max-w-32 truncate md:table-cell" title={row.regions}>
                                 {row.regions || DASH}
                               </TableCell>
                             )}
-                            <TableCell>{formatDate(row.last_published_at)}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{formatDate(row.last_published_at)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -347,7 +354,20 @@ export function PoliticalPage() {
                       onPage={(next) => url.set({ page: next === 1 ? null : next })}
                     />
                   </div>
-                  {shown ? <Panel row={shown} /> : null}
+                  {/* Beside the table where there is room; on a narrower screen the panel would
+                      stand under the whole table, so it opens over it for the row tapped. */}
+                  {beside ? (
+                    shown ? <Panel row={shown} /> : null
+                  ) : (
+                    <Sheet open={tapped !== undefined} onOpenChange={(open) => (open ? null : setSelected(null))}>
+                      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+                        <SheetHeader className="sr-only">
+                          <SheetTitle>{tapped?.name ?? "Подробно"}</SheetTitle>
+                        </SheetHeader>
+                        {tapped ? <Panel row={tapped} /> : null}
+                      </SheetContent>
+                    </Sheet>
+                  )}
                 </div>
               )}
               <Help />

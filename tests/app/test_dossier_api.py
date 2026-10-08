@@ -174,3 +174,28 @@ def test_an_unknown_person_is_not_found(session_factory: sessionmaker[Session]) 
         missing = client.get("/api/v1/investigations/никто никтов")
 
     assert missing.status_code == 404 and missing.json() == {"detail": "Человек не найден"}
+
+
+def test_the_dossier_tells_the_kept_name_and_whether_the_person_is_an_official(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """What «Исправить имя и ручные решения» of the legacy dossier stands on: the name in
+    the order it is corrected in, and which way the official's button goes."""
+    _case(session_factory)
+
+    with _client(session_factory) as client:
+        before = client.get(f"/api/v1/investigations/{MOOR}").json()
+        marked = client.post(
+            f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
+        )
+        official = client.get(f"/api/v1/investigations/{MOOR}").json()
+        renamed = client.post(
+            f"/ui/entities/{MOOR}/name", data={"name": "Александр Моор"}, follow_redirects=False
+        )
+        after = client.get(f"/api/v1/investigations/{MOOR}").json()
+
+    # Kept given name first, shown surname first.
+    assert (before["name"], before["name_as_kept"]) == ("Моора Александр", "Александр Моора")
+    assert (before["official"], official["official"]) == (False, True)
+    assert (marked.status_code, renamed.status_code) == (303, 303)
+    assert (after["name"], after["name_as_kept"]) == ("Моор Александр", "Александр Моор")

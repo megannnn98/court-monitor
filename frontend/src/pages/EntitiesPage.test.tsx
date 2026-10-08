@@ -142,3 +142,19 @@ it("shows the API's own error", async () => {
 
   expect(await screen.findByText("String should match pattern")).toBeTruthy();
 });
+
+it("on a narrow screen folds the filters under one line", async () => {
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+  try {
+    list.mockReturnValue(ok(PAGE) as never);
+    renderPage(<EntitiesPage />);
+
+    const fold = (await screen.findByText("Фильтры: роль, вердикт, перечень, регион")).closest("details");
+    // The search stays in sight; the choices are inside the fold.
+    expect(fold?.open).toBe(false);
+    expect(fold?.querySelector("h2")?.textContent).toBe("Роль");
+    expect(screen.getByRole("search").closest("details")).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

@@ -541,6 +541,10 @@ class DossierResponse(BaseModel):
 
     key: str
     name: str
+    # The name as it is kept and corrected: «Имя [Отчество] Фамилия».
+    name_as_kept: str
+    # A person marked the entity an official, or the texts name it so.
+    official: bool
     role: str | None
     role_label: str | None
     role_method_label: str | None

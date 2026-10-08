@@ -900,6 +900,14 @@ export type DossierResponse = {
      */
     name: string;
     /**
+     * Name As Kept
+     */
+    name_as_kept: string;
+    /**
+     * Official
+     */
+    official: boolean;
+    /**
      * Role
      */
     role: string | null;

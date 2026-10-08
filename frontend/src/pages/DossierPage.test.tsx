@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { getDossierV1 } from "@/api/generated";
@@ -13,6 +13,8 @@ const QUOTE = { article_id: 77, title: "Арест Моора", source: "ОВД-
 const DOSSIER = {
   key: "александр моор",
   name: "Моор Александр",
+  name_as_kept: "Александр Моор",
+  official: false,
   role: "figurant",
   role_label: "фигурант дела",
   role_method_label: "ответ модели по цитатам",
@@ -134,4 +136,43 @@ it("shows the API's own error", async () => {
   renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/nobody" });
 
   expect(await screen.findByText("Человек не найден")).toBeTruthy();
+});
+
+it("corrects the name and marks an official on the page itself, and says a refusal", async () => {
+  dossier.mockReturnValue(ok(DOSSIER) as never);
+  const sent = vi.fn((_address: string, _init?: RequestInit) => Promise.resolve(new Response("", { status: 200 })));
+  vi.stubGlobal("fetch", sent);
+  try {
+    renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/%D0%BC%D0%BE%D0%BE%D1%80" });
+
+    // The name in the order it is kept in, not as the heading shows it.
+    const field = (await screen.findByLabelText("Имя [Отчество] Фамилия")) as HTMLInputElement;
+    expect(field.value).toBe("Александр Моор");
+    // No way out to «the old interface»: the decisions are here.
+    expect(screen.queryByText(/старом интерфейсе/)).toBeNull();
+    fireEvent.change(field, { target: { value: "Александр Иванович Моор" } });
+    fireEvent.click(screen.getByRole("button", { name: "Исправить имя" }));
+
+    await waitFor(() => expect(sent).toHaveBeenCalledTimes(1));
+    expect(sent.mock.calls[0][0]).toBe(`/ui/entities/${encodeURIComponent(DOSSIER.key)}/name`);
+    expect(String(sent.mock.calls[0][1]?.body)).toBe("name=%D0%90%D0%BB%D0%B5%D0%BA%D1%81%D0%B0%D0%BD%D0%B4%D1%80+%D0%98%D0%B2%D0%B0%D0%BD%D0%BE%D0%B2%D0%B8%D1%87+%D0%9C%D0%BE%D0%BE%D1%80");
+    // The dossier is read again after the word.
+    await waitFor(() => expect(dossier.mock.calls.length).toBeGreaterThan(1));
+
+    sent.mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Сущность не найдена" }), { status: 404 }));
+    fireEvent.click(screen.getByRole("button", { name: "Это должностное лицо" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Сущность не найдена");
+    expect(sent.mock.calls[1][0]).toBe(`/ui/entities/${encodeURIComponent(DOSSIER.key)}/official`);
+    expect(String(sent.mock.calls[1][1]?.body)).toBe("official=yes");
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("offers to take the official's word back from one marked so", async () => {
+  dossier.mockReturnValue(ok({ ...DOSSIER, official: true }) as never);
+  renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/%D0%BC%D0%BE%D0%BE%D1%80" });
+
+  expect(await screen.findByRole("button", { name: "Не должностное лицо" })).toBeTruthy();
 });

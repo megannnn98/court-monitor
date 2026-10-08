@@ -1,15 +1,19 @@
-import type { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { type FormEvent, type ReactNode, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
-import { getDossierV1, type QuoteResponse } from "@/api/generated";
+import { getDossierV1, type DossierResponse, type QuoteResponse } from "@/api/generated";
 import { EventGraph } from "@/components/EventGraph";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { unwrap } from "@/lib/api";
+import { ApiError, unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 
@@ -52,6 +56,70 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   );
 }
 
+/** «Исправить имя и ручные решения» of the legacy dossier: a person's correction of the
+ * name and the word «это должностное лицо», both kept and applied at every rebuild. Sent
+ * to the legacy routes; the dossier is read again. */
+function Manual({ person }: { person: DossierResponse }) {
+  const client = useQueryClient();
+  const [name, setName] = useState(person.name_as_kept);
+  const send = useMutation({
+    mutationFn: async ({ action, fields }: { action: "name" | "official"; fields: Record<string, string> }) => {
+      const answer = await fetch(`/ui/entities/${encodeURIComponent(person.key)}/${action}`, {
+        method: "POST",
+        body: new URLSearchParams(fields)
+      });
+      if (!answer.ok) {
+        const detail = ((await answer.json().catch(() => null)) as { detail?: unknown } | null)?.detail;
+        throw new ApiError(typeof detail === "string" ? detail : `Сервер ответил ${answer.status}`, answer.status);
+      }
+    },
+    onSuccess: async () => {
+      await readAgainAfterDecision(client, ["investigations"], ["entities"]);
+    }
+  });
+
+  function rename(event: FormEvent) {
+    event.preventDefault();
+    send.mutate({ action: "name", fields: { name } });
+  }
+
+  return (
+    <details className="text-sm">
+      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Исправить имя и ручные решения</summary>
+      <div className="mt-2 space-y-3 rounded-md border bg-card p-3">
+        <form onSubmit={rename} className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="dossier-name">Имя [Отчество] Фамилия</Label>
+            <Input id="dossier-name" className="w-72 max-w-full" maxLength={200} required value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          <Button type="submit" variant="outline" disabled={send.isPending}>
+            Исправить имя
+          </Button>
+        </form>
+        <Button
+          variant="outline"
+          disabled={send.isPending}
+          onClick={() => send.mutate({ action: "official", fields: { official: person.official ? "no" : "yes" } })}
+        >
+          {person.official ? "Не должностное лицо" : "Это должностное лицо"}
+        </Button>
+        {send.isError ? (
+          <p role="alert" className="text-destructive">
+            {send.error.message}
+          </p>
+        ) : null}
+        <p className="text-muted-foreground">
+          Ручные решения сохраняются и применяются при каждой пересборке. Спорные пары — на странице{" "}
+          <Link className="underline" to="/review/pairs">
+            «Пары»
+          </Link>
+          .
+        </p>
+      </div>
+    </details>
+  );
+}
+
 export function DossierPage() {
   const key = useParams().personKey ?? "";
   const dossier = useQuery({
@@ -77,13 +145,7 @@ export function DossierPage() {
                 {person.disputes.length ? `нерешённых спорных пар: ${person.disputes.length}` : "спорных пар нет"}
               </Badge>
             </div>
-            <p className="text-sm">
-              Ручные решения (исправить имя, «должностное лицо») — в{" "}
-              <a className="underline" href={`/ui/investigations/${encodeURIComponent(person.key)}`}>
-                старом интерфейсе
-              </a>
-              .
-            </p>
+            <Manual person={person} />
           </PageHeader>
 
           <Card className="mb-6">
