@@ -39,8 +39,13 @@ MOVED = {
     "/ui/logs": "/logs",
     "/ui/about": "/about",
 }
-# A person's dossier: /ui/investigations/<key> → /investigations/<key>.
-DOSSIER = "/ui/investigations/"
+# A page of one thing: /ui/<kind>/<id> → /<kind>/<id>. The dossier, a publication, a
+# person (`/ui/entities/<key>` already leads to the dossier).
+ONE_OF = {
+    "/ui/investigations/": "/investigations/",
+    "/ui/articles/": "/articles/",
+    "/ui/persons/": "/persons/",
+}
 # Never the console's: a missing API route is a 404, not a page.
 _NOT_PAGES = ("/api/", "/ui/", "/static/", "/health", "/docs", "/redoc", "/openapi.json")
 
@@ -56,8 +61,10 @@ def react_address(path: str) -> str | None:
     """Where a legacy page now lives in React; None for a page not moved."""
     if path in MOVED:
         return MOVED[path]
-    if path.startswith(DOSSIER) and "/" not in path[len(DOSSIER) :]:
-        return "/investigations/" + path[len(DOSSIER) :]
+    for legacy, react in ONE_OF.items():
+        rest = path[len(legacy) :]
+        if path.startswith(legacy) and rest and "/" not in rest:
+            return react + rest
     return None
 
 
