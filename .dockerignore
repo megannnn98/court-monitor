@@ -13,3 +13,4 @@ docs/*
 !docs/wiki/**
 frontend/node_modules
 frontend/dist
+frontend/*.tsbuildinfo

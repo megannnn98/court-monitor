@@ -39,6 +39,7 @@ from web.routers import (
     sentences,
     status,
 )
+from web.spa import react_console
 from web.ui import about as ui_about
 from web.ui import airtable as ui_airtable
 from web.ui import ask as ui_ask
@@ -102,6 +103,9 @@ app.mount("/static", StaticFiles(directory="src/static"), name="static")
 # does not stop a cross-site form POST, so an unsafe request must come from the
 # console's own origin (ADR 0022). Registered first, so it runs inside the request
 # context and its refusal carries the request id.
+# The React console, once the image carries its build: moved legacy pages open there,
+# and an address no route answers is its page (`web.spa`).
+app.middleware("http")(react_console)
 app.middleware("http")(same_origin_only)
 app.middleware("http")(request_context)
 
