@@ -521,3 +521,44 @@ def test_an_article_with_no_extraction_to_write_to_is_not_released(
     assert refused.status_code == 404
     assert _status(session_factory, ids["fine"]) == "held"
     assert _model_events(session_factory, ids["fine"]) == []
+
+
+def test_the_api_reads_the_stories_and_takes_the_words_the_page_does(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """`/api/v1/junk-holds` for the React page: the same lists, stories and words."""
+    first = _held_as(session_factory, "a", "Суд арестовал активиста Ивана Петрова за пост", 0.9)
+    second = _held_as(session_factory, "b", "Суд арестовал активиста Ивана Петрова за посты", 0.8)
+    alone = _held(session_factory, "Сегодня в городе прошла выставка.")
+
+    with _client(session_factory) as client:
+        held = client.get("/api/v1/junk-holds").json()
+        junk = client.post("/api/v1/junk-holds/junk", json={"article": alone})
+        as_junk = client.get("/api/v1/junk-holds", params={"status": "junk"}).json()
+        twice = client.post("/api/v1/junk-holds/junk", json={"article": alone})
+        stale = client.post("/api/v1/junk-holds/junk-all", json={"articles": [first, 999999]})
+        after_stale = _status(session_factory, first)
+        foreign = client.post(
+            "/api/v1/junk-holds/hold",
+            json={"article": alone},
+            headers={"Origin": "https://evil.example"},
+        )
+        back = client.post("/api/v1/junk-holds/hold", json={"article": alone})
+        both = client.post("/api/v1/junk-holds/junk-all", json={"articles": [first, second]})
+
+    assert held["status"] == "held"
+    assert {option["value"]: option["count"] for option in held["statuses"]}["held"] == 3
+    stories = [
+        [article["article_id"] for article in story["articles"]] for story in held["stories"]
+    ]
+    assert stories == [[first, second], [alone]]
+    card = held["stories"][1]["articles"][0]
+    assert card["title"] == "Главные новости <b>дня</b>" and card["score"] == 0.81
+    assert card["url"].startswith("https://") and card["status"] == "held"
+    assert junk.json() == {"articles": [alone], "released": False}
+    assert [story["articles"][0]["article_id"] for story in as_junk["stories"]] == [alone]
+    assert twice.status_code == 404 and twice.json()["detail"] == "Статья не на проверке"
+    assert stale.status_code == 404 and after_stale == "held"
+    assert foreign.status_code == 403
+    assert back.status_code == 200 and _status(session_factory, alone) == "held"
+    assert both.status_code == 200 and _status(session_factory, second) == "junk"

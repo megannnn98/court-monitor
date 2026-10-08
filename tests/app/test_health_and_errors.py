@@ -189,6 +189,12 @@ def test_openapi_lists_versioned_reads_and_only_the_known_actions(client: TestCl
         ("post", "/api/v1/unnamed/resolve"),
         ("post", "/api/v1/unnamed/clear"),
         ("post", "/api/v1/base-unnamed/decide"),
+        ("post", "/api/v1/junk-holds/junk"),
+        ("post", "/api/v1/junk-holds/junk-all"),
+        ("post", "/api/v1/junk-holds/release"),
+        ("post", "/api/v1/junk-holds/unrelease"),
+        ("post", "/api/v1/junk-holds/hold"),
+        ("post", "/api/v1/junk-holds/reextract"),
     }
 
 

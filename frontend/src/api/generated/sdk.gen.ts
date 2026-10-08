@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CandidateTableV1Data, CandidateTableV1Errors, CandidateTableV1Responses, ClearUnnamedV1Data, ClearUnnamedV1Errors, ClearUnnamedV1Responses, DecideBaseUnnamedV1Data, DecideBaseUnnamedV1Errors, DecideBaseUnnamedV1Responses, DecidePairV1Data, DecidePairV1Errors, DecidePairV1Responses, DecidePoliticsV1Data, DecidePoliticsV1Errors, DecidePoliticsV1Responses, DecideRoleV1Data, DecideRoleV1Errors, DecideRoleV1Responses, GetAboutV1Data, GetAboutV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetCycleV1Data, GetCycleV1Responses, GetDossierV1Data, GetDossierV1Errors, GetDossierV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, KeepUnnamedV1Data, KeepUnnamedV1Errors, KeepUnnamedV1Responses, ListBaseUnnamedV1Data, ListBaseUnnamedV1Errors, ListBaseUnnamedV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPairsV1Data, ListPairsV1Errors, ListPairsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses, ListSentencesV1Data, ListSentencesV1Errors, ListSentencesV1Responses, ListUnclearPoliticsV1Data, ListUnclearPoliticsV1Responses, ListUnclearRolesV1Data, ListUnclearRolesV1Responses, ListUnnamedV1Data, ListUnnamedV1Errors, ListUnnamedV1Responses, MarkPoliticalDoneV1Data, MarkPoliticalDoneV1Errors, MarkPoliticalDoneV1Responses, RejectUnnamedV1Data, RejectUnnamedV1Errors, RejectUnnamedV1Responses, ResolveUnnamedV1Data, ResolveUnnamedV1Errors, ResolveUnnamedV1Responses, SearchInvestigationsV1Data, SearchInvestigationsV1Errors, SearchInvestigationsV1Responses, StartCycleV1Data, StartCycleV1Errors, StartCycleV1Responses, StopCycleRunV1Data, StopCycleRunV1Errors, StopCycleRunV1Responses } from './types.gen';
+import type { CandidateTableV1Data, CandidateTableV1Errors, CandidateTableV1Responses, ClearUnnamedV1Data, ClearUnnamedV1Errors, ClearUnnamedV1Responses, DecideBaseUnnamedV1Data, DecideBaseUnnamedV1Errors, DecideBaseUnnamedV1Responses, DecidePairV1Data, DecidePairV1Errors, DecidePairV1Responses, DecidePoliticsV1Data, DecidePoliticsV1Errors, DecidePoliticsV1Responses, DecideRoleV1Data, DecideRoleV1Errors, DecideRoleV1Responses, GetAboutV1Data, GetAboutV1Responses, GetArticleMentionsV1Data, GetArticleMentionsV1Errors, GetArticleMentionsV1Responses, GetArticleV1Data, GetArticleV1Errors, GetArticleV1Responses, GetCycleV1Data, GetCycleV1Responses, GetDossierV1Data, GetDossierV1Errors, GetDossierV1Responses, GetMonitoringRunV1Data, GetMonitoringRunV1Errors, GetMonitoringRunV1Responses, GetMonitoringStatusV1Data, GetMonitoringStatusV1Responses, GetOperationRunV1Data, GetOperationRunV1Errors, GetOperationRunV1Responses, GetPersonAliasesV1Data, GetPersonAliasesV1Errors, GetPersonAliasesV1Responses, GetPersonDetailV1Data, GetPersonDetailV1Errors, GetPersonDetailV1Responses, GetPersonEventsV1Data, GetPersonEventsV1Errors, GetPersonEventsV1Responses, GetPersonPersecutionV1Data, GetPersonPersecutionV1Errors, GetPersonPersecutionV1Responses, GetPersonV1Data, GetPersonV1Errors, GetPersonV1Responses, GetRosfinmonitoringSnapshotV1Data, GetRosfinmonitoringSnapshotV1Errors, GetRosfinmonitoringSnapshotV1Responses, GetStatusV1Data, GetStatusV1Responses, HealthCheckV1Data, HealthCheckV1Responses, HealthLiveV1Data, HealthLiveV1Responses, HealthReadyV1Data, HealthReadyV1Errors, HealthReadyV1Responses, HoldHeldV1Data, HoldHeldV1Errors, HoldHeldV1Responses, JunkAllHeldV1Data, JunkAllHeldV1Errors, JunkAllHeldV1Responses, JunkHeldV1Data, JunkHeldV1Errors, JunkHeldV1Responses, KeepUnnamedV1Data, KeepUnnamedV1Errors, KeepUnnamedV1Responses, ListBaseUnnamedV1Data, ListBaseUnnamedV1Errors, ListBaseUnnamedV1Responses, ListCandidatesV1Data, ListCandidatesV1Errors, ListCandidatesV1Responses, ListEntitiesV1Data, ListEntitiesV1Errors, ListEntitiesV1Responses, ListJunkHoldsV1Data, ListJunkHoldsV1Errors, ListJunkHoldsV1Responses, ListMonitoringFindingsV1Data, ListMonitoringFindingsV1Errors, ListMonitoringFindingsV1Responses, ListMonitoringRunsV1Data, ListMonitoringRunsV1Errors, ListMonitoringRunsV1Responses, ListOperationRunsV1Data, ListOperationRunsV1Responses, ListPairsV1Data, ListPairsV1Errors, ListPairsV1Responses, ListPersonsV1Data, ListPersonsV1Errors, ListPersonsV1Responses, ListPoliticalV1Data, ListPoliticalV1Errors, ListPoliticalV1Responses, ListPublicationsV1Data, ListPublicationsV1Errors, ListPublicationsV1Responses, ListRosfinmonitoringEntriesV1Data, ListRosfinmonitoringEntriesV1Errors, ListRosfinmonitoringEntriesV1Responses, ListRosfinmonitoringSnapshotsV1Data, ListRosfinmonitoringSnapshotsV1Errors, ListRosfinmonitoringSnapshotsV1Responses, ListSentencesV1Data, ListSentencesV1Errors, ListSentencesV1Responses, ListUnclearPoliticsV1Data, ListUnclearPoliticsV1Responses, ListUnclearRolesV1Data, ListUnclearRolesV1Responses, ListUnnamedV1Data, ListUnnamedV1Errors, ListUnnamedV1Responses, MarkPoliticalDoneV1Data, MarkPoliticalDoneV1Errors, MarkPoliticalDoneV1Responses, ReextractHeldV1Data, ReextractHeldV1Errors, ReextractHeldV1Responses, RejectUnnamedV1Data, RejectUnnamedV1Errors, RejectUnnamedV1Responses, ReleaseHeldV1Data, ReleaseHeldV1Errors, ReleaseHeldV1Responses, ResolveUnnamedV1Data, ResolveUnnamedV1Errors, ResolveUnnamedV1Responses, SearchInvestigationsV1Data, SearchInvestigationsV1Errors, SearchInvestigationsV1Responses, StartCycleV1Data, StartCycleV1Errors, StartCycleV1Responses, StopCycleRunV1Data, StopCycleRunV1Errors, StopCycleRunV1Responses, UnreleaseHeldV1Data, UnreleaseHeldV1Errors, UnreleaseHeldV1Responses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -419,6 +419,98 @@ export const listBaseUnnamedV1 = <ThrowOnError extends boolean = false>(options?
  */
 export const decideBaseUnnamedV1 = <ThrowOnError extends boolean = false>(options: Options<DecideBaseUnnamedV1Data, ThrowOnError>) => (options.client ?? client).post<DecideBaseUnnamedV1Responses, DecideBaseUnnamedV1Errors, ThrowOnError>({
     url: '/api/v1/base-unnamed/decide',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Junk Holds
+ *
+ * One list of «Отсев», as the legacy page shows it; without a status, the one with
+ * work in it.
+ */
+export const listJunkHoldsV1 = <ThrowOnError extends boolean = false>(options?: Options<ListJunkHoldsV1Data, ThrowOnError>) => (options?.client ?? client).get<ListJunkHoldsV1Responses, ListJunkHoldsV1Errors, ThrowOnError>({ url: '/api/v1/junk-holds', ...options });
+
+/**
+ * Junk Held
+ *
+ * «Мусор»: the next purge deletes it.
+ */
+export const junkHeldV1 = <ThrowOnError extends boolean = false>(options: Options<JunkHeldV1Data, ThrowOnError>) => (options.client ?? client).post<JunkHeldV1Responses, JunkHeldV1Errors, ThrowOnError>({
+    url: '/api/v1/junk-holds/junk',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Junk All Held
+ *
+ * «Мусор — все»: every one, or none when one is no longer held.
+ */
+export const junkAllHeldV1 = <ThrowOnError extends boolean = false>(options: Options<JunkAllHeldV1Data, ThrowOnError>) => (options.client ?? client).post<JunkAllHeldV1Responses, JunkAllHeldV1Errors, ThrowOnError>({
+    url: '/api/v1/junk-holds/junk-all',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Release Held
+ *
+ * «Это дело — в работу».
+ */
+export const releaseHeldV1 = <ThrowOnError extends boolean = false>(options: Options<ReleaseHeldV1Data, ThrowOnError>) => (options.client ?? client).post<ReleaseHeldV1Responses, ReleaseHeldV1Errors, ThrowOnError>({
+    url: '/api/v1/junk-holds/release',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Unrelease Held
+ *
+ * «Мусор» of a released article: back under the purge.
+ */
+export const unreleaseHeldV1 = <ThrowOnError extends boolean = false>(options: Options<UnreleaseHeldV1Data, ThrowOnError>) => (options.client ?? client).post<UnreleaseHeldV1Responses, UnreleaseHeldV1Errors, ThrowOnError>({
+    url: '/api/v1/junk-holds/unrelease',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Hold Held
+ *
+ * «Вернуть на проверку» of an article marked junk.
+ */
+export const holdHeldV1 = <ThrowOnError extends boolean = false>(options: Options<HoldHeldV1Data, ThrowOnError>) => (options.client ?? client).post<HoldHeldV1Responses, HoldHeldV1Errors, ThrowOnError>({
+    url: '/api/v1/junk-holds/hold',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Reextract Held
+ *
+ * «Извлечь заново»: an event found returns the article to work.
+ */
+export const reextractHeldV1 = <ThrowOnError extends boolean = false>(options: Options<ReextractHeldV1Data, ThrowOnError>) => (options.client ?? client).post<ReextractHeldV1Responses, ReextractHeldV1Errors, ThrowOnError>({
+    url: '/api/v1/junk-holds/reextract',
     ...options,
     headers: {
         'Content-Type': 'application/json',

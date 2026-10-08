@@ -2286,6 +2286,299 @@
           }
         }
       }
+    },
+    "/api/v1/junk-holds": {
+      "get": {
+        "summary": "List Junk Holds",
+        "description": "One list of «Отсев», as the legacy page shows it; without a status, the one with\nwork in it.",
+        "operationId": "list_junk_holds_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(held|model_junk|released|junk)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JunkHoldsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/junk-holds/junk": {
+      "post": {
+        "summary": "Junk Held",
+        "description": "«Мусор»: the next purge deletes it.",
+        "operationId": "junk_held_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldArticleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/junk-holds/junk-all": {
+      "post": {
+        "summary": "Junk All Held",
+        "description": "«Мусор — все»: every one, or none when one is no longer held.",
+        "operationId": "junk_all_held_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldArticlesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/junk-holds/release": {
+      "post": {
+        "summary": "Release Held",
+        "description": "«Это дело — в работу».",
+        "operationId": "release_held_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldArticleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/junk-holds/unrelease": {
+      "post": {
+        "summary": "Unrelease Held",
+        "description": "«Мусор» of a released article: back under the purge.",
+        "operationId": "unrelease_held_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldArticleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/junk-holds/hold": {
+      "post": {
+        "summary": "Hold Held",
+        "description": "«Вернуть на проверку» of an article marked junk.",
+        "operationId": "hold_held_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldArticleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/junk-holds/reextract": {
+      "post": {
+        "summary": "Reextract Held",
+        "description": "«Извлечь заново»: an event found returns the article to work.",
+        "operationId": "reextract_held_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldArticleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4121,6 +4414,186 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HeldActionResponse": {
+        "properties": {
+          "articles": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Articles"
+          },
+          "released": {
+            "type": "boolean",
+            "title": "Released",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles"
+        ],
+        "title": "HeldActionResponse"
+      },
+      "HeldArticleRequest": {
+        "properties": {
+          "article": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Article"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article"
+        ],
+        "title": "HeldArticleRequest"
+      },
+      "HeldArticleResponse": {
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "cutoff": {
+            "type": "number",
+            "title": "Cutoff"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "note_label": {
+            "type": "string",
+            "title": "Note Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "status",
+          "title",
+          "published_at",
+          "source",
+          "url",
+          "score",
+          "cutoff",
+          "events",
+          "start",
+          "reason",
+          "note",
+          "note_label"
+        ],
+        "title": "HeldArticleResponse",
+        "description": "An article the junk screen held back from the purge."
+      },
+      "HeldArticlesRequest": {
+        "properties": {
+          "articles": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles"
+        ],
+        "title": "HeldArticlesRequest"
+      },
+      "HeldStoryResponse": {
+        "properties": {
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/HeldArticleResponse"
+            },
+            "type": "array",
+            "title": "Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles"
+        ],
+        "title": "HeldStoryResponse",
+        "description": "Articles that seem to tell one story; one article alone is a story of one."
+      },
       "InvestigationFoundResponse": {
         "properties": {
           "key": {
@@ -4190,6 +4663,54 @@
         ],
         "title": "InvestigationSearchResponse",
         "description": "«Найти человека»: by any form of the name, or the latest political cases."
+      },
+      "JunkHoldsResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Statuses"
+          },
+          "stories": {
+            "items": {
+              "$ref": "#/components/schemas/HeldStoryResponse"
+            },
+            "type": "array",
+            "title": "Stories"
+          },
+          "article_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Article Ids"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "statuses",
+          "stories",
+          "article_ids",
+          "page",
+          "pages"
+        ],
+        "title": "JunkHoldsResponse",
+        "description": "«Отсев»: one list of held articles, a page of its stories, and every list's count."
       },
       "KnownResponse": {
         "properties": {

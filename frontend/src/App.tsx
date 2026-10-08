@@ -8,6 +8,7 @@ import { CandidatesPage } from "@/pages/CandidatesPage";
 import { DossierPage } from "@/pages/DossierPage";
 import { EntitiesPage } from "@/pages/EntitiesPage";
 import { InvestigationsPage } from "@/pages/InvestigationsPage";
+import { JunkHoldsPage } from "@/pages/JunkHoldsPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -46,6 +47,7 @@ export function App() {
         <Route path="sentences" element={<SentencesPage />} />
         <Route path="unnamed" element={<UnnamedPage />} />
         <Route path="base-unnamed" element={<BaseUnnamedPage />} />
+        <Route path="junk-holds" element={<JunkHoldsPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
         <Route path="about" element={<AboutPage />} />

@@ -33,13 +33,13 @@ beforeEach(() => {
   }
 });
 
-it("sends a moved review to its React page and the rest to the legacy one", async () => {
+it("sends a queue to its React page", async () => {
   cycle.mockReturnValue(ok(IDLE) as never);
 
   renderPage(<WorkPage />);
 
   expect((await screen.findByRole("link", { name: "Начать проверку" })).getAttribute("href")).toBe("/review/pairs");
-  expect(screen.getByRole("link", { name: /Безымянные/ }).getAttribute("href")).toBe("/ui/unnamed");
+  expect(screen.getByRole("link", { name: /Безымянные/ }).getAttribute("href")).toBe("/unnamed");
   expect(screen.getByText("Публикации загружены")).toBeTruthy();
 });
 

@@ -18,7 +18,10 @@ export const POLL_MS = 5_000;
 const MOVED: Record<string, string> = {
   "/ui/pairs": "/review/pairs",
   "/ui/roles": "/review/roles",
-  "/ui/politics-review": "/review/politics"
+  "/ui/politics-review": "/review/politics",
+  "/ui/unnamed": "/unnamed",
+  "/ui/base-unnamed": "/base-unnamed",
+  "/ui/junk-holds": "/junk-holds"
 };
 
 function TaskLink({ task, children, className }: { task: CycleTaskResponse; children: ReactNode; className?: string }) {

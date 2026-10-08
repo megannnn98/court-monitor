@@ -215,17 +215,17 @@ def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> s
     )
 
 
-@router.get("/ui/junk-holds", response_class=HTMLResponse)
-def ui_junk_holds(
-    status: str | None = Query(default=None, pattern=f"^({'|'.join(_STATUSES)})$"),
-    page: int = Query(default=1, ge=1),
-    released: int | None = Query(default=None, ge=1),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> HTMLResponse:
-    counts = {str(key): int(value) for key, value in db.execute(_COUNTS).all()}
-    if status is None:
-        # Opened from the queue: the list there is work in, the model's when it is all.
-        status = MODEL_JUNK_VIEW if not counts.get(HELD) and counts.get(MODEL_JUNK_VIEW) else HELD
+def junk_counts(db: Session) -> dict[str, int]:
+    return {str(key): int(value) for key, value in db.execute(_COUNTS).all()}
+
+
+def default_status(counts: dict[str, int]) -> str:
+    """Opened from the queue: the list there is work in, the model's when it is all."""
+    return MODEL_JUNK_VIEW if not counts.get(HELD) and counts.get(MODEL_JUNK_VIEW) else HELD
+
+
+def held_stories(db: Session, status: str) -> tuple[dict[int, Any], list[list[list[int]]]]:
+    """The list's rows by article, and its stories in pages; read by this page and the API."""
     rows = db.execute(_HOLDS, _view(status)).all()
     by_id = {row.article_id: row for row in rows}
     pairs = [
@@ -235,7 +235,74 @@ def ui_junk_holds(
             *db.execute(_SAME_TITLE, {**_view(status), "similarity": TITLE_SIMILARITY}).all(),
         ]
     ]
-    pages = _pages(same_news(list(by_id), pairs))
+    return by_id, _pages(same_news(list(by_id), pairs))
+
+
+def note_label(reader_verdict: str | None) -> str:
+    return _NOTE_LABELS.get(reader_verdict or "", "")
+
+
+def apply_junk(db: Session, article_id: int) -> None:
+    """«Мусор» of a held article; commits."""
+    if not mark_junk(db, article_id):
+        raise HTTPException(status_code=404, detail="Статья не на проверке")
+    db.commit()
+
+
+def apply_unrelease(db: Session, article_id: int) -> None:
+    """«Мусор» of a released article: under the purge again; commits."""
+    if not unrelease(db, article_id):
+        raise HTTPException(status_code=404, detail="Статья не выпущена в работу")
+    db.commit()
+
+
+def apply_release(db: Session, article_id: int) -> None:
+    """«Это дело — в работу»; commits."""
+    if not release(db, article_id):
+        raise HTTPException(status_code=404, detail="Статья не на проверке")
+    db.commit()
+
+
+def apply_junk_all(db: Session, articles: list[int]) -> None:
+    """«Мусор» for every article of one story. All of them, or none: one that is no
+    longer held means the page is stale, and the operator should look again."""
+    if not articles:
+        raise HTTPException(status_code=400, detail="Не указаны статьи")
+    if not all(mark_junk(db, article_id) for article_id in articles):
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Статья не на проверке")
+    db.commit()
+
+
+def apply_hold(db: Session, article_id: int) -> None:
+    """«Вернуть на проверку» of an article marked junk; commits."""
+    if not hold_again(db, article_id):
+        raise HTTPException(status_code=404, detail="Статья не отмечена как мусор")
+    db.commit()
+
+
+def apply_reextract(db: Session, article_id: int) -> bool:
+    """«Извлечь заново»: whether an event was found and the article went back to work."""
+    held = db.scalar(
+        text("SELECT status FROM junk_screen_holds WHERE article_id = :article"),
+        {"article": article_id},
+    )
+    if held != HELD:
+        raise HTTPException(status_code=404, detail="Статья не на проверке")
+    return reextract(session_factory_for(db), article_id).released
+
+
+@router.get("/ui/junk-holds", response_class=HTMLResponse)
+def ui_junk_holds(
+    status: str | None = Query(default=None, pattern=f"^({'|'.join(_STATUSES)})$"),
+    page: int = Query(default=1, ge=1),
+    released: int | None = Query(default=None, ge=1),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    counts = junk_counts(db)
+    if status is None:
+        status = default_status(counts)
+    by_id, pages = held_stories(db, status)
     cards = [
         _card(by_id[story[0]], status, page)
         if len(story) == 1
@@ -325,9 +392,7 @@ async def ui_junk_holds_junk(
 ) -> RedirectResponse:
     form = await _form(request)
     article_id = _article(form)
-    if not mark_junk(db, article_id):
-        raise HTTPException(status_code=404, detail="Статья не на проверке")
-    db.commit()
+    apply_junk(db, article_id)
     return RedirectResponse(_back(form, article_id), status_code=303)
 
 
@@ -338,9 +403,7 @@ async def ui_junk_holds_unrelease(
 ) -> RedirectResponse:
     form = await _form(request)
     article_id = _article(form)
-    if not unrelease(db, article_id):
-        raise HTTPException(status_code=404, detail="Статья не выпущена в работу")
-    db.commit()
+    apply_unrelease(db, article_id)
     return RedirectResponse(_back(form, article_id), status_code=303)
 
 
@@ -351,9 +414,7 @@ async def ui_junk_holds_release(
 ) -> RedirectResponse:
     form = await _form(request)
     article_id = _article(form)
-    if not release(db, article_id):
-        raise HTTPException(status_code=404, detail="Статья не на проверке")
-    db.commit()
+    apply_release(db, article_id)
     return RedirectResponse(_back(form, article_id), status_code=303)
 
 
@@ -369,10 +430,7 @@ async def ui_junk_holds_junk_all(
     if not values or not all(value.isdigit() for value in values):
         raise HTTPException(status_code=400, detail="Не указаны статьи")
     articles = [int(value) for value in values]
-    if not all(mark_junk(db, article_id) for article_id in articles):
-        db.rollback()
-        raise HTTPException(status_code=404, detail="Статья не на проверке")
-    db.commit()
+    apply_junk_all(db, articles)
     return RedirectResponse(_back(form, articles[0]), status_code=303)
 
 
@@ -383,9 +441,7 @@ async def ui_junk_holds_hold(
 ) -> RedirectResponse:
     form = await _form(request)
     article_id = _article(form)
-    if not hold_again(db, article_id):
-        raise HTTPException(status_code=404, detail="Статья не отмечена как мусор")
-    db.commit()
+    apply_hold(db, article_id)
     return RedirectResponse(_back(form, article_id), status_code=303)
 
 
@@ -396,15 +452,9 @@ async def ui_junk_holds_reextract(
 ) -> RedirectResponse:
     form = await _form(request)
     article_id = _article(form)
-    held = db.scalar(
-        text("SELECT status FROM junk_screen_holds WHERE article_id = :article"),
-        {"article": article_id},
-    )
-    if held != HELD:
-        raise HTTPException(status_code=404, detail="Статья не на проверке")
-    outcome = reextract(session_factory_for(db), article_id)
+    released = apply_reextract(db, article_id)
     location = _back(form, article_id)
-    if outcome.released:
+    if released:
         path = location.partition("#")[0]
         location = f"{path}&{urlencode({'released': article_id})}"
     return RedirectResponse(location, status_code=303)
