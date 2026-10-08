@@ -1,3 +1,4 @@
+import { QueryClient } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -173,6 +174,45 @@ it("reads a run as live by the page's own script, not by a log that holds the sa
   expect(pieceOf(legacy(log))).toMatchObject({ live: false, html: log });
   expect(pieceOf(legacy(log + live))?.live).toBe(true);
   expect(pieceOf("<html><body>нет меток</body></html>")).toBeNull();
+});
+
+it("reads the strip and «Работа» again when the run it showed has ended", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const elsewhere = [["cycle"], ["operations", "runs"]];
+  for (const key of elsewhere) {
+    client.setQueryData(key, []);
+  }
+  const running = '<section class="band"><h2>Запуск #73</h2></section><script>setTimeout(() => window.location.reload(), 5000);</script>';
+  fetched.mockResolvedValue(answer(legacy(running)));
+  renderPage(<LegacyPage legacy="/ui/logs" path="/logs" title="…" />, { path: "/logs", url: "/logs", client });
+  await screen.findByRole("heading", { name: "Запуск #73" });
+  // While it runs nothing else is asked again.
+  expect(elsewhere.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([false, false]);
+
+  // The next reading of the piece finds the run ended (the page reads it every five seconds).
+  fetched.mockResolvedValue(answer(legacy('<section class="band"><h2>Запуск #73 завершён</h2></section>')));
+  await client.refetchQueries({ queryKey: ["legacy"] });
+
+  expect(await screen.findByRole("heading", { name: "Запуск #73 завершён" })).toBeTruthy();
+  await waitFor(() => expect(elsewhere.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true]));
+});
+
+it("shows a log at its last lines", async () => {
+  const height = Object.getOwnPropertyDescriptor(Element.prototype, "scrollHeight");
+  Object.defineProperty(Element.prototype, "scrollHeight", { configurable: true, get: () => 480 });
+  try {
+    fetched.mockResolvedValue(answer(legacy('<pre class="log">строка 1\nстрока 2</pre><pre>не лог</pre>')));
+    renderPage(<LegacyPage legacy="/ui/logs" path="/logs" title="…" />, { path: "/logs", url: "/logs" });
+
+    const log = await screen.findByText(/строка 1/);
+    await waitFor(() => expect(log.scrollTop).toBe(480));
+    // Only the log: any other block opens at its top.
+    expect(screen.getByText("не лог").scrollTop).toBe(0);
+  } finally {
+    if (height) {
+      Object.defineProperty(Element.prototype, "scrollHeight", height);
+    }
+  }
 });
 
 it("says a page the server does not have", async () => {
