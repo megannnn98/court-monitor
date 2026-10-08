@@ -918,3 +918,52 @@ class UnnamedActionRequest(BaseModel):
 
 class UnnamedActionResponse(BaseModel):
     figurant: str
+
+
+class BaseUnnamedCandidateResponse(BaseModel):
+    """An entry of the list that may be a nameless record of the base."""
+
+    key: str
+    full_name: str
+    birth_date: date
+    birth_place: str
+    reasons: list[str]
+    decision: str | None
+
+
+class BaseUnnamedCardResponse(BaseModel):
+    """A nameless record of the operator's base and who on the list it may be."""
+
+    record: str
+    full_name: str
+    facts: str
+    # "identified", "confirmed" (the entry said is no longer a candidate), "open" or
+    # "rejected" (every candidate refused).
+    state: str
+    identified_as: str | None
+    # The entry said, as its key: what «Отменить решение» takes back.
+    confirmed: str | None
+    candidates: list[BaseUnnamedCandidateResponse]
+    total: int
+    courts: list[CourtHintResponse]
+    courts_total: int
+
+
+class BaseUnnamedListResponse(BaseModel):
+    statuses: list[OptionResponse]
+    items: list[BaseUnnamedCardResponse]
+    total: int
+    page: int
+    page_size: int
+    none_yet: bool
+
+
+class BaseUnnamedDecisionRequest(BaseModel):
+    record: str = Field(max_length=200)
+    candidate: str = Field(max_length=600)
+    # "same", "different" or "clear".
+    decision: str = Field(max_length=16)
+
+
+class BaseUnnamedDecisionResponse(BaseModel):
+    record: str

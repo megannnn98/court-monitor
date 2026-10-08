@@ -11,9 +11,11 @@ import {
   type UnnamedActionRequest,
   type UnnamedCardResponse
 } from "@/api/generated";
+import { CourtHints } from "@/components/CourtHints";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Pager } from "@/components/Pager";
 import { QueryState } from "@/components/QueryState";
+import { StatusTabs } from "@/components/StatusTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -227,27 +229,7 @@ function Card({ card, people }: { card: UnnamedCardResponse; people: { key: stri
         <p className="text-sm text-muted-foreground">В базе Airtable {card.base_total} человек этого возраста и пола; по месту из них никто не подошёл.</p>
       ) : null}
 
-      {card.courts.length ? (
-        <p className="text-sm text-muted-foreground">
-          Где судят по этой статье из этого места (приговоры в базе Airtable, всего {card.courts_total}):{" "}
-          {card.courts.map((hint, index) => (
-            <span key={hint.court}>
-              {index ? "; " : ""}
-              {hint.court} — {hint.cases}
-              {hint.site ? (
-                <>
-                  {" ("}
-                  <a className="underline" href={hint.site} rel="noopener noreferrer" target="_blank">
-                    сайт суда
-                  </a>
-                  {")"}
-                </>
-              ) : null}
-            </span>
-          ))}
-          .
-        </p>
-      ) : null}
+      <CourtHints courts={card.courts} total={card.courts_total} />
 
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         {people.length ? (
@@ -341,29 +323,13 @@ export function UnnamedPage() {
       <QueryState query={result}>
         {(data) => (
           <>
-            <nav aria-label="Разделы" className="mb-3 flex flex-wrap border-b">
-              {data.statuses.map((status) => {
-                const active = status.value === query.status;
-                return (
-                  <button
-                    key={status.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => url.set({ status: status.value === "open" ? null : status.value, page: null })}
-                    className={cn("-mb-px border-b-2 px-4 py-2 text-sm", active ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
-                  >
-                    {status.label}
-                    <span className="ml-1 rounded-full bg-muted px-2 text-xs">{status.count ?? 0}</span>
-                  </button>
-                );
-              })}
-            </nav>
+            <StatusTabs options={data.statuses} value={query.status} onChange={(value) => url.set({ status: value === "open" ? null : value, page: null })} />
             <div className="mb-3 flex flex-wrap items-center gap-4">
               <Search label="Имя существующего человека" value={query.person_q} onSearch={(value) => url.set({ person_q: value })} />
               <Search label="Имя из перечня РФМ" value={query.rf_q} onSearch={(value) => url.set({ rf_q: value, rf_key: null })} />
-              <a className="ml-auto text-sm underline" href="/ui/base-unnamed">
+              <Link className="ml-auto text-sm underline" to="/base-unnamed">
                 Без имени в базе Airtable
-              </a>
+              </Link>
             </div>
             {query.person_q && !data.people.length ? <p className="mb-2 text-sm text-muted-foreground">Существующих людей с таким именем нет.</p> : null}
             {query.rf_q ? (

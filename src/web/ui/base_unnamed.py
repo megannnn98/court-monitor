@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from db.orm_models import AirtableKnownPersonRecord
 from entities.base_candidates import article_numbers
 from entities.base_unnamed import NamelessCase, counts, nameless_cases, say
-from entities.jurisdiction import Jurisdiction
+from entities.jurisdiction import CourtHints, Jurisdiction
 from entities.unnamed import CANDIDATE_KEY_LENGTH, DIFFERENT, SAME
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
@@ -29,22 +29,68 @@ router = APIRouter()
 
 PAGE_SIZE = 20
 _STATUSES = {"open": "Не разобраны", "found": "Опознаны", "all": "Все"}
-_CLEAR = "clear"
+CLEAR = "clear"
 
 
-def _facts(case: NamelessCase) -> str:
+def facts_text(case: NamelessCase) -> str:
+    """What the base says of the case, as one line; read by this page and the API."""
     record = case.record
     parts = [f"{case.age} лет"] if case.age is not None else []
     if record.gender:
         parts.append("мужчина" if record.gender == "male" else "женщина")
     place = ", ".join(part for part in (record.region, record.city) if part)
     if place:
-        parts.append(escape(place))
+        parts.append(place)
     if record.case_opened_on:
         parts.append(f"дело возбуждено {record.case_opened_on:%d.%m.%Y}")
     if record.articles:
-        parts.append(escape(record.articles))
+        parts.append(record.articles)
     return " · ".join(parts)
+
+
+def _facts(case: NamelessCase) -> str:
+    return escape(facts_text(case))
+
+
+def case_courts(courts: Jurisdiction, case: NamelessCase) -> CourtHints:
+    record = case.record
+    return courts.courts(
+        f"{record.region or ''} {record.city or ''}", article_numbers(record.articles or "")
+    )
+
+
+def base_listing(
+    db: Session, status: str
+) -> tuple[list[NamelessCase], dict[str, int], list[NamelessCase]]:
+    """Every case, the tabs' counts and the tab's cases; read by this page and the API."""
+    cases = nameless_cases(db)
+    chosen = [
+        case
+        for case in cases
+        if status == "all"
+        or (status == "found" and case.confirmed is not None)
+        or (status == "open" and case.confirmed is None and case.open)
+    ]
+    return cases, counts(cases), chosen
+
+
+def apply_decide(db: Session, fields: dict[str, str]) -> str:
+    """«Это он», «Не он» or «Отменить» of a candidate; commits. The record's id."""
+    record = fields.get("record", "")
+    candidate = fields.get("candidate", "")
+    decision = fields.get("decision", "")
+    known = db.scalar(
+        select(func.count())
+        .select_from(AirtableKnownPersonRecord)
+        .where(AirtableKnownPersonRecord.external_id == record)
+    )
+    if not known:
+        raise HTTPException(status_code=400, detail="Неизвестная запись базы")
+    if not 0 < len(candidate) <= CANDIDATE_KEY_LENGTH or decision not in (SAME, DIFFERENT, CLEAR):
+        raise HTTPException(status_code=400, detail="Неполное решение")
+    say(db, record, candidate, None if decision == CLEAR else decision)
+    db.commit()
+    return record
 
 
 def _word_form(
@@ -96,7 +142,7 @@ def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
                 else ""
             )
             + (
-                _word_form(record.external_id, key, _CLEAR, "Отменить", "secondary", back)
+                _word_form(record.external_id, key, CLEAR, "Отменить", "secondary", back)
                 if item.decision
                 else ""
             )
@@ -120,7 +166,7 @@ def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
     forget = (
         '<p class="actions-cell">'
         + _word_form(
-            record.external_id, case.confirmed, _CLEAR, "Отменить решение", "secondary", back
+            record.external_id, case.confirmed, CLEAR, "Отменить решение", "secondary", back
         )
         + "</p>"
         if case.confirmed and identified is None
@@ -136,13 +182,7 @@ def _card(case: NamelessCase, courts: Jurisdiction, back: str) -> str:
   <p class="badges">{status}</p>
   <p class="quote">{escape(record.full_name)}</p>
   <p class="muted">{_facts(case)}</p>
-  {
-        courts_html(
-            courts.courts(
-                f"{record.region or ''} {record.city or ''}", article_numbers(record.articles or "")
-            )
-        )
-    }
+  {courts_html(case_courts(courts, case))}
   {table}{more}{forget}
 </article>"""
 
@@ -153,15 +193,7 @@ def ui_base_unnamed(
     page: int = Query(default=1, ge=1),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    cases = nameless_cases(db)
-    totals = counts(cases)
-    chosen = [
-        case
-        for case in cases
-        if status == "all"
-        or (status == "found" and case.confirmed is not None)
-        or (status == "open" and case.confirmed is None and case.open)
-    ]
+    cases, totals, chosen = base_listing(db, status)
     back = urlencode({"status": status, "page": page})
     courts = Jurisdiction.from_session(db)
     cards = "".join(
@@ -209,20 +241,7 @@ async def decide_base_unnamed(
             (await request.body()).decode("utf-8", errors="replace")
         ).items()
     }
-    record = form.get("record", "")
-    candidate = form.get("candidate", "")
-    decision = form.get("decision", "")
-    known = db.scalar(
-        select(func.count())
-        .select_from(AirtableKnownPersonRecord)
-        .where(AirtableKnownPersonRecord.external_id == record)
-    )
-    if not known:
-        raise HTTPException(status_code=400, detail="Неизвестная запись базы")
-    if not 0 < len(candidate) <= CANDIDATE_KEY_LENGTH or decision not in (SAME, DIFFERENT, _CLEAR):
-        raise HTTPException(status_code=400, detail="Неполное решение")
-    say(db, record, candidate, None if decision == _CLEAR else decision)
-    db.commit()
+    record = apply_decide(db, form)
     kept = dict(item.partition("=")[::2] for item in form.get("back", "").split("&"))
     params = {
         "status": kept.get("status") if kept.get("status") in _STATUSES else "open",

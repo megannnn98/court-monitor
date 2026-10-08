@@ -199,3 +199,41 @@ def test_a_confirmed_record_without_candidates_has_no_empty_table(
     assert ">Отменить решение<" in found
     with session_factory() as session:
         assert session.execute(text("SELECT count(*) FROM unnamed_decisions")).scalar() == 0
+
+
+def test_the_api_reads_the_cards_and_takes_the_words_the_page_does(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """`/api/v1/base-unnamed` for the React page: the same cards, counts and words."""
+    _seed(session_factory)
+    word = {"record": "share:known:1", "candidate": KEY}
+
+    with _client(session_factory) as client:
+        opened = client.get("/api/v1/base-unnamed").json()
+        same = client.post("/api/v1/base-unnamed/decide", json={**word, "decision": "same"})
+        found = client.get("/api/v1/base-unnamed", params={"status": "found"}).json()
+        legacy = client.get("/ui/base-unnamed", params={"status": "found"}).text
+        wrong = client.post("/api/v1/base-unnamed/decide", json={**word, "decision": "maybe"})
+        foreign = client.post(
+            "/api/v1/base-unnamed/decide",
+            json={**word, "decision": "clear"},
+            headers={"Origin": "https://evil.example"},
+        )
+        client.post("/api/v1/base-unnamed/decide", json={**word, "decision": "clear"})
+        cleared = client.get("/api/v1/base-unnamed").json()
+
+    counts = {option["value"]: option["count"] for option in opened["statuses"]}
+    assert counts["open"] == 1 and counts["found"] == 0
+    card = opened["items"][0]
+    assert card["record"] == "share:known:1" and card["state"] == "open"
+    assert card["full_name"] == "50-летний житель <Рубцовска>"
+    candidate = card["candidates"][0]
+    assert candidate["key"] == KEY and candidate["full_name"] == "БУДНИКОВ <ЕВГЕНИЙ>"
+    assert candidate["birth_place"] == "Г. РУБЦОВСК АЛТАЙСКОГО КРАЯ"
+    assert same.json() == {"record": "share:known:1"}
+    assert found["items"][0]["state"] == "identified"
+    assert found["items"][0]["identified_as"] == "БУДНИКОВ <ЕВГЕНИЙ>"
+    assert "опознан: БУДНИКОВ &lt;ЕВГЕНИЙ&gt;" in legacy
+    assert wrong.status_code == 400 and wrong.json()["detail"] == "Неполное решение"
+    assert foreign.status_code == 403
+    assert cleared["items"][0]["state"] == "open"

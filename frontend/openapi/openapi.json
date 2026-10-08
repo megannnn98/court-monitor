@@ -2194,6 +2194,98 @@
           }
         }
       }
+    },
+    "/api/v1/base-unnamed": {
+      "get": {
+        "summary": "List Base Unnamed",
+        "description": "One tab of «Без имени в базе», as the legacy page shows it.",
+        "operationId": "list_base_unnamed_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(open|found|all)$",
+              "default": "open",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseUnnamedListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/base-unnamed/decide": {
+      "post": {
+        "summary": "Decide Base Unnamed",
+        "description": "«Это он», «Не он» or «Отменить» («clear») of a candidate.",
+        "operationId": "decide_base_unnamed_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseUnnamedDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseUnnamedDecisionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2444,6 +2536,218 @@
           "text"
         ],
         "title": "ArticleResponse"
+      },
+      "BaseUnnamedCandidateResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "birth_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Birth Date"
+          },
+          "birth_place": {
+            "type": "string",
+            "title": "Birth Place"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "full_name",
+          "birth_date",
+          "birth_place",
+          "reasons",
+          "decision"
+        ],
+        "title": "BaseUnnamedCandidateResponse",
+        "description": "An entry of the list that may be a nameless record of the base."
+      },
+      "BaseUnnamedCardResponse": {
+        "properties": {
+          "record": {
+            "type": "string",
+            "title": "Record"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "facts": {
+            "type": "string",
+            "title": "Facts"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "identified_as": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identified As"
+          },
+          "confirmed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/BaseUnnamedCandidateResponse"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "courts": {
+            "items": {
+              "$ref": "#/components/schemas/CourtHintResponse"
+            },
+            "type": "array",
+            "title": "Courts"
+          },
+          "courts_total": {
+            "type": "integer",
+            "title": "Courts Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record",
+          "full_name",
+          "facts",
+          "state",
+          "identified_as",
+          "confirmed",
+          "candidates",
+          "total",
+          "courts",
+          "courts_total"
+        ],
+        "title": "BaseUnnamedCardResponse",
+        "description": "A nameless record of the operator's base and who on the list it may be."
+      },
+      "BaseUnnamedDecisionRequest": {
+        "properties": {
+          "record": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Record"
+          },
+          "candidate": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Candidate"
+          },
+          "decision": {
+            "type": "string",
+            "maxLength": 16,
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record",
+          "candidate",
+          "decision"
+        ],
+        "title": "BaseUnnamedDecisionRequest"
+      },
+      "BaseUnnamedDecisionResponse": {
+        "properties": {
+          "record": {
+            "type": "string",
+            "title": "Record"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record"
+        ],
+        "title": "BaseUnnamedDecisionResponse"
+      },
+      "BaseUnnamedListResponse": {
+        "properties": {
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Statuses"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BaseUnnamedCardResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "none_yet": {
+            "type": "boolean",
+            "title": "None Yet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "statuses",
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "none_yet"
+        ],
+        "title": "BaseUnnamedListResponse"
       },
       "CandidateResponse": {
         "properties": {
