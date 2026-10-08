@@ -1185,7 +1185,7 @@
     "/api/v1/political": {
       "get": {
         "summary": "List Political",
-        "description": "The people with a political criminal case, latest news first, as the legacy\n«Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the\nlegacy page, filters are not remembered: the address is the state.",
+        "description": "The people with a political criminal case, latest news first, as the legacy\n«Результат» lists them. Dates (day/month/year or ISO) win over the months. Unlike the\nlegacy page, filters are not remembered: the address is the state. A `queue` keeps\nonly the period and takes the queue's own filters; the queues' counts are of the\nperiod, whatever queue is open.",
         "operationId": "list_political_v1",
         "parameters": [
           {
@@ -1284,6 +1284,17 @@
               "minimum": 1,
               "default": 1,
               "title": "Page"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "default": "",
+              "title": "Queue"
             }
           }
         ],
@@ -4957,6 +4968,13 @@
             "type": "array",
             "title": "Periods"
           },
+          "queues": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Queues"
+          },
           "news": {
             "items": {
               "$ref": "#/components/schemas/OptionResponse"
@@ -4997,6 +5015,7 @@
           "base_loaded",
           "export_url",
           "periods",
+          "queues",
           "news",
           "known",
           "who",

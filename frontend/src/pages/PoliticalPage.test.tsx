@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { listPoliticalV1, markPoliticalDoneV1 } from "@/api/generated";
@@ -65,42 +65,88 @@ const PAGE = {
   rfm: [
     { value: "all", label: "Все" },
     { value: "awaited", label: "Ждём в перечне", count: 2 }
+  ],
+  queues: [
+    { value: "all", label: "Все", count: 1 },
+    { value: "sentence", label: "Приговоры", count: 1 },
+    { value: "unnamed", label: "Без имени", count: 0 },
+    { value: "awaited", label: "Ждём в перечне", count: 2 },
+    { value: "done", label: "Обработанные", count: 6 }
   ]
 };
-const QUERY = { months: 0, date_from: "", date_to: "", news: "all", known: "all", done: "hide", who: "all", rfm: "all", page: 1 };
+const QUERY = { months: 0, date_from: "", date_to: "", queue: "all", page: 1 };
+const OTHER = {
+  ...ROW,
+  key: "иван иванов",
+  name: "Иванов Иван",
+  rf_label: null,
+  rf_entry: "",
+  rf_included: null,
+  listing: "ждём в перечне: 205.2",
+  awaited: true,
+  basis: "модель: про Иванова",
+  links: [{ title: "Дело Иванова", url: "https://ovd.example/3", source: "ОВД-Инфо" }]
+};
 
 beforeEach(() => {
   list.mockReset();
   mark.mockReset();
 });
 
-it("shows the result as the legacy page does", async () => {
+it("shows the queues, a short table and the first person in the panel", async () => {
   list.mockReturnValue(ok(PAGE) as never);
 
   renderPage(<PoliticalPage />);
 
-  expect((await screen.findByRole("link", { name: "Смирнова Анна" })).getAttribute("href")).toBe(dossierPath("анна смирнова"));
-  for (const text of ["в перечне РФМ", "запись перечня включена 01.03.2025", "нет в базе", "модель: так про Анна Смирнова", "статья перечня: 205.2"]) {
-    expect(screen.getByText(text)).toBeTruthy();
-  }
-  expect(screen.getByText("205.2").tagName).toBe("B");
-  expect(screen.getByRole("link", { name: "Приговор Смирновой" }).getAttribute("rel")).toBe("noopener noreferrer");
-  expect(screen.queryByRole("link", { name: "Опасная ссылка" })).toBeNull();
-  expect(screen.getByText(/Показать обработанных \(6\)/)).toBeTruthy();
-  expect(screen.getByRole("button", { name: "За всё время" }).getAttribute("aria-pressed")).toBe("true");
+  expect((await screen.findAllByRole("link", { name: "Смирнова Анна" }))[0].getAttribute("href")).toBe(dossierPath("анна смирнова"));
   expect(list).toHaveBeenCalledWith({ query: QUERY });
+  expect(screen.getByRole("button", { name: "Все 1" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Обработанные 6" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "За всё время" }).getAttribute("aria-pressed")).toBe("true");
+  const panel = screen.getByRole("complementary", { name: "Подробно: Смирнова Анна" });
+  for (const text of ["модель: так про Анна Смирнова", "цитата", "запись перечня включена 01.03.2025", "статья перечня: 205.2"]) {
+    expect(within(panel).getByText(text)).toBeTruthy();
+  }
+  expect(within(panel).getByRole("link", { name: "Приговор Смирновой" }).getAttribute("rel")).toBe("noopener noreferrer");
+  expect(within(panel).queryByRole("link", { name: "Опасная ссылка" })).toBeNull();
+  // The table keeps the marks, not the long texts.
+  const table = screen.getByRole("table");
+  expect(within(table).getAllByText("в перечне РФМ")).toHaveLength(1);
+  expect(within(table).getByText("нет в базе")).toBeTruthy();
+  expect(within(table).getByText("205.2").tagName).toBe("B");
+  expect(within(table).queryByText("модель: так про Анна Смирнова")).toBeNull();
 });
 
-it("sends the period and the filters of the address", async () => {
-  list.mockReturnValue(ok({ ...PAGE, items: [], total: 0, base_loaded: false, known: [] }) as never);
+it("shows the person chosen in the table", async () => {
+  list.mockReturnValue(ok({ ...PAGE, items: [ROW, OTHER], total: 2 }) as never);
 
-  renderPage(<PoliticalPage />, { url: "/?date_from=2026-09-01&date_to=2026-09-30&rfm=awaited&done=show" });
+  renderPage(<PoliticalPage />);
+  await screen.findByRole("complementary", { name: "Подробно: Смирнова Анна" });
+  // The second row's news cell: a click anywhere off the links and the tick.
+  fireEvent.click(within(screen.getAllByRole("row")[2]).getAllByRole("cell")[2]);
 
-  expect(await screen.findByText("За этот период и с этими фильтрами никого нет.")).toBeTruthy();
-  expect(list).toHaveBeenCalledWith({
-    query: { ...QUERY, date_from: "2026-09-01", date_to: "2026-09-30", rfm: "awaited", done: "show" }
-  });
-  expect(screen.queryByText("В базе Airtable")).toBeNull();
+  const panel = await screen.findByRole("complementary", { name: "Подробно: Иванов Иван" });
+  expect(within(panel).getByText("модель: про Иванова")).toBeTruthy();
+  expect(within(panel).getByRole("link", { name: "Дело Иванова" })).toBeTruthy();
+});
+
+it("opens a queue: its own column, the period kept", async () => {
+  list.mockReturnValue(ok({ ...PAGE, items: [OTHER] }) as never);
+
+  renderPage(<PoliticalPage />, { url: "/?months=3" });
+  fireEvent.click(await screen.findByRole("button", { name: "Ждём в перечне 2" }));
+
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, months: 3, queue: "awaited" } }));
+  expect(await screen.findByRole("columnheader", { name: "Перечень РФМ" })).toBeTruthy();
+});
+
+it("sends the dates of the address", async () => {
+  list.mockReturnValue(ok({ ...PAGE, items: [], total: 0 }) as never);
+
+  renderPage(<PoliticalPage />, { url: "/?date_from=2026-09-01&date_to=2026-09-30&queue=done" });
+
+  expect(await screen.findByText("За этот период в этой очереди никого нет.")).toBeTruthy();
+  expect(list).toHaveBeenCalledWith({ query: { ...QUERY, date_from: "2026-09-01", date_to: "2026-09-30", queue: "done" } });
 });
 
 it("shows the API's own error", async () => {
@@ -130,7 +176,7 @@ it("keeps the file of the rows shown while the next filters are read", async () 
   fireEvent.click(await screen.findByRole("button", { name: "3 месяца" }));
 
   expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, months: 3 } });
-  expect(screen.getByText("Смирнова Анна")).toBeTruthy();
+  expect(screen.getAllByText("Смирнова Анна").length).toBeGreaterThan(0);
   expect(screen.getByRole("link", { name: "Скачать Excel" }).getAttribute("href")).toBe(EXPORT_URL);
 });
 

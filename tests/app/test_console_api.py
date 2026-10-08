@@ -244,6 +244,42 @@ def test_the_result_is_the_legacy_list_s(session_factory: sessionmaker[Session])
     assert [row[1] for row in sheet.iter_rows(min_row=2, values_only=True)] == ["Смирнова Анна"]
 
 
+def test_queues_are_counted_over_the_period_whatever_queue_is_open(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The React page's tabs: a queue keeps the period and takes its own filters; every
+    queue is counted in the period, whichever is open."""
+    _political(session_factory)
+
+    with _client(session_factory) as client:
+        client.post("/api/v1/political/done", json={"key": "анна смирнова", "done": True})
+        plain = client.get("/api/v1/political").json()
+        done = client.get("/api/v1/political", params={"queue": "done"}).json()
+        open_ = client.get("/api/v1/political", params={"queue": "all", "done": "only"}).json()
+        recent = client.get("/api/v1/political", params={"queue": "done", "months": 3}).json()
+
+    counts = {option["value"]: option["count"] for option in done["queues"]}
+    # No base loaded: «not in Airtable» means nothing, and is not offered.
+    assert counts == {
+        "all": 1,
+        "new_case": 0,
+        "sentence": 0,
+        "unnamed": 0,
+        "awaited": 0,
+        "done": 1,
+    }
+    assert [row["name"] for row in done["items"]] == ["Смирнова Анна"]
+    assert "done=only" in done["export_url"]
+    # The queue's filters win over the address's own.
+    assert [row["name"] for row in open_["items"]] == ["Иванов Иван"]
+    assert {option["value"]: option["count"] for option in open_["queues"]} == counts
+    # Иванов's news is a year old: out of three months, in neither the list nor the count.
+    assert {option["value"]: option["count"] for option in recent["queues"]}["all"] == 0
+    assert [row["name"] for row in recent["items"]] == ["Смирнова Анна"]
+    # Without a queue the page is the legacy one, and nothing is counted twice.
+    assert plain["queues"] == []
+
+
 def test_done_takes_a_person_off_the_result_and_back(
     session_factory: sessionmaker[Session],
 ) -> None:
