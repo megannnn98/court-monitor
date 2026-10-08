@@ -75,7 +75,7 @@ def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     # One press runs every step that is left; a single step is on the runs' page.
     assert 'id="step-load"' in response.text and ">Сделать всё</button>" in response.text
     assert 'formaction="/ui/management/run?chain=1&amp;after=0&amp;back=cycle"' in response.text
-    assert "Выполнить шаги 1–5 подряд? Остановится на первой ошибке." in response.text
+    assert 'data-ask="Выполнить шаги 1–5 подряд?"' in response.text
     assert "шаги 1–5 подряд; по одному шагу" in response.text
     assert "Запустить следующий шаг" not in response.text
     assert 'id="step-purge"' not in response.text
@@ -237,9 +237,7 @@ def test_do_all_starts_a_chain_from_the_step_that_is_due(
     # The last step alone is left: «Сделать всё» says so.
     # The press names the latest run its page was drawn for.
     assert int(after[1]) == done[-1]
-    assert "Выполнить шаг 5? Остановится на первой ошибке." in last and "шаг 5;" in last
-    # It asks of the steps it will run, not of the ones already done.
-    assert "Удалить из базы" not in last
+    assert 'data-ask="Выполнить шаг 5?"' in last and "шаг 5;" in last
     assert (started.status_code, started.headers["location"]) == (303, "/ui/cycle")
     run = registry.runs_of("monitor", limit=1)[0]
     assert (run.parameters.mode, run.parameters.chain) == ("political", True)

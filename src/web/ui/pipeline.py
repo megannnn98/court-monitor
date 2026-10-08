@@ -191,23 +191,12 @@ def chain_stopped_text(state: PipelineState) -> str:
 
 
 def chain_confirmation(stage: str) -> str:
-    """What the browser asks before «Сделать всё»: which steps will run, and of each of
-    them what a single start of it would have asked — the destructive warning and the
-    cost. The balance is said once."""
+    """What the browser asks before «Сделать всё»: only the money, when a step left is
+    paid. Each step's own warnings stay on its single start in the journal of runs."""
     steps = STAGES[STAGES.index(stage) :]
-    asked = [
-        f"Шаг {STAGES.index(step) + 1}. {text}"
-        for step in steps
-        if (text := " ".join(p for p in (_CONFIRM.get(step, ""), spend.spend_text(step)) if p))
-    ]
-    return " ".join(
-        [
-            f"Выполнить {chain_span(stage)}? Остановится на первой ошибке.",
-            *asked,
-            spend.balance_text() if any(spend.spend_text(step) for step in steps) else "",
-            spend.chain_shortfall(steps),
-        ]
-    ).strip()
+    if not any(spend.paid(step) for step in steps):
+        return f"Выполнить {chain_span(stage)}?"
+    return spend.chain_cost_text(steps)
 
 
 def chain_note(state: PipelineState) -> str:

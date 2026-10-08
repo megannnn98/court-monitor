@@ -43,6 +43,8 @@ TIMEOUT_SECONDS = 4.0
 AI_STAGES = ("purge", "entities", "figurants", "political")
 # What one article costs the purge's decision model: $0.0391 for 682 articles (measured).
 PURGE_COST_PER_ARTICLE = 0.00006
+# What every paid step together costs for one day of news (the operator's estimate).
+COST_PER_NEWS_DAY = 0.07
 
 _lock = threading.Lock()
 _cache: tuple[str, float, Balance | None] | None = None
@@ -189,6 +191,17 @@ def chain_shortfall(stages: Sequence[str], env: Mapping[str, str] | None = None)
     return (
         f"Остатка меньше суммы лимитов этих шагов (${total:.2f}): цепочка может "
         f"остановиться, не дойдя до конца.{beyond}"
+    )
+
+
+def chain_cost_text(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
+    """The question before «Сделать всё» when a step is paid: the money, and nothing else."""
+    found = balance(env)
+    left = f"Остаток: ${found.remaining:.2f}." if found else "Остаток узнать не удалось."
+    short = " Остатка может не хватить на все шаги." if chain_shortfall(stages, env) else ""
+    return (
+        "С баланса OpenRouter спишутся деньги: примерно "
+        f"${COST_PER_NEWS_DAY:.2f} за один день новостей. {left}{short} Запустить?"
     )
 
 
