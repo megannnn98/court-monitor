@@ -34,17 +34,16 @@ export const NAV: NavGroup[] = [
       { key: "publications", label: "Публикации", legacy: "/ui/publications", path: "/publications" },
       { key: "sentences", label: "Приговоры", legacy: "/ui/sentences", path: "/sentences" },
       { key: "rfm", label: "Перечень РФМ", legacy: "/ui/rfm", path: "/rfm" },
-      { key: "airtable", label: "База Airtable", legacy: "/ui/airtable", path: "/airtable" },
-      // Not in the legacy menu: reachable there only by address.
-      { key: "candidates", label: "Кандидаты", legacy: "/ui/candidates", path: "/candidates" },
-      { key: "persons", label: "Персоны", legacy: null, path: "/persons" }
+      { key: "airtable", label: "База Airtable", legacy: "/ui/airtable", path: "/airtable" }
+      // «Кандидаты» (/candidates) and «Персоны» (/persons) are not in the legacy menu and
+      // not in this one: reachable by address, as there.
     ]
   },
   {
     title: "Система",
     items: [
       { key: "management", label: "Журнал запусков", legacy: "/ui/runs", path: "/runs" },
-      { key: "monitoring", label: "Мониторинг", legacy: null, path: "/monitoring" },
+      // «Мониторинг» (/monitoring) is no item of the legacy menu either.
       { key: "logs", label: "Логи", legacy: "/ui/logs", path: "/logs" },
       { key: "wiki", label: "Вики", legacy: "/ui/wiki", path: "/wiki" },
       { key: "about", label: "О системе", legacy: "/ui/about", path: "/about" }

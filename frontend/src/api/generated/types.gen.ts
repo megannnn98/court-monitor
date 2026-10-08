@@ -336,6 +336,31 @@ export type AskedQuestionResponse = {
 };
 
 /**
+ * BalanceResponse
+ *
+ * The OpenRouter balance of the strip: the figure («$2.91», a dash when OpenRouter
+ * did not answer), its hint, and whether it is under one run's limit.
+ */
+export type BalanceResponse = {
+    /**
+     * Figure
+     */
+    figure: string;
+    /**
+     * Hint
+     */
+    hint: string;
+    /**
+     * Low
+     */
+    low: boolean;
+    /**
+     * Known
+     */
+    known: boolean;
+};
+
+/**
  * BaseUnnamedCandidateResponse
  *
  * An entry of the list that may be a nameless record of the base.
@@ -3493,6 +3518,7 @@ export type StatusResponse = {
      * Next Action
      */
     next_action: string;
+    balance?: BalanceResponse | null;
 };
 
 /**

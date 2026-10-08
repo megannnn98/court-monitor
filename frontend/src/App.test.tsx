@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 
@@ -17,7 +17,8 @@ vi.mock("@/api/generated", () => ({
         queue: { total: 37, pairs: 5, unclear_roles: 10, unclear_verdicts: 12, unnamed: 8, junk_holds: 2 },
         latest_monitoring_status: "completed_with_errors",
         live_operation: { mode: "entities", title: "Сборка сущностей" },
-        next_action: "Дождаться окончания шага."
+        next_action: "Дождаться окончания шага.",
+        balance: { figure: "$1.00", hint: "Куплено $15.00, потрачено $14.00.", low: true, known: true }
       },
       error: undefined,
       response: new Response(null, { status: 200 })
@@ -49,6 +50,49 @@ it("shows the legacy menu's groups and words", () => {
   for (const station of ["Пары", "Неясные роли", "Неясная политичность"]) {
     expect(within(menu).queryByRole("link", { name: station })).toBeNull();
   }
+});
+
+it("has the legacy menu's items and no other", () => {
+  renderApp("/about");
+  const menu = screen.getByRole("navigation", { name: "Главное меню" });
+
+  expect(within(menu).getAllByRole("link").map((link) => (link.textContent ?? "").replace(/[\d\s]+$/, ""))).toEqual([
+    "Работа",
+    "Результаты",
+    "Найти человека",
+    "Спросить",
+    "Все люди",
+    "Публикации",
+    "Приговоры",
+    "Перечень РФМ",
+    "База Airtable",
+    "Журнал запусков",
+    "Логи",
+    "Вики",
+    "О системе"
+  ]);
+  // Each with its icon, as there.
+  expect(within(menu).getAllByRole("link").every((link) => link.querySelector("svg"))).toBe(true);
+});
+
+it("folds what the page is and what to do next under «Как это работает»", async () => {
+  renderApp("/wiki");
+  const hint = screen.getByRole("button", { name: /Как это работает/ });
+
+  expect(screen.queryByText(/Справочник по проекту/)).toBeNull();
+  fireEvent.click(hint);
+
+  expect(screen.getByText(/Справочник по проекту/)).toBeTruthy();
+  expect(await screen.findByText("Дождаться окончания шага.")).toBeTruthy();
+});
+
+it("shows the balance at the end of the strip, with its hint", async () => {
+  renderApp("/about");
+  const strip = await screen.findByRole("region", { name: "Показатели" });
+
+  const figure = await within(strip).findByText("$1.00");
+  expect(within(strip).getByText("Баланс OpenRouter")).toBeTruthy();
+  expect(figure.closest("[title]")?.getAttribute("title")).toBe("Куплено $15.00, потрачено $14.00.");
 });
 
 it("sends every item to its React page", () => {

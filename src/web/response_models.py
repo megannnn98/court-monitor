@@ -240,6 +240,16 @@ class LiveOperationResponse(BaseModel):
     title: str
 
 
+class BalanceResponse(BaseModel):
+    """The OpenRouter balance of the strip: the figure («$2.91», a dash when OpenRouter
+    did not answer), its hint, and whether it is under one run's limit."""
+
+    figure: str
+    hint: str
+    low: bool
+    known: bool
+
+
 class StatusResponse(BaseModel):
     """The legacy status strip and menu counters: the same numbers on every page."""
 
@@ -250,6 +260,8 @@ class StatusResponse(BaseModel):
     latest_monitoring_status: str | None
     live_operation: LiveOperationResponse | None
     next_action: str
+    # None with no OpenRouter key: the console then spends nothing.
+    balance: BalanceResponse | None = None
 
 
 class OptionResponse(BaseModel):
