@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from entities.news import KIND_LABELS as NEWS_LABELS
+from entities.officials import OFFICIAL_KINDS
 from entities.politics import VERDICT_LABELS
 from entities.rf_articles import listing
 from entities.rf_check import FULL
@@ -105,6 +106,8 @@ def _dossier(dossier: Dossier) -> DossierResponse:
     return DossierResponse(
         key=entity.key,
         name=display_name(entity.name),
+        name_as_kept=entity.name,
+        official=entity.kind in OFFICIAL_KINDS,
         role=entity.role,
         role_label=role_label(entity.role, entity.kind) if entity.role else None,
         role_method_label=(

@@ -4268,6 +4268,14 @@
             "type": "string",
             "title": "Name"
           },
+          "name_as_kept": {
+            "type": "string",
+            "title": "Name As Kept"
+          },
+          "official": {
+            "type": "boolean",
+            "title": "Official"
+          },
           "role": {
             "anyOf": [
               {
@@ -4571,6 +4579,8 @@
         "required": [
           "key",
           "name",
+          "name_as_kept",
+          "official",
           "role",
           "role_label",
           "role_method_label",
