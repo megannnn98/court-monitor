@@ -177,6 +177,144 @@ export type ArticleResponse = {
 };
 
 /**
+ * BaseUnnamedCandidateResponse
+ *
+ * An entry of the list that may be a nameless record of the base.
+ */
+export type BaseUnnamedCandidateResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Birth Date
+     */
+    birth_date: string;
+    /**
+     * Birth Place
+     */
+    birth_place: string;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Decision
+     */
+    decision: string | null;
+};
+
+/**
+ * BaseUnnamedCardResponse
+ *
+ * A nameless record of the operator's base and who on the list it may be.
+ */
+export type BaseUnnamedCardResponse = {
+    /**
+     * Record
+     */
+    record: string;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Facts
+     */
+    facts: string;
+    /**
+     * State
+     */
+    state: string;
+    /**
+     * Identified As
+     */
+    identified_as: string | null;
+    /**
+     * Confirmed
+     */
+    confirmed: string | null;
+    /**
+     * Candidates
+     */
+    candidates: Array<BaseUnnamedCandidateResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Courts
+     */
+    courts: Array<CourtHintResponse>;
+    /**
+     * Courts Total
+     */
+    courts_total: number;
+};
+
+/**
+ * BaseUnnamedDecisionRequest
+ */
+export type BaseUnnamedDecisionRequest = {
+    /**
+     * Record
+     */
+    record: string;
+    /**
+     * Candidate
+     */
+    candidate: string;
+    /**
+     * Decision
+     */
+    decision: string;
+};
+
+/**
+ * BaseUnnamedDecisionResponse
+ */
+export type BaseUnnamedDecisionResponse = {
+    /**
+     * Record
+     */
+    record: string;
+};
+
+/**
+ * BaseUnnamedListResponse
+ */
+export type BaseUnnamedListResponse = {
+    /**
+     * Statuses
+     */
+    statuses: Array<OptionResponse>;
+    /**
+     * Items
+     */
+    items: Array<BaseUnnamedCardResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+    /**
+     * None Yet
+     */
+    none_yet: boolean;
+};
+
+/**
  * CandidateResponse
  *
  * Candidate response model.
@@ -4653,3 +4791,62 @@ export type ClearUnnamedV1Responses = {
 };
 
 export type ClearUnnamedV1Response = ClearUnnamedV1Responses[keyof ClearUnnamedV1Responses];
+
+export type ListBaseUnnamedV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Status
+         */
+        status?: string;
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/v1/base-unnamed';
+};
+
+export type ListBaseUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListBaseUnnamedV1Error = ListBaseUnnamedV1Errors[keyof ListBaseUnnamedV1Errors];
+
+export type ListBaseUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: BaseUnnamedListResponse;
+};
+
+export type ListBaseUnnamedV1Response = ListBaseUnnamedV1Responses[keyof ListBaseUnnamedV1Responses];
+
+export type DecideBaseUnnamedV1Data = {
+    body: BaseUnnamedDecisionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/base-unnamed/decide';
+};
+
+export type DecideBaseUnnamedV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecideBaseUnnamedV1Error = DecideBaseUnnamedV1Errors[keyof DecideBaseUnnamedV1Errors];
+
+export type DecideBaseUnnamedV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: BaseUnnamedDecisionResponse;
+};
+
+export type DecideBaseUnnamedV1Response = DecideBaseUnnamedV1Responses[keyof DecideBaseUnnamedV1Responses];
