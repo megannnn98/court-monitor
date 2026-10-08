@@ -45,6 +45,10 @@ it("shows the legacy menu's groups and words", () => {
   }
   expect(within(menu).getByRole("link", { name: /^Работа/ }).getAttribute("href")).toBe("/work");
   expect(within(menu).getByRole("link", { name: /^Спросить/ }).getAttribute("href")).toBe("/ui/ask");
+  // The review stations are opened from «Работа», as in the legacy menu.
+  for (const station of ["Пары", "Неясные роли", "Неясная политичность"]) {
+    expect(within(menu).queryByRole("link", { name: station })).toBeNull();
+  }
 });
 
 it("sends a moved item to React and the rest to the legacy page, marked", () => {
