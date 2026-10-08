@@ -46,7 +46,7 @@ export const NAV: NavGroup[] = [
       { key: "management", label: "Журнал запусков", legacy: "/ui/runs", path: "/runs" },
       { key: "monitoring", label: "Мониторинг", legacy: null, path: "/monitoring" },
       { key: "logs", label: "Логи", legacy: "/ui/logs", path: "/logs" },
-      { key: "wiki", label: "Вики", legacy: "/ui/wiki" },
+      { key: "wiki", label: "Вики", legacy: "/ui/wiki", path: "/wiki" },
       { key: "about", label: "О системе", legacy: "/ui/about", path: "/about" }
     ]
   }

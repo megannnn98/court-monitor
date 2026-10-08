@@ -15,6 +15,7 @@ import { LogsPage } from "@/pages/LogsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { OfficialsPage } from "@/pages/OfficialsPage";
+import { OverviewPage } from "@/pages/OverviewPage";
 import { PairsPage } from "@/pages/PairsPage";
 import { PersonPage } from "@/pages/PersonPage";
 import { PersonsPage } from "@/pages/PersonsPage";
@@ -25,6 +26,7 @@ import { RfmPage } from "@/pages/RfmPage";
 import { RunsPage } from "@/pages/RunsPage";
 import { SentencesPage } from "@/pages/SentencesPage";
 import { UnnamedPage } from "@/pages/UnnamedPage";
+import { WikiPage } from "@/pages/WikiPage";
 import { WorkPage } from "@/pages/WorkPage";
 
 export function App() {
@@ -54,6 +56,9 @@ export function App() {
         <Route path="ask" element={<AskPage />} />
         <Route path="airtable" element={<AirtablePage />} />
         <Route path="officials" element={<OfficialsPage />} />
+        <Route path="wiki" element={<WikiPage />} />
+        <Route path="wiki/:slug" element={<WikiPage />} />
+        <Route path="overview" element={<OverviewPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="rfm" element={<RfmPage />} />
         <Route path="about" element={<AboutPage />} />

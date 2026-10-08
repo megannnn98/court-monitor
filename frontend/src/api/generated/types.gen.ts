@@ -2092,6 +2092,103 @@ export type OrgResponse = {
 };
 
 /**
+ * OverviewNewsResponse
+ */
+export type OverviewNewsResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * OverviewResponse
+ *
+ * «Обзор»: the political cases' new cases and sentences, the unnamed to identify, and
+ * what waits for the operator.
+ */
+export type OverviewResponse = {
+    /**
+     * Source Errors
+     */
+    source_errors: number;
+    /**
+     * New Cases
+     */
+    new_cases: number;
+    /**
+     * Latest New Cases
+     */
+    latest_new_cases: Array<OverviewNewsResponse>;
+    /**
+     * Sentences
+     */
+    sentences: number;
+    /**
+     * Latest Sentences
+     */
+    latest_sentences: Array<OverviewNewsResponse>;
+    /**
+     * Unnamed
+     */
+    unnamed: number;
+    /**
+     * Latest Unnamed
+     */
+    latest_unnamed: Array<OverviewUnnamedResponse>;
+    /**
+     * Pairs
+     */
+    pairs: number;
+    /**
+     * Unclear Roles
+     */
+    unclear_roles: number;
+    /**
+     * Unclear Verdicts
+     */
+    unclear_verdicts: number;
+};
+
+/**
+ * OverviewUnnamedResponse
+ */
+export type OverviewUnnamedResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Quote
+     */
+    quote: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Facts
+     */
+    facts: string;
+    /**
+     * Found
+     */
+    found: string;
+};
+
+/**
  * PairDecisionRequest
  */
 export type PairDecisionRequest = {
@@ -3886,6 +3983,33 @@ export type VerdictDecisionRequest = {
      * Verdict
      */
     verdict: string;
+};
+
+/**
+ * WikiPageLinkResponse
+ */
+export type WikiPageLinkResponse = {
+    /**
+     * Slug
+     */
+    slug: string;
+};
+
+/**
+ * WikiPageResponse
+ *
+ * A wiki page as HTML: CommonMark from the repository's own docs, raw HTML in it shown
+ * as text, links to other pages on `/wiki/`.
+ */
+export type WikiPageResponse = {
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Html
+     */
+    html: string;
 };
 
 export type ListPersonsV1Data = {
@@ -5727,3 +5851,71 @@ export type DeactivateOfficialV1Responses = {
 };
 
 export type DeactivateOfficialV1Response = DeactivateOfficialV1Responses[keyof DeactivateOfficialV1Responses];
+
+export type ListWikiV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/wiki';
+};
+
+export type ListWikiV1Responses = {
+    /**
+     * Response List Wiki V1
+     *
+     * Successful Response
+     */
+    200: Array<WikiPageLinkResponse>;
+};
+
+export type ListWikiV1Response = ListWikiV1Responses[keyof ListWikiV1Responses];
+
+export type GetWikiPageV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/wiki/{slug}';
+};
+
+export type GetWikiPageV1Errors = {
+    /**
+     * Not Found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetWikiPageV1Error = GetWikiPageV1Errors[keyof GetWikiPageV1Errors];
+
+export type GetWikiPageV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: WikiPageResponse;
+};
+
+export type GetWikiPageV1Response = GetWikiPageV1Responses[keyof GetWikiPageV1Responses];
+
+export type GetOverviewV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/overview';
+};
+
+export type GetOverviewV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: OverviewResponse;
+};
+
+export type GetOverviewV1Response = GetOverviewV1Responses[keyof GetOverviewV1Responses];

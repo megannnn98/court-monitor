@@ -44,6 +44,8 @@ MOVED = {
     "/ui/ask": "/ask",
     "/ui/airtable": "/airtable",
     "/ui/airtable/officials": "/officials",
+    "/ui/wiki": "/wiki",
+    "/ui/overview": "/overview",
 }
 # A page of one thing: /ui/<kind>/<id> → /<kind>/<id>. The dossier, a publication, a
 # person (`/ui/entities/<key>` already leads to the dossier).
@@ -51,7 +53,10 @@ ONE_OF = {
     "/ui/investigations/": "/investigations/",
     "/ui/articles/": "/articles/",
     "/ui/persons/": "/persons/",
+    "/ui/wiki/": "/wiki/",
 }
+# Files under those addresses stay where they are: the wiki's PDF.
+_FILES = (".pdf", ".csv", ".xlsx")
 # Never the console's: a missing API route is a 404, not a page.
 _NOT_PAGES = ("/api/", "/ui/", "/static/", "/health", "/docs", "/redoc", "/openapi.json")
 
@@ -69,7 +74,7 @@ def react_address(path: str) -> str | None:
         return MOVED[path]
     for legacy, react in ONE_OF.items():
         rest = path[len(legacy) :]
-        if path.startswith(legacy) and rest and "/" not in rest:
+        if path.startswith(legacy) and rest and "/" not in rest and not rest.endswith(_FILES):
             return react + rest
     return None
 

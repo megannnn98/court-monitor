@@ -43,6 +43,7 @@ from web.routers import (
     sentences,
     status,
     unnamed,
+    wiki_overview,
 )
 from web.spa import react_console
 from web.ui import about as ui_about
@@ -182,5 +183,6 @@ for module in (
     junk_holds,
     ask,
     reference_lists,
+    wiki_overview,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)
