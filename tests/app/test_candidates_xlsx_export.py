@@ -484,8 +484,8 @@ def test_an_unparsable_period_is_rejected_by_every_export(
 def test_the_new_table_and_the_file_hold_the_same_people(
     session_factory: sessionmaker[Session],
 ) -> None:
-    """The React page reads `/api/v1/candidates/table` and links this file with the same
-    filters: a person on the page is a person in the file, an old one in neither."""
+    """The React page reads `/api/v1/candidates/table` and links the file the answer
+    names: a person on the page is a person in the file, an old one in neither."""
     today = datetime.now(ZoneInfo("Europe/Moscow"))
     with session_factory() as session:
         seed = DatabaseSeeder(session)
@@ -496,11 +496,18 @@ def test_the_new_table_and_the_file_hold_the_same_people(
 
     with _client(session_factory) as client:
         table = client.get("/api/v1/candidates/table").json()
-        file = client.get("/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id})
+        file = client.get(table["export_url"])
         every = client.get("/api/v1/candidates/table", params={"date_from": ""}).json()
-        every_file = client.get(
-            "/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id, "date_from": ""}
-        )
+        every_file = client.get(every["export_url"])
+        switched = client.get(
+            "/api/v1/candidates/table",
+            params={
+                "min_confidence": 0.5,
+                "include_administrative": "true",
+                "criminal_only": "true",
+                "event_date_filter": "false",
+            },
+        ).json()
 
     in_file = [row[1] for row in _rows(file.content)[1:]]
     assert [item["name"] for item in table["items"]] == in_file == ["Свежий Иван"]
@@ -511,3 +518,8 @@ def test_the_new_table_and_the_file_hold_the_same_people(
         row[1] for row in _rows(every_file.content)[1:]
     ]
     assert len(every["items"]) == 2 and every["period_start"] is None
+    assert switched["export_url"] == (
+        f"/ui/candidates/export.xlsx?snapshot_id={snapshot_id}&min_confidence=0.5"
+        f"&date_from={switched['period_start']}"
+        "&include_administrative=1&criminal_only=1&event_date_filter=0"
+    )

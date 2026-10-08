@@ -287,6 +287,10 @@ export type CandidateTableResponse = {
      * Items
      */
     items: Array<CandidateRowResponse>;
+    /**
+     * Export Url
+     */
+    export_url: string;
 };
 
 /**

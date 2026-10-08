@@ -769,3 +769,5 @@ class CandidateTableResponse(BaseModel):
     period_start: date | None
     total: int
     items: list[CandidateRowResponse]
+    # The legacy Excel file of exactly these filters, built with them on the server.
+    export_url: str

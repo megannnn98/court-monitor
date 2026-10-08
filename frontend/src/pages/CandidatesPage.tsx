@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import { candidateTableV1, listRosfinmonitoringSnapshotsV1, type CandidateTableResponse } from "@/api/generated";
+import { candidateTableV1, listRosfinmonitoringSnapshotsV1 } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
 import { Button } from "@/components/ui/button";
@@ -30,26 +30,6 @@ type Query = {
   criminal_only: boolean;
   event_date_filter: boolean;
 };
-
-/** The legacy Excel file of exactly the table's selection: the snapshot and the period
- * the server chose, the same switches (`web.candidate_rows.candidate_filters`). */
-export function exportHref(query: Query, table: CandidateTableResponse): string {
-  const params = new URLSearchParams({
-    snapshot_id: String(table.snapshot_id),
-    min_confidence: String(query.min_confidence),
-    date_from: table.period_start ?? ""
-  });
-  if (query.include_administrative) {
-    params.set("include_administrative", "1");
-  }
-  if (query.criminal_only) {
-    params.set("criminal_only", "1");
-  }
-  if (!query.event_date_filter) {
-    params.set("event_date_filter", "0");
-  }
-  return `/ui/candidates/export.xlsx?${params.toString()}`;
-}
 
 export function CandidatesPage() {
   const url = useUrlState();
@@ -173,7 +153,9 @@ export function CandidatesPage() {
               Найдено: {formatNumber(data.total)}, показано: {formatNumber(data.items.length)}.{" "}
               {data.period_start ? `Новости с ${formatDate(data.period_start)}.` : "Новости за всё время."} Сортировка по
               категории события и дате новости.{" "}
-              <a className="underline" href={exportHref(query, data)}>
+              {/* The server names the file of exactly the rows shown, even while the next
+                  filters are still being read. */}
+              <a className="underline" href={data.export_url}>
                 Скачать Excel
               </a>{" "}
               — те же люди, без ограничения Limit.
