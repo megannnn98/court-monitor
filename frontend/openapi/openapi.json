@@ -2579,6 +2579,91 @@
           }
         }
       }
+    },
+    "/api/v1/ask": {
+      "get": {
+        "summary": "Get Ask",
+        "description": "The question `q`, or the latest one.",
+        "operationId": "get_ask_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskPageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Post Ask",
+        "description": "Ask a model; up to twenty seconds, in a thread so the other pages do not wait.",
+        "operationId": "post_ask_v1",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2829,6 +2914,199 @@
           "text"
         ],
         "title": "ArticleResponse"
+      },
+      "AskAnswerResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "asked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Asked At"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd"
+          },
+          "unverified": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unverified"
+          },
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "answer",
+          "outcome",
+          "asked_at",
+          "model",
+          "cost_usd",
+          "unverified",
+          "results"
+        ],
+        "title": "AskAnswerResponse",
+        "description": "A question asked, its answer and the counts it stands on."
+      },
+      "AskPageResponse": {
+        "properties": {
+          "spent_today": {
+            "type": "number",
+            "title": "Spent Today"
+          },
+          "budget": {
+            "type": "number",
+            "title": "Budget"
+          },
+          "max_question": {
+            "type": "integer",
+            "title": "Max Question"
+          },
+          "examples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Examples"
+          },
+          "mark_open": {
+            "type": "string",
+            "title": "Mark Open"
+          },
+          "mark_close": {
+            "type": "string",
+            "title": "Mark Close"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AskAnswerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/AskedQuestionResponse"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spent_today",
+          "budget",
+          "max_question",
+          "examples",
+          "mark_open",
+          "mark_close",
+          "answer",
+          "history"
+        ],
+        "title": "AskPageResponse",
+        "description": "«Спросить»: the day's spending, the examples, the chosen answer and the questions\nasked before."
+      },
+      "AskRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskRequest"
+      },
+      "AskResponse": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "note"
+        ],
+        "title": "AskResponse"
+      },
+      "AskedQuestionResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "asked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Asked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "asked_at"
+        ],
+        "title": "AskedQuestionResponse"
       },
       "BaseUnnamedCandidateResponse": {
         "properties": {

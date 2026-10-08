@@ -54,7 +54,7 @@ def test_a_moved_legacy_page_opens_in_react_with_its_query(built: Path) -> None:
         assert response.status_code == 302, legacy
         assert unquote(response.headers["location"]) == react, legacy
     # Not moved yet: the legacy page; a file and a form are never sent away.
-    assert react_address("/ui/ask") is None
+    assert react_address("/ui/wiki") is None
     assert react_address("/ui/people/export.xlsx") is None
     assert react_address("/ui/investigations/a/graph") is None
     assert client.post("/ui/cycle").status_code != 302

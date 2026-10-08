@@ -165,13 +165,35 @@ def _result_html(result: dict[str, Any]) -> str:
     return f"<h3>{escape(str(result.get('what', '')))}</h3>{table(result)}"
 
 
-def _shown(record: ChatQuestionRecord) -> str:
-    results = [call["result"] for call in record.calls]
-    unverified = (
-        unverified_numbers(record.answer, record.question, results)
-        if record.outcome not in (REFUSED, FAILED)
-        else []
+def results_of(record: ChatQuestionRecord) -> list[dict[str, Any]]:
+    """The counts the answer stands on, as the model's calls returned them."""
+    return [call["result"] for call in record.calls]
+
+
+def unverified_of(record: ChatQuestionRecord) -> list[str]:
+    """The answer's numbers no count holds; none for a refusal or a failure."""
+    if record.outcome in (REFUSED, FAILED):
+        return []
+    return unverified_numbers(record.answer, record.question, results_of(record))
+
+
+def current_asker() -> Any:
+    """The model to ask, as the environment names it; looked up on every question."""
+    return asker_from_env()
+
+
+def asked_before(db: Session) -> list[ChatQuestionRecord]:
+    """The latest questions, newest first."""
+    return list(
+        db.scalars(
+            select(ChatQuestionRecord).order_by(ChatQuestionRecord.id.desc()).limit(HISTORY)
+        ).all()
     )
+
+
+def _shown(record: ChatQuestionRecord) -> str:
+    results = results_of(record)
+    unverified = unverified_of(record)
     warning = (
         '<p class="warning">Этих чисел нет в подсчётах под ответом, модель вывела их сама — '
         f"проверьте по таблицам: {escape(', '.join(unverified))}.</p>"
@@ -200,9 +222,7 @@ def ui_ask(
     note: str = Query(default="", max_length=300),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
-    history = db.scalars(
-        select(ChatQuestionRecord).order_by(ChatQuestionRecord.id.desc()).limit(HISTORY)
-    ).all()
+    history = asked_before(db)
     record = db.get(ChatQuestionRecord, q) if q else (history[0] if history else None)
     examples = "".join(
         '<button type="button" class="chip" onclick="document.getElementById('

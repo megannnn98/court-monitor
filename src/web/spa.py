@@ -41,6 +41,7 @@ MOVED = {
     "/ui/unnamed": "/unnamed",
     "/ui/base-unnamed": "/base-unnamed",
     "/ui/junk-holds": "/junk-holds",
+    "/ui/ask": "/ask",
 }
 # A page of one thing: /ui/<kind>/<id> → /<kind>/<id>. The dossier, a publication, a
 # person (`/ui/entities/<key>` already leads to the dossier).

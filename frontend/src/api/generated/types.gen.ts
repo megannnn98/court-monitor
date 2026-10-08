@@ -177,6 +177,132 @@ export type ArticleResponse = {
 };
 
 /**
+ * AskAnswerResponse
+ *
+ * A question asked, its answer and the counts it stands on.
+ */
+export type AskAnswerResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Answer
+     */
+    answer: string;
+    /**
+     * Outcome
+     */
+    outcome: string;
+    /**
+     * Asked At
+     */
+    asked_at: string;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Cost Usd
+     */
+    cost_usd: number;
+    /**
+     * Unverified
+     */
+    unverified: Array<string>;
+    /**
+     * Results
+     */
+    results: Array<{
+        [key: string]: unknown;
+    }>;
+};
+
+/**
+ * AskPageResponse
+ *
+ * «Спросить»: the day's spending, the examples, the chosen answer and the questions
+ * asked before.
+ */
+export type AskPageResponse = {
+    /**
+     * Spent Today
+     */
+    spent_today: number;
+    /**
+     * Budget
+     */
+    budget: number;
+    /**
+     * Max Question
+     */
+    max_question: number;
+    /**
+     * Examples
+     */
+    examples: Array<string>;
+    /**
+     * Mark Open
+     */
+    mark_open: string;
+    /**
+     * Mark Close
+     */
+    mark_close: string;
+    answer: AskAnswerResponse | null;
+    /**
+     * History
+     */
+    history: Array<AskedQuestionResponse>;
+};
+
+/**
+ * AskRequest
+ */
+export type AskRequest = {
+    /**
+     * Question
+     */
+    question: string;
+};
+
+/**
+ * AskResponse
+ */
+export type AskResponse = {
+    /**
+     * Id
+     */
+    id: number | null;
+    /**
+     * Note
+     */
+    note: string | null;
+};
+
+/**
+ * AskedQuestionResponse
+ */
+export type AskedQuestionResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Asked At
+     */
+    asked_at: string;
+};
+
+/**
  * BaseUnnamedCandidateResponse
  *
  * An entry of the list that may be a nameless record of the base.
@@ -5172,3 +5298,58 @@ export type ReextractHeldV1Responses = {
 };
 
 export type ReextractHeldV1Response = ReextractHeldV1Responses[keyof ReextractHeldV1Responses];
+
+export type GetAskV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: number | null;
+    };
+    url: '/api/v1/ask';
+};
+
+export type GetAskV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetAskV1Error = GetAskV1Errors[keyof GetAskV1Errors];
+
+export type GetAskV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: AskPageResponse;
+};
+
+export type GetAskV1Response = GetAskV1Responses[keyof GetAskV1Responses];
+
+export type PostAskV1Data = {
+    body: AskRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ask';
+};
+
+export type PostAskV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PostAskV1Error = PostAskV1Errors[keyof PostAskV1Errors];
+
+export type PostAskV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: AskResponse;
+};
+
+export type PostAskV1Response = PostAskV1Responses[keyof PostAskV1Responses];

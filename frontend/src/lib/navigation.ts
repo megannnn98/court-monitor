@@ -24,7 +24,7 @@ export const NAV: NavGroup[] = [
       // The review stations (pairs, roles, politics) are not in the menu: «Работа» opens them.
       { key: "political", label: "Результаты", legacy: "/ui/political", path: "/political", count: "result" },
       { key: "investigations", label: "Найти человека", legacy: "/ui/investigations", path: "/investigations" },
-      { key: "ask", label: "Спросить", legacy: "/ui/ask" }
+      { key: "ask", label: "Спросить", legacy: "/ui/ask", path: "/ask" }
     ]
   },
   {
