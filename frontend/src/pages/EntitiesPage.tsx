@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
 import { DASH, formatDate, formatNumber } from "@/lib/format";
@@ -85,6 +86,22 @@ function Marks({ row }: { row: EntityRowResponse }) {
   );
 }
 
+/** The filters beside the list on a wide screen; on a narrow one they are a screen and
+ * a half of choices before the first person, so they fold under one line. */
+function Folded({ children }: { children: ReactNode }) {
+  // Tailwind's `lg`: from there the filters are a column beside the list.
+  const beside = useMediaQuery("(min-width: 1024px)", true);
+  if (beside) {
+    return <>{children}</>;
+  }
+  return (
+    <details className="rounded-md border bg-card p-3">
+      <summary className="cursor-pointer text-sm font-medium">Фильтры: роль, вердикт, перечень, регион</summary>
+      <div className="mt-3 space-y-5">{children}</div>
+    </details>
+  );
+}
+
 export function EntitiesPage() {
   const url = useUrlState();
   const query = {
@@ -150,7 +167,7 @@ export function EntitiesPage() {
           ];
           const regions = data.regions.filter((name) => !regionSearch || name.toLowerCase().includes(regionSearch.toLowerCase()));
           return (
-            <div className="grid items-start gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+            <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
               <aside aria-label="Фильтры" className="space-y-5 lg:sticky lg:top-4">
                 <form onSubmit={search} role="search" className="space-y-3">
                   <div className="space-y-1">
@@ -177,6 +194,7 @@ export function EntitiesPage() {
                     Найти
                   </Button>
                 </form>
+                <Folded>
                 <Facet
                   title="Роль"
                   options={data.roles}
@@ -258,6 +276,7 @@ export function EntitiesPage() {
                     </ul>
                   </section>
                 ) : null}
+                </Folded>
               </aside>
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -275,7 +294,7 @@ export function EntitiesPage() {
                         {text} ✕
                       </button>
                     ))}
-                  <span className="ml-auto flex items-end gap-3">
+                  <span className="ml-auto flex flex-wrap items-end gap-3">
                     <OptionSelect
                       label="Сортировка"
                       value={query.sort}
@@ -306,10 +325,11 @@ export function EntitiesPage() {
                       <TableRow>
                         <TableHead>Человек</TableHead>
                         <TableHead>Статьи УК</TableHead>
-                        <TableHead>События дела</TableHead>
-                        <TableHead className="text-right">Упом.</TableHead>
-                        <TableHead className="text-right">Публ.</TableHead>
-                        <TableHead>Последняя новость</TableHead>
+                        {/* On a phone: who, the articles, the latest news; the counts are in the dossier. */}
+                        <TableHead className="hidden md:table-cell">События дела</TableHead>
+                        <TableHead className="hidden text-right sm:table-cell">Упом.</TableHead>
+                        <TableHead className="hidden text-right sm:table-cell">Публ.</TableHead>
+                        <TableHead className="w-24 leading-tight whitespace-normal">Последняя новость</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -357,11 +377,11 @@ export function EntitiesPage() {
                                 ))
                               : DASH}
                           </TableCell>
-                          <TableCell className="whitespace-normal text-xs text-muted-foreground">
+                          <TableCell className="hidden whitespace-normal text-xs text-muted-foreground md:table-cell">
                             {row.events.map((event) => `${event.label} ${event.count}`).join(" · ") || DASH}
                           </TableCell>
-                          <TableCell className="text-right">{formatNumber(row.mention_count)}</TableCell>
-                          <TableCell className="text-right">{formatNumber(row.article_count)}</TableCell>
+                          <TableCell className="hidden text-right sm:table-cell">{formatNumber(row.mention_count)}</TableCell>
+                          <TableCell className="hidden text-right sm:table-cell">{formatNumber(row.article_count)}</TableCell>
                           <TableCell>{formatDate(row.last_published_at)}</TableCell>
                         </TableRow>
                       ))}

@@ -139,7 +139,9 @@ export function AppShell() {
           </Sheet>
           <span className="font-semibold">court-monitor</span>
         </header>
-        <main className="mx-auto max-w-6xl p-4 md:p-6">
+        {/* `break-words`: a long address or a word without spaces in a text of the base wraps
+            instead of making the page wider than a phone's screen. */}
+        <main className="mx-auto max-w-6xl p-4 break-words md:p-6">
           <StatusStrip />
           <Outlet />
         </main>

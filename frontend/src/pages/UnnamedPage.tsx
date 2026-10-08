@@ -248,7 +248,7 @@ function Card({ card, people }: { card: UnnamedCardResponse; people: { key: stri
           </>
         ) : null}
         <form
-          className="flex items-center gap-1"
+          className="flex flex-wrap items-center gap-1"
           onSubmit={(event) => {
             event.preventDefault();
             say("resolve", { resolution: SUPPLIED_NAME, normalized_name: name.trim() });

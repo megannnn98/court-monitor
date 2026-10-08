@@ -189,3 +189,21 @@ it("says why a tick was refused", async () => {
 
   expect(await screen.findByText("Человек не найден")).toBeTruthy();
 });
+
+it("on a narrow screen opens the person tapped over the table, and no one before", async () => {
+  // A phone: the panel has no room beside the table.
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+  try {
+    list.mockReturnValue(ok({ ...PAGE, items: [ROW, OTHER], total: 2 }) as never);
+    renderPage(<PoliticalPage />);
+
+    const rows = await screen.findAllByRole("row");
+    expect(screen.queryByRole("complementary", { name: /Подробно/ })).toBeNull();
+    fireEvent.click(within(rows[2]).getAllByRole("cell")[2]);
+
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("complementary", { name: "Подробно: Иванов Иван" })).toBeTruthy();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
