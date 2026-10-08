@@ -8,8 +8,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
@@ -216,6 +218,7 @@ def test_the_result_is_the_legacy_list_s(session_factory: sessionmaker[Session])
     with _client(session_factory) as client:
         body = client.get("/api/v1/political").json()
         fresh = client.get("/api/v1/political", params={"months": 3}).json()
+        fresh_file = client.get(fresh["export_url"])
         page = client.get("/ui/political", params={"months": 0}).text
 
     assert body["total"] == 2 and f"Найдено: {body['total']}." in page
@@ -232,6 +235,13 @@ def test_the_result_is_the_legacy_list_s(session_factory: sessionmaker[Session])
     assert [option["value"] for option in body["periods"]] == ["0", "1", "3", "6", "12"]
     # The latest news a year old is outside three months.
     assert [row["name"] for row in fresh["items"]] == ["Смирнова Анна"]
+    # The file the answer names holds the people the answer lists.
+    assert fresh["export_url"] == (
+        "/ui/political/export.xlsx?months=3&date_from=&date_to=&news=all&known=all&done=hide"
+        "&who=all&rfm=all"
+    )
+    sheet = load_workbook(BytesIO(fresh_file.content))["Результат"]
+    assert [row[1] for row in sheet.iter_rows(min_row=2, values_only=True)] == ["Смирнова Анна"]
 
 
 def test_done_takes_a_person_off_the_result_and_back(

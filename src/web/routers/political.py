@@ -3,6 +3,7 @@ and every count the filters show, and the operator's «обработано» (p
 cross-site requests by `web.csrf`, ADR 0022)."""
 
 from datetime import UTC, datetime
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -120,6 +121,7 @@ def list_political(
         done_total=result.done_total,
         awaited=result.awaited,
         base_loaded=base_loaded,
+        export_url=f"/ui/political/export.xlsx?{urlencode(chosen.query())}",
         periods=[OptionResponse(value=str(key), label=label) for key, label in PERIODS.items()],
         # The rarer kinds are offered only when somebody has them, as on the legacy page.
         news=[

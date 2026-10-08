@@ -4941,6 +4941,10 @@
             "type": "boolean",
             "title": "Base Loaded"
           },
+          "export_url": {
+            "type": "string",
+            "title": "Export Url"
+          },
           "periods": {
             "items": {
               "$ref": "#/components/schemas/OptionResponse"
@@ -4986,6 +4990,7 @@
           "done_total",
           "awaited",
           "base_loaded",
+          "export_url",
           "periods",
           "news",
           "known",

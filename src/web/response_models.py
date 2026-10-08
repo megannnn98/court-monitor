@@ -412,6 +412,8 @@ class PoliticalListResponse(BaseModel):
     done_total: int
     awaited: int
     base_loaded: bool
+    # The legacy Excel file of exactly these filters, every row, built on the server.
+    export_url: str
     periods: list[OptionResponse]
     news: list[OptionResponse]
     known: list[OptionResponse]

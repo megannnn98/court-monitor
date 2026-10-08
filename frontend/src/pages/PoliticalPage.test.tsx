@@ -42,6 +42,7 @@ const ROW = {
     { title: "Опасная ссылка", url: "javascript:alert(1)", source: "x" }
   ]
 };
+const EXPORT_URL = "/ui/political/export.xlsx?months=0&date_from=&date_to=&news=all&known=all&done=hide&who=all&rfm=all";
 const PAGE = {
   items: [ROW],
   total: 1,
@@ -50,6 +51,7 @@ const PAGE = {
   done_total: 6,
   awaited: 2,
   base_loaded: true,
+  export_url: EXPORT_URL,
   periods: [
     { value: "0", label: "За всё время" },
     { value: "3", label: "3 месяца" }
@@ -118,9 +120,18 @@ it("ticks «обработано» and reads the list again", async () => {
 
   await waitFor(() => expect(mark).toHaveBeenCalledWith({ body: { key: "анна смирнова", done: true } }));
   await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-  expect(screen.getByRole("link", { name: "Скачать Excel" }).getAttribute("href")).toBe(
-    "/ui/political/export.xlsx?months=0&news=all&known=all&done=hide&who=all&rfm=all"
-  );
+  expect(screen.getByRole("link", { name: "Скачать Excel" }).getAttribute("href")).toBe(EXPORT_URL);
+});
+
+it("keeps the file of the rows shown while the next filters are read", async () => {
+  list.mockReturnValueOnce(ok(PAGE) as never).mockReturnValue(new Promise(() => {}) as never);
+
+  renderPage(<PoliticalPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "3 месяца" }));
+
+  expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, months: 3 } });
+  expect(screen.getByText("Смирнова Анна")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Скачать Excel" }).getAttribute("href")).toBe(EXPORT_URL);
 });
 
 it("says why a tick was refused", async () => {
