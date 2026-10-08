@@ -92,6 +92,13 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/v1/unnamed/clear",
     "GET /api/v1/base-unnamed",
     "POST /api/v1/base-unnamed/decide",
+    "GET /api/v1/junk-holds",
+    "POST /api/v1/junk-holds/junk",
+    "POST /api/v1/junk-holds/junk-all",
+    "POST /api/v1/junk-holds/release",
+    "POST /api/v1/junk-holds/unrelease",
+    "POST /api/v1/junk-holds/hold",
+    "POST /api/v1/junk-holds/reextract",
     # The console's actions, behind the same-origin check (ADR 0022).
     "POST /api/v1/political/done",
     "GET /api/v1/review/roles",

@@ -29,6 +29,7 @@ from web.routers import (
     entities,
     health,
     investigations,
+    junk_holds,
     monitoring,
     operations,
     persons,
@@ -176,5 +177,6 @@ for module in (
     candidate_table,
     unnamed,
     base_unnamed,
+    junk_holds,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

@@ -1132,6 +1132,112 @@ export type HttpValidationError = {
 };
 
 /**
+ * HeldActionResponse
+ */
+export type HeldActionResponse = {
+    /**
+     * Articles
+     */
+    articles: Array<number>;
+    /**
+     * Released
+     */
+    released?: boolean;
+};
+
+/**
+ * HeldArticleRequest
+ */
+export type HeldArticleRequest = {
+    /**
+     * Article
+     */
+    article: number;
+};
+
+/**
+ * HeldArticleResponse
+ *
+ * An article the junk screen held back from the purge.
+ */
+export type HeldArticleResponse = {
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Url
+     */
+    url: string | null;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Cutoff
+     */
+    cutoff: number;
+    /**
+     * Events
+     */
+    events: string | null;
+    /**
+     * Start
+     */
+    start: string;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Note
+     */
+    note: string | null;
+    /**
+     * Note Label
+     */
+    note_label: string;
+};
+
+/**
+ * HeldArticlesRequest
+ */
+export type HeldArticlesRequest = {
+    /**
+     * Articles
+     */
+    articles: Array<number>;
+};
+
+/**
+ * HeldStoryResponse
+ *
+ * Articles that seem to tell one story; one article alone is a story of one.
+ */
+export type HeldStoryResponse = {
+    /**
+     * Articles
+     */
+    articles: Array<HeldArticleResponse>;
+};
+
+/**
  * InvestigationFoundResponse
  */
 export type InvestigationFoundResponse = {
@@ -1171,6 +1277,38 @@ export type InvestigationSearchResponse = {
      * Items
      */
     items: Array<InvestigationFoundResponse>;
+};
+
+/**
+ * JunkHoldsResponse
+ *
+ * «Отсев»: one list of held articles, a page of its stories, and every list's count.
+ */
+export type JunkHoldsResponse = {
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Statuses
+     */
+    statuses: Array<OptionResponse>;
+    /**
+     * Stories
+     */
+    stories: Array<HeldStoryResponse>;
+    /**
+     * Article Ids
+     */
+    article_ids: Array<number>;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Pages
+     */
+    pages: number;
 };
 
 /**
@@ -4850,3 +4988,187 @@ export type DecideBaseUnnamedV1Responses = {
 };
 
 export type DecideBaseUnnamedV1Response = DecideBaseUnnamedV1Responses[keyof DecideBaseUnnamedV1Responses];
+
+export type ListJunkHoldsV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/v1/junk-holds';
+};
+
+export type ListJunkHoldsV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListJunkHoldsV1Error = ListJunkHoldsV1Errors[keyof ListJunkHoldsV1Errors];
+
+export type ListJunkHoldsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: JunkHoldsResponse;
+};
+
+export type ListJunkHoldsV1Response = ListJunkHoldsV1Responses[keyof ListJunkHoldsV1Responses];
+
+export type JunkHeldV1Data = {
+    body: HeldArticleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/junk-holds/junk';
+};
+
+export type JunkHeldV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type JunkHeldV1Error = JunkHeldV1Errors[keyof JunkHeldV1Errors];
+
+export type JunkHeldV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: HeldActionResponse;
+};
+
+export type JunkHeldV1Response = JunkHeldV1Responses[keyof JunkHeldV1Responses];
+
+export type JunkAllHeldV1Data = {
+    body: HeldArticlesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/junk-holds/junk-all';
+};
+
+export type JunkAllHeldV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type JunkAllHeldV1Error = JunkAllHeldV1Errors[keyof JunkAllHeldV1Errors];
+
+export type JunkAllHeldV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: HeldActionResponse;
+};
+
+export type JunkAllHeldV1Response = JunkAllHeldV1Responses[keyof JunkAllHeldV1Responses];
+
+export type ReleaseHeldV1Data = {
+    body: HeldArticleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/junk-holds/release';
+};
+
+export type ReleaseHeldV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReleaseHeldV1Error = ReleaseHeldV1Errors[keyof ReleaseHeldV1Errors];
+
+export type ReleaseHeldV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: HeldActionResponse;
+};
+
+export type ReleaseHeldV1Response = ReleaseHeldV1Responses[keyof ReleaseHeldV1Responses];
+
+export type UnreleaseHeldV1Data = {
+    body: HeldArticleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/junk-holds/unrelease';
+};
+
+export type UnreleaseHeldV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UnreleaseHeldV1Error = UnreleaseHeldV1Errors[keyof UnreleaseHeldV1Errors];
+
+export type UnreleaseHeldV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: HeldActionResponse;
+};
+
+export type UnreleaseHeldV1Response = UnreleaseHeldV1Responses[keyof UnreleaseHeldV1Responses];
+
+export type HoldHeldV1Data = {
+    body: HeldArticleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/junk-holds/hold';
+};
+
+export type HoldHeldV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type HoldHeldV1Error = HoldHeldV1Errors[keyof HoldHeldV1Errors];
+
+export type HoldHeldV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: HeldActionResponse;
+};
+
+export type HoldHeldV1Response = HoldHeldV1Responses[keyof HoldHeldV1Responses];
+
+export type ReextractHeldV1Data = {
+    body: HeldArticleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/junk-holds/reextract';
+};
+
+export type ReextractHeldV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReextractHeldV1Error = ReextractHeldV1Errors[keyof ReextractHeldV1Errors];
+
+export type ReextractHeldV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: HeldActionResponse;
+};
+
+export type ReextractHeldV1Response = ReextractHeldV1Responses[keyof ReextractHeldV1Responses];
