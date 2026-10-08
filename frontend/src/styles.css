@@ -3,26 +3,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  /* The legacy console's palette (src/static/local-ui.css): grey-blue canvas, white
+     surfaces, a dark sidebar and one blue accent. */
+  --background: #f4f6f8;
+  --foreground: #172033;
+  --card: #ffffff;
+  --card-foreground: #172033;
+  --popover: #ffffff;
+  --popover-foreground: #172033;
+  --primary: #1e5f8f;
+  --primary-foreground: #ffffff;
+  --secondary: #edf1f5;
+  --secondary-foreground: #334155;
+  --muted: #edf1f5;
+  /* Darker than the legacy #64748b: 4.5:1 on --muted and --background (WCAG AA). */
+  --muted-foreground: #5f6f85;
+  --accent: #e8f1f8;
+  --accent-foreground: #174b72;
+  --destructive: #c9363e;
+  --destructive-foreground: #ffffff;
+  --border: #d7dee8;
+  --input: #b8c2d1;
+  --ring: #2563eb;
+  --radius: 0.4375rem;
+  --sidebar: #111827;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-muted: #94a3b8;
+  --sidebar-hover: #243044;
 }
 
 .dark {
@@ -67,6 +74,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-hover: var(--sidebar-hover);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);

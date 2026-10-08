@@ -19,29 +19,32 @@ export function AboutPage() {
         {(info) => (
           <>
             <h2 className="mb-2 text-lg font-semibold">Сборка</h2>
-            <Table className="mb-4 max-w-xl">
-              <TableBody>
-                {(
-                  [
-                    ["Версия приложения", info.version],
-                    ["Тег", info.tag],
-                    ["Коммит", info.commit],
-                    ["Собран", info.built_at],
-                    ["Публикаций в базе", formatNumber(info.articles)],
-                    ["Людей в базе", formatNumber(info.people)],
+            {/* The width and the gap on the wrapper: the table's white surface keeps to the table. */}
+            <div className="mb-4 max-w-xl">
+              <Table>
+                <TableBody>
+                  {(
                     [
-                      "Последний успешный запуск",
-                      info.last_successful_run_at ? formatDateTime(info.last_successful_run_at) : UNKNOWN
-                    ]
-                  ] as const
-                ).map(([name, value]) => (
-                  <TableRow key={name}>
-                    <TableCell className="font-medium">{name}</TableCell>
-                    <TableCell>{value}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      ["Версия приложения", info.version],
+                      ["Тег", info.tag],
+                      ["Коммит", info.commit],
+                      ["Собран", info.built_at],
+                      ["Публикаций в базе", formatNumber(info.articles)],
+                      ["Людей в базе", formatNumber(info.people)],
+                      [
+                        "Последний успешный запуск",
+                        info.last_successful_run_at ? formatDateTime(info.last_successful_run_at) : UNKNOWN
+                      ]
+                    ] as const
+                  ).map(([name, value]) => (
+                    <TableRow key={name}>
+                      <TableCell className="font-medium">{name}</TableCell>
+                      <TableCell>{value}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
             <p className="mb-2 text-sm text-muted-foreground">
               Коммит и время сборки проставляются при сборке образа (<code>BUILD_COMMIT</code>, <code>BUILD_TIME</code>,{" "}
               <code>BUILD_TAG</code>). Тег вида «0.36.0-3-g495d9e9» значит: три коммита после тега 0.36.0. Запуск из
