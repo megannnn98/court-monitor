@@ -34,7 +34,7 @@ export const NAV: NavGroup[] = [
       { key: "publications", label: "Публикации", legacy: "/ui/publications", path: "/publications" },
       { key: "sentences", label: "Приговоры", legacy: "/ui/sentences", path: "/sentences" },
       { key: "rfm", label: "Перечень РФМ", legacy: "/ui/rfm", path: "/rfm" },
-      { key: "airtable", label: "База Airtable", legacy: "/ui/airtable" },
+      { key: "airtable", label: "База Airtable", legacy: "/ui/airtable", path: "/airtable" },
       // Not in the legacy menu: reachable there only by address.
       { key: "candidates", label: "Кандидаты", legacy: "/ui/candidates", path: "/candidates" },
       { key: "persons", label: "Персоны", legacy: null, path: "/persons" }

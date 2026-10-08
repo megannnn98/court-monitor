@@ -1069,3 +1069,82 @@ class AskResponse(BaseModel):
     # None when nothing was asked: `note` says why.
     id: int | None
     note: str | None
+
+
+class ReferenceListResponse(BaseModel):
+    """One reference list: what PostgreSQL holds of it and what it is read from."""
+
+    name: str
+    label: str
+    count: int
+    source: str
+
+
+class OfficialSnapshotResponse(BaseModel):
+    snapshot_id: int
+    snapshot_date: datetime
+    entry_count: int
+    match_count: int
+
+
+class AirtableOverviewResponse(BaseModel):
+    """«База Airtable»: whether a sync can run and how, the lists, the published list."""
+
+    configured: bool
+    # Why a sync cannot run; empty when it can.
+    reason: str
+    mode_note: str
+    missing: list[str]
+    source_column: str
+    lists: list[ReferenceListResponse]
+    official: OfficialSnapshotResponse | None
+
+
+class RunStartedResponse(BaseModel):
+    run_id: int
+
+
+class OfficialRowResponse(BaseModel):
+    external_id: str
+    full_name: str
+    # The person the name landed on; empty when no article named them yet.
+    entity_key: str
+    entity_name: str
+    category: str
+    reason: str | None
+    active: bool
+
+
+class OfficialSuggestionResponse(BaseModel):
+    key: str
+    name: str
+    category: str
+    reason: str
+
+
+class OfficialsResponse(BaseModel):
+    """The officials list kept by hand, and the model's suggestions for it."""
+
+    total: int
+    rows: list[OfficialRowResponse]
+    suggestions: list[OfficialSuggestionResponse]
+    categories: list[OptionResponse]
+
+
+class OfficialAddRequest(BaseModel):
+    full_name: str = Field(max_length=512)
+    category: str = Field(default="other", max_length=32)
+    reason: str = Field(default="", max_length=255)
+
+
+class OfficialSuggestedRequest(BaseModel):
+    key: str = Field(max_length=600)
+
+
+class OfficialDeactivateRequest(BaseModel):
+    external_id: str = Field(max_length=600)
+
+
+class OfficialChangeResponse(BaseModel):
+    # "added", "already" or "deactivated".
+    status: str

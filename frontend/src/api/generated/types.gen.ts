@@ -46,6 +46,39 @@ export type AboutResponse = {
 };
 
 /**
+ * AirtableOverviewResponse
+ *
+ * «База Airtable»: whether a sync can run and how, the lists, the published list.
+ */
+export type AirtableOverviewResponse = {
+    /**
+     * Configured
+     */
+    configured: boolean;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Mode Note
+     */
+    mode_note: string;
+    /**
+     * Missing
+     */
+    missing: Array<string>;
+    /**
+     * Source Column
+     */
+    source_column: string;
+    /**
+     * Lists
+     */
+    lists: Array<ReferenceListResponse>;
+    official: OfficialSnapshotResponse | null;
+};
+
+/**
  * AirtableSyncResponse
  *
  * The whole sync: success, partial (some list failed) or failed. `mode` says
@@ -1810,6 +1843,156 @@ export type NameFormResponse = {
 };
 
 /**
+ * OfficialAddRequest
+ */
+export type OfficialAddRequest = {
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Category
+     */
+    category?: string;
+    /**
+     * Reason
+     */
+    reason?: string;
+};
+
+/**
+ * OfficialChangeResponse
+ */
+export type OfficialChangeResponse = {
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
+ * OfficialDeactivateRequest
+ */
+export type OfficialDeactivateRequest = {
+    /**
+     * External Id
+     */
+    external_id: string;
+};
+
+/**
+ * OfficialRowResponse
+ */
+export type OfficialRowResponse = {
+    /**
+     * External Id
+     */
+    external_id: string;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Entity Key
+     */
+    entity_key: string;
+    /**
+     * Entity Name
+     */
+    entity_name: string;
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Active
+     */
+    active: boolean;
+};
+
+/**
+ * OfficialSnapshotResponse
+ */
+export type OfficialSnapshotResponse = {
+    /**
+     * Snapshot Id
+     */
+    snapshot_id: number;
+    /**
+     * Snapshot Date
+     */
+    snapshot_date: string;
+    /**
+     * Entry Count
+     */
+    entry_count: number;
+    /**
+     * Match Count
+     */
+    match_count: number;
+};
+
+/**
+ * OfficialSuggestedRequest
+ */
+export type OfficialSuggestedRequest = {
+    /**
+     * Key
+     */
+    key: string;
+};
+
+/**
+ * OfficialSuggestionResponse
+ */
+export type OfficialSuggestionResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * OfficialsResponse
+ *
+ * The officials list kept by hand, and the model's suggestions for it.
+ */
+export type OfficialsResponse = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Rows
+     */
+    rows: Array<OfficialRowResponse>;
+    /**
+     * Suggestions
+     */
+    suggestions: Array<OfficialSuggestionResponse>;
+    /**
+     * Categories
+     */
+    categories: Array<OptionResponse>;
+};
+
+/**
  * OperationRunResponse
  */
 export type OperationRunResponse = {
@@ -2584,6 +2767,30 @@ export type ReadinessReport = {
 export type ReadinessStatus = 'ready' | 'degraded' | 'unavailable';
 
 /**
+ * ReferenceListResponse
+ *
+ * One reference list: what PostgreSQL holds of it and what it is read from.
+ */
+export type ReferenceListResponse = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Source
+     */
+    source: string;
+};
+
+/**
  * RelatedPersonResponse
  */
 export type RelatedPersonResponse = {
@@ -2976,6 +3183,16 @@ export type RosfinmonitoringSnapshotResponse = {
      * Entry Count
      */
     entry_count: number;
+};
+
+/**
+ * RunStartedResponse
+ */
+export type RunStartedResponse = {
+    /**
+     * Run Id
+     */
+    run_id: number;
 };
 
 /**
@@ -5353,3 +5570,160 @@ export type PostAskV1Responses = {
 };
 
 export type PostAskV1Response = PostAskV1Responses[keyof PostAskV1Responses];
+
+export type GetAirtableV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/airtable';
+};
+
+export type GetAirtableV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: AirtableOverviewResponse;
+};
+
+export type GetAirtableV1Response = GetAirtableV1Responses[keyof GetAirtableV1Responses];
+
+export type SyncReferenceListsV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/airtable/sync';
+};
+
+export type SyncReferenceListsV1Errors = {
+    /**
+     * Conflict
+     */
+    409: unknown;
+    /**
+     * Service Unavailable
+     */
+    503: unknown;
+};
+
+export type SyncReferenceListsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: AirtableSyncResponse;
+};
+
+export type SyncReferenceListsV1Response = SyncReferenceListsV1Responses[keyof SyncReferenceListsV1Responses];
+
+export type RefreshRosfinV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/airtable/rosfin';
+};
+
+export type RefreshRosfinV1Errors = {
+    /**
+     * Conflict
+     */
+    409: unknown;
+};
+
+export type RefreshRosfinV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: RunStartedResponse;
+};
+
+export type RefreshRosfinV1Response = RefreshRosfinV1Responses[keyof RefreshRosfinV1Responses];
+
+export type GetOfficialsV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/officials';
+};
+
+export type GetOfficialsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: OfficialsResponse;
+};
+
+export type GetOfficialsV1Response = GetOfficialsV1Responses[keyof GetOfficialsV1Responses];
+
+export type AddOfficialV1Data = {
+    body: OfficialAddRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/officials/add';
+};
+
+export type AddOfficialV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddOfficialV1Error = AddOfficialV1Errors[keyof AddOfficialV1Errors];
+
+export type AddOfficialV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: OfficialChangeResponse;
+};
+
+export type AddOfficialV1Response = AddOfficialV1Responses[keyof AddOfficialV1Responses];
+
+export type AddSuggestedOfficialV1Data = {
+    body: OfficialSuggestedRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/officials/add-suggested';
+};
+
+export type AddSuggestedOfficialV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddSuggestedOfficialV1Error = AddSuggestedOfficialV1Errors[keyof AddSuggestedOfficialV1Errors];
+
+export type AddSuggestedOfficialV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: OfficialChangeResponse;
+};
+
+export type AddSuggestedOfficialV1Response = AddSuggestedOfficialV1Responses[keyof AddSuggestedOfficialV1Responses];
+
+export type DeactivateOfficialV1Data = {
+    body: OfficialDeactivateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/officials/deactivate';
+};
+
+export type DeactivateOfficialV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeactivateOfficialV1Error = DeactivateOfficialV1Errors[keyof DeactivateOfficialV1Errors];
+
+export type DeactivateOfficialV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: OfficialChangeResponse;
+};
+
+export type DeactivateOfficialV1Response = DeactivateOfficialV1Responses[keyof DeactivateOfficialV1Responses];

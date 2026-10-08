@@ -36,6 +36,7 @@ from web.routers import (
     persons,
     political,
     publications,
+    reference_lists,
     review,
     reviews,
     rosfinmonitoring,
@@ -180,5 +181,6 @@ for module in (
     base_unnamed,
     junk_holds,
     ask,
+    reference_lists,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

@@ -160,3 +160,28 @@ def test_the_cli_command_is_still_the_same_work() -> None:
     )
 
     assert "check-entities-rosfin" in source
+
+
+def test_the_api_reads_the_lists_and_starts_one_refresh(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """`/api/v1/airtable` for the React page: the lists, and the refresh as the button."""
+    with _client(session_factory) as client:
+        overview = client.get("/api/v1/airtable").json()
+        first = client.post("/api/v1/airtable/rosfin")
+        second = client.post("/api/v1/airtable/rosfin")
+        foreign = client.post("/api/v1/airtable/rosfin", headers={"Origin": "https://evil.example"})
+
+    assert [item["name"] for item in overview["lists"]] == [
+        "sources",
+        "known_persons",
+        "officials",
+        "articles",
+    ]
+    assert overview["official"] is None
+    assert first.status_code == 200 and first.json()["run_id"] > 0
+    assert second.status_code == 409 and second.json()["detail"] == "Идёт другой запуск."
+    assert foreign.status_code == 403
+    with session_factory() as session:
+        started = [row for row in registry_runs(session) if row.parameters["mode"] == "rosfin"]
+    assert len(started) == 1

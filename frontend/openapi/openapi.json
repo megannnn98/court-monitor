@@ -2664,6 +2664,205 @@
           }
         }
       }
+    },
+    "/api/v1/airtable": {
+      "get": {
+        "summary": "Get Airtable",
+        "description": "The legacy «База Airtable»: the lists, where they come from, the published list.",
+        "operationId": "get_airtable_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AirtableOverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/airtable/sync": {
+      "post": {
+        "summary": "Sync Reference Lists",
+        "description": "The four lists into PostgreSQL, as `POST /api/admin/airtable/sync`.",
+        "operationId": "sync_reference_lists_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AirtableSyncResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/airtable/rosfin": {
+      "post": {
+        "summary": "Refresh Rosfin",
+        "description": "Download the published list, a new snapshot only if it changed, and check every\nperson against it again: the `check-entities-rosfin` run, in the background.",
+        "operationId": "refresh_rosfin_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStartedResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/officials": {
+      "get": {
+        "summary": "Get Officials",
+        "description": "The officials list as it stands, and the people the model calls officials.",
+        "operationId": "get_officials_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/officials/add": {
+      "post": {
+        "summary": "Add Official",
+        "operationId": "add_official_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficialAddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialChangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/officials/add-suggested": {
+      "post": {
+        "summary": "Add Suggested Official",
+        "operationId": "add_suggested_official_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficialSuggestedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialChangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/officials/deactivate": {
+      "post": {
+        "summary": "Deactivate Official",
+        "operationId": "deactivate_official_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficialDeactivateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialChangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2725,6 +2924,62 @@
         ],
         "title": "AboutResponse",
         "description": "«О системе»: the build stamp, the totals behind the status strip, and the last\nsuccessful operator run. The same data the legacy `/ui/about` page shows."
+      },
+      "AirtableOverviewResponse": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "mode_note": {
+            "type": "string",
+            "title": "Mode Note"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "source_column": {
+            "type": "string",
+            "title": "Source Column"
+          },
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceListResponse"
+            },
+            "type": "array",
+            "title": "Lists"
+          },
+          "official": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfficialSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "reason",
+          "mode_note",
+          "missing",
+          "source_column",
+          "lists",
+          "official"
+        ],
+        "title": "AirtableOverviewResponse",
+        "description": "«База Airtable»: whether a sync can run and how, the lists, the published list."
       },
       "AirtableSyncResponse": {
         "properties": {
@@ -5618,6 +5873,218 @@
         ],
         "title": "NameFormResponse"
       },
+      "OfficialAddRequest": {
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "maxLength": 512,
+            "title": "Full Name"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Category",
+            "default": "other"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Reason",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "full_name"
+        ],
+        "title": "OfficialAddRequest"
+      },
+      "OfficialChangeResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "OfficialChangeResponse"
+      },
+      "OfficialDeactivateRequest": {
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "External Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "external_id"
+        ],
+        "title": "OfficialDeactivateRequest"
+      },
+      "OfficialRowResponse": {
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "external_id",
+          "full_name",
+          "entity_key",
+          "entity_name",
+          "category",
+          "reason",
+          "active"
+        ],
+        "title": "OfficialRowResponse"
+      },
+      "OfficialSnapshotResponse": {
+        "properties": {
+          "snapshot_id": {
+            "type": "integer",
+            "title": "Snapshot Id"
+          },
+          "snapshot_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Snapshot Date"
+          },
+          "entry_count": {
+            "type": "integer",
+            "title": "Entry Count"
+          },
+          "match_count": {
+            "type": "integer",
+            "title": "Match Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot_id",
+          "snapshot_date",
+          "entry_count",
+          "match_count"
+        ],
+        "title": "OfficialSnapshotResponse"
+      },
+      "OfficialSuggestedRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "OfficialSuggestedRequest"
+      },
+      "OfficialSuggestionResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "category",
+          "reason"
+        ],
+        "title": "OfficialSuggestionResponse"
+      },
+      "OfficialsResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialRowResponse"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialSuggestionResponse"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/OptionResponse"
+            },
+            "type": "array",
+            "title": "Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "rows",
+          "suggestions",
+          "categories"
+        ],
+        "title": "OfficialsResponse",
+        "description": "The officials list kept by hand, and the model's suggestions for it."
+      },
       "OperationRunResponse": {
         "properties": {
           "id": {
@@ -6875,6 +7342,35 @@
         ],
         "title": "ReadinessStatus"
       },
+      "ReferenceListResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "count",
+          "source"
+        ],
+        "title": "ReferenceListResponse",
+        "description": "One reference list: what PostgreSQL holds of it and what it is read from."
+      },
       "RelatedPersonResponse": {
         "properties": {
           "key": {
@@ -7539,6 +8035,19 @@
         ],
         "title": "RosfinmonitoringSnapshotResponse",
         "description": "Rosfinmonitoring snapshot response model."
+      },
+      "RunStartedResponse": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "RunStartedResponse"
       },
       "SentenceListResponse": {
         "properties": {
