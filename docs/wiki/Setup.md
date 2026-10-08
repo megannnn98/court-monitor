@@ -144,13 +144,25 @@ uv run pytest                      # DB-тесты пропускаются бе
 PostgreSQL integration suite (база обязательно `court_monitor_test`):
 
 ```bash
-docker compose up -d postgres
-export TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test
+# Один раз: отдельный кластер только для тестов, порт 5434. Пароль случайный,
+# его хранит только контейнер.
+docker run -d --name ebnv-pgvector-test -p 127.0.0.1:5434:5432 \
+  -e POSTGRES_USER=court_monitor -e POSTGRES_DB=court_monitor_test \
+  -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
+  pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
+
+# Каждый раз:
+docker start ebnv-pgvector-test
+TEST_PASSWORD=$(docker inspect ebnv-pgvector-test \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^POSTGRES_PASSWORD=//p')
+export TEST_DATABASE_URL="postgresql+psycopg://court_monitor:${TEST_PASSWORD}@127.0.0.1:5434/court_monitor_test"
 DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
 env -u DATABASE_URL uv run pytest
 ```
 
-URL соответствует значениям из `.env.example`; при других учётных данных подставьте свои. База `court_monitor_test` должна существовать (например, `docker compose exec postgres createdb -U court_monitor court_monitor_test`). Сокращение `TEST_DATABASE_URL="${DATABASE_URL%/*}/court_monitor_test"` работает только для URL без query-параметров (`?sslmode=…` будет отброшен).
+Не направляйте тесты на `5433`: это кластер `docker compose` с рабочей базой, а тесты
+очищают таблицы (`TRUNCATE`). Имя базы `court_monitor_test` проверяет `tests/conftest.py`,
+порт — никто.
 
 GitHub Actions (`.github/workflows/ci.yml`): `quality` (ruff, format, mypy), `tests` (pytest без БД), `integration` (PostgreSQL 18 service, `alembic upgrade head`, pytest с `TEST_DATABASE_URL`). Группа `semantic` в CI не ставится, модели не скачиваются, Together AI не вызывается.
 

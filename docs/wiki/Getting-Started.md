@@ -308,12 +308,7 @@ uv run mypy --strict src tests
 
 Integration tests с PostgreSQL:
 
-```bash
-export TEST_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_test"
-
-DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head
-uv run pytest
-```
+Отдельный тестовый кластер на `5434`, адрес с паролем из контейнера — см. [Testing](Testing.md).
 
 Product-level evaluation на disposable database:
 
