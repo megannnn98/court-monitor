@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from web.candidate_rows import (
     CANDIDATE_CATEGORIES,
+    candidate_filters,
     latest_snapshot_id,
     news_day,
     news_period_start,
@@ -50,6 +51,15 @@ def candidate_table(
         snapshot_id=selected,
         period_start=start,
         total=len(rows),
+        export_url="/ui/candidates/export.xlsx?"
+        + candidate_filters(
+            selected,
+            min_confidence,
+            start,
+            include_administrative,
+            criminal_only,
+            event_date_filter,
+        ),
         items=[
             CandidateRowResponse(
                 person_id=candidate.person_id,

@@ -26,22 +26,33 @@ const FILTERS: [string, string, boolean][] = [
   ["cooccurrence", "Совместные упоминания", false]
 ];
 
-function loadOnce(src: string): Promise<void> {
-  const existing = document.querySelector<HTMLScriptElement>(`script[data-graph-src="${src}"]`);
-  if (existing) {
-    return existing.dataset.loaded ? Promise.resolve() : new Promise((done) => existing.addEventListener("load", () => done()));
-  }
-  return new Promise((done, fail) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.dataset.graphSrc = src;
-    script.addEventListener("load", () => {
-      script.dataset.loaded = "1";
-      done();
+// One promise per script for every graph waiting on it: a failure reaches them all and is
+// forgotten, so the next dossier tries again.
+const loading = new Map<string, Promise<void>>();
+
+export function loadOnce(src: string): Promise<void> {
+  let promise = loading.get(src);
+  if (!promise) {
+    promise = new Promise<void>((done, fail) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.dataset.graphSrc = src;
+      script.addEventListener("load", () => done());
+      script.addEventListener("error", () => {
+        loading.delete(src);
+        script.remove();
+        fail(new Error(src));
+      });
+      document.body.append(script);
     });
-    script.addEventListener("error", () => fail(new Error(src)));
-    document.body.append(script);
-  });
+    loading.set(src, promise);
+  }
+  return promise;
+}
+
+/** Forgets every script: for tests, whose page is wiped between them. */
+export function forgetScripts() {
+  loading.clear();
 }
 
 /** The interactive graph of a dossier, drawn by the legacy glue into this box. One graph

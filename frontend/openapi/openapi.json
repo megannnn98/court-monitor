@@ -2355,6 +2355,10 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "export_url": {
+            "type": "string",
+            "title": "Export Url"
           }
         },
         "type": "object",
@@ -2362,7 +2366,8 @@
           "snapshot_id",
           "period_start",
           "total",
-          "items"
+          "items",
+          "export_url"
         ],
         "title": "CandidateTableResponse",
         "description": "The candidates under the legacy page's filters, in its order; the Excel file of the\nsame filters holds every one of `total`."
