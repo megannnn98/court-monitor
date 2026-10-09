@@ -15,6 +15,7 @@ PUBLIC_CORE_PACKAGES = {
     "monitor_core.llm",
     "monitor_core.model",
     "monitor_core.ports",
+    "monitor_core.retry",
 }
 # Re-exports left while the core was extracted, then deleted: their names live in the core.
 REMOVED_SHIMS = {

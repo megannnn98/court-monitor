@@ -1,0 +1,84 @@
+"""`retry` calls an operation again after a failure the caller calls retryable, waiting
+what the caller says; the last failure, or one not retryable, comes out as it was."""
+
+import pytest
+
+from monitor_core.retry import retry
+
+
+class Flaky:
+    def __init__(self, failures: list[Exception], result: str = "done") -> None:
+        self._failures = failures
+        self._result = result
+        self.calls = 0
+
+    def __call__(self) -> str:
+        self.calls += 1
+        if self.calls <= len(self._failures):
+            raise self._failures[self.calls - 1]
+        return self._result
+
+
+def _retry(operation: Flaky, *, attempts: int, sleeps: list[float]) -> str:
+    return retry(
+        operation,
+        attempts=attempts,
+        should_retry=lambda exc: isinstance(exc, TimeoutError),
+        delay_seconds=lambda failures: failures * 10.0,
+        sleep=sleeps.append,
+    )
+
+
+def test_a_first_success_waits_for_nothing() -> None:
+    sleeps: list[float] = []
+    operation = Flaky([])
+
+    assert _retry(operation, attempts=3, sleeps=sleeps) == "done"
+    assert (operation.calls, sleeps) == (1, [])
+
+
+def test_retryable_failures_wait_by_how_many_failed_so_far() -> None:
+    sleeps: list[float] = []
+    operation = Flaky([TimeoutError(), TimeoutError()])
+
+    assert _retry(operation, attempts=3, sleeps=sleeps) == "done"
+    assert (operation.calls, sleeps) == (3, [10.0, 20.0])
+
+
+def test_the_last_attempt_raises_its_own_error_without_a_wait() -> None:
+    sleeps: list[float] = []
+    errors: list[Exception] = [TimeoutError(1), TimeoutError(2), TimeoutError(3)]
+    operation = Flaky(errors)
+
+    with pytest.raises(TimeoutError) as caught:
+        _retry(operation, attempts=3, sleeps=sleeps)
+
+    assert caught.value is errors[2]
+    assert caught.value.__context__ is None
+    assert (operation.calls, sleeps) == (3, [10.0, 20.0])
+
+
+def test_one_attempt_is_no_retry() -> None:
+    sleeps: list[float] = []
+    operation = Flaky([TimeoutError()])
+
+    with pytest.raises(TimeoutError):
+        _retry(operation, attempts=1, sleeps=sleeps)
+    assert (operation.calls, sleeps) == (1, [])
+
+
+def test_a_failure_not_retryable_comes_out_at_once() -> None:
+    sleeps: list[float] = []
+    final = ValueError("final")
+    operation = Flaky([TimeoutError(), final])
+
+    with pytest.raises(ValueError) as caught:
+        _retry(operation, attempts=5, sleeps=sleeps)
+
+    assert caught.value is final
+    assert (operation.calls, sleeps) == (2, [10.0])
+
+
+def test_attempts_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="attempts"):
+        _retry(Flaky([]), attempts=0, sleeps=[])

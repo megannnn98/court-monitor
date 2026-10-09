@@ -1,4 +1,4 @@
-"""The public API of `monitor_core`: five subpackages, each with a small `__all__`.
+"""The public API of `monitor_core`: six public modules, each with a small `__all__`.
 
 Code outside the core imports from these, never from the modules behind them."""
 
@@ -33,6 +33,7 @@ PUBLIC_API = {
         "post_json_chat",
         "read_chat_completion",
     },
+    "monitor_core.retry": {"retry"},
     "monitor_core.errors": {
         "DiscoveryError",
         "FetchError",
