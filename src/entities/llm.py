@@ -14,10 +14,12 @@ import os
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
-from monitor_core.llm import Endpoint, ModelError, request_json_chat
+from monitor_core.llm import CHAT_ENVELOPE_ERRORS, post_json_chat, read_chat_completion
 
 logger = logging.getLogger("entities")
 
@@ -28,8 +30,20 @@ TIMEOUT_SECONDS = 180.0
 DEFAULT_BUDGET_USD = 2.0
 
 
+class ModelError(Exception):
+    pass
+
+
 class BudgetExceededError(ModelError):
     """The run's budget is spent: the batch was not asked."""
+
+
+@dataclass(frozen=True)
+class Endpoint:
+    provider: str
+    url: str
+    model: str
+    api_key: str | None = None
 
 
 def endpoint_from_env(env: Mapping[str, str] | None = None) -> Endpoint | None:
@@ -96,17 +110,39 @@ def chat_json(
     """The model's JSON answer as text: strict to `schema`, no reasoning, temperature 0.
 
     Every failure — the network, the provider, a cut answer — is a `ModelError`."""
-    completion = request_json_chat(
-        http,
-        endpoint,
-        system=system,
-        user=user,
-        schema_name=schema_name,
-        schema=schema,
-        max_tokens=max_tokens,
-        timeout_seconds=TIMEOUT_SECONDS,
-    )
-    cost = completion.cost_usd
+    extra: dict[str, Any] = {"max_tokens": max_tokens}
+    if endpoint.provider == "openrouter":
+        # Only providers that honour the schema; no chain of thought eating max_tokens;
+        # and the price of the call, to count.
+        extra["provider"] = {"require_parameters": True}
+        extra["reasoning"] = {"enabled": False}
+        extra["usage"] = {"include": True}
+    headers = {"Authorization": f"Bearer {endpoint.api_key}"} if endpoint.api_key else {}
+    try:
+        response = post_json_chat(
+            http,
+            endpoint.url,
+            model=endpoint.model,
+            system=system,
+            user=user,
+            schema_name=schema_name,
+            schema=schema,
+            headers=headers,
+            timeout_seconds=TIMEOUT_SECONDS,
+            strict=True,
+            extra_body=extra,
+        )
+    except httpx.HTTPError as exc:
+        raise ModelError(f"{type(exc).__name__}: {exc}") from exc
+    if response.status_code >= 400:
+        # The provider's message says why (credit, model, schema); it holds no secret.
+        raise ModelError(f"HTTP {response.status_code}: {response.text[:300]}")
+    try:
+        completion = read_chat_completion(response)
+    except CHAT_ENVELOPE_ERRORS as exc:
+        raise ModelError(f"unusable answer: {type(exc).__name__}") from exc
+    usage = completion.usage
+    cost = float(usage.get("cost") or 0.0)
     if spend is not None:
         spend.add(cost)
     logger.info(
@@ -114,12 +150,16 @@ def chat_json(
         "cost_usd=%.6f",
         endpoint.provider,
         endpoint.model,
-        completion.usage.get("prompt_tokens"),
-        completion.usage.get("completion_tokens"),
+        usage.get("prompt_tokens"),
+        usage.get("completion_tokens"),
         cost,
     )
-    # A cut answer is counted and logged first: it was paid for.
-    return completion.text()
+    # Checked first: a cut answer is also broken JSON, and the cut is the reason.
+    if completion.finish_reason not in (None, "stop"):
+        raise ModelError(f"unusable answer: finish_reason={completion.finish_reason}")
+    if not isinstance(completion.content, str):
+        raise ModelError("unusable answer: no content")
+    return completion.content
 
 
 def ask_in_batches[Batch, Answer](

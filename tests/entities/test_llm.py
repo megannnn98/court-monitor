@@ -8,8 +8,15 @@ from typing import Any
 import httpx
 import pytest
 
-from entities.llm import BudgetExceededError, Spend, ask_in_batches, chat_json, endpoint_from_env
-from monitor_core.llm import Endpoint, ModelError
+from entities.llm import (
+    BudgetExceededError,
+    Endpoint,
+    ModelError,
+    Spend,
+    ask_in_batches,
+    chat_json,
+    endpoint_from_env,
+)
 
 
 def _client(answer: dict[str, Any], sent: list[dict[str, Any]]) -> httpx.Client:

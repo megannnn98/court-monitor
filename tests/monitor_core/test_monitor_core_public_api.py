@@ -28,10 +28,10 @@ PUBLIC_API = {
         "SourceIngestionResult",
     },
     "monitor_core.llm": {
+        "CHAT_ENVELOPE_ERRORS",
         "ChatCompletion",
-        "Endpoint",
-        "ModelError",
-        "request_json_chat",
+        "post_json_chat",
+        "read_chat_completion",
     },
     "monitor_core.errors": {
         "DiscoveryError",

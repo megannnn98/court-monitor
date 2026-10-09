@@ -25,12 +25,13 @@ from entities.grouping import _bases, _fold
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
+    Endpoint,
+    ModelError,
     Spend,
     budget_from_env,
     chat_json,
     endpoint_from_env,
 )
-from monitor_core.llm import Endpoint, ModelError
 
 logger = logging.getLogger("entities")
 

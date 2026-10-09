@@ -42,6 +42,8 @@ from entities.evidence import person_evidence_cte
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
+    Endpoint,
+    ModelError,
     Spend,
     budget_from_env,
     chat_json,
@@ -54,7 +56,6 @@ from entities.officials import (
     remember_titled,
     titled_entities,
 )
-from monitor_core.llm import Endpoint, ModelError
 from monitoring.hold_reader import EXTRACTOR_NAME
 
 logger = logging.getLogger("entities")

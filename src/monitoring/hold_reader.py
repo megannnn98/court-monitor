@@ -35,13 +35,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from entities.llm import (
     BudgetExceededError,
+    Endpoint,
+    ModelError,
     Spend,
     ask_in_batches,
     budget_from_env,
     chat_json,
     endpoint_from_env,
 )
-from monitor_core.llm import Endpoint, ModelError
 from monitoring.junk_screen import HELD
 
 logger = logging.getLogger("monitoring")
