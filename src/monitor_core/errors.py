@@ -1,3 +1,20 @@
+"""Expected failures of discovery and ingestion."""
+
+__all__ = [
+    "DiscoveryError",
+    "FetchError",
+    "IngestionError",
+    "ListingPageNotFoundError",
+    "NoTextError",
+    "ParseError",
+    "PermanentDiscoveryError",
+    "PermanentFetchError",
+    "PersistenceError",
+    "TransientDiscoveryError",
+    "TransientFetchError",
+]
+
+
 class IngestionError(Exception):
     """Expected failure while ingesting one source document."""
 

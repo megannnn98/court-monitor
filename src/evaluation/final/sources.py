@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 
 import httpx
 
-from sources.ingestion_errors import ParseError
-from sources.models import ParsedArticle, RawDocument, SourceReference
-from sources.source_adapter import DocumentFetcher, SourceAdapter
+from monitor_core.errors import ParseError
+from monitor_core.model import ParsedArticle, RawDocument, SourceReference
+from monitor_core.ports import DocumentFetcher, SourceAdapter
 from sources.source_registry import SourceDefinition
 
 EVALUATION_SOURCE = "ovd-info"

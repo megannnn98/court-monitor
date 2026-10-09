@@ -2,15 +2,15 @@ import asyncio
 
 import pytest
 
-from sources.ingestion_errors import IngestionError
-from sources.models import (
+from monitor_core.errors import IngestionError
+from monitor_core.ingestion import SourceIngestion, SourceIngestionResult
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
-    PersistenceResult,
     RawDocument,
     SourceReference,
 )
-from sources.source_ingestion import SourceIngestion, SourceIngestionResult
+from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 REFERENCES = [
     SourceReference(
@@ -54,7 +54,7 @@ class FakePipeline:
     async def run(
         self,
         reference: SourceReference,
-    ) -> IngestionResult:
+    ) -> IngestionResult[SqlAlchemyPersistenceResult]:
         self.references.append(reference)
 
         article = ParsedArticle(
@@ -67,7 +67,7 @@ class FakePipeline:
 
         return IngestionResult(
             article=article,
-            persistence=PersistenceResult(
+            persistence=SqlAlchemyPersistenceResult(
                 document_id=len(self.references),
                 article_id=len(self.references),
             ),
@@ -78,7 +78,7 @@ class FailingPipeline(FakePipeline):
     async def run(
         self,
         reference: SourceReference,
-    ) -> IngestionResult:
+    ) -> IngestionResult[SqlAlchemyPersistenceResult]:
         self.references.append(reference)
 
         if reference.external_id == "/express-news/b":
@@ -94,7 +94,7 @@ class FailingPipeline(FakePipeline):
 
         return IngestionResult(
             article=article,
-            persistence=PersistenceResult(
+            persistence=SqlAlchemyPersistenceResult(
                 document_id=len(self.references),
                 article_id=len(self.references),
             ),
@@ -105,14 +105,14 @@ class BuggyPipeline(FakePipeline):
     async def run(
         self,
         reference: SourceReference,
-    ) -> IngestionResult:
+    ) -> IngestionResult[SqlAlchemyPersistenceResult]:
         self.references.append(reference)
         raise TypeError("programming bug")
 
 
 def test_source_ingestion_discovers_and_ingests_articles_in_order() -> None:
     async def run() -> tuple[
-        SourceIngestionResult,
+        SourceIngestionResult[SqlAlchemyPersistenceResult],
         FakeSourceAdapter,
         FakePipeline,
     ]:
@@ -150,7 +150,7 @@ def test_source_ingestion_discovers_and_ingests_articles_in_order() -> None:
 
 def test_source_ingestion_respects_discovery_limit() -> None:
     async def run() -> tuple[
-        SourceIngestionResult,
+        SourceIngestionResult[SqlAlchemyPersistenceResult],
         FakePipeline,
     ]:
         source_adapter = FakeSourceAdapter()
@@ -174,7 +174,7 @@ def test_source_ingestion_respects_discovery_limit() -> None:
 
 def test_source_ingestion_continues_after_ingestion_failure() -> None:
     async def run() -> tuple[
-        SourceIngestionResult,
+        SourceIngestionResult[SqlAlchemyPersistenceResult],
         FailingPipeline,
     ]:
         source_adapter = FakeSourceAdapter()

@@ -6,15 +6,15 @@ import httpx
 import pytest
 
 from cli.ingestion import discover_and_ingest
-from sources.ingestion_errors import ParseError
-from sources.models import (
+from monitor_core.errors import ParseError
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
-    PersistenceResult,
     RawDocument,
     SourceReference,
 )
 from sources.source_registry import SOTA_VISION
+from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 LISTING_HTML = b"""
 <html>
@@ -43,7 +43,7 @@ class FailingPipeline:
     async def run(
         self,
         reference: SourceReference,
-    ) -> IngestionResult:
+    ) -> IngestionResult[SqlAlchemyPersistenceResult]:
         self.references.append(reference)
 
         if reference.external_id.endswith("article-b"):
@@ -57,7 +57,7 @@ class FailingPipeline:
                 published_at=None,
                 text="article text",
             ),
-            persistence=PersistenceResult(
+            persistence=SqlAlchemyPersistenceResult(
                 document_id=len(self.references),
                 article_id=len(self.references),
             ),
@@ -85,7 +85,7 @@ class FakePipeline:
     async def run(
         self,
         reference: SourceReference,
-    ) -> IngestionResult:
+    ) -> IngestionResult[SqlAlchemyPersistenceResult]:
         self.references.append(reference)
 
         return IngestionResult(
@@ -96,7 +96,7 @@ class FakePipeline:
                 published_at=None,
                 text="article text",
             ),
-            persistence=PersistenceResult(
+            persistence=SqlAlchemyPersistenceResult(
                 document_id=len(self.references),
                 article_id=len(self.references),
             ),
@@ -236,7 +236,7 @@ def test_discover_and_ingest_handles_empty_discovery(
         async def run(
             self,
             reference: SourceReference,
-        ) -> IngestionResult:
+        ) -> IngestionResult[SqlAlchemyPersistenceResult]:
             raise AssertionError(f"pipeline must not run: {reference.url}")
 
     asyncio.run(

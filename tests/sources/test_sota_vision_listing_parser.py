@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 
 FIXTURE_PATH = Path("tests/fixtures/sota_vision_listing.html")

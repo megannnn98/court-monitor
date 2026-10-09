@@ -1,6 +1,6 @@
 import pytest
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 from sources.sudrf.reference import archive_year, canonicalize_sudrf_reference
 
 HOST = "2zovs.msk.sudrf.ru"

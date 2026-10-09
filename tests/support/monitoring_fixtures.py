@@ -18,13 +18,13 @@ from extraction.models import ExtractionDocument, RawMention
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
+from monitor_core.errors import NoTextError, ParseError
+from monitor_core.model import ParsedArticle, RawDocument, SourceReference
+from monitor_core.ports import DocumentFetcher, SourceAdapter
 from monitoring.models import MonitoringSettings
 from monitoring.service import MonitoringService
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from sources.ingestion_errors import NoTextError, ParseError
-from sources.models import ParsedArticle, RawDocument, SourceReference
-from sources.source_adapter import DocumentFetcher, SourceAdapter
 from sources.source_registry import SourceDefinition
 
 SIDOROV = (

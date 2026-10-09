@@ -1,6 +1,6 @@
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 
 SOTA_VISION_BASE_URL = "https://sota.vision"
 SOTA_VISION_NETLOC = "sota.vision"

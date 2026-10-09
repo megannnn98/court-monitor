@@ -18,14 +18,14 @@ from extraction.models import (
     ExtractionDocument,
 )
 from extraction.normalizers import RuleBasedMentionNormalizer
-from sources.ingestion_errors import ParseError, PermanentDiscoveryError
+from monitor_core.errors import ParseError, PermanentDiscoveryError
+from monitor_core.model import RawDocument, SourceReference
 from sources.memopzk import taxonomy
 from sources.memopzk.article_parser import FigurantParser
 from sources.memopzk.source_adapter import (
     FIGURANT_COLLECTION_URL,
     MemopzkFigurantAdapter,
 )
-from sources.models import RawDocument, SourceReference
 from sources.source_registry import get_source_definition
 
 CARDS = json.loads((Path(__file__).parents[1] / "fixtures/memopzk/figurants.json").read_text())

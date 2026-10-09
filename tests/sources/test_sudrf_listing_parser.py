@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 from sources.sudrf.listing_parser import SudrfListingParser
 
 HOST = "2zovs.msk.sudrf.ru"

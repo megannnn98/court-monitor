@@ -16,9 +16,9 @@ from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from monitor_core.model import ParsedArticle, RawDocument
 from persons.models import PersonStatus
 from persons.persistence import SqlAlchemyPersonPersistence
-from sources.models import ParsedArticle, RawDocument
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 

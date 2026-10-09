@@ -11,26 +11,22 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from sources.article_parser import ArticleParser, OvdInfoArticleParser
-from sources.ingestion_errors import (
-    ParseError,
-    PermanentDiscoveryError,
-)
-from sources.ingestion_pipeline import IngestionPipeline
-from sources.models import (
+from monitor_core.errors import ParseError, PermanentDiscoveryError
+from monitor_core.ingestion import IngestionPipeline, SourceIngestion, SourceIngestionFailure
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
-    PersistenceResult,
     RawDocument,
     SourceReference,
 )
+from monitor_core.ports import ArticleParser, SourceAdapter
+from sources.article_parser import OvdInfoArticleParser
 from sources.ovd_info.listing_parser import OvdInfoListingParser
 from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.source_adapter import SourceAdapter
-from sources.source_ingestion import SourceIngestion, SourceIngestionFailure
+from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 
 class FakePersistence:
@@ -41,9 +37,9 @@ class FakePersistence:
         self,
         raw_document: RawDocument,
         article: ParsedArticle,
-    ) -> PersistenceResult:
+    ) -> SqlAlchemyPersistenceResult:
         self.saved.append((raw_document, article))
-        return PersistenceResult(document_id=len(self.saved), article_id=len(self.saved))
+        return SqlAlchemyPersistenceResult(document_id=len(self.saved), article_id=len(self.saved))
 
 
 class DictionaryDocumentFetcher:
@@ -198,7 +194,11 @@ async def _run_chain(
     handle_listing_request: Callable[[httpx.Request], httpx.Response],
     outcomes: dict[str, RawDocument | Exception],
     limit: int,
-) -> tuple[list[IngestionResult], list[SourceIngestionFailure], DictionaryDocumentFetcher]:
+) -> tuple[
+    list[IngestionResult[SqlAlchemyPersistenceResult]],
+    list[SourceIngestionFailure],
+    DictionaryDocumentFetcher,
+]:
     transport = httpx.MockTransport(handle_listing_request)
     fetcher = DictionaryDocumentFetcher(outcomes)
     persistence = FakePersistence()

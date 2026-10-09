@@ -9,24 +9,32 @@ from collections.abc import Callable
 import httpx
 
 from cli.context import CliContext
+from monitor_core.ingestion import (
+    ArticleIngestionPipeline,
+    IngestionPipeline,
+    RetryingDocumentFetcher,
+    SourceIngestion,
+)
+from monitor_core.ports import DocumentFetcher
 from sources.article_parser import OvdInfoArticleParser
-from sources.ingestion_pipeline import IngestionPipeline
 from sources.ovd_info.reference import canonicalize_ovd_info_reference
-from sources.retrying_fetcher import RetryingDocumentFetcher
-from sources.source_adapter import DocumentFetcher
-from sources.source_ingestion import ArticleIngestionPipeline, SourceIngestion
 from sources.source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from sources.sqlalchemy_persistence import (
+    SqlAlchemyIngestionPersistence,
+    SqlAlchemyPersistenceResult,
+)
 from sources.website_adapter import WebsiteAdapter
 
 
 async def discover_and_ingest(
     *,
     limit: int,
-    pipeline: ArticleIngestionPipeline | None = None,
+    pipeline: ArticleIngestionPipeline[SqlAlchemyPersistenceResult] | None = None,
     fetcher: DocumentFetcher,
     source: SourceDefinition = OVD_INFO,
-    create_pipeline: Callable[[DocumentFetcher], ArticleIngestionPipeline] | None = None,
+    create_pipeline: (
+        Callable[[DocumentFetcher], ArticleIngestionPipeline[SqlAlchemyPersistenceResult]] | None
+    ) = None,
 ) -> None:
     """`create_pipeline` builds the pipeline on the source's adapter, as monitoring does:
     a source may serve its documents itself (the Memorial registry does)."""

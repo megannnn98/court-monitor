@@ -15,9 +15,9 @@ import httpx
 
 from evaluation.real_world.corpus_cache import RawCacheEntry, RawCorpusCache
 from evaluation.real_world.models import ManifestArticle, sha256_text
-from sources.ingestion_errors import PermanentFetchError, TransientFetchError
-from sources.models import RawDocument, SourceReference
-from sources.source_adapter import DocumentFetcher, SourceAdapter
+from monitor_core.errors import PermanentFetchError, TransientFetchError
+from monitor_core.model import RawDocument, SourceReference
+from monitor_core.ports import DocumentFetcher, SourceAdapter
 from sources.source_registry import SourceDefinition
 
 

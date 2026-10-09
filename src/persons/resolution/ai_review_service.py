@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import PersonResolutionAiReviewRecord, PersonResolutionDecisionRecord
+from monitor_core.retry import retry
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_context import build_review_context
 from persons.resolution.ai_policy import (
@@ -257,15 +258,29 @@ class AutomatedEntityReviewService:
 
     def _review_with_retries(self, request: EntityReviewRequest) -> tuple[EntityReviewResult, int]:
         """Retry a transient provider failure only; a broken contract is final."""
-        call = 0
-        while True:
-            call += 1
+        calls = 0
+
+        def review() -> EntityReviewResult:
+            nonlocal calls
+            calls += 1
             try:
-                return self._reviewer.review(request), call
+                return self._reviewer.review(request)
             except EntityReviewError as exc:
-                if not exc.transient or call > self._settings.max_retries:
-                    raise _ProviderFailure(exc, call) from None
-                self._sleep(BASE_RETRY_DELAY_SECONDS * 2 ** (call - 1))
+                # Only the provider's own final error is a provider failure; whatever the
+                # wait between calls raises leaves `retry` untouched.
+                if not exc.transient or calls > self._settings.max_retries:
+                    raise _ProviderFailure(exc, calls) from None
+                raise
+
+        result = retry(
+            review,
+            # `max_retries` counts the calls after the first.
+            attempts=self._settings.max_retries + 1,
+            should_retry=lambda exc: isinstance(exc, EntityReviewError) and exc.transient,
+            delay_seconds=lambda failures: BASE_RETRY_DELAY_SECONDS * 2 ** (failures - 1),
+            sleep=self._sleep,
+        )
+        return result, calls
 
     def _already_reviewed(self, session: Session, decision_id: int, input_hash: str) -> bool:
         return (

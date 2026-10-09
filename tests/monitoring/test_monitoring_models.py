@@ -8,19 +8,19 @@ import httpx
 import pytest
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from monitoring.models import (
-    FailureKind,
-    MonitoringConfigurationError,
-    MonitoringSettings,
-    classify_failure,
-)
-from sources.ingestion_errors import (
+from monitor_core.errors import (
     ParseError,
     PermanentDiscoveryError,
     PermanentFetchError,
     PersistenceError,
     TransientDiscoveryError,
     TransientFetchError,
+)
+from monitoring.models import (
+    FailureKind,
+    MonitoringConfigurationError,
+    MonitoringSettings,
+    classify_failure,
 )
 from sources.source_registry import SOURCES
 

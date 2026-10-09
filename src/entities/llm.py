@@ -19,6 +19,8 @@ from typing import Any
 
 import httpx
 
+from monitor_core.llm import CHAT_ENVELOPE_ERRORS, post_json_chat, read_chat_completion
+
 logger = logging.getLogger("entities")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -108,37 +110,38 @@ def chat_json(
     """The model's JSON answer as text: strict to `schema`, no reasoning, temperature 0.
 
     Every failure — the network, the provider, a cut answer — is a `ModelError`."""
-    body: dict[str, Any] = {
-        "model": endpoint.model,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"name": schema_name, "strict": True, "schema": schema},
-        },
-        "temperature": 0,
-        "max_tokens": max_tokens,
-    }
+    extra: dict[str, Any] = {"max_tokens": max_tokens}
     if endpoint.provider == "openrouter":
         # Only providers that honour the schema; no chain of thought eating max_tokens;
         # and the price of the call, to count.
-        body["provider"] = {"require_parameters": True}
-        body["reasoning"] = {"enabled": False}
-        body["usage"] = {"include": True}
+        extra["provider"] = {"require_parameters": True}
+        extra["reasoning"] = {"enabled": False}
+        extra["usage"] = {"include": True}
     headers = {"Authorization": f"Bearer {endpoint.api_key}"} if endpoint.api_key else {}
     try:
-        response = http.post(endpoint.url, json=body, headers=headers, timeout=TIMEOUT_SECONDS)
+        response = post_json_chat(
+            http,
+            endpoint.url,
+            model=endpoint.model,
+            system=system,
+            user=user,
+            schema_name=schema_name,
+            schema=schema,
+            headers=headers,
+            timeout_seconds=TIMEOUT_SECONDS,
+            strict=True,
+            extra_body=extra,
+        )
     except httpx.HTTPError as exc:
         raise ModelError(f"{type(exc).__name__}: {exc}") from exc
     if response.status_code >= 400:
         # The provider's message says why (credit, model, schema); it holds no secret.
         raise ModelError(f"HTTP {response.status_code}: {response.text[:300]}")
     try:
-        payload = response.json()
-        choice = payload["choices"][0]
-        content = choice["message"]["content"]
-    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        completion = read_chat_completion(response)
+    except CHAT_ENVELOPE_ERRORS as exc:
         raise ModelError(f"unusable answer: {type(exc).__name__}") from exc
-    usage = payload.get("usage") or {}
+    usage = completion.usage
     cost = float(usage.get("cost") or 0.0)
     if spend is not None:
         spend.add(cost)
@@ -152,11 +155,11 @@ def chat_json(
         cost,
     )
     # Checked first: a cut answer is also broken JSON, and the cut is the reason.
-    if choice.get("finish_reason") not in (None, "stop"):
-        raise ModelError(f"unusable answer: finish_reason={choice.get('finish_reason')}")
-    if not isinstance(content, str):
+    if completion.finish_reason not in (None, "stop"):
+        raise ModelError(f"unusable answer: finish_reason={completion.finish_reason}")
+    if not isinstance(completion.content, str):
         raise ModelError("unusable answer: no content")
-    return content
+    return completion.content
 
 
 def ask_in_batches[Batch, Answer](

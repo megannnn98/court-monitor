@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from sources.ingestion_errors import ParseError
-from sources.models import RawDocument
+from monitor_core.errors import ParseError
+from monitor_core.model import RawDocument
 from sources.sudrf.article_parser import SUDRF_TIMEZONE, SudrfArticleParser
 
 FIXTURE_364 = Path("tests/fixtures/sudrf_article_364.html")

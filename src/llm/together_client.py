@@ -1,7 +1,9 @@
 """Together AI structured-output client (infrastructure boundary).
 
-Only this module knows about Together's HTTP API. The AI review of ER decisions
-depends on `llm.structured.StructuredLlmClient`.
+Only this module knows about Together's HTTP API: its errors, which answers it
+accepts and what it reports; the OpenAI-compatible request and envelope are
+`monitor_core.llm`'s. The AI review of ER decisions depends on
+`llm.structured.StructuredLlmClient`.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from llm.structured import (
     LlmUsage,
     StructuredLlmResult,
 )
+from monitor_core.llm import CHAT_ENVELOPE_ERRORS, post_json_chat, read_chat_completion
 
 TOGETHER_BASE_URL = "https://api.together.ai/v1"
 DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -78,24 +81,17 @@ class TogetherStructuredLlmClient:
         schema_name: str,
         json_schema: dict[str, Any],
     ) -> StructuredLlmResult:
-        payload = {
-            "model": self._config.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": schema_name, "schema": json_schema},
-            },
-            "temperature": 0,
-        }
         try:
-            response = self._http_client.post(
+            response = post_json_chat(
+                self._http_client,
                 f"{self._config.base_url}/chat/completions",
-                json=payload,
+                model=self._config.model,
+                system=system_prompt,
+                user=user_message,
+                schema_name=schema_name,
+                schema=json_schema,
                 headers={"Authorization": f"Bearer {self._config.api_key}"},
-                timeout=self._config.timeout_seconds,
+                timeout_seconds=self._config.timeout_seconds,
             )
         except httpx.TimeoutException as exc:
             raise LlmTimeoutError(
@@ -124,14 +120,13 @@ class TogetherStructuredLlmClient:
 
     def _parse_response(self, response: httpx.Response) -> StructuredLlmResult:
         try:
-            body = response.json()
-            choice = body["choices"][0]
-            content = choice["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            completion = read_chat_completion(response)
+        except CHAT_ENVELOPE_ERRORS as exc:
             raise LlmInvalidResponseError("Together AI response has unexpected shape") from exc
 
-        if choice.get("finish_reason") == "length":
+        if completion.finish_reason == "length":
             raise LlmInvalidResponseError("Together AI output was truncated (finish_reason=length)")
+        content = completion.content
         if not isinstance(content, str):
             raise LlmInvalidResponseError("Together AI returned no text content")
         try:
@@ -142,12 +137,12 @@ class TogetherStructuredLlmClient:
             raise LlmInvalidResponseError("Together AI output is not a JSON object")
 
         try:
-            usage = LlmUsage.model_validate(body.get("usage") or {})
+            usage = LlmUsage.model_validate(completion.usage)
         except ValidationError:
             # Usage is diagnostic only; a malformed block must not fail intake.
             usage = LlmUsage()
         return StructuredLlmResult(
             data=data,
-            model=body.get("model") if isinstance(body.get("model"), str) else self._config.model,
+            model=completion.model if isinstance(completion.model, str) else self._config.model,
             usage=usage,
         )

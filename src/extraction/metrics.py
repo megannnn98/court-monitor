@@ -67,7 +67,7 @@ class GoldenArticle(BaseModel):
         return self
 
     def to_document(self) -> ExtractionDocument:
-        from sources.models import ParsedArticle
+        from monitor_core.model import ParsedArticle
 
         return build_extraction_document_from_parsed_article(
             article_id=self.article_id,

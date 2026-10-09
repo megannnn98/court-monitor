@@ -6,8 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ParsedArticleRecord, Source, SourceDocument
-from sources.ingestion_errors import PersistenceError
-from sources.models import ParsedArticle, RawDocument
+from monitor_core.errors import PersistenceError
+from monitor_core.model import ParsedArticle, RawDocument
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 
@@ -60,6 +60,7 @@ def test_save_does_not_update_existing_document(
     updated = persistence.save(raw_v2, article_v2)
 
     assert updated.document_id == first.document_id
+    assert updated.article_id == first.article_id
 
     with session_factory() as session:
         sources = session.scalars(select(Source)).all()
@@ -74,6 +75,8 @@ def test_save_does_not_update_existing_document(
         assert documents[0].content_type == raw_v2.content_type
         assert documents[0].raw_content == raw_v2.content
         assert articles[0].document_id == documents[0].id
+        # The ids handed back are the rows': the document's and its parsed article's.
+        assert (updated.document_id, updated.article_id) == (documents[0].id, articles[0].id)
         assert articles[0].title == article_v2.title
         assert articles[0].published_at == article_v2.published_at
         assert articles[0].text == article_v2.text
@@ -293,3 +296,46 @@ def test_save_wraps_sqlalchemy_error(
         exc_info.value.__cause__,
         IntegrityError,
     )
+
+
+def test_the_ids_handed_back_are_the_document_s_and_its_article_s(
+    session_factory: sessionmaker[Session],
+) -> None:
+    # A document of another source with no parsed article puts the two id sequences
+    # apart, so a swapped id cannot pass for the right one.
+    with session_factory.begin() as session:
+        other = Source(name="Other", base_url="https://other.test")
+        session.add(other)
+        session.flush()
+        session.add(
+            SourceDocument(
+                source_id=other.id,
+                external_id="orphan",
+                canonical_url="https://other.test/orphan",
+                fetched_at=datetime(2026, 8, 23, tzinfo=UTC),
+                content_type="text/html",
+                raw_content=b"",
+            )
+        )
+    raw = RawDocument(
+        external_id="article-1",
+        url="https://ovd.info/article-1",
+        fetched_at=datetime(2026, 8, 23, 8, 0, tzinfo=UTC),
+        content_type="text/html",
+        content=b"<html></html>",
+    )
+
+    result = _create_persistence(session_factory).save(
+        raw,
+        ParsedArticle(
+            external_id=raw.external_id, url=raw.url, title="t", published_at=None, text="x"
+        ),
+    )
+
+    with session_factory() as session:
+        document = session.scalars(
+            select(SourceDocument).where(SourceDocument.external_id == "article-1")
+        ).one()
+        article = session.scalars(select(ParsedArticleRecord)).one()
+    assert document.id != article.id
+    assert (result.document_id, result.article_id) == (document.id, article.id)

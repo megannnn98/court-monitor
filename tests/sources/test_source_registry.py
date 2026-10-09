@@ -2,12 +2,12 @@ import asyncio
 
 import httpx
 
+from monitor_core.model import RawDocument, SourceReference
+from monitor_core.ports import SourceAdapter
 from sources.article_parser import OvdInfoArticleParser
-from sources.models import RawDocument, SourceReference
 from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.source_adapter import SourceAdapter
 from sources.source_registry import (
     OVD_INFO,
     SOTA_VISION,

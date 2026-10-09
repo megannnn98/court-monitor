@@ -1,6 +1,6 @@
 from selectolax.parser import HTMLParser
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 from sources.sota_vision.reference import canonicalize_sota_vision_reference
 
 

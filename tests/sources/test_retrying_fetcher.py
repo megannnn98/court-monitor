@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from sources.ingestion_errors import PermanentFetchError, TransientFetchError
-from sources.models import RawDocument, SourceReference
-from sources.retrying_fetcher import RetryingDocumentFetcher
+from monitor_core.errors import PermanentFetchError, TransientFetchError
+from monitor_core.ingestion import RetryingDocumentFetcher
+from monitor_core.model import RawDocument, SourceReference
 
 REFERENCE = SourceReference(
     external_id="/express-news/test",
@@ -162,7 +162,7 @@ def test_fetch_uses_exponential_backoff() -> None:
         )
 
         with patch(
-            "sources.retrying_fetcher.asyncio.sleep",
+            "monitor_core.ingestion.retry.asyncio.sleep",
             new_callable=AsyncMock,
         ) as sleep:
             result = await retrying_fetcher.fetch(REFERENCE)

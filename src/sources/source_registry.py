@@ -5,7 +5,8 @@ from enum import StrEnum
 import httpx
 
 from extraction.models import MEMOPZK_REGISTRY_SOURCE_NAME
-from sources.article_parser import ArticleParser, OvdInfoArticleParser
+from monitor_core.ports import ArticleParser, DocumentFetcher, SourceAdapter
+from sources.article_parser import OvdInfoArticleParser
 from sources.kommersant.article_parser import (
     KOMMERSANT_FEED_URL,
     KommersantArticleParser,
@@ -20,7 +21,6 @@ from sources.rss.source_adapter import RssSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.source_adapter import DocumentFetcher, SourceAdapter
 from sources.sudrf.article_parser import SudrfArticleParser
 from sources.sudrf.listing_parser import SudrfListingParser
 from sources.sudrf.source_adapter import SudrfSourceAdapter

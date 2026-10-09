@@ -4,8 +4,8 @@ from typing import Any
 import httpx
 import pytest
 
-from sources.ingestion_errors import PermanentFetchError, TransientFetchError
-from sources.models import SourceReference
+from monitor_core.errors import PermanentFetchError, TransientFetchError
+from monitor_core.model import SourceReference
 from sources.website_adapter import WebsiteAdapter
 
 REFERENCE = SourceReference(

@@ -4,12 +4,12 @@ from collections.abc import Awaitable, Callable
 
 import httpx
 
-from sources.ingestion_errors import (
+from monitor_core.errors import (
     ListingPageNotFoundError,
     PermanentDiscoveryError,
     TransientDiscoveryError,
 )
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 
 logger = logging.getLogger("sources")
 

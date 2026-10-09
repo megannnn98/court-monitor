@@ -1,12 +1,12 @@
 import httpx
 
+from monitor_core.model import RawDocument, SourceReference
+from monitor_core.ports import DocumentFetcher
 from sources.discovery_pagination import (
     discover_paginated_references,
     fetch_listing_page_with_retry,
 )
-from sources.models import RawDocument, SourceReference
 from sources.ovd_info.listing_parser import OvdInfoListingParser
-from sources.source_adapter import DocumentFetcher
 
 OVD_INFO_LISTING_URL = "https://ovd.info/express-news"
 

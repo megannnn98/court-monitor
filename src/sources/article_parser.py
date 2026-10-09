@@ -1,24 +1,16 @@
 from datetime import datetime
-from typing import Protocol
 from zoneinfo import ZoneInfo
 
 from selectolax.parser import HTMLParser, Node
 
-from sources.ingestion_errors import ParseError
-from sources.models import ParsedArticle, RawDocument
+from monitor_core.errors import ParseError
+from monitor_core.model import ParsedArticle, RawDocument
 
 OVD_INFO_TIMEZONE = ZoneInfo("Europe/Moscow")
 
 
 def _extract_text(node: Node) -> str:
     return " ".join(node.text().split())
-
-
-class ArticleParser(Protocol):
-    def parse(
-        self,
-        raw: RawDocument,
-    ) -> ParsedArticle: ...
 
 
 class OvdInfoArticleParser:

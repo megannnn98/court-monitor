@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 
 from selectolax.parser import HTMLParser, Node
 
-from sources.ingestion_errors import ParseError
-from sources.models import ParsedArticle, RawDocument
+from monitor_core.errors import ParseError
+from monitor_core.model import ParsedArticle, RawDocument
 
 SUDRF_TIMEZONE = ZoneInfo("Europe/Moscow")
 _DATE_PATTERN = re.compile(r"(\d{2})\.(\d{2})\.(\d{4})")

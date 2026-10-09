@@ -14,7 +14,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from sources.models import RawDocument, SourceReference
+from monitor_core.model import RawDocument, SourceReference
 
 
 class CacheEntryStatus(StrEnum):

@@ -1,23 +1,7 @@
 from collections.abc import Callable, Sequence
 from typing import Protocol, runtime_checkable
 
-from sources.models import RawDocument, SourceReference
-
-
-class DocumentFetcher(Protocol):
-    async def fetch(
-        self,
-        reference: SourceReference,
-    ) -> RawDocument: ...
-
-
-class SourceAdapter(DocumentFetcher, Protocol):
-    async def discover(
-        self,
-        *,
-        limit: int,
-    ) -> list[SourceReference]: ...
-
+from monitor_core.model import SourceReference
 
 # Which of these external ids are already stored.
 KnownIds = Callable[[Sequence[str]], set[str]]

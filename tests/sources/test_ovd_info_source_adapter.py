@@ -3,8 +3,8 @@ import asyncio
 import httpx
 import pytest
 
-from sources.ingestion_errors import PermanentDiscoveryError
-from sources.models import RawDocument, SourceReference
+from monitor_core.errors import PermanentDiscoveryError
+from monitor_core.model import RawDocument, SourceReference
 from sources.ovd_info.listing_parser import OvdInfoListingParser
 from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 

@@ -14,13 +14,13 @@ from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from monitor_core.model import ParsedArticle, RawDocument
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from sources.models import ParsedArticle, RawDocument
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 
