@@ -105,6 +105,7 @@ def test_max_attempts_counts_calls_and_the_last_error_comes_out_as_it_was(
 
     assert error is errors[max_attempts - 1]
     assert error.__cause__ is None and error.__context__ is None
+    assert error.__suppress_context__ is False
     assert inner.calls == max_attempts
     assert slept == sleeps
 

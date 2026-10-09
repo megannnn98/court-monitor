@@ -57,6 +57,7 @@ def test_the_last_attempt_raises_its_own_error_without_a_wait() -> None:
 
     assert caught.value is errors[2]
     assert caught.value.__context__ is None
+    assert caught.value.__suppress_context__ is False
     assert (operation.calls, sleeps) == (3, [10.0, 20.0])
 
 
@@ -158,6 +159,7 @@ def test_async_last_attempt_raises_its_own_error_without_a_wait() -> None:
 
     assert caught.value is errors[1]
     assert caught.value.__context__ is None
+    assert caught.value.__suppress_context__ is False
     assert (operation.calls, sleeps) == (2, [10.0])
 
 
