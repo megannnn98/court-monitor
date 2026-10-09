@@ -1,0 +1,69 @@
+"""The public API of `monitor_core`: four subpackages, each with a small `__all__`.
+
+Code outside the core imports from these, never from the modules behind them."""
+
+import importlib
+
+PUBLIC_API = {
+    "monitor_core.model": {
+        "IngestionResult",
+        "ParsedArticle",
+        "PersistenceResult",
+        "RawDocument",
+        "SourceReference",
+    },
+    "monitor_core.ports": {
+        "ArticleParser",
+        "DocumentFetcher",
+        "IngestionPersistence",
+        "SourceAdapter",
+    },
+    "monitor_core.ingestion": {
+        "ArticleIngestionPipeline",
+        "FetchedArticle",
+        "IngestionPipeline",
+        "RetryingDocumentFetcher",
+        "SourceIngestion",
+        "SourceIngestionFailure",
+        "SourceIngestionResult",
+    },
+    "monitor_core.errors": {
+        "DiscoveryError",
+        "FetchError",
+        "IngestionError",
+        "ListingPageNotFoundError",
+        "NoTextError",
+        "ParseError",
+        "PermanentDiscoveryError",
+        "PermanentFetchError",
+        "PersistenceError",
+        "TransientDiscoveryError",
+        "TransientFetchError",
+    },
+}
+
+
+def test_each_public_package_exports_exactly_its_api() -> None:
+    exported = {
+        name: set(getattr(importlib.import_module(name), "__all__", ())) for name in PUBLIC_API
+    }
+
+    assert exported == PUBLIC_API
+
+
+def test_every_exported_name_resolves() -> None:
+    missing = [
+        f"{package}.{name}"
+        for package, names in PUBLIC_API.items()
+        for name in names
+        if not hasattr(importlib.import_module(package), name)
+    ]
+
+    assert missing == []
+
+
+def test_the_core_package_root_exports_nothing() -> None:
+    # One import path per name: no catch-all re-export at the package root.
+    root = importlib.import_module("monitor_core")
+
+    assert getattr(root, "__all__", []) == []
