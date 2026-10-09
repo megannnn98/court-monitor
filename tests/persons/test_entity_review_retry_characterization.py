@@ -154,3 +154,43 @@ def test_another_exception_passes_through_unretried() -> None:
 
     assert caught.value is boom
     assert (reviewer.calls, sleeps) == (1, [])
+
+
+def test_an_interrupted_wait_carries_the_failure_it_waited_after() -> None:
+    class Interrupted(BaseException):
+        pass
+
+    def interrupt(seconds: float) -> None:
+        raise Interrupted
+
+    failure = transient(0)
+    service, reviewer, _ = _service([failure, RESULT], max_retries=3)
+    service._sleep = interrupt
+
+    with pytest.raises(Interrupted) as caught:
+        service._review_with_retries(REQUEST)
+
+    assert caught.value.__context__ is failure
+    assert reviewer.calls == 1
+
+
+def test_a_review_error_from_the_wait_is_not_taken_for_the_provider_s() -> None:
+    # The wait runs after the failed call, not inside it: what the wait raises leaves as
+    # it is, even an `EntityReviewError`, and is never reported as a provider failure.
+    interrupted = EntityReviewError("the wait broke", transient=False)
+
+    def interrupt(seconds: float) -> None:
+        raise interrupted
+
+    failure = transient(0)
+    service, reviewer, _ = _service([failure, RESULT], max_retries=3)
+    service._sleep = interrupt
+
+    with pytest.raises(EntityReviewError) as caught:
+        service._review_with_retries(REQUEST)
+
+    assert caught.value is interrupted
+    assert caught.value.__context__ is failure
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__ is False
+    assert reviewer.calls == 1

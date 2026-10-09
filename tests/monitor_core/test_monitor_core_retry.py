@@ -82,3 +82,26 @@ def test_a_failure_not_retryable_comes_out_at_once() -> None:
 def test_attempts_must_be_positive() -> None:
     with pytest.raises(ValueError, match="attempts"):
         _retry(Flaky([]), attempts=0, sleeps=[])
+
+
+def test_an_interrupted_wait_carries_the_failure_it_waited_after() -> None:
+    class Interrupted(BaseException):
+        pass
+
+    def interrupt(seconds: float) -> None:
+        raise Interrupted
+
+    failure = TimeoutError()
+    operation = Flaky([failure])
+
+    with pytest.raises(Interrupted) as caught:
+        retry(
+            operation,
+            attempts=3,
+            should_retry=lambda exc: True,
+            delay_seconds=lambda failures: 1.0,
+            sleep=interrupt,
+        )
+
+    assert caught.value.__context__ is failure
+    assert operation.calls == 1

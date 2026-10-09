@@ -24,7 +24,8 @@ def retry[T](
     After a failure that `should_retry` accepts, and if a call is left, waits
     `delay_seconds(failures)` — `failures` being how many calls have failed so far, from
     1 — and calls again. The last failure, or one `should_retry` rejects, is raised as
-    it was: the same object, with its own traceback."""
+    it was: the same object, with its own traceback. An exception that interrupts a wait
+    has the failure before it as its context."""
     if attempts < 1:
         raise ValueError("attempts must be at least 1")
     failures = 0
@@ -35,4 +36,5 @@ def retry[T](
             failures += 1
             if failures >= attempts or not should_retry(exc):
                 raise
-        sleep(delay_seconds(failures))
+            # Waited while the failure is handled: what interrupts the wait carries it.
+            sleep(delay_seconds(failures))
