@@ -12,6 +12,7 @@ CORE = SRC / "monitor_core"
 PUBLIC_CORE_PACKAGES = {
     "monitor_core.errors",
     "monitor_core.ingestion",
+    "monitor_core.llm",
     "monitor_core.model",
     "monitor_core.ports",
 }

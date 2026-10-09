@@ -1,4 +1,4 @@
-"""The public API of `monitor_core`: four subpackages, each with a small `__all__`.
+"""The public API of `monitor_core`: five subpackages, each with a small `__all__`.
 
 Code outside the core imports from these, never from the modules behind them."""
 
@@ -26,6 +26,12 @@ PUBLIC_API = {
         "SourceIngestion",
         "SourceIngestionFailure",
         "SourceIngestionResult",
+    },
+    "monitor_core.llm": {
+        "ChatCompletion",
+        "Endpoint",
+        "ModelError",
+        "request_json_chat",
     },
     "monitor_core.errors": {
         "DiscoveryError",
