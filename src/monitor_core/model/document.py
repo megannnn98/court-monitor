@@ -19,11 +19,8 @@ class ParsedArticle(BaseModel):
     text: str
 
 
-class PersistenceResult(BaseModel):
-    document_id: int
-    article_id: int
+class IngestionResult[R](BaseModel):
+    """An article and what its storage made of it: `R` is the storage's own result."""
 
-
-class IngestionResult(BaseModel):
     article: ParsedArticle
-    persistence: PersistenceResult
+    persistence: R

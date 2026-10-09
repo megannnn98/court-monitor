@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from monitor_core.ingestion import IngestionPipeline, SourceIngestion
 from monitor_core.llm import CHAT_ENVELOPE_ERRORS, post_json_chat, read_chat_completion
-from monitor_core.model import ParsedArticle, PersistenceResult, RawDocument, SourceReference
+from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 
 NEWS = {"acme-1": "Acme привлекла $10M", "beta-7": "Beta сменила CEO"}
 
@@ -52,11 +52,10 @@ class CompanyStore:
     def __init__(self) -> None:
         self.texts: dict[int, str] = {}
 
-    def save(self, raw_document: RawDocument, article: ParsedArticle) -> PersistenceResult:
+    def save(self, raw_document: RawDocument, article: ParsedArticle) -> int:
         key = len(self.texts) + 1
         self.texts[key] = article.text
-        # FRICTION: two int ids, one of them named after an "article"; this store has one key.
-        return PersistenceResult(document_id=key, article_id=key)
+        return key
 
 
 class CompanyEvent(BaseModel):
@@ -115,6 +114,7 @@ def test_a_company_monitor_runs_on_the_core_alone() -> None:
     events = [extract_event(http, text) for text in store.texts.values()]
 
     assert (len(result.results), result.failures) == (2, [])
+    assert [stored.persistence for stored in result.results] == [1, 2]
     assert events == [
         CompanyEvent(company="Acme", event_type="funding"),
         CompanyEvent(company="Beta", event_type="management_change"),

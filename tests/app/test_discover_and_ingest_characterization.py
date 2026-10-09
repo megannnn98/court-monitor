@@ -21,7 +21,8 @@ import pytest
 from cli.context import CliContext
 from cli.ingestion import run_discover_and_ingest
 from monitor_core.errors import TransientFetchError
-from monitor_core.model import ParsedArticle, PersistenceResult, RawDocument, SourceReference
+from monitor_core.model import ParsedArticle, RawDocument, SourceReference
+from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LISTING_HTML = (FIXTURES / "ovd_info_listing.html").read_bytes()
@@ -42,9 +43,13 @@ class RecordingPersistence:
         self.saved: list[tuple[RawDocument, ParsedArticle]] = []
         RecordingPersistence.instances.append(self)
 
-    def save(self, raw_document: RawDocument, article: ParsedArticle) -> PersistenceResult:
+    def save(
+        self, raw_document: RawDocument, article: ParsedArticle
+    ) -> SqlAlchemyPersistenceResult:
         self.saved.append((raw_document, article))
-        return PersistenceResult(document_id=100 + len(self.saved), article_id=len(self.saved))
+        return SqlAlchemyPersistenceResult(
+            document_id=100 + len(self.saved), article_id=len(self.saved)
+        )
 
 
 class FixtureWebsiteAdapter:

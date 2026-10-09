@@ -7,11 +7,11 @@ from monitor_core.model.source import SourceReference
 from monitor_core.ports.discovery import SourceAdapter
 
 
-class ArticleIngestionPipeline(Protocol):
+class ArticleIngestionPipeline[R](Protocol):
     async def run(
         self,
         reference: SourceReference,
-    ) -> IngestionResult: ...
+    ) -> IngestionResult[R]: ...
 
 
 @dataclass(frozen=True)
@@ -21,16 +21,16 @@ class SourceIngestionFailure:
 
 
 @dataclass(frozen=True)
-class SourceIngestionResult:
-    results: list[IngestionResult]
+class SourceIngestionResult[R]:
+    results: list[IngestionResult[R]]
     failures: list[SourceIngestionFailure]
 
 
-class SourceIngestion:
+class SourceIngestion[R]:
     def __init__(
         self,
         source_adapter: SourceAdapter,
-        pipeline: ArticleIngestionPipeline,
+        pipeline: ArticleIngestionPipeline[R],
     ) -> None:
         self._source_adapter = source_adapter
         self._pipeline = pipeline
@@ -39,10 +39,10 @@ class SourceIngestion:
         self,
         *,
         limit: int,
-    ) -> SourceIngestionResult:
+    ) -> SourceIngestionResult[R]:
         references = await self._source_adapter.discover(limit=limit)
 
-        results: list[IngestionResult] = []
+        results: list[IngestionResult[R]] = []
         failures: list[SourceIngestionFailure] = []
 
         for reference in references:

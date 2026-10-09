@@ -10,7 +10,10 @@ from monitor_core.ports import ArticleParser, DocumentFetcher, IngestionPersiste
 from sources.article_parser import OvdInfoArticleParser
 from sources.ovd_info.listing_parser import OvdInfoListingParser
 from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from sources.sqlalchemy_persistence import (
+    SqlAlchemyIngestionPersistence,
+    SqlAlchemyPersistenceResult,
+)
 from sources.website_adapter import WebsiteAdapter
 
 
@@ -24,7 +27,7 @@ def test_ovd_info_implementations_fit_the_core_ports() -> None:
         document_fetcher=fetcher,
     )
     parser: ArticleParser = OvdInfoArticleParser()
-    persistence: IngestionPersistence = SqlAlchemyIngestionPersistence(
+    persistence: IngestionPersistence[SqlAlchemyPersistenceResult] = SqlAlchemyIngestionPersistence(
         session_factory=sessionmaker[Session](),
         source_name="ОВД-Инфо",
         source_base_url="https://ovd.info",

@@ -3,12 +3,15 @@
 Code outside the core imports from these, never from the modules behind them."""
 
 import importlib
+import typing
+
+from monitor_core.model import IngestionResult
+from monitor_core.ports import IngestionPersistence
 
 PUBLIC_API = {
     "monitor_core.model": {
         "IngestionResult",
         "ParsedArticle",
-        "PersistenceResult",
         "RawDocument",
         "SourceReference",
     },
@@ -74,3 +77,15 @@ def test_the_core_package_root_exports_nothing() -> None:
     root = importlib.import_module("monitor_core")
 
     assert getattr(root, "__all__", []) == []
+
+
+def test_what_a_store_hands_back_is_the_store_s_own_type() -> None:
+    """The core passes a storage's result on without knowing its shape: no ids, no fields
+    of its own, only the type parameter the storage fills in."""
+    [result_type] = IngestionResult.__type_params__
+    [saved_type] = IngestionPersistence.__type_params__
+
+    assert set(IngestionResult.model_fields) == {"article", "persistence"}
+    persistence: object = IngestionResult.model_fields["persistence"].annotation
+    assert persistence is result_type
+    assert typing.get_type_hints(IngestionPersistence.save)["return"] is saved_type

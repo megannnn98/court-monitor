@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -8,7 +9,7 @@ from db.orm_models import (
     SourceDocument,
 )
 from monitor_core.errors import PersistenceError
-from monitor_core.model import ParsedArticle, PersistenceResult, RawDocument
+from monitor_core.model import ParsedArticle, RawDocument
 
 """
 Сохраняет результат обработки одной публикации в PostgreSQL.
@@ -22,6 +23,13 @@ RawDocument + ParsedArticle
  sources → source_documents → parsed_articles
 
 """
+
+
+class SqlAlchemyPersistenceResult(BaseModel):
+    """The rows a save wrote: its `source_documents` and its `parsed_articles` row."""
+
+    document_id: int
+    article_id: int
 
 
 class SqlAlchemyIngestionPersistence:
@@ -114,7 +122,7 @@ class SqlAlchemyIngestionPersistence:
         self,
         raw_document: RawDocument,
         article: ParsedArticle,
-    ) -> PersistenceResult:
+    ) -> SqlAlchemyPersistenceResult:
         try:
             with self._session_factory.begin() as session:
                 source = self._get_or_create_source(session)
@@ -131,7 +139,7 @@ class SqlAlchemyIngestionPersistence:
                     article,
                 )
 
-                return PersistenceResult(
+                return SqlAlchemyPersistenceResult(
                     document_id=document.id,
                     article_id=parsed_article.id,
                 )

@@ -11,7 +11,6 @@ from monitor_core.ingestion import FetchedArticle, IngestionPipeline
 from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
-    PersistenceResult,
     RawDocument,
     SourceReference,
 )
@@ -49,12 +48,13 @@ class Persistence:
     def __init__(self) -> None:
         self.saved: list[tuple[RawDocument, ParsedArticle]] = []
 
-    def save(self, raw_document: RawDocument, article: ParsedArticle) -> PersistenceResult:
+    def save(self, raw_document: RawDocument, article: ParsedArticle) -> int:
+        """What a store hands back is its own: here, one key."""
         self.saved.append((raw_document, article))
-        return PersistenceResult(document_id=10, article_id=20)
+        return 20
 
 
-def _pipeline() -> tuple[IngestionPipeline, Fetcher, Persistence]:
+def _pipeline() -> tuple[IngestionPipeline[int], Fetcher, Persistence]:
     fetcher, persistence = Fetcher(), Persistence()
     return IngestionPipeline(fetcher, Parser(), persistence), fetcher, persistence
 
@@ -78,9 +78,7 @@ def test_save_stores_what_was_read() -> None:
     result = pipeline.save(fetched)
 
     assert persistence.saved == [(fetched.raw_document, fetched.article)]
-    assert result == IngestionResult(
-        article=fetched.article, persistence=PersistenceResult(document_id=10, article_id=20)
-    )
+    assert result == IngestionResult(article=fetched.article, persistence=20)
 
 
 def test_run_reads_then_saves() -> None:
@@ -90,7 +88,7 @@ def test_run_reads_then_saves() -> None:
 
     assert fetcher.fetched == ["a"]
     assert [article for _, article in persistence.saved] == [result.article]
-    assert result.persistence.article_id == 20
+    assert result.persistence == 20
 
 
 def test_a_parse_failure_leaves_nothing_saved() -> None:

@@ -15,7 +15,7 @@ class FetchedArticle:
     article: ParsedArticle
 
 
-class IngestionPipeline:
+class IngestionPipeline[R]:
     """Fetch, parse and save one reference.
 
     `run` does all three. A caller that decides between parsing and saving (skips an
@@ -25,13 +25,13 @@ class IngestionPipeline:
         self,
         source_adapter: DocumentFetcher,
         parser: ArticleParser,
-        persistence: IngestionPersistence,
+        persistence: IngestionPersistence[R],
     ) -> None:
         self._source_adapter = source_adapter
         self._parser = parser
         self._persistence = persistence
 
-    async def run(self, reference: SourceReference) -> IngestionResult:
+    async def run(self, reference: SourceReference) -> IngestionResult[R]:
         return self.save(await self.read(reference))
 
     async def read(self, reference: SourceReference) -> FetchedArticle:
@@ -39,7 +39,7 @@ class IngestionPipeline:
         parsed = self._parser.parse(raw_document)
         return FetchedArticle(raw_document=raw_document, article=parsed)
 
-    def save(self, fetched: FetchedArticle) -> IngestionResult:
+    def save(self, fetched: FetchedArticle) -> IngestionResult[R]:
         persistence_result = self._persistence.save(
             fetched.raw_document,
             fetched.article,

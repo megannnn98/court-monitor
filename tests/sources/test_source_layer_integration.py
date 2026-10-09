@@ -16,7 +16,6 @@ from monitor_core.ingestion import IngestionPipeline, SourceIngestion, SourceIng
 from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
-    PersistenceResult,
     RawDocument,
     SourceReference,
 )
@@ -27,6 +26,7 @@ from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
+from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 
 class FakePersistence:
@@ -37,9 +37,9 @@ class FakePersistence:
         self,
         raw_document: RawDocument,
         article: ParsedArticle,
-    ) -> PersistenceResult:
+    ) -> SqlAlchemyPersistenceResult:
         self.saved.append((raw_document, article))
-        return PersistenceResult(document_id=len(self.saved), article_id=len(self.saved))
+        return SqlAlchemyPersistenceResult(document_id=len(self.saved), article_id=len(self.saved))
 
 
 class DictionaryDocumentFetcher:
@@ -194,7 +194,11 @@ async def _run_chain(
     handle_listing_request: Callable[[httpx.Request], httpx.Response],
     outcomes: dict[str, RawDocument | Exception],
     limit: int,
-) -> tuple[list[IngestionResult], list[SourceIngestionFailure], DictionaryDocumentFetcher]:
+) -> tuple[
+    list[IngestionResult[SqlAlchemyPersistenceResult]],
+    list[SourceIngestionFailure],
+    DictionaryDocumentFetcher,
+]:
     transport = httpx.MockTransport(handle_listing_request)
     fetcher = DictionaryDocumentFetcher(outcomes)
     persistence = FakePersistence()
