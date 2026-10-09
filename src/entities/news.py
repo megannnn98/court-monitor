@@ -35,14 +35,13 @@ from entities.evidence import person_evidence_cte
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
-    Endpoint,
-    ModelError,
     Spend,
     budget_from_env,
     chat_json,
     endpoint_from_env,
 )
 from entities.politics import POLITICAL
+from monitor_core.llm import Endpoint, ModelError
 
 logger = logging.getLogger("entities")
 

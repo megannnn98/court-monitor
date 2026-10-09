@@ -19,7 +19,8 @@ from typing import Any, Literal
 import httpx
 from pydantic import BaseModel, Field
 
-from entities.llm import Endpoint, ModelError, Spend, chat_json, endpoint_from_env
+from entities.llm import Spend, chat_json, endpoint_from_env
+from monitor_core.llm import Endpoint, ModelError
 
 PROMPT_VERSION = "junk-labels-v1"
 BATCH = 8

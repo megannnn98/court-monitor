@@ -40,14 +40,13 @@ from entities.known_base import TrackedCase, TrackedCases
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
-    Endpoint,
-    ModelError,
     Spend,
     budget_from_env,
     chat_json,
     endpoint_from_env,
 )
 from entities.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
+from monitor_core.llm import Endpoint, ModelError
 from persecution.classifier import POLITICAL_ARTICLES
 
 logger = logging.getLogger("entities")

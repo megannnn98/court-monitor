@@ -42,8 +42,6 @@ from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     BudgetExceededError,
-    Endpoint,
-    ModelError,
     Spend,
     ask_in_batches,
     budget_from_env,
@@ -51,6 +49,7 @@ from entities.llm import (
     endpoint_from_env,
 )
 from entities.regions import canonical
+from monitor_core.llm import Endpoint, ModelError
 
 logger = logging.getLogger("entities")
 

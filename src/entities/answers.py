@@ -28,7 +28,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from entities.disputes import KeyIndex
-from entities.llm import BudgetExceededError, ModelError, Spend, ask_in_batches
+from entities.llm import BudgetExceededError, Spend, ask_in_batches
+from monitor_core.llm import ModelError
 
 logger = logging.getLogger("entities")
 

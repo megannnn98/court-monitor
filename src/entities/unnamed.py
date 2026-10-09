@@ -54,14 +54,13 @@ from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.llm import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
-    Endpoint,
-    ModelError,
     Spend,
     budget_from_env,
     chat_json,
     endpoint_from_env,
 )
 from entities.politics import COMMON_CRIME_ARTICLES
+from monitor_core.llm import Endpoint, ModelError
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")

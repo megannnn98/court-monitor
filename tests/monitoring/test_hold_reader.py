@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import ExtractedEventRecord, JunkScreenHoldRecord, ParsedArticleRecord
-from entities.llm import ModelError, Spend
+from entities.llm import Spend
+from monitor_core.llm import ModelError
 from monitoring.hold_reader import (
     EXTRACTOR_NAME,
     RELEASED,
