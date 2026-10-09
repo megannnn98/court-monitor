@@ -6,16 +6,6 @@ from selectolax.parser import HTMLParser, Node
 from monitor_core.errors import ParseError
 from monitor_core.model import ParsedArticle, RawDocument
 
-# The parser port lives in `monitor_core.ports`; re-exported for existing imports.
-from monitor_core.ports import ArticleParser
-
-__all__ = [
-    "OVD_INFO_TIMEZONE",
-    "ArticleParser",
-    "OvdInfoArticleParser",
-]
-
-
 OVD_INFO_TIMEZONE = ZoneInfo("Europe/Moscow")
 
 

@@ -2,25 +2,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-# The ingestion data lives in `monitor_core.model`; re-exported for existing imports.
-from monitor_core.model.document import (
-    IngestionResult,
-    ParsedArticle,
-    PersistenceResult,
-    RawDocument,
-)
-from monitor_core.model.source import SourceReference
-
-__all__ = [
-    "IngestionResult",
-    "ParsedArticle",
-    "PersistenceResult",
-    "RawDocument",
-    "SearchHit",
-    "SearchQuery",
-    "SourceReference",
-]
-
 
 class SearchQuery(BaseModel):
     text: str
