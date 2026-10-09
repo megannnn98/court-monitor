@@ -111,6 +111,25 @@ def _stored(session_factory: sessionmaker[Session]) -> list[tuple[str, str, date
     return [(row[0], row[1], row[2]) for row in rows]
 
 
+def _offset_document_ids(session_factory: sessionmaker[Session]) -> None:
+    """A document of another source without a parsed article: document and article ids
+    then differ, so a run handing on the wrong one is caught."""
+    with session_factory.begin() as session:
+        other = Source(name="Other", base_url="https://other.test")
+        session.add(other)
+        session.flush()
+        session.add(
+            SourceDocument(
+                source_id=other.id,
+                external_id="orphan",
+                canonical_url="https://other.test/orphan",
+                fetched_at=IN_RANGE,
+                content_type="text/html",
+                raw_content=b"",
+            )
+        )
+
+
 def _load(
     service: MonitoringService,
     *,
@@ -135,6 +154,7 @@ def _load(
 def test_ingestion_stage_selects_fetches_skips_and_counts_as_before(
     session_factory: sessionmaker[Session],
 ) -> None:
+    _offset_document_ids(session_factory)
     upstream = FakeUpstream()
     upstream.publish("a-known", "Уже сохранённая статья.", published_at=IN_RANGE)
     service = _service(session_factory, upstream, {})
