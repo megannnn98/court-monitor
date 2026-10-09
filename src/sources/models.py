@@ -2,36 +2,24 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+# The ingestion data lives in `monitor_core.model`; re-exported for existing imports.
+from monitor_core.model.document import (
+    IngestionResult,
+    ParsedArticle,
+    PersistenceResult,
+    RawDocument,
+)
+from monitor_core.model.source import SourceReference
 
-class SourceReference(BaseModel):
-    external_id: str
-    url: str
-
-
-class RawDocument(BaseModel):
-    external_id: str
-    url: str
-    fetched_at: datetime
-    content_type: str
-    content: bytes
-
-
-class ParsedArticle(BaseModel):
-    external_id: str
-    url: str
-    title: str
-    published_at: datetime | None
-    text: str
-
-
-class PersistenceResult(BaseModel):
-    document_id: int
-    article_id: int
-
-
-class IngestionResult(BaseModel):
-    article: ParsedArticle
-    persistence: PersistenceResult
+__all__ = [
+    "IngestionResult",
+    "ParsedArticle",
+    "PersistenceResult",
+    "RawDocument",
+    "SearchHit",
+    "SearchQuery",
+    "SourceReference",
+]
 
 
 class SearchQuery(BaseModel):
