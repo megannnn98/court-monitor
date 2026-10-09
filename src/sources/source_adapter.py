@@ -1,22 +1,17 @@
 from collections.abc import Callable, Sequence
 from typing import Protocol, runtime_checkable
 
-from sources.models import RawDocument, SourceReference
+# The discovery and fetch ports live in `monitor_core.ports`; re-exported for existing imports.
+from monitor_core.ports.discovery import SourceAdapter
+from monitor_core.ports.fetcher import DocumentFetcher
+from sources.models import SourceReference
 
-
-class DocumentFetcher(Protocol):
-    async def fetch(
-        self,
-        reference: SourceReference,
-    ) -> RawDocument: ...
-
-
-class SourceAdapter(DocumentFetcher, Protocol):
-    async def discover(
-        self,
-        *,
-        limit: int,
-    ) -> list[SourceReference]: ...
+__all__ = [
+    "DiscoversUntilKnown",
+    "DocumentFetcher",
+    "KnownIds",
+    "SourceAdapter",
+]
 
 
 # Which of these external ids are already stored.

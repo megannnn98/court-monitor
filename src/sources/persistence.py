@@ -1,11 +1,5 @@
-from typing import Protocol
+"""The persistence port lives in `monitor_core.ports`; re-exported for existing imports."""
 
-from sources.models import ParsedArticle, PersistenceResult, RawDocument
+from monitor_core.ports.persistence import IngestionPersistence
 
-
-class IngestionPersistence(Protocol):
-    def save(
-        self,
-        raw_document: RawDocument,
-        article: ParsedArticle,
-    ) -> PersistenceResult: ...
+__all__ = ["IngestionPersistence"]

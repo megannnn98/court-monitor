@@ -1,24 +1,25 @@
 from datetime import datetime
-from typing import Protocol
 from zoneinfo import ZoneInfo
 
 from selectolax.parser import HTMLParser, Node
 
+# The parser port lives in `monitor_core.ports`; re-exported for existing imports.
+from monitor_core.ports.parser import ArticleParser
 from sources.ingestion_errors import ParseError
 from sources.models import ParsedArticle, RawDocument
+
+__all__ = [
+    "OVD_INFO_TIMEZONE",
+    "ArticleParser",
+    "OvdInfoArticleParser",
+]
+
 
 OVD_INFO_TIMEZONE = ZoneInfo("Europe/Moscow")
 
 
 def _extract_text(node: Node) -> str:
     return " ".join(node.text().split())
-
-
-class ArticleParser(Protocol):
-    def parse(
-        self,
-        raw: RawDocument,
-    ) -> ParsedArticle: ...
 
 
 class OvdInfoArticleParser:
