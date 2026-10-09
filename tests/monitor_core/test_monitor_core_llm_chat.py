@@ -103,6 +103,16 @@ def test_the_envelope_is_read_as_sent() -> None:
     )
 
 
+@pytest.mark.parametrize(("sent", "read"), [(None, {}), ([1], [1]), (5, 5)])
+def test_usage_is_passed_on_unchecked(sent: object, read: object) -> None:
+    # Only a missing or empty usage becomes `{}`; any other value is the caller's to judge.
+    response = httpx.Response(
+        200, json={"choices": [{"message": {"content": "{}"}}], "usage": sent}
+    )
+
+    assert read_chat_completion(response).usage == read
+
+
 @pytest.mark.parametrize(
     "response",
     [

@@ -25,7 +25,8 @@ class ChatCompletion:
 
     content: object
     finish_reason: object
-    usage: Mapping[str, Any]
+    # Whatever truthy value the provider sent, `{}` when none: not checked to be a mapping.
+    usage: Any
     model: object
 
 

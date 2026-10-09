@@ -135,6 +135,7 @@ def test_the_answer_its_model_and_usage() -> None:
         ({}, "config/model", LlmUsage()),
         ({"model": 7, "usage": None}, "config/model", LlmUsage()),
         ({"usage": {"prompt_tokens": "many"}}, "config/model", LlmUsage()),
+        ({"usage": [1]}, "config/model", LlmUsage()),
         ({"usage": {"total_tokens": 9, "cost": 0.1}}, "config/model", LlmUsage(total_tokens=9)),
     ],
 )
