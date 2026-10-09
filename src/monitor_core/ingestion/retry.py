@@ -4,6 +4,7 @@ from monitor_core.errors import TransientFetchError
 from monitor_core.model.document import RawDocument
 from monitor_core.model.source import SourceReference
 from monitor_core.ports.fetcher import DocumentFetcher
+from monitor_core.retry import retry_async
 
 
 class RetryingDocumentFetcher:
@@ -28,16 +29,10 @@ class RetryingDocumentFetcher:
         self,
         reference: SourceReference,
     ) -> RawDocument:
-        for attempt in range(self._max_attempts):
-            try:
-                return await self._fetcher.fetch(reference)
-            except TransientFetchError:
-                is_last_attempt = attempt == self._max_attempts - 1
-
-                if is_last_attempt:
-                    raise
-
-                delay = self._base_delay_seconds * (2**attempt)
-                await asyncio.sleep(delay)
-
-        raise AssertionError("unreachable")
+        return await retry_async(
+            lambda: self._fetcher.fetch(reference),
+            attempts=self._max_attempts,
+            should_retry=lambda exc: isinstance(exc, TransientFetchError),
+            delay_seconds=lambda failures: self._base_delay_seconds * (2 ** (failures - 1)),
+            sleep=asyncio.sleep,
+        )
