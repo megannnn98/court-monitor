@@ -1,10 +1,10 @@
 from collections.abc import Callable, Sequence
 from typing import Protocol, runtime_checkable
 
+from monitor_core.model import SourceReference
+
 # The discovery and fetch ports live in `monitor_core.ports`; re-exported for existing imports.
-from monitor_core.ports.discovery import SourceAdapter
-from monitor_core.ports.fetcher import DocumentFetcher
-from sources.models import SourceReference
+from monitor_core.ports import DocumentFetcher, SourceAdapter
 
 __all__ = [
     "DiscoversUntilKnown",

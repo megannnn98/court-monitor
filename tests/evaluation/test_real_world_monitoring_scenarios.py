@@ -35,7 +35,7 @@ from evaluation.real_world.monitoring_simulation import (
 )
 from evaluation.real_world.results import GateStatus
 from evaluation.real_world.state_snapshot import check_invariants
-from sources.models import RawDocument
+from monitor_core.model import RawDocument
 from sources.source_registry import OVD_INFO
 
 STORIES = [

@@ -2,15 +2,15 @@ import asyncio
 
 import pytest
 
-from sources.ingestion_errors import IngestionError
-from sources.models import (
+from monitor_core.errors import IngestionError
+from monitor_core.ingestion import SourceIngestion, SourceIngestionResult
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
     PersistenceResult,
     RawDocument,
     SourceReference,
 )
-from sources.source_ingestion import SourceIngestion, SourceIngestionResult
 
 REFERENCES = [
     SourceReference(

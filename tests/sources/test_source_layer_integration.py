@@ -11,26 +11,22 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from sources.article_parser import ArticleParser, OvdInfoArticleParser
-from sources.ingestion_errors import (
-    ParseError,
-    PermanentDiscoveryError,
-)
-from sources.ingestion_pipeline import IngestionPipeline
-from sources.models import (
+from monitor_core.errors import ParseError, PermanentDiscoveryError
+from monitor_core.ingestion import IngestionPipeline, SourceIngestion, SourceIngestionFailure
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
     PersistenceResult,
     RawDocument,
     SourceReference,
 )
+from monitor_core.ports import ArticleParser, SourceAdapter
+from sources.article_parser import OvdInfoArticleParser
 from sources.ovd_info.listing_parser import OvdInfoListingParser
 from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 from sources.sota_vision.article_parser import SotaVisionArticleParser
 from sources.sota_vision.listing_parser import SotaVisionListingParser
 from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.source_adapter import SourceAdapter
-from sources.source_ingestion import SourceIngestion, SourceIngestionFailure
 
 
 class FakePersistence:

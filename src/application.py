@@ -23,6 +23,8 @@ from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from monitor_core.ingestion import RetryingDocumentFetcher
+from monitor_core.ports import DocumentFetcher
 from monitoring.findings import MonitoringFindingService, MonitoringQueryProvider
 from monitoring.models import MonitoringSettings
 from monitoring.repository import SqlAlchemyMonitoringRepository
@@ -38,8 +40,6 @@ from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from settings import ApplicationSettings
-from sources.retrying_fetcher import RetryingDocumentFetcher
-from sources.source_adapter import DocumentFetcher
 from sources.source_registry import SOURCES, SourceDefinition
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from sources.website_adapter import WebsiteAdapter

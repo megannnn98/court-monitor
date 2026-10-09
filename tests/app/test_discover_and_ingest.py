@@ -6,8 +6,8 @@ import httpx
 import pytest
 
 from cli.ingestion import discover_and_ingest
-from sources.ingestion_errors import ParseError
-from sources.models import (
+from monitor_core.errors import ParseError
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
     PersistenceResult,

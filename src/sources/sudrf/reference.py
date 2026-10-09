@@ -1,7 +1,7 @@
 import re
 from urllib.parse import SplitResult, parse_qs, urljoin, urlsplit
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 
 NEWS_PATH = "/modules.php"
 LISTING_QUERY = "name=press_dep"

@@ -20,8 +20,8 @@ import pytest
 
 from cli.context import CliContext
 from cli.ingestion import run_discover_and_ingest
-from sources.ingestion_errors import TransientFetchError
-from sources.models import ParsedArticle, PersistenceResult, RawDocument, SourceReference
+from monitor_core.errors import TransientFetchError
+from monitor_core.model import ParsedArticle, PersistenceResult, RawDocument, SourceReference
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LISTING_HTML = (FIXTURES / "ovd_info_listing.html").read_bytes()

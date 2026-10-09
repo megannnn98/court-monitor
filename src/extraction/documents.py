@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ParsedArticleRecord, Source, SourceDocument
 from extraction.models import ExtractionDocument
-from sources.models import ParsedArticle
+from monitor_core.model import ParsedArticle
 
 
 def content_hash_for_text(text: str) -> str:

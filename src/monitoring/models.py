@@ -13,7 +13,7 @@ import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-from sources.ingestion_errors import PersistenceError, TransientDiscoveryError, TransientFetchError
+from monitor_core.errors import PersistenceError, TransientDiscoveryError, TransientFetchError
 from sources.source_registry import SOURCES
 
 # Every registered source: the two websites and the monitored Telegram channels.

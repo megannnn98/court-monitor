@@ -7,8 +7,8 @@ from db.orm_models import (
     Source,
     SourceDocument,
 )
-from sources.ingestion_errors import PersistenceError
-from sources.models import ParsedArticle, PersistenceResult, RawDocument
+from monitor_core.errors import PersistenceError
+from monitor_core.model import ParsedArticle, PersistenceResult, RawDocument
 
 """
 Сохраняет результат обработки одной публикации в PostgreSQL.

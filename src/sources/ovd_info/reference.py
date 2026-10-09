@@ -1,6 +1,6 @@
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 
 OVD_INFO_BASE_URL = "https://ovd.info"
 OVD_INFO_NETLOC = "ovd.info"

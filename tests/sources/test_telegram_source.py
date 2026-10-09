@@ -5,8 +5,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from sources.ingestion_errors import NoTextError, ParseError
-from sources.models import RawDocument, SourceReference
+from monitor_core.errors import NoTextError, ParseError
+from monitor_core.model import RawDocument, SourceReference
 from sources.source_registry import SOURCES, get_source_definition, telegram_source
 from sources.telegram.article_parser import TelegramPostParser
 from sources.telegram.channels import load_telegram_channels

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from sources.models import RawDocument, SourceReference
-from sources.source_adapter import SourceAdapter
+from monitor_core.model import RawDocument, SourceReference
+from monitor_core.ports import SourceAdapter
 
 
 class FakeSourceAdapter:

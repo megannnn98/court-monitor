@@ -7,8 +7,8 @@ from extraction.metrics import InMemoryExtractionPersistence
 from extraction.models import EntityType, EventType, ExtractionRunStatus
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.pipeline import ExtractionPipeline
+from monitor_core.model import RawDocument
 from sources.article_parser import OvdInfoArticleParser
-from sources.models import RawDocument
 
 
 def test_html_fixture_to_extraction_result() -> None:

@@ -1,6 +1,6 @@
 from selectolax.parser import HTMLParser
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 from sources.sudrf.reference import (
     LISTING_QUERY,
     archive_year,

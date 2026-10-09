@@ -12,8 +12,8 @@ from datetime import datetime
 
 from selectolax.parser import HTMLParser
 
-from sources.ingestion_errors import ParseError
-from sources.models import ParsedArticle, RawDocument
+from monitor_core.errors import ParseError
+from monitor_core.model import ParsedArticle, RawDocument
 from sources.rss.source_adapter import RssItem
 
 KOMMERSANT_FEED_URL = "https://www.kommersant.ru/rss/news.xml"

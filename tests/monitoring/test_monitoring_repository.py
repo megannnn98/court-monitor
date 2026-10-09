@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from monitor_core.errors import PermanentFetchError, TransientFetchError
 from monitoring.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
@@ -20,7 +21,6 @@ from monitoring.models import (
     source_scope,
 )
 from monitoring.repository import SqlAlchemyMonitoringRepository
-from sources.ingestion_errors import PermanentFetchError, TransientFetchError
 
 STALE_AFTER = timedelta(minutes=120)
 

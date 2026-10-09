@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from sources.models import RawDocument, SourceReference
+from monitor_core.model import RawDocument, SourceReference
 from sources.sudrf.listing_parser import SudrfListingParser
 from sources.sudrf.source_adapter import SudrfSourceAdapter
 

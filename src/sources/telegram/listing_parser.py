@@ -5,7 +5,7 @@ from datetime import datetime
 
 from selectolax.parser import HTMLParser
 
-from sources.models import SourceReference
+from monitor_core.model import SourceReference
 from sources.telegram.article_parser import own_text_node
 
 

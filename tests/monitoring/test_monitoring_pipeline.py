@@ -29,6 +29,7 @@ from db.orm_models import (
     PersonResolutionDecisionRecord,
     RosfinMatchRecord,
 )
+from monitor_core.errors import TransientDiscoveryError
 from monitoring.findings import ENBV_CRITERIA_VERSION, NO_RF_SNAPSHOT, POLITICAL_NOT_IN_RF
 from monitoring.models import (
     FailureKind,
@@ -44,7 +45,6 @@ from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from persons.resolution.service import RESOLVER_VERSION
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from sources.ingestion_errors import TransientDiscoveryError
 
 DOMAIN_TABLES = (
     "source_documents",

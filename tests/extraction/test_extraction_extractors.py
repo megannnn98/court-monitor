@@ -7,7 +7,7 @@ from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
 from extraction.models import EntityType, EventEntityRole, EventType, ExtractionDocument, RawMention
 from extraction.normalizers import RuleBasedMentionNormalizer
-from sources.models import ParsedArticle
+from monitor_core.model import ParsedArticle
 
 
 def make_document(text: str) -> ExtractionDocument:

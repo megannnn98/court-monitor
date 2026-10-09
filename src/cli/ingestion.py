@@ -9,10 +9,13 @@ from collections.abc import Callable
 import httpx
 
 from cli.context import CliContext
-from monitor_core.ingestion.pipeline import IngestionPipeline
-from monitor_core.ingestion.retry import RetryingDocumentFetcher
-from monitor_core.ingestion.source_ingestion import ArticleIngestionPipeline, SourceIngestion
-from monitor_core.ports.fetcher import DocumentFetcher
+from monitor_core.ingestion import (
+    ArticleIngestionPipeline,
+    IngestionPipeline,
+    RetryingDocumentFetcher,
+    SourceIngestion,
+)
+from monitor_core.ports import DocumentFetcher
 from sources.article_parser import OvdInfoArticleParser
 from sources.ovd_info.reference import canonicalize_ovd_info_reference
 from sources.source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition

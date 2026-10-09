@@ -2,8 +2,8 @@ from datetime import datetime
 
 from selectolax.parser import HTMLParser, Node
 
-from sources.ingestion_errors import NoTextError, ParseError
-from sources.models import ParsedArticle, RawDocument
+from monitor_core.errors import NoTextError, ParseError
+from monitor_core.model import ParsedArticle, RawDocument
 
 TITLE_MAX_CHARS = 120
 _REPLY = "tgme_widget_message_reply"

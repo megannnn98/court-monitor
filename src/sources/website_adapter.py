@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 import httpx
 
-from sources.ingestion_errors import PermanentFetchError, TransientFetchError
-from sources.models import RawDocument, SourceReference
+from monitor_core.errors import PermanentFetchError, TransientFetchError
+from monitor_core.model import RawDocument, SourceReference
 
 
 class WebsiteAdapter:

@@ -29,6 +29,9 @@ from extraction.extractors import RuleBasedEntityExtractor
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
+from monitor_core.errors import PermanentFetchError, PersistenceError, TransientFetchError
+from monitor_core.model import ParsedArticle, PersistenceResult, RawDocument, SourceReference
+from monitor_core.ports import DocumentFetcher, SourceAdapter
 from monitoring.models import (
     FailureKind,
     MonitoringRunStatus,
@@ -37,9 +40,6 @@ from monitoring.models import (
     MonitoringTrigger,
 )
 from monitoring.service import DiscoveryResult, IngestionResult, MonitoringService
-from sources.ingestion_errors import PermanentFetchError, PersistenceError, TransientFetchError
-from sources.models import ParsedArticle, PersistenceResult, RawDocument, SourceReference
-from sources.source_adapter import DocumentFetcher, SourceAdapter
 from sources.source_registry import SourceDefinition
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 

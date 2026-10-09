@@ -29,7 +29,7 @@ from db.orm_models import (
 )
 from extraction.parallel_resolution import resolve_runs
 from extraction.persistence import SqlAlchemyExtractionPersistence
-from sources.models import ParsedArticle, RawDocument
+from monitor_core.model import ParsedArticle, RawDocument
 from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 TEXTS = [SIDOROV, PETROV, IVANOV]

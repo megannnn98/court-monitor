@@ -7,14 +7,14 @@ from datetime import UTC, datetime
 import pytest
 
 from monitor_core.errors import ParseError
-from monitor_core.ingestion.pipeline import FetchedArticle, IngestionPipeline
-from monitor_core.model.document import (
+from monitor_core.ingestion import FetchedArticle, IngestionPipeline
+from monitor_core.model import (
     IngestionResult,
     ParsedArticle,
     PersistenceResult,
     RawDocument,
+    SourceReference,
 )
-from monitor_core.model.source import SourceReference
 
 REFERENCE = SourceReference(external_id="a", url="https://example.test/a")
 RAW = RawDocument(
