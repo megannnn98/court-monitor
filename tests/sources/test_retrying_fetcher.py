@@ -162,7 +162,7 @@ def test_fetch_uses_exponential_backoff() -> None:
         )
 
         with patch(
-            "sources.retrying_fetcher.asyncio.sleep",
+            "monitor_core.ingestion.retry.asyncio.sleep",
             new_callable=AsyncMock,
         ) as sleep:
             result = await retrying_fetcher.fetch(REFERENCE)
