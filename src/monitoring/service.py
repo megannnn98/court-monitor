@@ -27,6 +27,7 @@ from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.models import ExtractionRunStatus
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from monitor_core.ingestion.pipeline import IngestionPipeline
 from monitoring.findings import NO_RF_SNAPSHOT, MonitoringFindingService
 from monitoring.locks import advisory_lock
 from monitoring.models import (
@@ -487,14 +488,15 @@ class MonitoringService:
         article_ids: list[int] = []
         outcomes: Counter[str] = Counter()
         async with self._deps.create_http_client() as client:
-            adapter = definition.create_adapter(client, self._deps.create_fetcher())
-            parser = definition.create_parser()
-            persistence = self._deps.create_ingestion_persistence(definition)
+            pipeline = IngestionPipeline(
+                source_adapter=definition.create_adapter(client, self._deps.create_fetcher()),
+                parser=definition.create_parser(),
+                persistence=self._deps.create_ingestion_persistence(definition),
+            )
             for reference in references:
                 self._repository.heartbeat(handle.run_id)
                 try:
-                    raw_document = await adapter.fetch(reference)
-                    parsed = parser.parse(raw_document)
+                    fetched = await pipeline.read(reference)
                 except NoTextError:
                     # Nothing to read, nothing broken: a skip, not a failure of the run.
                     logger.info(
@@ -516,6 +518,7 @@ class MonitoringService:
                     self._repository.add_counters(handle.run_id, {"documents_failed": 1})
                     outcomes[f"failed_{kind.value}"] += 1
                     continue
+                parsed = fetched.article
                 if not _published_in_range(
                     parsed, published_from=handle.published_from, published_to=handle.published_to
                 ):
@@ -529,8 +532,8 @@ class MonitoringService:
                     self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
                     outcomes[_published_skip_reason(parsed)] += 1
                     continue
-                result = persistence.save(raw_document, parsed)
-                article_ids.append(result.article_id)
+                result = pipeline.save(fetched)
+                article_ids.append(result.persistence.article_id)
                 self._repository.add_counters(handle.run_id, {"documents_ingested": 1})
                 outcomes["ingested"] += 1
         return article_ids, outcomes
