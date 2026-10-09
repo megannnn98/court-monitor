@@ -23,6 +23,8 @@ _Avoid_: документ, статья (без уточнения стадии)
 Запись о загруженной публикации в БД: внешний ID, канонический URL, сырое содержимое. Персистентный аналог `RawDocument`, связан с `Source`.
 _Avoid_: документ (без уточнения — используй только когда стадия ясна из контекста)
 
+Типы `SourceReference`, `RawDocument`, `ParsedArticle`, `SourceAdapter`, `SourceIngestion`, `IngestionPipeline` и ошибки ingestion живут в переиспользуемом ядре `monitor_core` (ADR 0023, [Monitor Core](docs/wiki/Monitor-Core.md)); источники, парсеры и хранилище — в `sources/`.
+
 **SourceAdapter**:
 Протокол источника: `discover(limit)` находит ссылки на статьи (листинг + pagination) → `list[SourceReference]`; `fetch(reference)` (унаследовано от `DocumentFetcher`) загружает одну статью → `RawDocument`. Один источник = один `SourceAdapter` + один `ArticleParser`, зарегистрированные в `sources/source_registry.py`.
 
@@ -30,7 +32,7 @@ _Avoid_: документ (без уточнения — используй то
 Оркестратор пакетной загрузки: `SourceAdapter.discover` → по каждой ссылке `IngestionPipeline.run`. Ошибка одной статьи (`IngestionError`) не прерывает остальные — попадает в `SourceIngestionResult.failures`.
 
 **IngestionPipeline**:
-Оркестратор одной статьи: `DocumentFetcher.fetch` → `ArticleParser.parse` → `IngestionPersistence.save`. Результат — `IngestionResult`. Источник-агностичен — конкретный fetcher/parser передаются снаружи.
+Оркестратор одной статьи: `DocumentFetcher.fetch` → `ArticleParser.parse` → `IngestionPersistence.save`. Результат — `IngestionResult[R]`, где `R` — то, что вернуло хранилище (у Court Monitor — `SqlAlchemyPersistenceResult` с `document_id` и `article_id`). Источник-агностичен — конкретный fetcher/parser/persistence передаются снаружи. Шаги доступны и по отдельности (`read` / `save`) — так их использует `MonitoringService`.
 
 **MonitoringRun**:
 Один прогон automated monitoring (ADR 0013) по источнику (`scope = source:<name>`) или только derived-этапов (`scope = derived`): статус, счётчики, метрики этапов, упавшие объекты (`monitoring_run_items`). Orchestration state, не доменные данные; одновременно не больше одного `running` на scope.

@@ -31,6 +31,7 @@ Status](Implementation-Status.md).
 - [Getting Started](Getting-Started.md) — быстрый локальный запуск, ручной pipeline, API, проверки, monitoring, production-like profile
 - [Overview](Overview.md) — архитектура целиком, поток данных
 - [Ingestion](Ingestion.md) — загрузка, разбор HTML, полный текст статьи
+- [Monitor Core](Monitor-Core.md) — переиспользуемое ядро: модели и протоколы ingestion, конвейер, OpenAI-совместимый транспорт, retry; границы ядра и что осталось в приложении
 - [Data-Model](Data-Model.md) — таблицы PostgreSQL, persistence
 - [Extraction](Extraction.md) — mention extraction, normalization, events, metrics
 - [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review

@@ -9,6 +9,8 @@
 
 `SourceIngestion.run(limit)` связывает оба уровня: discovery, затем `IngestionPipeline.run()` по очереди для каждой ссылки. Ошибка одной статьи (`IngestionError`) не прерывает обработку остальных — попадает в `SourceIngestionResult.failures`; программная ошибка (например, `TypeError`) не перехватывается и пробрасывается наверх.
 
+Модели, протоколы, `IngestionPipeline`, `SourceIngestion`, `RetryingDocumentFetcher` и ошибки ingestion лежат в переиспользуемом ядре `monitor_core` — см. [Monitor Core](Monitor-Core.md). Здесь, в `src/sources/`, — конкретные источники, парсеры, discovery helpers и SQLAlchemy persistence. Тем же `IngestionPipeline` (через `read()` / `save()`) загружает статьи и automated monitoring — см. [Monitoring](Monitoring.md).
+
 ## Быстрый сценарий
 
 ```bash
@@ -32,7 +34,7 @@ uv run python src/main.py ingest "https://ovd.info/news/example"
 | Реестр фигурантов «Мемориала» (`memopzk-figurants`) | `MemopzkFigurantAdapter` | REST `https://memopzk.org/wp-json/wp/v2/figurant`, по 100 карточек, сначала изменённые, пауза 10 с | `FigurantParser` |
 | Коммерсантъ, сайт (`kommersant`) | `RssSourceAdapter` | RSS `https://www.kommersant.ru/rss/news.xml`, фильтр по рубрике и словам о суде | `KommersantArticleParser` |
 
-Все реализуют один и тот же `Protocol SourceAdapter` (`sources/source_adapter.py`) и берут загрузку листинга из общего `sources/discovery_pagination.py`: `fetch_listing_page_with_retry` (retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry). Обход страниц общий — `discover_paginated_references` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок) — только у `ovd-info` и `sota-vision`: они нумеруют страницы подряд. Telegram листает по `?before=<id>` до границы по дате, а `sudrf` — по годовым архивам, ссылки на которые читает с уже загруженной страницы, поэтому у обоих свой цикл обхода.
+Все реализуют один и тот же `Protocol SourceAdapter` (`monitor_core.ports`) и берут загрузку листинга из общего `sources/discovery_pagination.py`: `fetch_listing_page_with_retry` (retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry). Обход страниц общий — `discover_paginated_references` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок) — только у `ovd-info` и `sota-vision`: они нумеруют страницы подряд. Telegram листает по `?before=<id>` до границы по дате, а `sudrf` — по годовым архивам, ссылки на которые читает с уже загруженной страницы, поэтому у обоих свой цикл обхода.
 
 `src/main.py discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
 
@@ -120,7 +122,7 @@ Result --> Terminal
 
 ### 3. Persistence
 
-`IngestionPipeline.run()` передаёт `raw_document` и `parsed` в `IngestionPersistence.save()` — подробности на странице [Data-Model](Data-Model.md).
+`IngestionPipeline.run()` передаёт `raw_document` и `parsed` в `IngestionPersistence.save()` — подробности на странице [Data-Model](Data-Model.md). Что вернёт `save()`, ядро не знает: `IngestionPersistence[R]` и `IngestionResult[R]` параметризованы типом результата хранилища. У Court Monitor это `SqlAlchemyPersistenceResult(document_id, article_id)`; CLI печатает `document_id`, `MonitoringService` собирает `article_id` для extraction.
 
 ## Идемпотентность
 
@@ -131,17 +133,21 @@ Result --> Terminal
 | Сценарий | Код |
 |---|---|
 | source registry | `src/sources/source_registry.py` |
-| source protocol | `src/sources/source_adapter.py` |
+| models (`SourceReference`, `RawDocument`, `ParsedArticle`, `IngestionResult`) | `src/monitor_core/model/` |
+| source protocols (`DocumentFetcher`, `SourceAdapter`, `ArticleParser`, `IngestionPersistence`) | `src/monitor_core/ports/` |
+| ingestion errors | `src/monitor_core/errors.py` |
+| one article pipeline | `src/monitor_core/ingestion/pipeline.py` |
+| batch source ingestion | `src/monitor_core/ingestion/source_ingestion.py` |
+| fetch retry (`RetryingDocumentFetcher`) | `src/monitor_core/ingestion/retry.py` |
 | discovery helpers | `src/sources/discovery_pagination.py` |
-| one article pipeline | `src/sources/ingestion_pipeline.py` |
-| batch source ingestion | `src/sources/source_ingestion.py` |
+| incremental discovery (`DiscoversUntilKnown`, `KnownIds`) | `src/sources/source_adapter.py` |
 | persistence | `src/sources/sqlalchemy_persistence.py` |
-| CLI | `src/sources/cli.py` |
+| CLI | `src/cli/ingestion.py` |
 
 ## Проверка
 
 ```bash
-uv run pytest tests/sources
+uv run pytest tests/sources tests/monitor_core tests/app/test_discover_and_ingest_characterization.py
 uv run python src/main.py discover-and-ingest --source ovd-info --limit 1
 ```
 

@@ -211,6 +211,7 @@ end
 |---|---|
 | CLI `monitor` / `monitor-derived` | `src/monitoring/cli.py` |
 | orchestration | `src/monitoring/service.py` |
+| загрузка одной статьи | `IngestionPipeline.read()` / `save()` из [Monitor Core](Monitor-Core.md); окно дат, пропуск `NoTextError` и изоляция ошибок — в `MonitoringService._ingest_references` |
 | выбор недоделанной работы | `src/monitoring/selection.py` |
 | runs/checkpoints/items | `src/monitoring/repository.py` |
 | findings | `src/monitoring/findings.py` |
