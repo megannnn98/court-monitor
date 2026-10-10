@@ -31,9 +31,9 @@ from db.orm_models import (
 )
 from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
 from rosfinmonitoring.download import (
-    RF_LIST_URL,
+    ListPage,
     RosfinmonitoringDownloadError,
-    download_rf_list,
+    fetch_rf_list,
 )
 from rosfinmonitoring.inclusion_dates import (
     InclusionDates,
@@ -123,7 +123,7 @@ class EntityRfCheck:
         self,
         session_factory: sessionmaker[Session],
         *,
-        download: Callable[[], bytes] = download_rf_list,
+        download: Callable[[], bytes | ListPage] = fetch_rf_list,
         inclusion_dates: Callable[[httpx.Client], InclusionDates] = download_inclusion_dates,
         operator_table: Callable[[], list[OperatorRow] | None] = read_configured_table,
         on_stage: Callable[[str], None] = lambda _stage: None,
@@ -243,19 +243,35 @@ class EntityRfCheck:
         Any failure leaves the last snapshot in use: the check still runs."""
         self._on_stage("downloading")
         try:
-            content = self._download()
+            fetched = self._download()
         except (httpx.HTTPError, RosfinmonitoringDownloadError) as exc:
             logger.warning("event=rf_list_download_failed error=%s", exc)
             return f"{type(exc).__name__}: {exc}", False
+        page = fetched if isinstance(fetched, ListPage) else ListPage(fetched)
+        content = page.content
         persistence = RosfinmonitoringPersistence(self._session_factory)
         if persistence.snapshot_exists(compute_content_hash(content)):
             logger.info("event=rf_list_unchanged bytes=%d", len(content))
             return None, False
+        if page.captured_at is not None:
+            # An archive's capture is the list of its day. One older than the snapshot in
+            # use would put yesterday's list in today's place.
+            latest = SqlAlchemyRosfinmonitoringSnapshotLookup(
+                self._session_factory
+            ).latest_imported_snapshot()
+            if latest is not None and latest.snapshot_date >= page.captured_at:
+                logger.warning("event=rf_list_archive_not_newer captured=%s", page.captured_at)
+                not_newer = (
+                    f"сайт перечень не отдал, а копия веб-архива от "
+                    f"{page.captured_at:%d.%m.%Y} не новее снимка от "
+                    f"{latest.snapshot_date:%d.%m.%Y}"
+                )
+                return not_newer, False
         self._on_stage("importing")
         try:
             imported = RosfinmonitoringIngestionPipeline(
                 persistence, HtmlRosfinmonitoringParser()
-            ).ingest(content, source_url=RF_LIST_URL)
+            ).ingest(content, source_url=page.source_url, snapshot_date=page.captured_at)
         except ValueError as exc:  # the page parsed to no entries: the site changed
             logger.warning("event=rf_list_unusable error=%s", exc)
             return f"список не разобран: {exc}", False
