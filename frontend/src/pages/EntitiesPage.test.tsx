@@ -1,13 +1,15 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { listEntitiesV1 } from "@/api/generated";
+import { listEntitiesV1, listRemovalsV1, setRemovalV1 } from "@/api/generated";
 import { EntitiesPage } from "@/pages/EntitiesPage";
 import { dossierPath } from "@/lib/navigation";
 import { failed, ok, renderPage } from "@/test/render";
 
-vi.mock("@/api/generated", () => ({ listEntitiesV1: vi.fn() }));
+vi.mock("@/api/generated", () => ({ listEntitiesV1: vi.fn(), listRemovalsV1: vi.fn(), setRemovalV1: vi.fn() }));
 const list = vi.mocked(listEntitiesV1);
+const removals = vi.mocked(listRemovalsV1);
+const removal = vi.mocked(setRemovalV1);
 
 const PAGE = {
   total: 1,
@@ -63,7 +65,12 @@ const QUERY = {
   page: 1
 };
 
-beforeEach(() => list.mockReset());
+beforeEach(() => {
+  list.mockReset();
+  removal.mockReset();
+  removals.mockReset();
+  removals.mockReturnValue(ok({ items: [] }) as never);
+});
 
 it("shows the people with their marks and articles, and the first one in the panel", async () => {
   list.mockReturnValue(ok(PAGE) as never);
@@ -170,4 +177,31 @@ it("on a narrow screen folds the rarer filters and opens the person tapped over 
   } finally {
     vi.unstubAllGlobals();
   }
+});
+
+it("lists the people removed by hand and takes a removal back", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+  const putin = { key: "дмитрий путин", name: "Путин Дмитрий", removed: true };
+  removals.mockReturnValueOnce(ok({ items: [putin] }) as never);
+  removal.mockReturnValue(ok({ ...putin, removed: false }) as never);
+
+  renderPage(<EntitiesPage />);
+  const fold = (await screen.findByText("Удалённые вручную (1)")).closest("details") as HTMLElement;
+  fireEvent.click(within(fold).getByRole("button", { name: "Вернуть" }));
+
+  // Back only at the next rebuild: said, so the empty list does not look like a failure.
+  expect((await screen.findByRole("status")).textContent).toBe(
+    "«Путин Дмитрий» возвращён: появится в списке после следующего шага 3 «Собрать сущности»."
+  );
+  expect(removal).toHaveBeenCalledWith({ body: { key: "дмитрий путин", removed: false } });
+  await waitFor(() => expect(screen.getByText("Удалённые вручную (0)")).toBeTruthy());
+});
+
+it("shows no list of the removed while nobody is removed", async () => {
+  list.mockReturnValue(ok(PAGE) as never);
+  renderPage(<EntitiesPage />);
+
+  await screen.findByRole("table");
+  await waitFor(() => expect(removals).toHaveBeenCalled());
+  expect(screen.queryByText(/Удалённые вручную/)).toBeNull();
 });

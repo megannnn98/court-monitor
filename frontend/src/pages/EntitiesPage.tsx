@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import { listEntitiesV1, type EntityRowResponse, type OptionResponse } from "@/api/generated";
+import { listEntitiesV1, listRemovalsV1, setRemovalV1, type EntityRowResponse, type OptionResponse } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OptionSelect } from "@/components/OptionSelect";
 import { Pager } from "@/components/Pager";
@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useUrlState } from "@/hooks/useUrlState";
 import { unwrap } from "@/lib/api";
+import { readAgainAfterDecision } from "@/lib/decisions";
 import { DASH, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -134,6 +135,51 @@ function Folded({ children }: { children: ReactNode }) {
     <details className="w-full rounded-md border bg-card p-3">
       <summary className="cursor-pointer text-sm font-medium">Ещё фильтры: регион, перечень, сортировка</summary>
       <div className="mt-3 flex flex-wrap items-end gap-3">{children}</div>
+    </details>
+  );
+}
+
+/** The people removed by hand as nobody («Удалить: такого человека нет» in a dossier),
+ * each with a way back. Nothing while there are none. */
+function Removed() {
+  const client = useQueryClient();
+  const removed = useQuery({
+    queryKey: ["entities", "removals"],
+    queryFn: () => unwrap(listRemovalsV1())
+  });
+  const restore = useMutation({
+    mutationFn: (key: string) => unwrap(setRemovalV1({ body: { key, removed: false } })),
+    onSuccess: async () => {
+      await readAgainAfterDecision(client, ["entities"]);
+    }
+  });
+  const items = removed.data?.items ?? [];
+  if (!items.length && !restore.isSuccess) {
+    return null;
+  }
+  return (
+    <details className="mt-2 text-sm text-muted-foreground" open={restore.isSuccess || undefined}>
+      <summary className="cursor-pointer select-none">Удалённые вручную ({formatNumber(items.length)})</summary>
+      {restore.isSuccess ? (
+        <p role="status" className="mt-2 text-foreground">
+          «{restore.data.name}» возвращён: появится в списке после следующего шага 3 «Собрать сущности».
+        </p>
+      ) : null}
+      {restore.isError ? (
+        <p role="alert" className="mt-2 text-destructive">
+          {restore.error.message}
+        </p>
+      ) : null}
+      <ul className="mt-2 space-y-1">
+        {items.map((item) => (
+          <li key={item.key} className="flex flex-wrap items-center gap-2">
+            <span className="text-foreground">{item.name}</span>
+            <Button size="sm" variant="outline" disabled={restore.isPending} onClick={() => restore.mutate(item.key)}>
+              Вернуть
+            </Button>
+          </li>
+        ))}
+      </ul>
     </details>
   );
 }
@@ -420,6 +466,7 @@ export function EntitiesPage() {
           );
         }}
       </QueryState>
+      <Removed />
     </>
   );
 }

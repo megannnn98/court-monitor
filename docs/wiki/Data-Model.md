@@ -177,6 +177,7 @@ entity_mentions ||--o{ event_entity_mentions : mention_id
 | `entity_name_normalizations`, `entity_role_answers`, `entity_politics_answers`, `unnamed_answers` | шаги 3–5 | кэш ответов модели по хэшу вопроса и версии промпта |
 | `entity_pair_decisions` | оператор, шаг 5 (слияния по перечню и региону) | «один человек» / «разные люди» по паре ключей; `source`: `manual`, `rf`, `region` |
 | `entity_name_overrides` | оператор | исправленное имя по ключу |
+| `entity_removals` | оператор | «такого человека нет»: ключ и имя удалённого; пересборка его не собирает |
 | `entity_official_marks` | оператор | «должностное лицо» или «нет» по ключу |
 | `unnamed_identity_resolutions` | оператор | опознание безымянного по ключу фигуранта: запись РФМ, существующий человек, имя вручную, нет записи РФМ, недостаточно данных |
 | `unnamed_decisions` | оператор | отрицания конкретных кандидатов РФМ (`different`) по ключу фигуранта и «ФИО|дата рождения» |

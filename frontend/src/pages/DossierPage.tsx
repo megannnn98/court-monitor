@@ -1,8 +1,8 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { getDossierV1, type DossierResponse, type QuoteResponse } from "@/api/generated";
+import { getDossierV1, setRemovalV1, type DossierResponse, type QuoteResponse } from "@/api/generated";
 import { EventGraph } from "@/components/EventGraph";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
@@ -77,6 +77,15 @@ function Manual({ person }: { person: DossierResponse }) {
       await readAgainAfterDecision(client, ["investigations"], ["entities"]);
     }
   });
+  const navigate = useNavigate();
+  // «Такого человека нет»: the entity leaves every list, so the dossier is left first.
+  const remove = useMutation({
+    mutationFn: () => unwrap(setRemovalV1({ body: { key: person.key, removed: true } })),
+    onSuccess: async () => {
+      navigate("/entities");
+      await readAgainAfterDecision(client, ["entities"], ["political"], ["investigations"]);
+    }
+  });
 
   function rename(event: FormEvent) {
     event.preventDefault();
@@ -108,6 +117,29 @@ function Manual({ person }: { person: DossierResponse }) {
             {send.error.message}
           </p>
         ) : null}
+        <div className="space-y-1 border-t pt-3">
+          <Button
+            variant="outline"
+            className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={remove.isPending}
+            onClick={() => {
+              if (window.confirm(`Удалить «${person.name}»? Человек исчезнет из всех списков; публикации останутся.`)) {
+                remove.mutate();
+              }
+            }}
+          >
+            Удалить: такого человека нет
+          </Button>
+          <p className="text-muted-foreground">
+            Для имени, которое собрано по ошибке («Дмитрий Путин» из Дмитрия Пескова и Путина). Если это настоящий человек под
+            чужим именем — исправьте имя: упоминания перейдут к нему. Удалённого можно вернуть внизу страницы «Все люди».
+          </p>
+          {remove.isError ? (
+            <p role="alert" className="text-destructive">
+              {remove.error.message}
+            </p>
+          ) : null}
+        </div>
         <p className="text-muted-foreground">
           Ручные решения сохраняются и применяются при каждой пересборке. Спорные пары — на странице{" "}
           <Link className="underline" to="/review/pairs">

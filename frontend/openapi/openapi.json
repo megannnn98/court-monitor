@@ -1078,6 +1078,64 @@
         }
       }
     },
+    "/api/v1/entities/removals": {
+      "get": {
+        "summary": "List Removals",
+        "description": "The entities a person removed as nobody, the latest first.",
+        "operationId": "list_removals_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovalListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities/removal": {
+      "post": {
+        "summary": "Set Removal",
+        "description": "Remove an entity that is nobody, or take that word back. A removed entity leaves\nevery list at once; one whose removal is taken back returns at the next rebuild.",
+        "operationId": "set_removal_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/publications": {
       "get": {
         "summary": "List Publications",
@@ -7658,6 +7716,66 @@
           "shared"
         ],
         "title": "RelatedPersonResponse"
+      },
+      "RemovalListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RemovalResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "RemovalListResponse",
+        "description": "The entities a person removed, the latest first."
+      },
+      "RemovalRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Key"
+          },
+          "removed": {
+            "type": "boolean",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "removed"
+        ],
+        "title": "RemovalRequest",
+        "description": "«Такого человека нет» on an entity, or that word taken back."
+      },
+      "RemovalResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "removed": {
+            "type": "boolean",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "removed"
+        ],
+        "title": "RemovalResponse"
       },
       "ResolutionReviewAction": {
         "type": "string",

@@ -52,6 +52,7 @@ from entities.normalizer import (
     NormalizedName,
 )
 from entities.overrides import apply_overrides, name_overrides
+from entities.removals import removed_keys, without_removed
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")
@@ -307,6 +308,9 @@ class EntityCollector:
         entities = attach_bare(entities, articles)
         with self._session_factory() as session:
             entities, unnamed = _apply_unnamed_resolutions(entities, session)
+            # A person's «there is no such person» takes an entity out, last of all: what
+            # the steps above join to it goes with it.
+            entities = without_removed(entities, removed_keys(session))
 
         with self._session_factory.begin() as session:
             self._on_stage("writing")

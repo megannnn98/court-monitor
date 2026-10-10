@@ -282,6 +282,20 @@ class EntityNameOverrideRecord(Base):
     )
 
 
+class EntityRemovalRecord(Base):
+    """A person's word that an entity is nobody («Дмитрий Путин», made of two people's
+    names): it is left out of every rebuild. The name is the one it had when removed, to
+    tell the removals apart in their list."""
+
+    __tablename__ = "entity_removals"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class EntityNameNormalizationRecord(Base):
     """What a model answered for an entity key: reused by every later rebuild.
 
