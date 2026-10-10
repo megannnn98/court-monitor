@@ -35,6 +35,7 @@ from entities.grouping import (
     apply_names,
     attach_aliases,
     attach_bare,
+    byline,
     given_name_first,
     group_mentions,
     kinship,
@@ -84,13 +85,20 @@ _MENTIONS = text(
            substr(a.text, greatest(m.start_offset - :context, 0) + 1,
                   m.end_offset - greatest(m.start_offset - :context, 0) + :context),
            -- A registry card (memopzk) names its person's region on a line of its own.
-           substring(a.text from '(?:^|\n)Регион: ([^\n]+?)\\.?(?:\n|$)')
+           substring(a.text from '(?:^|\n)Регион: ([^\n]+?)\\.?(?:\n|$)'),
+           -- Around the mention, to tell the author's signature under the text (`byline`).
+           substr(a.text, greatest(m.start_offset - :around, 0) + 1,
+                  least(m.start_offset, :around)),
+           substr(a.text, m.end_offset + 1, :around)
     FROM entity_mentions m
     JOIN criminal c ON c.run_id = m.extraction_run_id
     JOIN parsed_articles a ON a.id = c.article_id
     WHERE m.entity_type = 'person'
     """
 )
+# How much text around a mention `byline` reads: the end of the line before, and whether
+# anything follows.
+_AROUND = 40
 # A person's mention in brackets right after another's: «Дмитрия Пуркина (Дед Архимед)».
 # Offsets are Python's, from 0; `substr` counts from 1.
 _ALIASES = text(
@@ -261,11 +269,17 @@ class EntityCollector:
         with self._session_factory() as session:
             self._on_stage("reading")
             rows = session.execute(
-                _MENTIONS, {"criminal": list(CRIMINAL_EVENT_TYPES), "context": QUOTE_CONTEXT}
+                _MENTIONS,
+                {
+                    "criminal": list(CRIMINAL_EVENT_TYPES),
+                    "context": QUOTE_CONTEXT,
+                    "around": _AROUND,
+                },
             ).all()
             published: dict[int, datetime | None] = {}
             quotes: dict[int, str] = {}
             mentions: list[PersonMention] = []
+            signatures = 0
             for (
                 mention_id,
                 article_id,
@@ -276,7 +290,13 @@ class EntityCollector:
                 surface,
                 quote,
                 region,
+                before,
+                after,
             ) in rows:
+                # The journalist's name under the text is no person of the news.
+                if byline(surface, before or "", after or ""):
+                    signatures += 1
+                    continue
                 published[mention_id] = published_at
                 quotes[mention_id] = " ".join((quote or "").split())
                 mentions.append(
@@ -288,6 +308,7 @@ class EntityCollector:
             ).all():
                 events[mention_id].append(event_type)
         articles = {mention.mention_id: mention.article_id for mention in mentions}
+        logger.info("event=entity_bylines_skipped count=%d", signatures)
 
         self._on_stage("grouping")
         # «Жене Владимира» names a relative, not a person.

@@ -21,6 +21,7 @@ when that name has cards of one region.
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -457,6 +458,34 @@ def kinship(mention: PersonMention) -> bool:
     """A mention that names a relative, not a person: «Жене Владимира (Гульчака)»."""
     words = _display(mention).split()
     return len(words) >= 2 and _fold(words[0]) in _KIN and _declined_given_name(words[1])
+
+
+# What a finished sentence ends with: the line before a byline is the text's last one.
+_SENTENCE_END = frozenset('.!?…»"”)')
+# Nothing after the name, or the author's city: «, Иркутск», «, Нижний Новгород».
+_BYLINE_END = re.compile(r"(?:,[ \t]*[А-ЯЁ][а-яё-]+(?:[ \t-][А-ЯЁа-яё][а-яё-]+){0,2})?\s*")
+
+
+def byline(surface: str, before: str, after: str) -> bool:
+    """A mention that is the author's signature, not a person of the news: a name of two
+    or three words alone on the text's last line, after a finished sentence.
+
+    `before` is the text right up to the mention, `after` the text right after it. A list
+    of names keeps its last one: the line before it is a name too, not a sentence. The
+    author's city may follow the name («Влад Никифоров, Иркутск»).
+
+    >>> byline("Никита Черненко", "заочно арестованы.\n", "")
+    True
+    >>> byline("Пётр Петров", "По делу проходят:\nИван Иванов\n", "")
+    False
+    """
+    if not _BYLINE_END.fullmatch(after) or not 2 <= len(surface.split()) <= 3:
+        return False
+    line_start = before.rstrip(" \t")
+    if not line_start.endswith("\n"):
+        return False
+    text = line_start.rstrip()
+    return bool(text) and text[-1] in _SENTENCE_END
 
 
 def merge_swapped(entities: Sequence[Entity]) -> list[Entity]:
