@@ -65,37 +65,56 @@ const QUERY = {
 
 beforeEach(() => list.mockReset());
 
-it("shows the people with their marks, articles and events", async () => {
+it("shows the people with their marks and articles, and the first one in the panel", async () => {
   list.mockReturnValue(ok(PAGE) as never);
 
   renderPage(<EntitiesPage />);
 
-  expect((await screen.findByRole("link", { name: "Моор Александр" })).getAttribute("href")).toBe(dossierPath("александр моор"));
-  const table = screen.getByRole("table");
-  for (const mark of ["в перечне", "политическое", "Арест 2"]) {
+  const table = await screen.findByRole("table");
+  expect(within(table).getByRole("link", { name: "Моор Александр" }).getAttribute("href")).toBe(dossierPath("александр моор"));
+  for (const mark of ["в перечне", "политическое", "Москва"]) {
     expect(within(table).getByText(mark)).toBeTruthy();
   }
-  expect(within(table).getByText("Москва · 2 написания").getAttribute("title")).toBe("Как писали: Моора, Моору\nИмя: ИИ");
   // The usual role is not repeated on every row.
   expect(within(table).queryByText("фигурант дела")).toBeNull();
-  expect(screen.getByRole("button", { name: "280.3" }).getAttribute("title")).toMatch(/^общая/);
+  expect(within(table).getByRole("button", { name: "280.3" }).getAttribute("title")).toMatch(/^общая/);
+  // What the table leaves out is beside it.
+  const panel = screen.getByRole("complementary", { name: "Подробно: Моор Александр" });
+  for (const text of ["Моора, Моору", "Имя: ИИ", "Арест 2", "Упоминаний: 5 · публикаций: 2"]) {
+    expect(within(panel).getByText(text)).toBeTruthy();
+  }
+  expect(within(panel).getByRole("link", { name: "Открыть досье" }).getAttribute("href")).toBe(dossierPath("александр моор"));
   expect(screen.getByText(/Скрыть, кто в перечне \(4\)/)).toBeTruthy();
   expect(list).toHaveBeenCalledWith({ query: QUERY });
 });
 
-it("filters from the column on the left and shows the choice as chips", async () => {
+it("shows in the panel the person whose row is clicked", async () => {
+  const other = { ...PAGE.items[0], id: 4, key: "иван иванов", name: "Иванов Иван", variants: ["Иванова"] };
+  list.mockReturnValue(ok({ ...PAGE, items: [PAGE.items[0], other], total: 2 }) as never);
+
+  renderPage(<EntitiesPage />);
+  const rows = await screen.findAllByRole("row");
+  fireEvent.click(within(rows[2]).getAllByRole("cell")[3]);
+
+  expect(screen.getByRole("complementary", { name: "Подробно: Иванов Иван" })).toBeTruthy();
+  expect(rows[2].getAttribute("aria-selected")).toBe("true");
+});
+
+it("filters by the role's tab, the verdict's button and an article, and shows the choice as chips", async () => {
   list.mockReturnValue(ok(PAGE) as never);
 
   renderPage(<EntitiesPage />);
-  const filters = await screen.findByRole("complementary", { name: "Фильтры" });
-  fireEvent.click(within(filters).getByRole("button", { name: "Политические 7" }));
-  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, verdict: "political" } }));
-  fireEvent.click(within(filters).getByRole("button", { name: "Москва" }));
-  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, verdict: "political", region: "Москва" } }));
+  const roles = await screen.findByRole("navigation", { name: "Роль" });
+  fireEvent.click(within(roles).getByRole("button", { name: "Все роли" }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, role: "all" } }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Вердикт" })).getByRole("button", { name: "Политические 7" }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, role: "all", verdict: "political" } }));
+  fireEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "205.2" }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, role: "all", verdict: "political", article: "205.2" } }));
 
   // A chip names the choice in words and takes it back.
   fireEvent.click(screen.getByRole("button", { name: "Убрать фильтр: Политические" }));
-  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, region: "Москва" } }));
+  await waitFor(() => expect(list).toHaveBeenLastCalledWith({ query: { ...QUERY, role: "all", article: "205.2" } }));
 });
 
 it("says the list holds political and common cases alike, until one kind is chosen", async () => {
@@ -110,27 +129,16 @@ it("says the list holds political and common cases alike, until one kind is chos
   expect(screen.queryByText(/и политические дела, и обычные уголовные/)).toBeNull();
 });
 
-it("looks for a region among the regions", async () => {
-  list.mockReturnValue(ok({ ...PAGE, regions: ["Москва", "Якутия"] }) as never);
-
-  renderPage(<EntitiesPage />);
-  const regions = await screen.findByRole("region", { name: "Регион" });
-  fireEvent.change(within(regions).getByLabelText("Найти регион"), { target: { value: "як" } });
-
-  expect(within(regions).getByRole("button", { name: "Якутия" })).toBeTruthy();
-  expect(within(regions).queryByRole("button", { name: "Москва" })).toBeNull();
-});
-
 it("sends the filters of the address", async () => {
   list.mockReturnValue(ok({ ...PAGE, items: [], total: 0 }) as never);
 
-  renderPage(<EntitiesPage />, { url: "/?q=Моор&article=207.3&role=all&rf=hide&sort=name&page=2" });
+  renderPage(<EntitiesPage />, { url: "/?q=Моор&article=207.3&role=all&region=Москва&rf=hide&sort=name&page=2" });
 
   expect(await screen.findByText("Никого не найдено: ослабьте фильтры.")).toBeTruthy();
   expect(list).toHaveBeenCalledWith({
-    query: { ...QUERY, q: "Моор", article: "207.3", role: "all", rf: "hide", sort: "name", page: 2 }
+    query: { ...QUERY, q: "Моор", article: "207.3", role: "all", region: "Москва", rf: "hide", sort: "name", page: 2 }
   });
-  for (const chip of ["имя: Моор", "статья 207.3", "Все роли", "без тех, кто в перечне"]) {
+  for (const chip of ["имя: Моор", "статья 207.3", "Москва", "Все роли", "без тех, кто в перечне"]) {
     expect(screen.getByRole("button", { name: `Убрать фильтр: ${chip}` })).toBeTruthy();
   }
 });
@@ -143,17 +151,22 @@ it("shows the API's own error", async () => {
   expect(await screen.findByText("String should match pattern")).toBeTruthy();
 });
 
-it("on a narrow screen folds the filters under one line", async () => {
+it("on a narrow screen folds the rarer filters and opens the person tapped over the table", async () => {
   vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
   try {
     list.mockReturnValue(ok(PAGE) as never);
     renderPage(<EntitiesPage />);
 
-    const fold = (await screen.findByText("Фильтры: роль, вердикт, перечень, регион")).closest("details");
-    // The search stays in sight; the choices are inside the fold.
+    const fold = (await screen.findByText("Ещё фильтры: регион, перечень, сортировка")).closest("details");
+    // The search stays in sight; the rarer choices are inside the fold.
     expect(fold?.open).toBe(false);
-    expect(fold?.querySelector("h2")?.textContent).toBe("Роль");
+    expect(fold?.textContent).toContain("Скрыть, кто в перечне");
     expect(screen.getByRole("search").closest("details")).toBeNull();
+
+    expect(screen.queryByRole("complementary", { name: /Подробно/ })).toBeNull();
+    fireEvent.click(within(screen.getAllByRole("row")[1]).getAllByRole("cell")[3]);
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("complementary", { name: "Подробно: Моор Александр" })).toBeTruthy();
   } finally {
     vi.unstubAllGlobals();
   }

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useUrlState } from "@/hooks/useUrlState";
@@ -27,50 +28,14 @@ const SORTS = [
   { value: "name", label: "Имя" }
 ];
 const DEFAULT_ROLE = "figurant";
+// The select has no empty value.
+const ALL_REGIONS = "all-regions";
 
-/** One filter as a list to click: the chosen value stands out, a count follows the label. */
-function Facet({
-  title,
-  options,
-  value,
-  onChange
-}: {
-  title: string;
-  options: OptionResponse[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <section aria-label={title}>
-      <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
-      <ul className="space-y-0.5">
-        {options.map((option) => (
-          <li key={option.value}>
-            <button
-              type="button"
-              aria-pressed={option.value === value}
-              onClick={() => onChange(option.value)}
-              className={cn(
-                "flex w-full justify-between gap-2 rounded px-2 py-1 text-left text-sm",
-                option.value === value ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-              )}
-            >
-              <span>{option.label}</span>
-              {option.count === null || option.count === undefined ? null : (
-                <span className="opacity-70">{formatNumber(option.count)}</span>
-              )}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
+/** The few words next to a name: what the case is, the list, an unusual role. */
 function Marks({ row }: { row: EntityRowResponse }) {
   const political = row.verdict === "political";
   return (
-    <span className="inline-flex flex-wrap gap-1">
+    <div className="mt-1 flex flex-wrap gap-1">
       {row.verdict_label ? (
         <Badge variant="outline" className={political ? "border-rose-400 bg-rose-50 text-rose-800" : undefined}>
           {row.verdict_label}
@@ -82,22 +47,93 @@ function Marks({ row }: { row: EntityRowResponse }) {
         </Badge>
       ) : null}
       {row.role && row.role !== DEFAULT_ROLE && row.role_label ? <Badge variant="outline">{row.role_label}</Badge> : null}
-    </span>
+    </div>
   );
 }
 
-/** The filters beside the list on a wide screen; on a narrow one they are a screen and
- * a half of choices before the first person, so they fold under one line. */
+function Articles({ row, onArticle }: { row: EntityRowResponse; onArticle: (article: string) => void }) {
+  if (!row.articles.length) {
+    return <>{DASH}</>;
+  }
+  return (
+    <>
+      {row.articles.map((item, index) => (
+        <span key={item.article}>
+          {index ? ", " : ""}
+          <button
+            type="button"
+            className={cn("hover:underline", item.shared && "text-muted-foreground")}
+            title={item.shared ? "общая: в событии обвиняемыми названы и другие люди" : "все люди по этой статье"}
+            onClick={(event) => {
+              event.stopPropagation();
+              onArticle(item.article);
+            }}
+          >
+            {item.article}
+          </button>
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** Everything of one person the table leaves out. */
+function Panel({ row, onArticle }: { row: EntityRowResponse; onArticle: (article: string) => void }) {
+  return (
+    <aside aria-label={`Подробно: ${row.name}`} className="space-y-4 rounded-lg border bg-card p-4 text-sm xl:sticky xl:top-4">
+      <div>
+        <div className="text-base">
+          <Link className="font-medium underline" to={dossierPath(row.key)}>
+            {row.name}
+          </Link>
+        </div>
+        <Marks row={row} />
+        <div className="mt-1 text-muted-foreground">
+          {row.regions.join(", ") || DASH} · {formatDate(row.last_published_at)}
+        </div>
+      </div>
+      {row.variants.length || row.name_source_label ? (
+        <section>
+          <h3 className="mb-1 font-medium">Как писали</h3>
+          {row.variants.length ? <p className="text-muted-foreground">{row.variants.join(", ")}</p> : null}
+          {row.name_source_label ? <p className="text-muted-foreground">Имя: {row.name_source_label}</p> : null}
+        </section>
+      ) : null}
+      <section>
+        <h3 className="mb-1 font-medium">Статьи УК</h3>
+        <p>
+          <Articles row={row} onArticle={onArticle} />
+        </p>
+      </section>
+      <section>
+        <h3 className="mb-1 font-medium">События дела</h3>
+        <p className="text-muted-foreground">{row.events.map((event) => `${event.label} ${event.count}`).join(" · ") || DASH}</p>
+      </section>
+      <section>
+        <h3 className="mb-1 font-medium">Публикации</h3>
+        <p className="text-muted-foreground">
+          Упоминаний: {formatNumber(row.mention_count)} · публикаций: {formatNumber(row.article_count)}
+        </p>
+        <Link className="underline" to={dossierPath(row.key)}>
+          Открыть досье
+        </Link>
+      </section>
+    </aside>
+  );
+}
+
+/** The filters used less often: in the line on a wide screen; on a phone they are a
+ * screen of choices before the first person, so they fold under one line. */
 function Folded({ children }: { children: ReactNode }) {
-  // Tailwind's `lg`: from there the filters are a column beside the list.
-  const beside = useMediaQuery("(min-width: 1024px)", true);
-  if (beside) {
+  // Tailwind's `sm`.
+  const inLine = useMediaQuery("(min-width: 640px)", true);
+  if (inLine) {
     return <>{children}</>;
   }
   return (
-    <details className="rounded-md border bg-card p-3">
-      <summary className="cursor-pointer text-sm font-medium">Фильтры: роль, вердикт, перечень, регион</summary>
-      <div className="mt-3 space-y-5">{children}</div>
+    <details className="w-full rounded-md border bg-card p-3">
+      <summary className="cursor-pointer text-sm font-medium">Ещё фильтры: регион, перечень, сортировка</summary>
+      <div className="mt-3 flex flex-wrap items-end gap-3">{children}</div>
     </details>
   );
 }
@@ -117,7 +153,10 @@ export function EntitiesPage() {
   };
   const [draft, setDraft] = useState({ q: query.q, article: query.article });
   useEffect(() => setDraft({ q: query.q, article: query.article }), [query.q, query.article]);
-  const [regionSearch, setRegionSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  // Tailwind's `xl`: from there the panel stands beside the table.
+  const beside = useMediaQuery("(min-width: 1280px)", true);
+  const byArticle = (article: string) => url.set({ article, page: null });
 
   const entities = useQuery({
     queryKey: ["entities", query],
@@ -165,16 +204,66 @@ export function EntitiesPage() {
             ["без тех, кто в перечне", "rf", query.rf === "hide"],
             ["без тёзок", "rf_possible", query.rf_possible === "hide"]
           ];
-          const regions = data.regions.filter((name) => !regionSearch || name.toLowerCase().includes(regionSearch.toLowerCase()));
+          const tapped = data.items.find((row) => row.key === selected);
+          const shown = tapped ?? data.items[0];
+          const marked = (beside ? shown : tapped)?.key;
           return (
-            <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-              <aside aria-label="Фильтры" className="space-y-5 lg:sticky lg:top-4">
-                <form onSubmit={search} role="search" className="space-y-3">
+            <>
+              <nav aria-label="Роль" className="mb-1 flex flex-wrap border-b">
+                {data.roles.map((role) => {
+                  const active = role.value === query.role;
+                  return (
+                    <button
+                      key={role.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => url.set({ role: role.value === DEFAULT_ROLE ? null : role.value, page: null })}
+                      className={cn(
+                        "-mb-px border-b-2 px-4 py-2 text-sm",
+                        active ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {role.label}
+                      {role.count === null || role.count === undefined ? null : (
+                        <span className="ml-1 rounded-full bg-muted px-2 text-xs">{formatNumber(role.count)}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+              <div className="flex flex-wrap items-center gap-2 py-2" role="group" aria-label="Вердикт">
+                {data.verdicts.map((verdict) => {
+                  const active = verdict.value === query.verdict;
+                  return (
+                    <Button
+                      key={verdict.value}
+                      size="sm"
+                      variant={active ? "default" : "ghost"}
+                      aria-pressed={active}
+                      onClick={() => url.set({ verdict: verdict.value === "all" ? null : verdict.value, page: null })}
+                    >
+                      {verdict.label}
+                      {verdict.count === null || verdict.count === undefined ? null : (
+                        <span className="ml-1 opacity-70">{formatNumber(verdict.count)}</span>
+                      )}
+                    </Button>
+                  );
+                })}
+                <span className="ml-auto text-sm text-muted-foreground">
+                  Найдено: {formatNumber(data.total)} ·{" "}
+                  <a className="underline" href="/ui/people/export.xlsx">
+                    Выгрузить всех в Excel
+                  </a>
+                </span>
+              </div>
+              <div aria-label="Фильтры" role="group" className="mb-3 flex flex-wrap items-end gap-3">
+                <form onSubmit={search} role="search" className="flex flex-wrap items-end gap-2">
                   <div className="space-y-1">
                     <Label htmlFor="entity-q">Имя</Label>
                     <Input
                       id="entity-q"
                       type="search"
+                      className="h-8 w-48"
                       placeholder="Имя или как писали"
                       value={draft.q}
                       onChange={(event) => setDraft({ ...draft, q: event.target.value })}
@@ -185,102 +274,56 @@ export function EntitiesPage() {
                     <Input
                       id="entity-article"
                       type="search"
+                      className="h-8 w-28"
                       placeholder="напр. 207.3"
                       value={draft.article}
                       onChange={(event) => setDraft({ ...draft, article: event.target.value })}
                     />
                   </div>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" size="sm" variant="outline">
                     Найти
                   </Button>
                 </form>
                 <Folded>
-                <Facet
-                  title="Роль"
-                  options={data.roles}
-                  value={query.role}
-                  onChange={(value) =>
-                    url.set({
-                      role: value === DEFAULT_ROLE ? null : value,
-                      page: null
-                    })
-                  }
-                />
-                <Facet
-                  title="Вердикт"
-                  options={data.verdicts}
-                  value={query.verdict}
-                  onChange={(value) =>
-                    url.set({
-                      verdict: value === "all" ? null : value,
-                      page: null
-                    })
-                  }
-                />
-                <section aria-label="Перечень РФМ" className="space-y-2 text-sm">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Перечень РФМ</h2>
-                  <label className="flex items-center gap-2" title="ФИО с отчеством совпало с перечнем Росфинмониторинга">
-                    <Checkbox
-                      checked={query.rf === "hide"}
-                      onCheckedChange={(checked) =>
-                        url.set({
-                          rf: checked === true ? "hide" : null,
-                          page: null
-                        })
-                      }
+                  {data.regions.length ? (
+                    <OptionSelect
+                      label="Регион"
+                      value={query.region || ALL_REGIONS}
+                      options={[{ value: ALL_REGIONS, label: "Все регионы" }, ...data.regions.map((name) => ({ value: name, label: name }))]}
+                      className="h-8 w-52"
+                      onChange={(value) => url.set({ region: value === ALL_REGIONS ? null : value, page: null })}
                     />
-                    Скрыть, кто в перечне ({formatNumber(data.hidden_in_list)})
-                  </label>
-                  <label
-                    className="flex items-center gap-2"
-                    title="Совпали имя и фамилия, отчества нет с одной из сторон: может быть тёзка"
-                  >
-                    <Checkbox
-                      checked={query.rf_possible === "hide"}
-                      onCheckedChange={(checked) =>
-                        url.set({
-                          rf_possible: checked === true ? "hide" : null,
-                          page: null
-                        })
-                      }
-                    />
-                    Скрыть тёзок без отчества ({formatNumber(data.hidden_maybe_listed)})
-                  </label>
-                </section>
-                {data.regions.length ? (
-                  <section aria-label="Регион">
-                    <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Регион</h2>
-                    <Input
-                      aria-label="Найти регион"
-                      className="mb-1 h-8"
-                      placeholder="найти регион"
-                      value={regionSearch}
-                      onChange={(event) => setRegionSearch(event.target.value)}
-                    />
-                    <ul className="max-h-64 space-y-0.5 overflow-y-auto">
-                      {["", ...regions].map((name) => (
-                        <li key={name || "all"}>
-                          <button
-                            type="button"
-                            aria-pressed={(query.region || "") === name}
-                            onClick={() => url.set({ region: name || null, page: null })}
-                            className={cn(
-                              "w-full rounded px-2 py-0.5 text-left text-sm",
-                              (query.region || "") === name ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                            )}
-                          >
-                            {name || "Все регионы"}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ) : null}
+                  ) : null}
+                  <OptionSelect
+                    label="Сортировка"
+                    value={query.sort}
+                    options={SORTS}
+                    className="h-8 w-48"
+                    onChange={(value) => url.set({ sort: value === "mentions" ? null : value, page: null })}
+                  />
+                  <div className="space-y-1 text-sm">
+                    <label className="flex items-center gap-2" title="ФИО с отчеством совпало с перечнем Росфинмониторинга">
+                      <Checkbox
+                        checked={query.rf === "hide"}
+                        onCheckedChange={(checked) => url.set({ rf: checked === true ? "hide" : null, page: null })}
+                      />
+                      Скрыть, кто в перечне ({formatNumber(data.hidden_in_list)})
+                    </label>
+                    <label
+                      className="flex items-center gap-2"
+                      title="Совпали имя и фамилия, отчества нет с одной из сторон: может быть тёзка"
+                    >
+                      <Checkbox
+                        checked={query.rf_possible === "hide"}
+                        onCheckedChange={(checked) => url.set({ rf_possible: checked === true ? "hide" : null, page: null })}
+                      />
+                      Скрыть тёзок без отчества ({formatNumber(data.hidden_maybe_listed)})
+                    </label>
+                  </div>
                 </Folded>
-              </aside>
-              <div>
-                <div className="mb-2 flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-medium">Найдено: {formatNumber(data.total)}</span>
+              </div>
+              {chips.some(([, , on]) => on) ? (
+                <div className="mb-2 flex flex-wrap items-center gap-2">
                   {chips
                     .filter(([, , on]) => on)
                     .map(([text, name]) => (
@@ -294,117 +337,86 @@ export function EntitiesPage() {
                         {text} ✕
                       </button>
                     ))}
-                  <span className="ml-auto flex flex-wrap items-end gap-3">
-                    <OptionSelect
-                      label="Сортировка"
-                      value={query.sort}
-                      options={SORTS}
-                      className="h-8 w-48"
-                      onChange={(value) =>
-                        url.set({
-                          sort: value === "mentions" ? null : value,
-                          page: null
-                        })
-                      }
-                    />
-                    <a className="pb-1 text-sm underline" href="/ui/people/export.xlsx">
-                      Выгрузить всех в Excel
-                    </a>
-                  </span>
                 </div>
-                {data.roles_known ? null : (
-                  <p className="mb-2 text-sm text-amber-700">
-                    Фигуранты ещё не определены — шаг 4 в «Журнале запусков»; пока показаны все.
-                  </p>
-                )}
-                {data.items.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">Никого не найдено: ослабьте фильтры.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Человек</TableHead>
-                        <TableHead>Статьи УК</TableHead>
-                        {/* On a phone: who, the articles, the latest news; the counts are in the dossier. */}
-                        <TableHead className="hidden md:table-cell">События дела</TableHead>
-                        <TableHead className="hidden text-right sm:table-cell">Упом.</TableHead>
-                        <TableHead className="hidden text-right sm:table-cell">Публ.</TableHead>
-                        <TableHead className="w-24 leading-tight whitespace-normal">Последняя новость</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.items.map((row) => (
-                        <TableRow key={row.id}>
-                          <TableCell className="whitespace-normal">
-                            <Link className="font-medium hover:underline" to={dossierPath(row.key)}>
-                              {row.name}
-                            </Link>{" "}
-                            <Marks row={row} />
-                            {/* The spellings and where the name came from, in the hint: the row keeps one short line. */}
-                            <div
-                              className="text-xs text-muted-foreground"
-                              title={[
-                                row.variants.length ? `Как писали: ${row.variants.join(", ")}` : "",
-                                row.name_source_label ? `Имя: ${row.name_source_label}` : ""
-                              ]
-                                .filter(Boolean)
-                                .join("\n")}
-                            >
-                              {[row.regions.join(", "), row.variants.length > 1 ? `${row.variants.length} написания` : ""]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </div>
-                          </TableCell>
-                          <TableCell className="whitespace-normal">
-                            {row.articles.length
-                              ? row.articles.map((item, index) => (
-                                  <span key={item.article}>
-                                    {index ? ", " : ""}
-                                    <button
-                                      type="button"
-                                      className={cn("hover:underline", item.shared && "text-muted-foreground")}
-                                      title={item.shared ? "общая: в событии обвиняемыми названы и другие люди" : "все люди по этой статье"}
-                                      onClick={() =>
-                                        url.set({
-                                          article: item.article,
-                                          page: null
-                                        })
-                                      }
-                                    >
-                                      {item.article}
-                                    </button>
-                                  </span>
-                                ))
-                              : DASH}
-                          </TableCell>
-                          <TableCell className="hidden whitespace-normal text-xs text-muted-foreground md:table-cell">
-                            {row.events.map((event) => `${event.label} ${event.count}`).join(" · ") || DASH}
-                          </TableCell>
-                          <TableCell className="hidden text-right sm:table-cell">{formatNumber(row.mention_count)}</TableCell>
-                          <TableCell className="hidden text-right sm:table-cell">{formatNumber(row.article_count)}</TableCell>
-                          <TableCell>{formatDate(row.last_published_at)}</TableCell>
+              ) : null}
+              {data.roles_known ? null : (
+                <p className="mb-2 text-sm text-amber-700">
+                  Фигуранты ещё не определены — шаг 4 в «Журнале запусков»; пока показаны все.
+                </p>
+              )}
+              {data.items.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Никого не найдено: ослабьте фильтры.</p>
+              ) : (
+                <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+                  <div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Человек</TableHead>
+                          <TableHead>Статьи УК</TableHead>
+                          {/* On a phone: who, the articles, the latest news; the rest is a tap away. */}
+                          <TableHead className="hidden md:table-cell">Регион</TableHead>
+                          <TableHead className="w-24 leading-tight whitespace-normal">Последняя новость</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-                <Pager
-                  page={query.page}
-                  pageSize={data.page_size}
-                  shown={data.items.length}
-                  total={data.total}
-                  onPage={(next) => url.set({ page: next === 1 ? null : next })}
-                />
-                <details className="mt-4 text-sm text-muted-foreground">
-                  <summary className="cursor-pointer select-none">Как читать список</summary>
-                  <ul className="mt-2 list-disc space-y-1 pl-5">
-                    <li>Человек собран из упоминаний: «Моора», «Моору» и «Моор» — один человек.</li>
-                    <li>Серая статья УК — «общая»: в событии обвиняемыми названы и другие люди. Клик по статье — все люди по ней.</li>
-                    <li>«В перечне» — ФИО с отчеством совпало с перечнем Росфинмониторинга; «возможно» — только имя и фамилия.</li>
-                  </ul>
-                </details>
-              </div>
-            </div>
+                      </TableHeader>
+                      <TableBody>
+                        {data.items.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            aria-selected={row.key === marked}
+                            onClick={() => setSelected(row.key)}
+                            className={cn("cursor-pointer", row.key === marked && "bg-muted")}
+                          >
+                            <TableCell className="whitespace-normal">
+                              <Link className="font-medium underline" to={dossierPath(row.key)} onClick={(event) => event.stopPropagation()}>
+                                {row.name}
+                              </Link>
+                              <Marks row={row} />
+                            </TableCell>
+                            <TableCell className="max-w-40 whitespace-normal">
+                              <Articles row={row} onArticle={byArticle} />
+                            </TableCell>
+                            <TableCell className="hidden max-w-40 truncate md:table-cell" title={row.regions.join(", ")}>
+                              {row.regions.join(", ") || DASH}
+                            </TableCell>
+                            <TableCell>{formatDate(row.last_published_at)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <Pager
+                      page={query.page}
+                      pageSize={data.page_size}
+                      shown={data.items.length}
+                      total={data.total}
+                      onPage={(next) => url.set({ page: next === 1 ? null : next })}
+                    />
+                  </div>
+                  {/* Beside the table where there is room; on a narrower screen the panel opens
+                      over it for the row tapped (as on «Результат»). */}
+                  {beside ? (
+                    shown ? <Panel row={shown} onArticle={byArticle} /> : null
+                  ) : (
+                    <Sheet open={tapped !== undefined} onOpenChange={(open) => (open ? null : setSelected(null))}>
+                      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+                        <SheetHeader className="sr-only">
+                          <SheetTitle>{tapped?.name ?? "Подробно"}</SheetTitle>
+                        </SheetHeader>
+                        {tapped ? <Panel row={tapped} onArticle={byArticle} /> : null}
+                      </SheetContent>
+                    </Sheet>
+                  )}
+                </div>
+              )}
+              <details className="mt-4 text-sm text-muted-foreground">
+                <summary className="cursor-pointer select-none">Как читать список</summary>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>Человек собран из упоминаний: «Моора», «Моору» и «Моор» — один человек.</li>
+                  <li>Серая статья УК — «общая»: в событии обвиняемыми названы и другие люди. Клик по статье — все люди по ней.</li>
+                  <li>«В перечне» — ФИО с отчеством совпало с перечнем Росфинмониторинга; «возможно» — только имя и фамилия.</li>
+                </ul>
+              </details>
+            </>
           );
         }}
       </QueryState>
