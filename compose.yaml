@@ -112,6 +112,9 @@ services:
       # The operator's own table of the Rosfinmonitoring list: days of inclusion the
       # ОВД-Инфо copy lacks, and who was removed from the list. Read by the list check.
       RFM_TABLE_SHARE_URL: ${RFM_TABLE_SHARE_URL:-}
+      # The list page delivered as a file by a computer fedsfm.ru answers; without
+      # the file the list is downloaded as before (docs/wiki/Rosfinmonitoring.md).
+      RFM_LIST_FILE: ${RFM_LIST_FILE:-/rfm/list.html}
       # One sync of the Rosfinmonitoring list is ~140 pages of 100 records, against
       # Airtable's limit of 5 requests a second.
       AIRTABLE_TIMEOUT_SECONDS: ${AIRTABLE_TIMEOUT_SECONDS:-120}
@@ -122,6 +125,7 @@ services:
       AIRTABLE_IMPORT_DIR: ${AIRTABLE_IMPORT_DIR:-/import}
     volumes:
       - ./airtable-import:/import
+      - ./var/rfm:/rfm:ro
     command:
       - uvicorn
       - api:app

@@ -33,7 +33,7 @@ from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
 from rosfinmonitoring.download import (
     RF_LIST_URL,
     RosfinmonitoringDownloadError,
-    download_rf_list,
+    fetch_rf_list,
 )
 from rosfinmonitoring.inclusion_dates import (
     InclusionDates,
@@ -123,7 +123,7 @@ class EntityRfCheck:
         self,
         session_factory: sessionmaker[Session],
         *,
-        download: Callable[[], bytes] = download_rf_list,
+        download: Callable[[], bytes] = fetch_rf_list,
         inclusion_dates: Callable[[httpx.Client], InclusionDates] = download_inclusion_dates,
         operator_table: Callable[[], list[OperatorRow] | None] = read_configured_table,
         on_stage: Callable[[str], None] = lambda _stage: None,
