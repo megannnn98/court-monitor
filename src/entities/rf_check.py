@@ -18,7 +18,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import delete, insert, select
@@ -116,6 +116,10 @@ def match_level(entity_patronymic: str | None, entry_patronymic: str | None) -> 
     if entity_patronymic and entry_patronymic:
         return FULL if entity_patronymic == entry_patronymic else None
     return NAME
+
+
+# The least a new page may hold of the entries of the snapshot in use.
+WHOLE_LIST_SHARE = 0.9
 
 
 class EntityRfCheck:
@@ -250,28 +254,40 @@ class EntityRfCheck:
         page = fetched if isinstance(fetched, ListPage) else ListPage(fetched)
         content = page.content
         persistence = RosfinmonitoringPersistence(self._session_factory)
-        if persistence.snapshot_exists(compute_content_hash(content)):
+        # An archive's capture was the published page on its own day, the site's is now.
+        seen_at = page.captured_at or datetime.now(UTC)
+        if persistence.confirm_snapshot(compute_content_hash(content), seen_at):
             logger.info("event=rf_list_unchanged bytes=%d", len(content))
             return None, False
-        if page.captured_at is not None:
-            # An archive's capture is the list of its day. One older than the snapshot in
-            # use would put yesterday's list in today's place.
-            latest = SqlAlchemyRosfinmonitoringSnapshotLookup(
-                self._session_factory
-            ).latest_imported_snapshot()
-            if latest is not None and latest.snapshot_date >= page.captured_at:
-                logger.warning("event=rf_list_archive_not_newer captured=%s", page.captured_at)
-                not_newer = (
-                    f"сайт перечень не отдал, а копия веб-архива от "
-                    f"{page.captured_at:%d.%m.%Y} не новее снимка от "
-                    f"{latest.snapshot_date:%d.%m.%Y}"
-                )
-                return not_newer, False
+        latest = SqlAlchemyRosfinmonitoringSnapshotLookup(
+            self._session_factory
+        ).latest_imported_snapshot()
+        # A capture older than the last time the list in use was seen would put an older
+        # list in today's place.
+        if (
+            page.captured_at is not None
+            and latest is not None
+            and latest.last_seen_at >= page.captured_at
+        ):
+            logger.warning("event=rf_list_archive_not_newer captured=%s", page.captured_at)
+            not_newer = (
+                f"сайт перечень не отдал, а копия веб-архива от "
+                f"{page.captured_at:%d.%m.%Y} не новее снимка, который видели "
+                f"{latest.last_seen_at:%d.%m.%Y}"
+            )
+            return not_newer, False
         self._on_stage("importing")
         try:
             imported = RosfinmonitoringIngestionPipeline(
                 persistence, HtmlRosfinmonitoringParser()
-            ).ingest(content, source_url=page.source_url, snapshot_date=page.captured_at)
+            ).ingest(
+                content,
+                source_url=page.source_url,
+                snapshot_date=seen_at,
+                # People leave the list a few at a time: a page with more than a tenth
+                # of the entries gone is a page cut short or dressed as the list.
+                min_entries=int(latest.entry_count * WHOLE_LIST_SHARE) if latest else 1,
+            )
         except ValueError as exc:  # the page parsed to no entries: the site changed
             logger.warning("event=rf_list_unusable error=%s", exc)
             return f"список не разобран: {exc}", False

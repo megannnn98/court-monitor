@@ -931,7 +931,81 @@ def test_an_archive_s_capture_older_than_the_snapshot_in_use_does_not_replace_it
 
     assert result.download_error == (
         f"сайт перечень не отдал, а копия веб-архива от {today - timedelta(days=3):%d.%m.%Y} "
-        f"не новее снимка от {today:%d.%m.%Y}"
+        f"не новее снимка, который видели {today:%d.%m.%Y}"
     )
     assert (result.new_snapshot, result.entries) == (False, 3)
     assert _snapshots(session_factory) == 1
+
+
+def _backdate(session_factory: sessionmaker[Session], when: datetime) -> None:
+    """The one snapshot there is was imported, and last seen, at `when`."""
+    with session_factory.begin() as session:
+        snapshot = session.scalars(select(RosfinmonitoringSnapshotRecord)).one()
+        snapshot.snapshot_date = snapshot.fetched_at = when
+
+
+def test_a_list_seen_again_is_not_replaced_by_a_capture_from_before_it_was_seen(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The list of 1 October is on the site again today; the archive holds another page
+    of the 5th. The 5th is after the first import and before today's sight of the list."""
+    _entities(session_factory, *PEOPLE)
+    EntityRfCheck(session_factory, download=_page).run()
+    first_seen = datetime.now(UTC) - timedelta(days=9)
+    _backdate(session_factory, first_seen)
+    other = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
+    between = ListPage(
+        _page(other), "https://web.archive.org/web/x/list", first_seen + timedelta(days=4)
+    )
+
+    seen_again = EntityRfCheck(session_factory, download=_page).run()
+    result = EntityRfCheck(session_factory, download=lambda: between).run()
+
+    assert (seen_again.download_error, seen_again.new_snapshot) == (None, False)
+    assert result.new_snapshot is False
+    assert result.download_error is not None and "не новее снимка" in result.download_error
+    assert (_snapshots(session_factory), result.entries) == (1, 2)
+    # The day the list was first seen stays: the days of inclusion are reckoned from it.
+    assert _stored(session_factory)[0][1] == first_seen
+
+
+def test_a_capture_made_after_the_list_was_last_seen_replaces_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _entities(session_factory, *PEOPLE)
+    EntityRfCheck(session_factory, download=_page).run()
+    first_seen = datetime.now(UTC) - timedelta(days=9)
+    _backdate(session_factory, first_seen)
+    other = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
+    later = ListPage(
+        _page(other), "https://web.archive.org/web/x/list", first_seen + timedelta(days=4)
+    )
+
+    result = EntityRfCheck(session_factory, download=lambda: later).run()
+
+    assert (result.download_error, result.new_snapshot, result.entries) == (None, True, 3)
+
+
+def _numbered(count: int) -> str:
+    return "".join(
+        f"<li>{n}. ИВАНОВ ИВАН НОМЕР{n}*, 01.01.19{n:02d} г.р. , Г. ТВЕРЬ;</li>"
+        for n in range(1, count + 1)
+    )
+
+
+def test_a_page_with_a_tenth_of_the_list_gone_is_not_taken_for_the_list(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A whole, well-formed page with the list's marks and a fraction of its entries:
+    a capture of something else dressed as the list. People leave a few at a time."""
+    EntityRfCheck(session_factory, download=lambda: _page(_numbered(20))).run()
+
+    short = EntityRfCheck(session_factory, download=lambda: _page(_numbered(17))).run()
+    fewer = EntityRfCheck(session_factory, download=lambda: _page(_numbered(18))).run()
+
+    assert short.download_error == (
+        "список не разобран: записей 17, а для целого перечня нужно не меньше 18"
+    )
+    assert (short.new_snapshot, short.entries) == (False, 20)
+    # Two of twenty left the list: that is the list.
+    assert (fewer.download_error, fewer.new_snapshot, fewer.entries) == (None, True, 18)

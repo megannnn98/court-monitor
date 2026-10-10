@@ -21,9 +21,11 @@ day of the capture (`fetch_rf_list`).
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 logger = logging.getLogger("entities")
@@ -44,11 +46,14 @@ DOWNLOAD_TIMEOUT_SECONDS = 180.0
 # page takes two seconds where it is served at all.
 STALLED_SECONDS = 30
 IMPERSONATE = "chrome146"
-# The Internet Archive: its latest capture of a page, and the capture as it was fetched
-# (`id_`: the original bytes, without the archive's banner and rewritten links).
-ARCHIVE_LATEST_URL = "https://archive.org/wayback/available"
-ARCHIVE_COPY_URL = "https://web.archive.org/web/{stamp}id_/{url}"
+# The Internet Archive's latest capture of a page, as it was fetched (`id_`: the original
+# bytes, without the archive's banner and rewritten links). A partial timestamp is
+# redirected to the latest capture; its own address and `Memento-Datetime` then say
+# which capture was served. The archive's «availability» API is not asked: it answers
+# with nothing at times.
+ARCHIVE_LATEST_COPY_URL = "https://web.archive.org/web/2id_/{url}"
 ARCHIVE_PAGE_URL = "https://web.archive.org/web/{stamp}/{url}"
+_ARCHIVE_COPY = re.compile(r"https?://web\.archive\.org/web/(\d{14})id_/(.+)")
 ARCHIVE_TIMEOUT_SECONDS = 120.0
 
 # The list page is a numbered table of names with birth dates. Any of these appearing in
@@ -79,21 +84,34 @@ def _get(url: str, **options: Any) -> Any:
 
 def archived_rf_list(get: Callable[..., Any] = _get) -> ListPage:
     """The Internet Archive's latest capture of the list page, checked like a download:
-    it must be the list, and whole — a capture cut short would lose the list's end."""
+    it must be the list, and whole — a capture cut short would lose the list's end.
+
+    The day of the capture is read from the answer itself, not from what was asked for:
+    the archive may serve another capture than the one named."""
     try:
-        found = get(ARCHIVE_LATEST_URL, params={"url": RF_LIST_URL}).json()
-        closest = found["archived_snapshots"]["closest"]
-        stamp = str(closest["timestamp"])
-        captured_at = datetime.strptime(stamp, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
-        response = get(ARCHIVE_COPY_URL.format(stamp=stamp, url=RF_LIST_URL))
-        status, body = response.status_code, response.content
-    except Exception as exc:  # no capture, an answer of another shape, a transport failure
+        response = get(ARCHIVE_LATEST_COPY_URL.format(url=RF_LIST_URL))
+        status, body, served = response.status_code, response.content, str(response.url)
+        said = response.headers.get("memento-datetime")
+    except Exception as exc:  # a transport failure, an answer of another shape
         raise RosfinmonitoringDownloadError(
             f"копия перечня в веб-архиве не получена: {type(exc).__name__}: {exc}"
         ) from exc
-    day = f"{captured_at:%d.%m.%Y}"
     if status != 200:
-        raise RosfinmonitoringDownloadError(f"веб-архив вернул {status} на копию от {day}")
+        raise RosfinmonitoringDownloadError(f"веб-архив вернул {status} на копию перечня")
+    copy = _ARCHIVE_COPY.fullmatch(served)
+    if copy is None or copy.group(2).split("://", 1)[-1] != RF_LIST_URL.split("://", 1)[-1]:
+        raise RosfinmonitoringDownloadError(f"веб-архив отдал не копию перечня: {served[:200]}")
+    stamp = copy.group(1)
+    unconfirmed = f"веб-архив не подтвердил день копии: в адресе {stamp}, в ответе {said!r}"
+    try:
+        # Fourteen digits are not yet a day: «20261309…» has no thirteenth month.
+        captured_at = datetime.strptime(stamp, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+        dated = parsedate_to_datetime(said) if said else None
+    except ValueError as exc:
+        raise RosfinmonitoringDownloadError(unconfirmed) from exc
+    if dated != captured_at:
+        raise RosfinmonitoringDownloadError(unconfirmed)
+    day = f"{captured_at:%d.%m.%Y}"
     if not _is_the_list(body) or b"</html>" not in body[-200:]:
         raise RosfinmonitoringDownloadError(
             f"копия веб-архива от {day} — не перечень целиком. Снимок не тронут."
