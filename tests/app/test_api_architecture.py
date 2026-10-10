@@ -78,6 +78,7 @@ ROUTES_AFTER_SPLIT = [
     "GET /api/v1/about",
     "GET /api/v1/status",
     "GET /api/v1/entities",
+    "GET /api/v1/entities/removals",
     "GET /api/v1/publications",
     "GET /api/v1/articles/{article_id}/mentions",
     "GET /api/v1/political",
@@ -113,6 +114,7 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/v1/officials/deactivate",
     # The console's actions, behind the same-origin check (ADR 0022).
     "POST /api/v1/political/done",
+    "POST /api/v1/entities/removal",
     "GET /api/v1/review/roles",
     "POST /api/v1/review/roles/decide",
     "GET /api/v1/review/politics",

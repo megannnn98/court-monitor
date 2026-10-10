@@ -2939,6 +2939,52 @@ export type RelatedPersonResponse = {
 };
 
 /**
+ * RemovalListResponse
+ *
+ * The entities a person removed, the latest first.
+ */
+export type RemovalListResponse = {
+    /**
+     * Items
+     */
+    items: Array<RemovalResponse>;
+};
+
+/**
+ * RemovalRequest
+ *
+ * «Такого человека нет» on an entity, or that word taken back.
+ */
+export type RemovalRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Removed
+     */
+    removed: boolean;
+};
+
+/**
+ * RemovalResponse
+ */
+export type RemovalResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Removed
+     */
+    removed: boolean;
+};
+
+/**
  * ResolutionReviewAction
  */
 export type ResolutionReviewAction = 'link_to_person' | 'create_new_person' | 'merge_persons' | 'keep_separate';
@@ -4753,6 +4799,47 @@ export type ListEntitiesV1Responses = {
 };
 
 export type ListEntitiesV1Response = ListEntitiesV1Responses[keyof ListEntitiesV1Responses];
+
+export type ListRemovalsV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entities/removals';
+};
+
+export type ListRemovalsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: RemovalListResponse;
+};
+
+export type ListRemovalsV1Response = ListRemovalsV1Responses[keyof ListRemovalsV1Responses];
+
+export type SetRemovalV1Data = {
+    body: RemovalRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entities/removal';
+};
+
+export type SetRemovalV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetRemovalV1Error = SetRemovalV1Errors[keyof SetRemovalV1Errors];
+
+export type SetRemovalV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: RemovalResponse;
+};
+
+export type SetRemovalV1Response = SetRemovalV1Responses[keyof SetRemovalV1Responses];
 
 export type ListPublicationsV1Data = {
     body?: never;

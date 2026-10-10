@@ -325,6 +325,26 @@ class EntityListResponse(BaseModel):
     regions: list[str]
 
 
+class RemovalRequest(BaseModel):
+    """«Такого человека нет» on an entity, or that word taken back."""
+
+    key: str = Field(max_length=255)
+    removed: bool
+
+
+class RemovalResponse(BaseModel):
+    key: str
+    # Surname first; the name the entity had when removed.
+    name: str
+    removed: bool
+
+
+class RemovalListResponse(BaseModel):
+    """The entities a person removed, the latest first."""
+
+    items: list[RemovalResponse]
+
+
 class PersonLinkResponse(BaseModel):
     key: str
     # Surname first.

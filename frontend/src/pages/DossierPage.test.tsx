@@ -1,13 +1,14 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getDossierV1 } from "@/api/generated";
+import { getDossierV1, setRemovalV1 } from "@/api/generated";
 import { dossierPath } from "@/lib/navigation";
 import { DossierPage } from "@/pages/DossierPage";
 import { failed, ok, renderPage } from "@/test/render";
 
-vi.mock("@/api/generated", () => ({ getDossierV1: vi.fn() }));
+vi.mock("@/api/generated", () => ({ getDossierV1: vi.fn(), setRemovalV1: vi.fn() }));
 const dossier = vi.mocked(getDossierV1);
+const removal = vi.mocked(setRemovalV1);
 
 const QUOTE = { article_id: 77, title: "Арест Моора", source: "ОВД-Инфо", published_at: "2026-09-01T09:00:00Z", quote: "Суд арестовал Александра Моора.", start: 14, end: 30, text_start: 100, text_end: 116 };
 const DOSSIER = {
@@ -175,4 +176,32 @@ it("offers to take the official's word back from one marked so", async () => {
   renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/%D0%BC%D0%BE%D0%BE%D1%80" });
 
   expect(await screen.findByRole("button", { name: "Не должностное лицо" })).toBeTruthy();
+});
+
+it("removes a person who is nobody only after the question is answered yes, and says a refusal", async () => {
+  dossier.mockReturnValue(ok(DOSSIER) as never);
+  removal.mockReset();
+  removal.mockReturnValueOnce(failed(404, "Человек не найден") as never);
+  removal.mockReturnValue(ok({ key: DOSSIER.key, name: DOSSIER.name, removed: true }) as never);
+  const asked = vi.fn(() => false);
+  vi.stubGlobal("confirm", asked);
+  try {
+    renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/%D0%BC%D0%BE%D0%BE%D1%80" });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Удалить: такого человека нет" }));
+    expect(asked).toHaveBeenCalledWith("Удалить «Моор Александр»? Человек исчезнет из всех списков; публикации останутся.");
+    expect(removal).not.toHaveBeenCalled();
+
+    asked.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Удалить: такого человека нет" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Человек не найден");
+    expect(removal).toHaveBeenLastCalledWith({ body: { key: DOSSIER.key, removed: true } });
+
+    // Removed: the dossier is left for «Все люди» (no such route in this test: nothing is shown).
+    fireEvent.click(screen.getByRole("button", { name: "Удалить: такого человека нет" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Удалить: такого человека нет" })).toBeNull());
+    expect(removal).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

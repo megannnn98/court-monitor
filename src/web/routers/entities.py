@@ -1,12 +1,15 @@
-"""«Все люди» for the React console: the legacy list's rows, filters and counts. Read-only."""
+"""«Все люди» for the React console: the legacy list's rows, filters and counts, and a
+person's removals of entities that are nobody."""
 
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupRecord
 from entities.overrides import MANUAL
+from entities.removals import removals, remove, restore
 from entities.rf_check import FULL
 from web.dependencies import get_db
 from web.response_models import (
@@ -15,6 +18,9 @@ from web.response_models import (
     EntityRowResponse,
     EventCountResponse,
     OptionResponse,
+    RemovalListResponse,
+    RemovalRequest,
+    RemovalResponse,
 )
 from web.ui.entities import (
     EVENT_LABELS,
@@ -113,3 +119,36 @@ def list_entities(
         ],
         regions=data.regions,
     )
+
+
+@router.get("/entities/removals", response_model=RemovalListResponse)
+def list_removals(db: Session = Depends(get_db)) -> RemovalListResponse:  # noqa: B008
+    """The entities a person removed as nobody, the latest first."""
+    return RemovalListResponse(
+        items=[
+            RemovalResponse(key=record.key, name=display_name(record.name), removed=True)
+            for record in removals(db)
+        ]
+    )
+
+
+@router.post("/entities/removal", response_model=RemovalResponse)
+def set_removal(
+    body: RemovalRequest,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> RemovalResponse:
+    """Remove an entity that is nobody, or take that word back. A removed entity leaves
+    every list at once; one whose removal is taken back returns at the next rebuild."""
+    if body.removed:
+        entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == body.key))
+        if entity is None:
+            raise HTTPException(status_code=404, detail="Человек не найден")
+        name = entity.name
+        remove(db, entity)
+    else:
+        kept = next((record.name for record in removals(db) if record.key == body.key), None)
+        if kept is None or not restore(db, body.key):
+            raise HTTPException(status_code=404, detail="Удаление не найдено")
+        name = kept
+    db.commit()
+    return RemovalResponse(key=body.key, name=display_name(name), removed=body.removed)
