@@ -19,6 +19,7 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
 )
 from entities.rf_check import EntityRfCheck, match_level
+from rosfinmonitoring.download import ListPage
 from rosfinmonitoring.inclusion_dates import (
     InclusionDates,
     InclusionDatesUnavailable,
@@ -887,3 +888,50 @@ def test_a_table_that_cannot_be_read_stops_nothing_and_keeps_the_copy_held(
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(RfmOperatorEntryRecord)) == 1
     assert _sources_of(session_factory)["АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ"] == "operator"
+
+
+def _stored(session_factory: sessionmaker[Session]) -> list[tuple[str, datetime, int]]:
+    with session_factory() as session:
+        return [
+            (record.source_url, record.snapshot_date, record.entry_count)
+            for record in session.scalars(
+                select(RosfinmonitoringSnapshotRecord).order_by(RosfinmonitoringSnapshotRecord.id)
+            )
+        ]
+
+
+def test_an_archive_s_capture_becomes_a_snapshot_of_the_day_it_was_captured(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _entities(session_factory, *PEOPLE)
+    captured_at = datetime(2026, 10, 9, 10, 19, 10, tzinfo=UTC)
+    capture = ListPage(_page(), "https://web.archive.org/web/20261009101910/list", captured_at)
+
+    result = EntityRfCheck(session_factory, download=lambda: capture).run()
+    again = EntityRfCheck(session_factory, download=lambda: capture).run()
+
+    assert (result.download_error, result.new_snapshot, result.entries) == (None, True, 2)
+    # The same capture again is the list unchanged, and no complaint.
+    assert (again.download_error, again.new_snapshot) == (None, False)
+    assert _stored(session_factory) == [
+        ("https://web.archive.org/web/20261009101910/list", captured_at, 2)
+    ]
+
+
+def test_an_archive_s_capture_older_than_the_snapshot_in_use_does_not_replace_it(
+    session_factory: sessionmaker[Session],
+) -> None:
+    _entities(session_factory, *PEOPLE)
+    changed = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
+    EntityRfCheck(session_factory, download=lambda: _page(changed)).run()
+    today = _stored(session_factory)[0][1]
+    old = ListPage(_page(), "https://web.archive.org/web/x/list", today - timedelta(days=3))
+
+    result = EntityRfCheck(session_factory, download=lambda: old).run()
+
+    assert result.download_error == (
+        f"сайт перечень не отдал, а копия веб-архива от {today - timedelta(days=3):%d.%m.%Y} "
+        f"не новее снимка от {today:%d.%m.%Y}"
+    )
+    assert (result.new_snapshot, result.entries) == (False, 3)
+    assert _snapshots(session_factory) == 1
