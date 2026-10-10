@@ -525,3 +525,40 @@ def test_no_rf_match_and_insufficient_create_no_person(
         with session_factory.begin() as session:
             session.execute(delete(UnnamedFigurantRecord))
             session.execute(delete(UnnamedIdentityResolutionRecord))
+
+
+def test_the_author_s_signature_under_the_text_is_no_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("news", "https://news.example.test")
+        # The author signs the first text and is written about in the second.
+        signed = "Суд арестовал Петра Петрова.\nНикита Черненко\n"
+        about = "Суд арестовал Ивана Иванова. О деле рассказал Никита Черненко, его адвокат."
+        for external_id, body, people in (
+            ("a", signed, [("Петра Петрова", "Пётр", "Петров")]),
+            ("b", about, [("Ивана Иванова", "Иван", "Иванов")]),
+        ):
+            _, run = seed.article(source, external_id=external_id, title=external_id, text=body)
+            for surface, first, last in [*people, ("Никита Черненко", "Никита", "Черненко")]:
+                mention_id = seed.mention(run, surface, person_id=None)
+                session.get_one(EntityMentionRecord, mention_id).normalized_data = {
+                    "first_name": first,
+                    "last_name": last,
+                    "patronymic": None,
+                }
+            seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
+        session.commit()
+
+    EntityCollector(session_factory).run()
+
+    with session_factory() as session:
+        counts = {
+            name: mentions
+            for name, mentions in session.execute(
+                select(EntityGroupRecord.name, EntityGroupRecord.mention_count)
+            )
+        }
+    # The signature is not a mention; the sentence about the same name is.
+    assert counts == {"Пётр Петров": 1, "Иван Иванов": 1, "Никита Черненко": 1}

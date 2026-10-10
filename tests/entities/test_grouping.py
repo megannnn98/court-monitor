@@ -11,6 +11,7 @@ from entities.grouping import (
     Entity,
     PersonMention,
     attach_aliases,
+    byline,
     group_mentions,
     kinship,
     merge_swapped,
@@ -545,3 +546,34 @@ def test_a_pseudonym_joins_the_named_person_whose_name_stays() -> None:
     assert merged[0].variants == Counter({"Дмитрия Пуркина": 1, "Дед Архимед": 2})
     # The entities given are left as they were.
     assert purkin.mention_ids == [1] and alias.key == "дед архимед"
+
+
+@pytest.mark.parametrize(
+    ("surface", "before", "after", "signature"),
+    [
+        # The author under the text.
+        ("Никита Черненко", "заочно арестованы.\n", "", True),
+        ("Екатерина Наумова", "в материале «Ъ» «Баня с отмыванием».\n\n ", "\n", True),
+        ("Анна Мария Петрова", "сообщили в суде!\n", "", True),
+        # With the author's city.
+        ("Влад Никифоров", "добавили в суде.\n", ", Иркутск", True),
+        ("Влад Никифоров", "добавили в суде.\n", ", Нижний Новгород\n", True),
+        ("Влад Никифоров", "добавили в суде.\n", ", который вёл дело", False),
+        ("Влад Никифоров", "добавили в суде.\n", ", Иркутск. Суд продолжится", False),
+        # The last name of a list: the line before is a name, not a sentence.
+        ("Пётр Петров", "По делу проходят:\nИван Иванов\n", "", False),
+        # A name that ends a sentence, or stands in one.
+        ("Ольга Пельш", "сказала ее адвокат ", ".", False),
+        ("Ирина Волк", "задержан полицейскими.\nВидео: ", "", False),
+        # Text goes on after the line.
+        ("Никита Черненко", "заочно арестованы.\n", "\nСуд назначил заседание.", False),
+        # One word is no signature; neither is a text that is a name alone.
+        ("Черненко", "заочно арестованы.\n", "", False),
+        ("Никита Черненко", "", "", False),
+        ("Никита Черненко", "\n", "", False),
+    ],
+)
+def test_the_author_s_signature_under_the_text_is_told_from_a_person_of_the_news(
+    surface: str, before: str, after: str, signature: bool
+) -> None:
+    assert byline(surface, before, after) is signature
