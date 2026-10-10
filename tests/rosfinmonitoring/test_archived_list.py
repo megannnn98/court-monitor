@@ -80,6 +80,11 @@ def test_the_day_is_the_served_capture_s_not_the_one_asked_for() -> None:
         (_Answer(dated="Wed, 07 Oct 2026 08:00:00 GMT"), "веб-архив не подтвердил день копии"),
         (_Answer(dated=None), "веб-архив не подтвердил день копии"),
         (_Answer(dated="yesterday"), "веб-архив не подтвердил день копии"),
+        # Fourteen digits that are no day: a thirteenth month.
+        (
+            _Answer(url=f"https://web.archive.org/web/20261309101910id_/{RF_LIST_URL}"),
+            "веб-архив не подтвердил день копии",
+        ),
     ],
 )
 def test_an_answer_that_is_not_the_whole_list_of_a_known_day_is_refused(

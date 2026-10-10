@@ -102,15 +102,15 @@ def archived_rf_list(get: Callable[..., Any] = _get) -> ListPage:
     if copy is None or copy.group(2).split("://", 1)[-1] != RF_LIST_URL.split("://", 1)[-1]:
         raise RosfinmonitoringDownloadError(f"веб-архив отдал не копию перечня: {served[:200]}")
     stamp = copy.group(1)
-    captured_at = datetime.strptime(stamp, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+    unconfirmed = f"веб-архив не подтвердил день копии: в адресе {stamp}, в ответе {said!r}"
     try:
+        # Fourteen digits are not yet a day: «20261309…» has no thirteenth month.
+        captured_at = datetime.strptime(stamp, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
         dated = parsedate_to_datetime(said) if said else None
-    except ValueError:
-        dated = None
+    except ValueError as exc:
+        raise RosfinmonitoringDownloadError(unconfirmed) from exc
     if dated != captured_at:
-        raise RosfinmonitoringDownloadError(
-            f"веб-архив не подтвердил день копии: в адресе {stamp}, в ответе {said!r}"
-        )
+        raise RosfinmonitoringDownloadError(unconfirmed)
     day = f"{captured_at:%d.%m.%Y}"
     if not _is_the_list(body) or b"</html>" not in body[-200:]:
         raise RosfinmonitoringDownloadError(

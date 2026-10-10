@@ -284,8 +284,8 @@ class EntityRfCheck:
                 content,
                 source_url=page.source_url,
                 snapshot_date=seen_at,
-                # People leave the list a few at a time: a page with a tenth of the
-                # entries gone is a page cut short or dressed as the list.
+                # People leave the list a few at a time: a page with more than a tenth
+                # of the entries gone is a page cut short or dressed as the list.
                 min_entries=int(latest.entry_count * WHOLE_LIST_SHARE) if latest else 1,
             )
         except ValueError as exc:  # the page parsed to no entries: the site changed
