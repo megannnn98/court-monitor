@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from rosfinmonitoring.download import (
-    ARCHIVE_LATEST_URL,
+    ARCHIVE_LATEST_COPY_URL,
     RF_LIST_URL,
     ListPage,
     RosfinmonitoringDownloadError,
@@ -20,32 +20,31 @@ LIST = (
     "<html>Росфинмониторинг<p>1. ИВАНОВ ИВАН ИВАНОВИЧ, 01.01.1990 г.р.</p></body>\r\n</html>\r\n"
 ).encode()
 STAMP = "20261009101910"
-COPY = f"https://web.archive.org/web/{STAMP}id_/{RF_LIST_URL}"
+SERVED = f"https://web.archive.org/web/{STAMP}id_/{RF_LIST_URL}"
+DATED = "Fri, 09 Oct 2026 10:19:10 GMT"
 
 
 class _Answer:
-    def __init__(self, status: int = 200, body: bytes = b"", data: Any = None) -> None:
-        self.status_code, self.content, self._data = status, body, data
+    """What the archive answered after its redirect to the latest capture."""
 
-    def json(self) -> Any:
-        return self._data
+    def __init__(
+        self, body: bytes = LIST, *, status: int = 200, url: str = SERVED, dated: str | None = DATED
+    ) -> None:
+        self.status_code, self.content, self.url = status, body, url
+        self.headers = {"memento-datetime": dated} if dated else {}
 
 
-def _archive(copy: _Answer, latest: Any = None) -> Any:
-    found = {"archived_snapshots": {"closest": {"timestamp": STAMP}}} if latest is None else latest
-
+def _archive(answer: _Answer) -> Any:
     def get(url: str, **options: Any) -> _Answer:
-        if url == ARCHIVE_LATEST_URL:
-            assert options == {"params": {"url": RF_LIST_URL}}
-            return _Answer(data=found)
-        assert url == COPY
-        return copy
+        assert url == ARCHIVE_LATEST_COPY_URL.format(url=RF_LIST_URL)
+        assert options == {}
+        return answer
 
     return get
 
 
 def test_the_archive_s_latest_capture_is_the_list_of_the_day_it_was_captured() -> None:
-    page = archived_rf_list(_archive(_Answer(body=LIST)))
+    page = archived_rf_list(_archive(_Answer()))
 
     assert page == ListPage(
         LIST,
@@ -54,22 +53,40 @@ def test_the_archive_s_latest_capture_is_the_list_of_the_day_it_was_captured() -
     )
 
 
+def test_the_day_is_the_served_capture_s_not_the_one_asked_for() -> None:
+    # The archive sent on to a capture of two days before.
+    earlier = _Answer(
+        url=f"https://web.archive.org/web/20261007080000id_/{RF_LIST_URL}",
+        dated="Wed, 07 Oct 2026 08:00:00 GMT",
+    )
+
+    assert archived_rf_list(_archive(earlier)).captured_at == datetime(2026, 10, 7, 8, tzinfo=UTC)
+
+
 @pytest.mark.parametrize(
-    ("copy", "latest", "said"),
+    ("answer", "said"),
     [
-        (_Answer(status=503), None, "веб-архив вернул 503 на копию от 09.10.2026"),
+        (_Answer(status=503), "веб-архив вернул 503 на копию перечня"),
         # A capture of the site's refusal, and one cut short before the page's end.
-        (_Answer(body=b"<html>Access denied</html>"), None, "не перечень целиком"),
-        (_Answer(body=LIST.removesuffix(b"</html>\r\n")), None, "не перечень целиком"),
-        # The page was never captured.
-        (_Answer(body=LIST), {"archived_snapshots": {}}, "копия перечня в веб-архиве не получена"),
+        (_Answer(b"<html>Access denied</html>"), "не перечень целиком"),
+        (_Answer(LIST.removesuffix(b"</html>\r\n")), "не перечень целиком"),
+        # Not a capture of this page: the archive's own page, another site's capture.
+        (_Answer(url="https://web.archive.org/"), "веб-архив отдал не копию перечня"),
+        (
+            _Answer(url=f"https://web.archive.org/web/{STAMP}id_/https://example.org/"),
+            "веб-архив отдал не копию перечня",
+        ),
+        # The answer's own date disagrees with its address, or is missing.
+        (_Answer(dated="Wed, 07 Oct 2026 08:00:00 GMT"), "веб-архив не подтвердил день копии"),
+        (_Answer(dated=None), "веб-архив не подтвердил день копии"),
+        (_Answer(dated="yesterday"), "веб-архив не подтвердил день копии"),
     ],
 )
-def test_a_capture_that_is_not_the_whole_list_is_refused(
-    copy: _Answer, latest: Any, said: str
+def test_an_answer_that_is_not_the_whole_list_of_a_known_day_is_refused(
+    answer: _Answer, said: str
 ) -> None:
     with pytest.raises(RosfinmonitoringDownloadError, match=said):
-        archived_rf_list(_archive(copy, latest))
+        archived_rf_list(_archive(answer))
 
 
 def test_a_transport_failure_of_the_archive_is_a_download_error() -> None:

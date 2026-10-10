@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -45,6 +46,25 @@ class RosfinmonitoringPersistence:
                 )
             )
             return result.first() is not None
+
+    def confirm_snapshot(self, content_hash: str, seen_at: datetime) -> bool:
+        """Whether a snapshot with this content exists; it is then known to have been the
+        published page at `seen_at` as well (`fetched_at` moves forward only).
+
+        `snapshot_date` stays the day the content was first seen: the days of inclusion
+        are reckoned from it."""
+        with self._session_factory() as session:
+            record = session.execute(
+                select(RosfinmonitoringSnapshotRecord).where(
+                    RosfinmonitoringSnapshotRecord.content_hash == content_hash
+                )
+            ).scalar_one_or_none()
+            if record is None:
+                return False
+            if seen_at > record.fetched_at:
+                record.fetched_at = seen_at
+                session.commit()
+            return True
 
     def save_entries(
         self,

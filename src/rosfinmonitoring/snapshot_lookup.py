@@ -19,6 +19,9 @@ from rosfinmonitoring.models import AIRTABLE_SNAPSHOT_SOURCE_URL
 class RosfinmonitoringSnapshotSummary(BaseModel):
     snapshot_id: int
     snapshot_date: datetime
+    # When the content was last seen as the published page: a list that has not changed
+    # is seen again at every download.
+    last_seen_at: datetime
     entry_count: int
     match_count: int
 
@@ -68,6 +71,7 @@ class SqlAlchemyRosfinmonitoringSnapshotLookup:
             select(
                 RosfinmonitoringSnapshotRecord.id,
                 RosfinmonitoringSnapshotRecord.snapshot_date,
+                RosfinmonitoringSnapshotRecord.fetched_at,
                 entry_count,
                 match_count,
             )
@@ -90,10 +94,11 @@ class SqlAlchemyRosfinmonitoringSnapshotLookup:
             row = session.execute(query).first()
         if row is None:
             return None
-        snapshot_id, snapshot_date, entries, matches = row
+        snapshot_id, snapshot_date, fetched_at, entries, matches = row
         return RosfinmonitoringSnapshotSummary(
             snapshot_id=snapshot_id,
             snapshot_date=snapshot_date,
+            last_seen_at=max(snapshot_date, fetched_at),
             entry_count=entries,
             match_count=matches,
         )

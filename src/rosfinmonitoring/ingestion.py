@@ -50,8 +50,13 @@ class RosfinmonitoringIngestionPipeline:
         raw_content: bytes,
         source_url: str,
         snapshot_date: datetime | None = None,
+        *,
+        min_entries: int = 1,
     ) -> RosfinmonitoringIngestionResult:
-        """Ingest Rosfinmonitoring data from raw content."""
+        """Ingest Rosfinmonitoring data from raw content.
+
+        `snapshot_date` is when the content was seen as the published page (now, unless
+        given). Fewer than `min_entries` entries is not the whole list: nothing is kept."""
         content_hash = compute_content_hash(raw_content)
 
         if self._persistence.snapshot_exists(content_hash):
@@ -62,13 +67,20 @@ class RosfinmonitoringIngestionPipeline:
 
         if not entries:
             raise ValueError("No entries found in the provided content")
+        if len(entries) < min_entries:
+            raise ValueError(
+                f"записей {len(entries)}, а для целого перечня нужно не меньше {min_entries}"
+            )
 
+        seen_at = snapshot_date or datetime.now(UTC)
         snapshot = RosfinmonitoringSnapshot(
-            snapshot_date=snapshot_date or datetime.now(UTC),
+            snapshot_date=seen_at,
             source_url=source_url,
             content_hash=content_hash,
             entry_count=len(entries),
-            fetched_at=datetime.now(UTC),
+            # When the content was last seen as the published page: an archive's capture
+            # was seen on its own day, not on the day it was fetched from the archive.
+            fetched_at=seen_at,
             raw_content=raw_content,
         )
 
