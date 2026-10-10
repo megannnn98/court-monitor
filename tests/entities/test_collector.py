@@ -554,8 +554,11 @@ def test_the_author_s_signature_under_the_text_is_no_person(
     EntityCollector(session_factory).run()
 
     with session_factory() as session:
-        counts = dict(
-            session.execute(select(EntityGroupRecord.name, EntityGroupRecord.mention_count)).all()
-        )
+        counts = {
+            name: mentions
+            for name, mentions in session.execute(
+                select(EntityGroupRecord.name, EntityGroupRecord.mention_count)
+            )
+        }
     # The signature is not a mention; the sentence about the same name is.
     assert counts == {"Пётр Петров": 1, "Иван Иванов": 1, "Никита Черненко": 1}
