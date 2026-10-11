@@ -572,7 +572,15 @@ re-keying of every decision table and console page, and it assumes ER v2 joins
 mentions at least as well as grouping with a model does, which nobody has measured.
 The people the news do not name have no person to hang on and need their own answer.
 
-### Current recommendation (a hypothesis, not a decision)
+### Decided since: ADR 0024
+
+The comparison was run and labelled, and the question is closed by
+`docs/adr/0024-entity-groups-are-the-canonical-identity.md`: entity groups are the
+canonical identity, ER v2 stays as it is and is not extended, and no layer of persons
+is built under entity groups. The text below is the reasoning before the measurement
+and is kept for the record.
+
+### The recommendation before the measurement (a hypothesis, superseded)
 
 Read from the code alone, option B was the first answer: everything the operator works
 with is pipeline B, only pipeline B holds the facts the product is about (the role in a
