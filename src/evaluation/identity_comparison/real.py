@@ -303,10 +303,15 @@ def disagreement_sample(
     """Cases the two group differently, by kind (`name_difference` for the persons
     ER v2 keeps apart), and a fixed sample of each kind to be judged by a person."""
     surfaces: dict[tuple[int, str], Counter[str]] = defaultdict(Counter)
+    members: dict[tuple[int, str], list[int]] = defaultdict(list)
+    members_of_entity: dict[str, list[int]] = defaultdict(list)
     for row in rows:
         key = entity_of.get(row.mention.mention_id)
+        if key is not None:
+            members_of_entity[key].append(row.mention.mention_id)
         if row.person_id is not None and key is not None:
             surfaces[row.person_id, key][row.mention.surface or ""] += 1
+            members[row.person_id, key].append(row.mention.mention_id)
     persons_of_entity: dict[str, set[int]] = defaultdict(set)
     entities_of_person: dict[int, set[str]] = defaultdict(set)
     for person_id, key in surfaces:
@@ -331,6 +336,7 @@ def disagreement_sample(
                         "person_id": person_id,
                         "canonical_name": person_names.get(person_id),
                         "surfaces": forms(person_id, key),
+                        "mention_ids": members[person_id, key],
                     }
                     for person_id in sorted(persons)
                 ],
@@ -344,7 +350,12 @@ def disagreement_sample(
                 "person_id": person_id,
                 "canonical_name": person_names.get(person_id),
                 "entities": [
-                    {"entity": key, "surfaces": forms(person_id, key)} for key in sorted(keys)
+                    {
+                        "entity": key,
+                        "surfaces": forms(person_id, key),
+                        "mention_ids": members[person_id, key],
+                    }
+                    for key in sorted(keys)
                 ],
             }
         )
@@ -364,6 +375,9 @@ def disagreement_sample(
                     "entity": key,
                     "entity_mentions": sum(forms_of_entity[key].values()),
                     "entity_surfaces": [form for form, _ in forms_of_entity[key].most_common(5)],
+                    "other_mention_ids": [
+                        other for other in members_of_entity[key] if other != row.mention.mention_id
+                    ],
                 }
             )
     picker = random.Random(SAMPLE_SEED)

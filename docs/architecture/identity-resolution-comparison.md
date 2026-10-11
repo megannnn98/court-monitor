@@ -330,6 +330,24 @@ Separately, and not part of this experiment: the three-word names in the extract
 normalizer are a defect in stored data that both pipelines read. It was not fixed here.
 Whether to fix it is its own decision; a fix changes what extraction stores.
 
+### Preparing the sample for labelling
+
+```bash
+PYTHONPATH=src uv run python -m evaluation.identity_comparison.annotation \
+  --real-url postgresql+psycopg://…@127.0.0.1:5434/junk_eval \
+  --out var/identity_comparison
+```
+
+writes `var/identity_comparison/disagreement_annotation.json`: the same 97 cases, each
+turned into pairs of sides with an empty label. A side is a group one of the models
+made (an ER v2 person, an entity of the rules, or one mention), shown by up to three of
+its mentions, each with the article's title, date, source, the events it takes part in,
+both models' decisions, and about 300 characters of the article on either side. A
+person sets each pair's label to `same_person`, `different_person` or
+`insufficient_evidence`. Nothing is labelled by the command. The file holds names and
+text of the real database and stays under the ignored `var/`; the database is only
+read.
+
 ## 10. Limits of the experiment
 
 - B is the rules alone. Production B adds a model and the operator's decisions; its
