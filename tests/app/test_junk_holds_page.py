@@ -418,7 +418,7 @@ def test_the_purge_s_card_says_what_the_model_read() -> None:
     assert _holds_read("event=junk_purge_started total=0") == []
 
 
-def test_all_a_model_read_as_junk_is_one_piece_of_work_and_opens_first(
+def test_every_held_article_is_counted_and_the_unread_list_opens_first(
     session_factory: sessionmaker[Session],
 ) -> None:
     ids = _read(session_factory)
@@ -433,17 +433,19 @@ def test_all_a_model_read_as_junk_is_one_piece_of_work_and_opens_first(
     with session_factory() as session:
         nothing_left = workload(session).junk_holds
 
-    # One the model did not answer about, and one press for the two it calls junk.
-    assert with_unread == 2
+    # One the model did not answer about and the two it calls junk: three publications.
+    assert with_unread == 3
     assert _titles(opened_with_unread) == ["unread"]
     # Nothing unread: the queue's link opens the list there is work in.
     assert _titles(opened) == ["bribe", "fine"]
     assert nothing_left == 0
 
 
-def test_two_articles_a_model_calls_junk_count_as_one(
+def test_two_articles_a_model_calls_junk_count_as_two(
     session_factory: sessionmaker[Session],
 ) -> None:
+    """The queue says how many publications wait, not «one piece of work» for all the
+    model's: eighteen of them showed as «1»."""
     ids = _read(session_factory)
     with session_factory.begin() as session:
         session.execute(
@@ -451,7 +453,7 @@ def test_two_articles_a_model_calls_junk_count_as_one(
         )
 
     with session_factory() as session:
-        assert workload(session).junk_holds == 1
+        assert workload(session).junk_holds == 2
 
 
 def test_a_page_opened_before_a_release_cannot_undo_it(
