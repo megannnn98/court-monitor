@@ -586,6 +586,10 @@ formulation, and two things decide whether it stands:
 
 1. A comparison of ER v2 and entity grouping on one corpus: which mentions each joins,
    where they disagree, and which is right.
+   First run, rules alone, no model: `identity-resolution-comparison.md`. Where both
+   decide they agree; ER v2 leaves half the mentions to a person, and that review rate,
+   not the quality of its joins, is what stands between persons and the role of
+   canonical identity. Still open: labels for the sample, and the run with the model.
 2. A design of the link between a person and the case aggregate, with the cost of
    re-keying the decision tables and the pages counted.
 
