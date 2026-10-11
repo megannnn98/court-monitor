@@ -96,7 +96,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 
 | Area | Where | Notes |
 |---|---|---|
-| Sources | `src/sources/` | 75 sources: `ovd-info`, `sota-vision`, `sudrf-2zovs`, `memopzk-figurants` (registry of «Поддержка политзаключённых. Мемориал»), `kommersant` (site via RSS), 70 Telegram channels — [Ingestion](Ingestion.md) |
+| Sources | `src/ingestion/sources/` | 75 sources: `ovd-info`, `sota-vision`, `sudrf-2zovs`, `memopzk-figurants` (registry of «Поддержка политзаключённых. Мемориал»), `kommersant` (site via RSS), 70 Telegram channels — [Ingestion](Ingestion.md) |
 | Extraction | `src/extraction/` | rule-based mentions, normalization to the nominative, events — [Extraction](Extraction.md) |
 | Entity resolution | `src/persons/` | ER v2 with human review — [Entity-Resolution](Entity-Resolution.md) |
 | Persecution classification | `src/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |

@@ -13,8 +13,8 @@ import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import DBAPIError, OperationalError
 
+from ingestion.sources.source_registry import SOURCES
 from monitor_core.errors import PersistenceError, TransientDiscoveryError, TransientFetchError
-from sources.source_registry import SOURCES
 
 # Every registered source: the two websites and the monitored Telegram channels.
 DEFAULT_ENABLED_SOURCES = tuple(SOURCES)

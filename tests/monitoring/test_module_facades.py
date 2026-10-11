@@ -22,7 +22,7 @@ from support.monitoring_fixtures import (
 
 from application import build_ingestion_service, build_processing_service
 from extraction.models import ExtractionRunStatus
-from ingestion import IngestionService
+from ingestion.service import IngestionService
 from monitoring.models import MonitoringRunStatus
 
 SOURCE = "ovd-info"

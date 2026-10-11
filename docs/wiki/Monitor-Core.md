@@ -18,7 +18,7 @@ content monitoring; почему граница проведена так — [A
 ## Быстрый сценарий
 
 Новый источник Court Monitor реализует протоколы ядра и регистрируется в
-`src/sources/source_registry.py` — ядро при этом не меняется (подробно — в
+`src/ingestion/sources/source_registry.py` — ядро при этом не меняется (подробно — в
 [Ingestion](Ingestion.md)).
 
 Новый потребитель ядра собирает тот же конвейер из своих частей:
@@ -148,8 +148,8 @@ sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 |---|---|
 | CLI `ingest` / `discover-and-ingest` | `src/cli/ingestion.py` |
 | automated monitoring | `src/monitoring/service.py` (`_ingest_references`) |
-| источники, парсеры, discovery | `src/sources/` |
-| хранилище и его результат `SqlAlchemyPersistenceResult` | `src/sources/sqlalchemy_persistence.py` |
+| источники, парсеры, discovery | `src/ingestion/sources/` |
+| хранилище и его результат `SqlAlchemyPersistenceResult` | `src/ingestion/sources/sqlalchemy_persistence.py` |
 | OpenRouter / Together | `src/entities/llm.py`, `src/llm/together_client.py` |
 | AI entity review retry | `src/persons/resolution/ai_review_service.py` |
 
@@ -189,7 +189,7 @@ uv run mypy --strict src tests
 - `CHAT_ENVELOPE_ERRORS` — это встроенные `ValueError`/`KeyError`/`IndexError`/
   `TypeError`, а не собственный тип ошибки.
 - Намеренно не перенесены: retry в `src/monitoring/decision_screen.py`,
-  `fetch_listing_page_with_retry` в `src/sources/discovery_pagination.py`,
+  `fetch_listing_page_with_retry` в `src/ingestion/sources/discovery_pagination.py`,
   Anthropic-путь в `src/entities/normalizer.py`, `src/llm/cli_reviewer.py`.
 - Отложено (не баги): `ParsedArticle` / `ArticleParser` уже, чем реальная
   семантика документа; параметр `IngestionPipeline(source_adapter=...)` принимает

@@ -12,15 +12,15 @@ from typing import Protocol
 
 import httpx
 
-from monitor_core.ingestion import IngestionPipeline
-from monitor_core.model import SourceReference
-from monitor_core.ports import DocumentFetcher
-from sources.source_adapter import DiscoversUntilKnown
-from sources.source_registry import SourceDefinition
-from sources.sqlalchemy_persistence import (
+from ingestion.sources.source_adapter import DiscoversUntilKnown
+from ingestion.sources.source_registry import SourceDefinition
+from ingestion.sources.sqlalchemy_persistence import (
     SqlAlchemyIngestionPersistence,
     SqlAlchemyPersistenceResult,
 )
+from monitor_core.ingestion import IngestionPipeline
+from monitor_core.model import SourceReference
+from monitor_core.ports import DocumentFetcher
 
 
 class StoredDocuments(Protocol):

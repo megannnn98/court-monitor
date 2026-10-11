@@ -4,9 +4,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from ingestion.sources.article_parser import OvdInfoArticleParser
 from monitor_core.errors import ParseError
 from monitor_core.model import RawDocument
-from sources.article_parser import OvdInfoArticleParser
 
 FIXTURE_PATH = Path(__file__).parents[1] / "fixtures" / "ovd_info_article.html"
 

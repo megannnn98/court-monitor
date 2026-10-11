@@ -8,6 +8,7 @@ import httpx
 import pytest
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from ingestion.sources.source_registry import SOURCES
 from monitor_core.errors import (
     ParseError,
     PermanentDiscoveryError,
@@ -22,7 +23,6 @@ from monitoring.models import (
     MonitoringSettings,
     classify_failure,
 )
-from sources.source_registry import SOURCES
 
 
 def test_settings_defaults_are_bounded_and_hourly() -> None:

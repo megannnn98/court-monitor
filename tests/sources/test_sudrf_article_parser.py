@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from ingestion.sources.sudrf.article_parser import SUDRF_TIMEZONE, SudrfArticleParser
 from monitor_core.errors import ParseError
 from monitor_core.model import RawDocument
-from sources.sudrf.article_parser import SUDRF_TIMEZONE, SudrfArticleParser
 
 FIXTURE_364 = Path("tests/fixtures/sudrf_article_364.html")
 FIXTURE_369 = Path("tests/fixtures/sudrf_article_369.html")

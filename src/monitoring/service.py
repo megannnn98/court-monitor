@@ -27,6 +27,9 @@ from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.models import ExtractionRunStatus
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from ingestion.sources.source_adapter import DiscoversUntilKnown
+from ingestion.sources.source_registry import SourceDefinition
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.errors import NoTextError
 from monitor_core.ingestion import IngestionPipeline
 from monitor_core.model import ParsedArticle, SourceReference
@@ -51,9 +54,6 @@ from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from sources.source_adapter import DiscoversUntilKnown
-from sources.source_registry import SourceDefinition
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 logger = logging.getLogger("monitoring")
 

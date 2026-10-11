@@ -12,21 +12,20 @@ import pytest
 from extraction.events import RuleBasedEventExtractor
 from extraction.extractors import RuleBasedEntityExtractor
 from extraction.models import (
-    MEMOPZK_REGISTRY_SOURCE_NAME,
     EntityType,
     EventEntityRole,
     ExtractionDocument,
 )
 from extraction.normalizers import RuleBasedMentionNormalizer
-from monitor_core.errors import ParseError, PermanentDiscoveryError
-from monitor_core.model import RawDocument, SourceReference
-from sources.memopzk import taxonomy
-from sources.memopzk.article_parser import FigurantParser
-from sources.memopzk.source_adapter import (
+from ingestion.sources.memopzk import MEMOPZK_REGISTRY_SOURCE_NAME, taxonomy
+from ingestion.sources.memopzk.article_parser import FigurantParser
+from ingestion.sources.memopzk.source_adapter import (
     FIGURANT_COLLECTION_URL,
     MemopzkFigurantAdapter,
 )
-from sources.source_registry import get_source_definition
+from ingestion.sources.source_registry import get_source_definition
+from monitor_core.errors import ParseError, PermanentDiscoveryError
+from monitor_core.model import RawDocument, SourceReference
 
 CARDS = json.loads((Path(__file__).parents[1] / "fixtures/memopzk/figurants.json").read_text())
 BY_NAME = {card["title"]["rendered"]: card for card in CARDS}
@@ -137,7 +136,7 @@ def test_an_unlisted_card_is_fetched_alone_under_the_crawl_delay(
     async def fake_sleep(seconds: float) -> None:
         delays.append(seconds)
 
-    monkeypatch.setattr("sources.memopzk.source_adapter.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("ingestion.sources.memopzk.source_adapter.asyncio.sleep", fake_sleep)
 
     async def run() -> RawDocument:
         client = httpx.AsyncClient(transport=httpx.MockTransport(handle))

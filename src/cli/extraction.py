@@ -19,7 +19,7 @@ from cli_batches import (
 from cli_progress import ProgressBar
 from extraction.documents import SqlAlchemyExtractionDocumentRepository
 from extraction.metrics import evaluate_golden_dataset
-from sources.source_registry import SOURCES, get_source_definition
+from ingestion.sources.source_registry import SOURCES, get_source_definition
 
 DEFAULT_EXTRACTION_CORPUS_PATH = Path("tests/fixtures/extraction_golden_corpus.json")
 

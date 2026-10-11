@@ -4,9 +4,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from ingestion.sources.sota_vision.article_parser import SotaVisionArticleParser
 from monitor_core.errors import ParseError
 from monitor_core.model import RawDocument
-from sources.sota_vision.article_parser import SotaVisionArticleParser
 
 FIXTURE_PATH = Path(__file__).parents[1] / "fixtures" / "sota_vision_article.html"
 

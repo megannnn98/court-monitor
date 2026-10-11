@@ -23,7 +23,10 @@ from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
-from ingestion import IngestionService
+from ingestion.service import IngestionService
+from ingestion.sources.source_registry import SOURCES, SourceDefinition
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from ingestion.sources.website_adapter import WebsiteAdapter
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
 from monitoring.findings import MonitoringFindingService, MonitoringQueryProvider
@@ -42,9 +45,6 @@ from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from settings import ApplicationSettings
-from sources.source_registry import SOURCES, SourceDefinition
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
-from sources.website_adapter import WebsiteAdapter
 
 HTTP_TIMEOUT_SECONDS = 5.0
 HTTP_USER_AGENT = "my-app/1.0"

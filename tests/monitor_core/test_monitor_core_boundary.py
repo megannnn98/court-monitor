@@ -1,7 +1,7 @@
 """`monitor_core` holds generic monitoring mechanics; Court Monitor builds on it, never
 the other way round. Any import of an application package from the core fails here,
 as does application code reaching past the core's public API or importing the
-`sources` shims the core replaced."""
+`ingestion.sources` shims the core replaced."""
 
 import ast
 from pathlib import Path
@@ -19,16 +19,16 @@ PUBLIC_CORE_PACKAGES = {
 }
 # Re-exports left while the core was extracted, then deleted: their names live in the core.
 REMOVED_SHIMS = {
-    "sources.ingestion_errors",
-    "sources.ingestion_pipeline",
-    "sources.persistence",
-    "sources.retrying_fetcher",
-    "sources.source_ingestion",
+    "ingestion.sources.ingestion_errors",
+    "ingestion.sources.ingestion_pipeline",
+    "ingestion.sources.persistence",
+    "ingestion.sources.retrying_fetcher",
+    "ingestion.sources.source_ingestion",
 }
 
 
 def _application_packages() -> set[str]:
-    """Every top-level module of `src` except the core itself: `sources`, `db`, ..."""
+    """Every top-level module of `src` except the core itself: `ingestion`, `db`, ..."""
     names = {
         path.stem if path.is_file() else path.name
         for path in SRC.iterdir()
@@ -63,7 +63,7 @@ def _application_files() -> list[Path]:
 
 def test_application_packages_are_found() -> None:
     # Guards the guard: an empty set would make the boundary test pass vacuously.
-    assert {"sources", "db", "extraction", "monitoring", "persons", "settings"} <= (
+    assert {"ingestion", "db", "extraction", "monitoring", "persons", "settings"} <= (
         _application_packages()
     )
 

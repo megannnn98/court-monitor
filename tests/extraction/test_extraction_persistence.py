@@ -17,8 +17,8 @@ from extraction.models import ExtractionRunStatus
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 
 def _save_article(

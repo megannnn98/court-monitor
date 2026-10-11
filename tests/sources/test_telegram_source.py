@@ -5,17 +5,17 @@ from pathlib import Path
 import httpx
 import pytest
 
-from monitor_core.errors import NoTextError, ParseError
-from monitor_core.model import RawDocument, SourceReference
-from sources.source_registry import SOURCES, get_source_definition, telegram_source
-from sources.telegram.article_parser import TelegramPostParser
-from sources.telegram.channels import load_telegram_channels
-from sources.telegram.listing_parser import TelegramListingParser
-from sources.telegram.source_adapter import (
+from ingestion.sources.source_registry import SOURCES, get_source_definition, telegram_source
+from ingestion.sources.telegram.article_parser import TelegramPostParser
+from ingestion.sources.telegram.channels import load_telegram_channels
+from ingestion.sources.telegram.listing_parser import TelegramListingParser
+from ingestion.sources.telegram.source_adapter import (
     TELEGRAM_HISTORY_DAYS,
     TelegramSourceAdapter,
     telegram_history_days,
 )
+from monitor_core.errors import NoTextError, ParseError
+from monitor_core.model import RawDocument, SourceReference
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 CHANNEL_HTML = (FIXTURES / "telegram_channel.html").read_bytes()

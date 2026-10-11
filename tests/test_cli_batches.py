@@ -29,8 +29,8 @@ from db.orm_models import (
 )
 from extraction.parallel_resolution import resolve_runs
 from extraction.persistence import SqlAlchemyExtractionPersistence
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 
 TEXTS = [SIDOROV, PETROV, IVANOV]
 

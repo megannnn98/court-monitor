@@ -3,10 +3,10 @@ import asyncio
 import httpx
 import pytest
 
+from ingestion.sources.sota_vision.listing_parser import SotaVisionListingParser
+from ingestion.sources.sota_vision.source_adapter import SotaVisionSourceAdapter
 from monitor_core.errors import PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
-from sources.sota_vision.listing_parser import SotaVisionListingParser
-from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
 
 LISTING_HTML = b"""
 <html>

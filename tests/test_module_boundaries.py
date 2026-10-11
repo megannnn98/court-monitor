@@ -30,7 +30,6 @@ ENTRY_POINT = "entry_point"
 # package.
 MODULE_OF: tuple[tuple[str, str], ...] = (
     ("ingestion/", INGESTION),
-    ("sources/", INGESTION),
     ("processing/", PROCESSING),
     ("extraction/", PROCESSING),
     ("persons/", PROCESSING),
@@ -84,7 +83,6 @@ KNOWN_VIOLATIONS: frozenset[str] = frozenset(
         "monitoring/findings.py -> monitoring.models",
         "monitoring/hold_reader.py -> entities.llm",
         "persons/resolution/evaluation.py -> evaluation.person_resolution.corpus",
-        "sources/source_registry.py -> extraction.models",
     }
 )
 

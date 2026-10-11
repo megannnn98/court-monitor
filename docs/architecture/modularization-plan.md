@@ -1,6 +1,7 @@
 # Modularization plan
 
-Status: draft, 2026-10-11. Branch `refactor/modularization-prep`.
+Status: in progress, 2026-10-11. Branch `refactor/modularization-prep`. Ingestion is
+moved (item 2 of the migration sequence); nothing else is.
 
 This document prepares the split of the code into four domain modules and an
 orchestrator. It records what the code looks like today, where each file should end up,
@@ -153,7 +154,7 @@ Forbidden:
 - Domain code importing `evaluation` (tooling) or an entry point.
 
 `tests/test_module_boundaries.py` enforces these rules on every import under `src/`,
-with each file assigned to a module as in the map below. The six imports that break
+with each file assigned to a module as in the map below. The five imports that break
 them today are listed there as `KNOWN_VIOLATIONS`; a new one fails the test, and an
 entry whose import is gone must be deleted. `entities/` is its own group in the test
 (`operator_cycle`) until pipeline B is assigned.
@@ -185,7 +186,7 @@ object graph crosses a module boundary.
 
 ## Public APIs
 
-Two services exist now: `ingestion.IngestionService` and
+Two services exist now: `ingestion.service.IngestionService` and
 `processing.ProcessingService`. Both are thin classes over the existing
 implementation, built by `application.build_ingestion_service` and
 `application.build_processing_service`. `MonitoringService` does not call them yet; it
@@ -245,8 +246,8 @@ first; high = mixes responsibilities or belongs to pipeline B.
 
 | Current path | Target module | Notes | Risk |
 |---|---|---|---|
-| `sources/*` | ingestion | whole package | low |
-| `sources/source_registry.py` | ingestion | imports `MEMOPZK_REGISTRY_SOURCE_NAME` from `extraction.models` | medium |
+| `ingestion/sources/*` | ingestion | moved from `sources/`; `MEMOPZK_REGISTRY_SOURCE_NAME` now lives in `ingestion/sources/memopzk` and `extraction.models` imports it from there | done |
+| `ingestion/service.py` | ingestion | the facade, over `ingestion.sources` | done |
 | `monitor_core/ingestion`, `model`, `ports` | shared core | stays (ADR 0023); `ingestion` depends on it | none |
 | `monitor_core/llm`, `retry.py`, `errors.py` | shared core | stays | none |
 | `extraction/*` | processing | `resolution_service.py` and `parallel_resolution.py` import `persons`: internal once both are in `processing` | low |
@@ -263,7 +264,7 @@ first; high = mixes responsibilities or belongs to pipeline B.
 | `airtable/*` | shared: reference data sync | `repository.py` imports `extraction.normalizers`; outside the four modules | medium |
 | `evaluation/*` | tooling | imports every domain package and `application` | none |
 | `observability.py`, `health.py` | shared infrastructure | `health.py` imports `monitoring.models` | low |
-| `settings.py` | entry point (configuration) | imports settings types of `monitoring`, `persons`, `llm`, `sources` | medium |
+| `settings.py` | entry point (configuration) | imports settings types of `monitoring`, `persons`, `llm`, `ingestion` | medium |
 | `application.py` | entry point (composition root) | grows a builder per module | low |
 | `api.py`, `main.py`, `cli/*`, `cli_batches.py`, `cli_progress.py`, `web/*` | entry point | `web` imports `entities` in 98 places | none |
 | `operator_console.py` | orchestrator (operator operations) | second orchestrator; not merged with monitoring runs in this plan | high |
@@ -336,15 +337,14 @@ Recommendation for `entities/`:
 |---|---|---|
 | `entities <-> monitoring` | `collector.py`, `unnamed.py` import `CRIMINAL_EVENT_TYPES` from `monitoring.junk_purge`; `roles.py` imports `EXTRACTOR_NAME` from `monitoring.hold_reader`; `hold_reader.py` imports `entities.llm` | move the junk files to `processing`, `entities/llm.py` to shared |
 | `persons <-> llm` | `ai_factory.py` imports the reviewers, the reviewers import the contract | move the two reviewers next to the contract |
-| `sources -> extraction.models` | `ingestion` imports `processing` for one constant | define the constant in `sources`, import it from `extraction` |
 | `persons -> evaluation` | domain code imports tooling | move `persons/resolution/evaluation.py` under `evaluation` |
 | `airtable -> extraction.normalizers` | shared code imports `processing` | find what is used; move the helper down or the caller up |
 | `rosfinmonitoring -> airtable` | `analysis` depends on the reference sync client | acceptable if `airtable` stays shared; decide with the item above |
-| `settings -> monitoring, persons, llm, sources` | one module validates every package's settings | acceptable for an entry point; it must not be imported by domain code |
+| `settings -> monitoring, persons, llm, ingestion` | one module validates every package's settings | acceptable for an entry point; it must not be imported by domain code |
 | `monitoring/models.py` | holds run types, `MonitoringSettings` and the finding views together | split when `results` is extracted |
 | `monitoring/selection.py` | one class holds the pending queries of three modules | each facade exposes its own; move the SQL with its module |
 | `monitoring/cli.py` | one file wires pipeline A and every step of pipeline B | split by pipeline when the CLI is switched |
-| publication date filter in `MonitoringService._ingest_references` | a rule about which documents to keep sits between `read` and `save` in the orchestrator | move behind `IngestionService` in the ingestion pull request, behaviour unchanged |
+| publication date filter in `MonitoringService._ingest_references` | a rule about which documents to keep sits between `read` and `save` in the orchestrator | move behind `IngestionService` when `MonitoringService` is switched to it, behaviour unchanged |
 | `persons_linked` arithmetic in `MonitoringService.resolve` | a counter derived from resolution statistics in the orchestrator | leave; it is reporting, not a decision |
 | `web -> entities` (98 imports) | the console reads pipeline B directly, with no service in between | out of scope until pipeline B is decided |
 
@@ -356,8 +356,11 @@ algorithm.
 1. **This one.** The plan; `tests/test_module_boundaries.py`, which freezes the imports
    that break the rules today in an allowlist and fails on a new one; the ingestion and
    processing facades with their test.
-2. **Ingestion.** `sources/` under `ingestion/`; the registry constant; the publication
-   date filter behind `IngestionService`.
+2. **Ingestion.** Done: `sources/` is `ingestion/sources/`, and the registry's source
+   name is defined there. The `ingestion` package imports nothing on load, so
+   `extraction.models` can read that name without loading every adapter; callers import
+   `ingestion.service.IngestionService`. Left for the orchestrator pull request: the
+   publication date filter behind `IngestionService`. Tests stay in `tests/sources/`.
 3. **Processing, extraction part.** `extraction/` and the junk screen files.
    Then the decision on the model after extraction (persons, entity groups, or both).
    Items 4–6 follow that decision and are written here for pipeline A as it stands.

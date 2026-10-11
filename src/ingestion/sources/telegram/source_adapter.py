@@ -6,12 +6,12 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from ingestion.sources.discovery_pagination import fetch_listing_page_with_retry
+from ingestion.sources.source_adapter import KnownIds
+from ingestion.sources.telegram.listing_parser import TelegramListingParser
 from monitor_core.errors import PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher
-from sources.discovery_pagination import fetch_listing_page_with_retry
-from sources.source_adapter import KnownIds
-from sources.telegram.listing_parser import TelegramListingParser
 
 logger = logging.getLogger("sources")
 

@@ -15,10 +15,10 @@ from xml.etree import ElementTree
 
 import httpx
 
+from ingestion.sources.discovery_pagination import fetch_listing_page_with_retry
 from monitor_core.errors import PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher
-from sources.discovery_pagination import fetch_listing_page_with_retry
 
 
 @dataclass(frozen=True)

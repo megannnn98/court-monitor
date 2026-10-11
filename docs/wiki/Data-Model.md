@@ -237,7 +237,7 @@ PostgreSQL с записью Airtable и делает повторный зап�
 
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`
 
-`src/sources/sqlalchemy_persistence.py`. Одна транзакция (`session_factory.begin()`), upsert по естественным ключам на каждом уровне:
+`src/ingestion/sources/sqlalchemy_persistence.py`. Одна транзакция (`session_factory.begin()`), upsert по естественным ключам на каждом уровне:
 
 1. **Source** — ищется по `base_url`, создаётся при отсутствии.
 2. **SourceDocument** — ищется по `(source_id, external_id)`; при повторной загрузке той же публикации обновляются `canonical_url`, `fetched_at`, `content_type`, `raw_content` (перезапись, не версионирование — старое содержимое не хранится).

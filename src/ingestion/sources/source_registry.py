@@ -4,33 +4,33 @@ from enum import StrEnum
 
 import httpx
 
-from extraction.models import MEMOPZK_REGISTRY_SOURCE_NAME
-from monitor_core.ports import ArticleParser, DocumentFetcher, SourceAdapter
-from sources.article_parser import OvdInfoArticleParser
-from sources.kommersant.article_parser import (
+from ingestion.sources.article_parser import OvdInfoArticleParser
+from ingestion.sources.kommersant.article_parser import (
     KOMMERSANT_FEED_URL,
     KommersantArticleParser,
     is_case_news,
     kommersant_external_id,
 )
-from sources.memopzk.article_parser import FigurantParser
-from sources.memopzk.source_adapter import MEMOPZK_BASE_URL, MemopzkFigurantAdapter
-from sources.ovd_info.listing_parser import OvdInfoListingParser
-from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
-from sources.rss.source_adapter import RssSourceAdapter
-from sources.sota_vision.article_parser import SotaVisionArticleParser
-from sources.sota_vision.listing_parser import SotaVisionListingParser
-from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.sudrf.article_parser import SudrfArticleParser
-from sources.sudrf.listing_parser import SudrfListingParser
-from sources.sudrf.source_adapter import SudrfSourceAdapter
-from sources.telegram.article_parser import TelegramPostParser
-from sources.telegram.channels import TelegramChannel, load_telegram_channels
-from sources.telegram.source_adapter import (
+from ingestion.sources.memopzk import MEMOPZK_REGISTRY_SOURCE_NAME
+from ingestion.sources.memopzk.article_parser import FigurantParser
+from ingestion.sources.memopzk.source_adapter import MEMOPZK_BASE_URL, MemopzkFigurantAdapter
+from ingestion.sources.ovd_info.listing_parser import OvdInfoListingParser
+from ingestion.sources.ovd_info.source_adapter import OvdInfoSourceAdapter
+from ingestion.sources.rss.source_adapter import RssSourceAdapter
+from ingestion.sources.sota_vision.article_parser import SotaVisionArticleParser
+from ingestion.sources.sota_vision.listing_parser import SotaVisionListingParser
+from ingestion.sources.sota_vision.source_adapter import SotaVisionSourceAdapter
+from ingestion.sources.sudrf.article_parser import SudrfArticleParser
+from ingestion.sources.sudrf.listing_parser import SudrfListingParser
+from ingestion.sources.sudrf.source_adapter import SudrfSourceAdapter
+from ingestion.sources.telegram.article_parser import TelegramPostParser
+from ingestion.sources.telegram.channels import TelegramChannel, load_telegram_channels
+from ingestion.sources.telegram.source_adapter import (
     TELEGRAM_HISTORY_DAYS,
     TelegramSourceAdapter,
     telegram_history_days,
 )
+from monitor_core.ports import ArticleParser, DocumentFetcher, SourceAdapter
 
 
 class SourceKind(StrEnum):

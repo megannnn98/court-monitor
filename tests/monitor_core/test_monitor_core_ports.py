@@ -5,16 +5,16 @@ import asyncio
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
-from monitor_core.ingestion import RetryingDocumentFetcher
-from monitor_core.ports import ArticleParser, DocumentFetcher, IngestionPersistence, SourceAdapter
-from sources.article_parser import OvdInfoArticleParser
-from sources.ovd_info.listing_parser import OvdInfoListingParser
-from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
-from sources.sqlalchemy_persistence import (
+from ingestion.sources.article_parser import OvdInfoArticleParser
+from ingestion.sources.ovd_info.listing_parser import OvdInfoListingParser
+from ingestion.sources.ovd_info.source_adapter import OvdInfoSourceAdapter
+from ingestion.sources.sqlalchemy_persistence import (
     SqlAlchemyIngestionPersistence,
     SqlAlchemyPersistenceResult,
 )
-from sources.website_adapter import WebsiteAdapter
+from ingestion.sources.website_adapter import WebsiteAdapter
+from monitor_core.ingestion import RetryingDocumentFetcher
+from monitor_core.ports import ArticleParser, DocumentFetcher, IngestionPersistence, SourceAdapter
 
 
 def test_ovd_info_implementations_fit_the_core_ports() -> None:

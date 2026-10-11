@@ -80,7 +80,7 @@ snapshot РФМ подтверждено отсутствие, запись по
 |---|---|
 | `src/main.py`, `src/cli/` | CLI и lazy composition context |
 | `src/api.py`, `src/web/` | FastAPI, JSON API, operator console, wiki renderer |
-| `src/sources/` | source registry, adapters, fetch, parse, ingestion persistence |
+| `src/ingestion/sources/` | source registry, adapters, fetch, parse, ingestion persistence |
 | `src/extraction/` | rule-based mentions, normalization, events |
 | `src/persons/` | Person persistence, ER v2, review queue, AI review |
 | `src/persecution/` | political persecution classification |

@@ -13,9 +13,9 @@ import json
 import re
 from datetime import UTC, datetime
 
+from ingestion.sources.memopzk import taxonomy
 from monitor_core.errors import ParseError
 from monitor_core.model import ParsedArticle, RawDocument
-from sources.memopzk import taxonomy
 
 REGISTRY_TITLE = "Поддержка политзаключённых. Мемориал"
 

@@ -5,8 +5,8 @@ from datetime import datetime
 
 from selectolax.parser import HTMLParser
 
+from ingestion.sources.telegram.article_parser import own_text_node
 from monitor_core.model import SourceReference
-from sources.telegram.article_parser import own_text_node
 
 
 @dataclass(frozen=True)

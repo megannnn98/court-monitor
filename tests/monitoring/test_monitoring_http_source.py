@@ -8,9 +8,9 @@ import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
 from application import build_monitoring_service
+from ingestion.sources.source_registry import OVD_INFO
 from monitor_core.model import RawDocument, SourceReference
 from monitoring.models import MonitoringRunStatus, MonitoringSettings
-from sources.source_registry import OVD_INFO
 
 LISTING = b"""
 <html><body>

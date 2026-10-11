@@ -7,16 +7,16 @@ from pathlib import Path
 import httpx
 import pytest
 
-from monitor_core.errors import ParseError, PermanentDiscoveryError
-from monitor_core.model import RawDocument, SourceReference
-from sources.kommersant.article_parser import (
+from ingestion.sources.kommersant.article_parser import (
     KOMMERSANT_FEED_URL,
     KommersantArticleParser,
     is_case_news,
     kommersant_external_id,
 )
-from sources.rss.source_adapter import RssSourceAdapter, parse_rss
-from sources.source_registry import get_source_definition
+from ingestion.sources.rss.source_adapter import RssSourceAdapter, parse_rss
+from ingestion.sources.source_registry import get_source_definition
+from monitor_core.errors import ParseError, PermanentDiscoveryError
+from monitor_core.model import RawDocument, SourceReference
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "kommersant"
 ARTICLE_HTML = (FIXTURES / "doc_8940075.html").read_bytes()

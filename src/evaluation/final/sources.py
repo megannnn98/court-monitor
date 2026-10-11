@@ -7,10 +7,10 @@ from datetime import UTC, datetime
 
 import httpx
 
+from ingestion.sources.source_registry import SourceDefinition
 from monitor_core.errors import ParseError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher, SourceAdapter
-from sources.source_registry import SourceDefinition
 
 EVALUATION_SOURCE = "ovd-info"
 FIXED_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)

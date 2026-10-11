@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 from monitor_core.errors import IngestionError
 from monitor_core.ingestion import SourceIngestion, SourceIngestionResult
 from monitor_core.model import (
@@ -10,7 +11,6 @@ from monitor_core.model import (
     RawDocument,
     SourceReference,
 )
-from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 REFERENCES = [
     SourceReference(

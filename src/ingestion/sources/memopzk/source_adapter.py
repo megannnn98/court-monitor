@@ -17,10 +17,10 @@ from typing import Any
 
 import httpx
 
+from ingestion.sources.discovery_pagination import fetch_listing_page_with_retry
 from monitor_core.errors import PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher
-from sources.discovery_pagination import fetch_listing_page_with_retry
 
 MEMOPZK_BASE_URL = "https://memopzk.org"
 FIGURANT_COLLECTION_URL = f"{MEMOPZK_BASE_URL}/wp-json/wp/v2/figurant"

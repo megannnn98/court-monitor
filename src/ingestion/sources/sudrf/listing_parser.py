@@ -1,12 +1,12 @@
 from selectolax.parser import HTMLParser
 
-from monitor_core.model import SourceReference
-from sources.sudrf.reference import (
+from ingestion.sources.sudrf.reference import (
     LISTING_QUERY,
     archive_year,
     canonicalize_sudrf_reference,
     court_url,
 )
+from monitor_core.model import SourceReference
 
 
 class SudrfListingParser:

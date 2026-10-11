@@ -29,6 +29,11 @@ from extraction.extractors import RuleBasedEntityExtractor
 from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
+from ingestion.sources.source_registry import SourceDefinition
+from ingestion.sources.sqlalchemy_persistence import (
+    SqlAlchemyIngestionPersistence,
+    SqlAlchemyPersistenceResult,
+)
 from monitor_core.errors import PermanentFetchError, PersistenceError, TransientFetchError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher, SourceAdapter
@@ -40,11 +45,6 @@ from monitoring.models import (
     MonitoringTrigger,
 )
 from monitoring.service import DiscoveryResult, IngestionResult, MonitoringService
-from sources.source_registry import SourceDefinition
-from sources.sqlalchemy_persistence import (
-    SqlAlchemyIngestionPersistence,
-    SqlAlchemyPersistenceResult,
-)
 
 # Settings accept only registered names; the URLs stay fake.
 SOURCE = "ovd-info"

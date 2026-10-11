@@ -6,6 +6,8 @@ from typing import Annotated, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ingestion.sources.memopzk import MEMOPZK_REGISTRY_SOURCE_NAME
+
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
@@ -47,7 +49,6 @@ class ExtractionRunStatus(StrEnum):
 
 # Sources whose document title is one person's full name in the nominative, surname first
 # (a registry card): the name is taken from the title, never searched for or declined.
-MEMOPZK_REGISTRY_SOURCE_NAME = "Поддержка политзаключённых. Мемориал: реестр"
 NAMED_TITLE_SOURCES = frozenset({MEMOPZK_REGISTRY_SOURCE_NAME})
 
 

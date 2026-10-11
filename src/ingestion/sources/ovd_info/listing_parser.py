@@ -1,7 +1,7 @@
 from selectolax.parser import HTMLParser
 
+from ingestion.sources.ovd_info.reference import canonicalize_ovd_info_reference
 from monitor_core.model import SourceReference
-from sources.ovd_info.reference import canonicalize_ovd_info_reference
 
 
 class OvdInfoListingParser:
