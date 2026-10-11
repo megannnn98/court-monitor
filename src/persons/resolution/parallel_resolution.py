@@ -17,7 +17,7 @@ from dataclasses import replace
 
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from persons.persistence import SqlAlchemyPersonPersistence
-from processing.extraction.resolution_service import ExtractionResolutionService, ResolutionStats
+from persons.resolution.resolution_service import ExtractionResolutionService, ResolutionStats
 
 logger = logging.getLogger("person_resolution")
 

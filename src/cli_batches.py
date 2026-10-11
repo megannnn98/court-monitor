@@ -2,7 +2,7 @@
 
 Each item of these stages is independent of the others: an article is extracted on its
 own, a person is matched from their own rows. Unlike person resolution
-(`processing.extraction.parallel_resolution`), the result therefore does not depend on
+(`persons.resolution.parallel_resolution`), the result therefore does not depend on
 the order or on the number of workers.
 
 Workers are spawned, not forked: a forked child would inherit the parent's database pool.

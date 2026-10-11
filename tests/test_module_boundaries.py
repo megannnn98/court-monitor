@@ -135,3 +135,16 @@ def test_no_new_import_crosses_a_module_boundary() -> None:
 
 def test_every_known_violation_still_exists() -> None:
     assert sorted(KNOWN_VIOLATIONS - _violations()) == []
+
+
+def test_extraction_knows_neither_persons_nor_entity_groups() -> None:
+    # Extraction is what both pipelines share: it must not depend on what either makes of it.
+    downstream = ("persons", "entities")
+    offenders = sorted(
+        f"{file.relative_to(SRC).as_posix()} -> {imported}"
+        for file in (SRC / "processing" / "extraction").rglob("*.py")
+        for imported in _imports(ast.parse(file.read_text(encoding="utf-8")))
+        if imported.split(".")[0] in downstream
+    )
+
+    assert offenders == []

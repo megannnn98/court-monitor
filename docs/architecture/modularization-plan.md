@@ -251,7 +251,7 @@ first; high = mixes responsibilities or belongs to pipeline B.
 | `monitor_core/ingestion`, `model`, `ports` | shared core | stays (ADR 0023); `ingestion` depends on it | none |
 | `monitor_core/llm`, `retry.py`, `errors.py` | shared core | stays | none |
 | `processing/extraction/*` | processing | moved from `extraction/` | done |
-| `processing/extraction/resolution_service.py`, `parallel_resolution.py` | processing, resolution | moved with the package, but they are person resolution, not extraction: they link the mentions of an extraction run to canonical persons through `persons.resolution` and are tested in `tests/persons/`. They stay beside extraction until `persons/` moves, then go with it | medium |
+| `persons/resolution/resolution_service.py`, `parallel_resolution.py` | processing, resolution | moved out of `processing/extraction/`: they are person resolution (they link the mentions of an extraction run to canonical persons through `persons.resolution`). `processing/extraction` now imports nothing of `persons` | done |
 | `processing/service.py` | processing | the facade, over `processing.extraction` | done |
 | `persons/*` | processing | `resolution/ai_factory.py` imports the reviewers in `llm` | medium |
 | `persons/resolution/evaluation.py`, `persons/er_evaluation.py` | evaluation tooling | `evaluation.py` imports `evaluation.person_resolution`; imported by `persons/resolution/cli.py` | medium |
@@ -371,8 +371,10 @@ algorithm.
    `tests/extraction/`. Still to move: the junk screen files of `monitoring/`.
    Then the decision on the model after extraction (persons, entity groups, or both).
    Items 4–6 follow that decision and are written here for pipeline A as it stands.
-4. **Processing, resolution part.** `persons/`, the two reviewers,
-   `resolution_service.py` and `parallel_resolution.py` out of `processing/extraction/`;
+4. **Processing, resolution part.** Not started, and not next: see "Post-extraction
+   domain model decision". Done ahead of it: `resolution_service.py` and
+   `parallel_resolution.py` moved from `processing/extraction/` to `persons/resolution/`.
+   Left: `persons/`, the two reviewers;
    `persons/resolution/evaluation.py` to `evaluation/`.
 5. **Analysis.** `persecution/` and `rosfinmonitoring/` as two sub-packages; the
    `airtable` dependency settled.
@@ -396,8 +398,8 @@ a decision.
 
 How this was established. A script read every file of both branches for the ORM models
 and the raw SQL tables it reads and writes (a regular-expression reading: it tells the
-tables, not the logic). Read as code: `processing/extraction/resolution_service.py` in
-full; the bodies of `entities/collector.py`, `entities/politics.py` and
+tables, not the logic). Read as code: `resolution_service.py` (then in
+`processing/extraction/`) in full; the bodies of `entities/collector.py`, `entities/politics.py` and
 `persons/resolution/service.py` in their main parts; the heads and outlines of
 `entities/rf_check.py`, `entities/roles.py`, `rosfinmonitoring/matcher.py`,
 `persecution/classifier.py`, `persecution/classification_service.py`; the callers in
@@ -596,12 +598,13 @@ Until then:
 
 ### The two resolution files
 
-`processing/extraction/resolution_service.py` and `parallel_resolution.py` are person
-resolution, whichever formulation is taken. They import `persons` and `db` and nothing of extraction:
+`resolution_service.py` and `parallel_resolution.py` are person resolution, whichever
+formulation is taken. They import `persons` and `db` and nothing of extraction:
 `resolve_extraction_run` reads the person mentions of a run, asks
-`PersonResolutionService` for each, and writes `person_event_links`. They belong with
-`persons/resolution/`. Moving them there takes the last import of `persons` out of
-`processing/extraction`, which then is what both pipelines share and nothing more.
+`PersonResolutionService` for each, and writes `person_event_links`. They lived in
+`processing/extraction/` and are now in `persons/resolution/`. With them gone,
+`processing/extraction` imports nothing of `persons` or `entities`: it is what both
+pipelines share and nothing more. `tests/test_module_boundaries.py` keeps it so.
 
 ## Test infrastructure debt
 

@@ -6,8 +6,8 @@ import argparse
 
 from cli.context import CliContext
 from cli_progress import ProgressBar
+from persons.resolution.parallel_resolution import resolve_runs
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
-from processing.extraction.parallel_resolution import resolve_runs
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 
 

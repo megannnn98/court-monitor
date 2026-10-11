@@ -33,13 +33,13 @@ from persons.resolution.ai_factory import build_entity_review_service
 from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
+from persons.resolution.resolution_service import ExtractionResolutionService
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
-from processing.extraction.resolution_service import ExtractionResolutionService
 from processing.service import ProcessingService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence

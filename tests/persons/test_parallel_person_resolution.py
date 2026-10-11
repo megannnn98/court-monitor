@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions
 
 from db.orm_models import EntityMentionRecord, PersonRecord
-from processing.extraction.parallel_resolution import (
+from persons.resolution.parallel_resolution import (
     MAX_WORKERS,
     ParallelResolutionError,
     resolve_runs,
     worker_count,
 )
-from processing.extraction.resolution_service import ResolutionStats
+from persons.resolution.resolution_service import ResolutionStats
 
 NAMES = [
     ("Иван Сергеевич Фролов", "Мария Петровна Белова"),
