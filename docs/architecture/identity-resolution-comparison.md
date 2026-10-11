@@ -348,6 +348,57 @@ person sets each pair's label to `same_person`, `different_person` or
 text of the real database and stays under the ignored `var/`; the database is only
 read.
 
+### Local manual labelling CLI
+
+```bash
+PYTHONPATH=src uv run python -m evaluation.identity_comparison.labelling
+PYTHONPATH=src uv run python -m evaluation.identity_comparison.labelling --stats
+PYTHONPATH=src uv run python -m evaluation.identity_comparison.labelling --edit <pair_id>
+PYTHONPATH=src uv run python -m evaluation.identity_comparison.labelling \
+  --merge-out var/identity_comparison/labelled_sample.json
+```
+
+The default source is `var/identity_comparison/disagreement_annotation.json`; answers
+go to `var/identity_comparison/manual_annotations.json`. `--sample` and `--annotations`
+can select other local files. Keep real data, including merge output, under `var/`.
+The CLI does not import database or API clients and does not contact a model.
+
+It displays `pair N/100`, both sides and all their stored mentions, with surface and
+normalized names, article title, date, source and context. Model decisions are hidden
+until `m`. `s`, `d` and `i` save `same_person`, `different_person` and
+`insufficient_evidence`. `k` saves a skip and advances; `q` quits. Ctrl-C and EOF stop
+without losing answers already saved. Each answer writes a complete temporary file
+in the destination directory, flushes and fsyncs it, replaces the destination
+atomically, then fsyncs the directory. A failed replacement leaves the old file intact.
+Use one labelling process per annotations file.
+
+The separate file has this format (the id below is an invented example):
+
+```json
+{
+  "version": 1,
+  "annotations": {
+    "case-invented:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    }
+  }
+}
+```
+
+A skip has `label: null` and `skipped: true`. Resume starts at the first pair without
+a label, including skipped pairs, in source order. `--edit <pair_id>` explicitly
+opens one pair and replaces its label on `s/d/i`; skipping while editing keeps the
+old label. Unknown pair ids and invalid stored labels are refused. Statistics report
+total, labelled, each label, skipped and unlabelled; skipped is a subset of unlabelled.
+
+`--merge-out` joins annotations by the existing deterministic `pair_id` into a copy
+of the generated sample for subsequent evaluation. It keeps contexts, model decisions,
+pair ids and unlabelled pairs, including the case with no pairs. It refuses to overwrite
+the source or manual annotations. This supplies labelled ground truth for later
+metrics; this command does not compute model quality or start labelling.
+
 ## 10. Limits of the experiment
 
 - B is the rules alone. Production B adds a model and the operator's decisions; its
