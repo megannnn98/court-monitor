@@ -15,6 +15,7 @@ from processing.extraction.models import (
     PersonNormalizedData,
     RawMention,
 )
+from processing.extraction.name_frequency import FEMALE_NAMES, MALE_NAMES
 from processing.extraction.name_morphology import NameMorphology
 
 # 1.1.0: personal names are brought to the nominative case with a morphological
@@ -33,7 +34,11 @@ from processing.extraction.name_morphology import NameMorphology
 # card's name is kept as written.
 # 1.6.0: common given-name readings resolve Артём/Лидия only when the lists agree;
 # competing readings stay ambiguous and explicit article context takes precedence.
-NORMALIZER_VERSION = "1.6.0"
+# 1.7.0: the parts of a name (`first_name`, `last_name`, `patronymic`) are told by where
+# the patronymic stands and, for two words, by which one is a given name. `full_name`
+# and `matching_key` are as before.
+NORMALIZER_VERSION = "1.7.0"
+_PATRONYMIC = re.compile(r"(вич|вна|ична|ьич|оглы|кызы)$")
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -83,6 +88,39 @@ def _genitive_words_of(document: ExtractionDocument) -> list[str]:
 
 _GENITIVE_PHRASE = re.compile(r"(?<![\w-])([А-ЯЁа-яё-]+)\s+([А-ЯЁ][а-яё]{2,})")
 _CAPITALIZED_WORDS = re.compile(r"(?<![\w-])[А-ЯЁ][а-яё]{2,}")
+
+
+def _is_given_name(word: str) -> bool:
+    folded = word.lower().replace("ё", "е")
+    return folded in MALE_NAMES or folded in FEMALE_NAMES
+
+
+def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None]:
+    """(given name, surname, patronymic) of a name already in the nominative.
+
+    One word is a surname. Two are «Имя Фамилия», or «Фамилия Имя» when only the second
+    is a known given name. Three are told by the patronymic: «Имя Отчество Фамилия» or
+    «Фамилия Имя Отчество». More words, or three without a patronymic, are not one
+    Russian name written in full — a foreign name, or a span that took a neighbour's
+    surname in («адвоката Ивановой Петра Сидорова»): of three words the name is the
+    last two, of more the first and the last.
+    """
+    if not words:
+        return None, None, None
+    if len(words) == 1:
+        return None, words[0], None
+    if len(words) == 2:
+        first, second = words
+        if not _is_given_name(first) and _is_given_name(second):
+            return second, first, None
+        return first, second, None
+    if len(words) == 3:
+        if _PATRONYMIC.search(words[1].lower()):
+            return words[0], words[2], words[1]
+        if _PATRONYMIC.search(words[2].lower()):
+            return words[1], words[0], words[2]
+        return words[1], words[2], None
+    return words[0], words[-1], None
 
 
 class RuleBasedMentionNormalizer:
@@ -199,9 +237,7 @@ class RuleBasedMentionNormalizer:
             .split()
         )
         normalized = " ".join(normalized_words)
-        first_name = normalized_words[0] if len(normalized_words) >= 2 else None
-        last_name = normalized_words[1] if len(normalized_words) == 2 else normalized_words[0]
-        patronymic = normalized_words[2] if len(normalized_words) >= 3 else None
+        first_name, last_name, patronymic = name_parts(normalized_words)
         return normalized, PersonNormalizedData(
             full_name=normalized,
             last_name=last_name,

@@ -61,11 +61,13 @@ def test_a_name_the_rules_make_no_entity_of_is_undecided() -> None:
     assert synthetic.rules_verdict(_case("А. Гусев", "gusev"), PERSONS) == Verdict(decided=False)
 
 
-def test_a_three_word_name_is_placed_only_when_its_parts_are_repaired() -> None:
+def test_a_three_word_name_is_placed_since_the_normalizer_stores_its_parts() -> None:
+    # Normalizer 1.7.0 stores the parts in place, so the «repaired» variant of the
+    # benchmark, which did that for it, now changes nothing.
     persons = [CorpusPerson(key="belova", canonical_name="Екатерина Андреевна Белова")]
     case = _case("Белова Екатерина Андреевна", "belova")
 
-    assert synthetic.rules_verdict(case, persons) == Verdict(decided=False)
+    assert synthetic.rules_verdict(case, persons).joined == frozenset({"belova"})
     assert synthetic.rules_verdict(case, persons, repaired=True).joined == frozenset({"belova"})
 
 
