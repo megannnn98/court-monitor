@@ -26,14 +26,18 @@ PREDICTIONS = {
     "rules": {"one_entity": "same_person", "different_entities": "different_person"},
 }
 # The operator cycle replayed (`evaluation.identity_comparison.production`): the rules
-# with the model's names, and with a person's decisions on top. `no_entity`: the
-# pipeline made nobody of a side, which is neither a join nor a split.
+# with the model's names, and with a person's decisions on top.
 _REPLAYED = {
     "one_entity": "same_person",
     "different_entities": "different_person",
-    "no_entity": "abstain",
-    # Kept apart and shown to the operator as a pair to decide: left to a human.
+    # The sides share an entity and also hold others: a join in part.
+    "partly_one_entity": "partial",
+    # Kept apart and shown to the operator as a pair to decide. Like ER v2's REVIEW it
+    # is a question put to a human; unlike it, the stored identity is «apart» meanwhile.
     "offered_to_operator": "abstain",
+    # No entity was made of a side (the model said «not a person», or nothing placed
+    # it). Nobody is asked: a result that is missing, not a review.
+    "no_entity": "missing",
 }
 PREDICTIONS["rules_deepseek"] = _REPLAYED
 PREDICTIONS["rules_deepseek_operator"] = _REPLAYED
@@ -72,8 +76,11 @@ def ratio(numerator: int, denominator: int) -> float | None:
 def outcome(label: str | None, predicted: str) -> str:
     if label not in IDENTITY_LABELS:
         return "non_evaluable"
-    if predicted == "abstain":
-        return "abstain"
+    if predicted in ("abstain", "missing"):
+        return predicted
+    if predicted == "partial":
+        # Any shared entity joins two different people; of one person it is half a join.
+        return "false_merge" if label == "different_person" else "partial_merge"
     if label == predicted:
         return "correct"
     return "false_merge" if predicted == "same_person" else "false_split"
@@ -82,14 +89,27 @@ def outcome(label: str | None, predicted: str) -> str:
 def model_metrics(rows: list[dict[str, Any]], model: str) -> dict[str, Any]:
     eligible = [row for row in rows if row["manual_label"] in IDENTITY_LABELS]
     counts = Counter(row[f"{model}_outcome"] for row in eligible)
-    automatic = len(eligible) - counts["abstain"]
+    automatic = len(eligible) - counts["abstain"] - counts["missing"]
     return {
         "evaluable_pairs": len(eligible),
         "automatic_decisions": automatic,
         "abstains": counts["abstain"],
+        # No entity was made of a side: nothing is stored and nobody is asked.
+        "missing_entity": counts["missing"],
+        # One person whose mentions the grouping joined only in part: not correct.
+        "partial_merges": counts["partial_merge"],
+        # What is stored for the pairs, a human's answer aside: a pair offered to the
+        # operator is stored apart, so of one person it is a split until decided.
+        "stored_correct": counts["correct"]
+        + sum(
+            row[f"{model}_outcome"] == "abstain"
+            and row.get(f"{model}_decision") == "offered_to_operator"
+            and row["manual_label"] == "different_person"
+            for row in eligible
+        ),
         "automatic_coverage": ratio(automatic, len(eligible)),
         "correct": counts["correct"],
-        "wrong": counts["false_merge"] + counts["false_split"],
+        "wrong": counts["false_merge"] + counts["false_split"] + counts["partial_merge"],
         "automatic_accuracy": ratio(counts["correct"], automatic),
         "false_merges": counts["false_merge"],
         "false_splits": counts["false_split"],
@@ -112,7 +132,16 @@ def stratum_metrics(rows: list[dict[str, Any]], models: list[str]) -> dict[str, 
             model: {
                 key: value
                 for key, value in model_metrics(rows, model).items()
-                if key in {"correct", "wrong", "abstains", "false_merges", "false_splits"}
+                if key
+                in {
+                    "correct",
+                    "wrong",
+                    "abstains",
+                    "missing_entity",
+                    "partial_merges",
+                    "false_merges",
+                    "false_splits",
+                }
             }
             for model in models
         },
@@ -167,6 +196,8 @@ def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, A
             ("false_merge", "false_merges"),
             ("false_split", "false_splits"),
             ("abstain", "abstains"),
+            ("missing", "missing_entities"),
+            ("partial_merge", "partial_merges"),
         )
     }
     errors["special_or_unlabelled"] = [

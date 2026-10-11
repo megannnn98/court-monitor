@@ -26,6 +26,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -65,6 +109,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -104,6 +192,50 @@
             "rules_replayed_normalizer_current": "no_entity",
             "rules_deepseek_normalizer_current": "no_entity",
             "rules_deepseek_operator_normalizer_current": "no_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 1
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 1
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 1
+            }
           }
         }
       ],
@@ -143,6 +275,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "no_entity",
             "rules_deepseek_operator_normalizer_current": "no_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -182,6 +358,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -221,6 +441,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -260,6 +524,50 @@
             "rules_replayed_normalizer_current": "no_entity",
             "rules_deepseek_normalizer_current": "no_entity",
             "rules_deepseek_operator_normalizer_current": "no_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 4,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 4,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 4,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -296,9 +604,53 @@
             "rules_replayed": "one_entity",
             "rules_deepseek": "one_entity",
             "rules_deepseek_operator": "one_entity",
-            "rules_replayed_normalizer_current": "one_entity",
-            "rules_deepseek_normalizer_current": "one_entity",
+            "rules_replayed_normalizer_current": "partly_one_entity",
+            "rules_deepseek_normalizer_current": "partly_one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -338,6 +690,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -377,6 +773,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -416,6 +856,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -455,6 +939,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -494,6 +1022,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -533,6 +1105,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "no_entity",
             "rules_deepseek_operator_normalizer_current": "no_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 0,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 46
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 0,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 46
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 46
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 0,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 1,
+              "right_mentions_without_entity": 46
+            }
           }
         }
       ],
@@ -572,6 +1188,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -611,6 +1271,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -650,6 +1354,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -689,6 +1437,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -725,9 +1517,53 @@
             "rules_replayed": "one_entity",
             "rules_deepseek": "one_entity",
             "rules_deepseek_operator": "one_entity",
-            "rules_replayed_normalizer_current": "one_entity",
-            "rules_deepseek_normalizer_current": "one_entity",
+            "rules_replayed_normalizer_current": "partly_one_entity",
+            "rules_deepseek_normalizer_current": "partly_one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -767,6 +1603,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -806,6 +1686,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -845,6 +1769,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -884,6 +1852,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -923,6 +1935,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -962,6 +2018,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1001,6 +2101,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1058,6 +2202,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1097,6 +2285,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1133,9 +2365,53 @@
             "rules_replayed": "one_entity",
             "rules_deepseek": "one_entity",
             "rules_deepseek_operator": "one_entity",
-            "rules_replayed_normalizer_current": "one_entity",
-            "rules_deepseek_normalizer_current": "one_entity",
-            "rules_deepseek_operator_normalizer_current": "one_entity"
+            "rules_replayed_normalizer_current": "partly_one_entity",
+            "rules_deepseek_normalizer_current": "partly_one_entity",
+            "rules_deepseek_operator_normalizer_current": "partly_one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 2,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1175,6 +2451,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1214,6 +2534,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1253,6 +2617,50 @@
             "rules_replayed_normalizer_current": "offered_to_operator",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "offered_to_operator"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1292,6 +2700,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1331,6 +2783,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         },
         {
@@ -1348,9 +2844,53 @@
             "rules_replayed": "one_entity",
             "rules_deepseek": "one_entity",
             "rules_deepseek_operator": "one_entity",
-            "rules_replayed_normalizer_current": "one_entity",
-            "rules_deepseek_normalizer_current": "one_entity",
+            "rules_replayed_normalizer_current": "partly_one_entity",
+            "rules_deepseek_normalizer_current": "partly_one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         },
         {
@@ -1371,6 +2911,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1413,6 +2997,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1452,6 +3080,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1491,6 +3163,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1527,9 +3243,53 @@
             "rules_replayed": "one_entity",
             "rules_deepseek": "one_entity",
             "rules_deepseek_operator": "one_entity",
-            "rules_replayed_normalizer_current": "one_entity",
-            "rules_deepseek_normalizer_current": "one_entity",
-            "rules_deepseek_operator_normalizer_current": "one_entity"
+            "rules_replayed_normalizer_current": "partly_one_entity",
+            "rules_deepseek_normalizer_current": "partly_one_entity",
+            "rules_deepseek_operator_normalizer_current": "partly_one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1569,6 +3329,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1608,6 +3412,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1647,6 +3495,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1686,6 +3578,50 @@
             "rules_replayed_normalizer_current": "offered_to_operator",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1725,6 +3661,50 @@
             "rules_replayed_normalizer_current": "offered_to_operator",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1764,6 +3744,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1803,6 +3827,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1842,6 +3910,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "offered_to_operator"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1881,6 +3993,50 @@
             "rules_replayed_normalizer_current": "offered_to_operator",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "offered_to_operator"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1920,6 +4076,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1959,6 +4159,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -1998,6 +4242,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2037,6 +4325,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2073,9 +4405,53 @@
             "rules_replayed": "one_entity",
             "rules_deepseek": "one_entity",
             "rules_deepseek_operator": "one_entity",
-            "rules_replayed_normalizer_current": "one_entity",
-            "rules_deepseek_normalizer_current": "one_entity",
-            "rules_deepseek_operator_normalizer_current": "one_entity"
+            "rules_replayed_normalizer_current": "partly_one_entity",
+            "rules_deepseek_normalizer_current": "partly_one_entity",
+            "rules_deepseek_operator_normalizer_current": "partly_one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 2,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2115,6 +4491,50 @@
             "rules_replayed_normalizer_current": "different_entities",
             "rules_deepseek_normalizer_current": "different_entities",
             "rules_deepseek_operator_normalizer_current": "different_entities"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2154,6 +4574,50 @@
             "rules_replayed_normalizer_current": "offered_to_operator",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2193,6 +4657,50 @@
             "rules_replayed_normalizer_current": "offered_to_operator",
             "rules_deepseek_normalizer_current": "offered_to_operator",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2232,6 +4740,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2271,6 +4823,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2310,6 +4906,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2349,6 +4989,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2388,6 +5072,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2427,6 +5155,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2466,6 +5238,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2505,6 +5321,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2544,6 +5404,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2583,6 +5487,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2622,6 +5570,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2661,6 +5653,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2700,6 +5736,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2739,6 +5819,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2778,6 +5902,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2817,6 +5985,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2856,6 +6068,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2895,6 +6151,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2934,6 +6234,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -2973,6 +6317,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3012,6 +6400,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3051,6 +6483,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3090,6 +6566,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         },
         {
@@ -3110,6 +6630,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         },
         {
@@ -3130,6 +6694,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3172,6 +6780,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3211,6 +6863,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3250,6 +6946,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3289,6 +7029,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3328,6 +7112,50 @@
             "rules_replayed_normalizer_current": "no_entity",
             "rules_deepseek_normalizer_current": "no_entity",
             "rules_deepseek_operator_normalizer_current": "no_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 4
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 4
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 0,
+              "shared_entities": 0,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 4
+            }
           }
         }
       ],
@@ -3367,6 +7195,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3406,6 +7278,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3445,6 +7361,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3484,6 +7444,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3523,6 +7527,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3562,6 +7610,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3601,6 +7693,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3640,6 +7776,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3679,6 +7859,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3718,6 +7942,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3757,6 +8025,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3796,6 +8108,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],
@@ -3835,6 +8191,50 @@
             "rules_replayed_normalizer_current": "one_entity",
             "rules_deepseek_normalizer_current": "one_entity",
             "rules_deepseek_operator_normalizer_current": "one_entity"
+          },
+          "replay": {
+            "rules_replayed": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_replayed_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            },
+            "rules_deepseek_operator_normalizer_current": {
+              "left_entities": 1,
+              "right_entities": 1,
+              "shared_entities": 1,
+              "left_mentions_without_entity": 0,
+              "right_mentions_without_entity": 0
+            }
           }
         }
       ],

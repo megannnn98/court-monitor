@@ -16,6 +16,18 @@ twice. Both databases are only read.
 
 It writes, for every pair of the sample, what each variant decided, into `--decisions`
 (no names, no text), next to the stored decisions of ER v2 and of the rules alone.
+
+What is replayed, and what is not. Replayed, in the collector's order: grouping,
+the model's names, the pairs a person decided «same», corrected names, pseudonyms in
+brackets, bare surnames, removals. Not replayed: the unnamed figurants a person
+identified (they add evidence to a group, they move no named mention), and a new pass
+of `disputes.merge_clear_pairs`, which the Rosfinmonitoring check runs after a rebuild
+and which merges some patronymic pairs by the list; the pairs it merged before the
+snapshot are among the stored decisions. So a pair this replay leaves `offered` may be
+merged by that later step in production.
+
+The variants over «current» name parts re-read the stored nominative name with the
+current `name_parts`; they do not extract the article again.
 """
 
 from __future__ import annotations
@@ -48,6 +60,7 @@ from entities.grouping import (
 )
 from entities.normalizer import BATCH_SIZE, PROMPT_VERSION, NameItem, name_normalizer_from_env
 from entities.overrides import apply_overrides
+from entities.removals import without_removed
 from evaluation.identity_comparison import annotation, labelling, real
 from evaluation.identity_comparison.rules import entity_of_mention
 from processing.extraction.models import NAMED_TITLE_SOURCES
@@ -55,6 +68,9 @@ from processing.extraction.normalizers import name_parts
 
 ONE_ENTITY = "one_entity"
 DIFFERENT_ENTITIES = "different_entities"
+# Every placed mention of both sides is in one and the same entity.
+# `PARTLY`: some mention of each side shares an entity, and others are elsewhere.
+PARTLY = "partly_one_entity"
 # A side none of whose mentions is in any entity: the pipeline made nobody of it.
 NO_ENTITY = "no_entity"
 # Kept apart, and shown to the operator as a pair of «Спорные случаи» to decide.
@@ -73,7 +89,7 @@ _CACHE = text(
 )
 _STORED_NAMES = text(
     """
-    SELECT m.id, m.normalized_text, s.name
+    SELECT m.id, m.normalized_text, s.name, a.title
     FROM entity_mentions m
     JOIN article_extraction_runs r ON r.id = m.extraction_run_id
     JOIN parsed_articles a ON a.id = r.article_id
@@ -96,20 +112,23 @@ _QUOTES = text(
 
 def renormalized(mentions: Sequence[PersonMention], engine: Engine) -> list[PersonMention]:
     """The mentions with the name parts the current normalizer derives from the stored
-    full name. A registry card's name and a name written with initials keep their
-    parts: the normalizer takes those by other rules, which did not change."""
+    full name. A registry card's title (the mention that is the title of a document of
+    a named-title source, as `RuleBasedMentionNormalizer.normalize` tells it) and a
+    name written with initials keep their parts: the normalizer takes those by other
+    rules, which did not change."""
     with engine.connect() as connection:
         stored = {
-            mention_id: (full_name or "", source)
-            for mention_id, full_name, source in connection.execute(
+            mention_id: (full_name or "", source, title)
+            for mention_id, full_name, source, title in connection.execute(
                 _STORED_NAMES, {"ids": [mention.mention_id for mention in mentions]}
             )
         }
     result: list[PersonMention] = []
     for mention in mentions:
-        full_name, source = stored.get(mention.mention_id, ("", None))
+        full_name, source, title = stored.get(mention.mention_id, ("", None, None))
         words = full_name.split()
-        if not words or "." in words[0] or source in NAMED_TITLE_SOURCES:
+        registry_title = source in NAMED_TITLE_SOURCES and mention.surface == title
+        if not words or "." in words[0] or registry_title:
             result.append(mention)
             continue
         first, last, patronymic = name_parts(words)
@@ -150,6 +169,7 @@ def build(
     aliases: Sequence[tuple[int, int]] = (),
     same_pairs: Sequence[tuple[str, str]] = (),
     overrides: Mapping[str, str] | None = None,
+    removed: Sequence[str] = (),
 ) -> list[Entity]:
     """The grouping steps of `EntityCollector.run`, in its order. Without `names` this is
     the rules alone; a person's decisions come in through `same_pairs` and `overrides`."""
@@ -158,7 +178,10 @@ def build(
     entities = merge_decided(entities, same_pairs)
     entities = apply_overrides(entities, overrides or {})
     entities = attach_aliases(entities, aliases)
-    return attach_bare(entities, {mention.mention_id: mention.article_id for mention in mentions})
+    entities = attach_bare(
+        entities, {mention.mention_id: mention.article_id for mention in mentions}
+    )
+    return without_removed(entities, removed)
 
 
 def pair_decision(
@@ -166,18 +189,29 @@ def pair_decision(
     right: Sequence[int],
     entity_of: Mapping[int, str],
     offered: frozenset[tuple[str, str]] = frozenset(),
-) -> str:
-    """One entity when any mention of one side shares an entity with one of the other;
-    `offered` when the two are apart and a pair of theirs waits for the operator."""
+) -> tuple[str, dict[str, int]]:
+    """What the grouping made of two sides, and the counts behind it.
+
+    `one_entity` only when every placed mention of both sides is in one entity;
+    `partly_one_entity` when the sides share an entity and also hold others; `offered`
+    when they are apart and a pair of theirs waits for the operator. Mentions in no
+    entity do not decide; they are counted."""
     first = {entity_of[mention_id] for mention_id in left if mention_id in entity_of}
     second = {entity_of[mention_id] for mention_id in right if mention_id in entity_of}
+    detail = {
+        "left_entities": len(first),
+        "right_entities": len(second),
+        "shared_entities": len(first & second),
+        "left_mentions_without_entity": sum(mention_id not in entity_of for mention_id in left),
+        "right_mentions_without_entity": sum(mention_id not in entity_of for mention_id in right),
+    }
     if not first or not second:
-        return NO_ENTITY
+        return NO_ENTITY, detail
     if first & second:
-        return ONE_ENTITY
+        return (ONE_ENTITY if len(first | second) == 1 else PARTLY), detail
     if any(pair_keys(one, other) in offered for one in first for other in second):
-        return OFFERED
-    return DIFFERENT_ENTITIES
+        return OFFERED, detail
+    return DIFFERENT_ENTITIES, detail
 
 
 def offered_pairs(
@@ -195,9 +229,9 @@ def decisions_of(
     sample: Sequence[Mapping[str, Any]],
     entity_of: Mapping[int, str],
     offered: frozenset[tuple[str, str]] = frozenset(),
-) -> dict[str, str]:
-    """Pair id -> decision, for the pairs `annotation.annotate` makes of the sample."""
-    found: dict[str, str] = {}
+) -> dict[str, tuple[str, dict[str, int]]]:
+    """Pair id -> (decision, counts), for the pairs `annotation.annotate` makes."""
+    found: dict[str, tuple[str, dict[str, int]]] = {}
     for case in sample:
         sides, _ = annotation.sides_of(case)
         identifier = annotation.case_id(
@@ -240,6 +274,14 @@ def operator_decisions(
             for key, name in connection.execute(text("SELECT key, name FROM entity_name_overrides"))
         }
     return pairs, [(key_a, key_b) for key_a, key_b, _ in decided], overrides
+
+
+def removed_keys(engine: Engine) -> list[str]:
+    """Entities a person took out; none where the snapshot predates the table."""
+    with engine.connect() as connection:
+        if connection.scalar(text("SELECT to_regclass('entity_removals')")) is None:
+            return []
+        return [key for (key,) in connection.execute(text("SELECT key FROM entity_removals"))]
 
 
 def load_answers(path: Path) -> dict[str, GivenName]:
@@ -355,6 +397,7 @@ def main() -> None:
         with real_engine.connect() as connection:
             aliases = [(alias, named) for alias, named in connection.execute(_ALIASES)]
         same_pairs, decided_pairs, overrides = operator_decisions(cache_engine)
+        removed = removed_keys(cache_engine)
     finally:
         real_engine.dispose()
         cache_engine.dispose()
@@ -366,7 +409,12 @@ def main() -> None:
         variants[RULES + suffix] = build(mentions)
         variants[RULES_DEEPSEEK + suffix] = build(mentions, names=names, aliases=aliases)
         variants[PRODUCTION + suffix] = build(
-            mentions, names=names, aliases=aliases, same_pairs=same_pairs, overrides=overrides
+            mentions,
+            names=names,
+            aliases=aliases,
+            same_pairs=same_pairs,
+            overrides=overrides,
+            removed=removed,
         )
     decided = {
         variant: decisions_of(
@@ -380,12 +428,16 @@ def main() -> None:
     report["entities"] = {variant: len(entities) for variant, entities in variants.items()}
     report["operator_same_pairs"] = len(same_pairs)
     report["operator_name_overrides"] = len(overrides)
+    report["operator_removals"] = len(removed)
 
     document = json.loads(args.decisions.read_text(encoding="utf-8"))
     written = 0
     for case in document["cases"]:
         for pair in case["pairs"]:
-            pair["decisions"] = {variant: decided[variant][pair["pair_id"]] for variant in variants}
+            pair["decisions"] = {
+                variant: decided[variant][pair["pair_id"]][0] for variant in variants
+            }
+            pair["replay"] = {variant: decided[variant][pair["pair_id"]][1] for variant in variants}
             written += 1
     labelling.atomic_write(args.decisions, document)
     report["pairs_written"] = written

@@ -26,17 +26,57 @@ def _entities(mentions: list[PersonMention]) -> dict[int, str]:
     return entity_of_mention(production.build(mentions))
 
 
-def test_a_pair_is_one_entity_apart_offered_or_nobody() -> None:
-    entity_of = {1: "a", 2: "a", 3: "b", 4: "c"}
-    offered = frozenset({("b", "c")})
+def _decision(left: list[int], right: list[int], offered: frozenset[tuple[str, str]]) -> str:
+    return production.pair_decision(left, right, {1: "a", 2: "a", 3: "b", 4: "c"}, offered)[0]
 
-    assert production.pair_decision([1], [2], entity_of) == production.ONE_ENTITY
-    assert production.pair_decision([1], [3], entity_of) == production.DIFFERENT_ENTITIES
-    assert production.pair_decision([3], [4], entity_of, offered) == production.OFFERED
-    assert production.pair_decision([4], [3], entity_of, offered) == production.OFFERED
-    # One shared entity is enough, whatever else the sides hold.
-    assert production.pair_decision([1, 3], [2, 4], entity_of, offered) == production.ONE_ENTITY
-    assert production.pair_decision([1], [99], entity_of) == production.NO_ENTITY
+
+def test_a_pair_is_one_entity_in_part_apart_offered_or_nobody() -> None:
+    offered = frozenset({("b", "c")})
+    nothing: frozenset[tuple[str, str]] = frozenset()
+
+    assert _decision([1], [2], nothing) == production.ONE_ENTITY
+    assert _decision([1], [3], nothing) == production.DIFFERENT_ENTITIES
+    assert _decision([3], [4], offered) == production.OFFERED
+    assert _decision([4], [3], offered) == production.OFFERED
+    # A shared entity beside others is a join in part, not one entity.
+    assert _decision([1, 3], [2, 4], offered) == production.PARTLY
+    assert _decision([1, 3], [2], nothing) == production.PARTLY
+    assert _decision([1], [99], nothing) == production.NO_ENTITY
+
+
+def test_mentions_without_an_entity_are_counted_and_do_not_decide() -> None:
+    decision, detail = production.pair_decision([1, 98], [2, 99], {1: "a", 2: "a"})
+
+    assert decision == production.ONE_ENTITY
+    assert detail == {
+        "left_entities": 1,
+        "right_entities": 1,
+        "shared_entities": 1,
+        "left_mentions_without_entity": 1,
+        "right_mentions_without_entity": 1,
+    }
+
+
+def test_an_entity_a_person_took_out_is_gone_with_its_mentions() -> None:
+    mentions = [_mention(1, 1, "Иван Сидоров"), _mention(2, 2, "Анна Орлова")]
+
+    found = entity_of_mention(production.build(mentions, removed=["иван сидоров"]))
+
+    assert set(found) == {2}
+
+
+def test_two_names_of_several_parts_stay_two_people() -> None:
+    # Both lost their first word under the first version of `name_parts` and merged.
+    mentions = [_mention(1, 1, "Джон Пол Смит"), _mention(2, 2, "Джеймс Пол Смит")]
+
+    found = _entities(mentions)
+
+    assert found[1] != found[2]
+    # A model's answer for one of them does not bring them together either.
+    apart = production.build(mentions)
+    names = {apart[0].key: GivenName(apart[0].name, "male", True)}
+    renamed = entity_of_mention(production.build(mentions, names=names))
+    assert renamed[1] != renamed[2]
 
 
 def test_a_name_is_taken_from_a_stored_answer_or_the_rule_and_the_rest_is_left_to_ask() -> None:
@@ -136,8 +176,8 @@ def test_two_people_of_one_name_are_kept_apart(name: str) -> None:
     assert found[1] != found[2]
 
 
-def test_the_evaluator_reads_a_pairs_own_decision_and_counts_an_offer_as_left_to_a_human() -> None:
-    sample = {
+def _sample(decisions: list[tuple[str, str]]) -> dict[str, object]:
+    return {
         "cases": [
             {
                 "case_id": "case-1",
@@ -152,27 +192,60 @@ def test_the_evaluator_reads_a_pairs_own_decision_and_counts_an_offer_as_left_to
                         "annotation": {"label": None, "comment": None},
                         "decisions": {"rules_deepseek": decision},
                     }
-                    for name, decision in (
-                        ("a-b", "one_entity"),
-                        ("a-c", "offered_to_operator"),
-                        ("b-c", "no_entity"),
-                        ("c-d", "different_entities"),
-                    )
+                    for name, decision in decisions
                 ],
             }
         ]
     }
-    annotations = {
+
+
+def _labelled(sample: dict[str, object], label: str) -> dict[str, object]:
+    return {
         "version": 2,
         "annotations": {
-            pair.identifier: {"label": "same_person", "skipped": False}
+            pair.identifier: {"label": label, "skipped": False}
             for pair in labelling.pairs_of(sample)
         },
     }
 
-    report = evaluate_manual.evaluate(sample, annotations)
+
+def test_the_evaluator_tells_a_review_a_missing_entity_and_a_partial_join_apart() -> None:
+    sample = _sample(
+        [
+            ("a-b", "one_entity"),
+            ("a-c", "offered_to_operator"),
+            ("b-c", "no_entity"),
+            ("c-d", "different_entities"),
+            ("d-e", "partly_one_entity"),
+        ]
+    )
+
+    report = evaluate_manual.evaluate(sample, _labelled(sample, "same_person"))
 
     assert set(report["models"]) == {"er_v2", "rules", "rules_deepseek"}
     replayed = report["models"]["rules_deepseek"]
-    assert (replayed["correct"], replayed["abstains"], replayed["false_splits"]) == (1, 2, 1)
-    assert replayed["automatic_decisions"] == 2
+    assert replayed["correct"] == 1
+    assert replayed["abstains"] == 1
+    assert replayed["missing_entity"] == 1
+    assert replayed["partial_merges"] == 1
+    assert replayed["false_splits"] == 1
+    # Neither the review nor the missing entity is a decision.
+    assert replayed["automatic_decisions"] == 3
+    assert [row["pair_id"] for row in report["errors"]["rules_deepseek_partial_merges"]] == [
+        "case-1:d-e"
+    ]
+    assert [row["pair_id"] for row in report["errors"]["rules_deepseek_missing_entities"]] == [
+        "case-1:b-c"
+    ]
+
+
+def test_a_partial_join_of_two_different_people_is_a_false_merge() -> None:
+    sample = _sample([("a-b", "partly_one_entity"), ("a-c", "offered_to_operator")])
+
+    replayed = evaluate_manual.evaluate(sample, _labelled(sample, "different_person"))["models"][
+        "rules_deepseek"
+    ]
+
+    assert (replayed["false_merges"], replayed["partial_merges"]) == (1, 0)
+    # Offered to the operator, the two stay apart in what is stored: right for now.
+    assert (replayed["abstains"], replayed["stored_correct"]) == (1, 1)
