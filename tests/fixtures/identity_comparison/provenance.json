@@ -1,0 +1,22 @@
+{
+  "purpose": "Decision-only replay of the manually labelled disagreement sample; no article text or mention names.",
+  "files": {
+    "manual_annotations.json": {
+      "sha256": "bce1f1a06dcf6b4273505fe12274152eefe00a6c69f5c98de8e6553ab8d3c830",
+      "source": "user supplied; a final newline added by the repository's end-of-file hook"
+    },
+    "manual_annotations_extended.json": {
+      "sha256": "0ea9055c5fdf8ae25af36d0c4c5bb90f583cdea72ce96d9399812c50f10113bc",
+      "source": "user supplied; a final newline added by the repository's end-of-file hook"
+    },
+    "identity_disagreement_results.json": {
+      "sha256": "06b469085ff87f80880943602c6b2213aa2f510cf2493a1798f9ba9081d98465",
+      "source": "user supplied; a final newline added by the repository's end-of-file hook"
+    },
+    "disagreement_decisions.json": {
+      "sha256": "a61142d604b7c2f2f1acb817aefe752a8c367a3fda4a5c2be77b9c2c631bdb7a",
+      "source": "Projection of generated source preserving order, pair IDs, side IDs, strata, decisions and not_ready."
+    }
+  },
+  "source_artifact_sha256": "becc4b5050513d53488d143116f7c9503302971acfd3b3bb2a7f384f33bf3f60"
+}

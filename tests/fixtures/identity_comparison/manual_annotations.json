@@ -1,0 +1,505 @@
+{
+  "version": 1,
+  "annotations": {
+    "case-e9f268aafa4c:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-dcf5c10e4178:a-b": {
+      "label": "different_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-aef49cc06eaa:a-b": {
+      "label": "different_person",
+      "comment": "flags=bad_span; Mention span combines the client's surname with lawyer Roman Morozov.",
+      "skipped": false
+    },
+    "case-9da7045ff2b5:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_span; Span includes unrelated following token 'Евросоюз'.",
+      "skipped": false
+    },
+    "case-a9ae6d58812e:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-99e68664fcaf:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_span; Span/canonical name absorbs the following token 'России'.",
+      "skipped": false
+    },
+    "case-43356debdcbe:a-b": {
+      "label": "different_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-ebdbc27e012d:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-3e4ea8cff74b:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-ce45221b22d0:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-dfa10e09794d:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-970c8d1e7fea:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-5e64e80a983f:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-8602f6f68503:a-b": {
+      "label": null,
+      "comment": "extended_label=not_a_person; flags=ner_error; «Карта Тинькофф» is payment/donation text, not a person.",
+      "skipped": true
+    },
+    "case-07cc6130f72b:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-fa9b333b482b:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-3a8ec1ec0841:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-338a30f229d6:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-97867bef1f93:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-573b359b7e46:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-6e47bdcd3d13:a-b": {
+      "label": "insufficient_evidence",
+      "comment": null,
+      "skipped": false
+    },
+    "case-91170991f992:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-219a0569c68e:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-163a1430a179:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-4a3c454aa6d9:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-992cb78ebec1:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-98514ffcb0c1:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-d05bcf176524:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-dd975cb11eb0:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-a96ca95400a9:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-6d19f3d23ec3:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-5e7279c52e59:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-a73ab4c7351f:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-91c7a7329d0e:a-b": {
+      "label": "different_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-91c7a7329d0e:a-c": {
+      "label": "same_person",
+      "comment": "flags=bad_span; Span includes unrelated following token 'Евросоюз'.",
+      "skipped": false
+    },
+    "case-91c7a7329d0e:b-c": {
+      "label": "different_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-0f2b9e42feee:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-810f407e695c:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-49defe90591b:a-b": {
+      "label": "different_person",
+      "comment": "flags=bad_span; Span combines Belkov's surname with Elena Lyakhovich's name.",
+      "skipped": false
+    },
+    "case-ba33cab8832a:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-abd92791f958:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-92b73110963f:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-c7cb6ab541ae:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-49e12708338d:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-6c1dedbb3002:a-b": {
+      "label": null,
+      "comment": "extended_label=mixed_identity_group; ER side A contains at least two different Oleg Popovs; side B matches only the Novosibirsk person.",
+      "skipped": true
+    },
+    "case-e4ff9879fd0d:a-b": {
+      "label": "different_person",
+      "comment": "flags=bad_span; Span combines Butrimas surname with Valdas Bartkevičius.",
+      "skipped": false
+    },
+    "case-459a88de720c:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-1664c877939d:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-b634c856ce59:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-396b3d75c3d5:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-2ed63ae67ba3:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-56bdb3c6f1f5:a-b": {
+      "label": "different_person",
+      "comment": "flags=bad_span; Span combines Tkachyova's surname with lawyer Roman Morozov.",
+      "skipped": false
+    },
+    "case-f489ffe7e6ee:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-67e7a0cc4450:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-7643fc2ecbd7:a-b": {
+      "label": "different_person",
+      "comment": "flags=bad_span; Span combines Kuryaev's surname with lawyer Roman Isaev.",
+      "skipped": false
+    },
+    "case-9d9622d1f712:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-d7408665b451:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-4b874ac99ab2:a-b": {
+      "label": "same_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-79d2b434657c:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-39524e013df9:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-47c7ba59c180:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-94de831a35b2:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-0cb9c1691fcb:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-fa075fab485f:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-803cdfc3640b:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-69d83ebdf55e:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-149fbcacfa1a:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-745d2982ff94:a-b": {
+      "label": "different_person",
+      "comment": null,
+      "skipped": false
+    },
+    "case-698a261b073a:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-6fdef34716f2:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-72e4d71a2475:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-5216a9a6996e:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-48ed4cb514af:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-f7ee035bc62c:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-3f42d3a7c218:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-e83921626a07:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-4f4317264e53:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-fd08291a5aa7:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-c57ad4a5e767:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-47faf9e13ea6:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-47faf9e13ea6:a-c": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-47faf9e13ea6:b-c": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-c07f4d9fb2c3:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-3a52d08c45e5:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-4a601ce134b2:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-086ab6ffaedb:a-b": {
+      "label": "same_person",
+      "comment": "flags=name_order",
+      "skipped": false
+    },
+    "case-77d1b33adc1a:a-b": {
+      "label": null,
+      "comment": "extended_label=mixed_identity_group; ER side B is named Polina Serenko but its surname-only mentions refer to Mikhail Serenko.",
+      "skipped": true
+    },
+    "case-9b4e055ebf3f:a-b": {
+      "label": "same_person",
+      "comment": "flags=initial_expansion",
+      "skipped": false
+    },
+    "case-bceb9aee4fe8:a-b": {
+      "label": null,
+      "comment": "extended_label=invalid_mention; flags=bad_span; Span 'А. Грейси' combines victim initial 'А.' with offender surname 'Грейси'.",
+      "skipped": true
+    },
+    "case-354f7e9a6cfb:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_normalization",
+      "skipped": false
+    },
+    "case-58b26daac6ef:a-b": {
+      "label": "same_person",
+      "comment": "flags=name_order",
+      "skipped": false
+    },
+    "case-41a727c7fa54:a-b": {
+      "label": "same_person",
+      "comment": "flags=name_order",
+      "skipped": false
+    },
+    "case-3ed5bbb4e72d:a-b": {
+      "label": null,
+      "comment": "extended_label=mixed_identity_group; ER side B is named 'Вагнер Ален' but its surname-only mentions refer to Arkady Wagner.",
+      "skipped": true
+    },
+    "case-a4f5f4a2e322:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_span; Span 'У.А. Гадоев' absorbs initials from preceding 'Солиев У.А.'; Gadoev is Shahromjon Gadoev.",
+      "skipped": false
+    },
+    "case-8126b39b9699:a-b": {
+      "label": "same_person",
+      "comment": "flags=initial_expansion",
+      "skipped": false
+    },
+    "case-b16597cba07b:a-b": {
+      "label": "same_person",
+      "comment": "flags=name_order",
+      "skipped": false
+    },
+    "case-09ff6e755f9f:a-b": {
+      "label": "same_person",
+      "comment": "flags=name_order",
+      "skipped": false
+    },
+    "case-bd249f7e4f8e:a-b": {
+      "label": "same_person",
+      "comment": "flags=bad_span; Canonical name 'Мовлаев России' comes from phrase 'выдачу Мовлаева России'.",
+      "skipped": false
+    },
+    "case-e79ddf5af7bb:a-b": {
+      "label": null,
+      "comment": "extended_label=invalid_mention; flags=bad_span; Span 'Ш. Бородин' combines victim initial 'Ш.' with offender surname 'Бородин'.",
+      "skipped": true
+    },
+    "case-8501beb5abd5:a-b": {
+      "label": "different_person",
+      "comment": null,
+      "skipped": false
+    }
+  }
+}

@@ -108,6 +108,9 @@ def test_skip_returns_on_resume_and_multiple_pairs_have_distinct_answers(
         "same_person": 0,
         "different_person": 1,
         "insufficient_evidence": 1,
+        "not_a_person": 0,
+        "mixed_identity_group": 0,
+        "invalid_mention": 0,
         "skipped": 1,
         "unlabelled": 1,
     }
@@ -146,7 +149,7 @@ def test_invalid_label_does_not_write_and_invalid_key_reprompts(
     with pytest.raises(ValueError, match="invalid label"):
         labelling.record(path, document, pairs[0].identifier, "made_up")
     assert not path.exists() and document == empty()
-    answers = iter(("x", "s", "q"))
+    answers = iter(("z", "s", "q"))
     shown: list[str] = []
     labelling.run(pairs, document, path, read=lambda _: next(answers), write=shown.append)
     assert any("Invalid answer" in line for line in shown)

@@ -366,7 +366,8 @@ The CLI does not import database or API clients and does not contact a model.
 It displays `pair N/100`, both sides and all their stored mentions, with surface and
 normalized names, article title, date, source and context. Model decisions are hidden
 until `m`. `s`, `d` and `i` save `same_person`, `different_person` and
-`insufficient_evidence`. `k` saves a skip and advances; `q` quits. Ctrl-C and EOF stop
+`insufficient_evidence`; `n`, `g` and `x` save `not_a_person`, `mixed_identity_group`
+and `invalid_mention`. `k` saves a skip and advances; `q` quits. Ctrl-C and EOF stop
 without losing answers already saved. Each answer writes a complete temporary file
 in the destination directory, flushes and fsyncs it, replaces the destination
 atomically, then fsyncs the directory. A failed replacement leaves the old file intact.
@@ -392,12 +393,98 @@ a label, including skipped pairs, in source order. `--edit <pair_id>` explicitly
 opens one pair and replaces its label on `s/d/i`; skipping while editing keeps the
 old label. Unknown pair ids and invalid stored labels are refused. Statistics report
 total, labelled, each label, skipped and unlabelled; skipped is a subset of unlabelled.
+Both v1 and v2 annotations are accepted. Saving a special label or flags upgrades v1
+to v2. Existing flags, comment, index and other entry metadata survive editing.
+`--edit <pair_id> --flags bad_span bad_normalization --comment "note"` replaces the
+diagnostics and comment for that pair when an answer is saved. Empty `--flags` clears
+flags. Flags and comments can only be changed with explicit `--edit`. Supported flags:
+`bad_span`, `bad_normalization`, `ner_error`, `name_order`, `initial_expansion`.
 
 `--merge-out` joins annotations by the existing deterministic `pair_id` into a copy
 of the generated sample for subsequent evaluation. It keeps contexts, model decisions,
 pair ids and unlabelled pairs, including the case with no pairs. It refuses to overwrite
 the source or manual annotations. This supplies labelled ground truth for later
 metrics; this command does not compute model quality or start labelling.
+
+### Evaluation of the completed manual labels
+
+The supplied `manual_annotations_extended.json` is the ground truth for this stage.
+`tests/fixtures/identity_comparison/` keeps the three supplied files unchanged and a
+decision-only projection of the generated sample (`disagreement_decisions.json`).
+The projection preserves all 97 cases, source order, deterministic pair and side IDs,
+strata, model decisions and the case with no pairs, without copying article text or
+mention names. The supplied annotation comments are kept verbatim. `provenance.json`
+records input hashes and the hash of the original generated artifact. The compact
+sample is for evaluator replay; interactive labelling still uses the full `var/` sample.
+
+Reproduce without a database, model or external API:
+
+```bash
+PYTHONPATH=src uv run python -m evaluation.identity_comparison.evaluate_manual \
+  --sample tests/fixtures/identity_comparison/disagreement_decisions.json \
+  --annotations tests/fixtures/identity_comparison/manual_annotations_extended.json \
+  --reference tests/fixtures/identity_comparison/identity_disagreement_results.json \
+  --out var/identity_comparison/manual_evaluation.json
+```
+
+The full generated sample can also be passed with `--sample`. The output JSON includes
+false merges, false splits, ER abstentions and special/unlabelled rows with index,
+pair ID, case ID, stratum, manual label, original model decisions, normalized
+predictions, flags and comment. It contains no article text. `--reference` compares
+the independently computed results with the preliminary calculation; it does not
+participate in scoring. Unknown decisions, foreign pair IDs or inconsistent supplied
+indices cause an error rather than being silently scored or repaired.
+
+There are 100 labelled pairs: 82 `same_person`, 11 `different_person`, 1
+`insufficient_evidence`, 1 `not_a_person`, 3 `mixed_identity_group`, 2
+`invalid_mention`. Only the first two labels form the 93 evaluable identity pairs.
+The other seven are excluded from identity accuracy for both systems. In particular,
+insufficient evidence and mixed groups are never coerced to an identity verdict.
+
+| Model | Automatic / evaluable | Coverage | Correct / automatic | Accuracy | False merges | False splits | Abstentions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ER v2 | 71 / 93 | 76.3% | 12 / 71 | 16.9% | 3 | 56 | 22 |
+| Rules grouping | 93 / 93 | 100% | 81 / 93 | 87.1% | 8 | 4 | 0 |
+
+Coverage uses evaluable pairs; accuracy uses automatic decisions on those pairs.
+ER's 12/93 (12.9%) is the fraction of evaluable pairs with a correct automatic
+answer, not an accuracy that treats abstention as an error. Across all 100 pairs,
+including non-evaluable labels, ER has 76 automatic decisions and 24 abstentions;
+rules has 100 automatic decisions.
+
+| Stratum | All pairs | Evaluable | Same / different | ER correct / wrong / abstain | Rules correct / wrong |
+|---|---:|---:|---:|---:|---:|
+| `er_joins_rules_split` | 7 | 7 | 4 / 3 | 4 / 3 / 0 | 3 / 4 |
+| `er_review_rules_place` | 24 | 22 | 22 / 0 | 0 / 0 / 22 | 22 / 0 |
+| `rules_join_er_splits` | 69 | 64 | 56 / 8 | 8 / 56 / 0 | 56 / 8 |
+
+The preliminary 81/93, 12/71, 56 ER false splits and 8 rules false merges all agree,
+as do the provided error pair IDs. Its per-stratum `pairs` field meant evaluable
+pairs (7, 22, 64); this report distinguishes all pairs (7, 24, 69) from evaluable.
+
+Diagnostic counts are per pair and may overlap: `bad_span` 12,
+`bad_normalization` 28, `ner_error` 1, `name_order` 5, `initial_expansion` 2.
+Special labels are counted separately as above. Among the 71 pairs where a system
+makes an identity error, 33 have no extraction/normalization flag, 10 have `bad_span`
+or `ner_error`, and 28 have `bad_normalization`. Absence of a flag is not proof that
+extraction was sound; these categories describe annotations, not a causal diagnosis.
+Per system: rules has 5 errors without those flags, 6 with span/NER flags and 1
+with normalization flags; ER has 28, 4 and 27 respectively. Categories may overlap.
+The 3 mixed groups and 2 invalid mentions stay outside the identity error lists.
+
+Two manually verified namesake pairs are rules false merges: pair #68
+(`case-745d2982ff94:a-b`, Andrey Lugovoy) and #100
+(`case-8501beb5abd5:a-b`, Alexander Shevchuk). Both have ground truth
+`different_person`, rules `one_entity`, and ER `different_persons`. They are not
+explained by a recorded span or normalization flag. Four other rules false-merge
+pairs have `bad_span`; their stored mentions cross entity boundaries. These remain
+pairwise errors in the metrics but must be investigated as extraction-associated
+failures rather than evidence of an identity-resolver defect alone.
+
+These are accuracy and error counts within a deliberately selected disagreement
+sample, not estimates of corpus-wide quality. The labels expose namesake joins,
+conservative ER splitting/review and upstream extraction/normalization problems.
+They do not settle the canonical identity model or justify changing production rules.
 
 ## 10. Limits of the experiment
 
@@ -408,8 +495,9 @@ metrics; this command does not compute model quality or start labelling.
   cannot show that; ER v2's use of the same context is also not exercised.
 - "B repaired" is a counterfactual. Its split of a three-word name is the benchmark's
   own and is not the production model.
-- The real database has no ground truth. Nothing about it is a quality score, and the
-  reading of disagreements by eye covers 21 cases.
+- The full real corpus has no ground truth. The initial qualitative reading covered
+  21 cases; the completed manual evaluation above covers 100 sampled disagreement
+  pairs. Its accuracy is conditional on that sample, not a corpus-wide quality score.
 - ER v2 on the real database is what was stored by an earlier run (`er-v2`), at schema
   revision `r2s3t4u5v6w7`. It was not re-run. No AI reviewer was configured, and no
   human review had been done: the pending reviews are the untouched queue.

@@ -15,8 +15,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-LABELS = ("same_person", "different_person", "insufficient_evidence")
-ANSWERS = dict(zip("sdi", LABELS, strict=True))
+LABELS = (
+    "same_person",
+    "different_person",
+    "insufficient_evidence",
+    "not_a_person",
+    "mixed_identity_group",
+    "invalid_mention",
+)
+FLAGS = ("bad_span", "bad_normalization", "ner_error", "name_order", "initial_expansion")
+ANSWERS = dict(zip("sdingx", LABELS, strict=True))
 DEFAULT_SAMPLE = Path("var/identity_comparison/disagreement_annotation.json")
 DEFAULT_ANNOTATIONS = Path("var/identity_comparison/manual_annotations.json")
 
@@ -53,7 +61,7 @@ def load_annotations(path: Path, pairs: list[Pair]) -> dict[str, Any]:
     if not path.exists():
         return {"version": 1, "annotations": {}}
     document = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(document, dict) or document.get("version") != 1:
+    if not isinstance(document, dict) or document.get("version") not in (1, 2):
         raise ValueError("unsupported annotations format")
     entries = document.get("annotations")
     if not isinstance(entries, dict):
@@ -70,7 +78,19 @@ def load_annotations(path: Path, pairs: list[Pair]) -> dict[str, Any]:
             raise TypeError("skipped must be a boolean")
         if entry["label"] is not None and entry.get("skipped", False):
             raise ValueError("labelled pair cannot be skipped")
+        validate_flags(entry.get("flags", []))
+        if entry.get("comment") is not None and not isinstance(entry["comment"], str):
+            raise TypeError("comment must be a string or null")
     return document
+
+
+def validate_flags(flags: list[str]) -> None:
+    if not isinstance(flags, list):
+        raise TypeError("flags must be a list")
+    if any(flag not in FLAGS for flag in flags):
+        raise ValueError("unknown diagnostic flag")
+    if len(set(flags)) != len(flags):
+        raise ValueError("duplicate diagnostic flag")
 
 
 def atomic_write(path: Path, document: dict[str, Any]) -> None:
@@ -104,18 +124,27 @@ def record(
     label: str | None,
     *,
     overwrite: bool = False,
+    flags: list[str] | None = None,
+    comment: str | None = None,
 ) -> None:
     if label is not None and label not in LABELS:
         raise ValueError("invalid label")
     existing = document["annotations"].get(identifier, {})
+    if flags is not None:
+        validate_flags(flags)
     if existing.get("label") is not None and not overwrite:
         raise ValueError("existing label requires explicit --edit")
     updated = copy.deepcopy(document)
     updated["annotations"][identifier] = {
+        **existing,
         "label": label,
-        "comment": existing.get("comment"),
+        "comment": comment if comment is not None else existing.get("comment"),
         "skipped": label is None,
     }
+    if flags is not None:
+        updated["annotations"][identifier]["flags"] = list(flags)
+    if label in LABELS[3:] or "flags" in updated["annotations"][identifier]:
+        updated["version"] = 2
     atomic_write(path, updated)
     document.clear()
     document.update(updated)
@@ -139,12 +168,15 @@ def statistics(pairs: list[Pair], document: dict[str, Any]) -> dict[str, int]:
 
 def merged_sample(sample: dict[str, Any], document: dict[str, Any]) -> dict[str, Any]:
     merged = copy.deepcopy(sample)
+    if "labels" in merged:
+        merged["labels"] = list(LABELS)
     for pair in pairs_of(merged):
         entry = document["annotations"].get(pair.identifier)
         if entry is not None:
             pair.data["annotation"] = {
                 "label": entry["label"],
                 "comment": entry.get("comment"),
+                **({"flags": list(entry["flags"])} if "flags" in entry else {}),
             }
     return merged
 
@@ -168,6 +200,8 @@ def run(
     path: Path,
     *,
     edit: str | None = None,
+    flags: list[str] | None = None,
+    comment: str | None = None,
     read: Callable[[str], str] = input,
     write: Callable[[str], None] = print,
 ) -> None:
@@ -189,7 +223,8 @@ def run(
                 write(f"Editing existing label: {existing or 'unlabelled'}")
             while True:
                 answer = read(
-                    "[s] same [d] different [i] insufficient [k] skip [m] models [q] quit: "
+                    "[s] same [d] different [i] insufficient [n] not person "
+                    "[g] mixed group [x] invalid mention [k] skip [m] models [q] quit: "
                 )
                 answer = answer.strip().lower()
                 if answer == "q":
@@ -204,11 +239,17 @@ def run(
                     break
                 if answer in ANSWERS:
                     record(
-                        path, document, pair.identifier, ANSWERS[answer], overwrite=edit is not None
+                        path,
+                        document,
+                        pair.identifier,
+                        ANSWERS[answer],
+                        overwrite=edit is not None,
+                        flags=flags,
+                        comment=comment,
                     )
                     write("Saved.")
                     break
-                write("Invalid answer; use s/d/i/k/m/q.")
+                write("Invalid answer; use s/d/i/n/g/x/k/m/q.")
         write("Session finished. Skipped pairs remain unlabelled and will return on resume.")
     except (KeyboardInterrupt, EOFError):
         write("\nStopped. Previously saved answers are on disk.")
@@ -222,8 +263,14 @@ def main() -> None:
     modes.add_argument("--stats", action="store_true")
     modes.add_argument("--edit", metavar="PAIR_ID")
     modes.add_argument("--merge-out", type=Path)
+    parser.add_argument(
+        "--flags", nargs="*", choices=FLAGS, help="Replace flags with --edit; empty clears flags"
+    )
+    parser.add_argument("--comment", help="Replace comment with --edit")
     args = parser.parse_args()
     try:
+        if (args.flags is not None or args.comment is not None) and args.edit is None:
+            raise ValueError("--flags and --comment require --edit")
         if args.sample.resolve() == args.annotations.resolve():
             raise ValueError("sample and annotations must be separate files")
         sample = json.loads(args.sample.read_text(encoding="utf-8"))
@@ -236,7 +283,14 @@ def main() -> None:
                 raise ValueError("merge output must not overwrite sample or annotations")
             atomic_write(args.merge_out, merged_sample(sample, document))
         else:
-            run(pairs, document, args.annotations, edit=args.edit)
+            run(
+                pairs,
+                document,
+                args.annotations,
+                edit=args.edit,
+                flags=args.flags,
+                comment=args.comment,
+            )
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.exit(2, f"Labelling failed: {error}\n")
 
