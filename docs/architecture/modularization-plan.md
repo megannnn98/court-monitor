@@ -388,6 +388,221 @@ algorithm.
 Pipeline B is planned separately, after the same decision.
 LangGraph orchestration comes after step 12 and is not part of this sequence.
 
+## Post-extraction domain model decision
+
+Status: analysis, 2026-10-11. No decision is taken here. The options are open; the
+section ends with a current hypothesis and what has to be measured before it can become
+a decision.
+
+How this was established. A script read every file of both branches for the ORM models
+and the raw SQL tables it reads and writes (a regular-expression reading: it tells the
+tables, not the logic). Read as code: `processing/extraction/resolution_service.py` in
+full; the bodies of `entities/collector.py`, `entities/politics.py` and
+`persons/resolution/service.py` in their main parts; the heads and outlines of
+`entities/rf_check.py`, `entities/roles.py`, `rosfinmonitoring/matcher.py`,
+`persecution/classifier.py`, `persecution/classification_service.py`; the callers in
+`operator_console.py`, `web/ui/pipeline.py`, `monitoring/cli.py`, `web/`. The other
+files of `entities/` and `persons/` were not read line by line.
+
+### What the two branches are
+
+Both start from the same rows: `entity_mentions` of type `person` and
+`extracted_events`, written by extraction. Both answer the same question: which
+mentions are one human, and what is known of that human's case. They are two models of
+the same object, not two levels of one model. Neither reads the other's tables.
+
+| | Pipeline A: canonical persons | Pipeline B: entity groups |
+|---|---|---|
+| Identity | a `persons` row with a stable id; a mention is linked to it (`entity_mentions.person_id`) | an `entity_groups` row found by a key made of the name; rebuilt whole at every run |
+| How mentions are joined | ER v2: candidates (exact key, alias, trigram), features, score, then AUTO_LINK, REVIEW or CREATE_NEW; one mention at a time | rules over all mentions at once (`grouping`), then a model names each entity in the nominative, then the operator's decisions |
+| Which mentions | every person mention of every article | only mentions in articles that have a criminal-case event |
+| Incremental | yes: a new article resolves its own mentions | no: the whole table is rebuilt; what survives is kept by entity key |
+| A change of the key | does not happen: the id is the identity | happens when a rule or a name changes; `disputes.KeyIndex` finds today's key of a kept one |
+| Audit | `person_resolution_decisions`, `person_resolution_ai_reviews`, `review_records`, `person_merges` | the model's answers cached by question hash; the operator's decisions by key |
+
+### Sources of truth today
+
+| Fact | Pipeline A | Pipeline B |
+|---|---|---|
+| A person's name | `persons.canonical_name`, `person_aliases` | `entity_groups.name` (rules, a model, `entity_name_overrides`) |
+| Which mentions are one person | `entity_mentions.person_id`, `person_resolution_decisions` | `entity_group_mentions`, `entity_pair_decisions`, `entity_removals` |
+| Role in a case | none: any target of an event counts | `entity_group_roles`, `entity_role_decisions`, `entity_official_marks` |
+| Events | `person_event_links` over `extracted_events` | `entity_groups.event_types` (a count), `entity_group_charges`, `entity_group_news`, `article_sentences` |
+| Political or not | `persecution_classifications` (rules: articles, keywords) | `entity_group_politics`, `entity_politics_decisions` (rules, the operator's base, «Мемориал» categories, a model) |
+| Rosfinmonitoring status | `rosfin_matches` (matched, not matched, ambiguous, needs review, insufficient data, probable) | `entity_group_rf_matches` (full name, or name without a patronymic) |
+| Manual review | `review_records`, resolution review | pair, role, politics, name, removal, official and done marks, all by entity key |
+| What the operator sees | `/ui/persons`, `/ui/candidates`, `/api/persons`, `/api/candidates`, `/api/reviews`, `/api/monitoring/findings` | every other page of the console: the work cycle, «Результат», the dossier, disputes, unnamed, sentences, «Спросить», the exports |
+| People the news do not name | none | `unnamed_figurants` and the tables around them |
+
+Shared by both, and owned by neither: the extraction tables, and the Rosfinmonitoring
+list itself (`rosfinmonitoring_snapshots`, `rosfinmonitoring_entries`,
+`rfm_operator_entries`). `entities/rf_check.py` downloads and stores the list through
+the `rosfinmonitoring` package and then matches entity groups to it with its own rules.
+
+### What is duplicated
+
+| Concern | Pipeline A | Pipeline B | Shared code |
+|---|---|---|---|
+| Joining mentions | `persons/resolution/*` | `entities/grouping.py`, `collector.py`, `disputes.py` | none |
+| Name normalization | `persons/resolution/normalizer.py` | `entities/normalizer.py`, `grouping.py` | the extraction normalizer both start from |
+| Political classification | `persecution/classifier.py`, `classification_service.py` | `entities/politics.py` | one constant, `POLITICAL_ARTICLES` |
+| Matching to the list | `rosfinmonitoring/matcher.py` | `entities/rf_check.py` | the snapshot tables and their loading |
+| Human review | `persons/resolution/review.py`, `manual_review_service.py` | the decision tables of `entities/` | none |
+| Result | `candidates/`, `monitoring/findings.py` | `web/ui/political*.py`, the exports | none |
+
+The two also mean different things by the list. `candidates` reports a person who is
+political and absent from the list. `docs/wiki/Pipeline.md` says the list drops nobody:
+it confirms who a person is.
+
+### What only one of them has
+
+Only pipeline A: stable ids; incremental work; a scored decision with its candidates
+kept; namesakes that share a name; the automated run with checkpoints, locks and
+failure records (Dagster calls only its stages); findings that are activated and
+deactivated; the evaluation corpora under `evaluation/`.
+
+Only pipeline B: the role of a person in a case, and officials; people the news do not
+name; the operator's base and «Мемориал» categories as evidence; the latest news of a
+case; sentences as rows; a question in plain words; every decision the operator takes
+in the console; the cost and budget of the model's calls.
+
+### Where they touch without an import
+
+- `monitoring/junk_purge.py`, step 2 of the operator cycle, deletes articles and the
+  `persons` and `review_records` only those articles named. A step of pipeline B's
+  cycle removes rows of pipeline A.
+- `entities/*` read `entity_mentions`, `extracted_events`, `article_extraction_runs`
+  and `parsed_articles` directly, in twelve files, mostly by SQL text. The import
+  graph shows none of it: a change of an extraction column breaks pipeline B silently.
+- Both read the same Rosfinmonitoring snapshot, loaded by either.
+
+### Who calls what
+
+| Caller | Pipeline A | Pipeline B |
+|---|---|---|
+| Dagster (`monitoring/dagster`) | every stage | none |
+| CLI | `monitor` (without `--load-only`), `monitor-derived`, `monitor-resolve`, `resolve-people`, `classify-persecution`, `match-rosfinmonitoring`, `list-candidates` | `purge-junk`, `collect-entities`, `find-figurants`, `find-political`, `find-news`, `find-sentences`, `find-unnamed`, `check-entities-rosfin` |
+| Operator console | operations `resolve-people`, `classify-persecution`; mode `resolve` has no button in the cycle | the five buttons of the cycle and «Сделать всё» |
+| Web API | routers `persons`, `reviews`, `candidates`, `monitoring` | every other router |
+| Web pages | server-rendered `/ui/persons`, `/ui/candidates`; in the React console the routes `persons`, `persons/:personId`, `candidates`, `monitoring` (`PersonsPage`, `PersonPage`, `CandidatesPage`, `MonitoringPage` call `/api/v1/persons`, `/api/v1/candidates/table`, `/api/v1/monitoring/findings`) | every other page |
+| ADR | 0004, 0005, 0006, 0007, 0012, 0013, 0020 | none: no ADR describes entity groups |
+
+What the configuration says of use, and what it cannot say:
+
+- Dagster schedules. `monitoring/dagster/schedules.py` defines one per source of
+  `MONITORING_ENABLED_SOURCES` (empty by default in `compose.yaml`) and starts each
+  `STOPPED`: turning one on is an action in the Dagster UI. So whether any runs in
+  production is runtime state. Unknown; not assumed either way.
+- The pipeline A endpoints. They have readers in the code: the React console has pages
+  for persons, candidates and monitoring findings. Whether people open those pages is
+  telemetry. Unknown; not assumed either way.
+
+No conclusion below rests on pipeline A being unused.
+
+### The options
+
+**A. Persons become the canonical model.** Entity groups become a view over persons or
+go away. Roles, officials, unnamed figurants, the operator's base, news, sentences and
+every decision table would be re-keyed from an entity key to a person id, and the
+console's pages rewritten against persons. ER v2 would have to join mentions as well as
+grouping with a model does, or the operator takes on the review queue she left.
+
+**B. Entity groups become the canonical model.** Pipeline A is retired in steps.
+Pipeline B must first gain what only pipeline A has and somebody needs: a scheduled,
+resumable run, and whatever of the findings and the endpoints is in use. The whole
+rebuild and the name-made key stay as the identity, with their limits.
+
+**C. Both stay.** Then each fact needs one owner. The only split the code supports is
+by layer: persons own identity (which mentions are one human, with a stable id), and
+entity groups own the case (role, politics, list status, decisions) and are built over
+persons instead of over names. That is option A's re-keying under another name. Kept
+side by side as they are, the two keep classifying politics and matching the list
+twice, with two meanings of the list.
+
+| | A: persons | B: entity groups | C: both, as they are |
+|---|---|---|---|
+| Migration | very large: every decision table and console page | medium: scheduling and the used parts of A move to B, then A is removed | none |
+| Risk | high: the operator's product is rebuilt | medium: a rebuild-only identity has to carry automation | low now, growing |
+| Duplication left | none | none | all of it |
+| Fits the current UI | no | yes | yes |
+| Fits monitoring | yes | no, until B has a scheduled run | yes |
+| Fits a LangGraph orchestrator | weakly: deterministic stages, no human step in the run | well: steps that ask a model, cache, spend a budget and wait for a person | two graphs |
+| Reuse in other OSINT work | ER v2 is generic | grouping with a model and decisions by key is generic; roles, politics and the list are not | both |
+
+### What entity groups lack as an identity
+
+Pipeline B is the richer model of the domain and the one the operator works in. As a
+model of identity it is the weaker of the two:
+
+- the table is rebuilt whole, so an entity has no id that outlives a run;
+- the identity is a key made of the name, and the key changes when a rule or a name
+  does;
+- the operator's decisions have to find their entity again through `KeyIndex`, by the
+  stem of the name and the region;
+- nothing links an entity group to a person;
+- its grouping has never been measured against ER v2 on one corpus.
+
+Pipeline A already has what is missing here: a stable id, namesakes kept apart,
+incremental resolution and an audit of every decision.
+
+### A fourth formulation: identity under the case
+
+The three options treat persons and entity groups as rivals for one place. They may
+instead be two layers:
+
+```text
+extraction
+    ↓
+Person                     canonical identity: which mentions are one human
+    ↓
+case / entity aggregate    the model of the case
+    ↓
+roles / politics / list status / sentences / unnamed / news
+```
+
+- `Person` owns the identity of a human: the id, the aliases, the merges, the audit.
+- The case layer owns the context of the case and the operator's facts, keyed by the
+  person's id instead of by a name.
+
+This is the layered form of option C. It would remove the two identity models without
+discarding either side's strength. It is a hypothesis: its cost is option A's
+re-keying of every decision table and console page, and it assumes ER v2 joins
+mentions at least as well as grouping with a model does, which nobody has measured.
+The people the news do not name have no person to hang on and need their own answer.
+
+### Current recommendation (a hypothesis, not a decision)
+
+Read from the code alone, option B was the first answer: everything the operator works
+with is pipeline B, only pipeline B holds the facts the product is about (the role in a
+case, the people without a name, the operator's own base), and pipeline A's analysis is
+the weaker where the two overlap (a classifier of rules alone, a matcher with no birth
+date to use). That answer weighs the domain and the console. It does not weigh
+identity, where pipeline B is the weaker, as the list above says.
+
+So neither A nor B is taken as the target. The working hypothesis is the fourth
+formulation, and two things decide whether it stands:
+
+1. A comparison of ER v2 and entity grouping on one corpus: which mentions each joins,
+   where they disagree, and which is right.
+2. A design of the link between a person and the case aggregate, with the cost of
+   re-keying the decision tables and the pages counted.
+
+Until then:
+
+- pipeline A and pipeline B both stay, unchanged in behaviour;
+- neither gets an `AnalysisService` or a `ResultsService`;
+- nothing is added that maps persons to entity groups;
+- `persons/` is not moved into `processing/`.
+
+### The two resolution files
+
+`processing/extraction/resolution_service.py` and `parallel_resolution.py` are person
+resolution, whichever formulation is taken. They import `persons` and `db` and nothing of extraction:
+`resolve_extraction_run` reads the person mentions of a run, asks
+`PersonResolutionService` for each, and writes `person_event_links`. They belong with
+`persons/resolution/`. Moving them there takes the last import of `persons` out of
+`processing/extraction`, which then is what both pipelines share and nothing more.
+
 ## Test infrastructure debt
 
 Found while moving extraction. The migration tests in `tests/db/` ran `alembic
