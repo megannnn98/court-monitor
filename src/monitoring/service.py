@@ -58,6 +58,11 @@ from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 logger = logging.getLogger("monitoring")
 
 ENTITY_REVIEW_NOT_CONFIGURED = "not_configured"
+# How deep a regular run goes when it cannot stop at what is stored (a source's first
+# load, the load after one that broke). Deeper is an explicit backfill.
+FIRST_LOAD_LIMIT = 500
+# How many pending decisions a model reviews in one run, at most.
+ENTITY_REVIEW_BATCH = 50
 # A run waiting for a derived-stage lock refreshes its heartbeat at least this often.
 MAX_LOCK_WAIT_HEARTBEAT_SECONDS = 60.0
 # The resolution stage records how far it got every this many extraction runs.
@@ -457,19 +462,21 @@ class MonitoringService:
         definition = self._source(_require_source(handle))
         with self._stage(handle, MonitoringStage.DISCOVERY) as metrics:
             # A backfill goes deep on purpose; a regular run only needs what is new.
-            references = asyncio.run(
-                self._discover_references(
-                    definition,
-                    handle.discovery_limit,
-                    stop_at_known=(
-                        handle.is_regular
-                        and not handle.refetch_known
-                        and handle.source is not None
-                        and self._repository.previous_load_completed(
-                            handle.source, before_run_id=handle.run_id
-                        )
-                    ),
+            stop_at_known = (
+                handle.is_regular
+                and not handle.refetch_known
+                and handle.source is not None
+                and self._repository.previous_load_completed(
+                    handle.source, before_run_id=handle.run_id
                 )
+            )
+            limit = handle.discovery_limit
+            if handle.is_regular and not stop_at_known:
+                # A source's first load, or the one after a load that broke: nothing stored
+                # ends the paging, and the ceiling alone would be thousands of publications.
+                limit = min(limit, FIRST_LOAD_LIMIT)
+            references = asyncio.run(
+                self._discover_references(definition, limit, stop_at_known=stop_at_known)
             )
             known = self._deps.work.known_external_ids(
                 source_base_url=definition.base_url,
@@ -680,7 +687,11 @@ class MonitoringService:
             if service is None:
                 metrics.update(status=ENTITY_REVIEW_NOT_CONFIGURED)
                 return StageResult(metrics={"status": ENTITY_REVIEW_NOT_CONFIGURED})
-            batch = service.review_pending(limit=self._settings.discovery_limit)
+            # Not the discovery ceiling itself: that one grew to let a run reach back, and
+            # a review is a model's answer that costs money.
+            batch = service.review_pending(
+                limit=min(self._settings.discovery_limit, ENTITY_REVIEW_BATCH)
+            )
             metrics.update(
                 reviewed=batch.reviewed,
                 auto_accepted=batch.auto_accepted,

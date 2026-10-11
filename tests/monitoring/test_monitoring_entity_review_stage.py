@@ -24,10 +24,12 @@ class StubReviewService:
         return self._result
 
 
-def _service(session_factory: sessionmaker[Session], entity_review: object | None) -> object:
+def _service(
+    session_factory: sessionmaker[Session], entity_review: object | None, *, limit: int = 7
+) -> object:
     return build_monitoring_service(
         session_factory,
-        settings=MonitoringSettings(enabled_sources=("ovd-info",), discovery_limit=7),
+        settings=MonitoringSettings(enabled_sources=("ovd-info",), discovery_limit=limit),
         env={},
         sources={OVD_INFO.name: OVD_INFO},
         entity_review=entity_review,  # type: ignore[arg-type]
@@ -68,3 +70,21 @@ def test_the_stage_records_what_the_review_decided(
     assert metrics["auto_accepted"] == 2
     assert metrics["human_required"] == 1
     assert metrics["skipped"] == 3
+
+
+def test_the_review_batch_does_not_grow_with_the_discovery_ceiling(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The ceiling grew to 5000 so that a run reaches back; a review is a model's answer
+    that costs money, and its batch stays what it was."""
+    reviewer = StubReviewService(
+        EntityReviewBatchResult(
+            reviewed=0, auto_accepted=0, auto_rejected=0, human_required=0, failed=0, skipped=0
+        )
+    )
+    service = _service(session_factory, reviewer, limit=5000)
+    handle = service.start_derived_run(trigger=MonitoringTrigger.MANUAL)  # type: ignore[attr-defined]
+
+    service.review_entities(handle)  # type: ignore[attr-defined]
+
+    assert reviewer.limits == [50]

@@ -7,6 +7,7 @@ from sources.discovery_pagination import (
     fetch_listing_page_with_retry,
 )
 from sources.ovd_info.listing_parser import OvdInfoListingParser
+from sources.source_adapter import KnownIds
 
 OVD_INFO_LISTING_URL = "https://ovd.info/express-news"
 
@@ -50,6 +51,16 @@ class OvdInfoSourceAdapter:
             listing_url_for_page=self._listing_url,
             fetch_page=self._fetch_listing_page,
             parse_page=self._listing_parser.parse,
+        )
+
+    async def discover_until_known(self, *, limit: int, known: KnownIds) -> list[SourceReference]:
+        """`discover`, but paging stops after a listing page that is all stored."""
+        return await discover_paginated_references(
+            limit=limit,
+            listing_url_for_page=self._listing_url,
+            fetch_page=self._fetch_listing_page,
+            parse_page=self._listing_parser.parse,
+            known=known,
         )
 
     async def fetch(

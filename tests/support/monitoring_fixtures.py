@@ -50,6 +50,8 @@ class FakeUpstream:
     discoveries: int = 0
     # Discoveries allowed to stop where stored documents begin (they list everything anyway).
     discoveries_until_known: int = 0
+    # The limit each discovery was asked with.
+    limits: list[int] = field(default_factory=list)
     discovery_error: Exception | None = None
 
     def publish(
@@ -70,6 +72,7 @@ class FakeSourceAdapter:
 
     async def discover(self, *, limit: int) -> list[SourceReference]:
         self._upstream.discoveries += 1
+        self._upstream.limits.append(limit)
         if self._upstream.discovery_error is not None:
             raise self._upstream.discovery_error
         return [

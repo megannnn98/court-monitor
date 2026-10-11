@@ -3,6 +3,7 @@ import httpx
 from monitor_core.model import RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher
 from sources.discovery_pagination import fetch_listing_page_with_retry
+from sources.source_adapter import KnownIds
 from sources.sudrf.listing_parser import SudrfListingParser
 from sources.sudrf.reference import LISTING_QUERY, court_url
 
@@ -42,6 +43,14 @@ class SudrfSourceAdapter:
         shows the most recent 30 items and every older item is listed on the archive
         page of its year, so a year is one request.
         """
+        return await self._discover(limit=limit, known=None)
+
+    async def discover_until_known(self, *, limit: int, known: KnownIds) -> list[SourceReference]:
+        """`discover`, but no further than a page (the latest news, a year) that is all
+        stored: the years before it were loaded by an earlier run."""
+        return await self._discover(limit=limit, known=known)
+
+    async def _discover(self, *, limit: int, known: KnownIds | None) -> list[SourceReference]:
         if limit < 1:
             raise ValueError("limit must be greater than zero")
 
@@ -49,14 +58,20 @@ class SudrfSourceAdapter:
         seen_external_ids: set[str] = set()
 
         content = await self._fetch_listing_page(court_url(self._host, LISTING_QUERY))
-        self._collect(self._listing_parser.parse(content), references, seen_external_ids, limit)
+        if self._collect(
+            self._listing_parser.parse(content), references, seen_external_ids, limit, known
+        ):
+            return references
 
         for archive_url in self._listing_parser.parse_archive_years(content):
             if len(references) == limit:
                 break
 
             archive = await self._fetch_listing_page(archive_url)
-            self._collect(self._listing_parser.parse(archive), references, seen_external_ids, limit)
+            if self._collect(
+                self._listing_parser.parse(archive), references, seen_external_ids, limit, known
+            ):
+                break
 
         return references
 
@@ -72,16 +87,22 @@ class SudrfSourceAdapter:
         references: list[SourceReference],
         seen_external_ids: set[str],
         limit: int,
-    ) -> None:
+        known: KnownIds | None,
+    ) -> bool:
+        """Add the page's new references; whether paging stops here — the page brought
+        something, and all of it is stored already."""
+        added: list[str] = []
         for reference in page_references:
             if len(references) == limit:
-                return
+                break
 
             if reference.external_id in seen_external_ids:
                 continue
 
             seen_external_ids.add(reference.external_id)
             references.append(reference)
+            added.append(reference.external_id)
+        return known is not None and bool(added) and set(added) <= known(added)
 
     async def _fetch_listing_page(
         self,
