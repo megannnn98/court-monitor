@@ -23,6 +23,7 @@ from extraction.normalizers import RuleBasedMentionNormalizer
 from extraction.persistence import SqlAlchemyExtractionPersistence
 from extraction.pipeline import ExtractionPipeline
 from extraction.resolution_service import ExtractionResolutionService
+from ingestion import IngestionService
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
 from monitoring.findings import MonitoringFindingService, MonitoringQueryProvider
@@ -36,6 +37,7 @@ from persons.resolution.ai_factory import build_entity_review_service
 from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
+from processing import ProcessingService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
@@ -55,6 +57,47 @@ def default_http_client() -> httpx.AsyncClient:
 def default_fetcher() -> DocumentFetcher:
     # The only fetch retry layer: Dagster does not add retries on top of it.
     return RetryingDocumentFetcher(WebsiteAdapter(), max_attempts=3, base_delay_seconds=0.5)
+
+
+def default_extraction_pipeline(session_factory: sessionmaker[Session]) -> ExtractionPipeline:
+    return ExtractionPipeline(
+        extractors=[RuleBasedEntityExtractor()],
+        normalizers=[RuleBasedMentionNormalizer()],
+        event_extractor=RuleBasedEventExtractor(),
+        persistence=SqlAlchemyExtractionPersistence(session_factory),
+    )
+
+
+def build_ingestion_service(
+    session_factory: sessionmaker[Session],
+    *,
+    sources: Mapping[str, SourceDefinition] = SOURCES,
+    create_http_client: Callable[[], httpx.AsyncClient] = default_http_client,
+    create_fetcher: Callable[[], DocumentFetcher] = default_fetcher,
+) -> IngestionService:
+    return IngestionService(
+        sources=sources,
+        stored=SqlAlchemyMonitoringWorkQueries(session_factory),
+        create_http_client=create_http_client,
+        create_fetcher=create_fetcher,
+        create_persistence=lambda source: SqlAlchemyIngestionPersistence(
+            session_factory=session_factory,
+            source_name=source.source_name,
+            source_base_url=source.base_url,
+        ),
+    )
+
+
+def build_processing_service(
+    session_factory: sessionmaker[Session],
+    *,
+    extraction_pipeline: ExtractionPipeline | None = None,
+) -> ProcessingService:
+    return ProcessingService(
+        pipeline=extraction_pipeline or default_extraction_pipeline(session_factory),
+        documents=SqlAlchemyExtractionDocumentRepository(session_factory),
+        pending=SqlAlchemyMonitoringWorkQueries(session_factory),
+    )
 
 
 def build_monitoring_service(
@@ -97,13 +140,7 @@ def build_monitoring_service(
         create_fetcher=create_fetcher,
         create_ingestion_persistence=ingestion_persistence,
         extraction_documents=SqlAlchemyExtractionDocumentRepository(session_factory),
-        extraction_pipeline=extraction_pipeline
-        or ExtractionPipeline(
-            extractors=[RuleBasedEntityExtractor()],
-            normalizers=[RuleBasedMentionNormalizer()],
-            event_extractor=RuleBasedEventExtractor(),
-            persistence=SqlAlchemyExtractionPersistence(session_factory),
-        ),
+        extraction_pipeline=extraction_pipeline or default_extraction_pipeline(session_factory),
         resolution=ExtractionResolutionService(
             persistence=person_persistence,
             session_factory=session_factory,
