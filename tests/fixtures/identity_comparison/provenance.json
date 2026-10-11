@@ -14,8 +14,8 @@
       "source": "user supplied; a final newline added by the repository's end-of-file hook"
     },
     "disagreement_decisions.json": {
-      "sha256": "a61142d604b7c2f2f1acb817aefe752a8c367a3fda4a5c2be77b9c2c631bdb7a",
-      "source": "Projection of generated source preserving order, pair IDs, side IDs, strata, decisions and not_ready."
+      "sha256": "aad2202effe383656ab43a031d0379a472286e9f2fcc9cc248a7a427410af63c",
+      "source": "Projection of generated source preserving order, pair IDs, side IDs, strata, decisions and not_ready; per-pair decisions of the replayed operator cycle added by evaluation.identity_comparison.production."
     }
   },
   "source_artifact_sha256": "becc4b5050513d53488d143116f7c9503302971acfd3b3bb2a7f384f33bf3f60"

@@ -25,6 +25,37 @@ PREDICTIONS = {
     },
     "rules": {"one_entity": "same_person", "different_entities": "different_person"},
 }
+# The operator cycle replayed (`evaluation.identity_comparison.production`): the rules
+# with the model's names, and with a person's decisions on top. `no_entity`: the
+# pipeline made nobody of a side, which is neither a join nor a split.
+_REPLAYED = {
+    "one_entity": "same_person",
+    "different_entities": "different_person",
+    "no_entity": "abstain",
+    # Kept apart and shown to the operator as a pair to decide: left to a human.
+    "offered_to_operator": "abstain",
+}
+PREDICTIONS["rules_deepseek"] = _REPLAYED
+PREDICTIONS["rules_deepseek_operator"] = _REPLAYED
+# The same over the name parts the current normalizer stores.
+PREDICTIONS["rules_replayed_normalizer_current"] = _REPLAYED
+PREDICTIONS["rules_deepseek_normalizer_current"] = _REPLAYED
+PREDICTIONS["rules_deepseek_operator_normalizer_current"] = _REPLAYED
+
+
+def decision_of(pair: labelling.Pair, model: str) -> str | None:
+    """A pair's own decision when the sample has one, else its case's."""
+    found = pair.data.get("decisions", {}).get(model, pair.case["decisions"].get(model))
+    return None if found is None else str(found)
+
+
+def models_of(pairs: list[labelling.Pair]) -> list[str]:
+    """The models the sample holds a decision of for every pair."""
+    return [
+        model
+        for model in PREDICTIONS
+        if pairs and all(decision_of(pair, model) is not None for pair in pairs)
+    ]
 
 
 def prediction(model: str, decision: str) -> str:
@@ -70,7 +101,7 @@ def model_metrics(rows: list[dict[str, Any]], model: str) -> dict[str, Any]:
     }
 
 
-def stratum_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def stratum_metrics(rows: list[dict[str, Any]], models: list[str]) -> dict[str, Any]:
     counts = Counter(row["manual_label"] for row in rows)
     return {
         "pairs": len(rows),
@@ -83,7 +114,7 @@ def stratum_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 for key, value in model_metrics(rows, model).items()
                 if key in {"correct", "wrong", "abstains", "false_merges", "false_splits"}
             }
-            for model in PREDICTIONS
+            for model in models
         },
     }
 
@@ -91,6 +122,7 @@ def stratum_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, Any]:
     pairs = labelling.pairs_of(sample)
     known = {pair.identifier for pair in pairs}
+    models = models_of(pairs)
     if set(annotations["annotations"]) - known:
         raise ValueError("annotations contain unknown pair IDs")
     rows: list[dict[str, Any]] = []
@@ -114,8 +146,9 @@ def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, A
             "flags": list(flags),
             "comment": entry.get("comment"),
         }
-        for model in PREDICTIONS:
-            decision = pair.case["decisions"][model]
+        for model in models:
+            decision = decision_of(pair, model)
+            assert decision is not None
             predicted = prediction(model, decision)
             row[f"{model}_decision"] = decision
             row[f"{model}_prediction"] = predicted
@@ -129,7 +162,7 @@ def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, A
         exact_strata[row["stratum"]].append(row)
     errors = {
         f"{model}_{plural}": [row for row in rows if row[f"{model}_outcome"] == singular]
-        for model in PREDICTIONS
+        for model in models
         for singular, plural in (
             ("false_merge", "false_merges"),
             ("false_split", "false_splits"),
@@ -142,7 +175,7 @@ def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, A
     identity_errors = [
         row
         for row in rows
-        if any(row[f"{model}_outcome"] in {"false_merge", "false_split"} for model in PREDICTIONS)
+        if any(row[f"{model}_outcome"] in {"false_merge", "false_split"} for model in models)
     ]
     diagnostics = {flag: sum(flag in row["flags"] for row in rows) for flag in labelling.FLAGS} | {
         label: labels[label]
@@ -157,10 +190,12 @@ def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, A
             **{label: labels[label] for label in labelling.LABELS},
             "unlabelled": labels[None],
         },
-        "models": {model: model_metrics(rows, model) for model in PREDICTIONS},
-        "by_stratum": {key: stratum_metrics(value) for key, value in sorted(strata.items())},
+        "models": {model: model_metrics(rows, model) for model in models},
+        "by_stratum": {
+            key: stratum_metrics(value, models) for key, value in sorted(strata.items())
+        },
         "by_exact_stratum": {
-            key: stratum_metrics(value) for key, value in sorted(exact_strata.items())
+            key: stratum_metrics(value, models) for key, value in sorted(exact_strata.items())
         },
         "diagnostics": diagnostics,
         "error_categories": {
