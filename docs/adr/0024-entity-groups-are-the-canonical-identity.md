@@ -1,10 +1,11 @@
-# ADR 0024: Entity groups are the canonical identity; ER v2 is not
+# ADR 0024: Entity groups are the identity the product works on; ER v2 is not extended
 
 ## Status
 
-Accepted, 2026-10-11. Measured in `docs/architecture/identity-resolution-comparison.md`;
-supersedes the open question in "Post-extraction domain model decision" of
-`docs/architecture/modularization-plan.md`.
+Accepted, 2026-10-11, as an operational choice. Measured in
+`docs/architecture/identity-resolution-comparison.md`. It closes the open question in
+"Post-extraction domain model decision" of `docs/architecture/modularization-plan.md`
+for now; "What this does not show" below says what would reopen it.
 
 ## Context
 
@@ -49,47 +50,72 @@ decisions (`entities.disputes`), and the automatic merge of pairs the Rosfinmoni
 list confirms (`merge_clear_pairs`). The same model also reads roles, politics, news,
 sentences, unnamed figurants and junk holds in later steps; none of that is identity.
 
-**Measured.** 100 pairs where ER v2 and the rules disagree were labelled by hand
-(`tests/fixtures/identity_comparison/`); 93 are a plain same or different person. The
-operator cycle was replayed over the same mentions with the model answers production
-had stored (`evaluation.identity_comparison.production`).
+**Measured.** 100 pairs where the stored ER v2 decisions and the rules disagree were
+labelled by hand (`tests/fixtures/identity_comparison/`); 93 are a plain same or
+different person. The grouping steps of the operator cycle were replayed over the same
+mentions with the model answers production had stored
+(`evaluation.identity_comparison.production`).
 
-| System | Decides alone | Correct | Accuracy | False merges | False splits | Left to a human |
-|---|---|---|---|---|---|---|
-| ER v2 | 71 | 12 | 16.9 % | 3 | 56 | 22 |
-| Rules alone | 93 | 81 | 87.1 % | 8 | 4 | 0 |
-| Rules + model names | 92 | 83 | 90.2 % | 8 | 1 | 1 |
-| Rules + model names + operator decisions (production) | 92 | 83 | 90.2 % | 8 | 1 | 1 |
-| Production, normalizer 1.7.0 | 87 | 84 | 96.6 % | 2 | 1 | 6 |
+| System | Decides alone | Correct | Accuracy | False merges | False splits | Joined in part | Offered to a human | No entity |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ER v2, as stored | 71 | 12 | 16.9 % | 3 | 56 | 0 | 22 | 0 |
+| Rules alone | 93 | 81 | 87.1 % | 8 | 4 | 0 | 0 | 0 |
+| Rules + model names | 92 | 83 | 90.2 % | 8 | 1 | 0 | 0 | 1 |
+| Rules + model names + operator decisions | 92 | 83 | 90.2 % | 8 | 1 | 0 | 0 | 1 |
+| The same, name parts of normalizer 1.7.0 | 87 | 81 | 93.1 % | 2 | 1 | 3 | 3 | 3 |
 
-These are rates on a sample chosen for disagreement, not on the corpus.
+How to read it:
 
-ER v2's 56 false splits are not a matching policy: 27 carry the flag
-`bad_normalization`. The extraction normalizer leaves a surname its dictionary does not
-know in an oblique case («Сергей Вихоря»), ER v2 compares the stored name, and stores a
-second person. Grouping joins the same forms by the root of the surname. ER v2's 22
-reviews were all the same person where the label says who it is (18 of them with the
-reason `name_only_evidence`).
+- "Decides alone" leaves out pairs offered to a human and pairs of which no entity was
+  made. Accuracy is over what is decided alone, so it is a selective accuracy and has
+  to be read with the three columns on the right.
+- "Joined in part": the sides share a group and also hold others. Of one person that is
+  counted wrong, not correct.
+- "Offered to a human" for the groups means the pair is kept apart and shown in
+  «Спорные случаи»; until someone decides, what is stored is a split.
+- "No entity": the pipeline made nobody of a side (the model said «not a person», or a
+  bare surname fits two people of its article). Nobody is asked.
 
-Six of the eight false merges of the rules came from one defect: a name of three words
-was stored with its first word as both given name and surname, so a span that took a
-neighbour's surname in was keyed by that surname. Fixed in normalizer 1.7.0.
+**The defect behind six false merges.** A name of three words was stored with its first
+word as both given name and surname, so a span that took a neighbour's surname in
+(«адвоката Ивановой Петра Сидорова») was keyed by that surname. For the six pairs the
+rules alone go from one group to two when only the name parts change, with no model
+and no operator decision involved. Fixed in normalizer 1.7.0. The price: with their
+parts in place, a name with a patronymic and the same name without one are apart
+outside one article, which the old parts hid; on the sample that is three pairs joined
+only in part, three offered to a human, and two fewer correct.
 
 ## Decision
 
-1. **Entity groups are the canonical identity** of the product. New work that needs
-   "one human" reads `entity_groups`.
-2. **ER v2 is not canonical and is not extended.** It stays as it is, reachable where
-   it is reachable today, so that the monitoring run, its findings and the pipeline A
-   endpoints keep working. It gets no module API and no link to entity groups. Removing
-   it is a separate decision that needs the answer to who reads those endpoints.
-3. **The model's role in identity is normalization**, as today. It is not made the
-   resolver.
-4. **No layer of persons under entity groups is built now.** The hypothesis of
-   `Person` as identity under a case aggregate is not pursued: on the labelled sample
-   the stable id did not come with better identity, and the layer would re-key every
-   decision table for a gain nobody measured. It can be reopened if ER v2 is ever
-   measured to join better than grouping once its input is normalized.
+1. **The product's identity is the entity group.** It is what the operator works on
+   and what every downstream step reads; new work that needs "one human" reads
+   `entity_groups`.
+2. **ER v2 is not extended.** It stays as it is, reachable where it is reachable today,
+   so that the monitoring run, its findings and the pipeline A endpoints keep working.
+   It gets no module API and no link to entity groups. Removing it is a separate
+   decision that needs the answer to who reads those endpoints.
+3. **The model's role in identity stays normalization.** It is not made the resolver.
+4. **No layer of persons under entity groups is built now.**
+
+## What this does not show
+
+- **Not corpus accuracy.** The sample is pairs on which the two disagreed. It says
+  nothing of pairs they agree on, nor of errors a change may bring there.
+- **Not a comparison of two algorithms on equal input.** ER v2 is scored as stored, on
+  names the old normalizer left declined; the groups are scored with the model's names
+  and a person's decisions. 27 of ER v2's 56 false splits carry the flag
+  `bad_normalization`: that points at its input, it does not prove the cause of each.
+  ER v2 on normalized input was not measured.
+- **Not that a stable id is unneeded.** Matching quality and the stability of an
+  identifier are different properties. Whether a group's key and the operator's
+  decisions survive renames and rebuilds was not measured here.
+- **Not the whole cycle.** The replay leaves out the unnamed figurants a person
+  identified and a new pass of `merge_clear_pairs` after the rebuild, which may merge
+  pairs the table counts as offered. The snapshot holds no removals.
+- **"After" is a re-reading of stored names** with the current `name_parts`, not a new
+  extraction of the articles.
+
+Any of these, measured, may reopen points 2 and 4.
 
 ## Consequences
 
@@ -97,24 +123,26 @@ neighbour's surname in was keyed by that surname. Fixed in normalizer 1.7.0.
   write separate tables and can still disagree; nothing reads both.
 - **Namesakes are not solved.** A group's key is its name, so two people of one given
   name and surname, with no patronymic and no registry region, are one group. The two
-  false merges that remain are exactly this (pairs #68 and #100 of the sample) and are
-  kept as strict expected failures in `tests/evaluation/test_identity_production.py`.
-  Telling them apart needs evidence the pipeline does not extract (a place, an age, a
-  case) and a key that can carry it; both are future work, to be measured on this
-  sample before they are accepted.
-- **Three-word names are kept apart more.** With its parts in place, «Фамилия Имя
-  Отчество» of a registry no longer falls into the group of «Имя Фамилия» by accident;
-  outside one article the two stay apart and are offered to the operator as a pair of
-  «Спорные случаи». On the sample that is three more pairs left to a human, for six
-  false merges fewer.
-- **Stored data.** Mentions extracted before normalizer 1.7.0 keep the old name parts
-  (`entity_mentions.normalized_data`: `first_name`, `last_name`, `patronymic`); 419 of
-  21 778 mentions of the evaluation database differ. Nothing rewrites them in place.
-  The version bump makes every stored article pending for extraction again
-  (`articles_pending_extraction` compares the normalizer version), so the next load
-  step of each source extracts it anew and the next `collect-entities` reads the new
-  parts. That first load is long. `full_name` and `matching_key` do not change, so
-  persons and ER v2 decisions are not affected.
+  false merges that remain are exactly this (pairs #68 and #100 of the sample). They
+  are strict expected failures in `tests/evaluation/test_identity_production.py`: the
+  suite is green because the defect is expected, not because it is gone. Telling them
+  apart needs evidence the pipeline does not extract (a place, an age, a case) and a
+  key that can carry it.
+- **Name parts have limits the words alone do not lift** (`name_parts`): a given name
+  the lists do not hold before a surname in «-вич» reads as «Фамилия Имя Отчество»;
+  two given names in a row keep their order. Both are pinned by tests.
+- **Stored data and re-extraction.** Mentions extracted before normalizer 1.7.0 keep
+  the old name parts (`entity_mentions.normalized_data`); 399 of 21 778 mentions of the
+  evaluation database differ. Nothing rewrites them in place. The version bump makes a
+  source's stored articles pending for extraction again, and extraction writes a new
+  run with **new mention rows that have no person**. So:
+  - the operator cycle's load step (`monitor --catch-up --load-only`) re-extracts and
+    stops there; the next `collect-entities` reads the new parts;
+  - a full monitoring run (Dagster, or `monitor` without `--load-only`) goes on to
+    resolve the new mentions with ER v2: new decisions and reviews, and possibly new
+    persons and aliases. `full_name` and `matching_key` being unchanged does not prevent
+    that. Where pipeline A's data matters, re-extract with `--load-only` first and
+    decide on resolution separately.
 - `monitoring/junk_purge.py` still deletes the persons that only purged articles named.
   That is consistent with deleting the articles, is covered by
   `tests/monitoring/test_junk_purge.py` (a person named elsewhere stays), and is left

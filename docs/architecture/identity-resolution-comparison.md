@@ -488,7 +488,7 @@ names a model gives the groups, then a person's decisions (`EntityCollector.run`
 `evaluation.identity_comparison.production` replays those steps in memory over the same
 mentions, with the model answers a production snapshot already holds
 (`entity_name_normalizations`, 4 176 of 4 529 groups) and the rest asked once with the
-production prompt and model (15 calls, 0.04 USD in all), kept in
+production prompt and model, kept in
 `var/identity_comparison/deepseek_name_answers.json`. It writes every variant's
 decision for each pair into `disagreement_decisions.json`; the evaluator reads them.
 
@@ -500,27 +500,50 @@ PYTHONPATH=src uv run python -m evaluation.identity_comparison.production \
   --decisions tests/fixtures/identity_comparison/disagreement_decisions.json
 ```
 
-Add `--ask` to ask the model for groups without a stored answer. A pair kept apart but
-shown to the operator in «Спорные случаи», or of which no entity was made, counts as
-left to a human.
+Add `--ask` to ask the model for groups without a stored answer.
 
-| System | Decides alone | Correct | Accuracy | False merges | False splits | Left to a human |
-|---|---:|---:|---:|---:|---:|---:|
-| ER v2 | 71 | 12 | 16.9% | 3 | 56 | 22 |
-| Rules alone | 93 | 81 | 87.1% | 8 | 4 | 0 |
-| Rules + model names | 92 | 83 | 90.2% | 8 | 1 | 1 |
-| Rules + model names + operator decisions | 92 | 83 | 90.2% | 8 | 1 | 1 |
-| Rules alone, normalizer 1.7.0 | 86 | 79 | 91.9% | 2 | 5 | 7 |
-| Rules + model names, normalizer 1.7.0 | 84 | 81 | 96.4% | 2 | 1 | 9 |
-| Rules + model names + operator decisions, normalizer 1.7.0 | 87 | 84 | 96.6% | 2 | 1 | 6 |
+What the replay covers: grouping, the model's names, the pairs a person decided «same»,
+corrected names, pseudonyms in brackets, bare surnames, removals (the snapshot holds
+none). It leaves out the unnamed figurants a person identified and a new pass of
+`merge_clear_pairs` after the rebuild, which may merge pairs counted here as offered.
 
-The replayed rules reproduce the stored rules decision in all 100 pairs. The model's
-names change four pairs, the operator's decisions none more on the stored name parts.
-The last three rows use the name parts normalizer 1.7.0 derives from the stored full
-name (419 of 21 778 mentions differ): the six false merges that came from a three-word
-span keyed by its first word are gone, the two namesakes remain, and three registry
-names in «Фамилия Имя Отчество» are now kept apart from «Имя Фамилия» and offered to
-the operator instead of being joined by accident.
+Outcomes are kept apart:
+
+- one entity: every placed mention of both sides is in one group;
+- joined in part: the sides share a group and also hold others — of one person this is
+  wrong, of two people it is a false merge;
+- offered to a human: apart, and shown in «Спорные случаи»; what is stored is a split
+  until someone decides;
+- no entity: nobody was made of a side, and nobody is asked.
+
+Accuracy is over the pairs decided alone, so it is selective and must be read with the
+last three columns.
+
+| System | Decides alone | Correct | Accuracy | False merges | False splits | Joined in part | Offered | No entity |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ER v2, as stored | 71 | 12 | 16.9% | 3 | 56 | 0 | 22 | 0 |
+| Rules alone | 93 | 81 | 87.1% | 8 | 4 | 0 | 0 | 0 |
+| Rules + model names | 92 | 83 | 90.2% | 8 | 1 | 0 | 0 | 1 |
+| Rules + model names + operator decisions | 92 | 83 | 90.2% | 8 | 1 | 0 | 0 | 1 |
+| Rules alone, name parts of normalizer 1.7.0 | 86 | 73 | 84.9% | 2 | 5 | 6 | 5 | 2 |
+| Rules + model names, 1.7.0 | 84 | 75 | 89.3% | 2 | 1 | 6 | 6 | 3 |
+| Rules + model names + operator decisions, 1.7.0 | 87 | 81 | 93.1% | 2 | 1 | 3 | 3 | 3 |
+
+The replayed rules reproduce the stored rules decision in all 100 pairs, and on the
+stored name parts no pair is joined only in part. The model's names change four pairs;
+the operator's decisions none more.
+
+The last three rows re-read the stored nominative name with the current `name_parts`
+(399 of 21 778 mentions get other parts); they are not a new extraction. For the six
+pairs that were false merges through a three-word span, the rules alone go from one
+group to two when only the parts change: the defect is their cause. The two namesakes
+remain. What the fix costs: a name with a patronymic and the same name without one are
+now apart outside one article, so some people the old parts joined by accident are
+joined only in part or offered to the operator, and a bare surname that fits two full
+names of its article gets no entity. Six false merges fewer, two correct pairs fewer.
+
+The model was asked 16 times for groups without a stored answer, 0.04 USD in all; the
+answers are in `var/identity_comparison/deepseek_name_answers.json`.
 
 ER v2 left 24 of the pairs to a human; 22 can be judged and all 22 are the same person.
 By the reason ER v2 recorded: `name_only_evidence` 18 of 18, `incomplete_name` 8 of 8,
