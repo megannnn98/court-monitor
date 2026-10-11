@@ -157,7 +157,7 @@ Extractor сохраняет `surface_text`. Normalizer не раскрывае�
 
 ### Правила имён людей
 
-Имя приводится к именительному падежу словарём pymorphy3 (`extraction/name_morphology.py`) с одним родом на всё имя. Правила, найденные на реальном корпусе:
+Имя приводится к именительному падежу словарём pymorphy3 (`processing/extraction/name_morphology.py`) с одним родом на всё имя. Правила, найденные на реальном корпусе:
 
 | Правило | Пример |
 |---|---|
@@ -221,13 +221,13 @@ Golden corpus: `tests/fixtures/extraction_golden_corpus.json`.
 
 | Сценарий | Код |
 |---|---|
-| extraction models | `src/extraction/models.py` |
-| rule-based mentions | `src/extraction/extractors.py` |
-| normalization | `src/extraction/normalizers.py`, `src/extraction/name_morphology.py` |
-| events | `src/extraction/events.py` |
-| pipeline | `src/extraction/pipeline.py` |
-| persistence | `src/extraction/persistence.py` |
-| CLI/evaluation | `src/extraction/cli.py`, `src/extraction/metrics.py` |
+| extraction models | `src/processing/extraction/models.py` |
+| rule-based mentions | `src/processing/extraction/extractors.py` |
+| normalization | `src/processing/extraction/normalizers.py`, `src/processing/extraction/name_morphology.py` |
+| events | `src/processing/extraction/events.py` |
+| pipeline | `src/processing/extraction/pipeline.py` |
+| persistence | `src/processing/extraction/persistence.py` |
+| CLI/evaluation | `src/processing/extraction/cli.py`, `src/processing/extraction/metrics.py` |
 
 ## Ограничения
 

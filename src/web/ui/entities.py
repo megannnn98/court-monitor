@@ -30,7 +30,6 @@ from entities.overrides import MANUAL, correct_name
 from entities.politics import CRIMINAL, POLITICAL
 from entities.rf_check import FULL
 from entities.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, UNCLEAR
-from extraction.name_frequency import lookup_gender
 from operator_console import (
     OperationConflictError,
     OperationParameters,
@@ -38,6 +37,7 @@ from operator_console import (
     OperationRun,
 )
 from persecution.classifier import POLITICAL_ARTICLES
+from processing.extraction.name_frequency import lookup_gender
 from web.candidate_rows import surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager

@@ -5,10 +5,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
 
-from extraction.documents import build_extraction_document_from_parsed_article
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import (
+from processing.extraction.documents import build_extraction_document_from_parsed_article
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import (
     ArticleExtractionResult,
     EntityType,
     EventType,
@@ -16,8 +16,8 @@ from extraction.models import (
     ExtractionRunStatus,
     ExtractionSaveResult,
 )
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.pipeline import ExtractionPipeline
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.pipeline import ExtractionPipeline
 
 
 class GoldenMention(BaseModel):

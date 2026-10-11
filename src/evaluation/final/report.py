@@ -11,11 +11,11 @@ from pathlib import Path
 
 from evaluation.final.corpus import FinalCorpus
 from evaluation.final.models import CaseResult, Counts, FinalEvaluationReport, GateResult
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.normalizers import RuleBasedMentionNormalizer
 from persecution.classifier import RuleBasedPersecutionClassifier
 from persons.resolution.service import RESOLVER_VERSION
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 
 # Hard safety gates: a false statement about a real person is never acceptable.

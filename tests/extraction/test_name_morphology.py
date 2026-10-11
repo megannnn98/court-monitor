@@ -2,7 +2,7 @@
 
 import pytest
 
-from extraction.name_morphology import NameMorphology
+from processing.extraction.name_morphology import NameMorphology
 
 MORPHOLOGY = NameMorphology()
 

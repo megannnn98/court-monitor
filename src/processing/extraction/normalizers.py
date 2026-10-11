@@ -4,7 +4,7 @@ import re
 from collections.abc import Sequence
 from itertools import takewhile
 
-from extraction.models import (
+from processing.extraction.models import (
     NAMED_TITLE_SOURCES,
     EntityType,
     ExtractionDocument,
@@ -15,7 +15,7 @@ from extraction.models import (
     PersonNormalizedData,
     RawMention,
 )
-from extraction.name_morphology import NameMorphology
+from processing.extraction.name_morphology import NameMorphology
 
 # 1.1.0: personal names are brought to the nominative case with a morphological
 # dictionary instead of a suffix table («Ольгу Комлеву» → «Ольга Комлева»).

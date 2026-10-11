@@ -4,8 +4,8 @@ import re
 from collections.abc import Iterable
 from typing import NamedTuple
 
-from extraction.events import RuleBasedEventExtractor
-from extraction.models import (
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.models import (
     ArticleExtractionResult,
     EntityExtractor,
     ExtractionDocument,
@@ -15,7 +15,7 @@ from extraction.models import (
     NormalizedMention,
     RawMention,
 )
-from extraction.validation import (
+from processing.extraction.validation import (
     ExtractionValidationError,
     validate_event,
     validate_normalized_mention,

@@ -2,12 +2,18 @@ from datetime import UTC, datetime
 
 import pytest
 
-from extraction.documents import build_extraction_document_from_parsed_article
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import EntityType, EventEntityRole, EventType, ExtractionDocument, RawMention
-from extraction.normalizers import RuleBasedMentionNormalizer
 from monitor_core.model import ParsedArticle
+from processing.extraction.documents import build_extraction_document_from_parsed_article
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import (
+    EntityType,
+    EventEntityRole,
+    EventType,
+    ExtractionDocument,
+    RawMention,
+)
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 
 
 def make_document(text: str) -> ExtractionDocument:

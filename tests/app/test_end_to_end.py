@@ -7,17 +7,17 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from candidates.service import CandidateQueryService
 from db.orm_models import PersonRecord
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.pipeline import ExtractionPipeline
-from extraction.resolution_service import ExtractionResolutionService
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
 from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.extraction.pipeline import ExtractionPipeline
+from processing.extraction.resolution_service import ExtractionResolutionService
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence

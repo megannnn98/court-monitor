@@ -13,7 +13,7 @@ from functools import lru_cache
 from pymorphy3 import MorphAnalyzer
 from pymorphy3.analyzer import Parse
 
-from extraction.name_frequency import lookup_gender
+from processing.extraction.name_frequency import lookup_gender
 
 # Dictionary marks for the parts of a personal name.
 NAME_GRAMMEMES = frozenset({"Name", "Surn", "Patr"})

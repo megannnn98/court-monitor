@@ -1,7 +1,7 @@
 # Modularization plan
 
-Status: in progress, 2026-10-11. Branch `refactor/modularization-prep`. Ingestion is
-moved (item 2 of the migration sequence); nothing else is.
+Status: in progress, 2026-10-11. Branch `refactor/modularization-prep`. Ingestion and
+extraction are moved (items 2 and 3 of the migration sequence); nothing else is.
 
 This document prepares the split of the code into four domain modules and an
 orchestrator. It records what the code looks like today, where each file should end up,
@@ -187,7 +187,7 @@ object graph crosses a module boundary.
 ## Public APIs
 
 Two services exist now: `ingestion.service.IngestionService` and
-`processing.ProcessingService`. Both are thin classes over the existing
+`processing.service.ProcessingService`. Both are thin classes over the existing
 implementation, built by `application.build_ingestion_service` and
 `application.build_processing_service`. `MonitoringService` does not call them yet; it
 is switched in the orchestrator pull request. Until then
@@ -246,22 +246,24 @@ first; high = mixes responsibilities or belongs to pipeline B.
 
 | Current path | Target module | Notes | Risk |
 |---|---|---|---|
-| `ingestion/sources/*` | ingestion | moved from `sources/`; `MEMOPZK_REGISTRY_SOURCE_NAME` now lives in `ingestion/sources/memopzk` and `extraction.models` imports it from there | done |
+| `ingestion/sources/*` | ingestion | moved from `sources/`; `MEMOPZK_REGISTRY_SOURCE_NAME` now lives in `ingestion/sources/memopzk` and `processing.extraction.models` imports it from there | done |
 | `ingestion/service.py` | ingestion | the facade, over `ingestion.sources` | done |
 | `monitor_core/ingestion`, `model`, `ports` | shared core | stays (ADR 0023); `ingestion` depends on it | none |
 | `monitor_core/llm`, `retry.py`, `errors.py` | shared core | stays | none |
-| `extraction/*` | processing | `resolution_service.py` and `parallel_resolution.py` import `persons`: internal once both are in `processing` | low |
+| `processing/extraction/*` | processing | moved from `extraction/` | done |
+| `processing/extraction/resolution_service.py`, `parallel_resolution.py` | processing, resolution | moved with the package, but they are person resolution, not extraction: they link the mentions of an extraction run to canonical persons through `persons.resolution` and are tested in `tests/persons/`. They stay beside extraction until `persons/` moves, then go with it | medium |
+| `processing/service.py` | processing | the facade, over `processing.extraction` | done |
 | `persons/*` | processing | `resolution/ai_factory.py` imports the reviewers in `llm` | medium |
 | `persons/resolution/evaluation.py`, `persons/er_evaluation.py` | evaluation tooling | `evaluation.py` imports `evaluation.person_resolution`; imported by `persons/resolution/cli.py` | medium |
 | `llm/cli_reviewer.py`, `llm/entity_reviewer.py` | processing | implement the `persons.resolution.ai_review` contract; moving them ends the `persons <-> llm` cycle | low |
 | `llm/structured.py`, `llm/together_client.py` | shared infrastructure | provider clients | none |
-| `persecution/*` | analysis | reads `extraction.events` | low |
+| `persecution/*` | analysis | reads `processing.extraction.events` | low |
 | `persecution/evaluation.py`, `rosfinmonitoring/match_evaluation.py` | evaluation tooling | | low |
 | `rosfinmonitoring/*` | analysis | separate subsystem inside the module | low |
 | `rosfinmonitoring/operator_table.py` | analysis | imports `airtable.client`, `airtable.share` | medium |
 | `candidates/*` | results | | low |
 | `db/*` | shared infrastructure | one declarative base, models by domain | none |
-| `airtable/*` | shared: reference data sync | `repository.py` imports `extraction.normalizers`; outside the four modules | medium |
+| `airtable/*` | shared: reference data sync | `repository.py` imports `processing.extraction.normalizers`; outside the four modules | medium |
 | `evaluation/*` | tooling | imports every domain package and `application` | none |
 | `observability.py`, `health.py` | shared infrastructure | `health.py` imports `monitoring.models` | low |
 | `settings.py` | entry point (configuration) | imports settings types of `monitoring`, `persons`, `llm`, `ingestion` | medium |
@@ -338,7 +340,8 @@ Recommendation for `entities/`:
 | `entities <-> monitoring` | `collector.py`, `unnamed.py` import `CRIMINAL_EVENT_TYPES` from `monitoring.junk_purge`; `roles.py` imports `EXTRACTOR_NAME` from `monitoring.hold_reader`; `hold_reader.py` imports `entities.llm` | move the junk files to `processing`, `entities/llm.py` to shared |
 | `persons <-> llm` | `ai_factory.py` imports the reviewers, the reviewers import the contract | move the two reviewers next to the contract |
 | `persons -> evaluation` | domain code imports tooling | move `persons/resolution/evaluation.py` under `evaluation` |
-| `airtable -> extraction.normalizers` | shared code imports `processing` | find what is used; move the helper down or the caller up |
+| `processing.extraction.models -> ingestion.sources.memopzk` | `processing` reads the registry's source name (`MEMOPZK_REGISTRY_SOURCE_NAME`) from `ingestion` to know which sources title a document with a person's name. Allowed by the rules (a later stage reads an earlier one), so it is not in the allowlist | open: keep it, or move the name to a neutral shared vocabulary |
+| `airtable -> processing.extraction.normalizers` | shared code imports `processing` | find what is used; move the helper down or the caller up |
 | `rosfinmonitoring -> airtable` | `analysis` depends on the reference sync client | acceptable if `airtable` stays shared; decide with the item above |
 | `settings -> monitoring, persons, llm, ingestion` | one module validates every package's settings | acceptable for an entry point; it must not be imported by domain code |
 | `monitoring/models.py` | holds run types, `MonitoringSettings` and the finding views together | split when `results` is extracted |
@@ -358,13 +361,18 @@ algorithm.
    processing facades with their test.
 2. **Ingestion.** Done: `sources/` is `ingestion/sources/`, and the registry's source
    name is defined there. The `ingestion` package imports nothing on load, so
-   `extraction.models` can read that name without loading every adapter; callers import
+   `processing.extraction.models` can read that name without loading every adapter; callers import
    `ingestion.service.IngestionService`. Left for the orchestrator pull request: the
    publication date filter behind `IngestionService`. Tests stay in `tests/sources/`.
-3. **Processing, extraction part.** `extraction/` and the junk screen files.
+3. **Processing, extraction part.** Done for `extraction/`: it is
+   `processing/extraction/`. The `processing` package imports nothing on load, so a
+   caller of one pure module (`name_frequency`, say) does not load the pipeline and the
+   ORM models; callers import `processing.service.ProcessingService`. Tests stay in
+   `tests/extraction/`. Still to move: the junk screen files of `monitoring/`.
    Then the decision on the model after extraction (persons, entity groups, or both).
    Items 4–6 follow that decision and are written here for pipeline A as it stands.
-4. **Processing, resolution part.** `persons/`, the two reviewers;
+4. **Processing, resolution part.** `persons/`, the two reviewers,
+   `resolution_service.py` and `parallel_resolution.py` out of `processing/extraction/`;
    `persons/resolution/evaluation.py` to `evaluation/`.
 5. **Analysis.** `persecution/` and `rosfinmonitoring/` as two sub-packages; the
    `airtable` dependency settled.
@@ -379,3 +387,16 @@ algorithm.
 
 Pipeline B is planned separately, after the same decision.
 LangGraph orchestration comes after step 12 and is not part of this sequence.
+
+## Test infrastructure debt
+
+Found while moving extraction, not fixed here. The migration tests in `tests/db/` run
+`alembic downgrade` and `upgrade` on the shared test database. Each cycle drops and
+re-adds columns, and PostgreSQL never frees the slot of a dropped column: a table holds
+at most 1600, dropped ones included. On 2026-10-11 `sources` reached that limit after
+many full runs; the restoring upgrade failed with `TooManyColumns`, left the database
+below `head`, and 449 later tests failed in setup. The database was recreated.
+
+It will happen again (`rosfin_matches` stood at 1151). A separate pull request should
+give the migration tests a database of their own, created for the run and dropped
+after it, so that they stop wearing out `court_monitor_test`.

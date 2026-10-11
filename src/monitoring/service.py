@@ -23,10 +23,6 @@ import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.models import ExtractionRunStatus
-from extraction.pipeline import ExtractionPipeline
-from extraction.resolution_service import ExtractionResolutionService
 from ingestion.sources.source_adapter import DiscoversUntilKnown
 from ingestion.sources.source_registry import SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
@@ -51,6 +47,10 @@ from monitoring.repository import SqlAlchemyMonitoringRepository
 from monitoring.selection import SqlAlchemyMonitoringWorkQueries
 from persecution.classification_service import PersecutionClassificationService
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.models import ExtractionRunStatus
+from processing.extraction.pipeline import ExtractionPipeline
+from processing.extraction.resolution_service import ExtractionResolutionService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup

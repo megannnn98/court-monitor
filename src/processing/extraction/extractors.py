@@ -4,8 +4,13 @@ import re
 from collections.abc import Iterable
 from itertools import pairwise
 
-from extraction.models import NAMED_TITLE_SOURCES, EntityType, ExtractionDocument, RawMention
-from extraction.name_morphology import NameMorphology
+from processing.extraction.models import (
+    NAMED_TITLE_SOURCES,
+    EntityType,
+    ExtractionDocument,
+    RawMention,
+)
+from processing.extraction.name_morphology import NameMorphology
 
 _LEGAL_CODE = r"(?:УК\s+РФ|КоАП\s+РФ|Уголовного\s+кодекса\s+РФ|Уголовный\s+кодекс\s+РФ)"
 # After an article number the code is usually written without «РФ»: «ст. 207.3 УК».

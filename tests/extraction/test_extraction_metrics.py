@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from extraction.metrics import _safe_div, evaluate_golden_dataset, load_golden_articles
+from processing.extraction.metrics import _safe_div, evaluate_golden_dataset, load_golden_articles
 
 GOLDEN_PATH = Path("tests/fixtures/extraction_golden_corpus.json")
 

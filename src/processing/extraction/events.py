@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from itertools import pairwise
 
-from extraction.models import (
+from processing.extraction.models import (
     EntityType,
     EventEntityLink,
     EventEntityRole,
@@ -13,7 +13,7 @@ from extraction.models import (
     ExtractionDocument,
     NormalizedMention,
 )
-from extraction.name_morphology import NameMorphology
+from processing.extraction.name_morphology import NameMorphology
 
 _ABBREVIATIONS = ("ст.", "ч.", "п.")
 

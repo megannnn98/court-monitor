@@ -11,7 +11,7 @@ from db.orm_models import (
     EventEntityMentionRecord,
     ExtractedEventRecord,
 )
-from extraction.models import (
+from processing.extraction.models import (
     ArticleExtractionResult,
     ExtractionDocument,
     ExtractionRunStatus,

@@ -9,14 +9,6 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import (
-    EntityType,
-    EventEntityRole,
-    ExtractionDocument,
-)
-from extraction.normalizers import RuleBasedMentionNormalizer
 from ingestion.sources.memopzk import MEMOPZK_REGISTRY_SOURCE_NAME, taxonomy
 from ingestion.sources.memopzk.article_parser import FigurantParser
 from ingestion.sources.memopzk.source_adapter import (
@@ -26,6 +18,14 @@ from ingestion.sources.memopzk.source_adapter import (
 from ingestion.sources.source_registry import get_source_definition
 from monitor_core.errors import ParseError, PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import (
+    EntityType,
+    EventEntityRole,
+    ExtractionDocument,
+)
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 
 CARDS = json.loads((Path(__file__).parents[1] / "fixtures/memopzk/figurants.json").read_text())
 BY_NAME = {card["title"]["rendered"]: card for card in CARDS}

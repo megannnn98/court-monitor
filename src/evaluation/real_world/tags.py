@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import EntityType, ExtractionDocument
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import EntityType, ExtractionDocument
 
 _POLITICAL_MARKERS = (
     "иноагент",

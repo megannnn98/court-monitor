@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.models import ExtractionSaveResult
-from extraction.pipeline import ExtractionPipeline, ExtractionVersions
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.models import ExtractionSaveResult
+from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
 
 
 class PendingExtraction(Protocol):

@@ -1,4 +1,9 @@
-from extraction.models import EventMention, ExtractionDocument, NormalizedMention, RawMention
+from processing.extraction.models import (
+    EventMention,
+    ExtractionDocument,
+    NormalizedMention,
+    RawMention,
+)
 
 
 class ExtractionValidationError(ValueError):

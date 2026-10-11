@@ -31,7 +31,6 @@ ENTRY_POINT = "entry_point"
 MODULE_OF: tuple[tuple[str, str], ...] = (
     ("ingestion/", INGESTION),
     ("processing/", PROCESSING),
-    ("extraction/", PROCESSING),
     ("persons/", PROCESSING),
     ("llm/cli_reviewer.py", PROCESSING),
     ("llm/entity_reviewer.py", PROCESSING),
@@ -78,7 +77,7 @@ FORBIDDEN: dict[str, set[str]] = {
 # dependencies" in the plan for what each one waits for.
 KNOWN_VIOLATIONS: frozenset[str] = frozenset(
     {
-        "airtable/repository.py -> extraction.normalizers",
+        "airtable/repository.py -> processing.extraction.normalizers",
         "health.py -> monitoring.models",
         "monitoring/findings.py -> monitoring.models",
         "monitoring/hold_reader.py -> entities.llm",

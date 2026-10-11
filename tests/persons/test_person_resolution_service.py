@@ -22,7 +22,6 @@ from db.orm_models import (
     PersonResolutionDecisionRecord,
     ReviewRecordModel,
 )
-from extraction.resolution_service import ExtractionResolutionService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateGenerationResult,
@@ -37,6 +36,7 @@ from persons.resolution.service import (
     PersonResolutionEngine,
     PersonResolutionService,
 )
+from processing.extraction.resolution_service import ExtractionResolutionService
 
 A = PersonResolutionAction
 

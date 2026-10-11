@@ -38,10 +38,10 @@ from db.orm_models import (
     Source,
     SourceDocument,
 )
-from extraction.models import ExtractionRunStatus
-from extraction.pipeline import ExtractionVersions
 from persons.models import PersonStatus
 from persons.resolution.service import RESOLVER_VERSION
+from processing.extraction.models import ExtractionRunStatus
+from processing.extraction.pipeline import ExtractionVersions
 
 # Longer than any ER / review transaction plus clock skew between hosts.
 EVIDENCE_SETTLE_INTERVAL = timedelta(minutes=10)

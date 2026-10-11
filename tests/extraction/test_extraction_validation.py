@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from extraction.models import (
+from processing.extraction.models import (
     EntityType,
     EventEntityLink,
     EventEntityRole,
@@ -10,7 +10,11 @@ from extraction.models import (
     ExtractionDocument,
     RawMention,
 )
-from extraction.validation import ExtractionValidationError, validate_event, validate_raw_mention
+from processing.extraction.validation import (
+    ExtractionValidationError,
+    validate_event,
+    validate_raw_mention,
+)
 
 
 def make_document() -> ExtractionDocument:

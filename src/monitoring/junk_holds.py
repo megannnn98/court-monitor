@@ -14,16 +14,16 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import ExtractionRunStatus
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.pipeline import ExtractionPipeline
 from monitoring.hold_reader import EXTRACTOR_NAME, RELEASED
 from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 from monitoring.junk_screen import HELD, JUNK
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import ExtractionRunStatus
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.extraction.pipeline import ExtractionPipeline
 
 _CRIMINAL_EVENTS = text(
     """

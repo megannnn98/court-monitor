@@ -27,10 +27,10 @@ from db.orm_models import (
     PersonRecord,
     RosfinMatchRecord,
 )
-from extraction.parallel_resolution import resolve_runs
-from extraction.persistence import SqlAlchemyExtractionPersistence
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
+from processing.extraction.parallel_resolution import resolve_runs
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 
 TEXTS = [SIDOROV, PETROV, IVANOV]
 

@@ -6,9 +6,9 @@ import argparse
 
 from cli.context import CliContext
 from cli_progress import ProgressBar
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.parallel_resolution import resolve_runs
-from extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.parallel_resolution import resolve_runs
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

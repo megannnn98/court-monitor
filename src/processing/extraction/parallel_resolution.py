@@ -16,8 +16,8 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
-from extraction.resolution_service import ExtractionResolutionService, ResolutionStats
 from persons.persistence import SqlAlchemyPersonPersistence
+from processing.extraction.resolution_service import ExtractionResolutionService, ResolutionStats
 
 logger = logging.getLogger("person_resolution")
 

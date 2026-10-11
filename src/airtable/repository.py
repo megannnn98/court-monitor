@@ -24,7 +24,7 @@ from db.orm_models import (
     ExcludedPersonRecord,
     Source,
 )
-from extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 
 logger = logging.getLogger("airtable")
 

@@ -13,11 +13,11 @@ from db.orm_models import (
     ParsedArticleRecord,
     SourceDocument,
 )
-from extraction.normalizers import RuleBasedMentionNormalizer
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
 from persons.models import AliasOrigin
 from persons.persistence import SqlAlchemyPersonPersistence
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 
 
 def matching_key(name: str) -> str:

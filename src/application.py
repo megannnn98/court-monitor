@@ -16,13 +16,6 @@ import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import create_database_engine, create_session_factory
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.pipeline import ExtractionPipeline
-from extraction.resolution_service import ExtractionResolutionService
 from ingestion.service import IngestionService
 from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
@@ -40,7 +33,14 @@ from persons.resolution.ai_factory import build_entity_review_service
 from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
-from processing import ProcessingService
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.extraction.pipeline import ExtractionPipeline
+from processing.extraction.resolution_service import ExtractionResolutionService
+from processing.service import ProcessingService
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup

@@ -2,7 +2,7 @@
 
 import pytest
 
-from extraction.name_frequency import FEMALE_NAMES, MALE_NAMES, lookup_gender
+from processing.extraction.name_frequency import FEMALE_NAMES, MALE_NAMES, lookup_gender
 
 
 @pytest.mark.parametrize(
