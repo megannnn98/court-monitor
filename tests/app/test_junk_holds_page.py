@@ -83,7 +83,7 @@ def test_the_held_articles_are_listed_with_why_and_the_queue_counts_them(
     assert "оценка 0.81 (порог 0.52)" in page and "не доказательство уголовного дела" in page
     assert "На проверке (1)" in page and "Извлечь заново" in page
     assert 'data-primary-task="junk_holds"' in cycle
-    assert "Публикации на проверке: 1" in cycle
+    assert "Возможно мусор: 1" in cycle
 
 
 def test_junk_and_back_again(session_factory: sessionmaker[Session]) -> None:

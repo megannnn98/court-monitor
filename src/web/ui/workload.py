@@ -66,7 +66,7 @@ def operator_tasks(work: Workload) -> tuple[OperatorTask, ...]:
     return (
         OperatorTask(
             "junk_holds",
-            "Публикации на проверке",
+            "Возможно мусор",
             work.junk_holds,
             "/ui/junk-holds",
             "Проверьте, относятся ли удержанные публикации к отслеживаемым делам.",
