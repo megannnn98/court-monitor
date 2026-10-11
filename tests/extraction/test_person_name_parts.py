@@ -70,7 +70,40 @@ def test_the_full_name_and_the_matching_key_stay_as_written(
     assert (data.full_name, data.matching_key) == (full_name, matching_key)
 
 
+@pytest.mark.parametrize(
+    ("words", "parts"),
+    [
+        # A name of several parts keeps its two ends: two such people stay apart.
+        (["Джон", "Пол", "Смит"], ("Джон", "Смит", None)),
+        (["Джеймс", "Пол", "Смит"], ("Джеймс", "Смит", None)),
+        (["Анна", "Мария", "Смит"], ("Анна", "Смит", None)),
+        # A surname in «-вич» after two given names is not a patronymic.
+        (["Иван", "Давид", "Абрамович"], ("Иван", "Абрамович", None)),
+        (["Иван", "Петрович", "Шостакович"], ("Иван", "Шостакович", "Петрович")),
+        (["Шостакович", "Дмитрий", "Дмитриевич"], ("Дмитрий", "Шостакович", "Дмитриевич")),
+        # A registry's order with a surname of no Russian ending.
+        (["Вагнер", "Иван", "Ильич"], ("Иван", "Вагнер", "Ильич")),
+        # A foreign «Имя Фамилия» whose surname is a Russian given name is not turned.
+        (["Джон", "Герман"], ("Джон", "Герман", None)),
+        (["Шевчук", "Александр"], ("Александр", "Шевчук", None)),
+        # A neighbour's surname, then a given name the dictionary left declined.
+        (["Иванова", "Романа", "Сидорова"], ("Романа", "Сидорова", None)),
+        (["Мамед", "Гусейн", "оглы", "Алиев"], ("Мамед", "Алиев", "Гусейн оглы")),
+        (["Жан", "Клод", "Ван", "Дамм"], ("Жан", "Дамм", None)),
+    ],
+)
+def test_parts_of_names_the_first_rule_got_wrong(
+    words: list[str], parts: tuple[str | None, str | None, str | None]
+) -> None:
+    assert name_parts(words) == parts
+
+
+def test_what_the_words_alone_do_not_tell() -> None:
+    # Known limits, kept visible: a given name the lists do not hold, before a surname
+    # in «-вич»; and two given names in a row.
+    assert name_parts(["Жан", "Давид", "Абрамович"]) == ("Давид", "Жан", "Абрамович")
+    assert name_parts(["Роман", "Иван"]) == ("Роман", "Иван", None)
+
+
 def test_parts_of_edge_inputs() -> None:
     assert name_parts([]) == (None, None, None)
-    # More than three words: the first and the last.
-    assert name_parts(["Мамед", "Гусейн", "оглы", "Алиев"]) == ("Мамед", "Алиев", None)

@@ -39,6 +39,10 @@ from processing.extraction.name_morphology import NameMorphology
 # and `matching_key` are as before.
 NORMALIZER_VERSION = "1.7.0"
 _PATRONYMIC = re.compile(r"(вич|вна|ична|ьич|оглы|кызы)$")
+# How a Russian surname ends, to tell «Фамилия Имя» from a foreign «Имя Фамилия».
+_SURNAME_ENDING = re.compile(
+    r"(ов|ев|ин|ын|ова|ева|ина|ына|ский|цкий|ская|цкая|ской|ко|ук|юк|ич|ых|их|ян|дзе|швили)$"
+)
 
 _LEGAL_ARTICLE_PATTERN = re.compile(r"(?:ст\.|стать[еяи])\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
 _LEGAL_PART_PATTERN = re.compile(r"(?:ч\.|част[ьи])\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -95,15 +99,35 @@ def _is_given_name(word: str) -> bool:
     return folded in MALE_NAMES or folded in FEMALE_NAMES
 
 
+def _reads_as_given_name(word: str) -> bool:
+    """A known given name, or one in an oblique case the dictionary left («Романа»)."""
+    folded = word.lower().replace("ё", "е")
+    stem = folded[:-1]
+    return any(
+        form in MALE_NAMES or form in FEMALE_NAMES
+        for form in (folded, stem, f"{stem}й", f"{stem}ь", f"{stem}а", f"{stem}я")
+    )
+
+
 def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None]:
     """(given name, surname, patronymic) of a name already in the nominative.
 
-    One word is a surname. Two are «Имя Фамилия», or «Фамилия Имя» when only the second
-    is a known given name. Three are told by the patronymic: «Имя Отчество Фамилия» or
-    «Фамилия Имя Отчество». More words, or three without a patronymic, are not one
-    Russian name written in full — a foreign name, or a span that took a neighbour's
-    surname in («адвоката Ивановой Петра Сидорова»): of three words the name is the
-    last two, of more the first and the last.
+    One word is a surname. Two are «Имя Фамилия»; they are read as «Фамилия Имя» only
+    when the first ends as a Russian surname does and the second alone is a known
+    given name. Three are told by the patronymic: «Имя Отчество Фамилия», or «Фамилия
+    Имя Отчество» unless the first word is itself a given name (then the last word is
+    a surname in «-вич», not a patronymic).
+
+    Three words without a patronymic are either a span that took a neighbour's surname
+    in («адвоката Ивановой Петра Сидорова»: a word that is no given name, then a given
+    name) — the name is its last two words — or a name of several parts («Джон Пол
+    Смит»), whose first and last words are kept so that it stays apart from another's.
+    Of more words the first and the last are kept, with «… оглы» / «… кызы» as the
+    patronymic.
+
+    Not told apart, for want of evidence in the words alone: a given name the lists do
+    not hold («Жан Давид Абрамович» reads as «Фамилия Имя Отчество»), and two words
+    that are both given names («Роман Иван»).
     """
     if not words:
         return None, None, None
@@ -111,15 +135,24 @@ def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None
         return None, words[0], None
     if len(words) == 2:
         first, second = words
-        if not _is_given_name(first) and _is_given_name(second):
+        if (
+            not _is_given_name(first)
+            and _is_given_name(second)
+            and _SURNAME_ENDING.search(first.lower())
+        ):
             return second, first, None
         return first, second, None
     if len(words) == 3:
         if _PATRONYMIC.search(words[1].lower()):
             return words[0], words[2], words[1]
-        if _PATRONYMIC.search(words[2].lower()):
+        if _PATRONYMIC.search(words[2].lower()) and not _is_given_name(words[0]):
             return words[1], words[0], words[2]
-        return words[1], words[2], None
+        if not _reads_as_given_name(words[0]) and _reads_as_given_name(words[1]):
+            return words[1], words[2], None
+        return words[0], words[2], None
+    for index in range(2, len(words) - 1):
+        if words[index].lower() in ("оглы", "кызы"):
+            return words[0], words[-1], f"{words[index - 1]} {words[index]}"
     return words[0], words[-1], None
 
 
