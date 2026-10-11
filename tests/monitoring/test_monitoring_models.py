@@ -36,7 +36,8 @@ def test_settings_defaults_are_bounded_and_hourly() -> None:
         tuple(SOURCES)
     )
     assert settings.cron == "0 * * * *"
-    assert settings.discovery_limit == 50
+    # A ceiling a regular run does not reach: it stops where stored publications begin.
+    assert settings.discovery_limit == 5000
     assert settings.stale_run_after == timedelta(minutes=120)
 
 

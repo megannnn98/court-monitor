@@ -35,7 +35,9 @@ class FakeDocumentFetcher:
         raise AssertionError("fetch must not be called during discovery")
 
 
-def _discover(pages: dict[str, bytes], *, limit: int) -> tuple[list[str], list[str]]:
+def _discover(
+    pages: dict[str, bytes], *, limit: int, known: set[str] | None = None
+) -> tuple[list[str], list[str]]:
     requested: list[str] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -56,7 +58,11 @@ def _discover(pages: dict[str, bytes], *, limit: int) -> tuple[list[str], list[s
                 host=HOST,
             )
 
-            return await adapter.discover(limit=limit)
+            if known is None:
+                return await adapter.discover(limit=limit)
+            return await adapter.discover_until_known(
+                limit=limit, known=lambda ids: set(ids) & known
+            )
 
     references = asyncio.run(run())
 
@@ -99,6 +105,35 @@ def test_discover_stops_requesting_archives_as_soon_as_the_limit_is_reached() ->
 
     assert external_ids == ["397", "396", "364"]
     assert requested == [LISTING_URL, ARCHIVE_2026_URL]
+
+
+YEARS = {
+    LISTING_URL: _news_list([397, 396]),
+    ARCHIVE_2026_URL: _news_list([397, 396, 364], container="divArchiveList"),
+    ARCHIVE_2025_URL: _news_list([120, 119], container="divArchiveList"),
+}
+
+
+@pytest.mark.parametrize(
+    ("known", "found", "requested"),
+    [
+        # The latest news are all stored: no archive is asked.
+        ({"397", "396", "364"}, ["397", "396"], [LISTING_URL]),
+        # A new item on the news page; this year's archive adds only a stored one.
+        ({"396", "364", "120"}, ["397", "396", "364"], [LISTING_URL, ARCHIVE_2026_URL]),
+        # The news page and this year's archive both hold something new: the year
+        # before is asked as well, and ends the paging — it is all stored.
+        (
+            {"396", "120", "119"},
+            ["397", "396", "364", "120", "119"],
+            [LISTING_URL, ARCHIVE_2026_URL, ARCHIVE_2025_URL],
+        ),
+    ],
+)
+def test_discovery_until_known_goes_no_further_than_a_page_that_is_all_stored(
+    known: set[str], found: list[str], requested: list[str]
+) -> None:
+    assert _discover(YEARS, limit=5000, known=known) == (found, requested)
 
 
 @pytest.mark.parametrize("limit", [0, -1])

@@ -444,6 +444,34 @@ def test_a_regular_run_stops_discovery_where_stored_posts_begin_after_a_complete
     assert ovd.discoveries == 4
 
 
+def test_the_ceiling_is_for_runs_that_stop_at_what_is_stored_and_for_backfills(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Thousands is how far a run may reach back to what it has; a run with nothing
+    stored to stop at (a source's first load, the load after one that broke) would
+    read that many publications."""
+    ovd = FakeUpstream()
+    ovd.publish("sidorov", SIDOROV)
+    service = build_service(session_factory, {"ovd-info": ovd}, discovery_limit=5000)
+
+    service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE monitoring_runs SET status = 'aborted' WHERE id = (SELECT max(id) FROM monitoring_runs)"
+            )
+        )
+    service.run_source("ovd-info", with_derived=False, with_resolution=False)
+    service.run_source("ovd-info", trigger=MonitoringTrigger.BACKFILL, with_derived=False)
+    service.run_source(
+        "ovd-info", trigger=MonitoringTrigger.BACKFILL, discovery_limit=7, with_derived=False
+    )
+
+    # First load; stops at stored; after a broken load; a backfill; a backfill with its own.
+    assert ovd.limits == [500, 5000, 500, 5000, 7]
+
+
 def test_purge_junk_reports_what_it_removed(
     session_factory: sessionmaker[Session], capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -90,6 +90,25 @@ def test_discovery_pages_through_the_most_recently_changed_cards() -> None:
     assert references[0] == SourceReference(external_id="1000", url="https://memopzk.org/f/1-0")
 
 
+def test_discovery_until_known_stops_after_a_page_of_stored_cards() -> None:
+    """Under the crawl delay the whole registry is minutes of requests at every run."""
+    handle, requests = _pages(page_size=100, total_pages=3)
+    second_page = {str(2000 + index) for index in range(100)}
+
+    async def run() -> list[SourceReference]:
+        adapter, client = _adapter(handle)
+        async with client:
+            return await adapter.discover_until_known(
+                limit=5000, known=lambda ids: set(ids) & second_page
+            )
+
+    references = asyncio.run(run())
+
+    # The first page is new, the second is all stored: the third is not asked.
+    assert len(references) == 200
+    assert [query["page"] for query in requests] == [["1"], ["2"]]
+
+
 def test_discovery_ends_at_the_page_past_the_last_one() -> None:
     """WordPress answers 400 for a page past the end: that is the end, not a failure."""
     handle, requests = _pages(page_size=100, total_pages=1)
