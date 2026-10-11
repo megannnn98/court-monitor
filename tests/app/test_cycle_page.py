@@ -98,7 +98,7 @@ def test_cycle_menu_count_includes_junk_held_for_a_decision(
 
     assert '<span>Работа</span><span class="nav-count">1</span>' in page
     assert 'data-primary-task="junk_holds"' in page
-    assert "Публикации на проверке" in page
+    assert "Возможно мусор" in page
     assert 'href="/ui/junk-holds"' in page
     assert ">Начать проверку</a>" in page
 
