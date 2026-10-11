@@ -33,9 +33,9 @@ def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_downgrade_drops_monitoring_tables_and_keeps_domain_rows(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
     with engine.begin() as connection:
         connection.execute(

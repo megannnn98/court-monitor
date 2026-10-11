@@ -390,13 +390,14 @@ LangGraph orchestration comes after step 12 and is not part of this sequence.
 
 ## Test infrastructure debt
 
-Found while moving extraction, not fixed here. The migration tests in `tests/db/` run
-`alembic downgrade` and `upgrade` on the shared test database. Each cycle drops and
-re-adds columns, and PostgreSQL never frees the slot of a dropped column: a table holds
-at most 1600, dropped ones included. On 2026-10-11 `sources` reached that limit after
-many full runs; the restoring upgrade failed with `TooManyColumns`, left the database
-below `head`, and 449 later tests failed in setup. The database was recreated.
+Found while moving extraction. The migration tests in `tests/db/` ran `alembic
+downgrade` and `upgrade` on the shared test database. Each cycle drops and re-adds
+columns, and PostgreSQL never frees the slot of a dropped column: a table holds at most
+1600, dropped ones included. On 2026-10-11 `sources` reached that limit after many full
+runs; the restoring upgrade failed with `TooManyColumns`, left the database below
+`head`, and 449 later tests failed in setup. The database was recreated.
 
-It will happen again (`rosfin_matches` stood at 1151). A separate pull request should
-give the migration tests a database of their own, created for the run and dropped
-after it, so that they stop wearing out `court_monitor_test`.
+Fixed in the tests: `migration_session_factory` (`tests/conftest.py`) gives each
+migration test a database of its own in the same server, migrated to head and dropped
+after the test. `tests/db/test_migration_database.py` checks that a downgrade there
+leaves the revision of the shared database alone.

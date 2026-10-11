@@ -34,9 +34,9 @@ def _indexes(connection) -> dict[str, str]:  # type: ignore[no-untyped-def]
 
 
 def test_upgrade_keeps_existing_persons_and_allows_active_namesakes(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
     insert = text(
         "INSERT INTO persons (canonical_name, normalized_name, matching_key, status) "
