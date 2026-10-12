@@ -550,3 +550,54 @@ def test_identity_knows_nothing_of_person_resolution() -> None:
     )
 
     assert offenders == []
+
+
+# -- imports by a computed name ---------------------------------------------------------------
+
+# The calls that load a module by a name given as a value. Every rule above reads the
+# `import` statements of a file; a module loaded this way would pass them all unseen.
+_DYNAMIC_IMPORTS = frozenset({"import_module", "__import__", "run_module", "run_path"})
+
+
+def _dynamic_imports(tree: ast.AST) -> list[int]:
+    """The lines of a file that load a module by a computed name."""
+    lines = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        called = node.func
+        name = (
+            called.id
+            if isinstance(called, ast.Name)
+            else called.attr
+            if isinstance(called, ast.Attribute)
+            else None
+        )
+        if name in _DYNAMIC_IMPORTS:
+            lines.append(node.lineno)
+    return lines
+
+
+def test_no_module_is_loaded_by_a_computed_name() -> None:
+    """The boundary rules see `import` statements only. Rather than guess what a string
+    names, no file of `src/` loads a module by one."""
+    found = sorted(f"{path}:{line}" for path, tree in _files() for line in _dynamic_imports(tree))
+
+    assert found == []
+
+
+@pytest.mark.parametrize(
+    ("source", "dynamic"),
+    [
+        ("import importlib\nimportlib.import_module('analysis.unnamed.figurants')", True),
+        ("from importlib import import_module\nimport_module(name)", True),
+        ("module = __import__('persons')", True),
+        ("import runpy\nrunpy.run_module('cli.persons')", True),
+        # An ordinary import inside a function is an `import` statement: the other rules
+        # see it. Asking whether a module exists loads nothing.
+        ("def late():\n    from analysis import service\n    return service", False),
+        ("import importlib.util\nimportlib.util.find_spec('sentence_transformers')", False),
+    ],
+)
+def test_a_module_loaded_by_a_computed_name_is_seen(source: str, dynamic: bool) -> None:
+    assert bool(_dynamic_imports(ast.parse(source))) is dynamic
