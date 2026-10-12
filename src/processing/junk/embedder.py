@@ -75,6 +75,11 @@ class EmbeddingConfig:
         )
 
 
+def query_prefix(model_id: str) -> str:
+    """E5 models are trained with a "query: " prefix on queries."""
+    return "query: " if "e5" in model_id.lower() else ""
+
+
 def document_prefix(model_id: str) -> str:
     """E5 models are trained with a "passage: " prefix on documents."""
     return "passage: " if "e5" in model_id.lower() else ""
@@ -126,11 +131,17 @@ class SentenceTransformerEmbedder:
         )
         return model
 
+    def embed_query(self, text: str) -> list[float]:
+        """One query, prefixed as the model was trained, normalized."""
+        return self._encode([text], prefix=query_prefix(self.model_id))[0]
+
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
+        return self._encode(texts, prefix=document_prefix(self.model_id))
+
+    def _encode(self, texts: Sequence[str], *, prefix: str) -> list[list[float]]:
         model = self._load()
-        prefix = document_prefix(self.model_id)
         try:
             vectors = model.encode(
                 [f"{prefix}{text}" for text in texts],

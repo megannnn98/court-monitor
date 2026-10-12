@@ -10,6 +10,7 @@ asks each only what its capabilities allow. Local ones read the database through
 | `entity_groups`       | entity groups and their verdicts | person, publication_terms     |
 | `stored_publications` | text of stored publications      | person                        |
 | `publications_fts`    | PostgreSQL full-text search      | keywords                      |
+| `publications_dense`  | pgvector windows (optional)      | keywords                      |
 | `unnamed_figurants`   | unnamed figurants and the list   | unnamed                       |
 
 A source outside the database is one more object of this shape (`services.external`).
@@ -335,6 +336,60 @@ class LexicalPublicationsRetriever:
         # were named by key, and then only as a lead.
         return [
             _ranked(item, source_id=self.name, entity_key=None, lead=query.fact) for item in found
+        ]
+
+
+class QueryEmbedder(Protocol):
+    @property
+    def model_id(self) -> str: ...
+
+    def embed_query(self, text: str) -> list[float]:
+        """The query's normalized vector, prefixed as the model was trained."""
+        ...
+
+
+class DensePublicationsRetriever:
+    """The stored publications nearest the query in meaning: the windows of
+    `publication_vectors`, embedded by the same model. Fused with the ranked text search
+    by rank (RRF, `services.evidence`), never by adding scores."""
+
+    name = "publications_dense"
+    capabilities = RetrieverCapabilities(
+        source=LOCAL,
+        local=True,
+        kinds=frozenset({"keywords"}),
+        facts=TEXT_FACTS,
+        supports_date_range=True,
+        source_types=frozenset({"publication"}),
+    )
+
+    def __init__(
+        self, results: ResultsService, embedder: QueryEmbedder, *, limit: int = RANKED_QUOTES
+    ) -> None:
+        self._results = results
+        self._embedder = embedder
+        self._limit = limit
+
+    async def search(self, query: InvestigationQuery) -> list[EvidenceItem]:
+        if query.kind != "keywords" or not query.text:
+            return []
+
+        def nearest() -> list[RankedPublication]:
+            vector = self._embedder.embed_query(query.text)
+            return self._results.dense_publications(
+                vector,
+                model_id=self._embedder.model_id,
+                limit=self._limit,
+                published_from=query.published_from,
+                published_to=query.published_to,
+            )
+
+        found = await asyncio.to_thread(nearest)
+        return [
+            _ranked(item, source_id=self.name, entity_key=None, lead=query.fact).model_copy(
+                update={"score_type": "cosine"}
+            )
+            for item in found
         ]
 
 

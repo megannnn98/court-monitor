@@ -63,6 +63,10 @@ class InvestigationService:
         return self._limits
 
     @property
+    def retrievers(self) -> list[InvestigationRetriever]:
+        return list(self._retrievers)
+
+    @property
     def sources(self) -> set[str]:
         return self._retrievers.sources
 

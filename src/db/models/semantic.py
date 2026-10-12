@@ -109,3 +109,31 @@ class SemanticIndexStateRecord(Base):
     rebuilt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class PublicationVectorRecord(Base):
+    """One window of a stored publication's text as a vector of one embedding model:
+    what the dense retriever of an investigation searches (ADR 0027). Derived and
+    rebuildable from `parsed_articles`; holds no fact."""
+
+    __tablename__ = "publication_vectors"
+    __table_args__ = (
+        UniqueConstraint(
+            "article_id", "model_id", "window_start", name="uq_publication_vectors_window"
+        ),
+        Index("ix_publication_vectors_model_id", "model_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), nullable=False
+    )
+    model_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    window_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    window_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    # The hash of the article's text the windows were cut from: a changed text is cut again.
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

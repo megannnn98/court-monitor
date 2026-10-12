@@ -72,6 +72,7 @@ from db.models.rosfinmonitoring import (
     RosfinmonitoringSnapshotRecord,
 )
 from db.models.semantic import (
+    PublicationVectorRecord,
     SemanticDocumentRecord,
     SemanticIndexStateRecord,
     SemanticVectorCollectionRecord,
@@ -133,6 +134,7 @@ __all__ = [
     "PersonRecord",
     "PersonResolutionAiReviewRecord",
     "PersonResolutionDecisionRecord",
+    "PublicationVectorRecord",
     "ReviewRecordModel",
     "RfmOperatorEntryRecord",
     "RosfinMatchRecord",

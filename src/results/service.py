@@ -11,7 +11,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from results import dossier, figurant, search
+from results import dossier, figurant, search, semantic
 from results.dossier import EntityHit, EntityProfile, PublicationQuote, StatedFact
 from results.figurant import FigurantClue, ListCandidate, ListCandidates, PublicationPerson
 from results.findings import NO_RF_SNAPSHOT, FindingEvaluation, MonitoringFindingService
@@ -125,3 +125,23 @@ class ResultsService:
     ) -> list[PublicationPerson]:
         with self._session_factory() as session:
             return figurant.people_of_publications(session, article_ids, limit=limit)
+
+    def dense_publications(
+        self,
+        vector: Sequence[float],
+        *,
+        model_id: str,
+        limit: int = 10,
+        published_from: datetime | None = None,
+        published_to: datetime | None = None,
+    ) -> list[RankedPublication]:
+        """Publications whose best window is nearest the query's vector (pgvector)."""
+        with self._session_factory() as session:
+            return semantic.dense_publications(
+                session,
+                vector,
+                model_id=model_id,
+                limit=limit,
+                published_from=published_from,
+                published_to=published_to,
+            )
