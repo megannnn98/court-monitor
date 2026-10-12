@@ -95,10 +95,11 @@ ORCHESTRATOR_MAY_IMPORT = frozenset(
     }
 )
 
-# What the investigation graph may import of the domain: the results API and nothing
-# else. It reads no table itself and never person resolution: the identity an
-# investigation works on is the entity group (ADR 0024).
-INVESTIGATION_MAY_IMPORT = frozenset({"results.service"})
+# What the investigation graph may import of the domain: the results API, and the
+# read-only search of configured sources (ADR 0027) — not the source adapters, not the
+# rest of ingestion. It reads no table itself and never person resolution: the identity
+# an investigation works on is the entity group (ADR 0024).
+INVESTIGATION_MAY_IMPORT = frozenset({"results.service", "ingestion.search"})
 
 # What a module keeps to itself. The console (`web/`, `api.py`) and the pipeline
 # commands reach these only through a service; the composition root builds them.
@@ -133,6 +134,8 @@ INTERNAL = frozenset(
         "analysis.persecution.classification_service",
         "results.findings",
         "results.dossier",
+        "results.search",
+        "results.figurant",
         "orchestrator.repository",
         "orchestrator.locks",
     }
@@ -288,8 +291,33 @@ def test_the_orchestrator_reaches_the_domain_only_through_public_apis() -> None:
     assert _domain_imports_outside(ORCHESTRATOR_MAY_IMPORT, "orchestrator/") == []
 
 
-def test_an_investigation_reaches_the_domain_only_through_the_results_api() -> None:
+def test_an_investigation_reaches_the_domain_only_through_its_public_read_apis() -> None:
     assert _domain_imports_outside(INVESTIGATION_MAY_IMPORT, "investigation/") == []
+
+
+def test_an_investigation_never_depends_on_er_v2() -> None:
+    offenders = sorted(
+        f"{path} -> {imported}"
+        for path, tree in _files("investigation/")
+        for imported in _imports(tree, path)
+        if imported.split(".")[0] == "persons"
+    )
+
+    assert offenders == []
+
+
+def test_a_source_search_fetches_nothing_but_its_own_source() -> None:
+    # The read-only search is not a way into the pipeline: it stores, extracts and
+    # groups nothing, so it imports no storage and no later stage.
+    offenders = sorted(
+        f"ingestion/search.py -> {imported}"
+        for path, tree in _files("ingestion/search.py")
+        for imported in _imports(tree, path)
+        if imported.split(".")[0] in ("db", "sqlalchemy", "processing", "analysis", "results")
+        or imported == "ingestion.sources.sqlalchemy_persistence"
+    )
+
+    assert offenders == []
 
 
 def test_an_investigation_runs_no_sql_of_its_own() -> None:

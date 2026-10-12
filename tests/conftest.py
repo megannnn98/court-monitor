@@ -15,6 +15,13 @@ from db.maintenance import truncate_disposable_tables
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def _no_outside_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test asks a site: an investigation built from the environment gets no source
+    outside the database. A test of a source search gives it a fake transport."""
+    monkeypatch.setenv("INVESTIGATION_TELEGRAM_CHANNELS", "none")
+
+
 def _truncate_test_tables(engine: Engine) -> None:
     truncate_disposable_tables(engine)
 

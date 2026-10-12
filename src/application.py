@@ -22,6 +22,8 @@ from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from analysis.service import AnalysisService
 from db.database import create_database_engine, create_session_factory
+from db.investigation_runs import SqlAlchemyInvestigationRuns
+from ingestion.search import configured_telegram_channels, telegram_searches
 from ingestion.service import IngestionService
 from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
@@ -29,8 +31,15 @@ from ingestion.sources.website_adapter import WebsiteAdapter
 from ingestion.stored import SqlAlchemyStoredDocuments
 from investigation.models import Limits
 from investigation.service import InvestigationService
+from investigation.services.external import SourceSearchRetriever
 from investigation.services.model import investigation_model_from_env
-from investigation.services.retrieval import LocalDatabaseRetriever, StoredPublicationsRetriever
+from investigation.services.retrieval import (
+    InvestigationRetriever,
+    LexicalPublicationsRetriever,
+    LocalDatabaseRetriever,
+    StoredPublicationsRetriever,
+    UnnamedFigurantRetriever,
+)
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
 from orchestrator.cycle import OperatorCycle
@@ -222,17 +231,42 @@ def build_operator_cycle(
     )
 
 
+def build_investigation_retrievers(
+    session_factory: sessionmaker[Session], *, env: Mapping[str, str] | None = None
+) -> list[InvestigationRetriever]:
+    """The registry of an investigation: the local database (entity groups, the stored
+    publications by name and by ranked text, unnamed figurants) and the configured
+    public Telegram channels' own search (`INVESTIGATION_TELEGRAM_CHANNELS`, «none» for
+    none). Nothing a request carries adds to it."""
+    results = build_results_service(session_factory)
+    local: list[InvestigationRetriever] = [
+        LocalDatabaseRetriever(results),
+        StoredPublicationsRetriever(results),
+        LexicalPublicationsRetriever(results),
+        UnnamedFigurantRetriever(results),
+    ]
+    limits = Limits.from_env(env)
+    outside: list[InvestigationRetriever] = [
+        SourceSearchRetriever(search, source="telegram")
+        for search in telegram_searches(
+            configured_telegram_channels(env), timeout_seconds=float(limits.search_timeout_seconds)
+        )
+    ]
+    return [*local, *outside]
+
+
 def build_investigation_service(
     session_factory: sessionmaker[Session], *, env: Mapping[str, str] | None = None
 ) -> InvestigationService:
-    """An investigation over the local database: the person's entity group and the
-    stored publications. A model words the answer when OpenRouter is configured; without
-    one the rules alone answer. Another source is one more retriever in this list."""
-    results = build_results_service(session_factory)
+    """An investigation over the registry above. A model reads the question and words
+    the answer when OpenRouter is configured; without one the rules alone answer. Runs
+    are stored (`investigation_runs`), so a result is read again by its id and an
+    interrupted run is resumed."""
     return InvestigationService(
-        retrievers=[LocalDatabaseRetriever(results), StoredPublicationsRetriever(results)],
+        retrievers=build_investigation_retrievers(session_factory, env=env),
         model=investigation_model_from_env(env),
         limits=Limits.from_env(env),
+        runs=SqlAlchemyInvestigationRuns(session_factory),
     )
 
 

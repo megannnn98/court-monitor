@@ -3041,6 +3041,45 @@
           }
         }
       }
+    },
+    "/api/v1/investigation/{run_id}": {
+      "get": {
+        "summary": "Get Investigation",
+        "operationId": "get_investigation_v1",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3347,6 +3386,25 @@
           "text"
         ],
         "title": "ArticleResponse"
+      },
+      "ArticleSubject": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "article",
+            "title": "Kind",
+            "default": "article"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id"
+        ],
+        "title": "ArticleSubject"
       },
       "AskAnswerResponse": {
         "properties": {
@@ -3917,6 +3975,32 @@
         "title": "CandidateRowResponse",
         "description": "A row of the candidates' table, as the legacy page and its Excel file have it."
       },
+      "CandidateSignal": {
+        "properties": {
+          "signal": {
+            "type": "string",
+            "title": "Signal"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signal",
+          "weight"
+        ],
+        "title": "CandidateSignal",
+        "description": "One reason a candidate fits an unnamed figurant, and what it weighs."
+      },
       "CandidateTableResponse": {
         "properties": {
           "snapshot_id": {
@@ -4030,6 +4114,37 @@
           "not_configured"
         ],
         "title": "ComponentStatus"
+      },
+      "Conflict": {
+        "properties": {
+          "fact": {
+            "type": "string",
+            "title": "Fact"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "fact",
+          "description"
+        ],
+        "title": "Conflict",
+        "description": "Two pieces of evidence that cannot both be right about one fact."
       },
       "CourtHintResponse": {
         "properties": {
@@ -5010,6 +5125,8 @@
             "enum": [
               "entity_group",
               "publication",
+              "rf_entry",
+              "unnamed",
               "external"
             ],
             "title": "Source Type"
@@ -5017,6 +5134,28 @@
           "source_id": {
             "type": "string",
             "title": "Source Id"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
           },
           "url": {
             "anyOf": [
@@ -5039,6 +5178,17 @@
               }
             ],
             "title": "Article Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "entity_key": {
             "anyOf": [
@@ -5089,6 +5239,18 @@
             ],
             "title": "Published At"
           },
+          "retrieved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieved At"
+          },
           "confidence": {
             "anyOf": [
               {
@@ -5099,6 +5261,58 @@
               }
             ],
             "title": "Confidence"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "score_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "exact_name",
+                  "declined_name",
+                  "ts_rank",
+                  "cosine",
+                  "rrf",
+                  "source_order"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Type"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round"
           },
           "fact": {
             "anyOf": [
@@ -5129,13 +5343,19 @@
             "type": "array",
             "title": "Leads",
             "default": []
+          },
+          "retriever": {
+            "type": "string",
+            "title": "Retriever",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
           "source_type",
           "source_id",
-          "text"
+          "text",
+          "retriever"
         ],
         "title": "EvidenceItem",
         "description": "One thing found, with where it comes from. `text` is quoted, never rewritten."
@@ -5285,6 +5505,30 @@
         ],
         "title": "EvidenceSpanResponse"
       },
+      "FactRequirement": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "description"
+        ],
+        "title": "FactRequirement",
+        "description": "A fact a scenario expects of a result."
+      },
       "FailureKind": {
         "type": "string",
         "enum": [
@@ -5292,6 +5536,46 @@
           "non_retryable"
         ],
         "title": "FailureKind"
+      },
+      "FigurantCandidate": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rf_entry",
+              "entity_group"
+            ],
+            "title": "Kind"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateSignal"
+            },
+            "type": "array",
+            "title": "Signals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "kind",
+          "score"
+        ],
+        "title": "FigurantCandidate",
+        "description": "Who an unnamed figurant may be: a list entry or a person of the database."
       },
       "Finding": {
         "properties": {
@@ -5561,6 +5845,215 @@
         ],
         "title": "InvestigationFoundResponse"
       },
+      "InvestigationIntent": {
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "person_dossier",
+              "identify_unnamed"
+            ],
+            "title": "Scenario"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "article_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Id"
+          },
+          "requested_facts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requested Facts"
+          },
+          "source_constraints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Source Constraints"
+          },
+          "read_by": {
+            "type": "string",
+            "enum": [
+              "rules",
+              "model"
+            ],
+            "title": "Read By",
+            "default": "rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "title": "InvestigationIntent",
+        "description": "What the question asks, structured. Rules read it; a model may help, within the\nsame schema and the same checks."
+      },
+      "InvestigationPlan": {
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "person_dossier",
+              "identify_unnamed"
+            ],
+            "title": "Scenario"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonSubject"
+              },
+              {
+                "$ref": "#/components/schemas/ArticleSubject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/FactRequirement"
+            },
+            "type": "array",
+            "title": "Requirements"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/SearchTask"
+            },
+            "type": "array",
+            "title": "Tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "title": "InvestigationPlan",
+        "description": "What the run will look for first, and where. Holds no text of a publication."
+      },
+      "InvestigationQuery": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "publication_terms",
+              "keywords",
+              "unnamed",
+              "publication_people"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name",
+            "default": ""
+          },
+          "entity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Key"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Terms",
+            "default": []
+          },
+          "fact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact"
+          },
+          "article_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Id"
+          },
+          "article_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Article Ids",
+            "default": []
+          },
+          "published_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published From"
+          },
+          "published_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "InvestigationQuery",
+        "description": "One question to the retrievers."
+      },
       "InvestigationRequest": {
         "properties": {
           "query": {
@@ -5585,6 +6078,29 @@
             "type": "boolean",
             "title": "Local Only",
             "default": false
+          },
+          "allowed_sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Allowed Sources"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "person_dossier",
+                  "identify_unnamed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
           }
         },
         "type": "object",
@@ -5609,6 +6125,52 @@
           "question": {
             "type": "string",
             "title": "Question"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "person_dossier",
+                  "identify_unnamed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationIntent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "subject": {
             "anyOf": [
@@ -5648,6 +6210,20 @@
             "type": "array",
             "title": "Conflicts"
           },
+          "conflict_details": {
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            },
+            "type": "array",
+            "title": "Conflict Details"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/FigurantCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
           "warnings": {
             "items": {
               "type": "string"
@@ -5676,6 +6252,70 @@
           "question"
         ],
         "title": "InvestigationResult"
+      },
+      "InvestigationRun": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "round": {
+            "type": "integer",
+            "title": "Round"
+          },
+          "usage": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Usage"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "scenario",
+          "round",
+          "usage",
+          "failure",
+          "result"
+        ],
+        "title": "InvestigationRun"
       },
       "InvestigationSearchResponse": {
         "properties": {
@@ -7413,6 +8053,25 @@
         "title": "PersonResponse",
         "description": "Person response model."
       },
+      "PersonSubject": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "person",
+            "title": "Kind",
+            "default": "person"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "PersonSubject"
+      },
       "PoliticalArticleResponse": {
         "properties": {
           "article": {
@@ -8756,6 +9415,46 @@
         ],
         "title": "RunStartedResponse"
       },
+      "SearchTask": {
+        "properties": {
+          "query": {
+            "$ref": "#/components/schemas/InvestigationQuery"
+          },
+          "retriever": {
+            "type": "string",
+            "title": "Retriever"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "round": {
+            "type": "integer",
+            "title": "Round",
+            "default": 0
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "default": 0
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint",
+            "description": "Same retriever, same query: the same search, whatever round or purpose.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "retriever",
+          "purpose",
+          "fingerprint"
+        ],
+        "title": "SearchTask",
+        "description": "One query to one retriever, and why it is asked."
+      },
       "SentenceListResponse": {
         "properties": {
           "view": {
@@ -9881,9 +10580,34 @@
             "title": "Search Calls",
             "default": 0
           },
+          "network_searches": {
+            "type": "integer",
+            "title": "Network Searches",
+            "default": 0
+          },
+          "local_searches": {
+            "type": "integer",
+            "title": "Local Searches",
+            "default": 0
+          },
+          "failed_searches": {
+            "type": "integer",
+            "title": "Failed Searches",
+            "default": 0
+          },
           "followup_rounds": {
             "type": "integer",
             "title": "Followup Rounds",
+            "default": 0
+          },
+          "evidence_items": {
+            "type": "integer",
+            "title": "Evidence Items",
+            "default": 0
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "title": "Elapsed Ms",
             "default": 0
           }
         },

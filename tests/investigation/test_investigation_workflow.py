@@ -15,18 +15,19 @@ import pytest
 from pydantic import ValidationError
 
 from investigation.graph import build_graph
+from investigation.intent import named_in
 from investigation.models import (
     EvidenceItem,
     Finding,
     InvestigationQuery,
     InvestigationResult,
     Limits,
+    RetrieverCapabilities,
     Usage,
 )
 from investigation.nodes import report_messages
-from investigation.planner import named_in
+from investigation.scenarios.person_dossier import NAME_ONLY_MATCH, NOT_FOUND
 from investigation.service import InvestigationService
-from investigation.services.coverage import NAME_ONLY_MATCH, NOT_FOUND
 from investigation.services.model import ModelReply
 from investigation.state import InvestigationState, dump_state
 from llm.chat import ModelError
@@ -75,10 +76,22 @@ EVERYTHING = [
 Answers = Callable[[InvestigationQuery], list[EvidenceItem]]
 
 
+DOSSIER_FACTS = frozenset({"role", "charges", "politics", "rf_list", "latest_news"})
+
+
 class FakeRetriever:
+    """Answers what the entity-group retriever answers: a person, and words of the
+    person's own publications."""
+
     def __init__(self, name: str, answers: Answers, *, local: bool = True) -> None:
         self.name = name
-        self.local = local
+        self.capabilities = RetrieverCapabilities(
+            source="local" if local else "site",
+            local=local,
+            network=not local,
+            kinds=frozenset({"person", "publication_terms"}),
+            facts=DOSSIER_FACTS,
+        )
         self._answers = answers
         self.calls: list[InvestigationQuery] = []
 
@@ -593,7 +606,9 @@ def test_the_same_evidence_gives_the_same_result() -> None:
     first = run(FakeRetriever("entity_groups", person_only(EVERYTHING)))
     second = run(FakeRetriever("entity_groups", person_only(EVERYTHING)))
 
-    assert first == second
+    # Everything but the clock: how long the run took and when each item was fetched.
+    clock: dict[str, Any] = {"usage": {"elapsed_ms"}, "evidence": {"__all__": {"retrieved_at"}}}
+    assert first.model_dump(exclude=clock) == second.model_dump(exclude=clock)
 
 
 def test_the_state_of_a_run_is_serializable() -> None:
@@ -610,7 +625,9 @@ def test_the_state_of_a_run_is_serializable() -> None:
 def test_a_failure_inside_the_graph_is_a_failed_result() -> None:
     class Unusable:
         name = "entity_groups"
-        local = True
+        capabilities = RetrieverCapabilities(
+            source="local", local=True, kinds=frozenset({"person"})
+        )
 
         async def search(self, query: InvestigationQuery) -> list[EvidenceItem]:
             return ["not evidence"]  # type: ignore[list-item]

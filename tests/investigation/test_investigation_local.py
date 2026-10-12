@@ -29,12 +29,14 @@ from db.orm_models import (
     ParsedArticleRecord,
 )
 from investigation.models import InvestigationResult
-from investigation.services.coverage import NOT_FOUND
+from investigation.scenarios.person_dossier import NOT_FOUND
 from processing.identity.service import IdentityService
 from results.dossier import QUOTE_CONTEXT
 from web.app import app
 from web.dependencies import get_db
 
+# No source outside the database: CI never depends on a site.
+LOCAL_ENV = {"INVESTIGATION_TELEGRAM_CHANNELS": "none"}
 ARREST = "Суд арестовал Ивана Сидорова по статье 280 УК за антивоенный пост."
 OTHER = "Суд арестовал Петра Кузнецова."
 # Stored, with no criminal event: no entity group is made of it.
@@ -230,7 +232,7 @@ def test_an_investigation_reports_the_facts_with_their_evidence_and_the_gap(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
-    service = build_investigation_service(session_factory, env={})
+    service = build_investigation_service(session_factory, env=LOCAL_ENV)
 
     result = service.investigate_sync("Что известно про Ивана Сидорова?")
 
@@ -254,14 +256,17 @@ def test_an_investigation_reports_the_facts_with_their_evidence_and_the_gap(
     }
     urls = {item.url for item in result.evidence if item.source_type == "publication"}
     assert len(urls) == 2 and all(url for url in urls)
-    assert (result.usage.search_calls, result.usage.llm_calls) == (2, 0)
+    # The person, the stored texts by name, the ranked text search by name; the list
+    # has no wording to look for, so no follow-up round.
+    assert (result.usage.search_calls, result.usage.llm_calls) == (3, 0)
+    assert result.usage.followup_rounds == 0
 
 
 def test_missing_facts_are_followed_up_in_the_persons_own_publications(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory, verdicts=False)
-    service = build_investigation_service(session_factory, env={})
+    service = build_investigation_service(session_factory, env=LOCAL_ENV)
 
     result = service.investigate_sync("Иван Сидоров")
 
@@ -277,7 +282,7 @@ def test_a_stranger_is_not_found_and_nothing_is_made_up(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
-    service = build_investigation_service(session_factory, env={})
+    service = build_investigation_service(session_factory, env=LOCAL_ENV)
 
     result = service.investigate_sync("Найди Алексея Неизвестного")
 
@@ -299,7 +304,7 @@ def test_nothing_is_written_by_an_investigation(session_factory: sessionmaker[Se
             }
 
     before = counts()
-    build_investigation_service(session_factory, env={}).investigate_sync("Иван Сидоров")
+    build_investigation_service(session_factory, env=LOCAL_ENV).investigate_sync("Иван Сидоров")
 
     assert counts() == before
     assert before["persons"] == 0

@@ -37,6 +37,7 @@ from db.models.extraction import (
     EventEntityMentionRecord,
     ExtractedEventRecord,
 )
+from db.models.investigation import InvestigationRunRecord
 from db.models.monitoring import (
     JunkScreenHoldRecord,
     MonitoringFindingRecord,
@@ -118,6 +119,7 @@ __all__ = [
     "EventEntityMentionRecord",
     "ExcludedPersonRecord",
     "ExtractedEventRecord",
+    "InvestigationRunRecord",
     "JunkScreenHoldRecord",
     "MonitoringFindingRecord",
     "MonitoringRunItemRecord",
