@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted, 2026-10-12. A new layer. It takes the contracts of
+Accepted, 2026-10-12; extended by [ADR 0027](0027-investigation-runtime-scenarios-and-retrieval.md)
+the same day (scenarios, a retriever registry, lexical, dense and outside retrieval,
+stored runs). Where they differ, 0027 is what the code does. A new layer. It takes the contracts of
 [ADR 0008](0008-research-domain-and-research-service.md)–[0010](0010-research-report-review-routing.md)
 that still hold (facts and provenance are not created by a model; a failure is not an
 empty result; review required is a status) and none of their code: that layer was

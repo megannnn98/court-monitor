@@ -1,7 +1,12 @@
 # Modularization plan
 
-Status: carried out, 2026-10-12, on branch `refactor/complete-modularization`. The
-decisions are recorded in
+Status: **closed**, 2026-10-12. Carried out on branch `refactor/complete-modularization`
+and finished on `feat/complete-investigation-runtime`: every item that was left has a
+status in [ADR 0025, «The refactor is closed»](../adr/0025-modular-monolith-and-pipeline-orchestrator.md#the-refactor-is-closed)
+(done, or intentional legacy of the ER v2 path), and the investigation runtime it was
+for is [ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md). What
+comes next is a feature, a bug, a performance or a maintenance task; no new stage of
+this plan is to be added. The decisions are recorded in
 [ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md) (the modules and
 the orchestrator) and [ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)
 (the investigation layer). "State after the split" below is what the code is now.
@@ -32,9 +37,10 @@ orchestrator ..> analysis
 orchestrator ..> results
 
 actor User
-component "investigation\n(LangGraph)" as investigation
+component "investigation\n(LangGraph: scenarios,\nretriever registry)" as investigation
 User --> investigation : one question
 investigation ..> results : ResultsService
+investigation ..> ingestion : ingestion.search\n(read-only)
 @enduml
 ```
 

@@ -22,7 +22,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from analysis.unnamed.figurants import DIFFERENT, EXISTING_PERSON, SAME, place_stems
+from analysis.unnamed.figurants import DIFFERENT, EXISTING_PERSON, SAME
+from analysis.unnamed.matching import place_stems
 
 SHOWN = 5
 # The same news comes out over a few days: a court's release, then the agencies. Whole

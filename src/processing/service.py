@@ -22,6 +22,11 @@ from processing.evidence.digest import (
     digest_classifier_from_env,
     figurant_titles,
 )
+from processing.evidence.publication_vectors import (
+    PassageEmbedder,
+    PublicationVectorIndexer,
+    VectorIndexResult,
+)
 from processing.evidence.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.models import ExtractionRunStatus, ExtractionSaveResult
@@ -153,3 +158,8 @@ class ProcessingService:
         if reader is None:
             logger.warning("event=sentences_no_model: OPENROUTER_API_KEY is not set")
         return SentenceFinder(self._session_factory, reader=reader, on_stage=on_stage).run()
+
+    def index_publication_vectors(self, embedder: PassageEmbedder) -> VectorIndexResult:
+        """The windows of every stored publication as vectors of `embedder`'s model; an
+        article whose text has not changed is skipped. On demand, not in the cycle."""
+        return PublicationVectorIndexer(self._session_factory, embedder).run()

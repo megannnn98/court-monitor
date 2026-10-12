@@ -23,7 +23,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from analysis.operator_base.base_candidates import article_numbers
-from analysis.unnamed.figurants import place_pattern
+from analysis.unnamed.matching import place_pattern
 
 SHOWN = 3
 

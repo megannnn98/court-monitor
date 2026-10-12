@@ -7,19 +7,28 @@ is read from what the pipeline stored. Nothing in this module decides a verdict.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from results import dossier
-from results.dossier import EntityHit, PublicationQuote, StatedFact
+from results import dossier, figurant, search, semantic
+from results.dossier import EntityHit, EntityProfile, PublicationQuote, StatedFact
+from results.figurant import FigurantClue, ListCandidate, ListCandidates, PublicationPerson
 from results.findings import NO_RF_SNAPSHOT, FindingEvaluation, MonitoringFindingService
 from results.models import MonitoringFindingView
+from results.search import RankedPublication
 
 __all__ = [
     "NO_RF_SNAPSHOT",
     "EntityHit",
+    "EntityProfile",
+    "FigurantClue",
     "FindingEvaluation",
+    "ListCandidate",
+    "ListCandidates",
+    "PublicationPerson",
     "PublicationQuote",
+    "RankedPublication",
     "ResultsService",
     "StatedFact",
 ]
@@ -71,3 +80,68 @@ class ResultsService:
         """The stored publications whose text holds every word of the name."""
         with self._session_factory() as session:
             return dossier.stored_publication_quotes(session, name, limit=limit)
+
+    def entity_profile(self, key: str) -> EntityProfile | None:
+        """The group's forms of the name, regions and list entries; None for no group."""
+        with self._session_factory() as session:
+            return dossier.entity_profile(session, key)
+
+    # -- ranked text search of the stored publications ----------------------------------------
+
+    def search_publications(
+        self,
+        *,
+        name: str = "",
+        any_of: Sequence[str] = (),
+        limit: int = 10,
+        published_from: datetime | None = None,
+        published_to: datetime | None = None,
+    ) -> list[RankedPublication]:
+        """Publications holding every word of `name` and one of `any_of`, best first."""
+        with self._session_factory() as session:
+            return search.search_publications(
+                session,
+                name=name,
+                any_of=any_of,
+                limit=limit,
+                published_from=published_from,
+                published_to=published_to,
+            )
+
+    # -- the person a publication does not name -----------------------------------------------
+
+    def figurant_clues(self, article_id: int) -> list[FigurantClue] | None:
+        """The publication's unnamed figurants; None when it is not stored."""
+        with self._session_factory() as session:
+            return figurant.figurant_clues(session, article_id)
+
+    def list_candidates(self, clue: FigurantClue, *, shown: int = 10) -> ListCandidates:
+        """The list entries the clues fit, the likeliest first."""
+        with self._session_factory() as session:
+            return figurant.list_candidates(session, clue, shown=shown)
+
+    def people_of_publications(
+        self, article_ids: Sequence[int], *, limit: int = 20
+    ) -> list[PublicationPerson]:
+        with self._session_factory() as session:
+            return figurant.people_of_publications(session, article_ids, limit=limit)
+
+    def dense_publications(
+        self,
+        vector: Sequence[float],
+        *,
+        model_id: str,
+        limit: int = 10,
+        published_from: datetime | None = None,
+        published_to: datetime | None = None,
+    ) -> list[RankedPublication]:
+        """Publications whose best window is nearest the query's vector (pgvector)."""
+        with self._session_factory() as session:
+            return semantic.dense_publications(
+                session,
+                vector,
+                model_id=model_id,
+                limit=limit,
+                published_from=published_from,
+                published_to=published_to,
+            )

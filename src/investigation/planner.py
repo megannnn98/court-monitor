@@ -1,102 +1,88 @@
-"""From a question to a plan: who is asked about, and what to search first.
+"""From a scenario's queries to searches: which retriever is asked what, in what order,
+and what is not asked at all.
 
-The plan of the first use case is fixed: one person, looked up in every retriever at
-once. A model may read the name out of the question; it may not supply one. The name it
-returns is taken only if the question itself holds it.
+A query goes only to a retriever that can answer it (`can_answer`): its kind, and the
+fact it looks for. A search already made in this run — the same retriever, the same
+query — is never made again. A ceiling on searches cuts the least urgent first.
 """
 
 from __future__ import annotations
 
-import json
-import re
+from collections.abc import Collection, Sequence
 
-from pydantic import BaseModel, ValidationError
+from investigation.models import MAX_QUERY_LENGTH, InvestigationQuery, SearchTask
+from investigation.scenarios.base import PlannedQuery
+from investigation.services.retrieval import InvestigationRetriever, can_answer
 
-from investigation.models import InvestigationQuery
-from investigation.services.model import ModelReply, prompt
-
-_WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
-# Capitalized words that open a question and are no part of a name.
-_NOT_A_NAME = frozenset(
-    {
-        "найди", "найти", "найдите", "что", "кто", "как", "какие", "какой", "какая", "где",
-        "когда", "расскажи", "расскажите", "собери", "соберите", "покажи", "покажите",
-        "есть", "известно", "информация", "информацию", "данные", "дело", "дела", "про",
-        "по", "на", "об", "обо", "о", "в", "и", "за", "ли", "суд", "россия", "россии",
-        "рф", "ук", "росфинмониторинг", "росфинмониторинга", "мемориал",
-    }
-)  # fmt: skip
-_MAX_NAME_WORDS = 3
-_MAX_ENDING = 3
-_MIN_STEM = 3
-
-INTAKE_SCHEMA: dict[str, object] = {
-    "type": "object",
-    "properties": {"subject_name": {"type": ["string", "null"]}},
-    "required": ["subject_name"],
-    "additionalProperties": False,
-}
-INTAKE_MAX_TOKENS = 200
+# A structured lookup first, ranked text next, a source outside last.
+_BY_KIND = {"person": 0, "publication_terms": 0, "unnamed": 0, "publication_people": 0}
+_TEXT = 1
+_NETWORK = 1
+# A plan holds at most this many searches before a ceiling is even applied: one query
+# can never ask a hundred sources.
+MAX_TASKS_PER_ROUND = 60
 
 
-class _Intake(BaseModel):
-    subject_name: str | None
+class InvalidPlanError(ValueError):
+    """A plan that cannot be run as it is: refused, never run in part."""
 
 
-def subject_by_rules(question: str) -> str | None:
-    """The longest run of capitalized words that are not question words: «Найди, что
-    известно про Ивана Петровича Сидорова» → «Ивана Петровича Сидорова»."""
-    runs: list[list[str]] = [[]]
-    for word in _WORD.findall(question):
-        if word[0].isupper() and len(word) > 1 and word.lower() not in _NOT_A_NAME:
-            runs[-1].append(word)
-        else:
-            runs.append([])
-    best = max(runs, key=len)
-    return " ".join(best[:_MAX_NAME_WORDS]) if best else None
+def planned(queries: Sequence[InvestigationQuery]) -> list[PlannedQuery]:
+    """Follow-up queries, with what each looks for and how urgent it is."""
+    return [
+        PlannedQuery(
+            query=query,
+            purpose=query.fact or "identity",
+            priority=_BY_KIND.get(query.kind, _TEXT),
+        )
+        for query in queries
+    ]
 
 
-def _fold(word: str) -> str:
-    return word.lower().replace("ё", "е")
+def validate(query: PlannedQuery, *, facts: Collection[str]) -> None:
+    """A query a scenario or a model wrote, checked before anything runs it."""
+    if len(query.query.text) > MAX_QUERY_LENGTH:
+        raise InvalidPlanError(f"query longer than {MAX_QUERY_LENGTH} characters")
+    if query.purpose not in ("identity", *facts):
+        raise InvalidPlanError(f"unknown fact: {query.purpose}")
+    if query.query.kind == "keywords" and not query.query.text:
+        raise InvalidPlanError("a text search with no words")
 
 
-def _one_word(first: str, second: str) -> bool:
-    """Two forms of one word: they differ in an ending of at most three letters.
-    «Сидорове» and «Сидоров» are; «Петренко» and «Петров», «Петровского» and «Петров»
-    are not."""
-    if first == second:
-        return True
-    shared = 0
-    for left, right in zip(first, second, strict=False):
-        if left != right:
-            break
-        shared += 1
-    return shared >= max(_MIN_STEM, max(len(first), len(second)) - _MAX_ENDING)
+def assign(
+    queries: Sequence[PlannedQuery],
+    retrievers: Sequence[InvestigationRetriever],
+    *,
+    round_: int,
+    done: Collection[str] = (),
+    facts: Collection[str] = (),
+) -> list[SearchTask]:
+    """Each query to each retriever able to answer it, nothing searched before, the most
+    urgent first. A query no retriever can answer is simply not searched."""
+    tasks: dict[str, SearchTask] = {}
+    for planned_query in queries:
+        validate(planned_query, facts=facts)
+        for retriever in retrievers:
+            if not can_answer(retriever, planned_query.query, planned_query.purpose):
+                continue
+            task = SearchTask(
+                query=planned_query.query,
+                retriever=retriever.name,
+                purpose=planned_query.purpose,
+                round=round_,
+                priority=planned_query.priority
+                + (_NETWORK if retriever.capabilities.network else 0),
+            )
+            if task.fingerprint in done or task.fingerprint in tasks:
+                continue
+            tasks[task.fingerprint] = task
+    ordered = sorted(tasks.values(), key=lambda task: task.priority)
+    if len(ordered) > MAX_TASKS_PER_ROUND:
+        raise InvalidPlanError(f"{len(ordered)} searches in one round")
+    return ordered
 
 
-def named_in(question: str, name: str) -> bool:
-    """Every word of the name stands in the question, in any case of the noun."""
-    asked = [_fold(word) for word in _WORD.findall(question)]
-    words = [_fold(word) for word in _WORD.findall(name)]
-    return bool(words) and all(any(_one_word(found, word) for found in asked) for word in words)
-
-
-def intake_messages(question: str) -> tuple[str, str]:
-    """(system, user). The question is data inside its own block."""
-    return prompt("intake"), f"<question>\n{question}\n</question>"
-
-
-def subject_from_reply(question: str, reply: ModelReply) -> str | None:
-    """The name the model read, or None when it gave none, gave something unreadable,
-    or named somebody the question does not hold."""
-    try:
-        name = _Intake.model_validate(json.loads(reply.text)).subject_name
-    except (ValueError, ValidationError):
-        return None
-    if name is None or not name.strip() or not named_in(question, name):
-        return None
-    return " ".join(name.split()[:_MAX_NAME_WORDS])
-
-
-def first_queries(name: str) -> list[InvestigationQuery]:
-    return [InvestigationQuery(kind="person", name=name)]
+def cap(tasks: Sequence[SearchTask], remaining: int) -> tuple[list[SearchTask], int]:
+    """The tasks a ceiling leaves, the most urgent first, and how many it cut."""
+    kept = list(tasks[: max(remaining, 0)])
+    return kept, len(tasks) - len(kept)

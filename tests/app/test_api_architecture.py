@@ -125,6 +125,8 @@ ROUTES_AFTER_SPLIT = [
     "GET /api/v1/cycle",
     "POST /api/v1/cycle/start",
     "POST /api/v1/cycle/runs/{run_id}/stop",
+    # A stored investigation run, read again by its id (ADR 0027).
+    "GET /api/v1/investigation/{run_id}",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

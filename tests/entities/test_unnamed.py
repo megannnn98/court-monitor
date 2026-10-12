@@ -14,17 +14,13 @@ from analysis.unnamed.figurants import (
     DIFFERENT,
     RF_ENTRY,
     SAME,
-    UnnamedAnswer,
     UnnamedFinder,
-    UnnamedItem,
-    UnnamedReaderError,
-    candidates,
     common_crime_only,
     decide,
-    described_sentences,
     keep,
     resolve_identity,
 )
+from analysis.unnamed.matching import candidates
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
@@ -35,6 +31,12 @@ from db.orm_models import (
     UnnamedScreenedRecord,
 )
 from processing.answers import input_hash
+from processing.evidence.unnamed import (
+    UnnamedAnswer,
+    UnnamedItem,
+    UnnamedReaderError,
+    described_sentences,
+)
 
 TYUMEN = (
     "В Тюмени задержан 17-летний житель города по делу о теракте на железной дороге. "

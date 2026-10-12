@@ -37,6 +37,7 @@ from db.models.extraction import (
     EventEntityMentionRecord,
     ExtractedEventRecord,
 )
+from db.models.investigation import InvestigationRunRecord
 from db.models.monitoring import (
     JunkScreenHoldRecord,
     MonitoringFindingRecord,
@@ -71,6 +72,7 @@ from db.models.rosfinmonitoring import (
     RosfinmonitoringSnapshotRecord,
 )
 from db.models.semantic import (
+    PublicationVectorRecord,
     SemanticDocumentRecord,
     SemanticIndexStateRecord,
     SemanticVectorCollectionRecord,
@@ -118,6 +120,7 @@ __all__ = [
     "EventEntityMentionRecord",
     "ExcludedPersonRecord",
     "ExtractedEventRecord",
+    "InvestigationRunRecord",
     "JunkScreenHoldRecord",
     "MonitoringFindingRecord",
     "MonitoringRunItemRecord",
@@ -131,6 +134,7 @@ __all__ = [
     "PersonRecord",
     "PersonResolutionAiReviewRecord",
     "PersonResolutionDecisionRecord",
+    "PublicationVectorRecord",
     "ReviewRecordModel",
     "RfmOperatorEntryRecord",
     "RosfinMatchRecord",

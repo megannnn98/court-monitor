@@ -210,6 +210,20 @@ export type ArticleResponse = {
 };
 
 /**
+ * ArticleSubject
+ */
+export type ArticleSubject = {
+    /**
+     * Kind
+     */
+    kind?: 'article';
+    /**
+     * Article Id
+     */
+    article_id: number;
+};
+
+/**
  * AskAnswerResponse
  *
  * A question asked, its answer and the counts it stands on.
@@ -587,6 +601,26 @@ export type CandidateRowResponse = {
 };
 
 /**
+ * CandidateSignal
+ *
+ * One reason a candidate fits an unnamed figurant, and what it weighs.
+ */
+export type CandidateSignal = {
+    /**
+     * Signal
+     */
+    signal: string;
+    /**
+     * Weight
+     */
+    weight: number;
+    /**
+     * Evidence
+     */
+    evidence?: Array<string>;
+};
+
+/**
  * CandidateTableResponse
  *
  * The candidates under the legacy page's filters, in its order; the Excel file of the
@@ -656,6 +690,30 @@ export type ComponentHealth = {
  * ComponentStatus
  */
 export type ComponentStatus = 'ok' | 'degraded' | 'unavailable' | 'not_configured';
+
+/**
+ * Conflict
+ *
+ * Two pieces of evidence that cannot both be right about one fact.
+ */
+export type Conflict = {
+    /**
+     * Fact
+     */
+    fact: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Evidence
+     */
+    evidence?: Array<string>;
+    /**
+     * Critical
+     */
+    critical?: boolean;
+};
 
 /**
  * CourtHintResponse
@@ -1225,11 +1283,19 @@ export type EvidenceItem = {
     /**
      * Source Type
      */
-    source_type: 'entity_group' | 'publication' | 'external';
+    source_type: 'entity_group' | 'publication' | 'rf_entry' | 'unnamed' | 'external';
     /**
      * Source Id
      */
     source_id: string;
+    /**
+     * Source Name
+     */
+    source_name?: string | null;
+    /**
+     * External Id
+     */
+    external_id?: string | null;
     /**
      * Url
      */
@@ -1238,6 +1304,10 @@ export type EvidenceItem = {
      * Article Id
      */
     article_id?: number | null;
+    /**
+     * Title
+     */
+    title?: string | null;
     /**
      * Entity Key
      */
@@ -1259,9 +1329,29 @@ export type EvidenceItem = {
      */
     published_at?: string | null;
     /**
+     * Retrieved At
+     */
+    retrieved_at?: string | null;
+    /**
      * Confidence
      */
     confidence?: number | null;
+    /**
+     * Score
+     */
+    score?: number | null;
+    /**
+     * Score Type
+     */
+    score_type?: 'exact_name' | 'declined_name' | 'ts_rank' | 'cosine' | 'rrf' | 'source_order' | null;
+    /**
+     * Query
+     */
+    query?: string | null;
+    /**
+     * Round
+     */
+    round?: number | null;
     /**
      * Fact
      */
@@ -1274,6 +1364,10 @@ export type EvidenceItem = {
      * Leads
      */
     leads?: Array<string>;
+    /**
+     * Retriever
+     */
+    readonly retriever: string;
 };
 
 /**
@@ -1373,9 +1467,57 @@ export type EvidenceSpanResponse = {
 };
 
 /**
+ * FactRequirement
+ *
+ * A fact a scenario expects of a result.
+ */
+export type FactRequirement = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Required
+     */
+    required?: boolean;
+};
+
+/**
  * FailureKind
  */
 export type FailureKind = 'retryable' | 'non_retryable';
+
+/**
+ * FigurantCandidate
+ *
+ * Who an unnamed figurant may be: a list entry or a person of the database.
+ */
+export type FigurantCandidate = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Kind
+     */
+    kind: 'rf_entry' | 'entity_group';
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Signals
+     */
+    signals?: Array<CandidateSignal>;
+};
 
 /**
  * Finding
@@ -1540,6 +1682,107 @@ export type InvestigationFoundResponse = {
 };
 
 /**
+ * InvestigationIntent
+ *
+ * What the question asks, structured. Rules read it; a model may help, within the
+ * same schema and the same checks.
+ */
+export type InvestigationIntent = {
+    /**
+     * Scenario
+     */
+    scenario: 'person_dossier' | 'identify_unnamed';
+    /**
+     * Subject Name
+     */
+    subject_name?: string | null;
+    /**
+     * Article Id
+     */
+    article_id?: number | null;
+    /**
+     * Requested Facts
+     */
+    requested_facts?: Array<string>;
+    /**
+     * Source Constraints
+     */
+    source_constraints?: Array<string>;
+    /**
+     * Read By
+     */
+    read_by?: 'rules' | 'model';
+};
+
+/**
+ * InvestigationPlan
+ *
+ * What the run will look for first, and where. Holds no text of a publication.
+ */
+export type InvestigationPlan = {
+    /**
+     * Scenario
+     */
+    scenario: 'person_dossier' | 'identify_unnamed';
+    /**
+     * Subject
+     */
+    subject?: PersonSubject | ArticleSubject | null;
+    /**
+     * Requirements
+     */
+    requirements?: Array<FactRequirement>;
+    /**
+     * Tasks
+     */
+    tasks?: Array<SearchTask>;
+};
+
+/**
+ * InvestigationQuery
+ *
+ * One question to the retrievers.
+ */
+export type InvestigationQuery = {
+    /**
+     * Kind
+     */
+    kind: 'person' | 'publication_terms' | 'keywords' | 'unnamed' | 'publication_people';
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Entity Key
+     */
+    entity_key?: string | null;
+    /**
+     * Terms
+     */
+    terms?: Array<string>;
+    /**
+     * Fact
+     */
+    fact?: string | null;
+    /**
+     * Article Id
+     */
+    article_id?: number | null;
+    /**
+     * Article Ids
+     */
+    article_ids?: Array<number>;
+    /**
+     * Published From
+     */
+    published_from?: string | null;
+    /**
+     * Published To
+     */
+    published_to?: string | null;
+};
+
+/**
  * InvestigationRequest
  */
 export type InvestigationRequest = {
@@ -1555,6 +1798,14 @@ export type InvestigationRequest = {
      * Local Only
      */
     local_only?: boolean;
+    /**
+     * Allowed Sources
+     */
+    allowed_sources?: Array<string>;
+    /**
+     * Scenario
+     */
+    scenario?: 'person_dossier' | 'identify_unnamed' | null;
 };
 
 /**
@@ -1569,6 +1820,16 @@ export type InvestigationResult = {
      * Question
      */
     question: string;
+    /**
+     * Run Id
+     */
+    run_id?: string | null;
+    /**
+     * Scenario
+     */
+    scenario?: 'person_dossier' | 'identify_unnamed' | null;
+    intent?: InvestigationIntent | null;
+    plan?: InvestigationPlan | null;
     subject?: Subject | null;
     /**
      * Findings
@@ -1587,6 +1848,14 @@ export type InvestigationResult = {
      */
     conflicts?: Array<string>;
     /**
+     * Conflict Details
+     */
+    conflict_details?: Array<Conflict>;
+    /**
+     * Candidates
+     */
+    candidates?: Array<FigurantCandidate>;
+    /**
      * Warnings
      */
     warnings?: Array<string>;
@@ -1595,6 +1864,39 @@ export type InvestigationResult = {
      */
     model_summary?: string | null;
     usage?: Usage;
+};
+
+/**
+ * InvestigationRun
+ */
+export type InvestigationRun = {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Scenario
+     */
+    scenario: string | null;
+    /**
+     * Round
+     */
+    round: number;
+    /**
+     * Usage
+     */
+    usage: {
+        [key: string]: unknown;
+    };
+    /**
+     * Failure
+     */
+    failure: string | null;
+    result: InvestigationResult | null;
 };
 
 /**
@@ -2685,6 +2987,20 @@ export type PersonResponse = {
 };
 
 /**
+ * PersonSubject
+ */
+export type PersonSubject = {
+    /**
+     * Kind
+     */
+    kind?: 'person';
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * PoliticalArticleResponse
  */
 export type PoliticalArticleResponse = {
@@ -3514,6 +3830,37 @@ export type RunStartedResponse = {
 };
 
 /**
+ * SearchTask
+ *
+ * One query to one retriever, and why it is asked.
+ */
+export type SearchTask = {
+    query: InvestigationQuery;
+    /**
+     * Retriever
+     */
+    retriever: string;
+    /**
+     * Purpose
+     */
+    purpose: string;
+    /**
+     * Round
+     */
+    round?: number;
+    /**
+     * Priority
+     */
+    priority?: number;
+    /**
+     * Fingerprint
+     *
+     * Same retriever, same query: the same search, whatever round or purpose.
+     */
+    readonly fingerprint: string;
+};
+
+/**
  * SentenceListResponse
  *
  * «Приговоры» under the filters, or (`view=hidden`) what was taken out.
@@ -4231,9 +4578,29 @@ export type Usage = {
      */
     search_calls?: number;
     /**
+     * Network Searches
+     */
+    network_searches?: number;
+    /**
+     * Local Searches
+     */
+    local_searches?: number;
+    /**
+     * Failed Searches
+     */
+    failed_searches?: number;
+    /**
      * Followup Rounds
      */
     followup_rounds?: number;
+    /**
+     * Evidence Items
+     */
+    evidence_items?: number;
+    /**
+     * Elapsed Ms
+     */
+    elapsed_ms?: number;
 };
 
 /**
@@ -4303,6 +4670,242 @@ export type WikiPageResponse = {
      * Html
      */
     html: string;
+};
+
+/**
+ * EvidenceItem
+ *
+ * One thing found, with where it comes from. `text` is quoted, never rewritten.
+ */
+export type EvidenceItemWritable = {
+    /**
+     * Ref
+     */
+    ref?: string;
+    /**
+     * Source Type
+     */
+    source_type: 'entity_group' | 'publication' | 'rf_entry' | 'unnamed' | 'external';
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Name
+     */
+    source_name?: string | null;
+    /**
+     * External Id
+     */
+    external_id?: string | null;
+    /**
+     * Url
+     */
+    url?: string | null;
+    /**
+     * Article Id
+     */
+    article_id?: number | null;
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Entity Key
+     */
+    entity_key?: string | null;
+    /**
+     * Span Start
+     */
+    span_start?: number | null;
+    /**
+     * Span End
+     */
+    span_end?: number | null;
+    /**
+     * Text
+     */
+    text: string;
+    /**
+     * Published At
+     */
+    published_at?: string | null;
+    /**
+     * Retrieved At
+     */
+    retrieved_at?: string | null;
+    /**
+     * Confidence
+     */
+    confidence?: number | null;
+    /**
+     * Score
+     */
+    score?: number | null;
+    /**
+     * Score Type
+     */
+    score_type?: 'exact_name' | 'declined_name' | 'ts_rank' | 'cosine' | 'rrf' | 'source_order' | null;
+    /**
+     * Query
+     */
+    query?: string | null;
+    /**
+     * Round
+     */
+    round?: number | null;
+    /**
+     * Fact
+     */
+    fact?: string | null;
+    /**
+     * Value
+     */
+    value?: string | null;
+    /**
+     * Leads
+     */
+    leads?: Array<string>;
+};
+
+/**
+ * InvestigationPlan
+ *
+ * What the run will look for first, and where. Holds no text of a publication.
+ */
+export type InvestigationPlanWritable = {
+    /**
+     * Scenario
+     */
+    scenario: 'person_dossier' | 'identify_unnamed';
+    /**
+     * Subject
+     */
+    subject?: PersonSubject | ArticleSubject | null;
+    /**
+     * Requirements
+     */
+    requirements?: Array<FactRequirement>;
+    /**
+     * Tasks
+     */
+    tasks?: Array<SearchTaskWritable>;
+};
+
+/**
+ * InvestigationResult
+ */
+export type InvestigationResultWritable = {
+    /**
+     * Status
+     */
+    status: 'completed' | 'partial' | 'clarification_required' | 'review_required' | 'failed';
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Run Id
+     */
+    run_id?: string | null;
+    /**
+     * Scenario
+     */
+    scenario?: 'person_dossier' | 'identify_unnamed' | null;
+    intent?: InvestigationIntent | null;
+    plan?: InvestigationPlanWritable | null;
+    subject?: Subject | null;
+    /**
+     * Findings
+     */
+    findings?: Array<Finding>;
+    /**
+     * Evidence
+     */
+    evidence?: Array<EvidenceItemWritable>;
+    /**
+     * Missing Information
+     */
+    missing_information?: Array<string>;
+    /**
+     * Conflicts
+     */
+    conflicts?: Array<string>;
+    /**
+     * Conflict Details
+     */
+    conflict_details?: Array<Conflict>;
+    /**
+     * Candidates
+     */
+    candidates?: Array<FigurantCandidate>;
+    /**
+     * Warnings
+     */
+    warnings?: Array<string>;
+    /**
+     * Model Summary
+     */
+    model_summary?: string | null;
+    usage?: Usage;
+};
+
+/**
+ * InvestigationRun
+ */
+export type InvestigationRunWritable = {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Scenario
+     */
+    scenario: string | null;
+    /**
+     * Round
+     */
+    round: number;
+    /**
+     * Usage
+     */
+    usage: {
+        [key: string]: unknown;
+    };
+    /**
+     * Failure
+     */
+    failure: string | null;
+    result: InvestigationResultWritable | null;
+};
+
+/**
+ * SearchTask
+ *
+ * One query to one retriever, and why it is asked.
+ */
+export type SearchTaskWritable = {
+    query: InvestigationQuery;
+    /**
+     * Retriever
+     */
+    retriever: string;
+    /**
+     * Purpose
+     */
+    purpose: string;
+    /**
+     * Round
+     */
+    round?: number;
+    /**
+     * Priority
+     */
+    priority?: number;
 };
 
 export type ListPersonsV1Data = {
@@ -6278,3 +6881,33 @@ export type PostInvestigationV1Responses = {
 };
 
 export type PostInvestigationV1Response = PostInvestigationV1Responses[keyof PostInvestigationV1Responses];
+
+export type GetInvestigationV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/investigation/{run_id}';
+};
+
+export type GetInvestigationV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetInvestigationV1Error = GetInvestigationV1Errors[keyof GetInvestigationV1Errors];
+
+export type GetInvestigationV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: InvestigationRun;
+};
+
+export type GetInvestigationV1Response = GetInvestigationV1Responses[keyof GetInvestigationV1Responses];

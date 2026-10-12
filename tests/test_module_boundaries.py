@@ -95,10 +95,11 @@ ORCHESTRATOR_MAY_IMPORT = frozenset(
     }
 )
 
-# What the investigation graph may import of the domain: the results API and nothing
-# else. It reads no table itself and never person resolution: the identity an
-# investigation works on is the entity group (ADR 0024).
-INVESTIGATION_MAY_IMPORT = frozenset({"results.service"})
+# What the investigation graph may import of the domain: the results API, and the
+# read-only search of configured sources (ADR 0027) — not the source adapters, not the
+# rest of ingestion. It reads no table itself and never person resolution: the identity
+# an investigation works on is the entity group (ADR 0024).
+INVESTIGATION_MAY_IMPORT = frozenset({"results.service", "ingestion.search"})
 
 # What a module keeps to itself. The console (`web/`, `api.py`) and the pipeline
 # commands reach these only through a service; the composition root builds them.
@@ -133,14 +134,15 @@ INTERNAL = frozenset(
         "analysis.persecution.classification_service",
         "results.findings",
         "results.dossier",
+        "results.search",
+        "results.figurant",
         "orchestrator.repository",
         "orchestrator.locks",
     }
 )
 # Where `INTERNAL` is closed: the console, the API and the commands of the pipeline. The
-# older single-module commands (`cli/ingestion.py`, `cli/extraction.py`, `cli_batches.py`
-# and the like) still build their module's parts themselves; they are listed in the plan
-# as what is left.
+# older single-module commands build their module's parts themselves and are held to
+# their own module instead (`MODULE_TOOLS`).
 CLOSED_TO_INTERNALS = (
     "web/",
     "api.py",
@@ -149,6 +151,76 @@ CLOSED_TO_INTERNALS = (
     "cli/cycle.py",
     "cli/investigation.py",
 )
+
+
+# What the console (`web/`, `api.py`) reads of the domain besides the services: each
+# module's public read contract — its vocabulary (labels, constants), its read models
+# (a row as a page shows it) and a person's decisions on it. They are named here, so a
+# page that starts to read anything else fails the test below; a module keeps the right
+# to change what is not listed. One service per page was not built: it would copy each
+# file's names (ADR 0025).
+CONSOLE_READ_MODELS = frozenset(
+    {
+        # the services
+        "analysis.service",
+        "processing.identity.service",
+        "results.candidates.service",
+        "airtable.service",
+        # vocabularies and read models
+        "airtable.config",
+        "airtable.files",
+        "airtable.models",
+        "analysis.news.case_news",
+        "analysis.operator_base.base_candidates",
+        "analysis.operator_base.base_unnamed",
+        "analysis.operator_base.jurisdiction",
+        "analysis.operator_base.known_base",
+        "analysis.operator_base.known_nameless",
+        "analysis.persecution.classifier",
+        "analysis.persecution.queries",
+        "analysis.politics.classification",
+        "analysis.rosfinmonitoring.inclusion_dates",
+        "analysis.rosfinmonitoring.rf_articles",
+        "analysis.rosfinmonitoring.rf_check",
+        "analysis.rosfinmonitoring.rf_entry",
+        "analysis.unnamed.matching",
+        "analysis.unnamed.named_candidates",
+        "ingestion.sources.source_registry",
+        "processing.evidence.publications",
+        "processing.evidence.regions",
+        "processing.evidence.unnamed",
+        "processing.extraction.name_frequency",
+        "processing.junk.holds",
+        "processing.junk.screen",
+        "processing.roles.officials",
+        "processing.roles.roles",
+        "results.ask",
+        "results.candidates.models",
+        "results.done_marks",
+        "results.models",
+        "results.queries.sentence_cases",
+        "results.queries.unnamed_cases",
+        # a person's decisions, and the actions of the junk-hold station
+        "analysis.unnamed.figurants",
+        "processing.junk.hold_reader",
+        "processing.junk.purge",
+        # the frozen ER v2 path's review (ADR 0024): the person endpoints' compatibility
+        "persons.resolution.review",
+    }
+)
+
+# The older single-module commands: maintenance tools of one module each, which build
+# that module's parts themselves. Each may reach into the modules named here and no
+# other; the ER v2 ones are marked «[legacy: ER v2]» in their help (ADR 0024).
+MODULE_TOOLS: dict[str, frozenset[str]] = {
+    "cli/ingestion.py": frozenset({"ingestion"}),
+    "cli/extraction.py": frozenset({"processing.extraction", "ingestion.sources.source_registry"}),
+    "cli/persons.py": frozenset({"persons", "processing.extraction"}),
+    "cli/persecution.py": frozenset({"analysis.persecution", "persons"}),
+    "cli/rosfinmonitoring.py": frozenset({"analysis.rosfinmonitoring"}),
+    "cli/candidates.py": frozenset({"results.candidates"}),
+    "cli_batches.py": frozenset({"processing.extraction", "analysis.rosfinmonitoring"}),
+}
 
 
 def _module_of(path: str) -> str:
@@ -288,8 +360,33 @@ def test_the_orchestrator_reaches_the_domain_only_through_public_apis() -> None:
     assert _domain_imports_outside(ORCHESTRATOR_MAY_IMPORT, "orchestrator/") == []
 
 
-def test_an_investigation_reaches_the_domain_only_through_the_results_api() -> None:
+def test_an_investigation_reaches_the_domain_only_through_its_public_read_apis() -> None:
     assert _domain_imports_outside(INVESTIGATION_MAY_IMPORT, "investigation/") == []
+
+
+def test_an_investigation_never_depends_on_er_v2() -> None:
+    offenders = sorted(
+        f"{path} -> {imported}"
+        for path, tree in _files("investigation/")
+        for imported in _imports(tree, path)
+        if imported.split(".")[0] == "persons"
+    )
+
+    assert offenders == []
+
+
+def test_a_source_search_fetches_nothing_but_its_own_source() -> None:
+    # The read-only search is not a way into the pipeline: it stores, extracts and
+    # groups nothing, so it imports no storage and no later stage.
+    offenders = sorted(
+        f"ingestion/search.py -> {imported}"
+        for path, tree in _files("ingestion/search.py")
+        for imported in _imports(tree, path)
+        if imported.split(".")[0] in ("db", "sqlalchemy", "processing", "analysis", "results")
+        or imported == "ingestion.sources.sqlalchemy_persistence"
+    )
+
+    assert offenders == []
 
 
 def test_an_investigation_runs_no_sql_of_its_own() -> None:
@@ -310,6 +407,41 @@ def test_dagster_only_schedules_the_orchestrator() -> None:
         for path, tree in _files("orchestrator/dagster/")
         for module in _imported_modules(tree, path)
         if module.split(".")[0] not in ("orchestrator", "application", "settings")
+    )
+
+    assert offenders == []
+
+
+def test_the_console_reads_the_domain_only_through_its_public_contracts() -> None:
+    offenders = sorted(
+        f"{path} -> {module}"
+        for path, tree in _files("web/", "api.py")
+        for module in _imported_modules(tree, path)
+        if module.split(".")[0] in _DOMAIN_PACKAGES and module not in CONSOLE_READ_MODELS
+    )
+
+    assert offenders == []
+
+
+def test_every_listed_console_contract_is_still_read() -> None:
+    # A contract nobody reads any more is taken off the list, not kept as a licence.
+    read = {
+        module
+        for path, tree in _files("web/", "api.py")
+        for module in _imported_modules(tree, path)
+    }
+
+    assert sorted(CONSOLE_READ_MODELS - read) == []
+
+
+def test_a_single_module_command_reaches_only_its_own_module() -> None:
+    offenders = sorted(
+        f"{path} -> {module}"
+        for path, allowed in MODULE_TOOLS.items()
+        for _, tree in _files(path)
+        for module in _imported_modules(tree, path)
+        if module.split(".")[0] in _DOMAIN_PACKAGES
+        and not any(module == prefix or module.startswith(f"{prefix}.") for prefix in allowed)
     )
 
     assert offenders == []
@@ -418,3 +550,58 @@ def test_identity_knows_nothing_of_person_resolution() -> None:
     )
 
     assert offenders == []
+
+
+# -- imports by a computed name ---------------------------------------------------------------
+
+# The calls that load a module by a name given as a value. Every rule above reads the
+# `import` statements of a file; a module loaded this way would pass them all unseen.
+_DYNAMIC_IMPORTS = frozenset({"import_module", "__import__", "run_module", "run_path"})
+
+
+def _dynamic_imports(tree: ast.AST) -> list[int]:
+    """The lines of a file that load a module by a computed name, or take hold of what
+    does: the function named in any way — called, imported under another name, kept in a
+    variable — is the same function."""
+    lines = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            # `from importlib import import_module as load`: `load(name)` names nothing.
+            if any(alias.name in _DYNAMIC_IMPORTS for alias in node.names):
+                lines.append(node.lineno)
+        elif (isinstance(node, ast.Attribute) and node.attr in _DYNAMIC_IMPORTS) or (
+            isinstance(node, ast.Name) and node.id in _DYNAMIC_IMPORTS
+        ):
+            # `importlib.import_module` itself, called or handed on.
+            lines.append(node.lineno)
+    return lines
+
+
+def test_no_module_is_loaded_by_a_computed_name() -> None:
+    """The boundary rules see `import` statements only. Rather than guess what a string
+    names, no file of `src/` loads a module by one."""
+    found = sorted(f"{path}:{line}" for path, tree in _files() for line in _dynamic_imports(tree))
+
+    assert found == []
+
+
+@pytest.mark.parametrize(
+    ("source", "dynamic"),
+    [
+        ("import importlib\nimportlib.import_module('analysis.unnamed.figurants')", True),
+        ("from importlib import import_module\nimport_module(name)", True),
+        ("module = __import__('persons')", True),
+        ("import runpy\nrunpy.run_module('cli.persons')", True),
+        # Under another name, and handed on in a variable.
+        ("from importlib import import_module as load\nload(name)", True),
+        ("import importlib\nload = importlib.import_module\nload(name)", True),
+        ("import importlib as lib\nlib.import_module(name)", True),
+        ("load = __import__\nload('persons')", True),
+        # An ordinary import inside a function is an `import` statement: the other rules
+        # see it. Asking whether a module exists loads nothing.
+        ("def late():\n    from analysis import service\n    return service", False),
+        ("import importlib.util\nimportlib.util.find_spec('sentence_transformers')", False),
+    ],
+)
+def test_a_module_loaded_by_a_computed_name_is_seen(source: str, dynamic: bool) -> None:
+    assert bool(_dynamic_imports(ast.parse(source))) is dynamic

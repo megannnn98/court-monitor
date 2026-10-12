@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from analysis.operator_base.base_candidates import base_candidates
 from analysis.operator_base.jurisdiction import Jurisdiction
-from analysis.unnamed.figurants import EXISTING_PERSON, IDENTIFIED, RF_ENTRY, candidates
+from analysis.unnamed.figurants import EXISTING_PERSON, IDENTIFIED, RF_ENTRY
+from analysis.unnamed.matching import candidates
 from analysis.unnamed.named_candidates import named_candidates, person_candidate_key
 from web.dependencies import get_db
 from web.response_models import (

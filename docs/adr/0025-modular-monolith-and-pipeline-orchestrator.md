@@ -52,9 +52,10 @@ orchestrator ..> analysis : AnalysisService
 orchestrator ..> results : ResultsService
 
 actor User as user
-component "investigation\n(LangGraph, ADR 0026)" as investigation
+component "investigation\n(LangGraph, ADR 0026, 0027)" as investigation
 user --> investigation
 investigation ..> results : ResultsService
+investigation ..> ingestion : ingestion.search\n(read-only source search)
 @enduml
 ```
 
@@ -65,7 +66,7 @@ investigation ..> results : ResultsService
 | `analysis` | the verdicts: political or not, on the Rosfinmonitoring list or not, the latest of a case, who an unnamed figurant may be; the list itself and the operator's reference lists (`airtable/`) | `analysis.service.AnalysisService` |
 | `results` | what a reader is shown: candidates, findings, rows folded into cases, a person's dossier, «Спросить» | `results.service.ResultsService` |
 | `orchestrator` | which stage runs when: the run lifecycle, checkpoints, advisory locks, heartbeat, failed items, stage metrics, the operator cycle and its operations, the Dagster definitions | `orchestrator.service.MonitoringService`, `orchestrator.cycle.OperatorCycle`, `orchestrator.runs.MonitoringRuns` |
-| `investigation` | one question about a person, answered from what is stored (ADR 0026) | `investigation.service.InvestigationService` |
+| `investigation` | one question — about a named person, or about whom a publication leaves unnamed — answered from what is stored and from configured sources outside (ADR 0026, 0027) | `investigation.service.InvestigationService` |
 
 Rules, each held by `tests/test_module_boundaries.py`:
 
@@ -118,28 +119,34 @@ services and the junk screen's implementation are not on it.
 - `airtable/` is classified with `analysis`: it holds the operator's reference lists
   and keys them with the extraction normalizer, so it was never shared infrastructure.
 
-### What is left
+### The refactor is closed
 
-- **The console still reads vocabularies and read models from module files.** The
-  pages import constants (`POLITICAL`, `FULL`, `KIND_LABELS`), readers
-  (`rf_entry`, `known_base`, `jurisdiction`) and a person's decisions on roles,
-  politics, unnamed figurants and junk holds from the files that define them. None is
-  on the internal list, and identity, runs, findings and the list's snapshot go through
-  services. One service per page was not built: it would be a second copy of each
-  file's names.
-- **The older single-module commands build their parts themselves**: `ingest-*`,
-  `extract-*`, `resolve-people`, `classify-persecution`, `match-rosfinmonitoring`,
-  `list-candidates` (`cli/ingestion.py`, `cli/extraction.py`, `cli/persons.py`,
-  `cli/persecution.py`, `cli/rosfinmonitoring.py`, `cli/candidates.py`,
-  `cli_batches.py`). They belong to the person path and are not closed to internals.
-- **`analysis/unnamed/figurants.py` is not split.** Reading the sentences that describe
-  an unnamed person is processing; matching them to the list is analysis. The file
-  does both and lives in `analysis`.
-- **Two classifiers and two matchers stay in `analysis`**: over entity groups
-  (`politics/`, `rosfinmonitoring/rf_check.py`) and over persons (`persecution/`,
-  `rosfinmonitoring/matcher.py`). The second pair is the monitoring run's and goes when
-  ER v2 goes, which is a separate decision (ADR 0024).
-- **`llm/cli_reviewer.py` and `llm/entity_reviewer.py`** implement a contract of
-  `persons` and still live in `llm/`.
-- Tests stay in the directories named after the old packages (`tests/entities/`,
-  `tests/monitoring/`, …).
+As of 2026-10-12 (branch `feat/complete-investigation-runtime`) the modularization is a
+finished project. Each item this ADR first listed as left has one status; what comes
+after is a feature, a bug, a performance or a maintenance task, not a further step of
+this refactor.
+
+| Item | Status | Where it stands |
+|---|---|---|
+| The console reads vocabularies and read models from module files | **done** | They are the modules' public read contracts, named in `CONSOLE_READ_MODELS` (`tests/test_module_boundaries.py`): a page that reads any other module file fails, and a listed one nobody reads fails too. One service per page is still not built, by design. |
+| The older single-module commands build their parts themselves (`ingest-*`, `extract-*`, `resolve-people`, `classify-persecution`, `match-rosfinmonitoring`, `list-candidates`, `cli_batches.py`) | **done** (rule) / **intentional legacy** (ER v2) | They are maintenance tools of one module each, held to it by `MODULE_TOOLS`. `resolve-people`, `classify-persecution`, `match-rosfinmonitoring`, `list-candidates` belong to the frozen ER v2 path and say «[legacy: ER v2]» in their help. |
+| `analysis/unnamed/figurants.py` is not split | **done** | Reading the sentences is `processing/evidence/unnamed.py`; matching to the list is `analysis/unnamed/matching.py`; `figurants.py` keeps the finder, the screening and a person's decisions; `AnalysisService.find_unnamed` stays the one workflow. |
+| Two classifiers and two matchers in `analysis` (entity groups; persons) | **intentional legacy** | The person pair is the monitoring run's and goes with ER v2 (ADR 0024). |
+| `llm/cli_reviewer.py`, `llm/entity_reviewer.py` implement a contract of `persons` | **intentional legacy** | ER v2's AI review; classified with `processing` by `MODULE_OF`, and goes with ER v2. |
+| Tests stay in directories named after the old packages | **intentional legacy** | Locations only; no rule depends on them, and moving them would cost history for nothing the boundary tests do not already hold. |
+| No semantic retrieval, no source outside the database (ADR 0026) | **done** | ADR 0027: scenarios, a retriever registry, lexical and optional dense retrieval fused by rank, a read-only search of configured Telegram channels, stored and resumable runs. |
+
+**ER v2 callers**, traced 2026-10-12: `orchestrator/service.py`
+(`PersonResolutionStage`: the automated monitoring run); `application.py` and
+`settings.py` (wiring, configuration); `analysis/pending.py` and
+`processing/junk/purge.py` (the run's pending persons; the purge's person records);
+`web/routers/reviews.py` (the person review endpoints); `cli/persons.py`,
+`cli/persecution.py`, `cli/areas.py` (the legacy commands); `evaluation/*` (tooling).
+The automated monitoring still needs it, so it stays; removing it is the separate
+decision of ADR 0024. **No investigation code depends on it**
+(`test_an_investigation_never_depends_on_er_v2`).
+
+**Two identity universes.** The person path's pages (`/persons`, `/candidates`, the
+findings on `/monitoring`) are reachable by address only, in the legacy menu and the new
+one alike; every page of the menu, the dossier and the investigation are entity groups.
+A reader following the console never meets a Person, so nothing was rerouted.

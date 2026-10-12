@@ -94,8 +94,14 @@ def _spaced(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
     return literal(" ").concat(func.translate(folded, _SEPARATORS, " " * len(_SEPARATORS)))
 
 
+# A surname declined as an adjective loses three letters: «Поднебесного» is
+# «Поднебесный», whose beginning is «поднебесн», not «поднебесно».
+_ADJECTIVE_ENDINGS = ("ого", "его", "ому", "ему")
+
+
 def _stem(word: str) -> str:
-    return word[: max(_MIN_STEM, len(word) - _ENDING)]
+    ending = 3 if word.endswith(_ADJECTIVE_ENDINGS) else _ENDING
+    return word[: max(_MIN_STEM, len(word) - ending)]
 
 
 def find_entities(session: Session, name: str, *, limit: int) -> list[EntityHit]:
@@ -187,8 +193,10 @@ _EVIDENCE = text(
     SELECT e.article_id, e.title, e.canonical_url, e.source, e.published_at, e.quote,
            e.quote_start
     FROM person_evidence e
-    JOIN entity_groups g ON g.id = e.group_id
-    WHERE g.key = :key
+    -- The group as a scalar: its id is pushed into both branches of the evidence, so
+    -- only this person's mentions are read. Joined instead, the whole evidence of
+    -- every person was built and hashed first (150 ms on 1 600 articles, 2026-10-12).
+    WHERE e.group_id = (SELECT g.id FROM entity_groups g WHERE g.key = :key)
     ORDER BY e.published_at DESC NULLS LAST, e.article_id DESC, e.quote_start
     LIMIT :limit
     """
@@ -200,11 +208,10 @@ _ARTICLE_TEXTS = text(
     SELECT DISTINCT a.id AS article_id, a.title, d.canonical_url, s.name AS source,
            a.published_at, a.text
     FROM person_evidence e
-    JOIN entity_groups g ON g.id = e.group_id
     JOIN parsed_articles a ON a.id = e.article_id
     JOIN source_documents d ON d.id = a.document_id
     JOIN sources s ON s.id = d.source_id
-    WHERE g.key = :key
+    WHERE e.group_id = (SELECT g.id FROM entity_groups g WHERE g.key = :key)
     ORDER BY a.published_at DESC NULLS LAST, a.id DESC
     LIMIT :articles
     """
@@ -299,3 +306,49 @@ def stored_publication_quotes(session: Session, name: str, *, limit: int) -> lis
     ).all()
     # The longest word is the likeliest surname: quote the text around it.
     return _quotes_of(rows, [max(stems, key=len)], limit=limit)
+
+
+@dataclass(frozen=True)
+class EntityProfile:
+    """What the group's own record says of the person beside the verdicts: the forms
+    of the name the news wrote, the regions of the registry cards, the list entries the
+    name matched. Two people in one group show here first."""
+
+    key: str
+    name: str
+    gender: str | None
+    # (form, mentions), most frequent first.
+    variants: list[tuple[str, int]]
+    # (region, publications), most named first.
+    regions: list[tuple[str, int]]
+    # (full name, birth date ISO) of the list entries matched.
+    rf_entries: list[tuple[str, str]]
+
+
+_RF_ENTRIES = text(
+    """
+    SELECT DISTINCT e.full_name, e.birth_date::date AS birth_date
+    FROM entity_group_rf_matches m
+    JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
+    WHERE m.group_id = :group_id AND e.birth_date IS NOT NULL
+    ORDER BY e.full_name, birth_date
+    """
+)
+
+
+def entity_profile(session: Session, key: str) -> EntityProfile | None:
+    group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    if group is None:
+        return None
+    rf_entries = [
+        (row.full_name, row.birth_date.isoformat())
+        for row in session.execute(_RF_ENTRIES, {"group_id": group.id})
+    ]
+    return EntityProfile(
+        key=group.key,
+        name=group.name,
+        gender=group.gender,
+        variants=[(str(form), int(count)) for form, count in group.variants or []],
+        regions=[(str(region), int(count)) for region, count in group.regions or []],
+        rf_entries=rf_entries,
+    )

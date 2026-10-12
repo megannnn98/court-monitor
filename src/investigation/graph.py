@@ -1,20 +1,27 @@
 """The investigation as a LangGraph state graph: explicit nodes, one bounded loop.
 
-    START → intake ─┬─ no name ──────────────────────────────────────────→ report → END
-                    └→ plan ─→ search × (query, retriever) ─→ merge_evidence → coverage
-                                  ↑        in parallel                            │
-                                  │                              enough, or the   │
-                                  └──── follow_up ←── gaps ──────  limit reached ─┴→ report
+    START ─┬→ intake ─┬─ nothing to look up ──────────────────────────────→ report → END
+           │          └→ plan ─→ search × task ─→ merge_evidence → coverage
+           │                       ↑   in parallel, bounded             │
+           │                       │                     enough, no new │
+           │                       └── follow_up ←── gaps ──  search,  ─┴→ report
+           └→ (resumed) merge_evidence                        or limits
 
-The loop runs at most `Limits.max_followups` times. Nothing here is an agent: which
-node follows which is decided by the two routing functions below, from the state alone.
+The loop runs at most `Limits.max_followups` times, never repeats a search, and stops
+when no new search could find what is missing. Nothing here is an agent: which node
+follows which is decided by the routing functions below, from the state alone; no
+model and no text found chooses a node, a retriever or a source. The graph is the same
+for every scenario: what a scenario looks for is the scenario's (`scenarios/`).
 """
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Protocol
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send
@@ -22,13 +29,19 @@ from langgraph.types import Send
 from investigation import nodes
 from investigation.models import Limits, Usage
 from investigation.nodes import Toolbox
+from investigation.runs import RunStore
+from investigation.scenarios.registry import ScenarioRegistry, default_scenarios
 from investigation.services.model import InvestigationModel
-from investigation.services.retrieval import InvestigationRetriever, usable
-from investigation.state import InvestigationState, SearchTask
+from investigation.services.retrieval import InvestigationRetriever, RetrieverRegistry
+from investigation.state import InvestigationState, SearchBranch
 
 Graph = CompiledStateGraph[InvestigationState, None, InvestigationState, InvestigationState]
 
 MERGE = "merge_evidence"
+# Where a run keeps its free search slots: `config["configurable"][SLOTS]`.
+SLOTS = "search_slots"
+# And the local searches nobody waits for any more, still working (`nodes._within_a_slot`).
+UNFINISHED = "unfinished_searches"
 
 
 StateNode = Callable[[InvestigationState, Toolbox], Awaitable[dict[str, Any]]]
@@ -46,33 +59,74 @@ def _node(node: StateNode, tools: Toolbox) -> _Step:
 
 
 def build_graph(
-    retrievers: Sequence[InvestigationRetriever], *, model: InvestigationModel | None = None
+    retrievers: Sequence[InvestigationRetriever] | RetrieverRegistry,
+    *,
+    model: InvestigationModel | None = None,
+    scenarios: ScenarioRegistry | None = None,
+    runs: RunStore | None = None,
 ) -> Graph:
-    tools = Toolbox(retrievers={retriever.name: retriever for retriever in retrievers}, model=model)
-
-    def after_intake(state: InvestigationState) -> str:
-        return "plan" if state.get("subject") is not None else "report"
+    registry = (
+        retrievers if isinstance(retrievers, RetrieverRegistry) else RetrieverRegistry(retrievers)
+    )
+    tools = Toolbox(
+        retrievers=registry,
+        scenarios=scenarios or default_scenarios(),
+        model=model,
+        runs=runs,
+    )
 
     def fan_out(state: InvestigationState) -> list[Send] | str:
-        """Every query of the round to every retriever allowed, each in its own branch."""
-        allowed = usable(retrievers, local_only=state.get("local_only", False))
-        tasks = [
-            Send("search", SearchTask(query=query, retriever=retriever.name))
-            for query in state.get("queries", [])
-            for retriever in allowed
+        """Each task of the round in its own branch: only the tasks the planner made,
+        so only queries a retriever can answer, nothing searched before."""
+        limits = state.get("limits") or Limits()
+        intent = state.get("intent")
+        sends = [
+            Send(
+                "search",
+                SearchBranch(
+                    task=task,
+                    run_id=state.get("run_id"),
+                    scenario=intent.scenario if intent else "",
+                    deadline=state.get("deadline", float("inf")),
+                    search_timeout=float(limits.search_timeout_seconds),
+                ),
+            )
+            for task in state.get("tasks", [])
         ]
-        return tasks or MERGE
+        return sends or MERGE
+
+    def start(state: InvestigationState) -> list[Send] | str:
+        # A resumed run first makes the searches of its round that were never made;
+        # with none left it goes on from what it found.
+        return fan_out(state) if state.get("resumed") else "intake"
+
+    def after_intake(state: InvestigationState) -> str:
+        return "plan" if state.get("subject_ref") is not None else "report"
 
     def after_coverage(state: InvestigationState) -> str:
         assessment = state.get("coverage")
         limits = state.get("limits") or Limits()
-        rounds = (state.get("usage") or Usage()).followup_rounds
-        if assessment is None or assessment.enough or rounds >= limits.max_followups:
+        usage = state.get("usage") or Usage()
+        if (
+            assessment is None
+            or not assessment.follow_up_tasks
+            or usage.followup_rounds >= limits.max_followups
+            or usage.search_calls >= limits.max_searches
+            or time.time() >= state.get("deadline", float("inf"))
+        ):
             return "report"
         return "follow_up"
 
-    async def search(state: SearchTask) -> dict[str, Any]:
-        return await nodes.search(state, tools)
+    async def search(state: SearchBranch, config: RunnableConfig) -> dict[str, Any]:
+        configurable = config.get("configurable") or {}
+        slots = configurable.get(SLOTS)
+        unfinished = configurable.get(UNFINISHED)
+        return await nodes.search(
+            state,
+            tools,
+            slots if isinstance(slots, asyncio.Semaphore) else None,
+            unfinished if isinstance(unfinished, set) else None,
+        )
 
     builder = StateGraph(InvestigationState)
     builder.add_node("intake", _node(nodes.intake, tools))
@@ -83,7 +137,7 @@ def build_graph(
     builder.add_node("follow_up", _node(nodes.follow_up, tools))
     builder.add_node("report", _node(nodes.report, tools))
 
-    builder.add_edge(START, "intake")
+    builder.add_conditional_edges(START, start, ["intake", "search", MERGE])
     builder.add_conditional_edges("intake", after_intake, ["plan", "report"])
     builder.add_conditional_edges("plan", fan_out, ["search", MERGE])
     builder.add_edge("search", MERGE)
