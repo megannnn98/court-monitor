@@ -8,11 +8,11 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from entities.news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE
-from entities.rf_articles import AWAITED
-from entities.rf_check import FULL
-from entities.rf_entry import entry_included_text
-from persecution.classifier import POLITICAL_ARTICLES
+from analysis.news.case_news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE
+from analysis.persecution.classifier import POLITICAL_ARTICLES
+from analysis.rosfinmonitoring.rf_articles import AWAITED
+from analysis.rosfinmonitoring.rf_check import FULL
+from analysis.rosfinmonitoring.rf_entry import entry_included_text
 from web.dependencies import get_db
 from web.exports import is_web_link
 from web.response_models import (

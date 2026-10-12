@@ -8,9 +8,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.operator_base.base_candidates import (
+    article_numbers,
+    base_candidate_key,
+    base_candidates,
+)
+from analysis.unnamed.figurants import DIFFERENT, SAME, SUPPLIED_NAME, decide, resolve_identity
 from db.orm_models import AirtableKnownPersonRecord
-from entities.base_candidates import article_numbers, base_candidate_key, base_candidates
-from entities.unnamed import DIFFERENT, SAME, SUPPLIED_NAME, decide, resolve_identity
 
 NEWS = datetime(2026, 6, 11, tzinfo=UTC)
 

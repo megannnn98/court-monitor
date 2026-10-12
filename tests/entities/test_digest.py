@@ -15,8 +15,8 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityMentionRecord,
 )
-from entities.collector import EntityCollector
-from entities.digest import DigestAnswer, DigestFinder, figurant_titles
+from processing.evidence.digest import DigestAnswer, DigestFinder, figurant_titles
+from processing.identity.collector import EntityCollector
 
 
 def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name: str) -> int:

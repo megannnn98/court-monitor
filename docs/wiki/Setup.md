@@ -43,6 +43,7 @@ uv run python src/main.py validate-config
 | `ENTITY_NORMALIZE_MODEL` | модель OpenRouter для этих шагов; по умолчанию `deepseek/deepseek-v4.1-flash` |
 | `ASK_DAILY_BUDGET_USD` | сколько за день могут потратить вопросы страницы «Спросить» ([Ask](Ask.md)), по умолчанию `1` |
 | `ENTITY_MODEL_BUDGET_USD` | сколько может потратить один запуск шага, по умолчанию `2`; что не спросили — спросит следующий запуск |
+| `INVESTIGATION_MAX_LLM_CALLS`, `INVESTIGATION_MAX_FOLLOWUPS`, `INVESTIGATION_MAX_EVIDENCE_ITEMS` | потолки одного вопроса `investigate` ([ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)): обращений к модели `2`, дополнительных раундов поиска `2`, материалов в ответе `40`. Читаются из окружения процесса; `compose.yaml` их в контейнер не передаёт, там действуют значения по умолчанию |
 | `PIPELINE_SINCE` | рабочая дата (`YYYY-MM-DD`): шаг 2 удаляет публикации раньше неё; в `compose.yaml` — `2026-09-20`; пусто — по дате не удаляется |
 
 Для Docker Compose также используются:

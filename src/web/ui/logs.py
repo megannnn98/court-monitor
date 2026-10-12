@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from operator_console import (
+from orchestrator.operations import (
     OperationNotFoundError,
     OperationRegistry,
     OperationRun,

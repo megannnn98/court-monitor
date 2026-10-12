@@ -2,7 +2,7 @@
 
 import pytest
 
-from rosfinmonitoring.match_evaluation import (
+from analysis.rosfinmonitoring.match_evaluation import (
     compute_rosfin_match_metrics,
 )
 

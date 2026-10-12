@@ -5,11 +5,14 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
+from analysis.persecution.classification_service import PersecutionClassificationService
+from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from db.orm_models import PersonRecord
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
-from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.resolution_service import ExtractionResolutionService
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
@@ -18,10 +21,7 @@ from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
-from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from rosfinmonitoring.persistence import RosfinmonitoringPersistence
+from results.candidates.service import CandidateQueryService
 
 
 def test_end_to_end_pipeline(session_factory: sessionmaker[Session]) -> None:

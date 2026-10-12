@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityMentionRecord
-from entities.collector import EntityCollector
+from processing.identity.collector import EntityCollector
 from web import investigation_graph
 from web.app import app
 from web.dependencies import get_db

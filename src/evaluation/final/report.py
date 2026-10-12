@@ -9,14 +9,14 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from analysis.persecution.classifier import RuleBasedPersecutionClassifier
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from evaluation.final.corpus import FinalCorpus
 from evaluation.final.models import CaseResult, Counts, FinalEvaluationReport, GateResult
-from persecution.classifier import RuleBasedPersecutionClassifier
 from persons.resolution.service import RESOLVER_VERSION
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 
 # Hard safety gates: a false statement about a real person is never acceptable.
 MAX_FALSE_PERSON_LINKS = 0

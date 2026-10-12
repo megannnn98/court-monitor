@@ -98,6 +98,7 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/v1/junk-holds/junk-all",
     "POST /api/v1/junk-holds/release",
     "POST /api/v1/junk-holds/unrelease",
+    "POST /api/v1/investigation",
     "POST /api/v1/junk-holds/hold",
     "POST /api/v1/junk-holds/reextract",
     "GET /api/v1/ask",

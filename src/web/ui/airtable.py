@@ -30,18 +30,18 @@ from airtable.service import (
     build_sync_service,
     build_sync_source,
 )
+from application import build_analysis_service
 from db.orm_models import (
     AirtableKnownPersonRecord,
     CriminalArticleRecord,
     ExcludedPersonRecord,
     Source,
 )
-from operator_console import (
+from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
 )
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _page
 from web.ui.officials_list import REFERENCE_URL as OFFICIALS_URL
@@ -99,7 +99,7 @@ def _inventory(db: Session) -> list[tuple[str, str, int]]:
 def _official_html(db: Session) -> str:
     """Which published list the database is working against right now."""
     session_factory = session_factory_for(db)
-    summary = SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory).latest_imported_snapshot()
+    summary = build_analysis_service(session_factory).latest_snapshot()
     if summary is None:
         return '<p class="warning">Перечень ещё не загружен: сверить людей с ним не с чем.</p>'
     return (
@@ -150,9 +150,7 @@ def airtable_overview(db: Session) -> Overview:
 
 def official_summary(db: Session) -> Any:
     """The published list the database works against now; None before the first."""
-    return SqlAlchemyRosfinmonitoringSnapshotLookup(
-        session_factory_for(db)
-    ).latest_imported_snapshot()
+    return build_analysis_service(session_factory_for(db)).latest_snapshot()
 
 
 @router.get("/ui/airtable", response_class=HTMLResponse)

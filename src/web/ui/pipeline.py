@@ -12,7 +12,7 @@ cycle. The step that may run now comes from the latest monitor run alone:
 
 «Сделать всё» runs the steps from the current one to the last by one press: each step is
 still a run of its own, and a chained step that ends well starts the next
-(`operator_console.OperationRegistry._continue_chain`). What the page says of a chain —
+(`orchestrator.operations.OperationRegistry._continue_chain`). What the page says of a chain —
 the question before it, the note under a live step, the word when it stopped — is here.
 """
 
@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from html import escape
 
-from operator_console import OperationRegistry, OperationRun, OperationRunStatus
+from orchestrator.operations import OperationRegistry, OperationRun, OperationRunStatus
 from web.ui import spend
 
 OPERATION = "monitor"

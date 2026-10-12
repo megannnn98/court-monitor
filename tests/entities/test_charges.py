@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupChargeRecord, EntityGroupRecord, EntityMentionRecord
-from entities.collector import EntityCollector
+from processing.identity.collector import EntityCollector
 
 
 def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name: str) -> int:

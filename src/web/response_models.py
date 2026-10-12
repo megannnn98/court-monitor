@@ -876,7 +876,7 @@ class UnnamedCardResponse(BaseModel):
     facts: str
     explanation: str
     has_age: bool
-    # The operator's word: "" none, or the resolution (`entities.unnamed`).
+    # The operator's word: "" none, or the resolution (`analysis.unnamed.figurants`).
     resolution: str
     identified_as: str | None
     # How it was identified, and when, said in words.
@@ -1073,7 +1073,7 @@ class AskAnswerResponse(BaseModel):
     id: int
     question: str
     answer: str
-    # "answered", "refused", "failed" (`entities.ask`).
+    # "answered", "refused", "failed" (`results.ask`).
     outcome: str
     asked_at: datetime
     model: str

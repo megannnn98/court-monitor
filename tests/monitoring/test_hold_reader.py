@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import ExtractedEventRecord, JunkScreenHoldRecord, ParsedArticleRecord
-from entities.llm import ModelError, Spend
-from monitoring.hold_reader import (
+from llm.chat import ModelError, Spend
+from processing.junk.hold_reader import (
     EXTRACTOR_NAME,
     RELEASED,
     HoldAnswer,
@@ -19,9 +19,9 @@ from monitoring.hold_reader import (
     read_holds,
     release,
 )
-from monitoring.junk_holds import mark_junk
-from monitoring.junk_purge import JunkPurge
-from monitoring.junk_screen import HELD
+from processing.junk.holds import mark_junk
+from processing.junk.purge import JunkPurge
+from processing.junk.screen import HELD
 
 TEXTS = {
     "donation": "Наталью Голощукову признали виновной\nСуд назначил ей срок за донаты ФБК.",

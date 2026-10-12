@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from entities.regions import REGIONS, canonical
+from processing.evidence.regions import REGIONS, canonical
 
 
 def test_the_list_is_the_federations() -> None:

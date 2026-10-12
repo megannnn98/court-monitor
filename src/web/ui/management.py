@@ -14,11 +14,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
+from application import build_monitoring_runs
 from db.orm_models import MonitoringRunRecord
 from ingestion.sources.source_registry import news_sources
-from monitoring.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
-from monitoring.repository import SqlAlchemyMonitoringRepository
-from operator_console import (
+from orchestrator.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
+from orchestrator.operations import (
     OperationConflictError,
     OperationNotFoundError,
     OperationParameters,
@@ -273,7 +273,7 @@ def _busy_sources(db: Session, run: OperationRun, sources: Sequence[str]) -> set
 
 def _monitoring_runs(db: Session, run: OperationRun) -> list[MonitoringRunView]:
     """The monitoring runs of one manual run: one per source, then the shared derived one."""
-    return SqlAlchemyMonitoringRepository(session_factory_for(db)).list_runs_started_between(
+    return build_monitoring_runs(session_factory_for(db)).list_runs_started_between(
         run.started_at or run.created_at,
         run.finished_at,
         trigger=MonitoringTrigger.MANUAL,

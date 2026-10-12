@@ -1,6 +1,6 @@
 """Non-blocking PostgreSQL advisory locks for work that must happen once at a time.
 
-`monitoring.locks.advisory_lock` waits for a held lock; this one never does, so the
+`orchestrator.locks.advisory_lock` waits for a held lock; this one never does, so the
 caller can refuse instead of queueing. The lock is session-level and released on any
 exit, including a crash of the process: nothing is left held by a dead worker.
 """

@@ -14,8 +14,8 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityMentionRecord,
 )
-from entities.collector import EntityCollector
-from entities.disputes import (
+from processing.identity.collector import EntityCollector
+from processing.identity.disputes import (
     DIFFERENT,
     SAME,
     EntityRef,
@@ -23,7 +23,7 @@ from entities.disputes import (
     find_pairs,
     merge_decided,
 )
-from entities.grouping import Entity
+from processing.identity.grouping import Entity
 
 
 def ref(id_: int, key: str, name: str, mentions: int = 1) -> EntityRef:
@@ -205,7 +205,7 @@ def test_a_full_name_beside_its_cards_of_several_regions_is_a_pair_each() -> Non
 
 
 def test_a_decision_made_before_the_region_entered_the_key_still_holds() -> None:
-    from entities.disputes import resolve_keys
+    from processing.identity.disputes import resolve_keys
 
     decided = [("мария бонцлер", "мария владимировна бонцлер")]
     one_card = ["мария бонцлер", "мария владимировна бонцлер · москва"]
@@ -227,7 +227,7 @@ def test_a_decision_made_before_the_region_entered_the_key_still_holds() -> None
 
 def test_a_decision_holds_when_the_rules_cut_the_surname_another_way() -> None:
     """«навальный» became «навальн» once adjective endings counted."""
-    from entities.disputes import resolve_keys
+    from processing.identity.disputes import resolve_keys
 
     decided = [("алексей анатольевич навальный · москва", "алексей навальный")]
     today = ["алексей анатольевич навальн · москва", "алексей навальн", "алексей навальн · тверь"]

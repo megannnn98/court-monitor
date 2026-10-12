@@ -2,7 +2,7 @@
 
 Two kinds of people stand on the list — the entities with a political verdict, and the
 figurants a publication does not name whose case goes by a political article
-(`entities.unnamed_cases`). Each becomes a `ListRow` here, and from then on nothing asks
+(`results.queries.unnamed_cases`). Each becomes a `ListRow` here, and from then on nothing asks
 which kind it is: the filters, the page and the Excel file read the row.
 
 Everyone of the result is read first, in two steps, and the filters are applied to the
@@ -21,17 +21,17 @@ from urllib.parse import quote
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from analysis.news.case_news import NEW_CASE, ONGOING, OTHER, SENTENCE
+from analysis.operator_base.known_base import KnownBase, KnownMatch
+from analysis.operator_base.known_nameless import NamelessBase
+from analysis.politics.classification import MEMORIAL_CATEGORIES, POLITICAL
+from analysis.rosfinmonitoring.rf_articles import AWAITED, Listing, listing
+from analysis.rosfinmonitoring.rf_check import FULL
+from analysis.rosfinmonitoring.rf_entry import strongest_entries
 from db.orm_models import EntityGroupNewsRecord, EntityGroupPoliticsRecord, EntityGroupRecord
-from entities.done_marks import Marks, done_marks, is_done
-from entities.evidence import person_evidence_cte
-from entities.known_base import KnownBase, KnownMatch
-from entities.known_nameless import NamelessBase
-from entities.news import NEW_CASE, ONGOING, OTHER, SENTENCE
-from entities.politics import MEMORIAL_CATEGORIES, POLITICAL
-from entities.rf_articles import AWAITED, Listing, listing
-from entities.rf_check import FULL
-from entities.rf_entry import strongest_entries
-from entities.unnamed_cases import KEY_PREFIX, Case, political_cases
+from processing.evidence.publications import person_evidence_cte
+from results.done_marks import Marks, done_marks, is_done
+from results.queries.unnamed_cases import KEY_PREFIX, Case, political_cases
 from web.ui.entities import _articles_by_group, display_name, regions_text
 from web.ui.political_filters import Filters
 
@@ -105,7 +105,7 @@ class ListRow:
     rf_level: str | None = None
     rf_entry: str = ""
     # When this entry of the перечень appeared, if the ОВД-Инфо copy says. It describes
-    # the entry, not the person; see `entities.rf_entry.entry_included_text`.
+    # the entry, not the person; see `analysis.rosfinmonitoring.rf_entry.entry_included_text`.
     rf_inclusion_date: datetime | None = None
     rf_inclusion_source: str | None = None
     # What the operator's base says of this person; None: nobody by this name there.

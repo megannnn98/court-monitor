@@ -9,16 +9,8 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityMentionRecord,
-)
-from entities.collector import EntityCollector
-from entities.known_base import TrackedCase
-from entities.politics import (
+from analysis.operator_base.known_base import TrackedCase
+from analysis.politics.classification import (
     NAMELESS,
     POLITICAL,
     PoliticsAnswer,
@@ -32,9 +24,17 @@ from entities.politics import (
     nameless,
     verdict_of,
 )
-from entities.rf_check import EntityRfCheck
-from entities.roles import quotes_of
-from monitoring.hold_reader import add_event
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
+from db.orm_models import (
+    AirtableKnownPersonRecord,
+    EntityGroupPoliticsRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityMentionRecord,
+)
+from processing.identity.collector import EntityCollector
+from processing.junk.hold_reader import add_event
+from processing.roles.roles import quotes_of
 
 RF_PAGE = """<!doctype html><html>
 <div class="panel-heading"><h4>Физические лица</h4></div>

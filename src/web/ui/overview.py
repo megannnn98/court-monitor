@@ -14,10 +14,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from analysis.news.case_news import NEW_CASE, SENTENCE
+from analysis.politics.classification import POLITICAL
+from analysis.unnamed.figurants import Candidates, candidates
 from db.orm_models import UnnamedFigurantRecord
-from entities.news import NEW_CASE, SENTENCE
-from entities.politics import POLITICAL
-from entities.unnamed import Candidates, candidates
 from web.dependencies import get_db
 from web.ui.entities import display_name
 from web.ui.layout import _page

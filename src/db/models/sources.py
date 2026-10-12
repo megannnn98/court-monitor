@@ -130,9 +130,9 @@ class ArticleSentenceReadingRecord(Base):
 
 
 class ArticleSentenceRecord(Base):
-    """One person's sentence as one article tells it (`entities.sentences`): where, what
+    """One person's sentence as one article tells it (`processing.evidence.sentences`): where, what
     punishment, for what. The same sentence told by five articles is five rows;
-    `entities.sentence_cases` folds them into one case."""
+    `results.queries.sentence_cases` folds them into one case."""
 
     __tablename__ = "article_sentences"
 
@@ -144,7 +144,7 @@ class ArticleSentenceRecord(Base):
     person: Mapped[str] = mapped_column(Text, nullable=False)
     # «фамилия имя» folded, when the article gives both; None for a person it does not name.
     person_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # A subject of `entities.regions`; «» when the article does not tell.
+    # A subject of `processing.evidence.regions`; «» when the article does not tell.
     region: Mapped[str] = mapped_column(String(64), nullable=False)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     # 0: not told.
@@ -162,7 +162,7 @@ class ArticleSentenceRecord(Base):
 
 
 class ChatQuestionRecord(Base):
-    """A question asked on «Спросить» (`entities.ask`): what was asked, which counts the
+    """A question asked on «Спросить» (`results.ask`): what was asked, which counts the
     model called for, what they gave, what it answered and what it cost."""
 
     __tablename__ = "chat_questions"

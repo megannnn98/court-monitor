@@ -17,13 +17,13 @@ from typing import Any
 
 from sqlalchemy import create_engine, text
 
-from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
 from processing.extraction.documents import content_hash_for_text
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.models import ArticleExtractionResult, ExtractionDocument
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.pipeline import ExtractionPipeline
+from processing.junk.purge import CRIMINAL_EVENT_TYPES
 
 # Words of a criminal case, crude on purpose: an article without any of them is not where
 # the extraction misses a case.

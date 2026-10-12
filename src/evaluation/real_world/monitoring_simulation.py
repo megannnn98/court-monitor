@@ -26,7 +26,6 @@ from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
 from db.orm_models import MonitoringFindingRecord, MonitoringRunRecord
 from evaluation.real_world.corpus_run import (
     CorpusRunner,
@@ -50,9 +49,10 @@ from evaluation.real_world.state_snapshot import (
     logical_snapshot,
     table_counts,
 )
-from monitoring.service import MonitoringService
+from orchestrator.service import MonitoringService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
+from results.candidates.service import CandidateQueryService
 
 logger = logging.getLogger("evaluation.real_world")
 
@@ -396,8 +396,8 @@ def postgres_interruption(
     """A database error while extracting one article: bounded transaction, others commit."""
     runner.rebuild_service()
     runner.reset(rf_snapshot)
-    documents = runner.service._deps.extraction_documents  # controlled failure injection
-    original = documents.get_by_article_id
+    processing = runner.service._deps.processing  # controlled failure injection
+    original = processing.extract_article
     target: dict[str, int | None] = {"article": None}
 
     def failing(article_id: int) -> Any:
@@ -409,11 +409,11 @@ def postgres_interruption(
             )
         return original(article_id)
 
-    documents.get_by_article_id = failing  # type: ignore[method-assign]
+    processing.extract_article = failing  # type: ignore[method-assign]
     try:
         run = runner.run_period("pg-failure", articles)
     finally:
-        documents.get_by_article_id = original  # type: ignore[method-assign]
+        processing.extract_article = original  # type: ignore[method-assign]
     with runner.engine.connect() as connection:
         partial = int(
             connection.execute(

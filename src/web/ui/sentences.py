@@ -1,5 +1,5 @@
-"""«Приговоры»: the sentences a model read from the articles (`entities.sentences`),
-folded into cases (`entities.sentence_cases`) — what «Спросить» counts over.
+"""«Приговоры»: the sentences a model read from the articles (`processing.evidence.sentences`),
+folded into cases (`results.queries.sentence_cases`) — what «Спросить» counts over.
 
 Each case: who, where, what punishment, for what, the article's own words, and a
 person's way to take a wrong one out of every count («Неверно»). What was taken out is
@@ -20,10 +20,10 @@ from sqlalchemy import Row, func, select, text, update
 from sqlalchemy.orm import Session
 
 from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
-from entities.ask import KIND_LABELS, REASON_LABELS
-from entities.regions import canonical
-from entities.sentence_cases import POLITICAL, Case, Filters, cases
-from entities.sentence_cases import select as select_cases
+from processing.evidence.regions import canonical
+from results.ask import KIND_LABELS, REASON_LABELS
+from results.queries.sentence_cases import POLITICAL, Case, Filters, cases
+from results.queries.sentence_cases import select as select_cases
 from web.dependencies import get_db
 from web.ui.layout import _page, pager
 

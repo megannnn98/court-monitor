@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from entities.officials import kind_of_title, title_before, titled
+from processing.roles.officials import kind_of_title, title_before, titled
 
 
 @pytest.mark.parametrize(

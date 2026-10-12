@@ -8,6 +8,10 @@ evaluation, report and human review gate nodes in
 
 **Removed** 2026-09-27 with the research layer (`chore/slim-to-two-scenarios`); the code is in the Git history.
 
+**Historical.** LangGraph returned on 2026-10-12 as a different layer, built on entity
+groups and the module APIs: [ADR 0026](0026-investigation-workflow-on-langgraph.md). This
+record describes the removed person-based research graph and is not its design.
+
 ## Context
 
 ADR 0008 introduced `ResearchRequest` → `ResearchService` → `ResearchResponse`:

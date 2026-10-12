@@ -13,17 +13,12 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    RfmOperatorEntryRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
-from rosfinmonitoring.inclusion_dates import InclusionDates, normalize_name
-from rosfinmonitoring.inclusion_store import (
+from analysis.rosfinmonitoring.inclusion_dates import InclusionDates, normalize_name
+from analysis.rosfinmonitoring.inclusion_store import (
     carry_dates_from_previous_snapshot,
     write_inclusion_dates,
 )
-from rosfinmonitoring.operator_table import (
+from analysis.rosfinmonitoring.operator_table import (
     SOURCE,
     OperatorRow,
     OperatorTableUnavailable,
@@ -31,6 +26,11 @@ from rosfinmonitoring.operator_table import (
     parse_rows,
     share_url,
     store,
+)
+from db.orm_models import (
+    RfmOperatorEntryRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
 )
 
 IVANOV = "ИВАНОВ ИВАН ИВАНОВИЧ"

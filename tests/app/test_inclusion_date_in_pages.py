@@ -22,6 +22,7 @@ from openpyxl import load_workbook
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.rf_entry import entry_included_text
 from db.orm_models import (
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
@@ -29,7 +30,6 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from entities.rf_entry import entry_included_text
 from web.app import app
 from web.dependencies import get_db
 from web.ui.political import political_xlsx
@@ -346,8 +346,8 @@ def test_the_wording_depends_only_on_whether_there_is_a_date(
 def test_the_xlsx_of_rows_without_matches_says_nothing_about_dates() -> None:
     """A row with no list entry has no entry to date; the column must be empty rather
     than carrying a stray word."""
+    from analysis.politics.classification import POLITICAL
     from db.orm_models import EntityGroupRecord as Record
-    from entities.politics import POLITICAL
 
     entity = Record(id=1, key="k", name="Анна Смирнова", variants=[], mention_count=1, regions=[])
     politics = EntityGroupPoliticsRecord(

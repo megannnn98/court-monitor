@@ -133,19 +133,19 @@ stop
 
 ### Шаг 3: как упоминания становятся людьми
 
-`src/entities/grouping.py`: одно имя и фамилия в любом падеже — один человек
+`src/processing/identity/grouping.py`: одно имя и фамилия в любом падеже — один человек
 («Моора», «Моору», «Моор»); отчество отличает тёзок; фамилия без имени
 присоединяется к полному имени из той же публикации. «Жене Владимира» — родство, не
 человек; имя на последней строке после законченного текста («Никита Черненко»,
 «Влад Никифоров, Иркутск») — подпись автора, не человек из новости;
 «Дрион Алексис» и «Алексис Дрион» — один человек. Имена в именительный
-падеж приводит правило, а в спорных случаях модель (`src/entities/normalizer.py`).
+падеж приводит правило, а в спорных случаях модель (`src/processing/identity/normalizer.py`).
 Решения оператора — «Один человек», «Разные люди», исправленное имя, отметка
 «должностное лицо» — хранятся по ключу и применяются при каждой пересборке.
 
 ### Шаг 4: роль в деле
 
-`src/entities/roles.py`. Должностных лиц (судьи, прокуроры, следователи) отмечают
+`src/processing/roles/roles.py`. Должностных лиц (судьи, прокуроры, следователи) отмечают
 правила. Остальных модель читает по цитатам и выбирает роль: обвиняемый в
 российском деле (фигурант), административное дело, задержан или обыскан, дело не
 в России, историческая репрессия, только поддержка (письма, акции, напоминание о
@@ -153,14 +153,14 @@ stop
 
 ### Шаг 5: политическое, РФМ или нет
 
-Сначала `src/entities/rf_check.py` скачивает свежий перечень и сверяет сущности.
+Сначала `src/analysis/rosfinmonitoring/rf_check.py` скачивает свежий перечень и сверяет сущности.
 Перечень подтверждает личность, а не решает, политическое ли дело. Затем
-`src/entities/politics.py` применяет правила: статья УК из списка политических
-(`persecution/classifier.py`), категория реестра «Мемориала» или только статьи
+`src/analysis/politics/classification.py` применяет правила: статья УК из списка политических
+(`analysis/persecution/classifier.py`), категория реестра «Мемориала» или только статьи
 обычной уголовщины (без ст. 213 и 318). Остальных читает модель; неудавшийся ответ
 — «неясно», никогда не «политическое».
 
-Раньше всех правил смотрится база оператора (`entities.known_base.TrackedCases`). Если в
+Раньше всех правил смотрится база оператора (`analysis.operator_base.known_base.TrackedCases`). Если в
 ней ровно одна запись с именем человека и у неё та же статья УК, что называют новости, —
 это дело оператор уже ведёт как политическое, и вердикт «политическое» ставится с
 основанием «база оператора», какая бы статья ни была: наркотическую статью против политолога
@@ -189,7 +189,7 @@ stop
 
 ### Шаг 5: новое дело или приговор
 
-`src/entities/news.py`. Модель читает последние публикации о каждом политическом деле
+`src/analysis/news/case_news.py`. Модель читает последние публикации о каждом политическом деле
 (свежая первой, с датой) и называет, о чём свежая новость: **новое дело** (задержание,
 возбуждение, обвинение — впервые), **приговор**, **продолжение дела** (продление
 ареста, апелляция, этап старого дела), **дело завершено** (человек уже на свободе —
@@ -208,7 +208,7 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-n
 Шаги 3, 4 и 5 спрашивают модель через OpenRouter (`OPENROUTER_API_KEY`, по
 умолчанию `deepseek/deepseek-v4.1-flash`, другая — `ENTITY_NORMALIZE_MODEL`).
 
-- Ответы кэшируются по вопросу (`entities/answers.py`): повторный прогон спрашивает
+- Ответы кэшируются по вопросу (`processing/answers.py`): повторный прогон спрашивает
   только новое.
 - «Обвиняемый» и «политическое» закрепляются за человеком: их не переспрашивают,
   когда появляются новые публикации.
@@ -226,12 +226,38 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 
 ## Кодовые точки входа
 
-- Шаги и их порядок: `src/web/ui/pipeline.py`; запуски: `src/operator_console.py`.
-- CLI шагов 2–5: `src/monitoring/cli.py`.
-- Очистка: `src/monitoring/junk_purge.py`.
-- Сущности: `src/entities/` — `collector.py`, `grouping.py`, `normalizer.py`,
-  `rf_check.py`, `roles.py`, `politics.py`, `news.py`, `unnamed.py`, `disputes.py`,
-  `answers.py`, `llm.py`.
+- Шаги и их порядок: `src/web/ui/pipeline.py`; запуски: `src/orchestrator/operations.py`.
+- Что делает каждый шаг и в каком порядке: `src/orchestrator/cycle.py` (`OperatorCycle`).
+- CLI шага 1: `src/cli/monitoring.py`; CLI шагов 2–5: `src/cli/cycle.py`.
+
+Шаг вызывает публичный API своего модуля и ничего мимо него
+([ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md)):
+
+| Шаг | Модуль | API | Код за ним |
+|---|---|---|---|
+| 1. Загрузка | `ingestion`, `processing` | `IngestionService`, `ProcessingService.extract_article` через `MonitoringService` | `src/ingestion/sources/`, `src/processing/extraction/` |
+| 2. Очистка | `processing` | `ProcessingService.purge_junk` | `src/processing/junk/` |
+| 3. Люди | `processing` | `IdentityService.rebuild_groups` | `src/processing/identity/` |
+| 4. Фигуранты | `processing` | `ProcessingService.find_figurants` | `src/processing/roles/` |
+| 5. Политические дела | `analysis`, `processing` | `AnalysisService.check_rosfinmonitoring`, `classify_politics`, `find_news`, `find_unnamed`; `ProcessingService.read_digests`, `read_sentences` | `src/analysis/`, `src/processing/evidence/` |
+
+Модель (DeepSeek через OpenRouter) стоит за этими API: общий клиент `src/llm/chat.py`,
+кэш ответов `src/processing/answers.py`.
+
+## Вопрос об одном человеке
+
+Кроме цикла есть разовый вопрос: что база знает о человеке и чего не хватает.
+
+```bash
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py investigate "Что известно про Ивана Сидорова?"'
+```
+
+То же по HTTP: `POST /api/v1/investigation` с телом `{"query": "..."}`. Ответ —
+установленные факты со ссылками на материалы (`E1`, `E2`, …), недостающие данные,
+противоречия и статус: `completed`, `partial`, `clarification_required`,
+`review_required` или `failed`. Вопрос ничего не пишет в базу и не запускает шаги цикла.
+Устройство: [ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md),
+`src/investigation/`.
 
 ## Проверка
 

@@ -22,6 +22,8 @@ from multiprocessing import get_context
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
@@ -30,8 +32,6 @@ from processing.extraction.models import BatchExtractionResult, ExtractionRunSta
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 
 logger = logging.getLogger("cli_batches")
 

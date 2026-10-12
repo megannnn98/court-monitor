@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 
+from analysis.persecution.classification_service import PersecutionClassificationService
 from cli.context import CliContext
 from cli_progress import ProgressBar
-from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
 
 

@@ -16,7 +16,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from entities.digest import (
+from llm.chat import Endpoint, ModelError, Spend
+from processing.evidence.digest import (
     _RESPONSE_SCHEMA,
     MAX_TOKENS,
     SYSTEM_PROMPT,
@@ -24,7 +25,6 @@ from entities.digest import (
     DigestClassifierError,
     OpenRouterDigestClassifier,
 )
-from entities.llm import Endpoint, ModelError, Spend
 
 URL = "https://openrouter.test/api/v1/chat/completions"
 TITLES = {7: "Суд арестовал активиста", 9: "Главное за день"}

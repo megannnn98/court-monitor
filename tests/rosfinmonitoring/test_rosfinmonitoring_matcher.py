@@ -5,19 +5,22 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.matcher import (
+    NOT_MATCHED_CONFIDENCE,
+    RuleBasedRosfinmonitoringMatcher,
+)
+from analysis.rosfinmonitoring.matcher_models import (
+    RosfinCandidateEntry,
+    RosfinMatchResult,
+    RosfinMatchStatus,
+)
+from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from db.orm_models import (
     PersonAliasRecord,
     PersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from rosfinmonitoring.matcher import NOT_MATCHED_CONFIDENCE, RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring.matcher_models import (
-    RosfinCandidateEntry,
-    RosfinMatchResult,
-    RosfinMatchStatus,
-)
-from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 
 
 @pytest.fixture

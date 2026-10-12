@@ -12,14 +12,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from monitoring.models import MonitoringTrigger
-from monitoring.repository import SqlAlchemyMonitoringRepository
-from operator_console import (
+from orchestrator.models import MonitoringTrigger
+from orchestrator.operations import (
     OperationParameters,
     OperationRegistry,
     OperationRunStatus,
     ProcessResult,
 )
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 

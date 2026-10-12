@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis.persecution.queries import latest_persecution_classification_ids
 from db.orm_models import (
     ArticleExtractionRunRecord,
     ExtractedEventRecord,
@@ -16,7 +17,6 @@ from db.orm_models import (
     Source,
     SourceDocument,
 )
-from persecution.queries import latest_persecution_classification_ids
 from web.dependencies import get_db
 from web.response_models import (
     EvidenceSpanResponse,

@@ -32,14 +32,14 @@ from ingestion.sources.sqlalchemy_persistence import (
 from monitor_core.errors import PermanentFetchError, PersistenceError, TransientFetchError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher, SourceAdapter
-from monitoring.models import (
+from orchestrator.models import (
     FailureKind,
     MonitoringRunStatus,
     MonitoringSettings,
     MonitoringStage,
     MonitoringTrigger,
 )
-from monitoring.service import DiscoveryResult, IngestionResult, MonitoringService
+from orchestrator.service import DiscoveryResult, IngestionResult, MonitoringService
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.normalizers import RuleBasedMentionNormalizer

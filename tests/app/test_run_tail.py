@@ -13,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.pipeline_runs import finish_steps
 
-from operator_console import OperationParameters, OperationRegistry
+from orchestrator.operations import OperationParameters, OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 from web.ui.run_tail import pulse

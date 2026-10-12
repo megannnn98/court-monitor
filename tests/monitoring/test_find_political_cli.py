@@ -14,20 +14,20 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+import analysis.service
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
+from cli.cycle import add_cycle_arguments, run_cycle_command
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from entities.rf_check import EntityRfCheck
-from monitoring import cli
-from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 
 
 def _parse(*argv: str) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    add_monitoring_arguments(parser.add_subparsers(dest="command", required=True))
+    add_cycle_arguments(parser.add_subparsers(dest="command", required=True))
     return parser.parse_args(argv)
 
 
@@ -78,12 +78,12 @@ def _snapshot(session_factory: sessionmaker[Session]) -> int:
 
 
 def _with_download(monkeypatch: pytest.MonkeyPatch, download: Callable[[], bytes]) -> None:
-    """The list's site, stood in for: the check runs as the CLI builds it."""
+    """The list's site, stood in for: the check runs as the analysis service builds it."""
 
     def check(session_factory: sessionmaker[Session], **kwargs: Any) -> EntityRfCheck:
         return EntityRfCheck(session_factory, download=download, **kwargs)
 
-    monkeypatch.setattr(cli, "EntityRfCheck", check)
+    monkeypatch.setattr(analysis.service, "EntityRfCheck", check)
 
 
 def _offline() -> bytes:
@@ -97,7 +97,7 @@ def _run(
 ) -> dict[str, Any]:
     # No model: the rules decide, the rest is «unclear» — enough to see a verdict written.
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    assert run_monitoring_command(_parse("find-political"), session_factory)
+    assert run_cycle_command(_parse("find-political"), session_factory)
     return dict(json.loads(capsys.readouterr().out))
 
 
@@ -158,7 +158,7 @@ def test_a_failed_check_costs_no_verdict(
     def broken(session_factory: sessionmaker[Session], **_kwargs: Any) -> EntityRfCheck:
         raise RuntimeError("the database went away")
 
-    monkeypatch.setattr(cli, "EntityRfCheck", broken)
+    monkeypatch.setattr(analysis.service, "EntityRfCheck", broken)
 
     output = _run(session_factory, monkeypatch, capsys)
 

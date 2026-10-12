@@ -9,15 +9,15 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
 from ingestion.sources.source_registry import SOURCES
-from monitoring.dagster.definitions import build_definitions
-from monitoring.dagster.jobs import MONITORING_DERIVED_JOB, MONITORING_JOB, SOURCE_TAG
-from monitoring.models import (
+from orchestrator.dagster.definitions import build_definitions
+from orchestrator.dagster.jobs import MONITORING_DERIVED_JOB, MONITORING_JOB, SOURCE_TAG
+from orchestrator.models import (
     MonitoringRunStatus,
     MonitoringSettings,
     MonitoringStage,
     MonitoringTrigger,
 )
-from monitoring.service import RunHandle, StageResult
+from orchestrator.service import RunHandle, StageResult
 
 EXPECTED_PARENTS = {
     "source_discovery": set(),

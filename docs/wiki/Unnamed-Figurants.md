@@ -89,7 +89,7 @@ stop
 
 ### Подбор кандидатов
 
-`entities.unnamed.candidates` по последнему снимку перечня:
+`analysis.unnamed.figurants.candidates` по последнему снимку перечня:
 
 - возраст на дату публикации равен названному или на год больше (событие бывает
   раньше новости);
@@ -118,7 +118,7 @@ stop
 публикацию поиском в интернете. Часто она уже скачана: её человек собран шагом 3 и признан
 фигурантом — но с безымянным его никто не сопоставлял.
 
-`entities.named_candidates.named_candidates` ищет таких людей:
+`analysis.unnamed.named_candidates.named_candidates` ищет таких людей:
 
 - публикация другая, вышла в те же дни (три календарных дня в обе стороны), в её тексте
   названо то же место;
@@ -154,7 +154,7 @@ stop
 
 Новость о приговоре часто не называет человека, который в базе оператора уже есть: дело
 внесли, когда его возбудили. Поэтому в карточке под кандидатами из перечня — люди из базы
-(`entities.base_candidates.base_candidates`, таблица `airtable_known_persons`):
+(`analysis.operator_base.base_candidates.base_candidates`, таблица `airtable_known_persons`):
 
 - возраст по дате рождения на дату публикации равен названному или на год больше;
 - пол тот же, либо в базе не указан;
@@ -189,7 +189,7 @@ stop
 Обратное направление — страница «Без имени в базе» (`/ui/base-unnamed`, ссылка сверху на
 «Безымянных»). Оператор вносит дело без имени («34-летний уроженец Крыма»), а человек
 появляется в перечне через месяцы. Для каждой такой записи
-(`entities.base_unnamed.candidates_for`) подбираются записи последнего снимка перечня:
+(`analysis.operator_base.base_unnamed.candidates_for`) подбираются записи последнего снимка перечня:
 
 - запись базы — без даты рождения, с возрастом в названии («N-летний») и датой возбуждения
   дела; без возраста сравнивать не с чем;
@@ -218,7 +218,7 @@ stop
 Чтобы найти приговор безымянному, оператор определяет суд по статье и региону и ищет дело на
 сайте суда. В базе таких ответов тысячи: у каждой записи с приговором есть регион, статьи и
 суд. Поэтому суды считаются по базе, а не выводятся из УПК
-(`entities.jurisdiction.Jurisdiction.courts`): для места и статьи — суды, которые выносили
+(`analysis.operator_base.jurisdiction.Jurisdiction.courts`): для места и статьи — суды, которые выносили
 приговоры людям из базы из этого места по этой статье, самые частые первыми, с числом дел.
 Ячейка с несколькими судами через запятую — несколько судов.
 
@@ -233,17 +233,17 @@ stop
 
 ## Кодовые точки входа
 
-- Названные в других публикациях: `src/entities/named_candidates.py`.
-- Кандидаты из базы оператора: `src/entities/base_candidates.py`; записи базы без имени против
-  перечня: `src/entities/base_unnamed.py`, страница `src/web/ui/base_unnamed.py`.
-- Поиск, подбор, решения: `src/entities/unnamed.py` (`UnnamedFinder`,
+- Названные в других публикациях: `src/analysis/unnamed/named_candidates.py`.
+- Кандидаты из базы оператора: `src/analysis/operator_base/base_candidates.py`; записи базы без имени против
+  перечня: `src/analysis/operator_base/base_unnamed.py`, страница `src/web/ui/base_unnamed.py`.
+- Поиск, подбор, решения: `src/analysis/unnamed/figurants.py` (`UnnamedFinder`,
   `candidates`, `decide`, `resolve_identity`).
-- Материализация опознаний при пересборке: `src/entities/collector.py`
+- Материализация опознаний при пересборке: `src/processing/identity/collector.py`
   (`_apply_unnamed_resolutions`).
-- Единая точка доказательств «человек ↔ публикация»: `src/entities/evidence.py`
+- Единая точка доказательств «человек ↔ публикация»: `src/processing/evidence/publications.py`
   (`person_evidence_cte`). Она объединяет обычные `entity_group_mentions` и
   ручные `entity_group_unnamed_mentions`.
-- Запуск: `find-political` и `find-unnamed` в `src/monitoring/cli.py`.
+- Запуск: `find-political` и `find-unnamed` в `src/cli/monitoring.py`.
 - Страница: `src/web/ui/unnamed.py`; счётчик в «Очереди»: `src/web/ui/workload.py`.
 
 ## Данные и артефакты
@@ -299,7 +299,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 ## Безымянные в «Результате» (01.10.2026)
 
 Оператор попросила видеть безымянные случаи в «Результате» и в выгрузке Excel, рядом с
-людьми с именем. Логика — `src/entities/unnamed_cases.py`, показ — `src/web/ui/political.py`.
+людьми с именем. Логика — `src/results/queries/unnamed_cases.py`, показ — `src/web/ui/political.py`.
 
 - **Кто попадает.** Только случаи, где текст называет политическую статью
   (`UNNAMED_POLITICAL_ARTICLES`: политические статьи плюс все 205-е). У безымянных нет
@@ -319,7 +319,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
   не удалось уверенно склонить (аббревиатура), даётся в скобках: «житель (ХМАО)». Года
   рождения нет: модель извлекает возраст.
 - **В базе Airtable.** Имени нет, поэтому сверка идёт с записями базы без имени
-  (`entities.known_nameless`): возраст в названии записи («41-летний житель…»), пол, регион
+  (`analysis.operator_base.known_nameless`): возраст в названии записи («41-летний житель…»), пол, регион
   или город. Возраст записи пересчитывается на день, когда новость назвала возраст (не на
   день более позднего предложения без возраста): запись двухлетней давности «39-летний»
   сегодня 41-летний. Сверяются все активные записи, сколько бы лет им ни было. Одна подходящая запись — «вероятно, есть в базе», несколько —

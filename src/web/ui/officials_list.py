@@ -38,8 +38,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
-from entities.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
-from entities.roles import KIND_LABELS
+from processing.roles.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
+from processing.roles.roles import KIND_LABELS
 from web.dependencies import get_db
 from web.ui.layout import _page
 

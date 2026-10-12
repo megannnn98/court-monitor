@@ -1,7 +1,7 @@
 """What waits for the operator: the pairs to decide and the unclear answers of the steps.
 
 Every page shows the size of this queue in the menu; «Очередь» shows its items. Nothing
-here decides anything: the pairs come from `entities.disputes`, the rest from what
+here decides anything: the pairs come from `processing.identity.disputes`, the rest from what
 steps 4 and 5 wrote.
 """
 
@@ -12,10 +12,10 @@ from dataclasses import dataclass
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from entities.disputes import EntityRef, Pair, decided_pairs, find_pairs
-from entities.politics import UNCLEAR as UNCLEAR_VERDICT
-from entities.roles import UNCLEAR as UNCLEAR_ROLE
+from processing.identity.service import EntityRef, IdentityService, Pair
+from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE
 
 
 def dispute_pairs(db: Session) -> list[Pair]:
@@ -31,7 +31,7 @@ def dispute_pairs(db: Session) -> list[Pair]:
             )
         ).all()
     ]
-    return find_pairs(refs, decided_pairs(db))
+    return IdentityService().disputed_pairs(db, refs)
 
 
 @dataclass(frozen=True)

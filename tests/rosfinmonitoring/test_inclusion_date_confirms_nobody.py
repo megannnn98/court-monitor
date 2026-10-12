@@ -25,9 +25,9 @@ from datetime import UTC, date, datetime
 import pytest
 
 membership_module = pytest.importorskip(
-    "rosfinmonitoring.membership",
+    "analysis.rosfinmonitoring.membership",
     reason=(
-        "rosfinmonitoring.membership is not in the repository yet. This rule is not"
+        "analysis.rosfinmonitoring.membership is not in the repository yet. This rule is not"
         " enforced until it lands: a full-name match plus a date of inclusion will then"
         " be checked against it."
     ),

@@ -173,11 +173,11 @@ class MonitoringFindingRecord(Base):
 
 class JunkScreenHoldRecord(Base):
     """An article the junk purge would delete (no criminal-case event extracted) that the
-    embedding screen held back for a person to look at (`monitoring.junk_screen`).
+    embedding screen held back for a person to look at (`processing.junk.screen`).
 
     `held`: kept out of every purge until a person decides; `junk`: a person said it is
     junk, the next purge deletes it (and this row with it); `released`: a model read a
-    case in it and wrote the event the rules missed (`monitoring.hold_reader`). An article
+    case in it and wrote the event the rules missed (`processing.junk.hold_reader`). An article
     a new extraction found the event of loses the row.
     """
 
@@ -197,7 +197,7 @@ class JunkScreenHoldRecord(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # What a model read of the article (`monitoring.hold_reader`): who read, `case` (the
+    # What a model read of the article (`processing.junk.hold_reader`): who read, `case` (the
     # hold is then `released`) or `junk` (left to a person), and the event it named.
     reader: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reader_verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)

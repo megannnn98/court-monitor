@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from entities.normalizer import (
+from processing.identity.normalizer import (
     ClaudeNameNormalizer,
     NameItem,
     NameNormalizerError,
@@ -231,7 +231,7 @@ def test_a_surname_first_form_still_matches_the_answer_that_reorders_it() -> Non
 
 def test_a_soft_sign_surname_answer_names_its_declined_forms() -> None:
     """«Юрий Дудь» for the forms «Юрий Дудя», «Дудя»: the same stem, kept."""
-    from entities.normalizer import NameItem, NormalizedName, matched_answers
+    from processing.identity.normalizer import NameItem, NormalizedName, matched_answers
 
     items = [NameItem(id=0, forms=("Юрий Дудя", "Дудя"), quote="")]
     answer = NormalizedName(
@@ -243,7 +243,7 @@ def test_a_soft_sign_surname_answer_names_its_declined_forms() -> None:
 
 def test_an_adjective_surname_answer_names_its_declined_forms() -> None:
     """«Олег Заболотний» for the form «Олег Заболотнего»: the same stem, kept."""
-    from entities.normalizer import NameItem, NormalizedName, matched_answers
+    from processing.identity.normalizer import NameItem, NormalizedName, matched_answers
 
     items = [NameItem(id=0, forms=("Олег Заболотнего",), quote="")]
     answer = NormalizedName(

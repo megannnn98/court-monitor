@@ -1,4 +1,4 @@
-"""Person entities gathered from mentions (`entities.grouping`). Derived and rebuilt whole."""
+"""Person entities gathered from mentions (`processing.identity.grouping`). Derived and rebuilt whole."""
 
 from datetime import date, datetime
 from typing import Any
@@ -318,7 +318,7 @@ class UnnamedFigurantRecord(Base):
     """A person a publication charges without a name — «17-летний житель Тюмени» — with
     what the text tells of them, to be matched with the Rosfinmonitoring list.
 
-    Derived: rewritten by every search (`entities.unnamed`). `key` is the hash of the
+    Derived: rewritten by every search (`analysis.unnamed.figurants`). `key` is the hash of the
     publication and the sentence: it survives a rebuild, and the decisions hold to it."""
 
     __tablename__ = "unnamed_figurants"
@@ -367,7 +367,7 @@ class UnnamedScreenedRecord(Base):
     event_type: Mapped[str] = mapped_column(String(32), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # common_crime, criminal_motive or duplicate (`entities.unnamed`).
+    # common_crime, criminal_motive or duplicate (`analysis.unnamed.figurants`).
     reason: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
@@ -393,7 +393,7 @@ class UnnamedAnswerRecord(Base):
     input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
-    # The answer as JSON (`entities.unnamed.UnnamedAnswer`).
+    # The answer as JSON (`analysis.unnamed.figurants.UnnamedAnswer`).
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

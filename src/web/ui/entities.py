@@ -18,6 +18,9 @@ from sqlalchemy import Text, cast, exists, func, or_, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
+from analysis.persecution.classifier import POLITICAL_ARTICLES
+from analysis.politics.classification import CRIMINAL, POLITICAL
+from analysis.rosfinmonitoring.rf_check import FULL
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupPoliticsRecord,
@@ -25,19 +28,16 @@ from db.orm_models import (
     EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
 )
-from entities.officials import mark_official
-from entities.overrides import MANUAL, correct_name
-from entities.politics import CRIMINAL, POLITICAL
-from entities.rf_check import FULL
-from entities.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, UNCLEAR
-from operator_console import (
+from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
     OperationRun,
 )
-from persecution.classifier import POLITICAL_ARTICLES
 from processing.extraction.name_frequency import lookup_gender
+from processing.identity.service import MANUAL, IdentityService
+from processing.roles.officials import mark_official
+from processing.roles.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, UNCLEAR
 from web.candidate_rows import surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager
@@ -238,7 +238,7 @@ async def correct_entity_name(
     if entity is None:
         raise HTTPException(status_code=404, detail="Сущность не найдена")
     try:
-        correct_name(db, entity, (form.get("name") or [""])[0])
+        IdentityService().correct_name(db, entity, (form.get("name") or [""])[0])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Пустое имя") from exc
     db.commit()

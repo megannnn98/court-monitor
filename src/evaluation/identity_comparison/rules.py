@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from entities.grouping import (
+from processing.identity.grouping import (
     Entity,
     PersonMention,
     apply_names,

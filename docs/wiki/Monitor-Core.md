@@ -124,7 +124,7 @@ sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 показывать ли тело ответа провайдера и какие у провайдера дополнительные опции,
 принимает клиент:
 
-- OpenRouter — `src/entities/llm.py` (`chat_json`, `Endpoint`, `ModelError`, учёт
+- OpenRouter — `src/llm/chat.py` (`chat_json`, `Endpoint`, `ModelError`, учёт
   стоимости);
 - Together и совместимые серверы — `src/llm/together_client.py`.
 
@@ -147,10 +147,10 @@ sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 | Сценарий | Код |
 |---|---|
 | CLI `ingest` / `discover-and-ingest` | `src/cli/ingestion.py` |
-| automated monitoring | `src/monitoring/service.py` (`_ingest_references`) |
+| automated monitoring | `src/orchestrator/service.py` (`_ingest_references`) |
 | источники, парсеры, discovery | `src/ingestion/sources/` |
 | хранилище и его результат `SqlAlchemyPersistenceResult` | `src/ingestion/sources/sqlalchemy_persistence.py` |
-| OpenRouter / Together | `src/entities/llm.py`, `src/llm/together_client.py` |
+| OpenRouter / Together | `src/llm/chat.py`, `src/llm/together_client.py` |
 | AI entity review retry | `src/persons/resolution/ai_review_service.py` |
 
 ## Проверка
@@ -188,9 +188,9 @@ uv run mypy --strict src tests
   `extra_body`.
 - `CHAT_ENVELOPE_ERRORS` — это встроенные `ValueError`/`KeyError`/`IndexError`/
   `TypeError`, а не собственный тип ошибки.
-- Намеренно не перенесены: retry в `src/monitoring/decision_screen.py`,
+- Намеренно не перенесены: retry в `src/processing/junk/decision_screen.py`,
   `fetch_listing_page_with_retry` в `src/ingestion/sources/discovery_pagination.py`,
-  Anthropic-путь в `src/entities/normalizer.py`, `src/llm/cli_reviewer.py`.
+  Anthropic-путь в `src/processing/identity/normalizer.py`, `src/llm/cli_reviewer.py`.
 - Отложено (не баги): `ParsedArticle` / `ArticleParser` уже, чем реальная
   семантика документа; параметр `IngestionPipeline(source_adapter=...)` принимает
   любой `DocumentFetcher`; `monitor_core/ingestion/retry.py` можно переименовать в

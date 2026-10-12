@@ -17,7 +17,7 @@ from datetime import datetime
 from html import escape
 from typing import Any
 
-from operator_console import OperationRun, OperationRunStatus
+from orchestrator.operations import OperationRun, OperationRunStatus
 from web.ui import spend
 from web.ui.run_tail import tail_html
 
@@ -164,7 +164,7 @@ def _holds_read(log: str) -> list[str]:
     ]
 
 
-# What a model read of the held (`monitoring.hold_reader.read_holds` logs its result).
+# What a model read of the held (`processing.junk.hold_reader.read_holds` logs its result).
 _HOLDS_READ = re.compile(r"event=holds_read HoldsRead\(released=(\d+), model_junk=(\d+)")
 
 

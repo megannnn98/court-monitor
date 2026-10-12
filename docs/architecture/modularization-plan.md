@@ -1,19 +1,119 @@
 # Modularization plan
 
-Status: in progress, 2026-10-11. Branch `refactor/modularization-prep`. Ingestion and
-extraction are moved (items 2 and 3 of the migration sequence); nothing else is.
+Status: carried out, 2026-10-12, on branch `refactor/complete-modularization`. The
+decisions are recorded in
+[ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md) (the modules and
+the orchestrator) and [ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)
+(the investigation layer). "State after the split" below is what the code is now.
+Everything from "Current architecture" on is the plan as it was written on 2026-10-11,
+before any of it moved; it is kept as the record of why, and its paths are the old ones.
 
-This document prepares the split of the code into four domain modules and an
-orchestrator. It records what the code looks like today, where each file should end up,
-which dependencies stand in the way, and the order of the pull requests that follow.
-It moves no code by itself.
+## State after the split
 
-How the map was made: package and file imports were read from the AST of every file
-under `src/`. `application.py`, `monitoring/service.py`, `monitoring/cli.py`,
-`operator_console.py` and `web/ui/pipeline.py` were read. Every file of `entities/` was
-classified from its module docstring, its public names, the ORM tables it writes, its
-use of a model and its callers; their bodies were not read line by line, so the
-`entities/` targets below are proposals to confirm when that pipeline is taken apart.
+```plantuml
+@startuml
+skinparam componentStyle rectangle
+component sources
+component "ingestion\nsources/, service" as ingestion
+component "processing\nextraction/, identity/, roles/,\nevidence/, junk/" as processing
+component "analysis\npolitics/, rosfinmonitoring/, news/,\nunnamed/, operator_base/,\npersecution/ (person path)" as analysis
+component "results\ncandidates/, findings, queries/,\ndossier, ask" as results
+sources --> ingestion
+ingestion --> processing
+processing --> analysis
+analysis --> results
+
+component Dagster
+component orchestrator
+Dagster --> orchestrator : scheduled work
+orchestrator ..> ingestion
+orchestrator ..> processing
+orchestrator ..> analysis
+orchestrator ..> results
+
+actor User
+component "investigation\n(LangGraph)" as investigation
+User --> investigation : one question
+investigation ..> results : ResultsService
+@enduml
+```
+
+Solid arrows are the flow of data, stage to stage. Dotted arrows are calls of a
+module's public API.
+
+### Migration sequence, as carried out
+
+| # | Item | State | What it is now |
+|---|---|---|---|
+| 1 | Plan, boundary test, first facades | done | PR #53 |
+| 2 | Ingestion | done | `ingestion/`; the publication date filter is behind `IngestionService.open(...).read()` |
+| 3 | Processing, extraction and junk | done | `processing/extraction/`, `processing/junk/` |
+| 4 | Processing, identity | done | `processing/identity/` behind `IdentityService`; with it `processing/roles/`, `processing/evidence/`. The item as first written (move `persons/` in as the resolver) was withdrawn by ADR 0024: ER v2 stays in `persons/`, reached by the run through `persons.resolution.stage` |
+| 5 | Analysis | done | `analysis/` behind `AnalysisService`: the entity-group path and the person path |
+| 6 | Results | done | `results/` behind `ResultsService` |
+| 7 | Orchestrator | done | `orchestrator/`; `MonitoringService` is given the five public APIs; `selection.py` is split by owner of the tables |
+| 8 | CLI | done for the pipeline | `cli/monitoring.py` (runs) and `cli/cycle.py` (steps) only parse, call and print. The older single-module commands still build their parts themselves |
+| 9 | API | done for identity, runs, findings and the list's snapshot | the console builds no storage class and imports no internal module. It still reads vocabularies, read models and a person's decisions from module files |
+| 10 | Dagster | done | assets import only `orchestrator`; nothing had to move |
+| 11 | Legacy orchestration removed | done | `MonitoringDependencies`, `SqlAlchemyMonitoringWorkQueries` and the second copy of discovery are gone |
+| 12 | Import boundaries | done | `KNOWN_VIOLATIONS` is empty and a test keeps it so; five more rules were added |
+| — | LangGraph investigation | done, first use case | `investigation/`, `main.py investigate`, `POST /api/v1/investigation` |
+
+"What is left" of ADR 0025 and "Consequences" of ADR 0026 list what "done for …" leaves
+out.
+
+### Where the files went
+
+| Old path | New path |
+|---|---|
+| `sources/*` | `ingestion/sources/*` (PR #53) |
+| `extraction/*` | `processing/extraction/*` (PR #53) |
+| `monitoring/selection.py` (stored documents) | `ingestion/stored.py` |
+| `monitoring/selection.py` (pending extraction) | `processing/extraction/pending.py` |
+| `monitoring/selection.py` (pending resolution) | `persons/resolution/pending.py` |
+| `monitoring/selection.py` (pending classification, pending list match) | `analysis/pending.py` |
+| `monitoring/junk_purge.py`, `junk_screen.py`, `junk_holds.py` | `processing/junk/purge.py`, `screen.py`, `holds.py` |
+| `monitoring/hold_reader.py`, `decision_screen.py`, `embedder.py`, `article_screen.py`, `junk_screen_model.json` | `processing/junk/` under the same names |
+| `entities/collector.py`, `grouping.py`, `normalizer.py`, `disputes.py`, `overrides.py`, `removals.py` | `processing/identity/` under the same names, behind `processing/identity/service.py` |
+| `entities/roles.py`, `officials.py` | `processing/roles/` |
+| `entities/evidence.py` | `processing/evidence/publications.py` |
+| `entities/digest.py`, `sentences.py`, `regions.py` | `processing/evidence/` |
+| `entities/answers.py` | `processing/answers.py` |
+| `entities/llm.py` | `llm/chat.py` |
+| `entities/politics.py` | `analysis/politics/classification.py` |
+| `entities/news.py` | `analysis/news/case_news.py` |
+| `entities/rf_check.py`, `rf_entry.py`, `rf_articles.py` | `analysis/rosfinmonitoring/` |
+| `entities/unnamed.py`, `named_candidates.py` | `analysis/unnamed/figurants.py`, `named_candidates.py` |
+| `entities/base_candidates.py`, `base_unnamed.py`, `known_base.py`, `known_nameless.py`, `jurisdiction.py` | `analysis/operator_base/` |
+| `persecution/*` | `analysis/persecution/*` |
+| `rosfinmonitoring/*` | `analysis/rosfinmonitoring/*` |
+| `candidates/*` | `results/candidates/*` |
+| `monitoring/findings.py`; the finding views of `monitoring/models.py` | `results/findings.py`; `results/models.py` |
+| `entities/sentence_cases.py`, `unnamed_cases.py` | `results/queries/` |
+| `entities/ask.py`, `done_marks.py` | `results/ask.py`, `results/done_marks.py` |
+| `entities/compare.py` | `evaluation/model_comparison/compare.py` |
+| `persons/resolution/evaluation.py` | `evaluation/person_resolution/er_run.py` |
+| `monitoring/service.py`, `repository.py`, `locks.py`, `models.py` | `orchestrator/` under the same names |
+| `monitoring/dagster/*` | `orchestrator/dagster/*` |
+| `operator_console.py` | `orchestrator/operations.py` |
+| `monitoring/cli.py` | `cli/monitoring.py` (runs), `cli/cycle.py` (steps of the cycle) |
+| `health.py` | `web/health.py` |
+| — | new: `orchestrator/cycle.py`, `orchestrator/runs.py`, `analysis/service.py`, `results/service.py`, `results/dossier.py`, `persons/resolution/stage.py`, `investigation/` |
+
+`entities/`, `monitoring/`, `persecution/`, `rosfinmonitoring/` and `candidates/` no
+longer exist as packages. Tests keep their old directories.
+
+### Import violations
+
+Five on 2026-10-11, none now:
+
+| Was | How it ended |
+|---|---|
+| `monitoring/hold_reader.py -> entities.llm` | the model client is shared: `llm/chat.py` |
+| `monitoring/findings.py -> monitoring.models` | the finding views are `results/models.py` |
+| `persons/resolution/evaluation.py -> evaluation.person_resolution.corpus` | the file is tooling: `evaluation/person_resolution/er_run.py` |
+| `health.py -> monitoring.models` | readiness is the web application's: `web/health.py`, an entry point |
+| `airtable/repository.py -> processing.extraction.normalizers` | `airtable/` holds the operator's reference lists and is part of `analysis`; a later stage reading an earlier one is allowed |
 
 ## Current architecture
 

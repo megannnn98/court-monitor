@@ -10,6 +10,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.news.case_news import NewsFinder
+from analysis.politics.classification import POLITICAL, PoliticsFinder
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
@@ -22,11 +24,9 @@ from db.orm_models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
-from entities.collector import EntityCollector
-from entities.news import NewsFinder
-from entities.normalizer import NameItem, NameNormalizerError, NormalizedName
-from entities.politics import POLITICAL, PoliticsFinder
-from entities.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
+from processing.identity.collector import EntityCollector
+from processing.identity.normalizer import NameItem, NameNormalizerError, NormalizedName
+from processing.roles.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
 
 
 def _person(
@@ -192,9 +192,9 @@ def test_a_failed_batch_keeps_the_rule_names_and_asks_again_next_time(
 def test_many_batches_are_asked_in_parallel_and_all_kept(
     session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import entities.collector
+    import processing.identity.collector
 
-    monkeypatch.setattr(entities.collector, "BATCH_SIZE", 1)
+    monkeypatch.setattr(processing.identity.collector, "BATCH_SIZE", 1)
     _seed_declined_and_nominative(session_factory)
     model = FakeNormalizer(
         {"Александра Моора": "Александр Моор", "Моор Александр": "Александр Моор"}
@@ -253,7 +253,7 @@ def test_a_name_is_kept_by_its_forms_and_an_older_answer_by_key_still_counts(
     from sqlalchemy import text
 
     from db.orm_models import EntityNameNormalizationRecord
-    from entities.normalizer import PROMPT_VERSION
+    from processing.identity.normalizer import PROMPT_VERSION
 
     _seed_declined_and_nominative(session_factory)
     table = {"Александра Моора": "Александр Моор", "Моор Александр": "Александр Моор"}

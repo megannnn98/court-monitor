@@ -10,6 +10,15 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.download import ListPage
+from analysis.rosfinmonitoring.inclusion_dates import (
+    InclusionDates,
+    InclusionDatesUnavailable,
+    normalize_name,
+)
+from analysis.rosfinmonitoring.operator_table import OperatorRow, OperatorTableUnavailable
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck, match_level
+from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRfMatchRecord,
@@ -18,15 +27,6 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from entities.rf_check import EntityRfCheck, match_level
-from rosfinmonitoring.download import ListPage
-from rosfinmonitoring.inclusion_dates import (
-    InclusionDates,
-    InclusionDatesUnavailable,
-    normalize_name,
-)
-from rosfinmonitoring.operator_table import OperatorRow, OperatorTableUnavailable
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 
 PERSONS = """
     <li>1. АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ*, 08.06.1996 г.р. , П. МАМЕДКАЛА;</li>
@@ -791,7 +791,7 @@ def test_a_download_failure_of_our_own_also_leaves_the_last_snapshot_in_use(
     `httpx.HTTPError`, so the exception passed through and the stage died instead of
     falling back to the last snapshot — which is the whole promise of the function.
     """
-    from rosfinmonitoring.download import RosfinmonitoringDownloadError
+    from analysis.rosfinmonitoring.download import RosfinmonitoringDownloadError
 
     _entities(session_factory, *PEOPLE)
     EntityRfCheck(session_factory, download=_page).run()

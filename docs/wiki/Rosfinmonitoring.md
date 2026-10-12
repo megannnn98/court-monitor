@@ -14,7 +14,7 @@
 
 Сверка идёт в начале шага 5 «Отобрать политические дела и сверить с РФМ»
 (`find-political`); отдельно, без оценки политичности, — CLI `check-entities-rosfin`.
-Код — `src/entities/rf_check.py`. Если сверка упала, шаг всё равно оценивает
+Код — `src/analysis/rosfinmonitoring/rf_check.py`. Если сверка упала, шаг всё равно оценивает
 политичность, а карточка запуска говорит, почему перечень не сверен.
 
 1. Скачивает перечень с fedsfm.ru; если он изменился — сохраняет новый снимок и
@@ -111,9 +111,9 @@ fedsfm.ru публикует, кто в перечне, и не публикуе
 - **Уже записанная дата не переносится.** Файл пересобирают, и дата, которая была
   известна вчера, не должна меняться от запуска к запуску.
 
-Код: `src/rosfinmonitoring/inclusion_dates.py` (чтение), `inclusion_store.py` (запись),
+Код: `src/analysis/rosfinmonitoring/inclusion_dates.py` (чтение), `inclusion_store.py` (запись),
 `membership.py` (что можно сказать о человеке). Всё это вызывается из
-`src/entities/rf_check.py` при **каждой** сверке, а не только при импорте снимка:
+`src/analysis/rosfinmonitoring/rf_check.py` при **каждой** сверке, а не только при импорте снимка:
 
 - сначала **предыдущий снимок** — наша же запись того же перечня, там уже известен день;
 - затем файл ОВД-Инфо — для того, чего предыдущий снимок не покрыл;
@@ -161,7 +161,7 @@ RFM_TABLE_SHARE_URL=https://airtable.com/appExample0000003/shrExample0000004
 ### Статьи, по которым включают в перечень
 
 Со слов оператора (29.09.2026) в перечень включают по статьям УК: все 205-е, все 281-е, все
-282-е и 208; иногда — по 280 и 207.3. Список лежит в `src/entities/rf_articles.py`. По нему у
+282-е и 208; иногда — по 280 и 207.3. Список лежит в `src/analysis/rosfinmonitoring/rf_articles.py`. По нему у
 человека с именем рядом со словом перечня стоит одна из трёх пометок:
 
 | Пометка | Когда |
@@ -290,15 +290,15 @@ Match statuses:
 
 | Сценарий | Код |
 |---|---|
-| parsing/import | `src/rosfinmonitoring/` |
-| matching | `src/rosfinmonitoring/matcher.py` |
-| даты включения | `src/rosfinmonitoring/inclusion_dates.py`, `inclusion_store.py` |
-| таблица оператора | `src/rosfinmonitoring/operator_table.py` |
-| что можно сказать о человеке | `src/rosfinmonitoring/membership.py` |
+| parsing/import | `src/analysis/rosfinmonitoring/` |
+| matching | `src/analysis/rosfinmonitoring/matcher.py` |
+| даты включения | `src/analysis/rosfinmonitoring/inclusion_dates.py`, `inclusion_store.py` |
+| таблица оператора | `src/analysis/rosfinmonitoring/operator_table.py` |
+| что можно сказать о человеке | `src/analysis/rosfinmonitoring/membership.py` |
 | страница списка и фильтр | `src/web/ui/rfm_list.py` |
-| snapshot lookup | `src/rosfinmonitoring/snapshot_lookup.py` |
-| CLI | `src/rosfinmonitoring/cli.py` |
-| candidate query | `src/candidates/service.py` |
+| snapshot lookup | `src/analysis/rosfinmonitoring/snapshot_lookup.py` |
+| CLI | `src/cli/rosfinmonitoring.py` |
+| candidate query | `src/results/candidates/service.py` |
 | API | `src/web/routers/rosfinmonitoring.py` |
 
 ## Данные и артефакты

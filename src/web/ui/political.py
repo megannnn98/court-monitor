@@ -19,20 +19,20 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityDoneMarkRecord,
-)
-from entities.known_base import COUNTED, KnownMatch
-from entities.news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE, UNKNOWN
-from entities.rf_articles import AWAITED
-from entities.rf_check import FULL
-from entities.rf_entry import (
+from analysis.news.case_news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE, UNKNOWN
+from analysis.operator_base.known_base import COUNTED, KnownMatch
+from analysis.persecution.classifier import POLITICAL_ARTICLES
+from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
+from analysis.rosfinmonitoring.rf_articles import AWAITED
+from analysis.rosfinmonitoring.rf_check import FULL
+from analysis.rosfinmonitoring.rf_entry import (
     INCLUSION_NOTES,
     entry_included_text,
     rf_word,
 )
-from persecution.classifier import POLITICAL_ARTICLES
-from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
+from db.orm_models import (
+    EntityDoneMarkRecord,
+)
 from web.dependencies import get_db
 from web.exports import (
     XLSX,

@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from entities.llm import (
+from llm.chat import (
     BudgetExceededError,
     Endpoint,
     ModelError,

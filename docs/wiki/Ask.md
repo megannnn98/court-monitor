@@ -11,7 +11,7 @@
 actor Оператор
 participant "/ui/ask" as UI
 participant "Модель" as LLM
-participant "Подсчёты\n(entities.sentence_cases)" as C
+participant "Подсчёты\n(results.queries.sentence_cases)" as C
 database PostgreSQL as DB
 
 Оператор -> UI: вопрос
@@ -109,8 +109,8 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-s
 
 ## Код
 
-- Чтение приговоров: `src/entities/sentences.py`; субъекты РФ: `src/entities/regions.py`.
-- Свёртка в дела и подсчёты: `src/entities/sentence_cases.py`.
-- Вопрос и ответ: `src/entities/ask.py`.
+- Чтение приговоров: `src/processing/evidence/sentences.py`; субъекты РФ: `src/processing/evidence/regions.py`.
+- Свёртка в дела и подсчёты: `src/results/queries/sentence_cases.py`.
+- Вопрос и ответ: `src/results/ask.py`.
 - Страницы: `src/web/ui/ask.py`, `src/web/ui/sentences.py`.
 - Таблицы: `article_sentences`, `article_sentence_readings`, `chat_questions`.

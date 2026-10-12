@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from entities.rf_articles import AWAITED, LISTED, SOMETIMES_KIND, listing
+from analysis.rosfinmonitoring.rf_articles import AWAITED, LISTED, SOMETIMES_KIND, listing
 
 
 @pytest.mark.parametrize(

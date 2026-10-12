@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
@@ -16,9 +17,8 @@ from db.orm_models import (
     EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
-from entities.collector import EntityCollector
-from entities.rf_check import EntityRfCheck
-from entities.roles import (
+from processing.identity.collector import EntityCollector
+from processing.roles.roles import (
     FIGURANT,
     FigurantFinder,
     RoleAnswer,
@@ -480,7 +480,7 @@ def test_the_model_overrules_the_rules_charge_that_names_the_wrong_person(
 def test_a_person_s_mark_wins_either_way_and_survives_a_rebuild(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities.officials import mark_official
+    from processing.roles.officials import mark_official
 
     _seed_officials(session_factory)
     classifier = FakeClassifier({"Иван Иванов": "accused", "Ольга Минакова": "judge"})
@@ -597,7 +597,7 @@ def test_an_earlier_prompt_s_answer_holds_unless_it_is_accused(
 def test_past_the_budget_the_rest_is_unasked_and_counted(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities.llm import Spend
+    from llm.chat import Spend
 
     _seed(session_factory)
     spent = FakeClassifier(KINDS)
@@ -614,7 +614,7 @@ def test_past_the_budget_the_rest_is_unasked_and_counted(
 def test_another_model_is_compared_on_what_the_steps_answered(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities.compare import compare_roles
+    from evaluation.model_comparison.compare import compare_roles
 
     _seed(session_factory)
     FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()

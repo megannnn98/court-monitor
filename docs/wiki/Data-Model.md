@@ -203,7 +203,7 @@ PostgreSQL с записью Airtable и делает повторный зап�
 
 ## `operator_operation_runs`
 
-Запуски routine operations из операторской консоли (`operator_console.OperationRegistry`, миграция `s3t4u5v6w7x8`). Источник истины — PostgreSQL: все процессы API видят одни и те же runs, перезапуск API историю не теряет.
+Запуски routine operations из операторской консоли (`orchestrator.operations.OperationRegistry`, миграция `s3t4u5v6w7x8`). Источник истины — PostgreSQL: все процессы API видят одни и те же runs, перезапуск API историю не теряет.
 
 | Поле | Тип | Смысл |
 |---|---|---|

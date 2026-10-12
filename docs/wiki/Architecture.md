@@ -1,5 +1,9 @@
 # Architecture
 
+> Модули и правила импорта между ними: [ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md)
+> и `docs/architecture/modularization-plan.md`. Диаграмма ниже показывает monitoring run
+> (путь через Person); рабочий цикл оператора описан в [Pipeline](Pipeline.md).
+
 ## Зачем это нужно
 
 Эта страница показывает границы системы: где доменная логика, где orchestration,
@@ -36,7 +40,7 @@ rectangle "FastAPI\napi.py + web/" as API
 
 rectangle "application.build_application_services()" as Root
 
-package "Orchestration: src/monitoring" #EEF {
+package "Orchestration: src/orchestrator" #EEF {
   component "MonitoringService" as Monitoring
   component "MonitoringFindingService" as Findings
 }
@@ -83,8 +87,8 @@ Dagster --> DagsterDB
 | CLI | `src/main.py`, `src/cli/` | парсинг команд и вызов доменных сервисов |
 | API / UI | `src/api.py`, `src/web/` | FastAPI, JSON endpoints, operator console |
 | Composition root | `src/application.py`, `src/cli/context.py` | настройки, engine, session factory, сервисы |
-| Orchestration | `src/monitoring/` | порядок стадий, runs, checkpoints, findings |
-| Domain | `src/ingestion/sources/`, `src/processing/extraction/`, `src/persons/`, `src/persecution/`, `src/rosfinmonitoring/`, `src/candidates/`, `src/entities/` | бизнес-решения и persistence |
+| Orchestration | `src/orchestrator/` | порядок стадий, runs, checkpoints, findings |
+| Domain | `src/ingestion/`, `src/processing/`, `src/persons/`, `src/analysis/`, `src/results/` | бизнес-решения и persistence |
 | Database | `src/db/`, `migrations/` | ORM и Alembic schema |
 
 ## Данные и артефакты

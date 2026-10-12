@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from operator_console import OperationParameters, OperationRegistry
+from orchestrator.operations import OperationParameters, OperationRegistry
 
 _WITH_SOURCES = ("load", "resolve")  # resolve: legacy runs started outside the current UI
 

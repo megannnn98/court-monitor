@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from candidates.models import PoliticalPersecutionCandidate
-from candidates.service import CandidateQueryService
+from results.candidates.models import PoliticalPersecutionCandidate
+from results.candidates.service import CandidateQueryService
 from web.dependencies import get_db
 from web.response_models import CandidateResponse
 

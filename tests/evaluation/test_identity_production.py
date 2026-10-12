@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import pytest
 
-from entities.grouping import GivenName, PersonMention
 from evaluation.identity_comparison import evaluate_manual, labelling, production
 from evaluation.identity_comparison.rules import entity_of_mention
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.identity.grouping import GivenName, PersonMention
 
 NORMALIZER = RuleBasedMentionNormalizer()
 

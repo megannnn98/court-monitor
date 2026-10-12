@@ -8,6 +8,10 @@ from datetime import UTC, date, datetime, time
 from functools import partial
 from pathlib import Path
 
+from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from cli.context import CliContext
 from cli_batches import (
     DEFAULT_WORKERS,
@@ -16,10 +20,6 @@ from cli_batches import (
     worker_count,
 )
 from cli_progress import ProgressBar
-from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from rosfinmonitoring.persistence import RosfinmonitoringPersistence
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

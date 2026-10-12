@@ -1,6 +1,6 @@
 """Namesake benchmark: the existing ER v2 evaluation on name pairs from the real corpus.
 
-Cases use the `evaluate-er` corpus format (`persons.resolution.evaluation.ErCorpus`),
+Cases use the `evaluate-er` corpus format (`evaluation.person_resolution.er_run.ErCorpus`),
 so metrics have one definition. The hard gate counts every AUTO_LINK of an
 incoming name to a person who is not the same real person, including the
 "indistinguishable" namesakes the existing report lists apart.
@@ -15,9 +15,9 @@ from sqlalchemy import Engine
 
 from db.database import create_session_factory
 from db.maintenance import truncate_disposable_tables
+from evaluation.person_resolution.er_run import ErCorpus, load_er_corpus, run_er_evaluation
 from evaluation.real_world.models import DEFAULT_DATA_DIR
 from evaluation.real_world.results import NamesakeSection, SectionStatus
-from persons.resolution.evaluation import ErCorpus, load_er_corpus, run_er_evaluation
 from persons.resolution.models import PersonResolutionAction
 
 NamesakeCorpus = ErCorpus

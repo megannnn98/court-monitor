@@ -14,9 +14,9 @@ from itertools import count
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.inclusion_dates import InclusionDates, read_inclusion_dates
+from analysis.rosfinmonitoring.inclusion_store import write_inclusion_dates
 from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
-from rosfinmonitoring.inclusion_dates import InclusionDates, read_inclusion_dates
-from rosfinmonitoring.inclusion_store import write_inclusion_dates
 
 SNAPSHOT_DATE = datetime(2026, 9, 30, 6, 0, tzinfo=UTC)
 
@@ -285,6 +285,6 @@ def test_the_summary_reads_as_a_sentence_an_operator_can_check(
 def test_every_refusal_is_one_of_the_named_reasons(
     session_factory: sessionmaker[Session], reason: str
 ) -> None:
-    from rosfinmonitoring.inclusion_store import UNMATCHED_REASONS
+    from analysis.rosfinmonitoring.inclusion_store import UNMATCHED_REASONS
 
     assert reason in UNMATCHED_REASONS

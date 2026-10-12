@@ -58,11 +58,11 @@ snapshot = `not_matched`, она может попасть в `/ui/candidates`.
 
 | Сценарий | Код |
 |---|---|
-| classification service | `src/persecution/classification_service.py` |
-| rule-based classifier | `src/persecution/classifier.py` |
-| queries/latest ids | `src/persecution/queries.py` |
-| CLI | `src/persecution/cli.py` |
-| candidates | `src/candidates/service.py` |
+| classification service | `src/analysis/persecution/classification_service.py` |
+| rule-based classifier | `src/analysis/persecution/classifier.py` |
+| queries/latest ids | `src/analysis/persecution/queries.py` |
+| CLI | `src/cli/persecution.py` |
+| candidates | `src/results/candidates/service.py` |
 | UI candidates | `src/web/ui/candidates.py`, `src/web/candidate_rows.py` |
 
 ## Данные и артефакты

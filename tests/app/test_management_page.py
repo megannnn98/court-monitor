@@ -16,9 +16,9 @@ from support.pipeline_runs import finish_steps
 
 from db.orm_models import JunkScreenHoldRecord, OperatorOperationRunRecord
 from ingestion.sources.source_registry import news_sources
-from monitoring.models import MonitoringStage, MonitoringTrigger
-from monitoring.repository import SqlAlchemyMonitoringRepository
-from operator_console import OperationParameters, OperationRegistry, OperationRunStatus
+from orchestrator.models import MonitoringStage, MonitoringTrigger
+from orchestrator.operations import OperationParameters, OperationRegistry, OperationRunStatus
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 from web.ui import spend

@@ -6,8 +6,8 @@ from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
-from entities.known_base import KnownMatch
-from entities.known_nameless import NamelessBase
+from analysis.operator_base.known_base import KnownMatch
+from analysis.operator_base.known_nameless import NamelessBase
 
 DAY = date(2026, 10, 1)
 

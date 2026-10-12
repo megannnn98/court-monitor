@@ -566,7 +566,7 @@ def test_a_day_of_the_operator_s_table_is_marked_on_the_page_and_in_the_file(
 def test_those_removed_from_the_list_have_a_page_of_their_own(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from rosfinmonitoring.operator_table import OperatorRow, store
+    from analysis.rosfinmonitoring.operator_table import OperatorRow, store
 
     _seed(session_factory)
     with _client(session_factory) as client:

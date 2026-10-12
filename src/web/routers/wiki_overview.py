@@ -7,8 +7,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from entities.news import NEW_CASE, SENTENCE
-from entities.unnamed import candidates
+from analysis.news.case_news import NEW_CASE, SENTENCE
+from analysis.unnamed.figurants import candidates
 from web.dependencies import get_db
 from web.response_models import (
     OverviewNewsResponse,

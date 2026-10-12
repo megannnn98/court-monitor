@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
-from entities.sentences import (
+from processing.evidence.sentences import (
     Publication,
     SentenceAnswer,
     SentenceFinder,
@@ -185,7 +185,7 @@ def test_without_a_model_nothing_is_read(session_factory: sessionmaker[Session])
 def test_what_a_person_hid_stays_hidden_when_read_again(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities import sentences
+    from processing.evidence import sentences
 
     ids = _seed(session_factory)
     other = _answer(

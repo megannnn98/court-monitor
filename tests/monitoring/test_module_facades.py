@@ -1,12 +1,13 @@
 """The ingestion and processing facades over PostgreSQL with a fake upstream source.
 
-They are not yet what `MonitoringService` calls, so this checks them against it: what
-the facades store is what a monitoring run of the same source finds already done.
+They are what the orchestrator calls. Called directly, what they store is what a
+monitoring run of the same source finds already done.
 """
 
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -21,8 +22,8 @@ from support.monitoring_fixtures import (
 )
 
 from application import build_ingestion_service, build_processing_service
-from ingestion.service import IngestionService
-from monitoring.models import MonitoringRunStatus
+from ingestion.service import IngestionService, SkipReason
+from orchestrator.models import MonitoringRunStatus
 from processing.extraction.models import ExtractionRunStatus
 
 SOURCE = "ovd-info"
@@ -38,11 +39,8 @@ EXTRACTION_TABLES = (
 def _ingest_everything(ingestion: IngestionService) -> list[int]:
     async def run() -> list[int]:
         references = await ingestion.discover(SOURCE, limit=10)
-        async with ingestion.open(SOURCE) as pipeline:
-            return [
-                pipeline.save(await pipeline.read(reference)).persistence.article_id
-                for reference in references
-            ]
+        async with ingestion.open(SOURCE) as documents:
+            return [documents.store(await documents.read(reference)) for reference in references]
 
     return asyncio.run(run())
 
@@ -95,3 +93,75 @@ def test_an_unknown_source_is_refused(session_factory: sessionmaker[Session]) ->
 
     with pytest.raises(ValueError, match="Unknown source: nowhere"):
         ingestion.known_external_ids("nowhere", ["1"])
+
+
+def test_ingestion_keeps_only_what_was_published_within_the_dates_asked(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("before", SIDOROV, published_at=datetime(2026, 9, 9, 23, 59, tzinfo=UTC))
+    upstream.publish("first-day", SIDOROV, published_at=datetime(2026, 9, 10, 0, 0, tzinfo=UTC))
+    upstream.publish("last-day", PETROV, published_at=datetime(2026, 9, 12, 23, 59, tzinfo=UTC))
+    upstream.publish("after", PETROV, published_at=datetime(2026, 9, 13, 0, 0, tzinfo=UTC))
+    upstream.publish("undated", PETROV)
+    ingestion = build_ingestion_service(
+        session_factory,
+        sources={SOURCE: fake_source(SOURCE, upstream)},
+        create_fetcher=UnusedFetcher,
+    )
+
+    async def run() -> dict[str, SkipReason | None]:
+        skipped: dict[str, SkipReason | None] = {}
+        async with ingestion.open(
+            SOURCE, published_from=date(2026, 9, 10), published_to=date(2026, 9, 12)
+        ) as documents:
+            for reference in await ingestion.discover(SOURCE, limit=10):
+                document = await documents.read(reference)
+                skipped[reference.external_id] = document.skipped
+                if document.skipped is None:
+                    documents.store(document)
+        return skipped
+
+    assert asyncio.run(run()) == {
+        "before": SkipReason.OUT_OF_PUBLISHED_RANGE,
+        "first-day": None,
+        "last-day": None,
+        "after": SkipReason.OUT_OF_PUBLISHED_RANGE,
+        "undated": SkipReason.UNKNOWN_PUBLISHED_DATE,
+    }
+    assert ingestion.known_external_ids(
+        SOURCE, ["before", "first-day", "last-day", "after", "undated"]
+    ) == {"first-day", "last-day"}
+
+
+def test_without_dates_an_undated_document_is_stored(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("undated", PETROV)
+    ingestion = build_ingestion_service(
+        session_factory,
+        sources={SOURCE: fake_source(SOURCE, upstream)},
+        create_fetcher=UnusedFetcher,
+    )
+
+    assert len(_ingest_everything(ingestion)) == 1
+
+
+def test_a_skipped_document_is_never_stored(session_factory: sessionmaker[Session]) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("undated", PETROV)
+    ingestion = build_ingestion_service(
+        session_factory,
+        sources={SOURCE: fake_source(SOURCE, upstream)},
+        create_fetcher=UnusedFetcher,
+    )
+
+    async def run() -> None:
+        async with ingestion.open(SOURCE, published_from=date(2026, 9, 10)) as documents:
+            (reference,) = await ingestion.discover(SOURCE, limit=10)
+            documents.store(await documents.read(reference))
+
+    with pytest.raises(ValueError, match="skipped document"):
+        asyncio.run(run())
+    assert ingestion.known_external_ids(SOURCE, ["undated"]) == set()

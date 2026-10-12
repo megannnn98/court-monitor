@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.persecution.classification_service import PersecutionClassificationService
+from analysis.persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
 from db.orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
@@ -15,8 +17,6 @@ from db.orm_models import (
     Source,
     SourceDocument,
 )
-from persecution.classification_service import PersecutionClassificationService
-from persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
 
 
 def _create_article(

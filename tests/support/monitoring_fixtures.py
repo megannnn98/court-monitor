@@ -10,22 +10,22 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
 from db.orm_models import Base
 from ingestion.sources.source_registry import SourceDefinition
 from monitor_core.errors import NoTextError, ParseError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher, SourceAdapter
-from monitoring.models import MonitoringSettings
-from monitoring.service import MonitoringService
+from orchestrator.models import MonitoringSettings
+from orchestrator.service import MonitoringService
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.models import ExtractionDocument, RawMention
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
-from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.persistence import RosfinmonitoringPersistence
 
 SIDOROV = (
     "Сергей Сидоров, известный правозащитник, задержан на антивоенном митинге. "

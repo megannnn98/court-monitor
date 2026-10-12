@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from monitor_core.errors import PermanentFetchError, TransientFetchError
-from monitoring.models import (
+from orchestrator.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
     MonitoringRunAbortedError,
@@ -20,7 +20,7 @@ from monitoring.models import (
     MonitoringTrigger,
     source_scope,
 )
-from monitoring.repository import SqlAlchemyMonitoringRepository
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 
 STALE_AFTER = timedelta(minutes=120)
 

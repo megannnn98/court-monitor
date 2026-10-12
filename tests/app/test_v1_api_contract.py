@@ -12,7 +12,7 @@ from support.db_fixtures import DatabaseSeeder
 
 from api import app, get_db
 from db.orm_models import MonitoringRunRecord
-from operator_console import OperationParameters, OperationRegistry
+from orchestrator.operations import OperationParameters, OperationRegistry
 
 
 @pytest.fixture

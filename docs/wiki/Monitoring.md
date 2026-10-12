@@ -57,7 +57,7 @@ rectangle "Dagster (orchestrator)" as Dagster #EEF {
 rectangle "CLI\nmonitor / monitor-derived" as CLI
 rectangle "API (read-only)\n/monitoring/*" as API
 
-package "src/monitoring (coordination)" {
+package "src/orchestrator (coordination)" {
   component "MonitoringService" as Svc
   component "SqlAlchemyMonitoringWorkQueries\n(what is still to do)" as Work
   component "SqlAlchemyMonitoringRepository\n(runs, items, checkpoints)" as Repo
@@ -135,7 +135,7 @@ Asset graph Dagster повторяет эти этапы: `source_discovery → 
 
 ## Идемпотентность и восстановление
 
-Каждый этап сам выбирает недоделанную работу из PostgreSQL (`src/monitoring/selection.py`), поэтому любой run, job или asset можно выполнить повторно (at-least-once):
+Каждый этап сам выбирает недоделанную работу из PostgreSQL (`src/orchestrator/selection.py`), поэтому любой run, job или asset можно выполнить повторно (at-least-once):
 
 | Этап | Что выбирается |
 |---|---|
@@ -209,13 +209,13 @@ end
 
 | Сценарий | Код |
 |---|---|
-| CLI `monitor` / `monitor-derived` | `src/monitoring/cli.py` |
-| orchestration | `src/monitoring/service.py` |
+| CLI `monitor` / `monitor-derived` | `src/cli/monitoring.py` |
+| orchestration | `src/orchestrator/service.py` |
 | загрузка одной статьи | `IngestionPipeline.read()` / `save()` из [Monitor Core](Monitor-Core.md); окно дат, пропуск `NoTextError` и изоляция ошибок — в `MonitoringService._ingest_references` |
-| выбор недоделанной работы | `src/monitoring/selection.py` |
-| runs/checkpoints/items | `src/monitoring/repository.py` |
-| findings | `src/monitoring/findings.py` |
-| Dagster definitions | `src/monitoring/dagster/` |
+| выбор недоделанной работы | `src/orchestrator/selection.py` |
+| runs/checkpoints/items | `src/orchestrator/repository.py` |
+| findings | `src/results/findings.py` |
+| Dagster definitions | `src/orchestrator/dagster/` |
 | API/UI status | `src/web/routers/monitoring.py`, `src/web/ui/monitoring.py` |
 
 ## Запуск
@@ -250,7 +250,7 @@ API (read-only): `GET /monitoring/status`, `GET /monitoring/runs?source=&status=
 
 ```bash
 set -a; source .env; set +a
-cd src && uv run dagster dev -m monitoring.dagster.definitions
+cd src && uv run dagster dev -m orchestrator.dagster.definitions
 # http://127.0.0.1:3000 → Jobs → monitoring_job, config:
 #   ops: {source_discovery: {config: {source: ovd-info, discovery_limit: 5}}}
 ```

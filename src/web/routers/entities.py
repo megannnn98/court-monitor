@@ -7,10 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis.rosfinmonitoring.rf_check import FULL
 from db.orm_models import EntityGroupRecord
-from entities.overrides import MANUAL
-from entities.removals import removals, remove, restore
-from entities.rf_check import FULL
+from processing.identity.service import MANUAL, IdentityService
 from web.dependencies import get_db
 from web.response_models import (
     EntityArticleResponse,
@@ -127,7 +126,7 @@ def list_removals(db: Session = Depends(get_db)) -> RemovalListResponse:  # noqa
     return RemovalListResponse(
         items=[
             RemovalResponse(key=record.key, name=display_name(record.name), removed=True)
-            for record in removals(db)
+            for record in IdentityService().removed_groups(db)
         ]
     )
 
@@ -144,10 +143,14 @@ def set_removal(
         if entity is None:
             raise HTTPException(status_code=404, detail="Человек не найден")
         name = entity.name
-        remove(db, entity)
+        IdentityService().remove_group(db, entity)
     else:
-        kept = next((record.name for record in removals(db) if record.key == body.key), None)
-        if kept is None or not restore(db, body.key):
+        identity = IdentityService()
+        kept = next(
+            (record.name for record in identity.removed_groups(db) if record.key == body.key),
+            None,
+        )
+        if kept is None or not identity.restore_group(db, body.key):
             raise HTTPException(status_code=404, detail="Удаление не найдено")
         name = kept
     db.commit()

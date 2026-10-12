@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from candidates.service import CandidateQueryService
+from analysis.persecution.models import PersecutionClassificationStatus
 from evaluation.final.models import Counts
 from evaluation.real_world.db_state import DbMention, PipelineState
 from evaluation.real_world.golden import (
@@ -35,7 +35,7 @@ from evaluation.real_world.results import (
     SectionStatus,
     Severity,
 )
-from persecution.models import PersecutionClassificationStatus
+from results.candidates.service import CandidateQueryService
 
 POLITICAL = PersecutionClassificationStatus.POLITICAL.value
 NON_POLITICAL = PersecutionClassificationStatus.NON_POLITICAL.value

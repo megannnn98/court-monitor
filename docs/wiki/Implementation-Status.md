@@ -44,7 +44,7 @@ Rosfinmonitoring, and unnamed figurants identified by hand.
 | Tests, PostgreSQL | `TEST_DATABASE_URL=…/court_monitor_test uv run pytest` | 1 524 passed, 21 skipped |
 | Tests, no services | `uv run pytest` | 1 015 passed, 530 skipped |
 | Migrations | `alembic upgrade head` on an empty database; `alembic current` on a copy of the working database | head `f2a4b5c6d7e8` on both; no migration added or changed |
-| Dagster | `dagster definitions validate -m monitoring.dagster.definitions` | validation successful |
+| Dagster | `dagster definitions validate -m orchestrator.dagster.definitions` | validation successful |
 | Image | `docker build .` (no GPU groups, separate tag, then removed) | built, 1.28 GB; `api`, `cli.app`, Dagster definitions import |
 | API on a copy of the working data | uvicorn from the branch; every GET route, detail pages by ids from the list pages | all 200 (or 303 redirects); `/health/ready` `ready` |
 | Workflow 1 on the copy | `monitor --source ovd-info/sota-vision/tg-mediazzzona`; `purge-junk` with `JUNK_SCREEN=1`; steps 3–5 | runs `completed`, 2 new posts ingested; the screen loaded e5 on CUDA, kept the held article and deleted what a person had marked junk; with the model unloadable it stopped with `JunkScreenError` before deleting anything |
@@ -75,7 +75,7 @@ Every result below comes from a run on that date; nothing is carried over.
 | Migrations | `alembic upgrade head`, `downgrade -1`, `upgrade head` on `court_monitor_test`; `r2s3t4u5v6w7 → s3t4u5v6w7x8` on a copy of the working database | ok, data kept |
 | Compose | `docker compose --profile production config` | valid |
 | Image | `docker compose --profile production build` (under a separate tag) | built, 1.42 GB, no compiler inside |
-| Image checks | `import api` offline; `/health/live`, `/health/ready` against `court_monitor_test`; `dagster definitions validate -m monitoring.dagster.definitions` | ok; ready; no migration in the API logs; validation successful |
+| Image checks | `import api` offline; `/health/live`, `/health/ready` against `court_monitor_test`; `dagster definitions validate -m orchestrator.dagster.definitions` | ok; ready; no migration in the API logs; validation successful |
 | CLI | `--help` of 29 commands and 8 nested ones compared with the pre-split CLI | byte-identical, same exit codes |
 | API | method + path of every route compared with the pre-split app | identical (48 routes); OpenAPI paths and components identical |
 
@@ -99,14 +99,14 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Sources | `src/ingestion/sources/` | 75 sources: `ovd-info`, `sota-vision`, `sudrf-2zovs`, `memopzk-figurants` (registry of «Поддержка политзаключённых. Мемориал»), `kommersant` (site via RSS), 70 Telegram channels — [Ingestion](Ingestion.md) |
 | Extraction | `src/processing/extraction/` | rule-based mentions, normalization to the nominative, events — [Extraction](Extraction.md) |
 | Entity resolution | `src/persons/` | ER v2 with human review — [Entity-Resolution](Entity-Resolution.md) |
-| Persecution classification | `src/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |
-| Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
-| Entities (console) | `src/entities/` | the five-step pipeline of the console: people from mentions, roles, and the final Rosfinmonitoring check plus political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
-| Unnamed figurants | `src/entities/unnamed.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
-| Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by monitoring findings — [Pipeline](Pipeline.md) |
-| Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings; the junk screen before step 2 (`junk_screen.py`, its embedding model in `embedder.py`) — [Monitoring](Monitoring.md), [Junk-Screen](Junk-Screen.md) |
+| Persecution classification | `src/analysis/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |
+| Rosfinmonitoring | `src/analysis/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
+| Entities (console) | `src/processing/identity/`, `src/processing/roles/`, `src/analysis/` | the five-step pipeline of the console: people from mentions, roles, and the final Rosfinmonitoring check plus political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
+| Unnamed figurants | `src/analysis/unnamed/figurants.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
+| Candidates (old path) | `src/results/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by monitoring findings — [Pipeline](Pipeline.md) |
+| Monitoring | `src/orchestrator/` | Dagster schedules per source, runs, findings; the junk screen before step 2 is `src/processing/junk/` (`screen.py`, its embedding model in `embedder.py`) — [Monitoring](Monitoring.md), [Junk-Screen](Junk-Screen.md) |
 | HTTP API and console | `src/api.py` (entry point), `src/web/` | REST routers, operator console, exports, wiki — [Local-Web-UI](Local-Web-UI.md) |
-| Operator operations | `src/operator_console.py` | runs in PostgreSQL (`operator_operation_runs`) — [Data-Model](Data-Model.md) |
+| Operator operations | `src/orchestrator/operations.py` | runs in PostgreSQL (`operator_operation_runs`) — [Data-Model](Data-Model.md) |
 | CLI | `src/main.py` (entry point), `src/cli/` | one composition root (`cli/context.py`) |
 | ORM | `src/db/models/`, `src/db/orm_models.py` | models by domain on one `Base`; migrations in `migrations/` |
 
@@ -163,7 +163,7 @@ gives the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
 - Operation runs execute in a thread of the API process that accepted them; if that
   process dies, the run becomes `interrupted` after 5 minutes without a heartbeat and
   is not resumed.
-- `src/monitoring/service.py` and `src/processing/extraction/extractors.py` stay single modules:
+- `src/orchestrator/service.py` and `src/processing/extraction/extractors.py` stay single modules:
   their parts share run state and rule tables, and splitting them was not worth the
   risk.
 - A registry card changed after ingestion is not re-read.

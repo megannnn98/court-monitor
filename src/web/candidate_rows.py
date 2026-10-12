@@ -9,12 +9,6 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from candidates.models import (
-    DEFAULT_MIN_PERSECUTION_CONFIDENCE,
-    PoliticalPersecutionCandidate,
-    RosfinmonitoringStatus,
-)
-from candidates.service import DEFAULT_INCLUDED_RF_STATUSES, CandidateQueryService
 from db.orm_models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
@@ -25,6 +19,12 @@ from db.orm_models import (
     SourceDocument,
 )
 from processing.extraction.name_frequency import lookup_gender
+from results.candidates.models import (
+    DEFAULT_MIN_PERSECUTION_CONFIDENCE,
+    PoliticalPersecutionCandidate,
+    RosfinmonitoringStatus,
+)
+from results.candidates.service import DEFAULT_INCLUDED_RF_STATUSES, CandidateQueryService
 
 
 class _CandidateNews(NamedTuple):

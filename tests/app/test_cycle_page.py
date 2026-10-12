@@ -14,7 +14,7 @@ from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
 from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, JunkScreenHoldRecord
-from operator_console import OperationParameters, OperationRegistry
+from orchestrator.operations import OperationParameters, OperationRegistry
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 

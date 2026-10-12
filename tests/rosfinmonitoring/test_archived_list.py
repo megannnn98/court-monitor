@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from rosfinmonitoring.download import (
+from analysis.rosfinmonitoring.download import (
     ARCHIVE_LATEST_COPY_URL,
     RF_LIST_URL,
     ListPage,
