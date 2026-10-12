@@ -36,6 +36,8 @@ from orchestrator.operations import (
 
 INGEST = OperationParameters(source="ovd-info", limit=3)
 
+REPOSITORY = Path(__file__).resolve().parents[2]
+
 
 def _succeeding(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
     heartbeat()
@@ -294,7 +296,9 @@ def test_the_command_is_an_argv_from_the_allowlist(session_factory: sessionmaker
     registry.start("resolve-people", OperationParameters(limit=7, workers=2))
 
     [command] = commands
-    assert command[1].endswith("src/main.py")
+    # The file itself, not a path that only ends alike: the operation runs it.
+    assert Path(command[1]) == REPOSITORY / "src" / "main.py"
+    assert Path(command[1]).is_file()
     assert command[2:] == ["resolve-people", "--limit", "7", "--workers", "2"]
 
 

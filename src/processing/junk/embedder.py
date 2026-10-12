@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, cast
 
-logger = logging.getLogger("processing.junk.embedder")
+logger = logging.getLogger("monitoring.embedder")
 
 type DeviceSetting = Literal["auto", "cpu", "cuda"]
 

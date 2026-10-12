@@ -601,7 +601,8 @@ def _to_run(record: OperatorOperationRunRecord) -> OperationRun:
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    # src/orchestrator/operations.py -> the repository, where `src/main.py` is.
+    return Path(__file__).resolve().parents[2]
 
 
 def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
