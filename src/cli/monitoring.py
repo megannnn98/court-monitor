@@ -170,7 +170,7 @@ def run_monitoring_command(
         if args.run_id is None:
             _print(monitoring.status())
             return True
-        details = services.monitoring_repository.get_run_details(args.run_id)
+        details = services.runs.get_run_details(args.run_id)
         if details is None:
             raise SystemExit(f"Monitoring run not found: {args.run_id}")
         _print(details)

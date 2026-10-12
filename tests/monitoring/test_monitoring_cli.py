@@ -30,6 +30,7 @@ from cli.monitoring import (
 )
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.runs import MonitoringRuns
 from results.findings import MonitoringFindingService
 from results.service import ResultsService
 
@@ -53,7 +54,7 @@ def _run(
             session_factory=factory,
             monitoring_settings=service.settings,
             monitoring=service,
-            monitoring_repository=SqlAlchemyMonitoringRepository(factory),
+            runs=MonitoringRuns(SqlAlchemyMonitoringRepository(factory)),
             results=ResultsService(findings=MonitoringFindingService(factory)),
         )
 

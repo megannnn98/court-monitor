@@ -233,7 +233,7 @@ class ApplicationServices:
     session_factory: sessionmaker[Session]
     monitoring_settings: MonitoringSettings
     monitoring: MonitoringService
-    monitoring_repository: SqlAlchemyMonitoringRepository
+    runs: MonitoringRuns
     results: ResultsService
 
 
@@ -262,6 +262,6 @@ def build_application_services(
         session_factory=session_factory,
         monitoring_settings=settings,
         monitoring=monitoring,
-        monitoring_repository=SqlAlchemyMonitoringRepository(session_factory),
+        runs=build_monitoring_runs(session_factory),
         results=build_results_service(session_factory),
     )
