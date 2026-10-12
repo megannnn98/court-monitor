@@ -1691,7 +1691,7 @@ export type InvestigationIntent = {
     /**
      * Scenario
      */
-    scenario: 'person_dossier' | 'identify_unnamed';
+    scenario: string;
     /**
      * Subject Name
      */
@@ -1723,7 +1723,7 @@ export type InvestigationPlan = {
     /**
      * Scenario
      */
-    scenario: 'person_dossier' | 'identify_unnamed';
+    scenario: string;
     /**
      * Subject
      */
@@ -1827,7 +1827,7 @@ export type InvestigationResult = {
     /**
      * Scenario
      */
-    scenario?: 'person_dossier' | 'identify_unnamed' | null;
+    scenario?: string | null;
     intent?: InvestigationIntent | null;
     plan?: InvestigationPlan | null;
     subject?: Subject | null;
@@ -4777,7 +4777,7 @@ export type InvestigationPlanWritable = {
     /**
      * Scenario
      */
-    scenario: 'person_dossier' | 'identify_unnamed';
+    scenario: string;
     /**
      * Subject
      */
@@ -4811,7 +4811,7 @@ export type InvestigationResultWritable = {
     /**
      * Scenario
      */
-    scenario?: 'person_dossier' | 'identify_unnamed' | null;
+    scenario?: string | null;
     intent?: InvestigationIntent | null;
     plan?: InvestigationPlanWritable | null;
     subject?: Subject | null;

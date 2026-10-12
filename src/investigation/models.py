@@ -34,8 +34,12 @@ QUERY_KINDS: tuple[QueryKind, ...] = (
     "publication_people",
 )
 Status = Literal["completed", "partial", "clarification_required", "review_required", "failed"]
-ScenarioName = Literal["person_dossier", "identify_unnamed"]
-SCENARIOS: tuple[ScenarioName, ...] = ("person_dossier", "identify_unnamed")
+# A scenario is named by its registry, not by this module: the graph runs whatever
+# scenarios it is given (`scenarios.registry.ScenarioRegistry`).
+ScenarioName = str
+# The scenarios Court Monitor ships: what a request from outside may name.
+KnownScenario = Literal["person_dossier", "identify_unnamed"]
+SCENARIOS: tuple[KnownScenario, ...] = ("person_dossier", "identify_unnamed")
 ScoreType = Literal["exact_name", "declined_name", "ts_rank", "source_order"]
 # What a score could be called while the dense retrieval existed (ADR 0028). A run stored
 # then still holds them; read back, such a score keeps its number and loses its name.

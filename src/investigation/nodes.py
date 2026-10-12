@@ -205,7 +205,7 @@ async def intake(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
                 system=system,
                 user=user,
                 schema_name="investigation_intake",
-                schema=intent_rules.INTAKE_SCHEMA,
+                schema=intent_rules.intake_schema(list(tools.scenarios.facts)),
                 max_tokens=intent_rules.INTAKE_MAX_TOKENS,
             )
         except ModelError as exc:

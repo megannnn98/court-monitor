@@ -41,6 +41,17 @@ class ScenarioRegistry:
         if scenario is not None:
             chosen = self.get(scenario).intent_by_rules(question)
             return chosen or InvestigationIntent(scenario=scenario)
+        if not {"person_dossier", "identify_unnamed"} <= set(self._by_name):
+            # Another set of scenarios: the first, in the order registered, that finds
+            # something to look up in the question; else the first one's reading.
+            readings = [item.intent_by_rules(question) for item in self]
+            for reading, item in zip(readings, self, strict=True):
+                if reading is not None and item.subject_of(reading) is not None:
+                    return reading
+            first = next(iter(self._by_name))
+            return next((reading for reading in readings if reading), None) or (
+                InvestigationIntent(scenario=first)
+            )
         unnamed = "identify_unnamed" in self and self.get("identify_unnamed").intent_by_rules(
             question
         )
