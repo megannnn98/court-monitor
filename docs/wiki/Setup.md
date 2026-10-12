@@ -44,6 +44,9 @@ uv run python src/main.py validate-config
 | `ASK_DAILY_BUDGET_USD` | сколько за день могут потратить вопросы страницы «Спросить» ([Ask](Ask.md)), по умолчанию `1` |
 | `ENTITY_MODEL_BUDGET_USD` | сколько может потратить один запуск шага, по умолчанию `2`; что не спросили — спросит следующий запуск |
 | `INVESTIGATION_MAX_LLM_CALLS`, `INVESTIGATION_MAX_FOLLOWUPS`, `INVESTIGATION_MAX_EVIDENCE_ITEMS` | потолки одного вопроса `investigate` ([ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)): обращений к модели `2`, дополнительных раундов поиска `2`, материалов в ответе `40`. Читаются из окружения процесса; `compose.yaml` их в контейнер не передаёт, там действуют значения по умолчанию |
+| `INVESTIGATION_MAX_SEARCHES`, `INVESTIGATION_MAX_PARALLEL_SEARCHES`, `INVESTIGATION_TIMEOUT_SECONDS`, `INVESTIGATION_SEARCH_TIMEOUT_SECONDS` | поисков на вопрос `40`, одновременно `4`, на весь вопрос `120` с, на один поиск `20` с ([ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md)). Запрос может только уменьшить |
+| `INVESTIGATION_TELEGRAM_CHANNELS` | каналы из `channels.csv`, чей публичный поиск спрашивает исследование, через запятую; по умолчанию `ovdinfolive,mediazzzona,pzk_memorial,politzekinfo`; `none` — без внешних источников |
+| `INVESTIGATION_DENSE_MODEL` | модель смыслового поиска, например `intfloat/multilingual-e5-base`; пусто — выключен. Нужны группа `semantic` и индекс `index-publications` |
 | `PIPELINE_SINCE` | рабочая дата (`YYYY-MM-DD`): шаг 2 удаляет публикации раньше неё; в `compose.yaml` — `2026-09-20`; пусто — по дате не удаляется |
 
 Для Docker Compose также используются:
