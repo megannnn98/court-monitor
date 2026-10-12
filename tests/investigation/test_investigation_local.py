@@ -124,6 +124,30 @@ def test_a_declined_name_finds_its_person_and_nobody_else(
     assert results.find_entities("?!") == []
 
 
+def test_a_surname_declined_as_an_adjective_finds_its_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        for name in ("Алексей Поднебесный", "Ольга Толстая"):
+            session.add(
+                EntityGroupRecord(
+                    key=name.lower(),
+                    name=name,
+                    variants=[],
+                    mention_count=1,
+                    article_count=1,
+                    event_types={},
+                )
+            )
+    results = build_results_service(session_factory)
+
+    # Found by the golden set: «Поднебесного» cut by two letters began no word of the name.
+    assert [hit.name for hit in results.find_entities("Алексея Поднебесного")] == [
+        "Алексей Поднебесный"
+    ]
+    assert [hit.name for hit in results.find_entities("Ольгу Толстую")] == ["Ольга Толстая"]
+
+
 def test_a_person_is_found_behind_any_number_of_names_that_only_hold_the_letters(
     session_factory: sessionmaker[Session],
 ) -> None:

@@ -94,8 +94,14 @@ def _spaced(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
     return literal(" ").concat(func.translate(folded, _SEPARATORS, " " * len(_SEPARATORS)))
 
 
+# A surname declined as an adjective loses three letters: «Поднебесного» is
+# «Поднебесный», whose beginning is «поднебесн», not «поднебесно».
+_ADJECTIVE_ENDINGS = ("ого", "его", "ому", "ему")
+
+
 def _stem(word: str) -> str:
-    return word[: max(_MIN_STEM, len(word) - _ENDING)]
+    ending = 3 if word.endswith(_ADJECTIVE_ENDINGS) else _ENDING
+    return word[: max(_MIN_STEM, len(word) - ending)]
 
 
 def find_entities(session: Session, name: str, *, limit: int) -> list[EntityHit]:
