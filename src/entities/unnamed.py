@@ -51,7 +51,8 @@ from db.orm_models import (
     UnnamedScreenedRecord,
 )
 from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
-from entities.llm import (
+from entities.politics import COMMON_CRIME_ARTICLES
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     Endpoint,
@@ -61,8 +62,7 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.politics import COMMON_CRIME_ARTICLES
-from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
+from processing.junk.purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")
 

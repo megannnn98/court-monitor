@@ -286,7 +286,7 @@ def run(models: Sequence[str]) -> dict[str, Any]:
     results.append(outcome("legal_words", "-", None, [a.legal_words for a in part], part))
     errors: dict[str, Any] = {}
     for model_id in models:
-        from monitoring.embedder import EmbeddingConfig, SentenceTransformerEmbedder
+        from processing.junk.embedder import EmbeddingConfig, SentenceTransformerEmbedder
 
         embedder = SentenceTransformerEmbedder(EmbeddingConfig(model_id=model_id))
         embedded = Embedded(embedder.embed_documents, articles)
@@ -353,7 +353,7 @@ def _curve(scores: Sequence[float], part: Sequence[Article]) -> list[dict[str, f
     return points
 
 
-SCREEN_MODEL = ROOT / "src" / "monitoring" / "junk_screen_model.json"
+SCREEN_MODEL = ROOT / "src" / "processing" / "junk" / "junk_screen_model.json"
 LABELS_OUT = ROOT / "evaluation" / "junk_screen" / "labels.json"
 
 
@@ -362,7 +362,7 @@ def export(model_id: str) -> dict[str, Any]:
     part, with the cutoff chosen there out of fold — the one the validation measured."""
     from sklearn.linear_model import LogisticRegression
 
-    from monitoring.embedder import EmbeddingConfig, SentenceTransformerEmbedder
+    from processing.junk.embedder import EmbeddingConfig, SentenceTransformerEmbedder
 
     articles = load()
     calibration = [i for i, a in enumerate(articles) if a.published_at < SPLIT_AT]

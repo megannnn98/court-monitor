@@ -228,7 +228,7 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 
 - Шаги и их порядок: `src/web/ui/pipeline.py`; запуски: `src/operator_console.py`.
 - CLI шагов 2–5: `src/monitoring/cli.py`.
-- Очистка: `src/monitoring/junk_purge.py`.
+- Очистка: `src/processing/junk/purge.py`.
 - Сущности: `src/entities/` — `collector.py`, `grouping.py`, `normalizer.py`,
   `rf_check.py`, `roles.py`, `politics.py`, `news.py`, `unnamed.py`, `disputes.py`,
   `answers.py`, `llm.py`.

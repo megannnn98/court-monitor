@@ -12,17 +12,17 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import create_database_engine, create_session_factory
 from db.maintenance import require_disposable_database, truncate_disposable_tables
-from persons.persistence import SqlAlchemyPersonPersistence
-from persons.resolution.ai_factory import build_entity_review_service
-from persons.resolution.ai_policy import EntityReviewSettings
-from persons.resolution.candidates import CandidateConfig
-from persons.resolution.decision import ResolutionThresholds
-from persons.resolution.evaluation import (
+from evaluation.person_resolution.er_run import (
     format_er_evaluation,
     load_er_corpus,
     pipeline_identity,
     run_er_evaluation,
 )
+from persons.persistence import SqlAlchemyPersonPersistence
+from persons.resolution.ai_factory import build_entity_review_service
+from persons.resolution.ai_policy import EntityReviewSettings
+from persons.resolution.candidates import CandidateConfig
+from persons.resolution.decision import ResolutionThresholds
 from persons.resolution.factory import build_person_resolution_engine
 from persons.resolution.models import ScoredPersonCandidate
 from persons.resolution.redecide import redecide_name_only_reviews

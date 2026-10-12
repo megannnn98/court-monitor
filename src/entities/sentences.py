@@ -38,7 +38,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from entities.grouping import name_key
-from entities.llm import (
+from entities.regions import canonical
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     BudgetExceededError,
@@ -50,7 +51,6 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.regions import canonical
 
 logger = logging.getLogger("entities")
 

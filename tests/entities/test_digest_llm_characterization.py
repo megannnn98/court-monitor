@@ -24,7 +24,7 @@ from entities.digest import (
     DigestClassifierError,
     OpenRouterDigestClassifier,
 )
-from entities.llm import Endpoint, ModelError, Spend
+from llm.chat import Endpoint, ModelError, Spend
 
 URL = "https://openrouter.test/api/v1/chat/completions"
 TITLES = {7: "Суд арестовал активиста", 9: "Главное за день"}

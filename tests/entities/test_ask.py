@@ -21,7 +21,7 @@ from entities.ask import (
     spent_today,
     unverified_numbers,
 )
-from entities.llm import Spend
+from llm.chat import Spend
 
 
 class FakeAsker:

@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ArticleDigestAnswerRecord
 from entities.evidence import person_evidence_cte
-from entities.llm import (
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     BudgetExceededError,
@@ -111,7 +111,7 @@ class DigestClassifier(Protocol):
 
 class OpenRouterDigestClassifier:
     """Through an OpenAI-compatible API: OpenRouter (DeepSeek by default) or a local
-    model (`entities.llm.Endpoint`)."""
+    model (`llm.chat.Endpoint`)."""
 
     def __init__(
         self,

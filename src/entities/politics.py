@@ -37,7 +37,8 @@ from db.orm_models import (
 from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.disputes import KeyIndex
 from entities.known_base import TrackedCase, TrackedCases
-from entities.llm import (
+from entities.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     Endpoint,
@@ -47,7 +48,6 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
 from persecution.classifier import POLITICAL_ARTICLES
 
 logger = logging.getLogger("entities")
@@ -235,7 +235,7 @@ def matched_answers(
 
 class OpenRouterPoliticsClassifier:
     """Through an OpenAI-compatible API: OpenRouter (DeepSeek by default) or a local
-    model (`entities.llm.Endpoint`)."""
+    model (`llm.chat.Endpoint`)."""
 
     def __init__(
         self,
@@ -296,7 +296,7 @@ class OpenRouterPoliticsClassifier:
 
 
 def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> PoliticsClassifier | None:
-    """A local model or OpenRouter (`entities.llm.endpoint_from_env`); None otherwise:
+    """A local model or OpenRouter (`llm.chat.endpoint_from_env`); None otherwise:
     the rest is then «unclear»."""
     env = os.environ if env is None else env
     endpoint = endpoint_from_env(env)

@@ -13,12 +13,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.database import create_database_engine
 from db.maintenance import NotDisposableDatabaseError
 from db.orm_models import PersonRecord, PersonResolutionDecisionRecord
+from evaluation.person_resolution.er_run import load_er_corpus, run_er_evaluation
 from persons.resolution.cli import (
     DEFAULT_ER_CORPUS_PATH,
     run_evaluate_er,
     run_person_resolution_command,
 )
-from persons.resolution.evaluation import load_er_corpus, run_er_evaluation
 from persons.resolution.models import PersonResolutionAction
 
 

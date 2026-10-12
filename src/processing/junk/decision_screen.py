@@ -26,7 +26,7 @@ from functools import partial
 
 import httpx
 
-from monitoring.article_screen import JunkScreenError
+from processing.junk.article_screen import JunkScreenError
 
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 DECISION_MODEL = "~typesafe/jev-latest"

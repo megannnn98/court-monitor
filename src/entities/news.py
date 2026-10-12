@@ -32,7 +32,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.orm_models import EntityGroupNewsRecord, EntityNewsAnswerRecord
 from entities.answers import AnswerCache, ask_missing, input_hash
 from entities.evidence import person_evidence_cte
-from entities.llm import (
+from entities.politics import POLITICAL
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     Endpoint,
@@ -42,7 +43,6 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.politics import POLITICAL
 
 logger = logging.getLogger("entities")
 

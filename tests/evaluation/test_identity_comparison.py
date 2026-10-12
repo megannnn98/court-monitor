@@ -7,7 +7,7 @@ import pytest
 from evaluation.identity_comparison import real, synthetic
 from evaluation.identity_comparison.synthetic import Verdict
 from evaluation.person_resolution.corpus import CorpusPerson
-from persons.resolution.evaluation import ErCase
+from evaluation.person_resolution.er_run import ErCase
 from persons.resolution.models import PersonResolutionAction
 
 PERSONS = [

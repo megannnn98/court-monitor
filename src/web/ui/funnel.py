@@ -14,8 +14,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from entities.officials import OFFICIAL_KINDS
-from monitoring.junk_purge import CRIMINAL_EVENT_TYPES, EXPIRED_CONTENT_TYPE
-from monitoring.junk_screen import HELD
+from processing.junk.purge import CRIMINAL_EVENT_TYPES, EXPIRED_CONTENT_TYPE
+from processing.junk.screen import HELD
 
 _COUNTS = text(
     """

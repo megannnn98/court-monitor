@@ -14,7 +14,7 @@ from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import ArticleSentenceRecord, ChatQuestionRecord
 from entities.ask import Call, Plan
-from entities.llm import Spend
+from llm.chat import Spend
 from web.app import app
 from web.dependencies import get_db
 from web.ui import ask as ask_page

@@ -7,15 +7,15 @@ import json
 import httpx
 import pytest
 
-from monitoring.article_screen import JunkScreenError
-from monitoring.decision_screen import (
+from processing.junk.article_screen import JunkScreenError
+from processing.junk.decision_screen import (
     ARTICLE_CHARS,
     CUTOFF,
     DECISIONS_URL,
     DecisionScreen,
     decision_screen_from_env,
 )
-from monitoring.junk_screen import screen_from_env
+from processing.junk.screen import screen_from_env
 
 
 def _answer(case: float) -> dict[str, object]:

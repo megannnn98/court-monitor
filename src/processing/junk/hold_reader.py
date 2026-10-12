@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from entities.llm import (
+from llm.chat import (
     BudgetExceededError,
     Endpoint,
     ModelError,
@@ -43,7 +43,7 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from monitoring.junk_screen import HELD
+from processing.junk.screen import HELD
 
 logger = logging.getLogger("monitoring")
 

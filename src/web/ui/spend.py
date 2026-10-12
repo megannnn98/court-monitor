@@ -32,9 +32,9 @@ from html import escape
 
 import httpx
 
-from entities.llm import budget_from_env, endpoint_from_env
-from monitoring.junk_screen import DECISION
+from llm.chat import budget_from_env, endpoint_from_env
 from operator_console import OperationRun, OperationRunStatus
+from processing.junk.screen import DECISION
 
 CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 CACHE_SECONDS = 60.0

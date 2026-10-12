@@ -31,16 +31,11 @@ ENTRY_POINT = "entry_point"
 MODULE_OF: tuple[tuple[str, str], ...] = (
     ("ingestion/", INGESTION),
     ("processing/", PROCESSING),
+    # A command-line entry: it runs the evaluation tooling of the resolver.
+    ("persons/resolution/cli.py", ENTRY_POINT),
     ("persons/", PROCESSING),
     ("llm/cli_reviewer.py", PROCESSING),
     ("llm/entity_reviewer.py", PROCESSING),
-    ("monitoring/article_screen.py", PROCESSING),
-    ("monitoring/decision_screen.py", PROCESSING),
-    ("monitoring/embedder.py", PROCESSING),
-    ("monitoring/hold_reader.py", PROCESSING),
-    ("monitoring/junk_holds.py", PROCESSING),
-    ("monitoring/junk_purge.py", PROCESSING),
-    ("monitoring/junk_screen.py", PROCESSING),
     ("persecution/", ANALYSIS),
     ("rosfinmonitoring/", ANALYSIS),
     ("candidates/", RESULTS),
@@ -80,8 +75,6 @@ KNOWN_VIOLATIONS: frozenset[str] = frozenset(
         "airtable/repository.py -> processing.extraction.normalizers",
         "health.py -> monitoring.models",
         "monitoring/findings.py -> monitoring.models",
-        "monitoring/hold_reader.py -> entities.llm",
-        "persons/resolution/evaluation.py -> evaluation.person_resolution.corpus",
     }
 )
 

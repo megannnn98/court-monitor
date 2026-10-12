@@ -43,7 +43,6 @@ from entities.grouping import (
     name_key,
     nominative_form,
 )
-from entities.llm import BudgetExceededError, Spend, ask_in_batches
 from entities.normalizer import (
     BATCH_SIZE,
     PROMPT_VERSION,
@@ -54,7 +53,8 @@ from entities.normalizer import (
 )
 from entities.overrides import apply_overrides, name_overrides
 from entities.removals import removed_keys, without_removed
-from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
+from llm.chat import BudgetExceededError, Spend, ask_in_batches
+from processing.junk.purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")
 

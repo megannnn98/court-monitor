@@ -597,7 +597,7 @@ def test_an_earlier_prompt_s_answer_holds_unless_it_is_accused(
 def test_past_the_budget_the_rest_is_unasked_and_counted(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities.llm import Spend
+    from llm.chat import Spend
 
     _seed(session_factory)
     spent = FakeClassifier(KINDS)
@@ -614,7 +614,7 @@ def test_past_the_budget_the_rest_is_unasked_and_counted(
 def test_another_model_is_compared_on_what_the_steps_answered(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities.compare import compare_roles
+    from evaluation.model_comparison.compare import compare_roles
 
     _seed(session_factory)
     FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()

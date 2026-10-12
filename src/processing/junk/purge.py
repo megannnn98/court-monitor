@@ -14,7 +14,7 @@ what is counted as loaded is only what the work covers.
 Batches of their own transactions: a stopped purge keeps what it removed and leaves a
 consistent database; the next purge goes on from there.
 
-With an embedding screen (`monitoring.junk_screen`, off by default) a junk article that
+With an embedding screen (`processing.junk.screen`, off by default) a junk article that
 reads like a criminal case is held back instead (`junk_screen_holds`), for a person to
 look at. A held article is never purged, screen on or off, until a person calls it junk;
 a screen that fails stops the purge before its batch is deleted.
@@ -33,9 +33,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import JunkScreenHoldRecord
-from monitoring.article_screen import ArticleScreen
-from monitoring.junk_screen import HELD, reason
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
+from processing.junk.article_screen import ArticleScreen
+from processing.junk.screen import HELD, reason
 
 logger = logging.getLogger("monitoring")
 

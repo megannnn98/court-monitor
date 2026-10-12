@@ -10,7 +10,7 @@ What steps 4 and 5 share, so that a rebuild costs nothing it need not:
   it. The others are asked again then: a new publication may bring a case.
 - A new prompt version need not ask everything again: `accepted` takes the answers of
   earlier versions the change does not touch.
-- The rest is asked in batches within the run's budget (`entities.llm`); what the
+- The rest is asked in batches within the run's budget (`llm.chat`); what the
   budget leaves unasked is asked by the next run.
 """
 
@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from entities.disputes import KeyIndex
-from entities.llm import BudgetExceededError, ModelError, Spend, ask_in_batches
+from llm.chat import BudgetExceededError, ModelError, Spend, ask_in_batches
 
 logger = logging.getLogger("entities")
 

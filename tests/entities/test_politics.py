@@ -34,7 +34,7 @@ from entities.politics import (
 )
 from entities.rf_check import EntityRfCheck
 from entities.roles import quotes_of
-from monitoring.hold_reader import add_event
+from processing.junk.hold_reader import add_event
 
 RF_PAGE = """<!doctype html><html>
 <div class="panel-heading"><h4>Физические лица</h4></div>

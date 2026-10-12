@@ -22,7 +22,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from entities.grouping import _bases, _fold
-from entities.llm import (
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     Endpoint,
@@ -175,7 +175,7 @@ def _payload(items: Sequence[NameItem]) -> str:
 
 class OpenRouterNameNormalizer:
     """The same task through an OpenAI-compatible API: OpenRouter (DeepSeek by default)
-    or a local model (`entities.llm.Endpoint`). An answer that breaks the schema is a
+    or a local model (`llm.chat.Endpoint`). An answer that breaks the schema is a
     failure, never a name."""
 
     def __init__(
@@ -224,7 +224,7 @@ class OpenRouterNameNormalizer:
 
 
 def name_normalizer_from_env(env: Mapping[str, str] | None = None) -> NameNormalizer | None:
-    """A local model or OpenRouter (`entities.llm.endpoint_from_env`), else Claude when
+    """A local model or OpenRouter (`llm.chat.endpoint_from_env`), else Claude when
     its key is set, else none."""
     env = os.environ if env is None else env
     endpoint = endpoint_from_env(env)

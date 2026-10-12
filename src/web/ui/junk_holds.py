@@ -3,7 +3,7 @@
 Each one: the publication, why it was held (the screen's score and cutoff — no proof of a
 case), the events today's extraction found, and a person's two ways out: «Мусор» (the
 next purge deletes it) or «Извлечь заново» (after the extraction was fixed; an event found
-returns the article to the pipeline). `monitoring.junk_holds` does the work.
+returns the article to the pipeline). `processing.junk.holds` does the work.
 """
 
 from __future__ import annotations
@@ -18,9 +18,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from monitoring.hold_reader import MODEL_JUNK, RELEASED, release
-from monitoring.junk_holds import hold_again, mark_junk, reextract, unrelease
-from monitoring.junk_screen import HELD, JUNK
+from processing.junk.hold_reader import MODEL_JUNK, RELEASED, release
+from processing.junk.holds import hold_again, mark_junk, reextract, unrelease
+from processing.junk.screen import HELD, JUNK
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page, pager
 

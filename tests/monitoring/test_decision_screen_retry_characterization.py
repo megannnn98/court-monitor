@@ -14,8 +14,8 @@ from collections.abc import Callable
 import httpx
 import pytest
 
-from monitoring.article_screen import JunkScreenError
-from monitoring.decision_screen import RETRIES, DecisionScreen
+from processing.junk.article_screen import JunkScreenError
+from processing.junk.decision_screen import RETRIES, DecisionScreen
 
 ANSWER = {
     "answers": {"decision": {"probabilities": {"case": 0.8, "not_case": 0.2}}},

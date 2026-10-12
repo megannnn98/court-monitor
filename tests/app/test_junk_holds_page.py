@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import JunkScreenHoldRecord
-from monitoring.hold_reader import add_event
-from monitoring.junk_purge import JunkPurge
-from monitoring.junk_screen import reason
+from processing.junk.hold_reader import add_event
+from processing.junk.purge import JunkPurge
+from processing.junk.screen import reason
 from web.app import app
 from web.dependencies import get_db
 from web.ui.junk_holds import PAGE_SIZE, _pages, same_news

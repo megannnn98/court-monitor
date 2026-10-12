@@ -1,4 +1,4 @@
-"""A person's work on the articles the junk screen held back (`monitoring.junk_screen`).
+"""A person's work on the articles the junk screen held back (`processing.junk.screen`).
 
 Two ways out of the hold. «Мусор»: the article is junk after all; the next purge deletes
 it. «Извлечь заново»: after the extraction was fixed, the article is extracted again; a
@@ -14,9 +14,6 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from monitoring.hold_reader import EXTRACTOR_NAME, RELEASED
-from monitoring.junk_purge import CRIMINAL_EVENT_TYPES
-from monitoring.junk_screen import HELD, JUNK
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
@@ -24,6 +21,9 @@ from processing.extraction.models import ExtractionRunStatus
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
+from processing.junk.hold_reader import EXTRACTOR_NAME, RELEASED
+from processing.junk.purge import CRIMINAL_EVENT_TYPES
+from processing.junk.screen import HELD, JUNK
 
 _CRIMINAL_EVENTS = text(
     """

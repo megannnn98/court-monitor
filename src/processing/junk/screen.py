@@ -10,7 +10,7 @@ is no proof of a criminal case, and a held article has no event, so no later ste
 until its extraction is fixed and run again.
 
 Off by default. `JUNK_SCREEN=jev` turns on the screen that asks a decision model
-(`monitoring.decision_screen`) — the one `compose.yaml` sets: it saves more cases, holds
+(`processing.junk.decision_screen`) — the one `compose.yaml` sets: it saves more cases, holds
 less junk and needs nothing installed. `JUNK_SCREEN=1` turns on the embedding screen
 described here; `JUNK_SCREEN_MODEL` points to another model file. Turned on, a model file that is missing or wrong, an embedding
 model that does not load, or an embedding that fails stops the purge before it deletes
@@ -26,9 +26,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from monitoring.article_screen import ArticleScreen, JunkScreenError
-from monitoring.decision_screen import decision_screen_from_env
-from monitoring.embedder import (
+from processing.junk.article_screen import ArticleScreen, JunkScreenError
+from processing.junk.decision_screen import decision_screen_from_env
+from processing.junk.embedder import (
     EmbeddingConfig,
     EmbeddingConfigurationError,
     SentenceTransformerEmbedder,

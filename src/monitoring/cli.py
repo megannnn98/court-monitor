@@ -28,12 +28,12 @@ from entities.roles import FigurantFinder, role_classifier_from_env
 from entities.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
 from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from ingestion.sources.source_registry import SOURCES, SourceKind
-from monitoring.hold_reader import hold_reader_from_env, read_holds
-from monitoring.junk_purge import JunkPurge, JunkPurgeResult, since_from_env
-from monitoring.junk_screen import screen_from_env
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
 from observability import configure_logging
+from processing.junk.hold_reader import hold_reader_from_env, read_holds
+from processing.junk.purge import JunkPurge, JunkPurgeResult, since_from_env
+from processing.junk.screen import screen_from_env
 
 logger = logging.getLogger("monitoring")
 
@@ -245,7 +245,7 @@ def _print(payload: BaseModel | list[Any] | dict[str, Any]) -> None:
 def _compare_models(
     session_factory: sessionmaker[Session], step: str, sample: int, seed: int
 ) -> bool:
-    from entities import compare
+    from evaluation.model_comparison import compare
 
     if step == "names":
         normalizer = name_normalizer_from_env()

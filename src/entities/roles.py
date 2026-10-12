@@ -39,7 +39,14 @@ from db.orm_models import (
 from entities.answers import AnswerCache, ask_missing, input_hash
 from entities.disputes import KeyIndex
 from entities.evidence import person_evidence_cte
-from entities.llm import (
+from entities.officials import (
+    OFFICIAL_KINDS,
+    official_entity_ids,
+    official_marks,
+    remember_titled,
+    titled_entities,
+)
+from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
     Endpoint,
@@ -49,14 +56,7 @@ from entities.llm import (
     chat_json,
     endpoint_from_env,
 )
-from entities.officials import (
-    OFFICIAL_KINDS,
-    official_entity_ids,
-    official_marks,
-    remember_titled,
-    titled_entities,
-)
-from monitoring.hold_reader import EXTRACTOR_NAME
+from processing.junk.hold_reader import EXTRACTOR_NAME
 
 logger = logging.getLogger("entities")
 
@@ -309,7 +309,7 @@ def matched_answers(
 
 class OpenRouterRoleClassifier:
     """Through an OpenAI-compatible API: OpenRouter (DeepSeek by default) or a local
-    model (`entities.llm.Endpoint`)."""
+    model (`llm.chat.Endpoint`)."""
 
     def __init__(
         self,
@@ -361,7 +361,7 @@ class OpenRouterRoleClassifier:
 
 
 def role_classifier_from_env(env: Mapping[str, str] | None = None) -> RoleClassifier | None:
-    """A local model or OpenRouter (`entities.llm.endpoint_from_env`); None otherwise:
+    """A local model or OpenRouter (`llm.chat.endpoint_from_env`); None otherwise:
     the rest is then «unclear»."""
     env = os.environ if env is None else env
     endpoint = endpoint_from_env(env)
@@ -417,7 +417,7 @@ _QUOTES = text(
 
 
 # The entities an article names that is in the work by a model's reading alone
-# (`monitoring.hold_reader`), each with that article: the rules found no case in it.
+# (`processing.junk.hold_reader`), each with that article: the rules found no case in it.
 _MODEL_READ = text(
     """
     SELECT DISTINCT gm.group_id, r.article_id
