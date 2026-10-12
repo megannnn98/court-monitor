@@ -22,6 +22,7 @@ from support.monitoring_fixtures import (
 )
 
 from application import ApplicationServices
+from cli.cycle import add_cycle_arguments, run_cycle_command
 from cli.monitoring import (
     MONITOR_EXIT_ALREADY_RUNNING,
     add_monitoring_arguments,
@@ -30,6 +31,7 @@ from cli.monitoring import (
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.repository import SqlAlchemyMonitoringRepository
 from results.findings import MonitoringFindingService
+from results.service import ResultsService
 
 
 def _parse(*argv: str) -> argparse.Namespace:
@@ -52,7 +54,7 @@ def _run(
             monitoring_settings=service.settings,
             monitoring=service,
             monitoring_repository=SqlAlchemyMonitoringRepository(factory),
-            findings=MonitoringFindingService(factory),
+            results=ResultsService(findings=MonitoringFindingService(factory)),
         )
 
     assert run_monitoring_command(_parse(*argv), session_factory, build_services=build)
@@ -480,7 +482,10 @@ def test_purge_junk_reports_what_it_removed(
     ovd.publish("exhibition", "Пётр Петров открыл выставку современного искусства.")
     build_service(session_factory, {"ovd-info": ovd}).run_source("ovd-info", with_derived=False)
 
-    report = _run(session_factory, {"ovd-info": ovd}, capsys, "purge-junk")
+    parser = argparse.ArgumentParser()
+    add_cycle_arguments(parser.add_subparsers(dest="command", required=True))
+    assert run_cycle_command(parser.parse_args(["purge-junk"]), session_factory)
+    report = json.loads(capsys.readouterr().out)
 
     assert isinstance(report, dict)
     assert report["articles"] == 1

@@ -34,6 +34,14 @@ from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult, unnamed_rea
 # The steps log under the name the operator console reads its runs by.
 logger = logging.getLogger("monitoring")
 
+__all__ = [
+    "AnalysisService",
+    "NewsResult",
+    "PoliticsResult",
+    "RfCheckResult",
+    "UnnamedResult",
+]
+
 OnStage = Callable[[str], None]
 
 

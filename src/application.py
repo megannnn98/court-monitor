@@ -29,6 +29,7 @@ from ingestion.sources.website_adapter import WebsiteAdapter
 from ingestion.stored import SqlAlchemyStoredDocuments
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
+from orchestrator.cycle import OperatorCycle
 from orchestrator.models import MonitoringSettings
 from orchestrator.repository import SqlAlchemyMonitoringRepository
 from orchestrator.service import MonitoringService, PipelineModules
@@ -47,6 +48,7 @@ from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.pending import SqlAlchemyPendingExtraction
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
+from processing.identity.service import identity_service_from_env
 from processing.service import ProcessingService
 from results.findings import MonitoringFindingService, MonitoringQueryProvider
 from results.service import ResultsService
@@ -201,13 +203,25 @@ def build_monitoring_service(
     return MonitoringService(modules, settings)
 
 
+def build_operator_cycle(
+    session_factory: sessionmaker[Session], *, env: Mapping[str, str] | None = None
+) -> OperatorCycle:
+    """The steps of the operator cycle over the same facades a monitoring run uses."""
+    return OperatorCycle(
+        session_factory=session_factory,
+        processing=build_processing_service(session_factory),
+        identity=identity_service_from_env(env),
+        analysis=build_analysis_service(session_factory),
+    )
+
+
 @dataclass(frozen=True)
 class ApplicationServices:
     session_factory: sessionmaker[Session]
     monitoring_settings: MonitoringSettings
     monitoring: MonitoringService
     monitoring_repository: SqlAlchemyMonitoringRepository
-    findings: MonitoringFindingService
+    results: ResultsService
 
 
 def build_application_services(
@@ -236,5 +250,5 @@ def build_application_services(
         monitoring_settings=settings,
         monitoring=monitoring,
         monitoring_repository=SqlAlchemyMonitoringRepository(session_factory),
-        findings=MonitoringFindingService(session_factory),
+        results=build_results_service(session_factory),
     )

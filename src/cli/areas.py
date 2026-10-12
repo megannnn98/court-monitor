@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 
 from cli.context import CliContext
+from cli.cycle import add_cycle_arguments, run_cycle_command
 from cli.external import register_group
 from cli.monitoring import add_monitoring_arguments, run_monitoring_command
 from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
@@ -35,6 +36,7 @@ def register_person_resolution(
 
 def register_monitoring(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     register_group(subparsers, add_monitoring_arguments, _monitoring)
+    register_group(subparsers, add_cycle_arguments, _cycle)
 
 
 def register_evaluation(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -50,6 +52,10 @@ def _person_resolution(args: argparse.Namespace, context: CliContext) -> None:
 
 def _monitoring(args: argparse.Namespace, context: CliContext) -> None:
     run_monitoring_command(args, context.session_factory)
+
+
+def _cycle(args: argparse.Namespace, context: CliContext) -> None:
+    run_cycle_command(args, context.session_factory)
 
 
 def _evaluate_er(args: argparse.Namespace, context: CliContext) -> None:

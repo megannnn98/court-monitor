@@ -34,6 +34,15 @@ from processing.roles.roles import FigurantFinder, FigurantResult, role_classifi
 # The steps log under the name the operator console reads its runs by.
 logger = logging.getLogger("monitoring")
 
+__all__ = [
+    "DigestResult",
+    "ExtractionSaveResult",
+    "FigurantResult",
+    "JunkPurgeOutcome",
+    "ProcessingService",
+    "SentencesResult",
+]
+
 OnStage = Callable[[str], None]
 
 

@@ -197,3 +197,29 @@ def compare_names(
         if answer is not None:
             result.add(row.name, name_key(row.name), name_key(answer.nominative))
     return result
+
+
+def run_comparison(
+    session_factory: sessionmaker[Session], step: str, *, size: int, seed: int
+) -> dict[str, Any]:
+    """Compare the configured model with the trusted one on one step; the report."""
+    from analysis.politics.classification import politics_classifier_from_env
+    from processing.identity.normalizer import name_normalizer_from_env
+    from processing.roles.roles import role_classifier_from_env
+
+    if step == "names":
+        normalizer = name_normalizer_from_env()
+        if normalizer is None:
+            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
+        result = compare_names(session_factory, normalizer, size=size, seed=seed)
+    elif step == "roles":
+        roles = role_classifier_from_env()
+        if roles is None:
+            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
+        result = compare_roles(session_factory, roles, size=size, seed=seed)
+    else:
+        politics = politics_classifier_from_env()
+        if politics is None:
+            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
+        result = compare_politics(session_factory, politics, size=size, seed=seed)
+    return result.report()

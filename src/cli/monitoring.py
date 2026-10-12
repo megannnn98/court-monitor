@@ -1,12 +1,12 @@
 """Manual monitoring without Dagster: the same `MonitoringService` the assets call.
 
-JSON goes to stdout, structured `monitoring_*` logs to stderr.
+Parse, call the orchestrator, print. JSON goes to stdout, structured `monitoring_*`
+logs to stderr. The steps of the operator cycle are `cli.cycle`.
 """
 
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
 import logging
 import sys
@@ -17,10 +17,6 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
-from analysis.news.case_news import NewsFinder, NewsResult, news_reader_from_env
-from analysis.politics.classification import PoliticsFinder, politics_classifier_from_env
-from analysis.rosfinmonitoring.rf_check import EntityRfCheck, RfCheckResult
-from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from application import ApplicationServices, build_application_services
 from ingestion.sources.source_registry import SOURCES, SourceKind
 from observability import configure_logging
@@ -30,14 +26,6 @@ from orchestrator.models import (
     MonitoringTrigger,
 )
 from orchestrator.service import MonitoringService
-from processing.evidence.digest import DigestFinder, digest_classifier_from_env, figurant_titles
-from processing.evidence.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
-from processing.identity.normalizer import name_normalizer_from_env
-from processing.identity.service import identity_service_from_env
-from processing.junk.hold_reader import hold_reader_from_env, read_holds
-from processing.junk.purge import JunkPurge, JunkPurgeResult, since_from_env
-from processing.junk.screen import screen_from_env
-from processing.roles.roles import FigurantFinder, role_classifier_from_env
 
 logger = logging.getLogger("monitoring")
 
@@ -49,15 +37,6 @@ MONITORING_COMMANDS = frozenset(
         "monitor",
         "monitor-derived",
         "monitor-resolve",
-        "purge-junk",
-        "collect-entities",
-        "check-entities-rosfin",
-        "find-figurants",
-        "find-political",
-        "find-unnamed",
-        "find-news",
-        "find-sentences",
-        "compare-entity-models",
         "monitoring-status",
         "monitoring-findings",
     }
@@ -152,78 +131,6 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         help="Re-run classification, RF matching and findings (no web access)",
     )
 
-    subparsers.add_parser(
-        "purge-junk",
-        help=(
-            "Delete the articles without a criminal-case event (keeping a tombstone of each "
-            "post) and the persons only they named; irreversible"
-        ),
-    )
-
-    subparsers.add_parser(
-        "collect-entities",
-        help="Rebuild the person entities from the articles with a criminal case",
-    )
-
-    subparsers.add_parser(
-        "check-entities-rosfin",
-        help=(
-            "Download the Rosfinmonitoring list (a new snapshot when it changed) and match "
-            "the person entities against the latest one by name"
-        ),
-    )
-
-    subparsers.add_parser(
-        "find-figurants",
-        help=(
-            "Tell the entities a criminal case is opened against from those only mentioned "
-            "(rules, then a model for the rest)"
-        ),
-    )
-
-    subparsers.add_parser(
-        "find-political",
-        help=(
-            "Match entities against Rosfinmonitoring, tell which figurants are politically "
-            "persecuted, then find the unnamed figurants"
-        ),
-    )
-
-    subparsers.add_parser(
-        "find-news",
-        help=(
-            "Tell what each political case's latest news is: a new case, a sentence, or "
-            "more of an old one"
-        ),
-    )
-
-    subparsers.add_parser(
-        "find-sentences",
-        help=(
-            "Read the sentences the articles tell of: the region, the punishment and the "
-            "reason of each, for the counts of «Спросить»"
-        ),
-    )
-
-    subparsers.add_parser(
-        "find-unnamed",
-        help=(
-            "Find the figurants the publications do not name («17-летний житель Тюмени») "
-            "for matching with the Rosfinmonitoring list"
-        ),
-    )
-
-    compare = subparsers.add_parser(
-        "compare-entity-models",
-        help=(
-            "Ask the configured model (ENTITY_NORMALIZE_MODEL) what the steps already "
-            "answered, on a sample, and report the agreement; writes nothing"
-        ),
-    )
-    compare.add_argument("--step", choices=("names", "roles", "politics"), required=True)
-    compare.add_argument("--sample", type=int, default=200)
-    compare.add_argument("--seed", type=int, default=1)
-
     status = subparsers.add_parser("monitoring-status", help="Show monitoring runs and checkpoints")
     status.add_argument("--run-id", type=int, default=None, help="Show one run with failed items")
 
@@ -246,30 +153,6 @@ def _print(payload: BaseModel | list[Any] | dict[str, Any]) -> None:
     )
 
 
-def _compare_models(
-    session_factory: sessionmaker[Session], step: str, sample: int, seed: int
-) -> bool:
-    from evaluation.model_comparison import compare
-
-    if step == "names":
-        normalizer = name_normalizer_from_env()
-        if normalizer is None:
-            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
-        result = compare.compare_names(session_factory, normalizer, size=sample, seed=seed)
-    elif step == "roles":
-        roles = role_classifier_from_env()
-        if roles is None:
-            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
-        result = compare.compare_roles(session_factory, roles, size=sample, seed=seed)
-    else:
-        politics = politics_classifier_from_env()
-        if politics is None:
-            raise SystemExit("No model configured: OPENROUTER_API_KEY is not set")
-        result = compare.compare_politics(session_factory, politics, size=sample, seed=seed)
-    _print(result.report())
-    return True
-
-
 def run_monitoring_command(
     args: argparse.Namespace,
     session_factory: sessionmaker[Session],
@@ -280,144 +163,6 @@ def run_monitoring_command(
     if args.command not in MONITORING_COMMANDS:
         return False
     configure_logging()
-    if args.command == "purge-junk":
-        return _purge_junk(session_factory)
-    if args.command == "collect-entities":
-        identity = identity_service_from_env()
-        if not identity.names_by_model:
-            logger.warning(
-                "event=entity_names_no_model: neither OPENROUTER_API_KEY nor ANTHROPIC_API_KEY"
-            )
-        collected = identity.rebuild_groups(
-            session_factory,
-            on_stage=lambda stage: logger.info("event=entities_collect_stage stage=%s", stage),
-        )
-        _print(
-            {
-                "mentions": collected.mentions,
-                "entities": collected.entities,
-                "grouped": collected.grouped,
-                "normalized_now": collected.normalized_now,
-                "normalized_cached": collected.normalized_cached,
-                "normalize_failures": collected.normalize_failures,
-                "normalize_unasked": collected.normalize_unasked,
-                "model_cost_usd": collected.model_cost_usd,
-                "charges": collected.charges,
-                "charged_entities": collected.charged_entities,
-            }
-        )
-        return True
-    if args.command == "check-entities-rosfin":
-        checked = EntityRfCheck(
-            session_factory,
-            on_stage=lambda stage: logger.info("event=entities_rf_check_stage stage=%s", stage),
-        ).run()
-        _print(
-            {
-                "snapshot_id": checked.snapshot_id,
-                "snapshot_date": checked.snapshot_date.isoformat()
-                if checked.snapshot_date
-                else None,
-                "entries": checked.entries,
-                "new_snapshot": checked.new_snapshot,
-                "download_error": checked.download_error,
-                "entities": checked.entities,
-                "rf_full": checked.full,
-                "rf_possible": checked.possible,
-                "rf_merged": checked.merged,
-                "region_merged": checked.merged_region,
-            }
-        )
-        return checked.snapshot_id is not None
-    if args.command == "find-figurants":
-        classifier = role_classifier_from_env()
-        if classifier is None:
-            logger.warning("event=entity_roles_no_model: OPENROUTER_API_KEY is not set")
-        found = FigurantFinder(
-            session_factory,
-            classifier=classifier,
-            on_stage=lambda stage: logger.info("event=entity_figurants_stage stage=%s", stage),
-        ).run()
-        _print(dataclasses.asdict(found))
-        return True
-    if args.command == "find-political":
-        # The list first: it confirms who is who before the verdicts. Its failure (the
-        # site, the database) must not cost the verdicts: they run, and the output says why
-        # the list was not checked.
-        rf_error: str | None = None
-        rf_checked: RfCheckResult | None = None
-        try:
-            rf_checked = EntityRfCheck(
-                session_factory,
-                on_stage=lambda stage: logger.info("event=entities_rf_check_stage stage=%s", stage),
-            ).run()
-        except Exception as exc:  # reported in the output; the step goes on
-            logger.exception("event=entities_rf_check_failed")
-            rf_error = f"{type(exc).__name__}: {exc}"
-        politics = politics_classifier_from_env()
-        if politics is None:
-            logger.warning("event=entity_politics_no_model: OPENROUTER_API_KEY is not set")
-        found_political = PoliticsFinder(
-            session_factory,
-            classifier=politics,
-            on_stage=lambda stage: logger.info("event=entity_politics_stage stage=%s", stage),
-        ).run()
-        # Roundup posts («Главное за день») among the figurants' sources: classified once
-        # per article, so «Публикации» on /ui/political can skip them.
-        digest = digest_classifier_from_env()
-        if digest is None:
-            logger.warning("event=article_digest_no_model: OPENROUTER_API_KEY is not set")
-        with session_factory() as session:
-            titles = figurant_titles(session)
-        found_digest = DigestFinder(
-            session_factory,
-            classifier=digest,
-            on_stage=lambda stage: logger.info("event=article_digest_stage stage=%s", stage),
-        ).run(titles)
-        # What each political case's latest news is: the new cases and the sentences first.
-        news = _find_news(session_factory)
-        # The final step ends with unnamed figurants: their cases are read the same way.
-        unnamed = _find_unnamed(session_factory)
-        # Last: what the sentences are, for the counts of «Спросить». Nothing above reads it.
-        sentences = _find_sentences(session_factory)
-        _print(
-            {
-                **_rf_totals(rf_checked),
-                "rf_error": rf_error,
-                **dataclasses.asdict(found_political),
-                "digest_asked_now": found_digest.asked_now,
-                "digest_cached": found_digest.cached,
-                "digest_cost_usd": found_digest.cost_usd,
-                "news_new_case": news.new_case,
-                "news_sentence": news.sentence,
-                "news_ongoing": news.ongoing,
-                "news_closed": news.closed,
-                "news_other": news.other,
-                "news_unknown": news.unknown,
-                "news_cost_usd": news.cost_usd,
-                "unnamed": unnamed.unnamed,
-                "unnamed_asked_now": unnamed.asked_now,
-                "unnamed_failures": unnamed.failures,
-                "unnamed_cost_usd": unnamed.cost_usd,
-                "sentences": sentences.sentences,
-                "sentences_asked_now": sentences.asked_now,
-                "sentences_failures": sentences.failures,
-                "sentences_unasked": sentences.unasked,
-                "sentences_cost_usd": sentences.cost_usd,
-            }
-        )
-        return True
-    if args.command == "find-news":
-        _print(dataclasses.asdict(_find_news(session_factory)))
-        return True
-    if args.command == "find-sentences":
-        _print(dataclasses.asdict(_find_sentences(session_factory)))
-        return True
-    if args.command == "find-unnamed":
-        _print(dataclasses.asdict(_find_unnamed(session_factory)))
-        return True
-    if args.command == "compare-entity-models":
-        return _compare_models(session_factory, args.step, args.sample, args.seed)
     services = build_services(session_factory)
     monitoring = services.monitoring
 
@@ -432,7 +177,7 @@ def run_monitoring_command(
         return True
 
     if args.command == "monitoring-findings":
-        _print(services.findings.list_findings(active_only=not args.all, limit=args.limit))
+        _print(services.results.list_findings(active_only=not args.all, limit=args.limit))
         return True
 
     if args.command == "monitor-derived":
@@ -587,102 +332,4 @@ def _resolve(args: argparse.Namespace, monitoring: MonitoringService) -> bool:
     _print(results)
     if exit_code:
         raise SystemExit(exit_code)
-    return True
-
-
-def _rf_totals(checked: RfCheckResult | None) -> dict[str, object]:
-    """The list check's figures in the final step's output; none when it failed."""
-    if checked is None:
-        return {"snapshot_id": None}
-    return {
-        "snapshot_id": checked.snapshot_id,
-        "snapshot_date": checked.snapshot_date.isoformat() if checked.snapshot_date else None,
-        "entries": checked.entries,
-        "new_snapshot": checked.new_snapshot,
-        "download_error": checked.download_error,
-        "entities": checked.entities,
-        "rf_full": checked.full,
-        "rf_possible": checked.possible,
-        "rf_merged": checked.merged,
-        "region_merged": checked.merged_region,
-    }
-
-
-def _find_news(session_factory: sessionmaker[Session]) -> NewsResult:
-    reader = news_reader_from_env()
-    if reader is None:
-        logger.warning("event=entity_news_no_model: OPENROUTER_API_KEY is not set")
-    return NewsFinder(
-        session_factory,
-        reader=reader,
-        on_stage=lambda stage: logger.info("event=entity_news_stage stage=%s", stage),
-    ).run()
-
-
-def _find_unnamed(session_factory: sessionmaker[Session]) -> UnnamedResult:
-    reader = unnamed_reader_from_env()
-    if reader is None:
-        logger.warning("event=unnamed_no_model: OPENROUTER_API_KEY is not set")
-    return UnnamedFinder(
-        session_factory,
-        reader=reader,
-        on_stage=lambda stage: logger.info("event=unnamed_stage stage=%s", stage),
-    ).run()
-
-
-def _find_sentences(session_factory: sessionmaker[Session]) -> SentencesResult:
-    reader = sentence_reader_from_env()
-    if reader is None:
-        logger.warning("event=sentences_no_model: OPENROUTER_API_KEY is not set")
-    return SentenceFinder(
-        session_factory,
-        reader=reader,
-        on_stage=lambda stage: logger.info("event=sentences_stage stage=%s", stage),
-    ).run()
-
-
-def _purge_junk(session_factory: sessionmaker[Session]) -> bool:
-    """Progress goes to stderr as `event=junk_purge_progress`, the totals to stdout."""
-
-    def progress(result: JunkPurgeResult) -> None:
-        logger.info(
-            "event=junk_purge_progress articles=%d total=%d persons=%d reviews=%d outdated=%d "
-            "held=%d",
-            result.articles,
-            total,
-            result.persons,
-            result.reviews,
-            result.outdated,
-            result.held,
-        )
-
-    since = since_from_env()
-    # On, the screen is loaded and tried here: broken, it stops the purge before any delete.
-    screen = screen_from_env()
-    if screen is not None:
-        logger.info("event=junk_screen_on screen=%s cutoff=%.4f", screen.name, screen.cutoff)
-    purge = JunkPurge(session_factory, on_progress=progress, since=since, screen=screen)
-    total = purge.count()
-    logger.info("event=junk_purge_started total=%d since=%s", total, since.date() if since else "-")
-    result = purge.run()
-    # What the screen held, a model reads whole: a case goes on into the work, the rest
-    # waits for a person with the model's reason.
-    read = read_holds(session_factory, hold_reader_from_env())
-    _print(
-        {
-            "articles": result.articles,
-            "outdated": result.outdated,
-            "held": result.held,
-            "persons": result.persons,
-            "reviews": result.reviews,
-            "holds_released": read.released,
-            "holds_model_junk": read.model_junk,
-            "holds_failures": read.failures,
-            "holds_unasked": read.unasked,
-            "holds_restored": read.restored,
-            "holds_cost_usd": read.cost_usd,
-            # What the screen's own model cost: of the embedding screen, nothing.
-            "screen_cost_usd": round(getattr(screen, "cost_usd", 0.0), 6),
-        }
-    )
     return True

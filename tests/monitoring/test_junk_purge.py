@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
-from cli import monitoring as cli
+from application import build_processing_service
 from db.orm_models import (
     JunkScreenHoldRecord,
     ParsedArticleRecord,
@@ -362,6 +362,6 @@ def test_the_purge_command_with_a_broken_screen_stops_before_deleting(
     monkeypatch.setenv("JUNK_SCREEN_MODEL", str(tmp_path / "missing.json"))
 
     with pytest.raises(JunkScreenError):
-        cli._purge_junk(session_factory)
+        build_processing_service(session_factory).purge_junk()
 
     assert {ids["junk"], ids["fine"], ids["criminal"]} <= _articles(session_factory)
