@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Link } from "react-router-dom";
 
 import { listPoliticalV1, markPoliticalDoneV1, type PoliticalRowResponse } from "@/api/generated";
+import { CopyButton } from "@/components/CopyButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Pager } from "@/components/Pager";
 import { QueryState } from "@/components/QueryState";
@@ -120,8 +121,11 @@ function Panel({ row }: { row: PoliticalRowResponse }) {
   return (
     <aside aria-label={`Подробно: ${row.name}`} className="space-y-4 rounded-lg border bg-card p-4 text-sm xl:sticky xl:top-4">
       <div>
-        <div className="text-base">
-          <Name row={row} />
+        <div className="flex items-start justify-between gap-2 text-base">
+          <span>
+            <Name row={row} />
+          </span>
+          <CopyButton text={row.name} />
         </div>
         <Marks row={row} />
         <div className="mt-1 text-muted-foreground">
@@ -324,7 +328,14 @@ export function PoliticalPage() {
                               <DoneBox row={row} />
                             </TableCell>
                             <TableCell className="whitespace-normal">
-                              <Name row={row} />
+                              {/* The button stands beside the name, not after its last word: in a
+                                  narrow column it would drop to a line of its own. */}
+                              <div className="flex items-start gap-1">
+                                <span className="min-w-0">
+                                  <Name row={row} />
+                                </span>
+                                <CopyButton text={row.name} className="-mt-0.5" />
+                              </div>
                               <Marks row={row} />
                             </TableCell>
                             <TableCell>

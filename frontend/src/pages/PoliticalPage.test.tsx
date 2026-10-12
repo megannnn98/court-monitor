@@ -207,3 +207,51 @@ it("on a narrow screen opens the person tapped over the table, and no one before
     vi.unstubAllGlobals();
   }
 });
+
+it("copies a name from its row and from the panel, without choosing the row", async () => {
+  const write = vi.fn((_text: string) => Promise.resolve());
+  vi.stubGlobal("navigator", { clipboard: { writeText: write } });
+  try {
+    list.mockReturnValue(ok({ ...PAGE, items: [ROW, OTHER], total: 2 }) as never);
+    renderPage(<PoliticalPage />);
+    const rows = await screen.findAllByRole("row");
+    const panel = screen.getByRole("complementary", { name: "Подробно: Смирнова Анна" });
+
+    // The second person's button, in their row: copied, and the panel stays on the first.
+    fireEvent.click(within(rows[2]).getByRole("button", { name: "Скопировать: Иванов Иван" }));
+    await waitFor(() => expect(write).toHaveBeenLastCalledWith("Иванов Иван"));
+    expect(screen.getByRole("complementary", { name: "Подробно: Смирнова Анна" })).toBe(panel);
+    expect(within(rows[2]).getByRole("button", { name: "Скопировать: Иванов Иван" }).getAttribute("title")).toBe("Скопировано");
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Скопировать: Смирнова Анна" }));
+    await waitFor(() => expect(write).toHaveBeenLastCalledWith("Смирнова Анна"));
+    expect(write).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("copies a name where the browser gives no clipboard", async () => {
+  // A page not served securely: `navigator.clipboard` is not there at all.
+  vi.stubGlobal("navigator", {});
+  const copied: string[] = [];
+  const command = vi.fn(() => {
+    copied.push((document.querySelector("textarea") as HTMLTextAreaElement).value);
+    return true;
+  });
+  document.execCommand = command as never;
+  try {
+    list.mockReturnValue(ok(PAGE) as never);
+    renderPage(<PoliticalPage />);
+    const rows = await screen.findAllByRole("row");
+
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Скопировать: Смирнова Анна" }));
+
+    await waitFor(() => expect(copied).toEqual(["Смирнова Анна"]));
+    expect(command).toHaveBeenCalledWith("copy");
+    // The field it copied from is gone.
+    expect(document.querySelector("textarea")).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
