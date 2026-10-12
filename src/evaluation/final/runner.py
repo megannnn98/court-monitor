@@ -45,11 +45,11 @@ from evaluation.final.corpus import (
 )
 from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
-from extraction.normalizers import RuleBasedMentionNormalizer
 from monitoring.models import MonitoringSettings
 from persecution.models import PersecutionClassificationStatus
 from persecution.queries import latest_persecution_classification_ids
 from persons.persistence import SqlAlchemyPersonPersistence
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
+from ingestion.sources.sudrf.listing_parser import SudrfListingParser
 from monitor_core.model import SourceReference
-from sources.sudrf.listing_parser import SudrfListingParser
 
 HOST = "2zovs.msk.sudrf.ru"
 LISTING_PATH = Path("tests/fixtures/sudrf_listing.html")

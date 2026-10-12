@@ -49,6 +49,7 @@ from evaluation.real_world.sampling import (
     temporal_split,
 )
 from evaluation.real_world.tags import sampling_tags
+from ingestion.sources.source_registry import SourceDefinition
 from monitor_core.errors import (
     DiscoveryError,
     IngestionError,
@@ -58,7 +59,6 @@ from monitor_core.errors import (
 )
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
-from sources.source_registry import SourceDefinition
 
 logger = logging.getLogger("evaluation.real_world")
 

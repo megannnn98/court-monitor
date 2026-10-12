@@ -29,8 +29,8 @@ from db.orm_models import (
     SourceDocument,
 )
 from evaluation.real_world.models import article_key
+from ingestion.sources.source_registry import SOURCES
 from persecution.queries import latest_persecution_classification_ids
-from sources.source_registry import SOURCES
 
 _SOURCE_NAMES_BY_BASE_URL = {definition.base_url: name for name, definition in SOURCES.items()}
 

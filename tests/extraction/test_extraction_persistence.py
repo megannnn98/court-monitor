@@ -10,15 +10,15 @@ from db.orm_models import (
     ExtractedEventRecord,
     ParsedArticleRecord,
 )
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import ExtractionRunStatus
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.pipeline import ExtractionPipeline
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
-from sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import ExtractionRunStatus
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.extraction.pipeline import ExtractionPipeline
 
 
 def _save_article(

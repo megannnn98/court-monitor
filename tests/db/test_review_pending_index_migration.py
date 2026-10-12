@@ -28,9 +28,9 @@ def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_duplicate_pending_reviews_stop_migration_with_actionable_message(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
 
     downgraded = _alembic(database_url, "downgrade", PREVIOUS_REVISION)

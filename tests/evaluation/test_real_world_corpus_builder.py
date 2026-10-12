@@ -23,7 +23,7 @@ from evaluation.real_world.rate_limit import (
     SourceHealth,
     SourceStoppedError,
 )
-from sources.source_registry import OVD_INFO
+from ingestion.sources.source_registry import OVD_INFO
 
 LISTING = "https://ovd.info/express-news"
 

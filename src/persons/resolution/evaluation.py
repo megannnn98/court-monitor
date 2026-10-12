@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import PersonAliasRecord, PersonRecord
 from evaluation.person_resolution.corpus import CorpusPerson, ErEvaluationCorpus, seed_corpus
-from extraction.normalizers import RuleBasedMentionNormalizer
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateConfig,
@@ -39,6 +38,7 @@ from persons.resolution.models import (
     ScoredPersonCandidate,
 )
 from persons.resolution.service import PersonResolutionEngine
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 
 A = PersonResolutionAction
 RECALL_KS = (1, 5, 10)

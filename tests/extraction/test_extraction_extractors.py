@@ -2,12 +2,18 @@ from datetime import UTC, datetime
 
 import pytest
 
-from extraction.documents import build_extraction_document_from_parsed_article
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import EntityType, EventEntityRole, EventType, ExtractionDocument, RawMention
-from extraction.normalizers import RuleBasedMentionNormalizer
 from monitor_core.model import ParsedArticle
+from processing.extraction.documents import build_extraction_document_from_parsed_article
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import (
+    EntityType,
+    EventEntityRole,
+    EventType,
+    ExtractionDocument,
+    RawMention,
+)
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
 
 
 def make_document(text: str) -> ExtractionDocument:
@@ -107,7 +113,7 @@ def test_common_name_normalization_includes_article_context(
     result = RuleBasedMentionNormalizer().normalize(mention, document)
     assert result.normalized_text == expected
     assert result.normalized_data.model_dump()["full_name"] == expected
-    assert result.normalizer_version == "1.6.0"
+    assert result.normalizer_version == "1.7.0"
 
 
 def test_extracts_events_with_links() -> None:

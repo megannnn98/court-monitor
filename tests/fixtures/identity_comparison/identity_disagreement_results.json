@@ -1,0 +1,468 @@
+{
+  "scope": "100 manually reviewed disagreement pairs; accuracy is disagreement-set accuracy, not overall corpus accuracy",
+  "annotation_counts": {
+    "same_person": 82,
+    "different_person": 11,
+    "not_a_person": 1,
+    "insufficient_evidence": 1,
+    "mixed_identity_group": 3,
+    "invalid_mention": 2
+  },
+  "identity_evaluation": {
+    "evaluable_pairs": 93,
+    "same_person": 82,
+    "different_person": 11,
+    "excluded_or_abstained_ground_truth": {
+      "insufficient_evidence": 1,
+      "not_a_person": 1,
+      "mixed_identity_group": 3,
+      "invalid_mention": 2
+    },
+    "er_v2": {
+      "automatic_pairs": 71,
+      "human_review_pairs": 22,
+      "automatic_correct": 12,
+      "automatic_accuracy": 0.16901408450704225,
+      "correct_over_all_evaluable_pairs": 0.12903225806451613,
+      "false_splits": 56
+    },
+    "rules": {
+      "automatic_pairs": 93,
+      "correct": 81,
+      "accuracy": 0.8709677419354839,
+      "false_merges": 8
+    },
+    "by_stratum": {
+      "er_joins_rules_split": {
+        "pairs": 7,
+        "same_person": 4,
+        "different_person": 3,
+        "er_correct": 4,
+        "er_abstain": 0,
+        "rules_correct": 3
+      },
+      "er_review_rules_place": {
+        "pairs": 22,
+        "same_person": 22,
+        "different_person": 0,
+        "er_correct": 0,
+        "er_abstain": 22,
+        "rules_correct": 22
+      },
+      "rules_join_er_splits": {
+        "pairs": 64,
+        "same_person": 56,
+        "different_person": 8,
+        "er_correct": 8,
+        "er_abstain": 0,
+        "rules_correct": 56
+      }
+    }
+  },
+  "rules_false_merge_pairs": [
+    {
+      "index": 34,
+      "pair_id": "case-91c7a7329d0e:a-b",
+      "flags": []
+    },
+    {
+      "index": 36,
+      "pair_id": "case-91c7a7329d0e:b-c",
+      "flags": []
+    },
+    {
+      "index": 39,
+      "pair_id": "case-49defe90591b:a-b",
+      "flags": [
+        "bad_span"
+      ]
+    },
+    {
+      "index": 46,
+      "pair_id": "case-e4ff9879fd0d:a-b",
+      "flags": [
+        "bad_span"
+      ]
+    },
+    {
+      "index": 52,
+      "pair_id": "case-56bdb3c6f1f5:a-b",
+      "flags": [
+        "bad_span"
+      ]
+    },
+    {
+      "index": 55,
+      "pair_id": "case-7643fc2ecbd7:a-b",
+      "flags": [
+        "bad_span"
+      ]
+    },
+    {
+      "index": 68,
+      "pair_id": "case-745d2982ff94:a-b",
+      "flags": []
+    },
+    {
+      "index": 100,
+      "pair_id": "case-8501beb5abd5:a-b",
+      "flags": []
+    }
+  ],
+  "er_false_split_pairs": [
+    {
+      "index": 32,
+      "pair_id": "case-5e7279c52e59:a-b",
+      "flags": []
+    },
+    {
+      "index": 33,
+      "pair_id": "case-a73ab4c7351f:a-b",
+      "flags": []
+    },
+    {
+      "index": 35,
+      "pair_id": "case-91c7a7329d0e:a-c",
+      "flags": [
+        "bad_span"
+      ]
+    },
+    {
+      "index": 37,
+      "pair_id": "case-0f2b9e42feee:a-b",
+      "flags": []
+    },
+    {
+      "index": 38,
+      "pair_id": "case-810f407e695c:a-b",
+      "flags": []
+    },
+    {
+      "index": 40,
+      "pair_id": "case-ba33cab8832a:a-b",
+      "flags": []
+    },
+    {
+      "index": 41,
+      "pair_id": "case-abd92791f958:a-b",
+      "flags": []
+    },
+    {
+      "index": 42,
+      "pair_id": "case-92b73110963f:a-b",
+      "flags": []
+    },
+    {
+      "index": 43,
+      "pair_id": "case-c7cb6ab541ae:a-b",
+      "flags": []
+    },
+    {
+      "index": 44,
+      "pair_id": "case-49e12708338d:a-b",
+      "flags": []
+    },
+    {
+      "index": 47,
+      "pair_id": "case-459a88de720c:a-b",
+      "flags": []
+    },
+    {
+      "index": 48,
+      "pair_id": "case-1664c877939d:a-b",
+      "flags": []
+    },
+    {
+      "index": 49,
+      "pair_id": "case-b634c856ce59:a-b",
+      "flags": []
+    },
+    {
+      "index": 50,
+      "pair_id": "case-396b3d75c3d5:a-b",
+      "flags": []
+    },
+    {
+      "index": 51,
+      "pair_id": "case-2ed63ae67ba3:a-b",
+      "flags": []
+    },
+    {
+      "index": 53,
+      "pair_id": "case-f489ffe7e6ee:a-b",
+      "flags": []
+    },
+    {
+      "index": 54,
+      "pair_id": "case-67e7a0cc4450:a-b",
+      "flags": []
+    },
+    {
+      "index": 56,
+      "pair_id": "case-9d9622d1f712:a-b",
+      "flags": []
+    },
+    {
+      "index": 57,
+      "pair_id": "case-d7408665b451:a-b",
+      "flags": []
+    },
+    {
+      "index": 58,
+      "pair_id": "case-4b874ac99ab2:a-b",
+      "flags": []
+    },
+    {
+      "index": 59,
+      "pair_id": "case-79d2b434657c:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 60,
+      "pair_id": "case-39524e013df9:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 61,
+      "pair_id": "case-47c7ba59c180:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 62,
+      "pair_id": "case-94de831a35b2:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 63,
+      "pair_id": "case-0cb9c1691fcb:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 64,
+      "pair_id": "case-fa075fab485f:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 65,
+      "pair_id": "case-803cdfc3640b:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 66,
+      "pair_id": "case-69d83ebdf55e:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 67,
+      "pair_id": "case-149fbcacfa1a:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 69,
+      "pair_id": "case-698a261b073a:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 70,
+      "pair_id": "case-6fdef34716f2:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 71,
+      "pair_id": "case-72e4d71a2475:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 72,
+      "pair_id": "case-5216a9a6996e:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 73,
+      "pair_id": "case-48ed4cb514af:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 74,
+      "pair_id": "case-f7ee035bc62c:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 75,
+      "pair_id": "case-3f42d3a7c218:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 76,
+      "pair_id": "case-e83921626a07:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 77,
+      "pair_id": "case-4f4317264e53:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 78,
+      "pair_id": "case-fd08291a5aa7:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 79,
+      "pair_id": "case-c57ad4a5e767:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 80,
+      "pair_id": "case-47faf9e13ea6:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 81,
+      "pair_id": "case-47faf9e13ea6:a-c",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 82,
+      "pair_id": "case-47faf9e13ea6:b-c",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 83,
+      "pair_id": "case-c07f4d9fb2c3:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 84,
+      "pair_id": "case-3a52d08c45e5:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 85,
+      "pair_id": "case-4a601ce134b2:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 86,
+      "pair_id": "case-086ab6ffaedb:a-b",
+      "flags": [
+        "name_order"
+      ]
+    },
+    {
+      "index": 88,
+      "pair_id": "case-9b4e055ebf3f:a-b",
+      "flags": [
+        "initial_expansion"
+      ]
+    },
+    {
+      "index": 90,
+      "pair_id": "case-354f7e9a6cfb:a-b",
+      "flags": [
+        "bad_normalization"
+      ]
+    },
+    {
+      "index": 91,
+      "pair_id": "case-58b26daac6ef:a-b",
+      "flags": [
+        "name_order"
+      ]
+    },
+    {
+      "index": 92,
+      "pair_id": "case-41a727c7fa54:a-b",
+      "flags": [
+        "name_order"
+      ]
+    },
+    {
+      "index": 94,
+      "pair_id": "case-a4f5f4a2e322:a-b",
+      "flags": [
+        "bad_span"
+      ]
+    },
+    {
+      "index": 95,
+      "pair_id": "case-8126b39b9699:a-b",
+      "flags": [
+        "initial_expansion"
+      ]
+    },
+    {
+      "index": 96,
+      "pair_id": "case-b16597cba07b:a-b",
+      "flags": [
+        "name_order"
+      ]
+    },
+    {
+      "index": 97,
+      "pair_id": "case-09ff6e755f9f:a-b",
+      "flags": [
+        "name_order"
+      ]
+    },
+    {
+      "index": 98,
+      "pair_id": "case-bd249f7e4f8e:a-b",
+      "flags": [
+        "bad_span"
+      ]
+    }
+  ]
+}

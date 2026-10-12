@@ -9,6 +9,19 @@ from collections.abc import Callable
 import httpx
 
 from cli.context import CliContext
+from ingestion.sources.article_parser import OvdInfoArticleParser
+from ingestion.sources.ovd_info.reference import canonicalize_ovd_info_reference
+from ingestion.sources.source_registry import (
+    OVD_INFO,
+    SOURCES,
+    SourceDefinition,
+    get_source_definition,
+)
+from ingestion.sources.sqlalchemy_persistence import (
+    SqlAlchemyIngestionPersistence,
+    SqlAlchemyPersistenceResult,
+)
+from ingestion.sources.website_adapter import WebsiteAdapter
 from monitor_core.ingestion import (
     ArticleIngestionPipeline,
     IngestionPipeline,
@@ -16,14 +29,6 @@ from monitor_core.ingestion import (
     SourceIngestion,
 )
 from monitor_core.ports import DocumentFetcher
-from sources.article_parser import OvdInfoArticleParser
-from sources.ovd_info.reference import canonicalize_ovd_info_reference
-from sources.source_registry import OVD_INFO, SOURCES, SourceDefinition, get_source_definition
-from sources.sqlalchemy_persistence import (
-    SqlAlchemyIngestionPersistence,
-    SqlAlchemyPersistenceResult,
-)
-from sources.website_adapter import WebsiteAdapter
 
 
 async def discover_and_ingest(

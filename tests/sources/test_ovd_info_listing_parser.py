@@ -1,7 +1,7 @@
 from pathlib import Path
 
+from ingestion.sources.ovd_info.listing_parser import OvdInfoListingParser
 from monitor_core.model import SourceReference
-from sources.ovd_info.listing_parser import OvdInfoListingParser
 
 FIXTURE_PATH = Path("tests/fixtures/ovd_info_listing.html")
 

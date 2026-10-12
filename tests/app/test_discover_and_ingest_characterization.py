@@ -20,9 +20,9 @@ import pytest
 
 from cli.context import CliContext
 from cli.ingestion import run_discover_and_ingest
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 from monitor_core.errors import TransientFetchError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
-from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LISTING_HTML = (FIXTURES / "ovd_info_listing.html").read_bytes()

@@ -26,7 +26,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 
-from extraction.name_frequency import lookup_gender
+from processing.extraction.name_frequency import lookup_gender
 
 # Oblique endings of a surname the dictionary left declined: «Моор» → «Моора», «Моору»,
 # «Моором», «Мооре»; «Давидис» → «Давидиса»; «Курылев» → «Курылева».

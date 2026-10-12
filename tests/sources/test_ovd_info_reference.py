@@ -1,5 +1,5 @@
+from ingestion.sources.ovd_info.reference import canonicalize_ovd_info_reference
 from monitor_core.model import SourceReference
-from sources.ovd_info.reference import canonicalize_ovd_info_reference
 
 
 def test_canonicalizes_relative_path() -> None:

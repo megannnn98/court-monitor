@@ -4,9 +4,9 @@ from typing import Any
 import httpx
 import pytest
 
+from ingestion.sources.website_adapter import WebsiteAdapter
 from monitor_core.errors import PermanentFetchError, TransientFetchError
 from monitor_core.model import SourceReference
-from sources.website_adapter import WebsiteAdapter
 
 REFERENCE = SourceReference(
     external_id="/express-news/test-article",
@@ -28,7 +28,7 @@ def _patch_async_client(
         return original_async_client(*args, **kwargs)
 
     monkeypatch.setattr(
-        "sources.website_adapter.httpx.AsyncClient",
+        "ingestion.sources.website_adapter.httpx.AsyncClient",
         create_client,
     )
 

@@ -1,12 +1,18 @@
 import os
+import subprocess
+import sys
+import uuid
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import create_database_engine, create_session_factory
 from db.maintenance import truncate_disposable_tables
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _truncate_test_tables(engine: Engine) -> None:
@@ -38,6 +44,42 @@ def session_factory(
     yield create_session_factory(test_engine)
 
     _truncate_test_tables(test_engine)
+
+
+def _run_outside_a_transaction(engine: Engine, statement: str) -> None:
+    # CREATE and DROP DATABASE cannot run inside a transaction.
+    with engine.connect() as connection:
+        connection.execution_options(isolation_level="AUTOCOMMIT").execute(text(statement))
+
+
+@pytest.fixture
+def migration_session_factory(test_engine: Engine) -> Iterator[sessionmaker[Session]]:
+    """A database of the test's own, at head, for a test that runs `alembic downgrade`.
+
+    On the shared database every downgrade and upgrade dropped and re-added columns.
+    PostgreSQL never frees the slot of a dropped column and a table holds at most 1600,
+    so the shared database wore out. This one is made in the same server and dropped
+    after the test, whatever the test did to it."""
+    name = f"court_monitor_migration_{uuid.uuid4().hex[:12]}_test"
+    database_url = test_engine.url.set(database=name).render_as_string(hide_password=False)
+    _run_outside_a_transaction(test_engine, f'CREATE DATABASE "{name}"')
+    engine = create_database_engine(database_url)
+    try:
+        migrated = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=REPO_ROOT,
+            env={**os.environ, "DATABASE_URL": database_url},
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        assert migrated.returncode == 0, migrated.stderr
+        yield create_session_factory(engine)
+    finally:
+        engine.dispose()
+        # FORCE: a test that failed may have left a connection open.
+        _run_outside_a_transaction(test_engine, f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
 
 @pytest.fixture(autouse=True)

@@ -3,10 +3,10 @@ import asyncio
 import httpx
 import pytest
 
+from ingestion.sources.ovd_info.listing_parser import OvdInfoListingParser
+from ingestion.sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 from monitor_core.errors import PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
-from sources.ovd_info.listing_parser import OvdInfoListingParser
-from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
 
 LISTING_HTML = b"""
 <html>

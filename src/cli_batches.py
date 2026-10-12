@@ -2,8 +2,8 @@
 
 Each item of these stages is independent of the others: an article is extracted on its
 own, a person is matched from their own rows. Unlike person resolution
-(`extraction.parallel_resolution`), the result therefore does not depend on the order or
-on the number of workers.
+(`persons.resolution.parallel_resolution`), the result therefore does not depend on
+the order or on the number of workers.
 
 Workers are spawned, not forked: a forked child would inherit the parent's database pool.
 Each worker builds its engine and its extraction pipeline once and reuses them for every
@@ -23,13 +23,13 @@ from multiprocessing import get_context
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
-from extraction.documents import SqlAlchemyExtractionDocumentRepository
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.models import BatchExtractionResult, ExtractionRunStatus
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.persistence import SqlAlchemyExtractionPersistence
-from extraction.pipeline import ExtractionPipeline
+from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.models import BatchExtractionResult, ExtractionRunStatus
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.extraction.pipeline import ExtractionPipeline
 from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 

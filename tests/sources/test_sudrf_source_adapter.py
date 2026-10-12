@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
+from ingestion.sources.sudrf.listing_parser import SudrfListingParser
+from ingestion.sources.sudrf.source_adapter import SudrfSourceAdapter
 from monitor_core.model import RawDocument, SourceReference
-from sources.sudrf.listing_parser import SudrfListingParser
-from sources.sudrf.source_adapter import SudrfSourceAdapter
 
 HOST = "2zovs.msk.sudrf.ru"
 LISTING_URL = "https://2zovs.msk.sudrf.ru/modules.php?name=press_dep"

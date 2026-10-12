@@ -84,7 +84,7 @@ Dagster --> DagsterDB
 | API / UI | `src/api.py`, `src/web/` | FastAPI, JSON endpoints, operator console |
 | Composition root | `src/application.py`, `src/cli/context.py` | настройки, engine, session factory, сервисы |
 | Orchestration | `src/monitoring/` | порядок стадий, runs, checkpoints, findings |
-| Domain | `src/sources/`, `src/extraction/`, `src/persons/`, `src/persecution/`, `src/rosfinmonitoring/`, `src/candidates/`, `src/entities/` | бизнес-решения и persistence |
+| Domain | `src/ingestion/sources/`, `src/processing/extraction/`, `src/persons/`, `src/persecution/`, `src/rosfinmonitoring/`, `src/candidates/`, `src/entities/` | бизнес-решения и persistence |
 | Database | `src/db/`, `migrations/` | ORM и Alembic schema |
 
 ## Данные и артефакты

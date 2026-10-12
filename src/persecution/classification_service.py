@@ -16,9 +16,9 @@ from db.orm_models import (
     PersecutionClassificationRecord,
     PersonEventLinkRecord,
 )
-from extraction.events import NON_SUBJECT_ROLES
 from persecution.classifier import RuleBasedPersecutionClassifier
 from persecution.models import PersecutionClassification
+from processing.extraction.events import NON_SUBJECT_ROLES
 
 # How far (in characters, on each side) around a person's own mention/event
 # to look for political context. Text outside this window belongs to

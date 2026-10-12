@@ -24,7 +24,7 @@ from db.orm_models import (
     RosfinmonitoringSnapshotRecord,
     SourceDocument,
 )
-from extraction.name_frequency import lookup_gender
+from processing.extraction.name_frequency import lookup_gender
 
 
 class _CandidateNews(NamedTuple):

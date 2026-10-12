@@ -6,6 +6,8 @@ import httpx
 import pytest
 
 from cli.ingestion import discover_and_ingest
+from ingestion.sources.source_registry import SOTA_VISION
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 from monitor_core.errors import ParseError
 from monitor_core.model import (
     IngestionResult,
@@ -13,8 +15,6 @@ from monitor_core.model import (
     RawDocument,
     SourceReference,
 )
-from sources.source_registry import SOTA_VISION
-from sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 
 LISTING_HTML = b"""
 <html>

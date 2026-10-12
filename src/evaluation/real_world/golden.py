@@ -35,8 +35,8 @@ from evaluation.real_world.models import (
     sha256_json,
     sha256_text,
 )
-from extraction.models import EventType
 from persecution.models import PersecutionClassificationStatus
+from processing.extraction.models import EventType
 
 DEFAULT_GOLDEN_DIR = DEFAULT_DATA_DIR / "golden"
 EXCERPT_CONTEXT_CHARS = 120

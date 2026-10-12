@@ -1,14 +1,14 @@
 from datetime import UTC, datetime
 
-from extraction.documents import build_extraction_document_from_parsed_article
-from extraction.events import RuleBasedEventExtractor
-from extraction.extractors import RuleBasedEntityExtractor
-from extraction.metrics import InMemoryExtractionPersistence
-from extraction.models import EntityType, EventType, ExtractionRunStatus
-from extraction.normalizers import RuleBasedMentionNormalizer
-from extraction.pipeline import ExtractionPipeline
+from ingestion.sources.article_parser import OvdInfoArticleParser
 from monitor_core.model import RawDocument
-from sources.article_parser import OvdInfoArticleParser
+from processing.extraction.documents import build_extraction_document_from_parsed_article
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.extractors import RuleBasedEntityExtractor
+from processing.extraction.metrics import InMemoryExtractionPersistence
+from processing.extraction.models import EntityType, EventType, ExtractionRunStatus
+from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.pipeline import ExtractionPipeline
 
 
 def test_html_fixture_to_extraction_result() -> None:

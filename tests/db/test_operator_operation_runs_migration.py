@@ -34,9 +34,9 @@ def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_downgrade_drops_the_table_and_upgrade_restores_it(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
 
     downgraded = _alembic(database_url, "downgrade", PREVIOUS_REVISION)
@@ -51,18 +51,18 @@ def test_downgrade_drops_the_table_and_upgrade_restores_it(
 
 
 def test_the_database_admits_one_live_run_per_operation(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
-    with session_factory.begin() as session:
+    with migration_session_factory.begin() as session:
         session.execute(text(INSERT), {"name": "extract-entities", "status": "running"})
         # Finished runs and other operations do not count.
         session.execute(text(INSERT), {"name": "extract-entities", "status": "failed"})
         session.execute(text(INSERT), {"name": "resolve-people", "status": "pending"})
 
-    with pytest.raises(IntegrityError), session_factory.begin() as session:
+    with pytest.raises(IntegrityError), migration_session_factory.begin() as session:
         session.execute(text(INSERT), {"name": "extract-entities", "status": "pending"})
 
 
-def test_an_unknown_status_is_refused(session_factory: sessionmaker[Session]) -> None:
-    with pytest.raises(IntegrityError), session_factory.begin() as session:
+def test_an_unknown_status_is_refused(migration_session_factory: sessionmaker[Session]) -> None:
+    with pytest.raises(IntegrityError), migration_session_factory.begin() as session:
         session.execute(text(INSERT), {"name": "extract-entities", "status": "paused"})

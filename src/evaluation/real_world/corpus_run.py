@@ -37,11 +37,11 @@ from evaluation.real_world.replay import (
     replay_sources,
 )
 from evaluation.real_world.state_snapshot import table_counts
+from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from monitoring.models import MonitoringRunView, MonitoringSettings
 from monitoring.service import MonitoringService
 from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from sources.source_registry import SOURCES, SourceDefinition
 
 RF_SNAPSHOT_DATE = datetime(2026, 9, 1, tzinfo=UTC)
 RF_SNAPSHOT_SOURCE_URL = "https://rosfinmonitoring.evaluation.invalid/"

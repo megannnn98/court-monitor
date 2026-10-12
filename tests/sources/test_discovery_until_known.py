@@ -10,15 +10,15 @@ from collections.abc import Sequence
 
 import pytest
 
+from ingestion.sources.discovery_pagination import discover_paginated_references
+from ingestion.sources.memopzk.source_adapter import MemopzkFigurantAdapter
+from ingestion.sources.ovd_info.source_adapter import OvdInfoSourceAdapter
+from ingestion.sources.sota_vision.source_adapter import SotaVisionSourceAdapter
+from ingestion.sources.source_adapter import DiscoversUntilKnown
+from ingestion.sources.sudrf.source_adapter import SudrfSourceAdapter
+from ingestion.sources.telegram.source_adapter import TelegramSourceAdapter
 from monitor_core.errors import ListingPageNotFoundError
 from monitor_core.model import SourceReference
-from sources.discovery_pagination import discover_paginated_references
-from sources.memopzk.source_adapter import MemopzkFigurantAdapter
-from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
-from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.source_adapter import DiscoversUntilKnown
-from sources.sudrf.source_adapter import SudrfSourceAdapter
-from sources.telegram.source_adapter import TelegramSourceAdapter
 
 # Three listing pages of three publications, newest first: 9…1.
 PAGES = [["9", "8", "7"], ["6", "5", "4"], ["3", "2", "1"]]

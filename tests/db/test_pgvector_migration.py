@@ -29,23 +29,23 @@ def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _extensions(session_factory: sessionmaker[Session]) -> set[str]:
-    with session_factory() as session:
+def _extensions(migration_session_factory: sessionmaker[Session]) -> set[str]:
+    with migration_session_factory() as session:
         return set(session.execute(text("SELECT extname FROM pg_extension")).scalars())
 
 
 def test_upgrade_adds_pgvector_and_attributes_existing_marks_to_qdrant(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
 
     downgraded = _alembic(database_url, "downgrade", PREVIOUS_REVISION)
     try:
         assert downgraded.returncode == 0, downgraded.stderr
         assert not TABLES & set(inspect(engine).get_table_names())
-        assert "vector" not in _extensions(session_factory)
-        with session_factory.begin() as session:
+        assert "vector" not in _extensions(migration_session_factory)
+        with migration_session_factory.begin() as session:
             session.execute(
                 text(
                     "INSERT INTO semantic_documents (entity_type, entity_id, "
@@ -59,8 +59,8 @@ def test_upgrade_adds_pgvector_and_attributes_existing_marks_to_qdrant(
         assert upgraded.returncode == 0, upgraded.stderr
 
     assert TABLES <= set(inspect(engine).get_table_names())
-    assert {"vector", "pg_trgm"} <= _extensions(session_factory)
-    with session_factory() as session:
+    assert {"vector", "pg_trgm"} <= _extensions(migration_session_factory)
+    with migration_session_factory() as session:
         rows = session.execute(
             text("SELECT entity_type, vector_backend FROM semantic_index_state")
         ).all()
@@ -69,8 +69,8 @@ def test_upgrade_adds_pgvector_and_attributes_existing_marks_to_qdrant(
     assert state == {"person": "qdrant"}
 
 
-def _embedding_storage(session_factory: sessionmaker[Session]) -> str:
-    with session_factory() as session:
+def _embedding_storage(migration_session_factory: sessionmaker[Session]) -> str:
+    with migration_session_factory() as session:
         return str(
             session.execute(
                 text(
@@ -81,36 +81,38 @@ def _embedding_storage(session_factory: sessionmaker[Session]) -> str:
         )
 
 
-def test_plain_storage_migration_is_reversible(session_factory: sessionmaker[Session]) -> None:
+def test_plain_storage_migration_is_reversible(
+    migration_session_factory: sessionmaker[Session],
+) -> None:
     """u5v6w7x8y9z0 sets PLAIN; its downgrade restores the `vector` type's EXTERNAL."""
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
 
     downgraded = _alembic(database_url, "downgrade", "t4u5v6w7x8y9")
     try:
         assert downgraded.returncode == 0, downgraded.stderr
-        assert _embedding_storage(session_factory) == "e"
+        assert _embedding_storage(migration_session_factory) == "e"
     finally:
         upgraded = _alembic(database_url, "upgrade", "head")
         assert upgraded.returncode == 0, upgraded.stderr
 
-    assert _embedding_storage(session_factory) == "p"
+    assert _embedding_storage(migration_session_factory) == "p"
 
 
 def test_downgrade_keeps_the_vector_extension_another_table_uses(
-    session_factory: sessionmaker[Session],
+    migration_session_factory: sessionmaker[Session],
 ) -> None:
     """The migration may drop `vector` only when nothing else in the database uses it."""
-    engine = session_factory.kw["bind"]
+    engine = migration_session_factory.kw["bind"]
     database_url = engine.url.render_as_string(hide_password=False)
-    with session_factory.begin() as session:
+    with migration_session_factory.begin() as session:
         session.execute(text("CREATE TABLE other_vectors (embedding vector(3))"))
     try:
         downgraded = _alembic(database_url, "downgrade", PREVIOUS_REVISION)
         assert downgraded.returncode == 0, downgraded.stderr
-        assert "vector" in _extensions(session_factory)
+        assert "vector" in _extensions(migration_session_factory)
     finally:
-        with session_factory.begin() as session:
+        with migration_session_factory.begin() as session:
             session.execute(text("DROP TABLE IF EXISTS other_vectors"))
         upgraded = _alembic(database_url, "upgrade", "head")
         assert upgraded.returncode == 0, upgraded.stderr

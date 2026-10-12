@@ -22,7 +22,6 @@ from db.orm_models import (
     PersonResolutionDecisionRecord,
     ReviewRecordModel,
 )
-from extraction.resolution_service import ExtractionResolutionService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateGenerationResult,
@@ -31,6 +30,7 @@ from persons.resolution.candidates import (
 from persons.resolution.decision import PersonResolutionDecisionPolicy, ResolutionThresholds
 from persons.resolution.factory import build_generators, build_person_resolution_service
 from persons.resolution.models import PersonIdentityInput, PersonResolutionAction
+from persons.resolution.resolution_service import ExtractionResolutionService
 from persons.resolution.service import (
     RESOLVER_VERSION,
     REVIEW_SUBJECT_TYPE,

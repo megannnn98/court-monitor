@@ -1,7 +1,7 @@
 import pytest
 
-from extraction.events import RuleBasedEventExtractor
-from extraction.models import (
+from processing.extraction.events import RuleBasedEventExtractor
+from processing.extraction.models import (
     ArticleExtractionResult,
     EntityType,
     ExtractionDocument,
@@ -11,7 +11,7 @@ from extraction.models import (
     PersonNormalizedData,
     RawMention,
 )
-from extraction.pipeline import ExtractionPipeline
+from processing.extraction.pipeline import ExtractionPipeline
 
 
 class FakeExtractor:

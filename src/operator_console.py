@@ -32,7 +32,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
-from sources.source_registry import SOURCES, SourceKind
+from ingestion.sources.source_registry import SOURCES, SourceKind
 
 logger = logging.getLogger("operator_console")
 

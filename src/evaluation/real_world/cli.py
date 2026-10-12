@@ -37,8 +37,8 @@ from evaluation.real_world.models import (
     write_manifest,
 )
 from evaluation.real_world.replay import CorpusCacheMissError, load_replay_entries
+from ingestion.sources.source_registry import SOURCES
 from observability import configure_logging
-from sources.source_registry import SOURCES
 
 REAL_WORLD_DEFAULT_SOURCES = ("ovd-info", "sota-vision")
 

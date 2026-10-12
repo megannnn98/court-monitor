@@ -2,21 +2,21 @@ import asyncio
 
 import httpx
 
-from monitor_core.model import RawDocument, SourceReference
-from monitor_core.ports import SourceAdapter
-from sources.article_parser import OvdInfoArticleParser
-from sources.ovd_info.source_adapter import OvdInfoSourceAdapter
-from sources.sota_vision.article_parser import SotaVisionArticleParser
-from sources.sota_vision.source_adapter import SotaVisionSourceAdapter
-from sources.source_registry import (
+from ingestion.sources.article_parser import OvdInfoArticleParser
+from ingestion.sources.ovd_info.source_adapter import OvdInfoSourceAdapter
+from ingestion.sources.sota_vision.article_parser import SotaVisionArticleParser
+from ingestion.sources.sota_vision.source_adapter import SotaVisionSourceAdapter
+from ingestion.sources.source_registry import (
     OVD_INFO,
     SOTA_VISION,
     SOURCES,
     SUDRF_2ZOVS,
     get_source_definition,
 )
-from sources.sudrf.article_parser import SudrfArticleParser
-from sources.sudrf.source_adapter import SudrfSourceAdapter
+from ingestion.sources.sudrf.article_parser import SudrfArticleParser
+from ingestion.sources.sudrf.source_adapter import SudrfSourceAdapter
+from monitor_core.model import RawDocument, SourceReference
+from monitor_core.ports import SourceAdapter
 
 
 class FakeDocumentFetcher:

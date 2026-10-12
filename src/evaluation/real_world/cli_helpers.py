@@ -5,7 +5,7 @@ from __future__ import annotations
 from evaluation.real_world.corpus_cache import RawCorpusCache
 from evaluation.real_world.models import CorpusManifest
 from evaluation.real_world.replay import load_replay_entries
-from sources.source_registry import SOURCES
+from ingestion.sources.source_registry import SOURCES
 
 # Documented exit codes (docs/wiki/RealWorldValidation.md).
 EXIT_OK = 0
