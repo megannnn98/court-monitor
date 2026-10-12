@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from application import build_investigation_service
-from investigation.models import InvestigationResult, ScenarioName
+from investigation.models import InvestigationResult, KnownScenario
 from investigation.service import RunNotFoundError, UnknownSourceError
 from web.dependencies import get_db, session_factory_for
 
@@ -32,7 +32,7 @@ class InvestigationRequest(BaseModel):
     # The sources to keep to: `local`, `telegram`, or a retriever's name. An unknown one
     # is refused, never ignored.
     allowed_sources: list[str] = Field(default_factory=list, max_length=MAX_SOURCES)
-    scenario: ScenarioName | None = None
+    scenario: KnownScenario | None = None
 
 
 class InvestigationRun(BaseModel):

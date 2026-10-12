@@ -5847,10 +5847,6 @@
         "properties": {
           "scenario": {
             "type": "string",
-            "enum": [
-              "person_dossier",
-              "identify_unnamed"
-            ],
             "title": "Scenario"
           },
           "subject_name": {
@@ -5910,10 +5906,6 @@
         "properties": {
           "scenario": {
             "type": "string",
-            "enum": [
-              "person_dossier",
-              "identify_unnamed"
-            ],
             "title": "Scenario"
           },
           "subject": {
@@ -6138,11 +6130,7 @@
           "scenario": {
             "anyOf": [
               {
-                "type": "string",
-                "enum": [
-                  "person_dossier",
-                  "identify_unnamed"
-                ]
+                "type": "string"
               },
               {
                 "type": "null"

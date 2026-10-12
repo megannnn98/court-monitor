@@ -63,6 +63,18 @@ _FACT_WORDS: Mapping[str, tuple[str, ...]] = {
     "role": ("роль", "фигурант", "подозрева"),
 }
 
+
+def intake_schema(scenarios: Sequence[str]) -> dict[str, object]:
+    """The schema of a model's reading: the scenario one of those registered."""
+    return {
+        **INTAKE_SCHEMA,
+        "properties": {
+            **INTAKE_SCHEMA["properties"],  # type: ignore[dict-item]
+            "scenario": {"type": ["string", "null"], "enum": [*scenarios, None]},
+        },
+    }
+
+
 INTAKE_SCHEMA: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -181,7 +193,9 @@ def intent_from_reply(
             scenario = "person_dossier"
         else:
             return None, None
-    known = facts_of.get(scenario, {})
+    if scenario not in facts_of:
+        return None, f"модель выбрала неизвестный сценарий: {scenario}"
+    known = facts_of[scenario]
     unknown = [fact for fact in read.requested_facts if fact not in known]
     if unknown:
         return None, "модель запросила неизвестные факты: " + ", ".join(unknown[:3])
