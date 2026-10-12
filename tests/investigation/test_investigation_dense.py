@@ -145,7 +145,9 @@ def test_a_long_article_does_not_crowd_the_others_out_of_the_best_documents(
             source,
             external_id="long",
             title="long",
-            text="Адвокат Бонцлер выступила в суде. " * 900,
+            # Nothing but the query's own words: every window of it is nearer the query
+            # than any window of another text.
+            text="Адвокат Бонцлер. " * 1_800,
         )
         session.commit()
     indexed = build_processing_service(session_factory).index_publication_vectors(WordEmbedder())
@@ -157,5 +159,5 @@ def test_a_long_article_does_not_crowd_the_others_out_of_the_best_documents(
 
     # Far more windows of the long text than eight times the limit.
     assert indexed.windows > 20
-    # Two documents were asked for and two came: the long one and the next nearest.
-    assert {publication.article_id for publication in found} == {long_id, ids["lawyer"]}
+    # Two documents were asked for and two came: the long one, then the next nearest.
+    assert [publication.article_id for publication in found] == [long_id, ids["lawyer"]]
