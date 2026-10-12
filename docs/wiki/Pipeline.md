@@ -316,6 +316,12 @@ python src/main.py investigate --resume 3f2a…
 INVESTIGATION_DENSE_MODEL=intfloat/multilingual-e5-base uv run --group semantic python src/main.py index-publications
 ```
 
+Продолжение запуска: уже сделанные поиски не повторяются, недоделанные поиски круга
+выполняются первыми. Запуск держится ограничений на сейчас — `--no-llm`, `--local-only`,
+`--source`, `--max-followups` действуют и при `--resume`: лимиты можно только понизить,
+источники только сузить. Над одним запуском работает один процесс; второму команда
+отвечает «another process works on it now».
+
 То же по HTTP: `POST /api/v1/investigation` с телом
 `{"query": "...", "allowed_sources": ["local"], "local_only": false, "max_followups": 1, "scenario": null}`;
 сохранённый запуск — `GET /api/v1/investigation/{run_id}`. Неизвестный источник —

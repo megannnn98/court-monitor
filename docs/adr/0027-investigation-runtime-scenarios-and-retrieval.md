@@ -146,6 +146,9 @@ title before them as passages (`intfloat/multilingual-e5-base`: «passage:» /
 article is skipped. The dense retriever is registered only when the model is configured
 and the optional `semantic` group is installed; deployment images do not install it.
 
+An article ranks by its nearest window, found before any limit: a limit on windows
+first would let one long text take them all.
+
 Hybrid retrieval is the registry: `publications_fts` and `publications_dense` answer
 the same keyword query, and `merge_evidence` fuses every retriever's list by Reciprocal
 Rank Fusion (k = 60) on the document. A `ts_rank` and a cosine are never added. No
@@ -162,7 +165,8 @@ One ships: a public Telegram channel's own search, through its web preview
 those of `ingestion/sources/telegram/channels.csv` only, chosen by
 `INVESTIGATION_TELEGRAM_CHANNELS` (default four: ОВД-Инфо LIVE, Медиазона, «Поддержка
 политзеков. Мемориал», Политзек-Инфо; `none` for none). A post is kept only if it
-names every word of the person's name. Generic web search would need a commercial API
+names every word of the person's name. An answer that is not a page (JSON, plain text)
+is a failed search, not an empty one. Generic web search would need a commercial API
 the project does not have; none was added, and nothing scrapes a search engine.
 
 OVD-Info's and Memorial's sites have no search the code can use (404 on `/search`,
@@ -190,6 +194,16 @@ checks the address.
 - `INVESTIGATION_SEARCH_TIMEOUT_SECONDS` (20) per search, `INVESTIGATION_TIMEOUT_SECONDS`
   (120) per run: nodes stop starting work at the deadline; the service stops the graph
   10 s after it.
+
+A local search works in a thread, and a thread cannot be stopped: at its timeout the
+wait ends, the work does not. Its slot therefore stays taken until the work ends, and
+the database cuts its statement at the search timeout (`db.database.with_statement_timeout`:
+`SET LOCAL statement_timeout` in every transaction of the retrievers' sessions). An
+embedding in progress cannot be cut; it keeps its slot until it is done.
+
+The model's summary is the one optional step: it is not begun after the deadline and
+does not outlive it. The same evidence gives the same status and findings whether the
+model answered, timed out or was never asked.
 
 A request lowers a limit, never raises one (`Limits.narrowed`). A search that fails or
 times out costs its evidence and a warning; a run whose every search failed is `partial`
@@ -235,7 +249,11 @@ the best three entries' surnames with the place, and the place with the articles
 publications name. Each candidate's score is a sum of named signals (age exact +2, near
 +1, sex +1, initial +2, birthplace +3, a person's confirmation +10, removed from the list
 −0.5, named with the place in a text +3, a shared article +2, a publication of the place
-+2, the same days +1). A person named in the very publication is not the unnamed one.
++2, the same days +1). A person named in the very publication is not the unnamed one — in whichever
+publication the name is met again, and as a list entry of the same name: the
+publication's people are asked for in the first round. The figurants of a publication
+are counted over everything found, not over what the ceiling left to show: a second one
+that was cut still forbids a likeliest candidate.
 A candidate ≥ 7 and 3 ahead of the next is reported as the likeliest, with the warning
 that it is a ranking, not an identity; anything less is `review_required`; no candidate
 is `partial`.
@@ -243,12 +261,27 @@ is `partial`.
 ### Runs are stored and resumed
 
 `investigation_runs` (migration `l2m3n4o5p6q7`): run id, question, status, scenario,
-round, request, usage, progress, result, failure, times. Saved when planned, after each
-coverage (the resumable state: intent, subject, plan, the fingerprints of the searches
-made, everything found), and when it ends. `--resume RUN_ID` starts at the merge with
-what was found, and the searches already made are not made again; their evidence —
-local or from a channel — is read from the store, not fetched anew. A finished run
-returns its result. Not stored: prompts, a model's raw answer, keys, whole
+round, request, usage, progress, result, failure, times. Saved when planned, as each
+search ends (its fingerprint, what it found, its usage — one atomic change of the
+stored progress, since the searches of a round end in parallel), after each coverage
+(the whole resumable state) and when it ends.
+
+`--resume RUN_ID` first makes the searches of the first round that were never made — a
+run stopped right after its plan, or between two searches — and then goes on from what
+was found; later rounds are planned again from what is missing. A search already made
+is not made again; its evidence — local or from a channel — is read from the store. A
+finished run returns its result.
+
+One process works on a run at a time. It claims the run before it reads its progress: a
+PostgreSQL advisory lock keyed by the run id, held by a connection of its own for the
+run's time; a second process is refused (`RunBusyError`), and a process that dies lets
+go with its connection. Progress and the result are written only to a run still
+`running`, so what a late branch of a stopped graph writes cannot replace a result.
+
+A resumed run is held to the lower of its stored limits, the service's limits of now
+and what the call asks (`Limits.within`, `narrowed`). It stays local if it was or is
+asked to be; its sources can only be narrowed; an unknown source, or one outside the
+run's own, is refused. `--scenario` cannot change a stored run. Not stored: prompts, a model's raw answer, keys, whole
 publications. LangGraph's Postgres checkpointer was not used: it brings its own tables
 outside the migrations, and a run's state is small enough to keep as one JSON. No Redis.
 
@@ -267,7 +300,11 @@ the same status with a model and without.
 `investigation.telemetry`: `event=investigation_{started, plan_built, search_started,
 search_completed, search_failed, coverage_assessed, followup_started, completed,
 failed}` with run id, scenario, retriever, round, durations, counts; a query is logged
-as a hash and a length, never its words. `Usage`: model calls, tokens, cost, searches
+as a hash and a length, never its words. The HTTP client logs every request with its
+address at INFO, the `q` of a channel search included; a filter on its logger cuts the
+query from the address of a channel's page (`ingestion.search`), so the words stand in
+no log of the process at INFO. (At DEBUG the transport logs raw requests: not for
+production.) `Usage`: model calls, tokens, cost, searches
 (local, network, failed), follow-up rounds, evidence items, elapsed ms.
 
 ## Measured, 2026-10-12
@@ -322,6 +359,19 @@ decision — and the result says so.
 | `entity_evidence` / `entity_publication_quotes` | 182 ms / 156 ms, 21 746 buffers (the whole evidence CTE built for everyone) | 2.0 ms / 3.2 ms, 1 297 buffers: the group's id as a scalar is pushed into the CTE; no index |
 | `stored_publication_quotes` | 95 ms, sequential scan of the texts | unchanged (see Consequences) |
 | dense search (copy, 2 446 windows, 10 MB) | — | 12 ms exact scan; query embedding 19 ms on GPU |
+
+## Reviewed, 2026-10-12
+
+An outside review of the branch found ten faults, all fixed with a test each: the
+search words in the HTTP client's log; an unnamed figurant judged by the evidence left
+after the ceiling; a person the publication names returning as a candidate; a resumed
+run ignoring the limits and flags of now; two processes on one run; a stop inside a
+round losing or repeating searches; the summary outliving the deadline; a timed-out
+local search freeing its slot while it worked; dense search limited by windows; module
+loading by a computed name unseen by the boundary rules. The measurements above were
+taken before these fixes and were not taken again; none of them changes what a
+finished, uninterrupted local run searches, except that the unnamed scenario asks for
+the publication's people in the first round (one more local search a run).
 
 ## Consequences
 
