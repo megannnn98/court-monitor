@@ -55,15 +55,18 @@ def dense_publications(
             WHERE {" AND ".join(where)}
             ORDER BY v.article_id, distance
         )
+        , nearest AS (
+            -- The limit on documents, before their titles and sources are joined.
+            SELECT * FROM best ORDER BY distance, article_id LIMIT :limit
+        )
         SELECT b.article_id, a.title, d.canonical_url, s.name AS source, a.published_at,
                substr(a.text, b.window_start + 1, b.window_end - b.window_start) AS quote,
                b.window_start, b.window_end, 1 - b.distance AS similarity
-        FROM best b
+        FROM nearest b
         JOIN parsed_articles a ON a.id = b.article_id
         JOIN source_documents d ON d.id = a.document_id
         JOIN sources s ON s.id = d.source_id
         ORDER BY b.distance, b.article_id
-        LIMIT :limit
         """
     )
     return [

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -32,6 +33,7 @@ from db.orm_models import (
     UnnamedFigurantRecord,
 )
 from investigation.models import InvestigationQuery, InvestigationResult
+from investigation.service import InvestigationService
 from investigation.services.retrieval import LexicalPublicationsRetriever
 from web.app import app
 from web.dependencies import get_db
@@ -378,3 +380,118 @@ def test_a_statement_of_a_bounded_session_is_cut_by_the_database(
         assert session.execute(text("SHOW statement_timeout")).scalar() in ("0", "0ms")
     with bounded() as session:
         assert session.execute(text("SHOW statement_timeout")).scalar() == "200ms"
+
+
+# -- the text search on what a text or a question may hold -----------------------------------------
+
+AWKWARD = [
+    # Stop words alone, punctuation alone, nothing: no lexeme to ask for.
+    "и в на",
+    "!!! ??? ...",
+    "   ",
+    # What the query language reads as operators.
+    "арест & суд | !приговор",
+    "арест:* <-> суд",
+    "(арест",
+    "арест)",
+    "'арест'",
+    "арест' | 'суд",
+    'арест" & "суд',
+    # Backslashes, apostrophes and mixed tokens.
+    "ст. 280\\3",
+    "c:\\dir\\file",
+    "O'Брайен",
+    "д'Артаньян арестован",
+    "арест\\",
+    "\\",
+    "280.3/275-ФЗ №12345",
+    "user@example.org https://example.org/a?b=c&d=e",
+    # Other alphabets and what is no letter at all.
+    "arrest ордер 逮捕 ✊",
+    "\x00арест\x00".replace("\x00", ""),
+    "а" * 300,
+    "арест " * 200,
+]
+
+
+@pytest.mark.parametrize("words", AWKWARD)
+def test_no_word_of_a_term_breaks_the_text_search_or_is_read_as_an_operator(
+    session_factory: sessionmaker[Session], words: str
+) -> None:
+    """A term is a place, an article, a surname read from a publication: any text. Its
+    lexemes are quoted into the query one by one; none may end the query or change it."""
+    ids = _articles(session_factory)
+    results = build_results_service(session_factory)
+
+    as_term = results.search_publications(name="Бонцлер", any_of=[words])
+    as_name = results.search_publications(name=words)
+    alone = results.search_publications(any_of=[words])
+    beside = results.search_publications(name="Бонцлер", any_of=[words, "госизмена"])
+
+    known = set(ids.values())
+    for found in (as_term, as_name, alone, beside):
+        assert {item.article_id for item in found} <= known
+    # Whatever the awkward term is, the plain one beside it still finds its publication.
+    assert ids["arrest"] in {item.article_id for item in beside}
+    # And a term never widens the name's own answer: «other» does not hold the name.
+    assert ids["other"] not in {item.article_id for item in as_term}
+
+
+def test_an_operator_in_a_term_is_a_word_not_a_negation(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _articles(session_factory)
+    results = build_results_service(session_factory)
+
+    # Read as an operator, «!арест» would find every text of the name but the arrest.
+    found = results.search_publications(name="Бонцлер", any_of=["!арест"])
+
+    assert ids["arrest"] in {item.article_id for item in found}
+
+
+# -- a cancel while the real lock is being taken ---------------------------------------------------
+
+
+class _GatedClaim(SqlAlchemyInvestigationRuns):
+    """The real store, whose claim waits at a gate before it asks the database."""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        super().__init__(session_factory)
+        self.entered, self.gate = threading.Event(), threading.Event()
+
+    def claim(self, run_id: str) -> bool:
+        self.entered.set()
+        self.gate.wait(10)
+        return super().claim(run_id)
+
+
+def test_a_cancel_during_the_claim_gives_the_advisory_lock_and_its_connection_back(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The real lock and the real pool: after the cancel the thread takes the advisory
+    lock on a connection of its own; both must be given back, or the run is held by a
+    connection nobody will ever close."""
+    ours, theirs = _GatedClaim(session_factory), SqlAlchemyInvestigationRuns(session_factory)
+    ours.create("run-1", question="q", request={})
+    ours.save_progress("run-1", scenario=None, round_=0, usage={}, progress={"question": "q"})
+    service = InvestigationService(retrievers=[], runs=ours)
+    pool = session_factory.kw["bind"].pool
+    before = pool.checkedout()
+
+    async def scenario() -> None:
+        resuming = asyncio.ensure_future(service.resume("run-1"))
+        assert await asyncio.to_thread(ours.entered.wait, 5)
+        resuming.cancel()
+        await asyncio.sleep(0.05)
+        assert not resuming.done()
+        ours.gate.set()
+        with pytest.raises(asyncio.CancelledError):
+            await resuming
+
+    asyncio.run(scenario())
+
+    assert ours._claims == {}
+    assert pool.checkedout() == before
+    # Another process can take the run at once.
+    assert theirs.claim("run-1") is True
+    theirs.release("run-1")

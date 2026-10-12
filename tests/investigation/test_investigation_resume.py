@@ -885,3 +885,36 @@ def test_a_run_cancelled_while_it_was_being_claimed_is_not_left_claimed() -> Non
     store.release(run_id)
     result = asyncio.run(service.resume(run_id))
     assert result.run_id == run_id and result.status == "partial"
+
+
+def test_a_second_cancel_while_the_claim_is_awaited_still_gives_the_claim_back() -> None:
+    """Cancelled, then cancelled again while it waited for the claim to end: the cancel
+    goes at once, and the giving back is left to the claim's own end."""
+    store = SlowClaim()
+    dying = people(lambda query: list(KNOWN) if query.kind == "person" else _die())
+    with pytest.raises(ProcessDied):
+        asyncio.run(InvestigationService(retrievers=[dying], runs=store).investigate(QUESTION))
+    (run_id,) = store._runs
+    service = InvestigationService(retrievers=[people()], runs=store)
+
+    async def scenario() -> None:
+        store.entered.clear()
+        store.gate.clear()
+        resuming = asyncio.ensure_future(service.resume(run_id))
+        assert await asyncio.to_thread(store.entered.wait, 5)
+        resuming.cancel()
+        await asyncio.sleep(0.05)
+        assert not resuming.done()
+        resuming.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await resuming
+        # Gone, and the claim is still being taken by its thread.
+        store.gate.set()
+        for _ in range(100):
+            await asyncio.sleep(0.02)
+            if not store._claimed:
+                break
+
+    asyncio.run(scenario())
+
+    assert store.claim(run_id) is True

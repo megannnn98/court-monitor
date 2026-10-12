@@ -407,6 +407,14 @@ taken before these fixes and were not taken again; none of them changes what a
 finished, uninterrupted local run searches, except that the unnamed scenario asks for
 the publication's people in the first round (one more local search a run).
 
+Checked by running after the fixes, on PostgreSQL: the text search on twenty-two
+awkward inputs as a name, as a term and beside a plain term (stop words and punctuation
+alone, `& | ! :* <->`, brackets, quotes, apostrophes, backslashes, addresses, other
+alphabets, very long ones) — none breaks the query, none is read as an operator; a
+cancel while the advisory lock is being taken gives back the lock and its pooled
+connection; the dense query that ranks documents before the limit takes 12.2–12.4 ms on
+the copy (2 446 windows, 1 632 articles), as the one it replaced did.
+
 ## Consequences
 
 - An investigation is a reusable runtime: a scenario, a retriever, an outside source is
