@@ -262,12 +262,11 @@ def supported_summary(
     return (" ".join(kept) or None), len(sentences) - len(kept)
 
 
-def _status(
-    subject: Subject | None, missing: Sequence[str], conflicts: Sequence[str], dropped: int
-) -> Status:
+def _status(subject: Subject | None, missing: Sequence[str], conflicts: Sequence[str]) -> Status:
+    """From the facts alone: what a model wrote, or failed to write, never moves it."""
     if subject is None:
         return "clarification_required"
-    if conflicts or dropped:
+    if conflicts:
         return "review_required"
     if subject.entity_key is None or missing:
         return "partial"
@@ -327,7 +326,7 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
             warnings.append("лимит обращений к модели исчерпан: сводка не составлена")
 
     result = InvestigationResult(
-        status=_status(subject, missing, conflicts, dropped),
+        status=_status(subject, missing, conflicts),
         question=question,
         subject=subject,
         findings=_findings(evidence),

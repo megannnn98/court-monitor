@@ -64,6 +64,8 @@ def _one_word(first: str, second: str) -> bool:
     """Two forms of one word: they differ in an ending of at most three letters.
     «Сидорове» and «Сидоров» are; «Петренко» and «Петров», «Петровского» and «Петров»
     are not."""
+    if first == second:
+        return True
     shared = 0
     for left, right in zip(first, second, strict=False):
         if left != right:

@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Row, func, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy import ColumnElement, Row, func, literal, select, text
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from db.orm_models import (
     EntityGroupChargeRecord,
@@ -72,8 +72,26 @@ def _fold(value: str) -> str:
     return value.lower().replace("ё", "е")
 
 
+# What parts a written name into words, besides a space. The same set is used in SQL
+# and here, so both mean the same by «a word of the name».
+_SEPARATORS = "-‐‑–—'’ʼ`\".,()«»\u00a0\t"
+_TO_SPACES = str.maketrans(_SEPARATORS, " " * len(_SEPARATORS))
+
+
 def name_words(name: str) -> list[str]:
     return [_fold(word) for word in _WORD.findall(name) if len(word) >= 2]
+
+
+def _own_words(name: str) -> set[str]:
+    """The words of a stored name, parted as `_spaced` parts them in SQL."""
+    return set(_fold(name).translate(_TO_SPACES).split(" "))
+
+
+def _spaced(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
+    """The name in SQL with a space before every word: « иван петров-водкин» becomes
+    « иван петров водкин», so `LIKE '% stem%'` finds a word by its beginning."""
+    folded = func.replace(func.lower(column), "ё", "е")
+    return literal(" ").concat(func.translate(folded, _SEPARATORS, " " * len(_SEPARATORS)))
 
 
 def _stem(word: str) -> str:
@@ -82,37 +100,36 @@ def _stem(word: str) -> str:
 
 def find_entities(session: Session, name: str, *, limit: int) -> list[EntityHit]:
     """The entity groups whose name holds every word asked for, the most mentioned
-    first. Words are matched by their beginning, so a declined name finds its person."""
+    first. A word is matched by its beginning, so a declined name finds its person; the
+    beginning must begin a word of the name, so «иван» does not find «Ливанов». The
+    whole filter runs in SQL, under its LIMIT: no row is fetched to be dropped."""
     words = name_words(name)
     if not words:
         return []
-    folded = func.replace(func.lower(EntityGroupRecord.name), "ё", "е")
-    query = select(EntityGroupRecord).order_by(
-        EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key
-    )
-    for word in words:
-        query = query.where(folded.like(f"%{_stem(word)}%"))
-    hits: list[EntityHit] = []
-    # No LIMIT in SQL: a name that only holds the letters inside a word is dropped below,
-    # and it must not take the place of a person further down.
-    for group in session.scalars(query):
-        if len(hits) >= limit:
-            break
-        own = set(name_words(group.name))
-        if not all(any(part.startswith(_stem(word)) for part in own) for word in words):
-            # The beginning was found inside another word of the name.
-            continue
-        hits.append(
-            EntityHit(
-                key=group.key,
-                name=group.name,
-                mention_count=group.mention_count,
-                article_count=group.article_count,
-                last_published_at=group.last_published_at,
-                exact=set(words) <= own,
-            )
+    spaced = _spaced(EntityGroupRecord.name)
+    query = (
+        select(
+            EntityGroupRecord.key,
+            EntityGroupRecord.name,
+            EntityGroupRecord.mention_count,
+            EntityGroupRecord.article_count,
+            EntityGroupRecord.last_published_at,
         )
-    return hits
+        .where(*(spaced.like(f"% {_stem(word)}%") for word in words))
+        .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
+        .limit(limit)
+    )
+    return [
+        EntityHit(
+            key=row.key,
+            name=row.name,
+            mention_count=row.mention_count,
+            article_count=row.article_count,
+            last_published_at=row.last_published_at,
+            exact=set(words) <= _own_words(row.name),
+        )
+        for row in session.execute(query)
+    ]
 
 
 def entity_facts(session: Session, key: str) -> list[StatedFact] | None:

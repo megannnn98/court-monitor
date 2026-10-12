@@ -92,7 +92,9 @@ local, and searches. Two ship, both over `ResultsService`:
 | `stored_publications` | stored publications whose text holds the name, whether or not a group was made of them |
 
 A site, a channel or a vector index is one more object in the list given to
-`InvestigationService`. `--local-only` keeps the non-local ones out. A retriever that
+`InvestigationService`. A person a later round finds under another key makes the name
+ambiguous; it never replaces the subject. One place in a text tied to two people is
+kept as two pieces of evidence. `--local-only` keeps the non-local ones out. A retriever that
 fails costs its evidence and a warning.
 
 **The graph runs no SQL.** It imports `results.service` and nothing else of the domain;
@@ -103,12 +105,12 @@ one method. With OpenRouter configured it is asked at most
 `INVESTIGATION_MAX_LLM_CALLS` (default 2) times:
 
 - at intake, to read the name out of the question. Each word of the name it returns
-  must be a word of the question up to an ending of three letters, or the rules read
-  the name instead. That stops another person's name; it does not stop two surnames
-  that differ only in such an ending;
+  must be a word of the question, the same or up to an ending of three letters, or the
+  rules read the name instead. That stops another person's name; it does not stop two
+  surnames that differ only in such an ending («Петров», «Петрова»), and it refuses a
+  word whose stem changes («Лев», «Льва»);
 - at the report, to word `model_summary`. Each sentence must cite evidence that
-  exists; a sentence that cites none is dropped, said in the warnings, and the status
-  becomes `review_required`.
+  exists; a sentence that cites none is dropped and said in the warnings.
 
 **The summary is not checked for support.** That a cited item exists does not show it
 says what the sentence says: a model can put «E1» under anything, by mistake or because
@@ -136,8 +138,10 @@ were cut). A call that was paid for and then refused as unusable (a cut answer) 
 counted as a call; its tokens and cost are not.
 
 **Status.** `completed`, `partial` (something is missing), `clarification_required`
-(no name in the question), `review_required` (several people, a contradiction, or a
-model's unsupported claim), `failed` (an exception inside; never an empty success).
+(no name in the question), `review_required` (several people or a contradiction),
+`failed` (an exception inside; never an empty success). The status is computed from the
+subject, the missing facts and the conflicts alone: the same evidence gives the same
+status with a model and without one, whatever the model wrote.
 
 **Entry points.** `main.py investigate "…" [--json] [--max-followups N] [--local-only |
 --no-web]` and `POST /api/v1/investigation`. No streaming.

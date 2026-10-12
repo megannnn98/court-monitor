@@ -393,6 +393,68 @@ def test_a_ceiling_on_evidence_never_hides_that_several_people_answer_the_name()
     assert [query.kind for query in retriever.calls] == ["person"]
 
 
+@pytest.mark.parametrize(
+    "sentences",
+    [
+        [],
+        [("Сидоров — фигурант.", ["E2"])],
+        [("Сидоров признал вину.", [])],
+        [("Сидоров признал вину.", ["E99"])],
+        [("Сидоров — фигурант.", ["E2"]), ("Он признал вину.", [])],
+    ],
+)
+@pytest.mark.parametrize("known", ["everything", "no charges", "namesakes"])
+def test_what_a_model_writes_never_moves_the_status_or_the_findings(
+    sentences: list[tuple[str, list[str]]], known: str
+) -> None:
+    items = {
+        "everything": EVERYTHING,
+        "no charges": [item for item in EVERYTHING if item.fact != "charges"],
+        "namesakes": [IDENTITY, fact("identity", "Иван Сидоров", key="иван сидоров")],
+    }[known]
+
+    without = run(FakeRetriever("entity_groups", person_only(items)))
+    with_model = run(
+        FakeRetriever("entity_groups", person_only(items)), model=FakeModel(sentences=sentences)
+    )
+
+    assert (with_model.status, with_model.findings) == (without.status, without.findings)
+    assert with_model.missing_information == without.missing_information
+    assert with_model.conflicts == without.conflicts
+
+
+def test_a_person_found_only_in_a_follow_up_makes_the_name_ambiguous_not_another_person() -> None:
+    known = [item for item in EVERYTHING if item.fact != "charges"]
+    other = fact("identity", "Иван Сидоров", key="иван сидоров")
+
+    def answers(query: InvestigationQuery) -> list[EvidenceItem]:
+        return known if query.kind == "person" else [other]
+
+    result = run(FakeRetriever("third", answers))
+
+    assert result.subject is not None and result.subject.entity_key is None
+    assert [candidate.entity_key for candidate in result.subject.candidates] == [
+        KEY,
+        "иван сидоров",
+    ]
+    assert result.status == "review_required"
+
+
+def test_one_place_in_a_text_tied_to_two_people_stays_two_pieces_of_evidence() -> None:
+    text = "Суд приговорил Сидорова и Кузнецова."
+    of_sidorov = quote(3, text)
+    of_kuznetsov = quote(3, text).model_copy(update={"entity_key": "пётр кузнецов"})
+    unowned = quote(3, text).model_copy(update={"entity_key": None})
+    retriever = FakeRetriever(
+        "entity_groups", person_only([*EVERYTHING, of_sidorov, of_kuznetsov, unowned])
+    )
+
+    result = run(retriever)
+
+    held = [item.entity_key for item in result.evidence if item.article_id == 3]
+    assert len(held) == 2 and set(held) == {KEY, "пётр кузнецов"}
+
+
 def test_a_models_summary_is_never_passed_off_as_checked() -> None:
     # The sentence cites evidence that exists and says something that evidence does not.
     model = FakeModel(sentences=[("Сидоров признал вину.", ["E1"])])
@@ -414,6 +476,10 @@ def test_a_models_summary_is_never_passed_off_as_checked() -> None:
         ("найди Ивана Петренко", "Иван Петров", False),
         ("найди Петровского", "Петров", False),
         ("найди Ивана Сидорова", "Иван Петрович Сидоров", False),
+        ("что известно о ян ли?", "Ян Ли", True),
+        ("что известно о ЯН ЛИ?", "ян ли", True),
+        ("что известно о ян ли?", "Ян Лу", False),
+        ("дело ю", "Ю", True),
     ],
 )
 def test_a_name_is_taken_from_a_model_only_if_the_question_holds_it(
@@ -439,7 +505,8 @@ def test_a_models_sentences_are_kept_only_with_evidence_that_exists() -> None:
     result = run(FakeRetriever("entity_groups", person_only(EVERYTHING)), model=model)
 
     assert result.model_summary == "Сидоров — фигурант дела. [E2]"
-    assert result.status == "review_required"
+    # The status speaks of the facts, and the facts are whole.
+    assert result.status == "completed"
     assert any("2 утверждений модели отброшены" in warning for warning in result.warnings)
     # What the model said adds nothing to the facts.
     assert len(result.findings) == 5
@@ -517,8 +584,7 @@ def test_a_model_that_obeys_an_instruction_in_a_publication_changes_nothing() ->
     clean = run(FakeRetriever("entity_groups", person_only(poisoned)))
 
     assert result.model_summary is None
-    assert result.status == "review_required"
-    assert result.findings == clean.findings
+    assert (result.status, result.findings) == (clean.status, clean.findings)
     # The quote added no query, no retriever and no follow-up round.
     assert [query.kind for query in retriever.calls] == ["person"]
 

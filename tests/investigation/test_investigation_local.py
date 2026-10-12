@@ -11,13 +11,14 @@ from functools import cached_property
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from application import build_investigation_service, build_results_service
 from cli.app import main
 from cli.context import CliContext
+from cli.investigation import _lines as investigation_lines
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupPoliticsRecord,
@@ -338,6 +339,75 @@ def test_the_command_prints_what_a_person_reads(
     printed = capsys.readouterr().out
     assert "Статус: partial" in printed and "роль в деле: figurant [E" in printed
     assert "Не хватает:" in printed and "Материалы:" in printed
+
+
+def test_the_command_prints_a_models_summary_under_its_warning() -> None:
+    result = InvestigationResult(
+        status="completed", question="Иван Сидоров", model_summary="Сидоров — фигурант. [E1]"
+    )
+
+    lines = investigation_lines(result)
+
+    heading = lines.index("Сводка модели (не проверена):")
+    assert lines[heading + 1] == "Сидоров — фигурант. [E1]"
+    assert "Сводка модели (не проверена):" not in investigation_lines(
+        result.model_copy(update={"model_summary": None})
+    )
+
+
+def test_the_search_for_a_name_loads_no_more_groups_than_it_needs(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        session.add_all(
+            EntityGroupRecord(
+                key=f"иван человек{number}",
+                name=f"Иван Человек{'ов' * number}",
+                variants=[],
+                mention_count=1000 - number,
+                article_count=1,
+                event_types={},
+            )
+            for number in range(1, 400)
+        )
+    statements: list[str] = []
+    engine = session_factory.kw["bind"]
+
+    def record(conn: object, cursor: object, statement: str, *rest: object) -> None:
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        hits = build_results_service(session_factory).find_entities("Иван", limit=5)
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+
+    assert len(hits) == 5
+    (query,) = [statement for statement in statements if "entity_groups" in statement]
+    # A ceiling in SQL, and only the columns a hit is made of: no JSON of a group.
+    assert "LIMIT" in query.upper()
+    assert "variants" not in query and "event_types" not in query
+
+
+def test_a_name_after_a_hyphen_or_a_quote_is_a_word_of_its_own(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        for name in ("Анна Петрова-Водкина", "Шон О'Коннор", "Пётр Подводкин"):
+            session.add(
+                EntityGroupRecord(
+                    key=name.lower(),
+                    name=name,
+                    variants=[],
+                    mention_count=1,
+                    article_count=1,
+                    event_types={},
+                )
+            )
+    results = build_results_service(session_factory)
+
+    assert [hit.name for hit in results.find_entities("Водкина")] == ["Анна Петрова-Водкина"]
+    assert [hit.name for hit in results.find_entities("Коннор")] == ["Шон О'Коннор"]
 
 
 def test_the_command_refuses_a_negative_ceiling(session_factory: sessionmaker[Session]) -> None:

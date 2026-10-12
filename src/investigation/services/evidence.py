@@ -13,12 +13,20 @@ def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceIt
     a ceiling never cuts a fact to keep a quote."""
     unique: dict[tuple[object, ...], EvidenceItem] = {}
     for item in found:
-        held = unique.setdefault(item.identity, item)
+        place = item.identity
+        held = unique.setdefault(place, item)
+        if held is item:
+            continue
+        if held.entity_key and item.entity_key and held.entity_key != item.entity_key:
+            # One place in a text tied to two people is evidence of each, not of
+            # whoever came first.
+            place = (*place, item.entity_key)
+            held = unique.setdefault(place, item)
         if held is not item:
             # The same quote found twice — by two sources, or again while looking for a
             # missing fact — is one piece of evidence; it keeps whose person it is and
             # every fact it was looked up for.
-            unique[item.identity] = held.model_copy(
+            unique[place] = held.model_copy(
                 update={
                     "entity_key": held.entity_key or item.entity_key,
                     "leads": tuple(dict.fromkeys((*held.leads, *item.leads))),

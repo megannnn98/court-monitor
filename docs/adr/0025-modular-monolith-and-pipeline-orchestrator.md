@@ -85,7 +85,9 @@ Rules, each held by `tests/test_module_boundaries.py`:
    each other.
 
 The allowlist of tolerated violations is empty, and a test keeps it empty. Relative
-imports are resolved to the module they name before a rule is applied.
+imports are resolved to the module they name before a rule is applied, and one that
+climbs above its top package is an error. A package imported whole is checked as the
+package, so it cannot stand in for the one public module inside it.
 
 The list of internals is a list, not everything a module has: person resolution's
 services and the junk screen's implementation are not on it.

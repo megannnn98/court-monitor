@@ -19,6 +19,8 @@ import ast
 from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
+
 SRC = Path(__file__).parents[1] / "src"
 
 INGESTION = "ingestion"
@@ -173,19 +175,26 @@ def _dotted(target: str) -> str:
     return ".".join(target.removesuffix(".py").strip("/").split("/"))
 
 
-def _imports(tree: ast.AST, path: str) -> Iterator[str]:
-    """Every module the file at `path` imports, by its absolute name: a relative import
-    is resolved against the file's own package."""
+def _absolute(node: ast.ImportFrom, path: str) -> str:
+    """The module a `from … import` names, by its absolute name. A relative import is
+    resolved against the file's own package; one that climbs above the top package
+    cannot run and is refused, not read as some other module."""
+    if not node.level:
+        return node.module or ""
     package = path.split("/")[:-1]
+    if node.level > len(package):
+        raise ValueError(f"{path}: relative import above the top package (level {node.level})")
+    base = package[: len(package) - (node.level - 1)]
+    return ".".join([*base, *([node.module] if node.module else [])])
+
+
+def _imports(tree: ast.AST, path: str) -> Iterator[str]:
+    """Every module the file at `path` imports, by its absolute name."""
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             yield from (alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                base = package[: len(package) - (node.level - 1)]
-                module = ".".join([*base, *([node.module] if node.module else [])])
-            else:
-                module = node.module or ""
+            module = _absolute(node, path)
             if module:
                 yield module
             # `from package import module` names the module only in the alias.
@@ -199,13 +208,35 @@ def _files(*prefixes: str) -> Iterator[tuple[str, ast.AST]]:
             yield path, ast.parse(file.read_text(encoding="utf-8"))
 
 
+def _exists(dotted: str) -> bool:
+    base = SRC / dotted.replace(".", "/")
+    return base.with_suffix(".py").is_file() or base.is_dir()
+
+
+def _provider(dotted: str) -> str | None:
+    """The module or package of `src/` that a dotted name lives in; None for a library."""
+    parts = dotted.split(".")
+    for length in range(len(parts), 0, -1):
+        if _exists(".".join(parts[:length])):
+            return ".".join(parts[:length])
+    return None
+
+
 def _imported_modules(tree: ast.AST, path: str) -> set[str]:
-    """The module files of `src/` a file imports, as dotted names."""
-    return {
-        _dotted(target)
-        for imported in _imports(tree, path)
-        if (target := _path_of(imported)) is not None and target.endswith(".py")
-    }
+    """What of `src/` a file imports, each as the module or the package it is: a
+    package imported whole is named as the package, so it cannot pass for the one
+    public module inside it."""
+    found: set[str | None] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(_provider(alias.name) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = _absolute(node, path)
+            for alias in node.names:
+                named = f"{module}.{alias.name}" if module else alias.name
+                # A submodule is itself; any other name is its module's.
+                found.add(named if _exists(named) else _provider(module))
+    return {module for module in found if module is not None}
 
 
 def _violations() -> set[str]:
@@ -311,7 +342,7 @@ def test_a_relative_import_is_read_as_the_module_it_names() -> None:
         "from ..identity.service import IdentityService\n"
         "from . import pending\n"
         "from .models import ExtractionRunStatus\n"
-        "from ... import analysis\n"
+        "from .. import identity\n"
     )
 
     found = set(_imports(ast.parse(source), "processing/extraction/pipeline.py"))
@@ -320,8 +351,47 @@ def test_a_relative_import_is_read_as_the_module_it_names() -> None:
         "processing.identity.service",
         "processing.extraction.pending",
         "processing.extraction.models",
-        "analysis",
+        "processing.identity",
     } <= found
+    # In a package's `__init__` one dot is the package itself.
+    assert "processing.identity.service" in set(
+        _imports(ast.parse("from . import service\n"), "processing/identity/__init__.py")
+    )
+
+
+@pytest.mark.parametrize("dots", ["...", "....", "......"])
+def test_a_relative_import_above_the_top_package_is_refused(dots: str) -> None:
+    # `src/` is not a package: such an import cannot run, and must not be read as
+    # some other module.
+    tree = ast.parse(f"from {dots} import analysis\n")
+
+    with pytest.raises(ValueError, match="processing/extraction/pipeline.py"):
+        list(_imports(tree, "processing/extraction/pipeline.py"))
+
+
+@pytest.mark.parametrize(
+    ("source", "module"),
+    [
+        ("import processing.identity\n", "processing.identity"),
+        ("from processing import identity\n", "processing.identity"),
+        ("from processing.identity import disputes\n", "processing.identity.disputes"),
+        ("import processing.identity.grouping as rules\n", "processing.identity.grouping"),
+        ("from processing.junk.purge import JunkPurge\n", "processing.junk.purge"),
+    ],
+)
+def test_a_package_or_a_module_named_any_way_is_what_the_whitelist_sees(
+    source: str, module: str
+) -> None:
+    assert module in _imported_modules(ast.parse(source), "orchestrator/cycle.py")
+    assert module not in ORCHESTRATOR_MAY_IMPORT
+
+
+def test_a_name_imported_from_a_public_module_is_that_module_and_nothing_else() -> None:
+    source = "from processing.identity.service import IdentityService, CollectResult\n"
+
+    assert _imported_modules(ast.parse(source), "orchestrator/cycle.py") == {
+        "processing.identity.service"
+    }
 
 
 def test_extraction_knows_neither_persons_nor_entity_groups() -> None:
