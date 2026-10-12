@@ -41,6 +41,7 @@ from investigation.service import (
     NOT_STORED,
     InvestigationService,
     RunBusyError,
+    RunStoreError,
     UnknownSourceError,
 )
 from investigation.services.model import ModelReply
@@ -722,3 +723,165 @@ def test_a_store_that_cannot_create_the_record_does_not_put_the_question_in_a_lo
     # The run was made, unstored, and says so.
     assert result.status != "failed" and result.run_id is None
     assert NOT_STORED in result.warnings
+
+
+# -- the third review ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("stopped_in_follow_up", "ceiling_now", "asked_before"),
+    [
+        # The first follow-up was stored and nothing of it searched; no follow-up now.
+        (1, 0, ["Эхо"]),
+        # The second one was stored; one follow-up is all that is allowed now.
+        (2, 1, ["Эхо", "Эхо 1"]),
+    ],
+)
+def test_a_stored_follow_up_is_not_made_under_a_ceiling_that_no_longer_allows_it(
+    monkeypatch: pytest.MonkeyPatch,
+    stopped_in_follow_up: int,
+    ceiling_now: int,
+    asked_before: list[str],
+) -> None:
+    """A round was stored as it started and the process died before its searches. The
+    round was allowed then; resumed under a lower ceiling it is not, and its searches —
+    of a channel as much as of the database — must not be made as a debt."""
+    store = InMemoryRunStore()
+    lexical = Fake(
+        "publications_fts", lambda query: [], kinds=("keywords",), facts=frozenset({"motto"})
+    )
+    started = nodes.follow_up
+    rounds = 0
+
+    async def start_then_die(*args: Any) -> dict[str, Any]:
+        nonlocal rounds
+        update = await started(*args)
+        rounds += 1
+        if rounds == stopped_in_follow_up:
+            raise ProcessDied
+        return update
+
+    def service(limits: Limits) -> InvestigationService:
+        return InvestigationService(
+            retrievers=[lexical],
+            scenarios=ScenarioRegistry([Rounds()]),
+            runs=store,
+            limits=limits,
+        )
+
+    monkeypatch.setattr(nodes, "follow_up", start_then_die)
+    dying = service(Limits(max_followups=2))
+    monkeypatch.setattr(nodes, "follow_up", started)
+    with pytest.raises(ProcessDied):
+        asyncio.run(dying.investigate("эхо?"))
+    assert [query.name for query in lexical.calls] == asked_before
+    (run_id,) = store._runs
+    stored = store.load(run_id).progress  # type: ignore[union-attr]
+    assert stored is not None and stored["usage"]["followup_rounds"] == stopped_in_follow_up
+    assert [task["round"] for task in stored["tasks"]] == [stopped_in_follow_up]
+    lexical.calls.clear()
+
+    result = asyncio.run(service(Limits(max_followups=2)).resume(run_id, max_followups=ceiling_now))
+
+    assert lexical.calls == []
+    # What was spent stays spent.
+    assert result.usage.search_calls == len(asked_before)
+    assert any("лимит дополнительных раундов" in warning for warning in result.warnings)
+
+
+class FailingOnce(InMemoryRunStore):
+    """A store that refuses one change of the progress — the next one — when told to."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.refuse_next = False
+
+    def update_progress(self, run_id: str, change: Any) -> None:
+        if self.refuse_next:
+            self.refuse_next = False
+            raise RuntimeError("UPDATE investigation_runs … parameters: Ивана Петровича Сидорова")
+        super().update_progress(run_id, change)
+
+
+def test_a_narrowing_the_store_did_not_take_stops_the_resume_before_any_search(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The run was to be kept local from now on, and the store refused the record. Going
+    on would search under limits the store does not hold: stopped after that, the next
+    resume would have the network back."""
+    store = FailingOnce()
+    dying = people(lambda query: list(KNOWN) if query.kind == "person" else _die())
+    outside = channel("telegram:tg-chan")
+    with pytest.raises(ProcessDied):
+        asyncio.run(
+            InvestigationService(retrievers=[dying, outside], runs=store).investigate(QUESTION)
+        )
+    (run_id,) = store._runs
+    again, outside_again = people(), channel("telegram:tg-chan")
+    service = InvestigationService(retrievers=[again, outside_again], runs=store)
+
+    store.refuse_next = True
+    with caplog.at_level(logging.DEBUG), pytest.raises(RunStoreError) as refused:
+        asyncio.run(service.resume(run_id, local_only=True))
+
+    assert again.calls == [] and outside_again.calls == []
+    # The error names the run and nothing of it; the store's own text is in no log.
+    assert str(refused.value) == run_id and refused.value.__cause__ is None
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "Сидорова" not in logged and "error=RuntimeError" in logged
+    # Nothing was changed and the run was let go: it can be resumed when the store works.
+    kept = store.load(run_id)
+    assert kept is not None and kept.status == "running" and kept.progress["local_only"] is False  # type: ignore[index]
+    before = kept.progress["usage"]["network_searches"]  # type: ignore[index]
+    result = asyncio.run(service.resume(run_id, local_only=True))
+    # Local from here on: no channel is asked beyond what the run had asked at first.
+    assert outside_again.calls == [] and result.usage.network_searches == before
+
+
+class SlowClaim(InMemoryRunStore):
+    """A store whose claim waits at a gate, as one that waits for the database does."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered, self.gate = threading.Event(), threading.Event()
+        self.gate.set()
+
+    def claim(self, run_id: str) -> bool:
+        self.entered.set()
+        self.gate.wait(10)
+        return super().claim(run_id)
+
+
+def test_a_run_cancelled_while_it_was_being_claimed_is_not_left_claimed() -> None:
+    """The cancel stops the wait for the claim, not the thread that takes it: the thread
+    goes on and takes the run. With nobody to let it go, every later resume would be
+    told the run is busy — by a process that does not work on it."""
+    store = SlowClaim()
+    dying = people(lambda query: list(KNOWN) if query.kind == "person" else _die())
+    with pytest.raises(ProcessDied):
+        asyncio.run(InvestigationService(retrievers=[dying], runs=store).investigate(QUESTION))
+    (run_id,) = store._runs
+    searched = people()
+    service = InvestigationService(retrievers=[searched], runs=store)
+
+    async def scenario() -> None:
+        store.entered.clear()
+        store.gate.clear()
+        resuming = asyncio.ensure_future(service.resume(run_id))
+        assert await asyncio.to_thread(store.entered.wait, 5)
+        resuming.cancel()
+        await asyncio.sleep(0.05)
+        # The claim is still being taken; the cancel waits for it.
+        assert not resuming.done()
+        store.gate.set()
+        with pytest.raises(asyncio.CancelledError):
+            await resuming
+        assert searched.calls == []
+
+    asyncio.run(scenario())
+
+    # Taken by the thread, and given back: the run is nobody's.
+    assert store.claim(run_id) is True
+    store.release(run_id)
+    result = asyncio.run(service.resume(run_id))
+    assert result.run_id == run_id and result.status == "partial"

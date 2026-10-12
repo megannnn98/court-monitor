@@ -275,8 +275,9 @@ one behind.
 
 `--resume RUN_ID` first makes the searches of the round in progress that were never
 made — a run stopped right after its plan or its follow-up, or between two searches —
-within the ceiling on searches of now, counting what the run already spent; then it goes
-on from what was found. A search already made
+within the ceilings of now: a follow-up round stored when more rounds were allowed is
+not made under a ceiling that no longer allows it, and the searches left are counted
+with what the run already spent. Then it goes on from what was found. A search already made
 is not made again; its evidence — local or from a channel — is read from the store. A
 finished run returns its result.
 
@@ -291,7 +292,14 @@ and what the call asks (`Limits.within`, `narrowed`). It stays local if it was o
 asked to be; its sources can only be narrowed; an unknown source, or one outside the
 run's own, is refused. `--scenario` cannot change a stored run. What a resume narrowed
 is written to the stored progress before anything runs: stopped again and resumed with
-no flag, the run keeps it.
+no flag, the run keeps it. If the store does not take that record, the resume makes no
+search and ends with `RunStoreError` — unlike a new run, which may go on unstored, a
+resumed one searching under limits the store does not hold would get the wider ones
+back at its next stop.
+
+A cancel that arrives while the run is being claimed waits for the claim to end and
+gives back what it took: the thread that takes it cannot be stopped, and a run left
+claimed by nobody could not be resumed.
 
 A run is not let go while a local search of it still works. At a search's timeout, or
 when the whole run is cancelled, the wait for a local search ends and its thread goes
@@ -392,7 +400,9 @@ more, fixed the same way: restored searches past the ceiling of now; a narrowing
 the next stop; a cancelled run let go while its local search worked; the named people
 never asked for and taken for nobody; a follow-up round not stored as it started; the
 question in the error of a store that could not create the record; a dynamic import
-under another name. The measurements above were
+under another name. A third pass found three: a stored follow-up made under a
+ceiling that no longer allowed it; a resume going on after the store refused its
+narrowing; a claim taken by a thread whose caller had been cancelled. The measurements above were
 taken before these fixes and were not taken again; none of them changes what a
 finished, uninterrupted local run searches, except that the unnamed scenario asks for
 the publication's people in the first round (one more local search a run).

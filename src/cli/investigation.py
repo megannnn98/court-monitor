@@ -13,7 +13,12 @@ from application import (
 )
 from cli.context import CliContext
 from investigation.models import SCENARIOS, InvestigationResult
-from investigation.service import RunBusyError, RunNotFoundError, UnknownSourceError
+from investigation.service import (
+    RunBusyError,
+    RunNotFoundError,
+    RunStoreError,
+    UnknownSourceError,
+)
 from observability import configure_logging
 
 
@@ -182,6 +187,10 @@ def run_investigate(args: argparse.Namespace, context: CliContext) -> None:
         raise SystemExit(f"run {exc}: not found") from None
     except RunBusyError as exc:
         raise SystemExit(f"run {exc}: another process works on it now") from None
+    except RunStoreError as exc:
+        raise SystemExit(
+            f"run {exc}: the store did not take the run's limits; nothing was searched"
+        ) from None
     if args.json:
         print(result.model_dump_json(indent=2))
     else:

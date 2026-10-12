@@ -47,6 +47,11 @@ class RunNotFoundError(LookupError):
     pass
 
 
+class RunStoreError(RuntimeError):
+    """The store did not take what a run must have stored before it goes on. Carries
+    the run id only: the store's own error holds the run's data."""
+
+
 class RunBusyError(RuntimeError):
     """Another process works on this run now: two would make the same searches twice
     and write over each other."""
@@ -209,19 +214,26 @@ class InvestigationService:
                         local_only=state["local_only"], sources=state["sources"]
                     )
                 }
-                owed = [
+                left = [
                     task
                     for task in state.get("tasks", plan.tasks)
                     if task.fingerprint not in done and task.retriever in may_ask
                 ]
-                # Within the ceiling of now: what the run already spent counts.
+                # Within the ceilings of now. A follow-up round stored when more rounds
+                # were allowed is not made under a ceiling that no longer allows it; the
+                # searches left are counted with what the run already spent.
+                owed = [task for task in left if task.round <= limits.max_followups]
                 spent = (state.get("usage") or Usage()).search_calls
                 state["tasks"], cut = planner.cap(owed, limits.max_searches - spent)
+                warnings = list(state.get("warnings", []))
+                if len(left) > len(owed):
+                    warnings.append(
+                        f"лимит дополнительных раундов: {len(left) - len(owed)} поисков "
+                        "прерванного раунда не выполнено"
+                    )
                 if cut:
-                    state["warnings"] = [
-                        *state.get("warnings", []),
-                        f"лимит поисков: {cut} поисков прерванного раунда не выполнено",
-                    ]
+                    warnings.append(f"лимит поисков: {cut} поисков прерванного раунда не выполнено")
+                state["warnings"] = warnings
             # What the run is held to from now on is stored before anything runs: a run
             # stopped again must not come back with the wider limits it had before.
             narrowed = dump_state(
@@ -231,11 +243,15 @@ class InvestigationService:
                 await asyncio.to_thread(
                     self._runs.update_progress, run_id, lambda progress: {**progress, **narrowed}
                 )
-            except Exception as exc:  # noqa: BLE001 - logged by its class: it carries the progress
+            except Exception as exc:  # noqa: BLE001 - told by its class: it carries the progress
+                # Unlike a new run, which may go on unstored, this one must not: a search
+                # made now and a stop after it would leave the store with the wider
+                # limits, and the next resume would have them back.
                 telemetry.logger.warning(
                     "event=investigation_store_failed method=update_progress error=%s",
                     type(exc).__name__,
                 )
+                raise RunStoreError(run_id) from None
             telemetry.emit("started", run_id=run_id, resumed=True)
             return await self._run(
                 state, question=state.get("question", run.question), unfinished=unfinished
@@ -263,7 +279,27 @@ class InvestigationService:
     async def _claim(self, run_id: str | None) -> None:
         if run_id is None or self._runs is None:
             return
-        if not await asyncio.to_thread(self._runs.claim, run_id):
+        taking = asyncio.ensure_future(asyncio.to_thread(self._runs.claim, run_id))
+        try:
+            taken = await asyncio.shield(taking)
+        except asyncio.CancelledError:
+            # Cancelled while the claim was being taken: its thread goes on and may well
+            # take it. Left so, the run would be held by nobody who works on it. Wait for
+            # the claim to end, give back what it took, and only then let the cancel go.
+            def give_back(ended: asyncio.Future[bool]) -> None:
+                if not ended.cancelled() and ended.exception() is None and ended.result():
+                    asyncio.ensure_future(self._release(run_id))
+
+            try:
+                taken = await asyncio.shield(taking)
+            except asyncio.CancelledError:
+                # Cancelled again while waiting: the giving back is left to the claim's end.
+                taking.add_done_callback(give_back)
+                raise
+            if taken:
+                await self._release(run_id)
+            raise
+        if not taken:
             raise RunBusyError(run_id)
 
     async def _release_when_idle(
@@ -422,6 +458,7 @@ __all__ = [
     "InvestigationService",
     "RunBusyError",
     "RunNotFoundError",
+    "RunStoreError",
     "UnknownSourceError",
     "dump_state",
 ]
