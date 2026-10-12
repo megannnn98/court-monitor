@@ -262,6 +262,8 @@ class StatusResponse(BaseModel):
     next_action: str
     # None with no OpenRouter key: the console then spends nothing.
     balance: BalanceResponse | None = None
+    # A demo stand (ADR 0029): the console hides what would change the data.
+    read_only: bool = False
 
 
 class OptionResponse(BaseModel):

@@ -4062,6 +4062,10 @@ export type StatusResponse = {
      */
     next_action: string;
     balance?: BalanceResponse | null;
+    /**
+     * Read Only
+     */
+    read_only?: boolean;
 };
 
 /**

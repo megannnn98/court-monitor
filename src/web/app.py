@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from observability import configure_logging
 from settings import ApplicationConfigurationError, ApplicationSettings
 from web.csrf import same_origin_only
+from web.demo import read_only_demo
 from web.middleware import request_context
 from web.routers import (
     about,
@@ -114,6 +115,8 @@ app.mount("/static", StaticFiles(directory="src/static"), name="static")
 # and an address no route answers is its page (`web.spa`).
 app.middleware("http")(react_console)
 app.middleware("http")(same_origin_only)
+# A demo stand refuses every change but an investigation (ADR 0029).
+app.middleware("http")(read_only_demo)
 app.middleware("http")(request_context)
 
 # In the order the routes were declared before the split: a request matches the first

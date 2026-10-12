@@ -9770,6 +9770,11 @@
                 "type": "null"
               }
             ]
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only",
+            "default": false
           }
         },
         "type": "object",
