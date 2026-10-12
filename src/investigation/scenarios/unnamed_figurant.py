@@ -84,6 +84,10 @@ NO_FIGURANT = "в публикации нет неназванного фигу�
 NO_CANDIDATE = "ни одна запись перечня и ни один человек базы не подходят по признакам"
 SEVERAL_FIGURANTS = "в публикации несколько неназванных фигурантов: кандидаты у каждого свои"
 TIE = "несколько кандидатов подходят одинаково сильно"
+PEOPLE_UNKNOWN = (
+    "кого публикация называет по имени, узнать не удалось: среди кандидатов может быть "
+    "человек, уже названный в ней, — наиболее вероятный кандидат не объявлен"
+)
 NOT_CONFIRMED = (
     "кандидат — вероятностная оценка по признакам, не установленная личность: подтверждает человек"
 )
@@ -242,6 +246,16 @@ def _is_one_of(name: str, people: Iterable[str]) -> bool:
         if len(theirs) >= 2 and theirs <= words:
             return True
     return False
+
+
+def _people_known(view: ScenarioView, article_id: int | None) -> bool:
+    """Whether the people the publication names were asked for and the question was
+    answered. An empty answer is an answer; a search that was cut by the ceiling, failed
+    or timed out is not, and then nobody can be told from the people already named."""
+    return article_id is not None and any(
+        query.kind == "publication_people" and article_id in query.article_ids
+        for query in view.answered
+    )
 
 
 def _figurants(view: ScenarioView) -> set[str]:
@@ -443,6 +457,8 @@ class UnnamedFigurantScenario:
                 )
         known = [FACT_LABELS["clues"], *([FACT_LABELS["candidates"]] if ranked else [])]
         warnings = [NOT_CONFIRMED] if ranked else []
+        if ranked and not all(_people_known(view, clue.article_id) for clue in clues):
+            warnings.append(PEOPLE_UNKNOWN)
         return CoverageAssessment(
             warnings=warnings,
             enough=not follow_ups,
@@ -474,6 +490,10 @@ class UnnamedFigurantScenario:
         """The candidate the evidence clearly points to, or None: strong and ahead."""
         ranked = self.candidates(view)
         if not ranked or len(_figurants(view)) != 1:
+            return None
+        if not all(_people_known(view, clue.article_id) for clue in _clues(view.evidence)):
+            # Who the publication names is not known: the best candidate may be one of
+            # them, that is someone else of the case.
             return None
         top = ranked[0]
         second = ranked[1].score if len(ranked) > 1 else 0.0

@@ -17,6 +17,7 @@ from investigation.models import (
     EvidenceItem,
     InvestigationIntent,
     InvestigationPlan,
+    InvestigationQuery,
     InvestigationResult,
     Limits,
     ScenarioName,
@@ -55,6 +56,9 @@ class InvestigationState(TypedDict, total=False):
     tasks: list[SearchTask]
     # The fingerprints of every search made, by any round.
     done: Annotated[list[str], operator.add]
+    # The queries a retriever answered (not the ones that failed, timed out or were cut):
+    # a scenario tells «asked and nobody was found» from «never asked» by it.
+    answered: Annotated[list[InvestigationQuery], operator.add]
     # Everything the searches returned, as it came.
     found: Annotated[list[EvidenceItem], operator.add]
     # `found` without repeats, ranked, capped and numbered: what findings cite.

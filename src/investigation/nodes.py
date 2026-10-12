@@ -68,7 +68,9 @@ RESUMABLE = (
     "subject_ref",
     "subject",
     "plan",
+    "tasks",
     "done",
+    "answered",
     "found",
     "usage",
     "warnings",
@@ -154,6 +156,7 @@ def _view(state: InvestigationState, *, subject: Subject | None = None) -> Scena
         evidence=state.get("evidence", []),
         found=state.get("found", []),
         rounds=_usage(state).followup_rounds,
+        answered=state.get("answered", []),
     )
 
 
@@ -269,6 +272,7 @@ async def plan(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
                 {
                     **{key: state[key] for key in RESUMABLE if key in state},  # type: ignore[literal-required]
                     "plan": plan_,
+                    "tasks": kept,
                 }
             ),
         )
@@ -283,6 +287,7 @@ async def _record(tools: Toolbox, run_id: str | None, update: dict[str, Any]) ->
         return update
     done = list(update.get("done", []))
     found = dump_state({"found": update.get("found", [])})["found"]
+    answered = dump_state({"answered": update.get("answered", [])})["answered"]
     warnings = list(update.get("warnings", []))
     spent = update.get("usage")
 
@@ -292,6 +297,7 @@ async def _record(tools: Toolbox, run_id: str | None, update: dict[str, Any]) ->
             **progress,
             "done": [*progress.get("done", []), *done],
             "found": [*progress.get("found", []), *found],
+            "answered": [*progress.get("answered", []), *answered],
             "warnings": [*progress.get("warnings", []), *warnings],
             "usage": (usage + spent if isinstance(spent, Usage) else usage).model_dump(mode="json"),
         }
@@ -315,7 +321,10 @@ def _stamped(items: Sequence[EvidenceItem], task: SearchTask) -> list[EvidenceIt
 
 
 async def search(
-    branch: SearchBranch, tools: Toolbox, slots: asyncio.Semaphore | None
+    branch: SearchBranch,
+    tools: Toolbox,
+    slots: asyncio.Semaphore | None,
+    unfinished: set[asyncio.Future[Any]] | None = None,
 ) -> dict[str, Any]:
     """One query to one retriever, within its time and a free slot. A retriever that
     fails or runs out of time costs its own evidence and a warning, never the run."""
@@ -350,7 +359,7 @@ async def search(
     telemetry.emit("search_started", context=fields)
 
     try:
-        found = await _within_a_slot(retriever, task, branch, slots)
+        found = await _within_a_slot(retriever, task, branch, slots, unfinished)
     except TimeoutError:
         telemetry.emit(
             "search_failed",
@@ -398,7 +407,12 @@ async def search(
     return await _record(
         tools,
         run_id,
-        {"found": _stamped(found, task), "done": [task.fingerprint], "usage": spent},
+        {
+            "found": _stamped(found, task),
+            "done": [task.fingerprint],
+            "answered": [task.query],
+            "usage": spent,
+        },
     )
 
 
@@ -407,6 +421,7 @@ async def _within_a_slot(
     task: SearchTask,
     branch: SearchBranch,
     slots: asyncio.Semaphore | None,
+    unfinished: set[asyncio.Future[Any]] | None = None,
 ) -> list[EvidenceItem]:
     """The search's answer, within its time and one of the run's free slots.
 
@@ -415,6 +430,9 @@ async def _within_a_slot(
     work really ends — otherwise each timeout would let one more search run beside it,
     past the bound on parallel searches. (Its SQL is cut by the database at the search
     timeout, so that is soon.) A network search is cancelled, and its slot freed at once.
+
+    The same holds when the whole run is cancelled: a local search left working is put
+    in `unfinished`, and the run is not let go to another process until it has ended.
     """
     if slots is not None:
         await slots.acquire()
@@ -436,22 +454,29 @@ async def _within_a_slot(
     except BaseException:
         free()
         raise
+
+    def abandon() -> None:
+        """Nobody waits for the work any more. A network search is cancelled; a local
+        one cannot be, and keeps its slot and its place among the unfinished."""
+        if retriever.capabilities.network:
+            work.cancel()
+        elif unfinished is not None:
+            unfinished.add(work)
+            work.add_done_callback(unfinished.discard)
+        # Whatever it ends with now is nobody's: not a «task exception never retrieved».
+        work.add_done_callback(lambda finished: finished.cancelled() or finished.exception())
+        work.add_done_callback(free)
+
     try:
         done, _pending = await asyncio.wait({work}, timeout=left)
     except BaseException:
-        # The run itself was cancelled: the work goes with it.
-        work.cancel()
-        work.add_done_callback(free)
+        # The run itself was cancelled.
+        abandon()
         raise
     if done:
         free()
         return work.result()
-    if retriever.capabilities.network:
-        work.cancel()
-    # Whatever the work ends with now is nobody's: its failure must not be reported as
-    # a task exception never retrieved.
-    work.add_done_callback(lambda finished: finished.cancelled() or finished.exception())
-    work.add_done_callback(free)
+    abandon()
     raise TimeoutError
 
 
@@ -524,6 +549,23 @@ async def follow_up(state: InvestigationState, tools: Toolbox) -> dict[str, Any]
     update: dict[str, Any] = {"tasks": kept, "usage": Usage(followup_rounds=1)}
     if cut:
         update["warnings"] = [f"лимит поисков: {cut} дополнительных поисков не выполнено"]
+    if state.get("run_id") and tools.runs is not None:
+        # The round is stored as it starts: its number and its searches. A run stopped
+        # after them and before their coverage would otherwise resume a round behind,
+        # plan the same searches, find them made and end without the next round.
+        tasks = dump_state({"tasks": kept})["tasks"]
+        warnings = list(update.get("warnings", []))
+
+        def started(progress: dict[str, Any]) -> dict[str, Any]:
+            usage = Usage.model_validate(progress.get("usage") or {}) + Usage(followup_rounds=1)
+            return {
+                **progress,
+                "tasks": tasks,
+                "usage": usage.model_dump(mode="json"),
+                "warnings": [*progress.get("warnings", []), *warnings],
+            }
+
+        await _store(tools, "update_progress", state.get("run_id"), started)
     return update
 
 

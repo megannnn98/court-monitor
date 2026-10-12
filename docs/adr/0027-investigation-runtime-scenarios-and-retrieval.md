@@ -251,7 +251,10 @@ publications name. Each candidate's score is a sum of named signals (age exact +
 −0.5, named with the place in a text +3, a shared article +2, a publication of the place
 +2, the same days +1). A person named in the very publication is not the unnamed one — in whichever
 publication the name is met again, and as a list entry of the same name: the
-publication's people are asked for in the first round. The figurants of a publication
+publication's people are asked for in the first round. Until that question is answered
+(the search was cut by the ceiling, failed or timed out), nobody is called the likeliest
+candidate and the run goes to review: «nobody is named» is an answer, not the absence
+of one (`ScenarioView.answered`). The figurants of a publication
 are counted over everything found, not over what the ceiling left to show: a second one
 that was cut still forbids a likeliest candidate.
 A candidate ≥ 7 and 3 ahead of the next is reported as the likeliest, with the warning
@@ -266,9 +269,14 @@ search ends (its fingerprint, what it found, its usage — one atomic change of 
 stored progress, since the searches of a round end in parallel), after each coverage
 (the whole resumable state) and when it ends.
 
-`--resume RUN_ID` first makes the searches of the first round that were never made — a
-run stopped right after its plan, or between two searches — and then goes on from what
-was found; later rounds are planned again from what is missing. A search already made
+A follow-up round is stored as it starts — its number and its searches — so a run
+stopped after a round's searches and before their coverage resumes in that round, not
+one behind.
+
+`--resume RUN_ID` first makes the searches of the round in progress that were never
+made — a run stopped right after its plan or its follow-up, or between two searches —
+within the ceiling on searches of now, counting what the run already spent; then it goes
+on from what was found. A search already made
 is not made again; its evidence — local or from a channel — is read from the store. A
 finished run returns its result.
 
@@ -281,7 +289,18 @@ go with its connection. Progress and the result are written only to a run still
 A resumed run is held to the lower of its stored limits, the service's limits of now
 and what the call asks (`Limits.within`, `narrowed`). It stays local if it was or is
 asked to be; its sources can only be narrowed; an unknown source, or one outside the
-run's own, is refused. `--scenario` cannot change a stored run. Not stored: prompts, a model's raw answer, keys, whole
+run's own, is refused. `--scenario` cannot change a stored run. What a resume narrowed
+is written to the stored progress before anything runs: stopped again and resumed with
+no flag, the run keeps it.
+
+A run is not let go while a local search of it still works. At a search's timeout, or
+when the whole run is cancelled, the wait for a local search ends and its thread goes
+on; the claim is released when that work has ended (`_release_when_idle`), so another
+process cannot resume the run meanwhile.
+
+A store that cannot create the record costs the record, not the run: the run is made
+unstored and says so. The failure is logged by its class alone — a database error
+carries its statement's parameters, the question among them. Not stored: prompts, a model's raw answer, keys, whole
 publications. LangGraph's Postgres checkpointer was not used: it brings its own tables
 outside the migrations, and a run's state is small enough to keep as one JSON. No Redis.
 
@@ -368,7 +387,12 @@ after the ceiling; a person the publication names returning as a candidate; a re
 run ignoring the limits and flags of now; two processes on one run; a stop inside a
 round losing or repeating searches; the summary outliving the deadline; a timed-out
 local search freeing its slot while it worked; dense search limited by windows; module
-loading by a computed name unseen by the boundary rules. The measurements above were
+loading by a computed name unseen by the boundary rules. A second review of the fixes found seven
+more, fixed the same way: restored searches past the ceiling of now; a narrowing lost at
+the next stop; a cancelled run let go while its local search worked; the named people
+never asked for and taken for nobody; a follow-up round not stored as it started; the
+question in the error of a store that could not create the record; a dynamic import
+under another name. The measurements above were
 taken before these fixes and were not taken again; none of them changes what a
 finished, uninterrupted local run searches, except that the unnamed scenario asks for
 the publication's people in the first round (one more local search a run).

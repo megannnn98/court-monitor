@@ -40,6 +40,8 @@ Graph = CompiledStateGraph[InvestigationState, None, InvestigationState, Investi
 MERGE = "merge_evidence"
 # Where a run keeps its free search slots: `config["configurable"][SLOTS]`.
 SLOTS = "search_slots"
+# And the local searches nobody waits for any more, still working (`nodes._within_a_slot`).
+UNFINISHED = "unfinished_searches"
 
 
 StateNode = Callable[[InvestigationState, Toolbox], Awaitable[dict[str, Any]]]
@@ -116,9 +118,14 @@ def build_graph(
         return "follow_up"
 
     async def search(state: SearchBranch, config: RunnableConfig) -> dict[str, Any]:
-        slots = (config.get("configurable") or {}).get(SLOTS)
+        configurable = config.get("configurable") or {}
+        slots = configurable.get(SLOTS)
+        unfinished = configurable.get(UNFINISHED)
         return await nodes.search(
-            state, tools, slots if isinstance(slots, asyncio.Semaphore) else None
+            state,
+            tools,
+            slots if isinstance(slots, asyncio.Semaphore) else None,
+            unfinished if isinstance(unfinished, set) else None,
         )
 
     builder = StateGraph(InvestigationState)

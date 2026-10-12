@@ -53,6 +53,8 @@ class ScenarioView:
     found: Sequence[EvidenceItem] = field(default_factory=tuple)
     # The follow-up rounds already run.
     rounds: int = 0
+    # The queries a retriever answered: «asked, nothing found» is not «never asked».
+    answered: Sequence[InvestigationQuery] = field(default_factory=tuple)
 
 
 class InvestigationScenario(Protocol):

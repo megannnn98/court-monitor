@@ -16,8 +16,9 @@ from typing import Any, get_type_hints
 from langchain_core.runnables import RunnableConfig
 from pydantic import TypeAdapter
 
-from investigation import telemetry
-from investigation.graph import SLOTS, build_graph
+from investigation import intent as intent_rules
+from investigation import planner, telemetry
+from investigation.graph import SLOTS, UNFINISHED, build_graph
 from investigation.models import InvestigationResult, Limits, ScenarioName, Usage
 from investigation.nodes import RESUMABLE
 from investigation.runs import FINISHED, RunStore, new_run_id
@@ -34,6 +35,9 @@ from investigation.state import InvestigationState, dump_state
 # and still stops a graph that would not end.
 _STEPS_PER_ROUND = 6
 _BASE_STEPS = 12
+NOT_STORED = "запуск не сохранён: хранилище не приняло запись, результат есть только в этом ответе"
+# What a resumed run is held to, stored again when it is narrowed.
+_NARROWED = ("limits", "local_only", "sources", "intent", "tasks", "warnings")
 # Beyond the run's own deadline, the hard stop of the whole graph: the nodes end their
 # work at the deadline, this only catches a node that would not.
 _GRACE_SECONDS = 10
@@ -110,23 +114,34 @@ class InvestigationService:
         }
         if run_id is not None:
             assert self._runs is not None
-            await asyncio.to_thread(
-                self._runs.create,
-                run_id,
-                question=question,
-                request={
-                    "local_only": local_only,
-                    "sources": list(sources),
-                    "scenario": scenario,
-                    "limits": limits.model_dump(),
-                },
-            )
+            try:
+                await asyncio.to_thread(
+                    self._runs.create,
+                    run_id,
+                    question=question,
+                    request={
+                        "local_only": local_only,
+                        "sources": list(sources),
+                        "scenario": scenario,
+                        "limits": limits.model_dump(),
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001 - a lost record costs the record, not the run
+                # Only the class: a database error carries its statement's parameters,
+                # the question among them, and whoever logs it would log the question.
+                telemetry.logger.warning(
+                    "event=investigation_store_failed method=create error=%s", type(exc).__name__
+                )
+                run_id = None
+                initial["run_id"] = None
+                initial["warnings"] = [NOT_STORED]
         telemetry.emit("started", run_id=run_id, local_only=local_only, sources=len(sources))
         await self._claim(run_id)
+        unfinished: set[asyncio.Future[Any]] = set()
         try:
-            return await self._run(initial, question=question)
+            return await self._run(initial, question=question, unfinished=unfinished)
         finally:
-            await self._release(run_id)
+            await self._release_when_idle(run_id, unfinished)
 
     async def resume(
         self,
@@ -151,6 +166,7 @@ class InvestigationService:
             return InvestigationResult.model_validate(stored.result)
         assert self._runs is not None
         await self._claim(run_id)
+        unfinished: set[asyncio.Future[Any]] = set()
         try:
             # Read again, now that nobody else can write it.
             run = self._runs.load(run_id)
@@ -177,13 +193,15 @@ class InvestigationService:
                 }
             )
             plan = state.get("plan")
-            if state.get("intent") is None or state.get("subject_ref") is None or plan is None:
+            intent = state.get("intent")
+            if intent is None or state.get("subject_ref") is None or plan is None:
                 # Stopped before it was planned: nothing found yet, start it again.
                 state.pop("resumed")
             else:
-                # The searches of the first round that were never made — a run stopped
-                # right after its plan, or between two searches of the round. Later
-                # rounds are planned again from what is missing.
+                state["intent"] = intent_rules.with_sources(intent, state["sources"])
+                # The searches of the round in progress that were never made — a run
+                # stopped right after its plan or its follow-up, or between two searches.
+                # A round that ended is planned on from what is missing.
                 done = set(state.get("done", []))
                 may_ask = {
                     retriever.name
@@ -191,15 +209,39 @@ class InvestigationService:
                         local_only=state["local_only"], sources=state["sources"]
                     )
                 }
-                state["tasks"] = [
+                owed = [
                     task
-                    for task in plan.tasks
+                    for task in state.get("tasks", plan.tasks)
                     if task.fingerprint not in done and task.retriever in may_ask
                 ]
+                # Within the ceiling of now: what the run already spent counts.
+                spent = (state.get("usage") or Usage()).search_calls
+                state["tasks"], cut = planner.cap(owed, limits.max_searches - spent)
+                if cut:
+                    state["warnings"] = [
+                        *state.get("warnings", []),
+                        f"лимит поисков: {cut} поисков прерванного раунда не выполнено",
+                    ]
+            # What the run is held to from now on is stored before anything runs: a run
+            # stopped again must not come back with the wider limits it had before.
+            narrowed = dump_state(
+                {key: state[key] for key in _NARROWED if key in state}  # type: ignore[literal-required]
+            )
+            try:
+                await asyncio.to_thread(
+                    self._runs.update_progress, run_id, lambda progress: {**progress, **narrowed}
+                )
+            except Exception as exc:  # noqa: BLE001 - logged by its class: it carries the progress
+                telemetry.logger.warning(
+                    "event=investigation_store_failed method=update_progress error=%s",
+                    type(exc).__name__,
+                )
             telemetry.emit("started", run_id=run_id, resumed=True)
-            return await self._run(state, question=state.get("question", run.question))
+            return await self._run(
+                state, question=state.get("question", run.question), unfinished=unfinished
+            )
         finally:
-            await self._release(run_id)
+            await self._release_when_idle(run_id, unfinished)
 
     def _narrowed_sources(self, kept: Sequence[str], asked: Sequence[str]) -> list[str]:
         """The sources a resumed run keeps to: its own, narrowed by what is asked now.
@@ -224,6 +266,26 @@ class InvestigationService:
         if not await asyncio.to_thread(self._runs.claim, run_id):
             raise RunBusyError(run_id)
 
+    async def _release_when_idle(
+        self, run_id: str | None, unfinished: set[asyncio.Future[Any]]
+    ) -> None:
+        """Let the run go once no local search of it still works. A search the run
+        stopped waiting for — at its timeout, or because the run was cancelled — works
+        on in its thread; let go before it ends, the run could be resumed by another
+        process while this one still searches for it."""
+        working = [work for work in unfinished if not work.done()]
+        if not working:
+            await self._release(run_id)
+            return
+        ended = asyncio.gather(*working, return_exceptions=True)
+        try:
+            await asyncio.shield(ended)
+        except asyncio.CancelledError:
+            # Cancelled again while waiting: the release is left to the work's end.
+            ended.add_done_callback(lambda _: asyncio.ensure_future(self._release(run_id)))
+            raise
+        await self._release(run_id)
+
     async def _release(self, run_id: str | None) -> None:
         if run_id is None or self._runs is None:
             return
@@ -240,13 +302,22 @@ class InvestigationService:
             raise RunNotFoundError(run_id)
         return self._runs.load(run_id)
 
-    async def _run(self, initial: InvestigationState, *, question: str) -> InvestigationResult:
+    async def _run(
+        self,
+        initial: InvestigationState,
+        *,
+        question: str,
+        unfinished: set[asyncio.Future[Any]] | None = None,
+    ) -> InvestigationResult:
         limits = initial.get("limits") or self._limits
         run_id = initial.get("run_id")
         started = time.perf_counter()
         config: RunnableConfig = {
             "recursion_limit": _BASE_STEPS + _STEPS_PER_ROUND * limits.max_followups,
-            "configurable": {SLOTS: asyncio.Semaphore(limits.max_parallel_searches)},
+            "configurable": {
+                SLOTS: asyncio.Semaphore(limits.max_parallel_searches),
+                UNFINISHED: set() if unfinished is None else unfinished,
+            },
         }
         try:
             final = await asyncio.wait_for(

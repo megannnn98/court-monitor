@@ -8,23 +8,41 @@ point; the store is the in-memory one, whose contract the PostgreSQL store keeps
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import time
 from collections.abc import Callable, Sequence
+from typing import Any, ClassVar
 
 import pytest
 
 from investigation import nodes
 from investigation.models import (
+    CoverageAssessment,
     EvidenceItem,
+    FactRequirement,
+    FigurantCandidate,
+    Finding,
+    InvestigationIntent,
     InvestigationQuery,
     InvestigationResult,
     Limits,
+    PersonSubject,
     QueryKind,
     RetrieverCapabilities,
+    ScenarioName,
+    Status,
+    Subject,
 )
 from investigation.runs import InMemoryRunStore
-from investigation.service import InvestigationService, RunBusyError, UnknownSourceError
+from investigation.scenarios.base import PlannedQuery, ScenarioView
+from investigation.scenarios.registry import ScenarioRegistry
+from investigation.service import (
+    NOT_STORED,
+    InvestigationService,
+    RunBusyError,
+    UnknownSourceError,
+)
 from investigation.services.model import ModelReply
 
 KEY = "иван петрович сидоров"
@@ -459,3 +477,248 @@ def test_a_local_search_past_its_time_keeps_its_slot_until_its_work_ends() -> No
     assert slow.calls and quick.calls
     assert result.usage.failed_searches == 1
     assert most == 1
+
+
+# -- the second review: what a resumed run is held to, again ---------------------------------------
+
+
+def _stopped_after_its_plan(
+    monkeypatch: pytest.MonkeyPatch, *retrievers: Fake
+) -> tuple[InMemoryRunStore, str]:
+    """A run whose process died once its plan was saved, before any search."""
+    store = InMemoryRunStore()
+    planned = nodes.plan
+
+    async def plan_then_die(*args: object) -> dict[str, object]:
+        await planned(*args)  # type: ignore[arg-type]
+        raise ProcessDied
+
+    monkeypatch.setattr(nodes, "plan", plan_then_die)
+    dying = InvestigationService(retrievers=list(retrievers), runs=store)
+    monkeypatch.setattr(nodes, "plan", planned)
+    with pytest.raises(ProcessDied):
+        asyncio.run(dying.investigate(QUESTION))
+    (run_id,) = store._runs
+    return store, run_id
+
+
+def test_the_searches_a_resumed_run_still_owes_are_within_the_ceiling_of_now(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A plan of several searches, none made; resumed with a ceiling of one. The plan's
+    searches are not a debt to be paid whatever the ceiling."""
+    retrievers = [people(), *(channel(f"telegram:tg-{number}") for number in range(4))]
+    store, run_id = _stopped_after_its_plan(monkeypatch, *retrievers)
+    owed = store.load(run_id).progress["tasks"]  # type: ignore[index,union-attr]
+    assert len(owed) >= 4
+
+    result = asyncio.run(
+        InvestigationService(retrievers=retrievers, runs=store).resume(run_id, max_searches=1)
+    )
+
+    assert sum(len(fake.calls) for fake in retrievers) == 1
+    assert result.usage.search_calls == 1
+    assert any("поисков прерванного раунда не выполнено" in warning for warning in result.warnings)
+
+
+def test_a_budget_already_spent_leaves_a_resumed_run_nothing_to_search() -> None:
+    store, run_id = stored_run()
+    spent = store.load(run_id).progress["usage"]["search_calls"]  # type: ignore[index,union-attr]
+    again = people()
+    outside = channel("telegram:tg-chan")
+
+    result = asyncio.run(
+        InvestigationService(
+            retrievers=[again, outside], runs=store, limits=Limits(max_searches=spent)
+        ).resume(run_id)
+    )
+
+    assert again.calls == [] and outside.calls == []
+    assert result.usage.search_calls == spent
+
+
+def test_what_a_resume_narrowed_holds_for_the_next_resume_too() -> None:
+    """Resumed local-only, stopped again before its round ended, resumed with no flag:
+    the run must not come back with the network it had at first."""
+    store, run_id = stored_run()
+    outside = channel("telegram:tg-chan")
+    dying = people(lambda query: list(KNOWN) if query.kind == "person" else _die())
+
+    with pytest.raises(ProcessDied):
+        asyncio.run(
+            InvestigationService(
+                retrievers=[dying, outside], runs=store, limits=Limits(max_followups=1)
+            ).resume(run_id, local_only=True, max_searches=7)
+        )
+    kept = store.load(run_id).progress  # type: ignore[union-attr]
+    assert kept is not None and kept["local_only"] is True
+    assert kept["limits"]["max_searches"] == 7 and kept["limits"]["max_followups"] == 1
+
+    result = asyncio.run(
+        InvestigationService(retrievers=[people(), outside], runs=store).resume(run_id)
+    )
+
+    assert outside.calls == []
+    assert result.usage.network_searches == 0
+
+
+def test_a_cancelled_run_is_not_let_go_while_its_local_search_still_works() -> None:
+    """Cancelling the run cancels the wait for a local search, not the thread that makes
+    it. Let go at once, the run would be resumed by another process while this one still
+    searched for it: two at work on one run."""
+    store = InMemoryRunStore()
+    started, let_go = threading.Event(), threading.Event()
+    worked: list[str] = []
+
+    def working() -> None:
+        started.set()
+        let_go.wait(10)
+        worked.append("ended")
+
+    class Local(Fake):
+        async def search(self, query: InvestigationQuery) -> list[EvidenceItem]:
+            self.calls.append(query)
+            await asyncio.to_thread(working)
+            return []
+
+    local = Local("entity_groups", lambda query: [], kinds=("person",), facts=DOSSIER)
+    other = people()
+
+    async def scenario() -> None:
+        first = asyncio.ensure_future(
+            InvestigationService(retrievers=[local], runs=store).investigate(QUESTION)
+        )
+        assert await asyncio.to_thread(started.wait, 5)
+        first.cancel()
+        await asyncio.sleep(0.1)
+        (run_id,) = store._runs
+
+        # The worker is alive: the run is still this process's.
+        with pytest.raises(RunBusyError):
+            await InvestigationService(retrievers=[other], runs=store).resume(run_id)
+        assert other.calls == [] and worked == []
+
+        let_go.set()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        assert worked == ["ended"]
+        # Now it can be resumed, and the search that never answered is made.
+        result = await InvestigationService(retrievers=[other], runs=store).resume(run_id)
+        assert next(query.kind for query in other.calls) == "person"
+        assert result.run_id == run_id
+
+    asyncio.run(scenario())
+
+
+class Rounds:
+    """A scenario that asks other words in every round: «Эхо», «Эхо 1», «Эхо 2»."""
+
+    name: ScenarioName = "person_dossier"
+    facts: ClassVar[dict[str, FactRequirement]] = {
+        "motto": FactRequirement(key="motto", description="девиз")
+    }
+
+    def intent_by_rules(self, question: str) -> InvestigationIntent | None:
+        return InvestigationIntent(scenario="person_dossier", subject_name="Эхо")
+
+    def subject_of(self, intent: InvestigationIntent) -> PersonSubject:
+        return PersonSubject(name="Эхо")
+
+    def subject_name(self, intent: InvestigationIntent) -> str:
+        return "Эхо"
+
+    def initial_queries(self, intent: InvestigationIntent, subject: object) -> list[PlannedQuery]:
+        return [
+            PlannedQuery(query=InvestigationQuery(kind="keywords", name="Эхо"), purpose="motto")
+        ]
+
+    def settle(self, view: ScenarioView) -> Subject:
+        return Subject(name="Эхо")
+
+    def requirements(self, view: ScenarioView) -> list[FactRequirement]:
+        return list(self.facts.values())
+
+    def assess(self, view: ScenarioView) -> CoverageAssessment:
+        words = InvestigationQuery(kind="keywords", name=f"Эхо {view.rounds + 1}", fact="motto")
+        return CoverageAssessment(enough=False, missing=["девиз"], follow_up_queries=[words])
+
+    def findings(self, view: ScenarioView) -> list[Finding]:
+        return []
+
+    def candidates(self, view: ScenarioView) -> list[FigurantCandidate]:
+        return []
+
+    def status(self, view: ScenarioView, assessment: CoverageAssessment) -> Status:
+        return "partial"
+
+
+def test_a_run_stopped_after_a_follow_up_s_searches_goes_on_with_the_next_round(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first follow-up made its searches and the process died before their coverage.
+    Resumed a round behind, the run would plan the same searches, find them made and end:
+    the second round's other words would never be asked."""
+    store = InMemoryRunStore()
+    lexical = Fake(
+        "publications_fts", lambda query: [], kinds=("keywords",), facts=frozenset({"motto"})
+    )
+    merged = nodes.merge_evidence
+    merges = 0
+
+    async def merge_then_die(*args: Any) -> dict[str, Any]:
+        nonlocal merges
+        merges += 1
+        if merges == 2:
+            raise ProcessDied
+        return await merged(*args)
+
+    def service() -> InvestigationService:
+        return InvestigationService(
+            retrievers=[lexical],
+            scenarios=ScenarioRegistry([Rounds()]),
+            runs=store,
+            limits=Limits(max_followups=2),
+        )
+
+    monkeypatch.setattr(nodes, "merge_evidence", merge_then_die)
+    dying = service()
+    monkeypatch.setattr(nodes, "merge_evidence", merged)
+    with pytest.raises(ProcessDied):
+        asyncio.run(dying.investigate("эхо?"))
+    assert [query.name for query in lexical.calls] == ["Эхо", "Эхо 1"]
+    (run_id,) = store._runs
+    assert store.load(run_id).progress["usage"]["followup_rounds"] == 1  # type: ignore[index,union-attr]
+    lexical.calls.clear()
+
+    result = asyncio.run(service().resume(run_id))
+
+    # The first round is not asked again; the second is.
+    assert [query.name for query in lexical.calls] == ["Эхо 2"]
+    assert result.usage.followup_rounds == 2 and result.usage.search_calls == 3
+
+
+def test_a_store_that_cannot_create_the_record_does_not_put_the_question_in_a_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A database error carries its statement's parameters. Raised out of the service,
+    it would be logged whole by whoever catches it — with the question in it."""
+    marker = "Засекреченного Маркера"
+
+    class Refusing(InMemoryRunStore):
+        def create(self, run_id: str, *, question: str, request: dict[str, Any]) -> None:
+            raise RuntimeError(f"INSERT INTO investigation_runs … parameters: {question!r}")
+
+    service = InvestigationService(retrievers=[people(lambda query: list(KNOWN))], runs=Refusing())
+
+    with caplog.at_level(logging.DEBUG):
+        result = asyncio.run(service.investigate(f"Что известно про {marker}?"))
+
+    logged = "\n".join(
+        f"{record.getMessage()} {record.exc_text or ''} {record.exc_info or ''}"
+        for record in caplog.records
+    )
+    assert marker not in logged and "Засекреченного" not in logged
+    assert "method=create error=RuntimeError" in logged
+    # The run was made, unstored, and says so.
+    assert result.status != "failed" and result.run_id is None
+    assert NOT_STORED in result.warnings

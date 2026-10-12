@@ -903,6 +903,42 @@ def test_a_list_entry_of_a_person_the_publication_names_is_no_candidate() -> Non
     assert result.status == "partial"
 
 
+STRONG_ENTRY = entry("ПЕТРОВ ПЁТР ИВАНОВИЧ", "age=17", "gender", "initial", "birthplace")
+
+
+def test_a_strong_candidate_is_not_the_likeliest_when_the_named_people_were_never_asked() -> None:
+    """The ceiling cut the search for the people the publication names. The strong
+    candidate may be one of them; an empty answer nobody gave is not «nobody is named»."""
+    figurants = unnamed([clue(initial="П"), STRONG_ENTRY])
+
+    result = run(figurants, question=ASK, limits=Limits(max_searches=1))
+
+    assert [query.kind for query in figurants.calls] == ["unnamed"]
+    assert result.candidates and result.candidates[0].score >= 7
+    assert result.status == "review_required"
+    assert not any(finding.fact == "probable_candidate" for finding in result.findings)
+    assert any("кого публикация называет" in warning for warning in result.warnings)
+
+
+def test_a_failed_search_for_the_named_people_forbids_the_likeliest_candidate_too() -> None:
+    def answers(query: InvestigationQuery) -> list[EvidenceItem]:
+        if query.kind == "publication_people":
+            raise ConnectionError("reset")
+        return [clue(initial="П"), STRONG_ENTRY]
+
+    figurants = Fake(
+        "unnamed_figurants",
+        answers,
+        kinds=("unnamed", "publication_people"),
+        facts=frozenset({"clues", "candidates"}),
+    )
+
+    result = run(figurants, question=ASK)
+
+    assert result.status == "review_required"
+    assert not any(finding.fact == "probable_candidate" for finding in result.findings)
+
+
 def test_people_of_other_publications_about_the_place_and_days_become_candidates() -> None:
     elsewhere = EvidenceItem(
         source_type="entity_group",

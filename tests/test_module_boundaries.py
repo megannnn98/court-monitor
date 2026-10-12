@@ -560,20 +560,19 @@ _DYNAMIC_IMPORTS = frozenset({"import_module", "__import__", "run_module", "run_
 
 
 def _dynamic_imports(tree: ast.AST) -> list[int]:
-    """The lines of a file that load a module by a computed name."""
+    """The lines of a file that load a module by a computed name, or take hold of what
+    does: the function named in any way — called, imported under another name, kept in a
+    variable — is the same function."""
     lines = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        called = node.func
-        name = (
-            called.id
-            if isinstance(called, ast.Name)
-            else called.attr
-            if isinstance(called, ast.Attribute)
-            else None
-        )
-        if name in _DYNAMIC_IMPORTS:
+        if isinstance(node, ast.ImportFrom):
+            # `from importlib import import_module as load`: `load(name)` names nothing.
+            if any(alias.name in _DYNAMIC_IMPORTS for alias in node.names):
+                lines.append(node.lineno)
+        elif (isinstance(node, ast.Attribute) and node.attr in _DYNAMIC_IMPORTS) or (
+            isinstance(node, ast.Name) and node.id in _DYNAMIC_IMPORTS
+        ):
+            # `importlib.import_module` itself, called or handed on.
             lines.append(node.lineno)
     return lines
 
@@ -593,6 +592,11 @@ def test_no_module_is_loaded_by_a_computed_name() -> None:
         ("from importlib import import_module\nimport_module(name)", True),
         ("module = __import__('persons')", True),
         ("import runpy\nrunpy.run_module('cli.persons')", True),
+        # Under another name, and handed on in a variable.
+        ("from importlib import import_module as load\nload(name)", True),
+        ("import importlib\nload = importlib.import_module\nload(name)", True),
+        ("import importlib as lib\nlib.import_module(name)", True),
+        ("load = __import__\nload('persons')", True),
         # An ordinary import inside a function is an `import` statement: the other rules
         # see it. Asking whether a module exists loads nothing.
         ("def late():\n    from analysis import service\n    return service", False),
