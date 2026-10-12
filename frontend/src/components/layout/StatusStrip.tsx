@@ -14,7 +14,16 @@ export function StatusStrip() {
   if (status.isError) {
     return <p className="mb-4 text-xs text-destructive">Показатели не загрузились: {status.error.message}</p>;
   }
-  const { articles, people, result, queue, latest_monitoring_status: latest, live_operation: live, balance } = status.data;
+  const {
+    articles,
+    people,
+    result,
+    queue,
+    latest_monitoring_status: latest,
+    live_operation: live,
+    balance,
+    read_only: readOnly
+  } = status.data;
   const items: [string, string][] = [
     ["Публикации", formatNumber(articles)],
     ["Люди", formatNumber(people)],
@@ -24,6 +33,12 @@ export function StatusStrip() {
   ];
   return (
     <section aria-label="Показатели" className="mb-4 space-y-2">
+      {/* A demo stand (ADR 0029): the server refuses what would change the data. */}
+      {readOnly ? (
+        <p role="note" className="rounded-md bg-sky-100 px-3 py-1.5 text-sm text-sky-900">
+          Демо-стенд: только просмотр, изменения отключены.
+        </p>
+      ) : null}
       {live ? (
         <Link to="/work" className="flex items-center gap-2 rounded-md bg-amber-100 px-3 py-1.5 text-sm text-amber-900">
           <span className="size-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
