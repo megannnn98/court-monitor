@@ -5281,8 +5281,6 @@
                   "exact_name",
                   "declined_name",
                   "ts_rank",
-                  "cosine",
-                  "rrf",
                   "source_order"
                 ]
               },

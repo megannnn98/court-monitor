@@ -27,11 +27,10 @@ from investigation.service import InvestigationService
 LOCAL = {"INVESTIGATION_TELEGRAM_CHANNELS": "none"}
 
 
-def _service(
-    session_factory: sessionmaker[Session], *, dense_model: str | None
-) -> InvestigationService:
-    env = {**LOCAL, **({"INVESTIGATION_DENSE_MODEL": dense_model} if dense_model else {})}
-    return InvestigationService(retrievers=build_investigation_retrievers(session_factory, env=env))
+def _service(session_factory: sessionmaker[Session]) -> InvestigationService:
+    return InvestigationService(
+        retrievers=build_investigation_retrievers(session_factory, env=LOCAL)
+    )
 
 
 def _value(statement: str) -> str:
@@ -41,10 +40,8 @@ def _value(statement: str) -> str:
     return value.split(" (", 1)[0]
 
 
-def evaluate(
-    session_factory: sessionmaker[Session], golden: GoldenSet, *, dense_model: str | None = None
-) -> dict[str, Any]:
-    service = _service(session_factory, dense_model=dense_model)
+def evaluate(session_factory: sessionmaker[Session], golden: GoldenSet) -> dict[str, Any]:
+    service = _service(session_factory)
 
     def ask(question: str) -> InvestigationResult:
         return asyncio.run(service.investigate(question, local_only=True))

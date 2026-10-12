@@ -26,7 +26,6 @@ def main() -> None:
     parser.add_argument("command", choices=["build", "retrieval", "scenarios"])
     parser.add_argument("--database-url", default=os.environ.get("DATABASE_URL"))
     parser.add_argument("--golden", type=Path, default=OUT / "golden.json")
-    parser.add_argument("--dense-model", default=None, help="e.g. intfloat/multilingual-e5-base")
     args = parser.parse_args()
     if not args.database_url:
         raise SystemExit("--database-url or DATABASE_URL is required")
@@ -41,13 +40,14 @@ def main() -> None:
     loaded = golden_set.GoldenSet.load(args.golden)
     if args.command == "retrieval":
         with factory() as session:
-            table = retrieval.compare(session, loaded, dense_model=args.dense_model, cache=OUT)
+            table = retrieval.compare(session, loaded)
         (OUT / "retrieval.json").write_text(json.dumps(table, indent=1), encoding="utf-8")
         print(retrieval.as_markdown(table))
         return
-    report = scenarios.evaluate(factory, loaded, dense_model=args.dense_model)
-    name = "scenarios-dense.json" if args.dense_model else "scenarios.json"
-    (OUT / name).write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
+    report = scenarios.evaluate(factory, loaded)
+    (OUT / "scenarios.json").write_text(
+        json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8"
+    )
     print(json.dumps(report, indent=1, ensure_ascii=False))
 
 

@@ -8,8 +8,6 @@ import os
 
 from application import (
     build_investigation_service,
-    build_processing_service,
-    dense_embedder_from_env,
 )
 from cli.context import CliContext
 from investigation.models import SCENARIOS, InvestigationResult
@@ -76,15 +74,6 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         "--resume", default=None, metavar="RUN_ID", help="Carry on a run that was interrupted"
     )
     parser.set_defaults(handler=run_investigate)
-
-    index = subparsers.add_parser(
-        "index-publications",
-        help=(
-            "Embed the stored publications for the investigation's dense retrieval "
-            "(INVESTIGATION_DENSE_MODEL; needs the optional semantic group)"
-        ),
-    )
-    index.set_defaults(handler=run_index_publications)
 
 
 def _lines(result: InvestigationResult) -> list[str]:
@@ -197,17 +186,3 @@ def run_investigate(args: argparse.Namespace, context: CliContext) -> None:
         print("\n".join(_lines(result)))
     if result.status == "failed":
         raise SystemExit(1)
-
-
-def run_index_publications(args: argparse.Namespace, context: CliContext) -> None:
-    configure_logging()
-    embedder = dense_embedder_from_env()
-    if embedder is None:
-        raise SystemExit(
-            "set INVESTIGATION_DENSE_MODEL and install the semantic group: uv sync --group semantic"
-        )
-    result = build_processing_service(context.session_factory).index_publication_vectors(embedder)
-    print(
-        f"articles: {result.articles}, indexed: {result.indexed}, "
-        f"unchanged: {result.unchanged}, windows: {result.windows}"
-    )
