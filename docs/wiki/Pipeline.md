@@ -244,20 +244,96 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 Модель (DeepSeek через OpenRouter) стоит за этими API: общий клиент `src/llm/chat.py`,
 кэш ответов `src/processing/answers.py`.
 
-## Вопрос об одном человеке
+## Два рантайма
 
-Кроме цикла есть разовый вопрос: что база знает о человеке и чего не хватает.
+В системе два независимых процесса. Они не вызывают друг друга.
 
-```bash
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py investigate "Что известно про Ивана Сидорова?"'
+```text
+ФОНОВЫЙ КОНВЕЙЕР (по расписанию, Dagster → orchestrator)
+
+источники → ingestion → processing → analysis → results
+            загрузка    люди, роли,  политика,   что видит
+                        очистка      перечень    читатель
+
+
+ИССЛЕДОВАНИЕ ПО ЗАПРОСУ (LangGraph, investigation/)
+
+вопрос → сценарий → план → поиск в нескольких источниках → материалы
+       → покрытие (что известно, чего нет, что противоречит)
+       → дополнительный поиск только недостающего → результат / на проверку
 ```
 
-То же по HTTP: `POST /api/v1/investigation` с телом `{"query": "..."}`. Ответ —
-установленные факты со ссылками на материалы (`E1`, `E2`, …), недостающие данные,
-противоречия и статус: `completed`, `partial`, `clarification_required`,
-`review_required` или `failed`. Вопрос ничего не пишет в базу и не запускает шаги цикла.
+Конвейер пишет базу. Исследование только читает: базу через `ResultsService` и
+настроенные внешние источники через `ingestion.search`. Его единственная запись —
+собственный журнал запусков (`investigation_runs`). Найденное снаружи не загружается
+в базу и не запускает шаги цикла.
+
+## Исследование по запросу
+
+Два сценария:
+
+- **Досье человека**: «Что известно про X?», «Есть ли X в перечне?», «За что
+  преследуют X?». Человек — это сущность (шаг 3). Факты — то, что решили шаги 4–5,
+  каждый со ссылками на материалы (`E1`, `E2`, …). Чего нет, ищется вторым раундом:
+  только недостающее и только там, где оно может найтись. Найденная цитата — зацепка,
+  а не факт.
+- **Неназванный фигурант**: «Установи фигуранта публикации 12345». Берутся приметы
+  из публикации (возраст, пол, место, инициал, статьи). Ищется, кто подходит: записи
+  перечня и люди из других публикаций того же места и дней. У каждого кандидата —
+  оценка и признаки, из которых она сложилась. Личность исследование не устанавливает:
+  сильный и явно лидирующий кандидат показывается как наиболее вероятный, всё
+  остальное уходит на проверку человеку.
+
+Где ищется:
+
+| Источник | `--source` | Что это |
+|---|---|---|
+| сущности и решения шагов | `local` (или `entity_groups`) | человек, роль, статьи, политика, перечень, последнее событие |
+| публикации по имени | `local` (`stored_publications`) | тексты, где есть все слова имени |
+| полнотекстовый поиск | `local` (`publications_fts`) | ранжированный поиск PostgreSQL по словам и падежам |
+| смысловой поиск | `local` (`publications_dense`) | только если задан `INVESTIGATION_DENSE_MODEL` и построен индекс `index-publications` |
+| приметы неназванных | `local` (`unnamed_figurants`) | приметы, подходящие записи перечня, люди публикаций |
+| Telegram-каналы | `telegram` (или `telegram:tg-ovdinfolive`) | собственный поиск публичных каналов из `channels.csv`; список — `INVESTIGATION_TELEGRAM_CHANNELS` |
+
+Примеры (в контейнере: `docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py …'`):
+
+```bash
+# Досье: всё, что известно, со ссылками на материалы
+python src/main.py investigate "Что известно о Марии Бонцлер и есть ли она в перечне?"
+
+# Только база, без внешних источников и без модели
+python src/main.py investigate "За что преследуют Олега Куваева?" --local-only --no-llm
+
+# Неназванный фигурант публикации: база и Telegram
+python src/main.py investigate "Установи фигуранта публикации 28191" --source local --source telegram
+
+# Весь результат как JSON; прочитать сохранённый запуск; продолжить прерванный
+python src/main.py investigate "Мария Бонцлер" --json
+python src/main.py investigate --run-id 3f2a…
+python src/main.py investigate --resume 3f2a…
+
+# Индекс смыслового поиска (нужна группа semantic)
+INVESTIGATION_DENSE_MODEL=intfloat/multilingual-e5-base uv run --group semantic python src/main.py index-publications
+```
+
+То же по HTTP: `POST /api/v1/investigation` с телом
+`{"query": "...", "allowed_sources": ["local"], "local_only": false, "max_followups": 1, "scenario": null}`;
+сохранённый запуск — `GET /api/v1/investigation/{run_id}`. Неизвестный источник —
+ошибка 422, а не тихий пропуск.
+
+Статусы: `completed`, `partial` (чего-то не хватает), `clarification_required` (в
+вопросе нет имени или публикации), `review_required` (несколько людей, противоречие,
+возможная склейка тёзок, неназванный без явного лидера), `failed`.
+
+Лимиты задаются окружением. Запрос может их только уменьшить:
+`INVESTIGATION_MAX_FOLLOWUPS`, `INVESTIGATION_MAX_SEARCHES`,
+`INVESTIGATION_MAX_PARALLEL_SEARCHES`, `INVESTIGATION_MAX_EVIDENCE_ITEMS`,
+`INVESTIGATION_MAX_LLM_CALLS`, `INVESTIGATION_TIMEOUT_SECONDS`,
+`INVESTIGATION_SEARCH_TIMEOUT_SECONDS`.
+
 Устройство: [ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md),
-`src/investigation/`.
+[ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md),
+`src/investigation/`. Проверка качества: `python -m evaluation.investigation`.
 
 ## Проверка
 
@@ -285,6 +361,7 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py invest
 До консоли «Следователь» результатом были карточки Person и список кандидатов:
 `extract-entities` → `resolve-people` → `classify-persecution` →
 `match-rosfinmonitoring` → `list-candidates`. Этот путь остаётся в коде и CLI
-(его использует мониторинг), но консоль работает с сущностями шагов 3–5. См.
+(его использует мониторинг; в справке команд он помечен «[legacy: ER v2]»), но
+консоль и исследование работают с сущностями шагов 3–5. См.
 [Persons](Persons.md), [Entity Resolution](Entity-Resolution.md),
 [Persecution Classification](Persecution-Classification.md).
