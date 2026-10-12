@@ -39,6 +39,11 @@ from processing.extraction.name_morphology import NameMorphology
 # and `matching_key` are as before.
 NORMALIZER_VERSION = "1.7.0"
 _PATRONYMIC = re.compile(r"(вич|вна|ична|ьич|оглы|кызы)$")
+# Endings only a Russian surname has, also in an oblique case; «-ин» and «-ич» are left
+# out, foreign given names end so too («Мартин», «Колин»).
+_NEIGHBOUR_SURNAME = re.compile(
+    r"(ов|ев|ова|ева|овой|евой|иной|ского|ской|цкого|цкой|ская|цкая|енко|чук|ых|их)$"
+)
 # How a Russian surname ends, to tell «Фамилия Имя» from a foreign «Имя Фамилия».
 _SURNAME_ENDING = re.compile(
     r"(ов|ев|ин|ын|ова|ева|ина|ына|ский|цкий|ская|цкая|ской|ко|ук|юк|ич|ых|их|ян|дзе|швили)$"
@@ -109,25 +114,38 @@ def _reads_as_given_name(word: str) -> bool:
     )
 
 
+def _took_a_neighbours_surname(first: str, second: str) -> bool:
+    """«адвоката Ивановой Петра Сидорова»: the span begins with the surname of the
+    person named just before. Told only by positive signs: the first word ends as a
+    Russian surname does, is no given name itself, and a given name follows it."""
+    return (
+        bool(_NEIGHBOUR_SURNAME.search(first.lower()))
+        and not _is_given_name(first)
+        and _reads_as_given_name(second)
+    )
+
+
 def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None]:
     """(given name, surname, patronymic) of a name already in the nominative.
 
-    One word is a surname. Two are «Имя Фамилия»; they are read as «Фамилия Имя» only
-    when the first ends as a Russian surname does and the second alone is a known
-    given name. Three are told by the patronymic: «Имя Отчество Фамилия», or «Фамилия
-    Имя Отчество» unless the first word is itself a given name (then the last word is
-    a surname in «-вич», not a patronymic).
+    Entity grouping keys a person by these three, so no word of a name is dropped: a
+    word that is neither the given name nor the surname goes to the third field, where
+    it keeps two people of one given name and surname apart as a patronymic does.
 
-    Three words without a patronymic are either a span that took a neighbour's surname
-    in («адвоката Ивановой Петра Сидорова»: a word that is no given name, then a given
-    name) — the name is its last two words — or a name of several parts («Джон Пол
-    Смит»), whose first and last words are kept so that it stays apart from another's.
-    Of more words the first and the last are kept, with «… оглы» / «… кызы» as the
-    patronymic.
+    - One word is a surname.
+    - Two are «Имя Фамилия»; they are read as «Фамилия Имя» only when the first ends
+      as a Russian surname does and the second alone is a known given name.
+    - Three with a patronymic in the middle are «Имя Отчество Фамилия». Three ending
+      in one are «Фамилия Имя Отчество», when the middle word reads as a given name
+      or the first is not one.
+    - Three that begin with a neighbour's surname (`_took_a_neighbours_surname`) are
+      the last two words: the one case where a word is left out.
+    - Any other three, and more, are the first word, the last, and the middle as the
+      third field («Джон Пол Смит», «Мамед Гусейн оглы Алиев»).
 
-    Not told apart, for want of evidence in the words alone: a given name the lists do
-    not hold («Жан Давид Абрамович» reads as «Фамилия Имя Отчество»), and two words
-    that are both given names («Роман Иван»).
+    Read wrongly, with every word kept: two given names before a surname in «-вич»
+    («Иван Давид Абрамович» reads as «Фамилия Имя Отчество»), and two words that are
+    both given names («Роман Иван» keeps its order).
     """
     if not words:
         return None, None, None
@@ -143,17 +161,16 @@ def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None
             return second, first, None
         return first, second, None
     if len(words) == 3:
-        if _PATRONYMIC.search(words[1].lower()):
-            return words[0], words[2], words[1]
-        if _PATRONYMIC.search(words[2].lower()) and not _is_given_name(words[0]):
-            return words[1], words[0], words[2]
-        if not _reads_as_given_name(words[0]) and _reads_as_given_name(words[1]):
-            return words[1], words[2], None
-        return words[0], words[2], None
-    for index in range(2, len(words) - 1):
-        if words[index].lower() in ("оглы", "кызы"):
-            return words[0], words[-1], f"{words[index - 1]} {words[index]}"
-    return words[0], words[-1], None
+        first, second, third = words
+        if _PATRONYMIC.search(second.lower()):
+            return first, third, second
+        if _PATRONYMIC.search(third.lower()) and (
+            _reads_as_given_name(second) or not _is_given_name(first)
+        ):
+            return second, first, third
+        if _took_a_neighbours_surname(first, second):
+            return second, third, None
+    return words[0], words[-1], " ".join(words[1:-1])
 
 
 class RuleBasedMentionNormalizer:

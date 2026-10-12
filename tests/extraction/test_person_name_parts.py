@@ -73,34 +73,53 @@ def test_the_full_name_and_the_matching_key_stay_as_written(
 @pytest.mark.parametrize(
     ("words", "parts"),
     [
-        # A name of several parts keeps its two ends: two such people stay apart.
-        (["Джон", "Пол", "Смит"], ("Джон", "Смит", None)),
-        (["Джеймс", "Пол", "Смит"], ("Джеймс", "Смит", None)),
-        (["Анна", "Мария", "Смит"], ("Анна", "Смит", None)),
-        # A surname in «-вич» after two given names is not a patronymic.
-        (["Иван", "Давид", "Абрамович"], ("Иван", "Абрамович", None)),
+        # A name of several parts keeps every word: the middle one tells two people apart.
+        (["Джон", "Пол", "Смит"], ("Джон", "Смит", "Пол")),
+        (["Джеймс", "Пол", "Смит"], ("Джеймс", "Смит", "Пол")),
+        (["Джон", "Давид", "Смит"], ("Джон", "Смит", "Давид")),
+        (["Джеймс", "Давид", "Смит"], ("Джеймс", "Смит", "Давид")),
+        (["Анна", "Мария", "Смит"], ("Анна", "Смит", "Мария")),
+        (["Анна", "Елена", "Смит"], ("Анна", "Смит", "Елена")),
+        (["Мамед", "Гусейн", "оглы", "Алиев"], ("Мамед", "Алиев", "Гусейн оглы")),
+        (["Жан", "Клод", "Ван", "Дамм"], ("Жан", "Дамм", "Клод Ван")),
+        # A registry's order, also when the surname is a given name too.
+        (["Герман", "Иван", "Петрович"], ("Иван", "Герман", "Петрович")),
+        (["Герман", "Олег", "Петрович"], ("Олег", "Герман", "Петрович")),
+        (["Вагнер", "Иван", "Ильич"], ("Иван", "Вагнер", "Ильич")),
+        (["Сидоров", "Авксентий", "Ильич"], ("Авксентий", "Сидоров", "Ильич")),
         (["Иван", "Петрович", "Шостакович"], ("Иван", "Шостакович", "Петрович")),
         (["Шостакович", "Дмитрий", "Дмитриевич"], ("Дмитрий", "Шостакович", "Дмитриевич")),
-        # A registry's order with a surname of no Russian ending.
-        (["Вагнер", "Иван", "Ильич"], ("Иван", "Вагнер", "Ильич")),
         # A foreign «Имя Фамилия» whose surname is a Russian given name is not turned.
         (["Джон", "Герман"], ("Джон", "Герман", None)),
         (["Шевчук", "Александр"], ("Александр", "Шевчук", None)),
         # A neighbour's surname, then a given name the dictionary left declined.
         (["Иванова", "Романа", "Сидорова"], ("Романа", "Сидорова", None)),
-        (["Мамед", "Гусейн", "оглы", "Алиев"], ("Мамед", "Алиев", "Гусейн оглы")),
-        (["Жан", "Клод", "Ван", "Дамм"], ("Жан", "Дамм", None)),
+        # No Russian surname in front: nothing says the first word is a neighbour's.
+        (["Вагнера", "Вячеслав", "Сидоров"], ("Вагнера", "Сидоров", "Вячеслав")),
     ],
 )
-def test_parts_of_names_the_first_rule_got_wrong(
+def test_parts_keep_every_word_that_tells_a_name_apart(
     words: list[str], parts: tuple[str | None, str | None, str | None]
 ) -> None:
     assert name_parts(words) == parts
 
 
+@pytest.mark.parametrize(
+    ("one", "other"),
+    [
+        (["Джон", "Давид", "Смит"], ["Джеймс", "Давид", "Смит"]),
+        (["Анна", "Мария", "Смит"], ["Анна", "Елена", "Смит"]),
+        (["Герман", "Иван", "Петрович"], ["Герман", "Олег", "Петрович"]),
+    ],
+)
+def test_two_people_never_get_the_same_parts(one: list[str], other: list[str]) -> None:
+    assert name_parts(one) != name_parts(other)
+
+
 def test_what_the_words_alone_do_not_tell() -> None:
-    # Known limits, kept visible: a given name the lists do not hold, before a surname
-    # in «-вич»; and two given names in a row.
+    # Known limits, kept visible. Every word is kept, so nobody is merged by them: the
+    # worst they do is keep one person apart from their own shorter name.
+    assert name_parts(["Иван", "Давид", "Абрамович"]) == ("Давид", "Иван", "Абрамович")
     assert name_parts(["Жан", "Давид", "Абрамович"]) == ("Давид", "Жан", "Абрамович")
     assert name_parts(["Роман", "Иван"]) == ("Роман", "Иван", None)
 
