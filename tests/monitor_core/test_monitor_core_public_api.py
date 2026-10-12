@@ -36,7 +36,7 @@ PUBLIC_API = {
         "post_json_chat",
         "read_chat_completion",
     },
-    "monitor_core.retry": {"retry", "retry_async"},
+    "monitor_core.retry": {"retry", "retry_async", "transient_http_error"},
     "monitor_core.errors": {
         "DiscoveryError",
         "FetchError",
