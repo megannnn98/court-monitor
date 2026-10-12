@@ -8,7 +8,23 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-__all__ = ["retry", "retry_async"]
+import httpx
+
+__all__ = ["retry", "retry_async", "transient_http_error"]
+
+# Statuses worth asking again: too many requests, and the server's own failures.
+_TRANSIENT_STATUS = 429
+_SERVER_ERROR = 500
+
+
+def transient_http_error(exc: Exception) -> bool:
+    """A failure that may pass if the same request is sent again: a timeout, a dropped
+    connection, HTTP 429 or 5xx. A 4xx other than 429 — a bad query, a refusal — is the
+    request's own fault, and the same request fails the same way."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status == _TRANSIENT_STATUS or status >= _SERVER_ERROR
+    return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError))
 
 
 def retry[T](
