@@ -810,6 +810,99 @@ def test_a_person_named_in_the_same_publication_is_not_the_unnamed_one() -> None
     assert all(candidate.key != "иван кузнецов" for candidate in result.candidates)
 
 
+def test_a_second_figurant_the_ceiling_cut_still_forbids_a_likeliest_candidate() -> None:
+    """Two unnamed figurants, a strong candidate of the first, and a ceiling that shows
+    two items: the second clue is cut. Judged by what is shown the publication has one
+    figurant and a likeliest candidate; it has two, and each has their own."""
+    other = clue(age=19).model_copy(update={"entity_key": "figurant:def"})
+    items = [
+        clue(initial="П"),
+        entry("ПЕТРОВ ПЁТР ИВАНОВИЧ", "age=17", "gender", "initial", "birthplace"),
+        other,
+    ]
+
+    result = run(
+        unnamed(items),
+        question=ASK,
+        limits=Limits(max_evidence_items=2, max_followups=0),
+    )
+
+    assert len(result.evidence) == 2
+    assert result.status == "review_required"
+    assert any(conflict.fact == "clues" for conflict in result.conflict_details)
+    assert not any(finding.fact == "probable_candidate" for finding in result.findings)
+    # A finding cites only what the result holds.
+    shown = {item.ref for item in result.evidence}
+    assert all(set(finding.evidence) <= shown for finding in result.findings)
+
+
+def test_a_person_the_publication_names_is_no_candidate_from_another_publication() -> None:
+    """The publication names X and leaves Y unnamed; another text of the same town and
+    days names X again. X is someone else of the case in both."""
+
+    def named(article_id: int) -> EvidenceItem:
+        return EvidenceItem(
+            source_type="entity_group",
+            source_id="unnamed_figurants",
+            article_id=article_id,
+            entity_key="иван кузнецов",
+            title="Иван Кузнецов",
+            text=f"Иван Кузнецов назван в публикации {article_id}",
+            fact="named_in_publication",
+            value="205.2",
+            published_at=datetime(2026, 3, 2, tzinfo=UTC),
+        )
+
+    def people(query: InvestigationQuery) -> list[EvidenceItem]:
+        if query.kind == "unnamed":
+            return [clue().model_copy(update={"value": f"{clue().value}; articles=205.2"})]
+        return [named(number) for number in query.article_ids]
+
+    figurants = Fake(
+        "unnamed_figurants",
+        people,
+        kinds=("unnamed", "publication_people"),
+        facts=frozenset({"clues", "candidates"}),
+    )
+    lexical = text_search(
+        "publications_fts",
+        lambda query: [
+            article(200, "В Тюмени по статье 205.2 задержан Иван Кузнецов").model_copy(
+                update={"leads": ("corroboration",)}
+            )
+        ],
+    )
+
+    result = run(figurants, lexical, question=ASK)
+
+    # The source publication's people were asked for, and so were the other text's.
+    asked = [query.article_ids for query in figurants.calls if query.kind == "publication_people"]
+    assert (100,) in asked and (200,) in asked
+    assert all(candidate.key != "иван кузнецов" for candidate in result.candidates)
+
+
+def test_a_list_entry_of_a_person_the_publication_names_is_no_candidate() -> None:
+    named_there = EvidenceItem(
+        source_type="entity_group",
+        source_id="unnamed_figurants",
+        article_id=100,
+        entity_key="пётр петров",
+        title="Пётр Петров",
+        text="Пётр Петров назван в публикации 100",
+        fact="named_in_publication",
+        value="",
+    )
+    items = [
+        clue(initial="П"),
+        entry("ПЕТРОВ ПЁТР ИВАНОВИЧ", "age=17", "gender", "initial", "birthplace"),
+    ]
+
+    result = run(unnamed(items, people=[named_there]), question=ASK)
+
+    assert result.candidates == []
+    assert result.status == "partial"
+
+
 def test_people_of_other_publications_about_the_place_and_days_become_candidates() -> None:
     elsewhere = EvidenceItem(
         source_type="entity_group",

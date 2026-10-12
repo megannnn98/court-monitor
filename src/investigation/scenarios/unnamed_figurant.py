@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -220,6 +220,36 @@ def _list_candidates(evidence: Sequence[EvidenceItem], clue: _Clue) -> dict[str,
     return candidates
 
 
+def _named_in(evidence: Sequence[EvidenceItem], article_id: int | None) -> dict[str, str]:
+    """The people (key → name) the pipeline grouped from this publication's mentions."""
+    if article_id is None:
+        return {}
+    return {
+        item.entity_key: item.title or item.entity_key
+        for item in evidence
+        if item.fact == "named_in_publication"
+        and item.entity_key is not None
+        and item.article_id == article_id
+    }
+
+
+def _is_one_of(name: str, people: Iterable[str]) -> bool:
+    """Whether a list entry's name is one of these people's: every word of a person's
+    name (two at least) stands in the entry's."""
+    words = set(_fold(name).split())
+    for person in people:
+        theirs = set(_fold(person).split())
+        if len(theirs) >= 2 and theirs <= words:
+            return True
+    return False
+
+
+def _figurants(view: ScenarioView) -> set[str]:
+    """The unnamed figurants of the publication, by everything found: the ceiling on
+    what is shown must not hide one of two."""
+    return {clue.key for clue in _clues(view.found or view.evidence)}
+
+
 def _preliminary(candidates: Mapping[str, _Candidate]) -> list[_Candidate]:
     return sorted(candidates.values(), key=lambda candidate: (-candidate.score, candidate.name))
 
@@ -249,7 +279,18 @@ class UnnamedFigurantScenario:
                 query=InvestigationQuery(kind="unnamed", article_id=subject.article_id),
                 purpose="candidates",
                 priority=_STRUCTURED,
-            )
+            ),
+            # Who the publication does name: they are someone else of the case, wherever
+            # else they are named, and must be known before anyone is ranked.
+            PlannedQuery(
+                query=InvestigationQuery(
+                    kind="publication_people",
+                    article_ids=(subject.article_id,),
+                    fact="candidates",
+                ),
+                purpose="candidates",
+                priority=_STRUCTURED,
+            ),
         ]
 
     def settle(self, view: ScenarioView) -> Subject | None:
@@ -306,7 +347,14 @@ class UnnamedFigurantScenario:
 
     def _scored(self, view: ScenarioView, clue: _Clue) -> list[_Candidate]:
         evidence = view.evidence
-        candidates = _list_candidates(evidence, clue)
+        # Read from everything found, not from what the ceiling left to show: a person
+        # the publication names must be left out even when their line was cut.
+        named_here = _named_in(view.found or evidence, clue.article_id)
+        candidates = {
+            key: candidate
+            for key, candidate in _list_candidates(evidence, clue).items()
+            if not _is_one_of(candidate.name, named_here.values())
+        }
         for candidate in candidates.values():
             surname = surname_stem(surname_of(candidate.name))
             for item in evidence:
@@ -328,9 +376,10 @@ class UnnamedFigurantScenario:
         for item in evidence:
             if item.fact != "named_in_publication" or item.entity_key is None:
                 continue
-            if item.article_id == clue.article_id:
+            if item.article_id == clue.article_id or item.entity_key in named_here:
                 # Named in the very publication that leaves the figurant unnamed: someone
-                # else of the same case, not them.
+                # else of the same case, not them — in whichever publication the name
+                # was met again.
                 continue
             candidate = candidates.setdefault(
                 item.entity_key,
@@ -361,7 +410,8 @@ class UnnamedFigurantScenario:
         if not clues:
             return CoverageAssessment(enough=True, missing=[NO_FIGURANT])
         conflicts: list[Conflict] = []
-        if len(clues) > 1:
+        if len(_figurants(view)) > 1:
+            # The refs are of the clues shown; one the ceiling cut still counts.
             conflicts.append(
                 Conflict(
                     fact="clues",
@@ -423,7 +473,7 @@ class UnnamedFigurantScenario:
     def leading(self, view: ScenarioView) -> FigurantCandidate | None:
         """The candidate the evidence clearly points to, or None: strong and ahead."""
         ranked = self.candidates(view)
-        if not ranked or len(_clues(view.evidence)) != 1:
+        if not ranked or len(_figurants(view)) != 1:
             return None
         top = ranked[0]
         second = ranked[1].score if len(ranked) > 1 else 0.0
