@@ -8,18 +8,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from support.cli_context import SessionContext as Context
 from support.db_fixtures import DatabaseSeeder
 
 from application import build_investigation_service, build_results_service
 from cli.app import main
+from db.database import with_statement_timeout
+from db.investigation_runs import SqlAlchemyInvestigationRuns
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
@@ -291,3 +297,84 @@ def test_the_command_reads_a_stored_run_by_its_id(
     main(["investigate", "--run-id", first.run_id, "--json"], context=Context(session_factory))
 
     assert InvestigationResult.model_validate(json.loads(capsys.readouterr().out)) == first
+
+
+# -- one process a run, on the real store ---------------------------------------------------------
+
+
+def test_a_run_is_claimed_by_one_store_at_a_time_and_let_go(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Two stores are two processes: each holds its own connections."""
+    ours, theirs = (
+        SqlAlchemyInvestigationRuns(session_factory),
+        SqlAlchemyInvestigationRuns(session_factory),
+    )
+    ours.create("run-1", question="q", request={})
+
+    assert ours.claim("run-1") is True
+    try:
+        assert theirs.claim("run-1") is False
+        # Another run is nobody's business.
+        assert theirs.claim("run-2") is True
+        theirs.release("run-2")
+    finally:
+        ours.release("run-1")
+
+    assert theirs.claim("run-1") is True
+    theirs.release("run-1")
+    # Letting go twice, or what was never held, is nothing.
+    theirs.release("run-1")
+    ours.release("never-claimed")
+
+
+def test_progress_is_changed_atomically_and_only_while_the_run_is_running(
+    session_factory: sessionmaker[Session],
+) -> None:
+    runs = SqlAlchemyInvestigationRuns(session_factory)
+    runs.create("run-1", question="q", request={})
+
+    # Nothing to change before a plan was saved.
+    runs.update_progress("run-1", lambda progress: {**progress, "done": ["early"]})
+    assert runs.load("run-1").progress is None  # type: ignore[union-attr]
+
+    runs.save_progress("run-1", scenario="s", round_=0, usage={}, progress={"done": []})
+
+    def add(fingerprint: str) -> None:
+        runs.update_progress(
+            "run-1", lambda progress: {**progress, "done": [*progress["done"], fingerprint]}
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(add, [f"search-{number}" for number in range(24)]))
+
+    done = runs.load("run-1").progress["done"]  # type: ignore[index,union-attr]
+    assert sorted(done) == sorted(f"search-{number}" for number in range(24))
+
+    runs.finish("run-1", status="partial", scenario="s", usage={}, result={"status": "partial"})
+    runs.update_progress("run-1", lambda progress: {"done": ["late"]})
+    runs.save_progress("run-1", scenario="x", round_=9, usage={}, progress={"done": ["late"]})
+    runs.finish("run-1", status="failed", scenario=None, usage={}, result={})
+
+    ended = runs.load("run-1")
+    assert ended is not None
+    assert (ended.status, ended.result, ended.progress) == ("partial", {"status": "partial"}, None)
+
+
+def test_a_statement_of_a_bounded_session_is_cut_by_the_database(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A search the run stopped waiting for works in a thread nobody can stop; the
+    statement it runs can be, and is, at the search timeout."""
+    bounded = with_statement_timeout(session_factory, 0.2)
+
+    started = time.monotonic()
+    with pytest.raises(OperationalError, match="statement timeout"), bounded() as session:
+        session.execute(text("SELECT pg_sleep(5)"))
+    assert time.monotonic() - started < 3
+
+    # The bound is the transaction's: the same engine's other sessions have none.
+    with session_factory() as session:
+        assert session.execute(text("SHOW statement_timeout")).scalar() in ("0", "0ms")
+    with bounded() as session:
+        assert session.execute(text("SHOW statement_timeout")).scalar() == "200ms"

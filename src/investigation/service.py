@@ -43,6 +43,11 @@ class RunNotFoundError(LookupError):
     pass
 
 
+class RunBusyError(RuntimeError):
+    """Another process works on this run now: two would make the same searches twice
+    and write over each other."""
+
+
 class InvestigationService:
     def __init__(
         self,
@@ -117,34 +122,117 @@ class InvestigationService:
                 },
             )
         telemetry.emit("started", run_id=run_id, local_only=local_only, sources=len(sources))
-        return await self._run(initial, question=question)
+        await self._claim(run_id)
+        try:
+            return await self._run(initial, question=question)
+        finally:
+            await self._release(run_id)
 
-    async def resume(self, run_id: str) -> InvestigationResult:
+    async def resume(
+        self,
+        run_id: str,
+        *,
+        max_followups: int | None = None,
+        max_searches: int | None = None,
+        local_only: bool = False,
+        sources: Sequence[str] = (),
+    ) -> InvestigationResult:
         """A stored run carried on from its last progress; a finished one as it ended.
-        The searches its progress holds are not made again."""
+        The searches its progress holds are not made again; the ones its round still
+        owed are made first.
+
+        A resumed run is held to the service's limits of now, to its own stored ones and
+        to what this call asks — whichever is lower; it stays local if it was or is asked
+        to be; and its sources can only be narrowed. `RunBusyError` when another process
+        works on it."""
+        self.check_sources(sources)
         stored = self.get(run_id)
         if stored is not None and stored.status in FINISHED and stored.result is not None:
             return InvestigationResult.model_validate(stored.result)
         assert self._runs is not None
-        run = self._runs.load(run_id)
-        if run is None or run.progress is None:
-            raise RunNotFoundError(run_id)
-        state = restore(run.progress)
-        limits = state.get("limits") or self._limits
-        now = time.time()
-        state.update(
-            {
-                "run_id": run_id,
-                "resumed": True,
-                "started_at": now,
-                "deadline": now + limits.timeout_seconds,
-            }
-        )
-        if state.get("intent") is None or state.get("subject_ref") is None:
-            # Stopped before it was planned: nothing found yet, start it again.
-            state.pop("resumed")
-        telemetry.emit("started", run_id=run_id, resumed=True)
-        return await self._run(state, question=state.get("question", run.question))
+        await self._claim(run_id)
+        try:
+            # Read again, now that nobody else can write it.
+            run = self._runs.load(run_id)
+            if run is not None and run.status in FINISHED and run.result is not None:
+                return InvestigationResult.model_validate(run.result)
+            if run is None or run.progress is None:
+                raise RunNotFoundError(run_id)
+            state = restore(run.progress)
+            limits = (
+                (state.get("limits") or self._limits)
+                .within(self._limits)
+                .narrowed(max_followups=max_followups, max_searches=max_searches)
+            )
+            now = time.time()
+            state.update(
+                {
+                    "run_id": run_id,
+                    "resumed": True,
+                    "limits": limits,
+                    "local_only": bool(state.get("local_only")) or local_only,
+                    "sources": self._narrowed_sources(state.get("sources", []), sources),
+                    "started_at": now,
+                    "deadline": now + limits.timeout_seconds,
+                }
+            )
+            plan = state.get("plan")
+            if state.get("intent") is None or state.get("subject_ref") is None or plan is None:
+                # Stopped before it was planned: nothing found yet, start it again.
+                state.pop("resumed")
+            else:
+                # The searches of the first round that were never made — a run stopped
+                # right after its plan, or between two searches of the round. Later
+                # rounds are planned again from what is missing.
+                done = set(state.get("done", []))
+                may_ask = {
+                    retriever.name
+                    for retriever in self._retrievers.allowed(
+                        local_only=state["local_only"], sources=state["sources"]
+                    )
+                }
+                state["tasks"] = [
+                    task
+                    for task in plan.tasks
+                    if task.fingerprint not in done and task.retriever in may_ask
+                ]
+            telemetry.emit("started", run_id=run_id, resumed=True)
+            return await self._run(state, question=state.get("question", run.question))
+        finally:
+            await self._release(run_id)
+
+    def _narrowed_sources(self, kept: Sequence[str], asked: Sequence[str]) -> list[str]:
+        """The sources a resumed run keeps to: its own, narrowed by what is asked now.
+        Sources that leave it nothing to ask are refused, not ignored."""
+        if not asked:
+            return list(kept)
+        if not kept:
+            return list(asked)
+        own = {r.name for r in self._retrievers.allowed(local_only=False, sources=kept)}
+        now = {r.name for r in self._retrievers.allowed(local_only=False, sources=asked)}
+        both = sorted(own & now)
+        if not both:
+            raise UnknownSourceError(
+                f"sources {', '.join(sorted(asked))} are outside the run's own: "
+                f"{', '.join(sorted(kept))}"
+            )
+        return both
+
+    async def _claim(self, run_id: str | None) -> None:
+        if run_id is None or self._runs is None:
+            return
+        if not await asyncio.to_thread(self._runs.claim, run_id):
+            raise RunBusyError(run_id)
+
+    async def _release(self, run_id: str | None) -> None:
+        if run_id is None or self._runs is None:
+            return
+        try:
+            await asyncio.to_thread(self._runs.release, run_id)
+        except Exception as exc:  # noqa: BLE001 - a lost release ends with the process
+            telemetry.logger.warning(
+                "event=investigation_store_failed method=release error=%s", type(exc).__name__
+            )
 
     def get(self, run_id: str) -> Any:
         """The stored run, or None; `RunNotFoundError` when nothing stores runs."""
@@ -236,8 +324,17 @@ class InvestigationService:
             )
         )
 
-    def resume_sync(self, run_id: str) -> InvestigationResult:
-        return asyncio.run(self.resume(run_id))
+    def resume_sync(
+        self,
+        run_id: str,
+        *,
+        max_followups: int | None = None,
+        local_only: bool = False,
+        sources: Sequence[str] = (),
+    ) -> InvestigationResult:
+        return asyncio.run(
+            self.resume(run_id, max_followups=max_followups, local_only=local_only, sources=sources)
+        )
 
 
 def restore(progress: dict[str, Any]) -> InvestigationState:
@@ -250,4 +347,10 @@ def restore(progress: dict[str, Any]) -> InvestigationState:
     return state  # type: ignore[return-value]
 
 
-__all__ = ["InvestigationService", "RunNotFoundError", "UnknownSourceError", "dump_state"]
+__all__ = [
+    "InvestigationService",
+    "RunBusyError",
+    "RunNotFoundError",
+    "UnknownSourceError",
+    "dump_state",
+]

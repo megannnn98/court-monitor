@@ -73,12 +73,6 @@ def build_graph(
         runs=runs,
     )
 
-    def start(state: InvestigationState) -> str:
-        return MERGE if state.get("resumed") else "intake"
-
-    def after_intake(state: InvestigationState) -> str:
-        return "plan" if state.get("subject_ref") is not None else "report"
-
     def fan_out(state: InvestigationState) -> list[Send] | str:
         """Each task of the round in its own branch: only the tasks the planner made,
         so only queries a retriever can answer, nothing searched before."""
@@ -98,6 +92,14 @@ def build_graph(
             for task in state.get("tasks", [])
         ]
         return sends or MERGE
+
+    def start(state: InvestigationState) -> list[Send] | str:
+        # A resumed run first makes the searches of its round that were never made;
+        # with none left it goes on from what it found.
+        return fan_out(state) if state.get("resumed") else "intake"
+
+    def after_intake(state: InvestigationState) -> str:
+        return "plan" if state.get("subject_ref") is not None else "report"
 
     def after_coverage(state: InvestigationState) -> str:
         assessment = state.get("coverage")
@@ -128,7 +130,7 @@ def build_graph(
     builder.add_node("follow_up", _node(nodes.follow_up, tools))
     builder.add_node("report", _node(nodes.report, tools))
 
-    builder.add_conditional_edges(START, start, ["intake", MERGE])
+    builder.add_conditional_edges(START, start, ["intake", "search", MERGE])
     builder.add_conditional_edges("intake", after_intake, ["plan", "report"])
     builder.add_conditional_edges("plan", fan_out, ["search", MERGE])
     builder.add_edge("search", MERGE)

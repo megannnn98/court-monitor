@@ -13,7 +13,7 @@ from application import (
 )
 from cli.context import CliContext
 from investigation.models import SCENARIOS, InvestigationResult
-from investigation.service import RunNotFoundError, UnknownSourceError
+from investigation.service import RunBusyError, RunNotFoundError, UnknownSourceError
 from observability import configure_logging
 
 
@@ -159,7 +159,15 @@ def run_investigate(args: argparse.Namespace, context: CliContext) -> None:
                 raise SystemExit(f"run {args.run_id}: {state}")
             result = InvestigationResult.model_validate(stored.result)
         elif args.resume is not None:
-            result = service.resume_sync(args.resume)
+            if args.scenario is not None:
+                raise SystemExit("--scenario cannot change a stored run: it has its own")
+            # A resumed run is held to these as a new one is; none of them is ignored.
+            result = service.resume_sync(
+                args.resume,
+                max_followups=args.max_followups,
+                local_only=args.local_only,
+                sources=args.sources,
+            )
         else:
             result = service.investigate_sync(
                 args.question,
@@ -172,6 +180,8 @@ def run_investigate(args: argparse.Namespace, context: CliContext) -> None:
         raise SystemExit(str(exc)) from None
     except RunNotFoundError as exc:
         raise SystemExit(f"run {exc}: not found") from None
+    except RunBusyError as exc:
+        raise SystemExit(f"run {exc}: another process works on it now") from None
     if args.json:
         print(result.model_dump_json(indent=2))
     else:

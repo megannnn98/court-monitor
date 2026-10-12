@@ -7,6 +7,10 @@ interrupted is resumed from its last progress: the searches made are not made ag
 and their evidence — local or from a source outside — is read from the store, not
 fetched anew.
 
+One process works on a run at a time: it claims the run before it reads its progress and
+releases it when it ends. A write to a run that has ended changes nothing, so what a
+late branch of a stopped run still writes cannot replace its result.
+
 What is stored is what the result holds: the question, the plan, the evidence quotes
 and the usage. Never a prompt, a model's raw answer, a key or a whole publication.
 """
@@ -15,6 +19,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -83,8 +88,23 @@ class MemoryRun:
     failure: str | None = None
 
 
+# A change of a run's stored progress, made while nobody else can write it.
+ProgressChange = Callable[[dict[str, Any]], dict[str, Any]]
+
+
 class RunStore(Protocol):
     def create(self, run_id: str, *, question: str, request: dict[str, Any]) -> None: ...
+
+    def claim(self, run_id: str) -> bool:
+        """Take the run for this process; False when another one holds it."""
+        ...
+
+    def release(self, run_id: str) -> None: ...
+
+    def update_progress(self, run_id: str, change: ProgressChange) -> None:
+        """Apply `change` to the progress of a running run that has one, atomically:
+        the searches of a round end in parallel, and none may lose another's record."""
+        ...
 
     def save_progress(
         self,
@@ -115,7 +135,27 @@ class InMemoryRunStore:
 
     def __init__(self) -> None:
         self._runs: dict[str, MemoryRun] = {}
+        self._claimed: set[str] = set()
         self._lock = threading.Lock()
+
+    def claim(self, run_id: str) -> bool:
+        with self._lock:
+            if run_id in self._claimed:
+                return False
+            self._claimed.add(run_id)
+            return True
+
+    def release(self, run_id: str) -> None:
+        with self._lock:
+            self._claimed.discard(run_id)
+
+    def update_progress(self, run_id: str, change: ProgressChange) -> None:
+        with self._lock:
+            run = self._runs.get(run_id)
+            if run is None or run.status != "running" or run.progress is None:
+                return
+            run.progress = change(run.progress)
+            run.updated_at = datetime.now(UTC)
 
     def create(self, run_id: str, *, question: str, request: dict[str, Any]) -> None:
         now = datetime.now(UTC)
@@ -142,6 +182,8 @@ class InMemoryRunStore:
     ) -> None:
         with self._lock:
             run = self._runs[run_id]
+            if run.status != "running":
+                return
             run.scenario, run.round, run.usage = scenario, round_, dict(usage)
             run.progress = progress
             run.updated_at = datetime.now(UTC)
@@ -158,6 +200,8 @@ class InMemoryRunStore:
     ) -> None:
         with self._lock:
             run = self._runs[run_id]
+            if run.status != "running":
+                return
             run.status = status
             run.scenario, run.usage, run.result, run.failure = scenario, usage, result, failure
             run.progress = None

@@ -417,6 +417,16 @@ class Limits(BaseModel):
             update[name] = max(floor, min(value, getattr(self, name)))
         return self.model_copy(update=update)
 
+    def within(self, ceilings: Limits) -> Limits:
+        """These limits, none above `ceilings`: what a stored run asked for is held to
+        what the service allows now."""
+        return self.model_copy(
+            update={
+                name: min(getattr(self, name), getattr(ceilings, name))
+                for name in Limits.model_fields
+            }
+        )
+
 
 class InvestigationResult(BaseModel):
     status: Status

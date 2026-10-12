@@ -4,7 +4,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Connection, Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import Session, sessionmaker
@@ -82,3 +82,20 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
         bind=engine,
         expire_on_commit=False,
     )
+
+
+def with_statement_timeout(
+    session_factory: sessionmaker[Session], seconds: float
+) -> sessionmaker[Session]:
+    """A factory over the same engine whose every transaction is cut by the database
+    after `seconds` a statement. For work a caller stops waiting for: a thread that runs
+    a query cannot be stopped from outside, the query can."""
+    bounded = sessionmaker(**session_factory.kw)
+    milliseconds = max(1, int(seconds * 1000))
+
+    def bound(_session: Session, _transaction: object, connection: Connection) -> None:
+        # `SET LOCAL` takes no bind parameter; the value is an integer made here.
+        connection.exec_driver_sql(f"SET LOCAL statement_timeout = {milliseconds}")
+
+    event.listen(bounded, "after_begin", bound)
+    return bounded

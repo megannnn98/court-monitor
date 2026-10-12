@@ -24,7 +24,11 @@ from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from analysis.service import AnalysisService
-from db.database import create_database_engine, create_session_factory
+from db.database import (
+    create_database_engine,
+    create_session_factory,
+    with_statement_timeout,
+)
 from db.investigation_runs import SqlAlchemyInvestigationRuns
 from ingestion.search import configured_telegram_channels, telegram_searches
 from ingestion.service import IngestionService
@@ -272,7 +276,12 @@ def build_investigation_retrievers(
     publications by name and by ranked text, unnamed figurants) and the configured
     public Telegram channels' own search (`INVESTIGATION_TELEGRAM_CHANNELS`, «none» for
     none). Nothing a request carries adds to it."""
-    results = build_results_service(session_factory)
+    limits = Limits.from_env(env)
+    # A search the run stopped waiting for must not go on in the database: its thread
+    # cannot be stopped, its statement can.
+    results = build_results_service(
+        with_statement_timeout(session_factory, limits.search_timeout_seconds)
+    )
     local: list[InvestigationRetriever] = [
         LocalDatabaseRetriever(results),
         StoredPublicationsRetriever(results),
@@ -282,7 +291,6 @@ def build_investigation_retrievers(
     dense = dense_embedder_from_env(env)
     if dense is not None:
         local.append(DensePublicationsRetriever(results, dense))
-    limits = Limits.from_env(env)
     outside: list[InvestigationRetriever] = [
         SourceSearchRetriever(search, source="telegram")
         for search in telegram_searches(

@@ -50,6 +50,7 @@ SUMMARY_UNCHECKED = (
     "сводка написана моделью и не проверена: у каждой фразы есть ссылка на существующий "
     "материал, но не проверено, что материал говорит именно это"
 )
+SUMMARY_OUT_OF_TIME = "время исследования истекло: сводка моделью не составлена"
 FOLLOWUPS_LEFT = "лимит дополнительных поисков исчерпан: недостающие данные искали не до конца"
 EXHAUSTED = "новых способов поиска недостающих данных не осталось: искали везде, где могли"
 NO_RETRIEVER = "ни один разрешённый источник не умеет искать то, что нужно"
@@ -274,6 +275,31 @@ async def plan(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
     return {"plan": plan_, "tasks": kept, "warnings": warnings}
 
 
+async def _record(tools: Toolbox, run_id: str | None, update: dict[str, Any]) -> dict[str, Any]:
+    """What one search adds to the state, written to the stored run as the search ends:
+    a run stopped in the middle of a round keeps the searches that were made, and a
+    resumed one does not make them again. Returns `update` as it was given."""
+    if run_id is None or tools.runs is None:
+        return update
+    done = list(update.get("done", []))
+    found = dump_state({"found": update.get("found", [])})["found"]
+    warnings = list(update.get("warnings", []))
+    spent = update.get("usage")
+
+    def change(progress: dict[str, Any]) -> dict[str, Any]:
+        usage = Usage.model_validate(progress.get("usage") or {})
+        return {
+            **progress,
+            "done": [*progress.get("done", []), *done],
+            "found": [*progress.get("found", []), *found],
+            "warnings": [*progress.get("warnings", []), *warnings],
+            "usage": (usage + spent if isinstance(spent, Usage) else usage).model_dump(mode="json"),
+        }
+
+    await _store(tools, "update_progress", run_id, change)
+    return update
+
+
 def _stamped(items: Sequence[EvidenceItem], task: SearchTask) -> list[EvidenceItem]:
     now = datetime.now(UTC)
     return [
@@ -309,29 +335,22 @@ async def search(
         "query_hash": telemetry.query_hash(task.query.text),
         "query_length": len(task.query.text),
     }
+    run_id = branch.get("run_id")
     timeout = min(branch["search_timeout"], branch["deadline"] - time.time())
     if timeout <= 0:
-        return {
-            "done": [task.fingerprint],
-            "warnings": [f"время исследования истекло: источник «{retriever.name}» не спрошен"],
-        }
+        return await _record(
+            tools,
+            run_id,
+            {
+                "done": [task.fingerprint],
+                "warnings": [f"время исследования истекло: источник «{retriever.name}» не спрошен"],
+            },
+        )
     started = time.perf_counter()
     telemetry.emit("search_started", context=fields)
 
-    async def searched() -> list[EvidenceItem]:
-        # The time left is measured once a slot is free: a search that waited for one
-        # still ends by the run's deadline.
-        left = min(branch["search_timeout"], branch["deadline"] - time.time())
-        if left <= 0:
-            raise TimeoutError
-        return await asyncio.wait_for(retriever.search(task.query), left)
-
     try:
-        if slots is None:
-            found = await searched()
-        else:
-            async with slots:
-                found = await searched()
+        found = await _within_a_slot(retriever, task, branch, slots)
     except TimeoutError:
         telemetry.emit(
             "search_failed",
@@ -339,11 +358,15 @@ async def search(
             failure="timeout",
             context=fields,
         )
-        return {
-            "done": [task.fingerprint],
-            "usage": spent + Usage(failed_searches=1),
-            "warnings": [f"источник «{retriever.name}» не ответил вовремя"],
-        }
+        return await _record(
+            tools,
+            run_id,
+            {
+                "done": [task.fingerprint],
+                "usage": spent + Usage(failed_searches=1),
+                "warnings": [f"источник «{retriever.name}» не ответил вовремя"],
+            },
+        )
     except Exception as exc:  # noqa: BLE001 - one source's failure is its own warning
         telemetry.emit(
             "search_failed",
@@ -351,11 +374,15 @@ async def search(
             failure=type(exc).__name__,
             context=fields,
         )
-        return {
-            "done": [task.fingerprint],
-            "usage": spent + Usage(failed_searches=1),
-            "warnings": [f"источник «{retriever.name}» не ответил: {type(exc).__name__}"],
-        }
+        return await _record(
+            tools,
+            run_id,
+            {
+                "done": [task.fingerprint],
+                "usage": spent + Usage(failed_searches=1),
+                "warnings": [f"источник «{retriever.name}» не ответил: {type(exc).__name__}"],
+            },
+        )
     if not all(isinstance(item, EvidenceItem) for item in found):
         # A retriever that answers with something else is broken, not unavailable: the
         # run fails rather than report on what it could not read.
@@ -368,7 +395,64 @@ async def search(
         results=len(found),
         context=fields,
     )
-    return {"found": _stamped(found, task), "done": [task.fingerprint], "usage": spent}
+    return await _record(
+        tools,
+        run_id,
+        {"found": _stamped(found, task), "done": [task.fingerprint], "usage": spent},
+    )
+
+
+async def _within_a_slot(
+    retriever: InvestigationRetriever,
+    task: SearchTask,
+    branch: SearchBranch,
+    slots: asyncio.Semaphore | None,
+) -> list[EvidenceItem]:
+    """The search's answer, within its time and one of the run's free slots.
+
+    A local retriever works in a thread, and a thread cannot be stopped: when its time
+    is up the wait ends, the work does not. Its slot therefore stays taken until the
+    work really ends — otherwise each timeout would let one more search run beside it,
+    past the bound on parallel searches. (Its SQL is cut by the database at the search
+    timeout, so that is soon.) A network search is cancelled, and its slot freed at once.
+    """
+    if slots is not None:
+        await slots.acquire()
+    held = slots is not None
+
+    def free(_: object = None) -> None:
+        nonlocal held
+        if held and slots is not None:
+            held = False
+            slots.release()
+
+    try:
+        # The time left is measured once a slot is free: a search that waited for one
+        # still ends by the run's deadline.
+        left = min(branch["search_timeout"], branch["deadline"] - time.time())
+        if left <= 0:
+            raise TimeoutError
+        work = asyncio.ensure_future(retriever.search(task.query))
+    except BaseException:
+        free()
+        raise
+    try:
+        done, _pending = await asyncio.wait({work}, timeout=left)
+    except BaseException:
+        # The run itself was cancelled: the work goes with it.
+        work.cancel()
+        work.add_done_callback(free)
+        raise
+    if done:
+        free()
+        return work.result()
+    if retriever.capabilities.network:
+        work.cancel()
+    # Whatever the work ends with now is nobody's: its failure must not be reported as
+    # a task exception never retrieved.
+    work.add_done_callback(lambda finished: finished.cancelled() or finished.exception())
+    work.add_done_callback(free)
+    raise TimeoutError
 
 
 async def merge_evidence(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
@@ -530,17 +614,28 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
             warnings.append("время исследования истекло: результат собран из того, что успели")
 
     if evidence and tools.model is not None:
-        if _may_ask(state, tools):
+        # The summary is the one optional step: it never starts after the deadline and
+        # never outlives it. What the run found stands with it or without.
+        left = state.get("deadline", float("inf")) - time.time()
+        if left <= 0:
+            warnings.append(SUMMARY_OUT_OF_TIME)
+        elif _may_ask(state, tools):
             system, user = report_messages(question, evidence)
             try:
-                reply = await _ask(
-                    tools,
-                    system=system,
-                    user=user,
-                    schema_name="investigation_report",
-                    schema=REPORT_SCHEMA,
-                    max_tokens=REPORT_MAX_TOKENS,
+                reply = await asyncio.wait_for(
+                    _ask(
+                        tools,
+                        system=system,
+                        user=user,
+                        schema_name="investigation_report",
+                        schema=REPORT_SCHEMA,
+                        max_tokens=REPORT_MAX_TOKENS,
+                    ),
+                    None if left == float("inf") else left,
                 )
+            except TimeoutError:
+                spent = Usage(llm_calls=1)
+                warnings.append(SUMMARY_OUT_OF_TIME)
             except ModelError as exc:
                 spent = Usage(llm_calls=1)
                 warnings.append(f"модель не составила сводку: {exc}")
