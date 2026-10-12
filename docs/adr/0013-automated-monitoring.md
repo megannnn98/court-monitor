@@ -202,8 +202,10 @@ never reported as absent.
 
 One Dagster schedule per `MONITORING_ENABLED_SOURCES` entry with
 `MONITORING_CRON` (default hourly), starting `STOPPED` so a local
-`dagster dev` never scrapes on its own. Regular runs discover at most
-`MONITORING_DISCOVERY_LIMIT` (default 50) references; full history is an
+`dagster dev` never scrapes on its own. Regular runs page a source back until
+they reach what is stored, and at most `MONITORING_DISCOVERY_LIMIT` references
+(default 5000 — a ceiling; it was 50 until October 2026, and a source with more
+publications between two runs lost the older ones for good); full history is an
 explicit `monitor --backfill --source … --limit …`.
 
 ### Deployment

@@ -11,7 +11,7 @@ from web.ui.workload import Workload, next_operator_task
         (
             Workload(pairs=3, unclear_roles=2, unclear_verdicts=1, unnamed=4, junk_holds=5),
             "junk_holds",
-            "Публикации на проверке",
+            "Возможно мусор",
             "/ui/junk-holds",
         ),
         (

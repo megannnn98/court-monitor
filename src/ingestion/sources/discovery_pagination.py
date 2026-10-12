@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 
 import httpx
 
+from ingestion.sources.source_adapter import KnownIds
 from monitor_core.errors import (
     ListingPageNotFoundError,
     PermanentDiscoveryError,
@@ -63,7 +64,13 @@ async def discover_paginated_references(
     listing_url_for_page: Callable[[int], str],
     fetch_page: Callable[[str], Awaitable[bytes]],
     parse_page: Callable[[bytes], list[SourceReference]],
+    known: KnownIds | None = None,
 ) -> list[SourceReference]:
+    """The listing's references, newest first, up to `limit`.
+
+    With `known`, paging stops after a page all of whose references are stored: past it
+    lie publications an earlier run already loaded. `limit` is then only a ceiling, and
+    a run after a long pause reaches back to where the last one stopped."""
     if limit < 1:
         raise ValueError("limit must be greater than zero")
 
@@ -90,7 +97,7 @@ async def discover_paginated_references(
         if not page_references:
             break
 
-        added = 0
+        added: list[str] = []
 
         for reference in page_references:
             if reference.external_id in seen_external_ids:
@@ -98,12 +105,17 @@ async def discover_paginated_references(
 
             seen_external_ids.add(reference.external_id)
             references.append(reference)
-            added += 1
+            added.append(reference.external_id)
 
             if len(references) == limit:
                 break
 
-        if added == 0:
+        if not added:
+            break
+        if known is not None and set(added) <= known(added):
+            logger.info(
+                "event=discovery_reached_known page=%d references=%d", page, len(references)
+            )
             break
 
         page += 1

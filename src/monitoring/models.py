@@ -19,8 +19,10 @@ from monitor_core.errors import PersistenceError, TransientDiscoveryError, Trans
 # Every registered source: the two websites and the monitored Telegram channels.
 DEFAULT_ENABLED_SOURCES = tuple(SOURCES)
 DEFAULT_CRON = "0 * * * *"
-# Regular monitoring only looks at the newest listing pages; full history is an explicit backfill.
-DEFAULT_DISCOVERY_LIMIT = 50
+# A ceiling, not the size of a run: a regular run pages back until it reaches what is
+# stored (`DiscoversUntilKnown`). At 50 a channel with more posts between two runs lost
+# the older ones for good — the next run started from the newest again.
+DEFAULT_DISCOVERY_LIMIT = 5000
 # A normal run takes minutes; a run silent this long has lost its process.
 DEFAULT_STALE_RUN_AFTER_MINUTES = 120
 DERIVED_SCOPE = "derived"

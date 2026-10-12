@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 
 from ingestion.sources.discovery_pagination import fetch_listing_page_with_retry
+from ingestion.sources.source_adapter import KnownIds
 from monitor_core.errors import PermanentDiscoveryError
 from monitor_core.model import RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher
@@ -54,6 +55,14 @@ class MemopzkFigurantAdapter:
 
     async def discover(self, *, limit: int) -> list[SourceReference]:
         """The most recently changed cards first, up to `limit`."""
+        return await self._discover(limit=limit, known=None)
+
+    async def discover_until_known(self, *, limit: int, known: KnownIds) -> list[SourceReference]:
+        """`discover`, but paging stops after a page of cards that are all stored: under
+        the crawl delay the whole registry is minutes of requests."""
+        return await self._discover(limit=limit, known=known)
+
+    async def _discover(self, *, limit: int, known: KnownIds | None) -> list[SourceReference]:
         if limit < 1:
             raise ValueError("limit must be greater than zero")
         references: list[SourceReference] = []
@@ -74,13 +83,17 @@ class MemopzkFigurantAdapter:
             cards = json.loads(content)
             if not isinstance(cards, list) or not cards:
                 return references
+            page_ids: list[str] = []
             for card in cards:
                 reference = _reference(card)
                 _remember(reference.external_id, card)
                 references.append(reference)
+                page_ids.append(reference.external_id)
                 if len(references) == limit:
                     return references
             if len(cards) < min(PAGE_SIZE, limit):
+                return references
+            if known is not None and set(page_ids) <= known(page_ids):
                 return references
             page += 1
             await asyncio.sleep(self._crawl_delay_seconds)
