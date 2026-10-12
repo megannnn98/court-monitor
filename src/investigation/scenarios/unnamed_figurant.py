@@ -160,6 +160,17 @@ def _mentions_place(text: str, place: str) -> bool:
     return bool(stems) and all(re.search(rf"(?<![а-я]){re.escape(stem)}", folded) for stem in stems)
 
 
+def surname_stem(surname: str) -> str:
+    """What finds a surname declined, and not a given name inside it: «Петров» is found
+    as «петров…» (Петрова, Петровым), never as «петр…» (Пётр); «Толстой» as «толст…»."""
+    folded = _fold(surname)
+    if folded.endswith(("ов", "ев", "ин", "ын")):
+        return folded
+    if folded.endswith(("ий", "ый", "ой", "ая", "яя")):
+        return folded[:-2]
+    return folded[:-1] if len(folded) > 4 else folded
+
+
 def surname_of(full_name: str) -> str:
     """«ИВАНОВ ИВАН ИВАНОВИЧ» → «Иванов»: the list writes the surname first."""
     first = full_name.split()[0] if full_name.split() else ""
@@ -189,9 +200,10 @@ def _list_candidates(evidence: Sequence[EvidenceItem], clue: _Clue) -> dict[str,
     for item in evidence:
         if item.fact != "candidates" or not item.value:
             continue
-        figurant, key, *signals = item.value.split("|")
-        if figurant != f"figurant:{clue.key}":
+        figurant, *signals = item.value.split(";")
+        if figurant != f"figurant:{clue.key}" or not item.entity_key:
             continue
+        key = item.entity_key.removeprefix("rf:")
         name = item.text.split(",", 1)[0]
         candidate = candidates.setdefault(key, _Candidate(key=key, name=name, kind="rf_entry"))
         for signal in signals:
@@ -296,7 +308,7 @@ class UnnamedFigurantScenario:
         evidence = view.evidence
         candidates = _list_candidates(evidence, clue)
         for candidate in candidates.values():
-            surname = _stem(surname_of(candidate.name))
+            surname = surname_stem(surname_of(candidate.name))
             for item in evidence:
                 if (
                     "corroboration" in item.leads

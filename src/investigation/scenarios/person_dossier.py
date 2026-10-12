@@ -221,10 +221,11 @@ class PersonDossierScenario:
 
     def requirements(self, view: ScenarioView) -> list[FactRequirement]:
         values = _values(view.evidence)
-        required = list(REQUIRED_FACTS)
-        if POLITICAL in values.get("politics", []):
-            required.extend(POLITICAL_ONLY_FACTS)
         asked = set(view.intent.requested_facts)
+        required = list(REQUIRED_FACTS)
+        # The latest news is read of political cases alone, unless the question asks.
+        if POLITICAL in values.get("politics", []) or asked & set(POLITICAL_ONLY_FACTS):
+            required.extend(POLITICAL_ONLY_FACTS)
         return [
             FACTS[key].model_copy(update={"required": not asked or key in asked})
             for key in required
@@ -307,6 +308,7 @@ class PersonDossierScenario:
             enough=not follow_ups,
             known=[FACT_LABELS[fact] for fact in known],
             missing=[FACT_LABELS[fact] for fact in missing],
+            open_gaps=[FACT_LABELS[fact] for fact in missing if fact not in looked_up],
             conflicts=[conflict.description for conflict in conflicts],
             conflict_details=conflicts,
             leads=[item.ref for item in evidence if item.leads],

@@ -315,6 +315,8 @@ class CoverageAssessment(BaseModel):
     # The next round's searches: only what is missing, only where it can be found,
     # nothing searched before.
     follow_up_tasks: list[SearchTask] = Field(default_factory=list)
+    # Of `missing`, the facts no lead was found for; None: all of `missing`.
+    open_gaps: list[str] | None = None
     # Facts still missing and no search left that could find them.
     exhausted: bool = False
     warnings: list[str] = Field(default_factory=list)

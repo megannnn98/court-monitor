@@ -7,6 +7,7 @@ construction, no registry or service locator: callers receive typed objects.
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import logging
 import os
@@ -254,7 +255,14 @@ def dense_embedder_from_env(
             model_id,
         )
         return None
-    return SentenceTransformerEmbedder(EmbeddingConfig.from_env(model_id, values))
+    return _dense_embedder(EmbeddingConfig.from_env(model_id, values))
+
+
+@functools.cache
+def _dense_embedder(config: EmbeddingConfig) -> SentenceTransformerEmbedder:
+    """One embedder per model and device in a process: the API builds an investigation
+    per request, and a model loaded per request would cost seconds each time."""
+    return SentenceTransformerEmbedder(config)
 
 
 def build_investigation_retrievers(

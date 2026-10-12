@@ -40,7 +40,7 @@ _MIN_STEM = 3
 # («статьи 280 УК», «205.2»): after it an id is a number of at least four digits not
 # followed by «УК» or a dotted part.
 _PUBLICATION_ID = re.compile(
-    r"(?:публикаци[яиеюей]|материал[ауе]?|новост[ьиюей]|article|articles/)"
+    r"(?:публикаци[яиеюей]|материал[ауе]?|article|articles/)"
     r"\s*(?:№|#|id|n)?\s*(\d{1,9})\b",
     re.IGNORECASE,
 )

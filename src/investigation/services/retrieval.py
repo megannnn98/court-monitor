@@ -496,7 +496,9 @@ class UnnamedFigurantRetriever:
                             f"{candidate.birth_place} — " + "; ".join(candidate.reasons)
                         ),
                         fact="candidates",
-                        value="|".join([f"figurant:{clue.key}", candidate.key, *signals]),
+                        # Whose candidate and why; the entry itself is the entity key
+                        # (its own key holds «|»: «name|birth date»).
+                        value=";".join([f"figurant:{clue.key}", *signals]),
                     )
                 )
             if listed.total and not listed.shown:

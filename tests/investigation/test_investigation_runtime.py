@@ -674,7 +674,7 @@ def entry(name: str, *signals: str, key: str | None = None) -> EvidenceItem:
         entity_key=f"rf:{key}",
         text=f"{name}, 2008-05-05, Г. ТЮМЕНЬ — 17 лет",
         fact="candidates",
-        value="|".join([FIGURANT, key, *signals]),
+        value=";".join([FIGURANT, *signals]),
     )
 
 
@@ -983,3 +983,78 @@ def test_a_gap_a_lead_was_found_for_is_not_called_exhausted() -> None:
     assert result.usage.followup_rounds == 1
     assert not any("новых способов поиска" in warning for warning in result.warnings)
     assert any("найдены цитаты" in warning for warning in result.warnings)
+
+
+# -- found by the first review ---------------------------------------------------------------
+
+
+def test_a_search_that_waited_for_a_slot_still_ends_by_the_deadline() -> None:
+    slow = [
+        text_search(f"telegram:tg-{number}", lambda query: [], network=True, delay=0.7)
+        for number in range(2)
+    ]
+
+    result = run(
+        groups(WHOLE),
+        *slow,
+        limits=Limits(max_parallel_searches=1, timeout_seconds=1, search_timeout_seconds=1),
+    )
+
+    # One slot: the second channel waits 0.7 s for it and has 0.3 s left, not 1 s.
+    assert result.usage.failed_searches >= 1
+    assert any(
+        "не ответил вовремя" in warning or "время исследования" in warning
+        for warning in result.warnings
+    )
+
+
+def test_a_retriever_that_breaks_with_a_type_error_costs_a_warning_not_the_run() -> None:
+    def broken(query: InvestigationQuery) -> list[EvidenceItem]:
+        raise TypeError("a bug inside the source")
+
+    result = run(groups(WHOLE), text_search("telegram:tg-bug", broken, network=True))
+
+    assert result.status == "completed"
+    assert any("tg-bug" in warning for warning in result.warnings)
+
+
+def test_a_question_about_the_latest_news_misses_it_even_for_a_case_that_is_not_political() -> None:
+    known = [item if item.fact != "politics" else fact("politics", "criminal") for item in WHOLE]
+    known = [item for item in known if item.fact != "latest_news"]
+
+    result = run(
+        groups(known), question="Какие последние события по делу Ивана Петровича Сидорова?"
+    )
+
+    assert "последнее событие по делу" in result.missing_information
+
+
+def test_news_of_a_year_is_not_a_publication_id() -> None:
+    intent = default_scenarios().by_rules("Какие новости 2024 года?")
+
+    assert intent.scenario == "person_dossier" and intent.article_id is None
+
+
+def test_two_list_entries_of_one_name_and_two_birth_dates_stay_two_candidates() -> None:
+    items = [
+        clue(),
+        entry("ПЕТРОВ ПЁТР", "age=17", "gender", key="петров пётр|2008-05-05"),
+        entry("ПЕТРОВ ПЁТР", "age=18", "gender", key="петров пётр|2007-01-01"),
+    ]
+
+    result = run(unnamed(items), question=ASK)
+
+    assert len(result.candidates) == 2
+
+
+def test_a_given_name_in_a_text_does_not_corroborate_a_surname() -> None:
+    items = [clue(), entry("ПЕТРОВ ИВАН", "age=17", "gender", "birthplace")]
+    outside = text_search(
+        "telegram:tg-chan",
+        lambda query: [post(5, "В Тюмени задержали Петра Сидорова", lead=query.fact)],
+        network=True,
+    )
+
+    result = run(unnamed(items), outside, question=ASK)
+
+    assert "named_with_place" not in {signal.signal for signal in result.candidates[0].signals}

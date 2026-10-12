@@ -94,6 +94,10 @@ REPORT_SCHEMA: dict[str, object] = {
 }
 
 
+class NotEvidenceError(TypeError):
+    """A retriever returned something that is not an `EvidenceItem`."""
+
+
 @dataclass(frozen=True)
 class Toolbox:
     """What the nodes may call: the retrievers and scenarios of the service, the
@@ -313,16 +317,21 @@ async def search(
         }
     started = time.perf_counter()
     telemetry.emit("search_started", context=fields)
+
+    async def searched() -> list[EvidenceItem]:
+        # The time left is measured once a slot is free: a search that waited for one
+        # still ends by the run's deadline.
+        left = min(branch["search_timeout"], branch["deadline"] - time.time())
+        if left <= 0:
+            raise TimeoutError
+        return await asyncio.wait_for(retriever.search(task.query), left)
+
     try:
         if slots is None:
-            found = await asyncio.wait_for(retriever.search(task.query), timeout)
+            found = await searched()
         else:
             async with slots:
-                found = await asyncio.wait_for(retriever.search(task.query), timeout)
-        if not all(isinstance(item, EvidenceItem) for item in found):
-            raise TypeError(f"retriever {retriever.name} returned something that is not evidence")
-    except TypeError:
-        raise
+                found = await searched()
     except TimeoutError:
         telemetry.emit(
             "search_failed",
@@ -347,6 +356,12 @@ async def search(
             "usage": spent + Usage(failed_searches=1),
             "warnings": [f"источник «{retriever.name}» не ответил: {type(exc).__name__}"],
         }
+    if not all(isinstance(item, EvidenceItem) for item in found):
+        # A retriever that answers with something else is broken, not unavailable: the
+        # run fails rather than report on what it could not read.
+        raise NotEvidenceError(
+            f"retriever {retriever.name} returned something that is not evidence"
+        )
     telemetry.emit(
         "search_completed",
         duration_ms=(time.perf_counter() - started) * 1000,
@@ -380,15 +395,11 @@ async def coverage(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
         done=done,
         facts=scenario.facts,
     )
-    # Something is missing, a follow-up looked or wanted to look for it, and no search
-    # is left that was not made already.
-    exhausted = (
-        bool(assessment.missing)
-        and not tasks
-        and (bool(assessment.follow_up_queries) or view.rounds > 0)
-        # A lead found for the gap ends its search, it does not exhaust it.
-        and not assessment.leads
-    )
+    # Something is missing and has no lead, a follow-up looked or wanted to look for it,
+    # and no search is left that was not made already. A gap with a lead ended its search
+    # by finding something; it is not exhausted.
+    gaps = assessment.missing if assessment.open_gaps is None else assessment.open_gaps
+    exhausted = bool(gaps) and not tasks and (bool(assessment.follow_up_queries) or view.rounds > 0)
     assessment = assessment.model_copy(
         update={"follow_up_tasks": tasks, "enough": not tasks, "exhausted": exhausted}
     )
