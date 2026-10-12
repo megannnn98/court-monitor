@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from html import escape
 
-from entities.jurisdiction import CourtHints
+from analysis.operator_base.jurisdiction import CourtHints
 from web.ui.layout import external_url
 
 

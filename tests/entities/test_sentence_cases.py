@@ -6,7 +6,16 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
-from entities.sentence_cases import EXCLUDE, ONLY, POLITICAL, Filters, fold, listing, select, stats
+from results.queries.sentence_cases import (
+    EXCLUDE,
+    ONLY,
+    POLITICAL,
+    Filters,
+    fold,
+    listing,
+    select,
+    stats,
+)
 
 _ids = iter(range(1, 10_000))
 

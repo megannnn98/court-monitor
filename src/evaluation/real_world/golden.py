@@ -27,6 +27,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from analysis.persecution.models import PersecutionClassificationStatus
 from evaluation.real_world.models import (
     DEFAULT_DATA_DIR,
     CorpusManifest,
@@ -35,7 +36,6 @@ from evaluation.real_world.models import (
     sha256_json,
     sha256_text,
 )
-from persecution.models import PersecutionClassificationStatus
 from processing.extraction.models import EventType
 
 DEFAULT_GOLDEN_DIR = DEFAULT_DATA_DIR / "golden"

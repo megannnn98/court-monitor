@@ -6,8 +6,6 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from support.query_counter import count_queries
 
-from candidates.models import RosfinmonitoringStatus
-from candidates.service import CandidateQueryService
 from db.orm_models import (
     ArticleExtractionRunRecord,
     ExtractedEventRecord,
@@ -22,6 +20,8 @@ from db.orm_models import (
     Source,
     SourceDocument,
 )
+from results.candidates.models import RosfinmonitoringStatus
+from results.candidates.service import CandidateQueryService
 
 
 @pytest.fixture

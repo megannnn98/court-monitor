@@ -157,7 +157,7 @@ AIRTABLE_TOKEN=   # оставьте пустым: без прав он всё �
 
 ## Официальный перечень Росфинмониторинга
 
-`rosfinmonitoring/download.py`. Сайт отдаёт `403` на выдуманный User-Agent, и перечень
+`analysis/rosfinmonitoring/download.py`. Сайт отдаёт `403` на выдуманный User-Agent, и перечень
 приходилось сохранять руками и загружать на сайт. С отпечатком браузера отдаёт `200`.
 
 - адрес: `https://www.fedsfm.ru/documents/terrorists-catalog-portal-act`. На
@@ -203,7 +203,7 @@ AIRTABLE_TOKEN=   # оставьте пустым: без прав он всё �
 Таблица «Найденные люди» нужна не только как справочник: по ней «Результат» говорит, есть ли
 найденный человек в вашей базе. Новый для вас — тот, кого там нет. Колонка и фильтр
 «В базе Airtable» на странице, колонка «В базе Airtable» в Excel (с тем же фильтром) и блок
-«База Airtable» в досье (`src/entities/known_base.py`).
+«База Airtable» в досье (`src/analysis/operator_base/known_base.py`).
 
 В таблице нет ни даты рождения, ни региона, поэтому сверка идёт **только по имени** — и
 ответ говорит, насколько он надёжен:
@@ -238,7 +238,7 @@ AIRTABLE_TOKEN=   # оставьте пустым: без прав он всё �
 Снимок из Airtable не заменяет официальный: официальная сверка даёт `confirmed`, только
 из Airtable — `probable`. Обе стороны замкнуты, чтобы списки не смешивались:
 `latest_imported_snapshot()` и `latest_snapshot_id()` в
-`rosfinmonitoring/snapshot_lookup.py` отбрасывают снимок Airtable,
+`analysis/rosfinmonitoring/snapshot_lookup.py` отбрасывают снимок Airtable,
 `CandidateQueryService.get_candidates()` его отвергает.
 
 Таблица `excluded_persons` называется по-старому: список стал «Должностными лицами»

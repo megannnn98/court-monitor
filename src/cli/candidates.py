@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from candidates.service import CandidateQueryService
 from cli.context import CliContext
+from results.candidates.service import CandidateQueryService
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

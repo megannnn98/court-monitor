@@ -2,8 +2,8 @@
 
 from datetime import UTC, datetime
 
-from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.parser import HtmlRosfinmonitoringParser
+from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from analysis.rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 
 PAGE = """
 <div class="panel-group">

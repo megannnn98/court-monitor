@@ -2,7 +2,7 @@
 
 import pytest
 
-from persecution.evaluation import (
+from analysis.persecution.evaluation import (
     compute_persecution_metrics,
 )
 

@@ -36,15 +36,12 @@ MODULE_OF: tuple[tuple[str, str], ...] = (
     ("persons/", PROCESSING),
     ("llm/cli_reviewer.py", PROCESSING),
     ("llm/entity_reviewer.py", PROCESSING),
-    ("persecution/", ANALYSIS),
-    ("rosfinmonitoring/", ANALYSIS),
-    ("candidates/", RESULTS),
-    ("monitoring/findings.py", RESULTS),
+    ("analysis/", ANALYSIS),
+    ("results/", RESULTS),
     ("monitoring/cli.py", ENTRY_POINT),
     ("monitoring/dagster/definitions.py", ENTRY_POINT),
     ("monitoring/dagster/resources.py", ENTRY_POINT),
     ("monitoring/", ORCHESTRATOR),
-    ("entities/", OPERATOR_CYCLE),
     ("db/", SHARED),
     ("monitor_core/", SHARED),
     ("llm/", SHARED),
@@ -74,7 +71,6 @@ KNOWN_VIOLATIONS: frozenset[str] = frozenset(
     {
         "airtable/repository.py -> processing.extraction.normalizers",
         "health.py -> monitoring.models",
-        "monitoring/findings.py -> monitoring.models",
     }
 )
 

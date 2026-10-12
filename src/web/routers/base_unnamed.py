@@ -5,8 +5,8 @@ and who on the list they may be, read and decided as the legacy page does
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from entities.base_unnamed import NamelessCase
-from entities.jurisdiction import Jurisdiction
+from analysis.operator_base.base_unnamed import NamelessCase
+from analysis.operator_base.jurisdiction import Jurisdiction
 from web.dependencies import get_db
 from web.response_models import (
     BaseUnnamedCandidateResponse,

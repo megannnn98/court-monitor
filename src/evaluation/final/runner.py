@@ -20,9 +20,11 @@ from datetime import timedelta
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
+from analysis.persecution.models import PersecutionClassificationStatus
+from analysis.persecution.queries import latest_persecution_classification_ids
+from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
-from candidates.models import RosfinmonitoringStatus
-from candidates.service import CandidateQueryService
 from db.database import create_session_factory
 from db.maintenance import require_disposable_database, truncate_disposable_tables
 from db.orm_models import (
@@ -46,12 +48,10 @@ from evaluation.final.corpus import (
 from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
 from monitoring.models import MonitoringSettings
-from persecution.models import PersecutionClassificationStatus
-from persecution.queries import latest_persecution_classification_ids
 from persons.persistence import SqlAlchemyPersonPersistence
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
-from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.persistence import RosfinmonitoringPersistence
+from results.candidates.models import RosfinmonitoringStatus
+from results.candidates.service import CandidateQueryService
 
 logger = logging.getLogger("evaluation")
 

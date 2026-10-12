@@ -30,6 +30,7 @@ from airtable.service import (
     build_sync_service,
     build_sync_source,
 )
+from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from db.orm_models import (
     AirtableKnownPersonRecord,
     CriminalArticleRecord,
@@ -41,7 +42,6 @@ from operator_console import (
     OperationParameters,
     OperationRegistry,
 )
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _page
 from web.ui.officials_list import REFERENCE_URL as OFFICIALS_URL

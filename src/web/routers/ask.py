@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from db.orm_models import ChatQuestionRecord
-from entities.ask import MARK_CLOSE, MARK_OPEN, MAX_QUESTION, ask, daily_budget, spent_today
+from results.ask import MARK_CLOSE, MARK_OPEN, MAX_QUESTION, ask, daily_budget, spent_today
 from web.dependencies import get_db, session_factory_for
 from web.response_models import (
     AskAnswerResponse,

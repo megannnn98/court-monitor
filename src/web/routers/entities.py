@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis.rosfinmonitoring.rf_check import FULL
 from db.orm_models import EntityGroupRecord
-from entities.rf_check import FULL
 from processing.identity.service import MANUAL, IdentityService
 from web.dependencies import get_db
 from web.response_models import (

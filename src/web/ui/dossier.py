@@ -27,22 +27,22 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import Text, cast, or_, select, text
 from sqlalchemy.orm import Session
 
+from analysis.news.case_news import KIND_LABELS as NEWS_LABELS
+from analysis.news.case_news import NEW_CASE, SENTENCE
+from analysis.operator_base.known_base import KnownBase, KnownMatch
+from analysis.politics.classification import CRIMINAL, POLITICAL, VERDICT_LABELS
+from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
+from analysis.rosfinmonitoring.rf_articles import listing
+from analysis.rosfinmonitoring.rf_check import FULL
+from analysis.rosfinmonitoring.rf_entry import source_mark
 from db.orm_models import (
     EntityGroupPoliticsRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
-from entities.known_base import KnownBase, KnownMatch
-from entities.news import KIND_LABELS as NEWS_LABELS
-from entities.news import NEW_CASE, SENTENCE
-from entities.politics import CRIMINAL, POLITICAL, VERDICT_LABELS
-from entities.rf_articles import listing
-from entities.rf_check import FULL
-from entities.rf_entry import source_mark
 from processing.evidence.publications import person_evidence_cte
 from processing.roles.officials import OFFICIAL_KINDS
 from processing.roles.roles import FIGURANT
-from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
 from web.ui.entities import (
     EVENT_LABELS,

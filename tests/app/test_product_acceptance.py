@@ -21,11 +21,11 @@ from support.monitoring_fixtures import (
 )
 from support.person_resolution_fixtures import seed_person
 
-from candidates.service import CandidateQueryService
 from db.orm_models import MonitoringFindingRecord, PersonResolutionDecisionRecord
 from monitoring.models import MonitoringRunStatus
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
+from results.candidates.service import CandidateQueryService
 
 DOMAIN_TABLES = (
     "source_documents",

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.operator_base.known_base import KnownBase, TrackedCase, TrackedCases
 from db.orm_models import AirtableKnownPersonRecord
-from entities.known_base import KnownBase, TrackedCase, TrackedCases
 
 
 def _answer(base: KnownBase, name: str) -> tuple[str, int] | None:

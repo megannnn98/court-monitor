@@ -15,6 +15,10 @@ from datetime import timedelta
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.persecution.classification_service import PersecutionClassificationService
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from db.database import create_database_engine, create_session_factory
 from ingestion.service import IngestionService
 from ingestion.sources.source_registry import SOURCES, SourceDefinition
@@ -22,12 +26,10 @@ from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersiste
 from ingestion.sources.website_adapter import WebsiteAdapter
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
-from monitoring.findings import MonitoringFindingService, MonitoringQueryProvider
 from monitoring.models import MonitoringSettings
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
 from monitoring.service import MonitoringDependencies, MonitoringService
-from persecution.classification_service import PersecutionClassificationService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_factory import build_entity_review_service
 from persons.resolution.ai_policy import EntityReviewSettings
@@ -41,9 +43,7 @@ from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
 from processing.service import ProcessingService
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from results.findings import MonitoringFindingService, MonitoringQueryProvider
 from settings import ApplicationSettings
 
 HTTP_TIMEOUT_SECONDS = 5.0

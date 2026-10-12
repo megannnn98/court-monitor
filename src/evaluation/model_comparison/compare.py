@@ -17,8 +17,13 @@ from typing import Any
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.politics.classification import (
+    MEMORIAL_CATEGORIES,
+    PoliticsClassifier,
+    PoliticsItem,
+    verdict_of,
+)
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from entities.politics import MEMORIAL_CATEGORIES, PoliticsClassifier, PoliticsItem, verdict_of
 from processing.identity.grouping import name_key
 from processing.identity.normalizer import NameItem, NameNormalizer
 from processing.roles.roles import _QUOTES, QUOTE_CONTEXT, QUOTES, RoleClassifier, RoleItem, role_of

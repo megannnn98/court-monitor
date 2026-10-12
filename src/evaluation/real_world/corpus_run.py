@@ -20,6 +20,8 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
+from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
 from db.database import create_session_factory
 from db.maintenance import require_disposable_database, truncate_disposable_tables
@@ -40,8 +42,6 @@ from evaluation.real_world.state_snapshot import table_counts
 from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from monitoring.models import MonitoringRunView, MonitoringSettings
 from monitoring.service import MonitoringService
-from rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
-from rosfinmonitoring.persistence import RosfinmonitoringPersistence
 
 RF_SNAPSHOT_DATE = datetime(2026, 9, 1, tzinfo=UTC)
 RF_SNAPSHOT_SOURCE_URL = "https://rosfinmonitoring.evaluation.invalid/"

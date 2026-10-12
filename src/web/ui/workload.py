@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from entities.politics import UNCLEAR as UNCLEAR_VERDICT
 from processing.identity.service import EntityRef, IdentityService, Pair
 from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE
 

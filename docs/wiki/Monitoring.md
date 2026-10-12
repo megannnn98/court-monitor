@@ -214,7 +214,7 @@ end
 | загрузка одной статьи | `IngestionPipeline.read()` / `save()` из [Monitor Core](Monitor-Core.md); окно дат, пропуск `NoTextError` и изоляция ошибок — в `MonitoringService._ingest_references` |
 | выбор недоделанной работы | `src/monitoring/selection.py` |
 | runs/checkpoints/items | `src/monitoring/repository.py` |
-| findings | `src/monitoring/findings.py` |
+| findings | `src/results/findings.py` |
 | Dagster definitions | `src/monitoring/dagster/` |
 | API/UI status | `src/web/routers/monitoring.py`, `src/web/ui/monitoring.py` |
 

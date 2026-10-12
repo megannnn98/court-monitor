@@ -113,7 +113,7 @@ def test_a_candidate_removed_from_the_list_is_shown_as_removed(
 ) -> None:
     from datetime import date
 
-    from rosfinmonitoring.operator_table import OperatorRow, store
+    from analysis.rosfinmonitoring.operator_table import OperatorRow, store
 
     _seed(session_factory)
     with session_factory.begin() as session:
@@ -285,7 +285,7 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
 
 
 def test_the_overview_counts_the_candidates_worth_looking_at() -> None:
-    from entities.unnamed import Candidates
+    from analysis.unnamed.figurants import Candidates
     from web.ui.overview import _found
 
     assert _found(Candidates([], 545, None, likely=12)) == "вероятных в перечне: 12"

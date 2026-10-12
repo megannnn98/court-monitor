@@ -10,12 +10,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
-from entities.base_unnamed import (
+from analysis.operator_base.base_unnamed import (
     RfEntry,
     RfList,
     age_on,
@@ -27,7 +22,12 @@ from entities.base_unnamed import (
     record_age,
     say,
 )
-from entities.unnamed import DIFFERENT, SAME
+from analysis.unnamed.figurants import DIFFERENT, SAME
+from db.orm_models import (
+    AirtableKnownPersonRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+)
 
 OPENED = date(2025, 6, 9)
 
@@ -391,7 +391,7 @@ def test_a_row_removed_from_the_list_is_compared_with_a_nameless_record(
 ) -> None:
     """«20-летний житель Рубцовска»: nobody on the list is that age — but the operator's
     table holds one who was on it and has been removed since."""
-    from rosfinmonitoring.operator_table import OperatorRow, store
+    from analysis.rosfinmonitoring.operator_table import OperatorRow, store
 
     _seed(session_factory)
     with session_factory.begin() as session:

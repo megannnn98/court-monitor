@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from rosfinmonitoring.membership import (
+from analysis.rosfinmonitoring.membership import (
     RfmStatus,
     matched,
     unmatched,

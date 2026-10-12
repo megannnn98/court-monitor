@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from persecution.classifier import RuleBasedPersecutionClassifier
-from persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
+from analysis.persecution.classifier import RuleBasedPersecutionClassifier
+from analysis.persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
 
 
 def test_classifier_detects_political_charge() -> None:
@@ -337,8 +337,8 @@ def test_keywords_at_word_start_are_still_evidence(
 
 
 def test_political_context_without_an_own_event_is_uncertain_not_political() -> None:
-    from persecution.classifier import RuleBasedPersecutionClassifier
-    from persecution.models import PersecutionClassificationStatus
+    from analysis.persecution.classifier import RuleBasedPersecutionClassifier
+    from analysis.persecution.models import PersecutionClassificationStatus
 
     classification = RuleBasedPersecutionClassifier().classify(
         person_id=1,

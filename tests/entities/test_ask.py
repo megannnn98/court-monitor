@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import ArticleSentenceRecord, ChatQuestionRecord
-from entities.ask import (
+from llm.chat import Spend
+from results.ask import (
     ANSWERED,
     FAILED,
     REFUSED,
@@ -21,7 +22,6 @@ from entities.ask import (
     spent_today,
     unverified_numbers,
 )
-from llm.chat import Spend
 
 
 class FakeAsker:

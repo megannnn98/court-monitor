@@ -1,6 +1,6 @@
 """Tests for Rosfinmonitoring parser."""
 
-from rosfinmonitoring.parser import (
+from analysis.rosfinmonitoring.parser import (
     CsvRosfinmonitoringParser,
     JsonRosfinmonitoringParser,
     XmlRosfinmonitoringParser,

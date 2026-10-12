@@ -10,6 +10,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.news.case_news import NewsFinder
+from analysis.politics.classification import POLITICAL, PoliticsFinder
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
@@ -22,8 +24,6 @@ from db.orm_models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
-from entities.news import NewsFinder
-from entities.politics import POLITICAL, PoliticsFinder
 from processing.identity.collector import EntityCollector
 from processing.identity.normalizer import NameItem, NameNormalizerError, NormalizedName
 from processing.roles.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem

@@ -13,7 +13,7 @@ from datetime import UTC, date, datetime
 import httpx
 import pytest
 
-from rosfinmonitoring.inclusion_dates import (
+from analysis.rosfinmonitoring.inclusion_dates import (
     InclusionDatesUnavailable,
     download_inclusion_dates,
     file_url_from_page,

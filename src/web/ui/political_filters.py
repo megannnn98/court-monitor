@@ -12,21 +12,21 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from urllib.parse import parse_qs, unquote
 
-from entities.known_base import LEVEL_LABELS
-from entities.news import CLOSED, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
+from analysis.news.case_news import CLOSED, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
+from analysis.operator_base.known_base import LEVEL_LABELS
 
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 # The last filters, so that a reload or the menu's link keeps the period.
 FILTERS_COOKIE = "political_filters"
 FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done", "who", "rfm")
-# Named people, or the figurants a publication does not name (`entities.unnamed_cases`).
+# Named people, or the figurants a publication does not name (`results.queries.unnamed_cases`).
 WHO_FILTERS = {"all": "Все", "named": "С именем", "unnamed": "Без имени"}
 # The people the operator marked «обработано»: hidden unless she asks to see them;
 # «only» shows them alone.
 DONE_FILTERS = ("hide", "show", "only")
-# By what the person's articles say of the Rosfinmonitoring list (`entities.rf_articles`).
+# By what the person's articles say of the Rosfinmonitoring list (`analysis.rosfinmonitoring.rf_articles`).
 RFM_FILTERS = {"all": "Все", "awaited": "Ждём в перечне"}
-# What the latest news is (`entities.news`): the operator's new cases and sentences first.
+# What the latest news is (`analysis.news.case_news`): the operator's new cases and sentences first.
 NEWS_FILTERS = {
     "all": "Любая свежая новость",
     NEW_CASE: "Новые дела",
@@ -38,7 +38,7 @@ NEWS_FILTERS = {
 }
 
 # Whether the operator's own base («Найденные люди») already holds the person, by name
-# (`entities.known_base`): the new people are the ones it does not.
+# (`analysis.operator_base.known_base`): the new people are the ones it does not.
 KNOWN_FILTERS = {
     "all": "Любые",
     "none": "Нет в базе",

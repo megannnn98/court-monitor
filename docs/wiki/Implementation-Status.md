@@ -102,7 +102,7 @@ deployment stays on `main` until the branch is reviewed); CI on GitHub.
 | Persecution classification | `src/persecution/` | rule-based — [Persecution-Classification](Persecution-Classification.md) |
 | Rosfinmonitoring | `src/rosfinmonitoring/` | snapshots and matching — [Rosfinmonitoring](Rosfinmonitoring.md) |
 | Entities (console) | `src/entities/` | the five-step pipeline of the console: people from mentions, roles, and the final Rosfinmonitoring check plus political verdicts, a model through OpenRouter with a cache and a budget — [Pipeline](Pipeline.md) |
-| Unnamed figurants | `src/entities/unnamed.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
+| Unnamed figurants | `src/analysis/unnamed/figurants.py`, `src/web/ui/unnamed.py` | unnamed persons of the publications and their candidates from the list — [Unnamed-Figurants](Unnamed-Figurants.md) |
 | Candidates (old path) | `src/candidates/` | political persecution and `NOT_MATCHED` over Persons; used by monitoring findings — [Pipeline](Pipeline.md) |
 | Monitoring | `src/monitoring/` | Dagster schedules per source, runs, findings; the junk screen before step 2 (`junk_screen.py`, its embedding model in `embedder.py`) — [Monitoring](Monitoring.md), [Junk-Screen](Junk-Screen.md) |
 | HTTP API and console | `src/api.py` (entry point), `src/web/` | REST routers, operator console, exports, wiki — [Local-Web-UI](Local-Web-UI.md) |

@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
 from db.orm_models import EntityGroupPoliticsRecord, EntityMentionRecord
-from entities.rf_check import EntityRfCheck
 from operator_console import OperationRegistry, OperationRunStatus
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import FigurantFinder, Kind, RoleAnswer, RoleItem

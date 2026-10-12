@@ -17,11 +17,11 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.news.case_news import NewsFinder, NewsResult, news_reader_from_env
+from analysis.politics.classification import PoliticsFinder, politics_classifier_from_env
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck, RfCheckResult
+from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from application import ApplicationServices, build_application_services
-from entities.news import NewsFinder, NewsResult, news_reader_from_env
-from entities.politics import PoliticsFinder, politics_classifier_from_env
-from entities.rf_check import EntityRfCheck, RfCheckResult
-from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from ingestion.sources.source_registry import SOURCES, SourceKind
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService

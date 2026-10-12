@@ -27,9 +27,9 @@ from monitoring.cli import (
     add_monitoring_arguments,
     run_monitoring_command,
 )
-from monitoring.findings import MonitoringFindingService
 from monitoring.models import MonitoringStage, MonitoringTrigger
 from monitoring.repository import SqlAlchemyMonitoringRepository
+from results.findings import MonitoringFindingService
 
 
 def _parse(*argv: str) -> argparse.Namespace:

@@ -5,10 +5,10 @@ candidates, and the operator's words on them, read and written as the legacy pag
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from entities.base_candidates import base_candidates
-from entities.jurisdiction import Jurisdiction
-from entities.named_candidates import named_candidates, person_candidate_key
-from entities.unnamed import EXISTING_PERSON, IDENTIFIED, RF_ENTRY, candidates
+from analysis.operator_base.base_candidates import base_candidates
+from analysis.operator_base.jurisdiction import Jurisdiction
+from analysis.unnamed.figurants import EXISTING_PERSON, IDENTIFIED, RF_ENTRY, candidates
+from analysis.unnamed.named_candidates import named_candidates, person_candidate_key
 from web.dependencies import get_db
 from web.response_models import (
     CourtHintResponse,

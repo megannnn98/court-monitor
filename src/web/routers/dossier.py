@@ -7,13 +7,13 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from entities.news import KIND_LABELS as NEWS_LABELS
-from entities.politics import VERDICT_LABELS
-from entities.rf_articles import listing
-from entities.rf_check import FULL
-from persecution.classifier import POLITICAL_ARTICLES
+from analysis.news.case_news import KIND_LABELS as NEWS_LABELS
+from analysis.persecution.classifier import POLITICAL_ARTICLES
+from analysis.politics.classification import VERDICT_LABELS
+from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
+from analysis.rosfinmonitoring.rf_articles import listing
+from analysis.rosfinmonitoring.rf_check import FULL
 from processing.roles.officials import OFFICIAL_KINDS
-from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
 from web.response_models import (
     ChargeResponse,

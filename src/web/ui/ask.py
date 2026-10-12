@@ -1,6 +1,6 @@
 """«Спросить»: a question in plain words, the answer, and the counts it stands on.
 
-`entities.ask` does the work. The page shows the answer with every count the model
+`results.ask` does the work. The page shows the answer with every count the model
 called for under it, so a number is checked by eye; a number of the answer that no count
 holds is named above it. The questions asked before are listed below.
 """
@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import ChatQuestionRecord
-from entities.ask import (
+from results.ask import (
     FAILED,
     LIST,
     MARK_CLOSE,

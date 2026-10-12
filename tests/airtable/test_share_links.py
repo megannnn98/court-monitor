@@ -19,7 +19,7 @@ from airtable.links import FallbackTableClient, ShareTableClient, share_links
 from airtable.models import MODE_SHARE, TABLES
 from airtable.service import build_sync_source
 from airtable.share import _init_data, content_id, read_page, read_records, share_url_of
-from rosfinmonitoring.download import (
+from analysis.rosfinmonitoring.download import (
     RosfinmonitoringDownloadError,
     download_rf_list,
 )
@@ -298,7 +298,7 @@ class _RfResponse:
 
 
 def test_the_published_list_is_downloaded(monkeypatch: pytest.MonkeyPatch) -> None:
-    from rosfinmonitoring import download
+    from analysis.rosfinmonitoring import download
 
     class _Client:
         @staticmethod

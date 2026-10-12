@@ -9,9 +9,16 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.unnamed.figurants import (
+    DIFFERENT,
+    EXISTING_PERSON,
+    SAME,
+    decide,
+    forget,
+    resolve_identity,
+)
+from analysis.unnamed.named_candidates import named_candidates, person_candidate_key
 from db.orm_models import EntityMentionRecord, UnnamedFigurantRecord
-from entities.named_candidates import named_candidates, person_candidate_key
-from entities.unnamed import DIFFERENT, EXISTING_PERSON, SAME, decide, forget, resolve_identity
 from processing.identity.collector import EntityCollector
 
 COURT = "Суд вынес приговор 53-летней жительнице Якутии."
@@ -286,7 +293,7 @@ def test_the_publication_itself_is_no_other_publication(
 
 
 def test_an_age_is_a_number_of_its_own() -> None:
-    from entities.named_candidates import _age_pattern
+    from analysis.unnamed.named_candidates import _age_pattern
 
     age = _age_pattern(53)
     for told in ("Ханова, 53 года,", "53-летняя Ханова", "Хановой 53 лет", "53  -  лет"):

@@ -23,6 +23,10 @@ import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 
+from analysis.persecution.classification_service import PersecutionClassificationService
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
+from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from ingestion.sources.source_adapter import DiscoversUntilKnown
 from ingestion.sources.source_registry import SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
@@ -30,7 +34,6 @@ from monitor_core.errors import NoTextError
 from monitor_core.ingestion import IngestionPipeline
 from monitor_core.model import ParsedArticle, SourceReference
 from monitor_core.ports import DocumentFetcher
-from monitoring.findings import NO_RF_SNAPSHOT, MonitoringFindingService
 from monitoring.locks import advisory_lock
 from monitoring.models import (
     DERIVED_SCOPE,
@@ -45,15 +48,12 @@ from monitoring.models import (
 )
 from monitoring.repository import SqlAlchemyMonitoringRepository
 from monitoring.selection import SqlAlchemyMonitoringWorkQueries
-from persecution.classification_service import PersecutionClassificationService
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.resolution_service import ExtractionResolutionService
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.models import ExtractionRunStatus
 from processing.extraction.pipeline import ExtractionPipeline
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from results.findings import NO_RF_SNAPSHOT, MonitoringFindingService
 
 logger = logging.getLogger("monitoring")
 

@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from entities.unnamed_cases import (
+from results.queries.unnamed_cases import (
     Sentence,
     case_name,
     group_cases,

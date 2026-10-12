@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
@@ -16,7 +17,6 @@ from db.orm_models import (
     EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
-from entities.rf_check import EntityRfCheck
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import (
     FIGURANT,

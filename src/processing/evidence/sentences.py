@@ -14,7 +14,7 @@ writes one row per sentenced person into `article_sentences`.
 - A row is kept only with a quote that stands in the article word for word.
 - The region is one of `processing.evidence.regions`; anything else is «».
 - The same sentence told by several articles is several rows:
-  `entities.sentence_cases` folds them.
+  `results.queries.sentence_cases` folds them.
 - A row a person hid (`hidden`) stays hidden when the article is read again.
 
 Measured on 100 articles by hand: terms and regions were right where the text told

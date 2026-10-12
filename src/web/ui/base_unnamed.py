@@ -16,11 +16,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from analysis.operator_base.base_candidates import article_numbers
+from analysis.operator_base.base_unnamed import NamelessCase, counts, nameless_cases, say
+from analysis.operator_base.jurisdiction import CourtHints, Jurisdiction
+from analysis.unnamed.figurants import CANDIDATE_KEY_LENGTH, DIFFERENT, SAME
 from db.orm_models import AirtableKnownPersonRecord
-from entities.base_candidates import article_numbers
-from entities.base_unnamed import NamelessCase, counts, nameless_cases, say
-from entities.jurisdiction import CourtHints, Jurisdiction
-from entities.unnamed import CANDIDATE_KEY_LENGTH, DIFFERENT, SAME
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
 from web.ui.layout import _page, pager

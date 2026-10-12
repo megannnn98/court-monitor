@@ -21,6 +21,8 @@ from support.monitoring_fixtures import (
 )
 from support.person_resolution_fixtures import seed_person
 
+from analysis.persecution.classifier import RuleBasedPersecutionClassifier
+from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from db.orm_models import (
     EntityMentionRecord,
     MonitoringFindingRecord,
@@ -30,7 +32,6 @@ from db.orm_models import (
     RosfinMatchRecord,
 )
 from monitor_core.errors import TransientDiscoveryError
-from monitoring.findings import ENBV_CRITERIA_VERSION, NO_RF_SNAPSHOT, POLITICAL_NOT_IN_RF
 from monitoring.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
@@ -40,11 +41,10 @@ from monitoring.models import (
     MonitoringTrigger,
 )
 from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
-from persecution.classifier import RuleBasedPersecutionClassifier
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from persons.resolution.service import RESOLVER_VERSION
-from rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
+from results.findings import ENBV_CRITERIA_VERSION, NO_RF_SNAPSHOT, POLITICAL_NOT_IN_RF
 
 DOMAIN_TABLES = (
     "source_documents",

@@ -2,7 +2,7 @@
 
 Both read what steps 4 and 5 were unsure about and let the operator settle it: the
 decision is applied at once and kept by the entity key, so the next rebuild of step 4 or
-step 5 writes it again (`processing.roles.roles`, `entities.politics`).
+step 5 writes it again (`processing.roles.roles`, `analysis.politics.classification`).
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis.politics.classification import CRIMINAL, POLITICAL, decide_politics
+from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from entities.politics import CRIMINAL, POLITICAL, decide_politics
-from entities.politics import UNCLEAR as UNCLEAR_VERDICT
 from processing.identity.service import IdentityService
 from processing.roles.roles import FIGURANT, MENTIONED, POSSIBLE, decide_role
 from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE

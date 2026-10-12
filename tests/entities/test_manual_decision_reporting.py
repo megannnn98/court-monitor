@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.politics.classification import POLITICAL, PoliticsFinder
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupPoliticsRecord,
@@ -31,7 +32,6 @@ from db.orm_models import (
     EntityPoliticsDecisionRecord,
     EntityRoleDecisionRecord,
 )
-from entities.politics import POLITICAL, PoliticsFinder
 from processing.roles.roles import FIGURANT, FigurantFinder
 from web.app import app
 from web.dependencies import get_db
@@ -230,8 +230,8 @@ def test_a_manual_criminal_verdict_over_a_political_charge_is_counted_once(
     """The double count the review named: `political_rules` was measured before the
     override, so an article with a political charge that a person calls an ordinary case
     landed in `political_rules` and `criminal` at once."""
-    from entities.politics import CRIMINAL, decide_politics
-    from persecution.classifier import POLITICAL_ARTICLES
+    from analysis.persecution.classifier import POLITICAL_ARTICLES
+    from analysis.politics.classification import CRIMINAL, decide_politics
 
     political_article = min(POLITICAL_ARTICLES)
     with session_factory.begin() as session:

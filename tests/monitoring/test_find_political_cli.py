@@ -14,13 +14,13 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from entities.rf_check import EntityRfCheck
 from monitoring import cli
 from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 

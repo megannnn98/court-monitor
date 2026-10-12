@@ -4,7 +4,7 @@ list they may be — for a person to confirm.
 Each card: the sentence (to its publication), what the text tells (age, sex, place, the
 surname's initial, the articles), the entries of the list that fit and why, and the
 person's word: «Это он», «Не он», «Никого нет в перечне». The words are kept by key
-(`entities.unnamed.decide`) through every new search."""
+(`analysis.unnamed.figurants.decide`) through every new search."""
 
 from __future__ import annotations
 
@@ -19,21 +19,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityGroupRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-    UnnamedFigurantRecord,
-    UnnamedScreenedRecord,
-)
-from entities.base_candidates import BaseCandidates, base_candidates
-from entities.jurisdiction import CourtHints, Jurisdiction
-from entities.named_candidates import (
-    NamedCandidate,
-    named_candidates,
-    person_candidate_key,
-)
-from entities.unnamed import (
+from analysis.operator_base.base_candidates import BaseCandidates, base_candidates
+from analysis.operator_base.jurisdiction import CourtHints, Jurisdiction
+from analysis.unnamed.figurants import (
     CANDIDATE_KEY_LENGTH,
     COMMON_CRIME,
     CRIMINAL_MOTIVE,
@@ -55,6 +43,18 @@ from entities.unnamed import (
     forget,
     keep,
     resolve_identity,
+)
+from analysis.unnamed.named_candidates import (
+    NamedCandidate,
+    named_candidates,
+    person_candidate_key,
+)
+from db.orm_models import (
+    EntityGroupRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+    UnnamedFigurantRecord,
+    UnnamedScreenedRecord,
 )
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html

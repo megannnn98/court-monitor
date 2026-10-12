@@ -4,8 +4,8 @@ until mutations are authenticated (ADR 0022)."""
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from entities.ask import KIND_LABELS, REASON_LABELS
-from entities.sentence_cases import POLITICAL
+from results.ask import KIND_LABELS, REASON_LABELS
+from results.queries.sentence_cases import POLITICAL
 from web.dependencies import get_db
 from web.response_models import OptionResponse, SentenceListResponse, SentenceRowResponse
 from web.ui.sentences import HIDDEN, PAGE_SIZE, read_sentences, term_text

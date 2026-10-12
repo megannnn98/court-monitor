@@ -18,6 +18,9 @@ from sqlalchemy import Text, cast, exists, func, or_, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
+from analysis.persecution.classifier import POLITICAL_ARTICLES
+from analysis.politics.classification import CRIMINAL, POLITICAL
+from analysis.rosfinmonitoring.rf_check import FULL
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupPoliticsRecord,
@@ -25,15 +28,12 @@ from db.orm_models import (
     EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
 )
-from entities.politics import CRIMINAL, POLITICAL
-from entities.rf_check import FULL
 from operator_console import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
     OperationRun,
 )
-from persecution.classifier import POLITICAL_ARTICLES
 from processing.extraction.name_frequency import lookup_gender
 from processing.identity.service import MANUAL, IdentityService
 from processing.roles.officials import mark_official

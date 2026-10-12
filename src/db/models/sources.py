@@ -132,7 +132,7 @@ class ArticleSentenceReadingRecord(Base):
 class ArticleSentenceRecord(Base):
     """One person's sentence as one article tells it (`processing.evidence.sentences`): where, what
     punishment, for what. The same sentence told by five articles is five rows;
-    `entities.sentence_cases` folds them into one case."""
+    `results.queries.sentence_cases` folds them into one case."""
 
     __tablename__ = "article_sentences"
 
@@ -162,7 +162,7 @@ class ArticleSentenceRecord(Base):
 
 
 class ChatQuestionRecord(Base):
-    """A question asked on «Спросить» (`entities.ask`): what was asked, which counts the
+    """A question asked on «Спросить» (`results.ask`): what was asked, which counts the
     model called for, what they gave, what it answered and what it cost."""
 
     __tablename__ = "chat_questions"

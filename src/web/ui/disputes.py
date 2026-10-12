@@ -15,8 +15,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis.rosfinmonitoring.rf_check import FULL
 from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
-from entities.rf_check import FULL
 from processing.identity.service import (
     DIFFERENT,
     PATRONYMIC,

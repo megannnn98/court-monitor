@@ -10,16 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-    UnnamedAnswerRecord,
-    UnnamedFigurantRecord,
-    UnnamedIdentityResolutionRecord,
-    UnnamedKeepRecord,
-    UnnamedScreenedRecord,
-)
-from entities.unnamed import (
+from analysis.unnamed.figurants import (
     DIFFERENT,
     RF_ENTRY,
     SAME,
@@ -33,6 +24,15 @@ from entities.unnamed import (
     described_sentences,
     keep,
     resolve_identity,
+)
+from db.orm_models import (
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+    UnnamedAnswerRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
+    UnnamedKeepRecord,
+    UnnamedScreenedRecord,
 )
 from processing.answers import input_hash
 
@@ -575,7 +575,7 @@ def _removed_rows(session_factory: sessionmaker[Session]) -> None:
     """The operator's own table: who it says was removed from the list."""
     from datetime import date
 
-    from rosfinmonitoring.operator_table import OperatorRow, store
+    from analysis.rosfinmonitoring.operator_table import OperatorRow, store
 
     def row(name: str, born: date, *, removed: bool, added: date | None) -> OperatorRow:
         return OperatorRow(name, born, "Г. ТЮМЕНЬ", added, removed, "терроризм", "")
