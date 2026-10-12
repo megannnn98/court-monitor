@@ -187,8 +187,10 @@ _EVIDENCE = text(
     SELECT e.article_id, e.title, e.canonical_url, e.source, e.published_at, e.quote,
            e.quote_start
     FROM person_evidence e
-    JOIN entity_groups g ON g.id = e.group_id
-    WHERE g.key = :key
+    -- The group as a scalar: its id is pushed into both branches of the evidence, so
+    -- only this person's mentions are read. Joined instead, the whole evidence of
+    -- every person was built and hashed first (150 ms on 1 600 articles, 2026-10-12).
+    WHERE e.group_id = (SELECT g.id FROM entity_groups g WHERE g.key = :key)
     ORDER BY e.published_at DESC NULLS LAST, e.article_id DESC, e.quote_start
     LIMIT :limit
     """
@@ -200,11 +202,10 @@ _ARTICLE_TEXTS = text(
     SELECT DISTINCT a.id AS article_id, a.title, d.canonical_url, s.name AS source,
            a.published_at, a.text
     FROM person_evidence e
-    JOIN entity_groups g ON g.id = e.group_id
     JOIN parsed_articles a ON a.id = e.article_id
     JOIN source_documents d ON d.id = a.document_id
     JOIN sources s ON s.id = d.source_id
-    WHERE g.key = :key
+    WHERE e.group_id = (SELECT g.id FROM entity_groups g WHERE g.key = :key)
     ORDER BY a.published_at DESC NULLS LAST, a.id DESC
     LIMIT :articles
     """
