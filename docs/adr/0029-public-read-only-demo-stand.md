@@ -27,12 +27,13 @@ from production:
 - **Access.** Open to anyone with the link, no login. Search engines are told not to
   index it (`X-Robots-Tag: noindex, nofollow`, `robots.txt` `Disallow: /`).
 - **Read-only.** `DEMO_READ_ONLY=1` makes the API refuse every request that is not a
-  read, and the frontend hide what would change data. The one exception is starting
-  an investigation: it runs on rules alone and writes only its own run, and the proxy
-  limits how often one address may start it.
-- **No outside calls.** No model key (OpenRouter, Anthropic, Together) is set, the
-  investigation searches no Telegram channel (`INVESTIGATION_TELEGRAM_CHANNELS=none`),
-  and Dagster is not started, so nothing monitors, ingests or spends.
+  read, before its route runs, and the console say so above every page. Starting an
+  investigation is refused too: the console has no page that starts one, and an
+  address open to anyone would let strangers load the search on a shared server. The
+  investigations already in the copy are there to read.
+- **No outside calls.** No model key (OpenRouter, Anthropic, Together) is set, no
+  Telegram channel is searched (`INVESTIGATION_TELEGRAM_CHANNELS=none`), and Dagster
+  is not started, so nothing monitors, ingests or spends.
 - **Where.** The production server, as its own compose project (`court-monitor-demo`)
   with its own volume, port and nginx site, on its own subdomain. Production
   containers are not touched.

@@ -115,7 +115,7 @@ app.mount("/static", StaticFiles(directory="src/static"), name="static")
 # and an address no route answers is its page (`web.spa`).
 app.middleware("http")(react_console)
 app.middleware("http")(same_origin_only)
-# A demo stand refuses every change but an investigation (ADR 0029).
+# A demo stand refuses every change (ADR 0029).
 app.middleware("http")(read_only_demo)
 app.middleware("http")(request_context)
 

@@ -1,4 +1,4 @@
-"""A demo stand serves reads alone, and starting an investigation (ADR 0029)."""
+"""A demo stand serves reads alone (ADR 0029)."""
 
 from __future__ import annotations
 
@@ -15,23 +15,20 @@ from web.dependencies import get_db
 
 
 @pytest.mark.parametrize(
-    ("method", "path", "refused"),
+    ("method", "refused"),
     [
-        ("GET", "/api/v1/status", False),
-        ("HEAD", "/", False),
-        ("OPTIONS", "/api/v1/persons", False),
-        # The one change a visitor may make: an investigation on rules alone.
-        ("POST", "/api/v1/investigation", False),
-        ("POST", "/api/v1/investigation/", True),
-        ("POST", "/api/v1/ask", True),
-        ("POST", "/ui/management/purge", True),
-        ("PUT", "/api/v1/investigation", True),
-        ("DELETE", "/api/v1/persons/1", True),
-        ("PATCH", "/api/v1/review/1", True),
+        ("GET", False),
+        ("head", False),
+        ("OPTIONS", False),
+        # An investigation too: the console has no page that starts one.
+        ("POST", True),
+        ("PUT", True),
+        ("DELETE", True),
+        ("PATCH", True),
     ],
 )
-def test_what_a_demo_refuses(method: str, path: str, refused: bool) -> None:
-    assert refused_by_demo(method, path) is refused
+def test_what_a_demo_refuses(method: str, refused: bool) -> None:
+    assert refused_by_demo(method) is refused
 
 
 @pytest.mark.parametrize(
