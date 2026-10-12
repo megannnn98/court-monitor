@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 # Where a piece of evidence comes from: the pipeline's verdicts on an entity group, a
 # stored publication, an entry of the Rosfinmonitoring list, an unnamed figurant's
@@ -36,7 +36,10 @@ QUERY_KINDS: tuple[QueryKind, ...] = (
 Status = Literal["completed", "partial", "clarification_required", "review_required", "failed"]
 ScenarioName = Literal["person_dossier", "identify_unnamed"]
 SCENARIOS: tuple[ScenarioName, ...] = ("person_dossier", "identify_unnamed")
-ScoreType = Literal["exact_name", "declined_name", "ts_rank", "cosine", "rrf", "source_order"]
+ScoreType = Literal["exact_name", "declined_name", "ts_rank", "source_order"]
+# What a score could be called while the dense retrieval existed (ADR 0028). A run stored
+# then still holds them; read back, such a score keeps its number and loses its name.
+REMOVED_SCORE_TYPES = frozenset({"cosine", "rrf"})
 
 DEFAULT_MAX_LLM_CALLS = 2
 DEFAULT_MAX_FOLLOWUPS = 2
@@ -194,6 +197,14 @@ class EvidenceItem(BaseModel):
     # The retriever's own score and what kind it is: two kinds never compare.
     score: float | None = None
     score_type: ScoreType | None = None
+
+    @field_validator("score_type", mode="before")
+    @classmethod
+    def _without_a_removed_kind(cls, value: object) -> object:
+        """A stored run's evidence may name a kind of score that no retriever gives any
+        more; the evidence is still read, its score without a kind."""
+        return None if value in REMOVED_SCORE_TYPES else value
+
     # The words searched for and the round of the search that found it.
     query: str | None = None
     round: int | None = None

@@ -1187,3 +1187,28 @@ def test_a_given_name_in_a_text_does_not_corroborate_a_surname() -> None:
     result = run(unnamed(items), outside, question=ASK)
 
     assert "named_with_place" not in {signal.signal for signal in result.candidates[0].signals}
+
+
+def test_evidence_stored_with_a_kind_of_score_that_no_longer_exists_is_still_read() -> None:
+    """A run stored while the dense retrieval existed holds «cosine». Read back — as a
+    result, as the progress to resume from — its evidence keeps the text, the reference
+    and the number; the score has no kind any more."""
+    stored = article(7, "Суд арестовал Ивана Сидорова").model_dump(mode="json")
+    stored.update(score=0.83, score_type="cosine", ref="E1")
+
+    read = EvidenceItem.model_validate(stored)
+    result = InvestigationResult.model_validate(
+        {"status": "completed", "question": "q", "evidence": [stored]}
+    )
+
+    assert (read.text, read.ref, read.score, read.score_type) == (
+        "Суд арестовал Ивана Сидорова",
+        "E1",
+        0.83,
+        None,
+    )
+    assert result.evidence[0] == read
+    # Read is all: nothing gives such a score, and a new result cannot name one.
+    assert "cosine" not in result.model_dump_json()
+    with pytest.raises(ValueError, match="score_type"):
+        EvidenceItem.model_validate({**stored, "score_type": "made up"})

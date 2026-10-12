@@ -5,7 +5,7 @@
 Accepted, 2026-09-19, as an experiment. Qdrant stays the default and is not removed;
 whether it can go is a separate decision taken on the results below.
 
-**Removed** 2026-09-27 with the vector search (`chore/slim-to-two-scenarios`). The migration `t4u5v6w7x8y9` and its tables stay; nothing writes or reads them.
+**Removed** 2026-09-27 with the vector search (`chore/slim-to-two-scenarios`). The migration `t4u5v6w7x8y9` and its tables stayed, written and read by nothing, until [ADR 0028](0028-remove-unused-vector-retrieval.md): the tables and the `vector` extension are dropped (`m4n5o6p7q8r9`), the revisions `t4u5v6w7x8y9` and `u5v6w7x8y9z0` are empty, and the database image is plain PostgreSQL. Everything below is history.
 
 ## Context
 

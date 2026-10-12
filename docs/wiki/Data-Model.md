@@ -222,18 +222,16 @@ PostgreSQL с записью Airtable и делает повторный зап�
 - Процесс шлёт heartbeat каждые 15 с. Живой run без heartbeat дольше 5 мин получает `interrupted` при следующем чтении или запуске — операция снова свободна. Запись результата требует, чтобы run ещё был `running` у того же `worker_id`: поздний результат не перезаписывает `interrupted`.
 - Выполнение — поток процесса API, принявшего запуск; confirm только создаёт run и сразу возвращает redirect.
 
-## Векторы pgvector: `semantic_vector_collections`, `semantic_vectors`, `semantic_index_state`
+## Удалённые таблицы семантического индекса
 
-Миграция `t4u5v6w7x8y9` ([ADR 0018](../adr/0018-pgvector-vector-store.md)) включает расширение `vector`. Таблицы — производные данные, как `semantic_documents`; фактов в них нет. Векторный поиск удалён из кода: эти таблицы и `semantic_documents` остаются в схеме (применённые миграции не откатываются), но их никто не пишет и не читает.
-
-| Таблица | Поля | Смысл |
-|---|---|---|
-| `semantic_vector_collections` | `name` PK, `vector_size`, `created_at` | логическая коллекция (`persons_semantic`, `events_semantic`) и её размерность |
-| `semantic_vectors` | PK (`collection_name`, `entity_type`, `entity_id`), `embedding vector` (без размерности, `STORAGE PLAIN`), `embedding_model_id`, `representation_version`, `content_hash`, `updated_at` | вектор сущности; удаляется вместе с коллекцией (`ON DELETE CASCADE`) |
-| `semantic_index_state` | `entity_type` PK, `vector_backend`, `rebuilt_at` | чей полный rebuild поставил отметки `semantic_documents.indexed_at` |
-
-Историческое устройство удалённого vector runtime описано в ADR 0018. Текущий код
-сохраняет таблицы только ради совместимости с уже применёнными миграциями.
+`semantic_documents`, `semantic_vector_collections`, `semantic_vectors` и
+`semantic_index_state` держали производный индекс семантического поиска
+([ADR 0011](../adr/0011-semantic-hybrid-entity-retrieval.md),
+[ADR 0018](../adr/0018-pgvector-vector-store.md)). Код поиска удалён 27.09.2026; таблицы
+и расширение `vector` сняты миграцией `m4n5o6p7q8r9`
+([ADR 0028](../adr/0028-remove-unused-vector-retrieval.md)). Ревизии `t4u5v6w7x8y9` и
+`u5v6w7x8y9z0`, которые создавали векторные таблицы, остались в цепочке пустыми: новая
+база расширения pgvector не требует.
 
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`
 

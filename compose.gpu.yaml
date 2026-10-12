@@ -1,4 +1,4 @@
-# GPU override: semantic indexing on the NVIDIA card.
+# GPU override: the junk screen's embedding model on the NVIDIA card.
 #
 # Host prerequisite (Arch Linux), once:
 #   sudo pacman -S nvidia-container-toolkit

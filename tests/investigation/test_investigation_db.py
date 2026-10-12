@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import threading
 import time
 from collections.abc import Iterator
@@ -495,3 +496,60 @@ def test_a_cancel_during_the_claim_gives_the_advisory_lock_and_its_connection_ba
     # Another process can take the run at once.
     assert theirs.claim("run-1") is True
     theirs.release("run-1")
+
+
+# -- what the investigation is built of -------------------------------------------------------------
+
+
+def test_the_investigation_is_built_of_structured_and_text_search_and_loads_no_model(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Dense retrieval was removed (ADR 0028): no setting brings a vector search back,
+    and building the service imports no embedding stack — on a machine without the
+    optional group, without a GPU and without pgvector it starts the same."""
+    before = set(sys.modules)
+    env = {**LOCAL_ENV, "INVESTIGATION_DENSE_MODEL": "intfloat/multilingual-e5-base"}
+
+    service = build_investigation_service(session_factory, env=env)
+
+    assert [retriever.name for retriever in service.retrievers] == [
+        "entity_groups",
+        "stored_publications",
+        "publications_fts",
+        "unnamed_figurants",
+    ]
+    assert service.sources == {"local", *(retriever.name for retriever in service.retrievers)}
+    loaded = {name.split(".")[0] for name in set(sys.modules) - before}
+    assert not loaded & {"sentence_transformers", "torch", "transformers", "pgvector"}
+
+
+def test_a_dossier_and_an_unnamed_figurant_are_answered_by_text_search_alone(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """End to end on a database that has no vector table at all: both scenarios run, the
+    text search answers the follow-up, and a stored run is read again."""
+    _articles(session_factory)
+    with session_factory() as session:
+        assert not session.scalar(
+            text("SELECT count(*) FROM pg_tables WHERE tablename = 'publication_vectors'")
+        )
+    service = build_investigation_service(session_factory, env=LOCAL_ENV)
+
+    dossier = asyncio.run(service.investigate("Что известно про Марию Бонцлер?"))
+    unnamed = asyncio.run(service.investigate("Установи фигуранта публикации 999999"))
+
+    assert dossier.status != "failed" and dossier.scenario == "person_dossier"
+    assert {item.source_id for item in dossier.evidence} <= {
+        "entity_groups",
+        "stored_publications",
+        "publications_fts",
+    }
+    assert "publications_fts" in {task.retriever for task in dossier.plan.tasks}  # type: ignore[union-attr]
+    assert all(
+        item.score_type in (None, "ts_rank", "exact_name", "declined_name", "source_order")
+        for item in dossier.evidence
+    )
+    assert unnamed.status != "failed" and unnamed.scenario == "identify_unnamed"
+    assert dossier.run_id is not None
+    again = asyncio.run(service.resume(dossier.run_id))
+    assert again == dossier

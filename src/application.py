@@ -7,9 +7,6 @@ construction, no registry or service locator: callers receive typed objects.
 
 from __future__ import annotations
 
-import functools
-import importlib.util
-import logging
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -41,7 +38,6 @@ from investigation.service import InvestigationService
 from investigation.services.external import SourceSearchRetriever
 from investigation.services.model import investigation_model_from_env
 from investigation.services.retrieval import (
-    DensePublicationsRetriever,
     InvestigationRetriever,
     LexicalPublicationsRetriever,
     LocalDatabaseRetriever,
@@ -72,7 +68,6 @@ from processing.extraction.pending import SqlAlchemyPendingExtraction
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
 from processing.identity.service import identity_service_from_env
-from processing.junk.embedder import EmbeddingConfig, SentenceTransformerEmbedder
 from processing.service import ProcessingService
 from results.findings import MonitoringFindingService, MonitoringQueryProvider
 from results.service import ResultsService
@@ -240,35 +235,6 @@ def build_operator_cycle(
     )
 
 
-DENSE_MODEL_ENV = "INVESTIGATION_DENSE_MODEL"
-
-
-def dense_embedder_from_env(
-    env: Mapping[str, str] | None = None,
-) -> SentenceTransformerEmbedder | None:
-    """The embedding model of the dense retrieval (`INVESTIGATION_DENSE_MODEL`, e.g.
-    `intfloat/multilingual-e5-base`), or None: unset, or the optional `semantic` group
-    is not installed. The model loads on its first query, not here."""
-    values = os.environ if env is None else env
-    model_id = (values.get(DENSE_MODEL_ENV) or "").strip()
-    if not model_id:
-        return None
-    if importlib.util.find_spec("sentence_transformers") is None:
-        logging.getLogger("investigation").warning(
-            "event=investigation_dense_unavailable model=%s reason=semantic_group_missing",
-            model_id,
-        )
-        return None
-    return _dense_embedder(EmbeddingConfig.from_env(model_id, values))
-
-
-@functools.cache
-def _dense_embedder(config: EmbeddingConfig) -> SentenceTransformerEmbedder:
-    """One embedder per model and device in a process: the API builds an investigation
-    per request, and a model loaded per request would cost seconds each time."""
-    return SentenceTransformerEmbedder(config)
-
-
 def build_investigation_retrievers(
     session_factory: sessionmaker[Session], *, env: Mapping[str, str] | None = None
 ) -> list[InvestigationRetriever]:
@@ -288,9 +254,6 @@ def build_investigation_retrievers(
         LexicalPublicationsRetriever(results),
         UnnamedFigurantRetriever(results),
     ]
-    dense = dense_embedder_from_env(env)
-    if dense is not None:
-        local.append(DensePublicationsRetriever(results, dense))
     outside: list[InvestigationRetriever] = [
         SourceSearchRetriever(search, source="telegram")
         for search in telegram_searches(

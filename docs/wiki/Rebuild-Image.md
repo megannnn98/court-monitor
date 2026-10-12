@@ -21,6 +21,30 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile production up -d   
 docker ps --filter name=ebnv --format '{{.Names}} {{.Status}}'                        # 5. проверка
 ```
 
+### Один раз: выпуск, в котором база уходит с образа pgvector (ADR 0028)
+
+В этом выпуске порядок шагов 2 и 3 **обратный**: сначала миграции на ещё работающей
+старой базе, потом смена её образа. Миграция `m4n5o6p7q8r9` снимает векторные таблицы и
+расширение `vector`; таблицу с векторным индексом нельзя удалить на сервере, где
+библиотеки pgvector уже нет.
+
+```bash
+git switch main && git pull
+BUILDX_BUILDER=default docker compose -f compose.yaml -f compose.gpu.yaml \
+  --profile production build                       # 1. сборка
+# 2. миграции на СТАРОЙ базе. --no-deps: не трогать контейнер postgres — иначе compose
+#    пересоздаст его на новом образе раньше времени.
+docker compose -f compose.yaml -f compose.gpu.yaml --profile migrate run --rm --no-deps migrate
+docker compose -f compose.yaml -f compose.gpu.yaml up -d postgres   # 3. теперь смена образа базы
+docker compose -f compose.yaml -f compose.gpu.yaml --profile production up -d          # 4. выпуск
+docker ps --filter name=ebnv --format '{{.Names}} {{.Status}}'                        # 5. проверка
+```
+
+В логе миграции может стоять «The vector extension is kept: …» — расширение оставлено,
+потому что его ставила другая роль или от него зависит что-то вне удаляемых таблиц. Это
+не ошибка: миграция прошла, но база по-прежнему требует образа с pgvector, и шаг 3
+делать нельзя, пока причина не разобрана.
+
 Если нужно только перезапустить сайт без нового кода — пересборка не нужна:
 
 ```bash
@@ -57,11 +81,15 @@ COMPOSE_FILE=compose.yaml:compose.gpu.yaml
 запускает одноразовый сервис `migrate` (`alembic upgrade head`). Если в выпуске нет новых
 миграций, шаг ничего не делает — выполнять его всегда безопасно.
 
-**База перед миграциями.** Если в `compose.yaml` сменился образ PostgreSQL (так было с
-переходом на `pgvector/pgvector:pg18-bookworm`, ADR 0018), контейнер `postgres`
-пересоздаётся на том же volume `postgres_data`: данные сохраняются. Миграция
-`t4u5v6w7x8y9` выполняет `CREATE EXTENSION vector` и требует именно нового образа, поэтому
-сначала шаг 2, потом шаг 3. Если образ базы не менялся, шаг 2 ничего не делает.
+**База перед миграциями.** Если в `compose.yaml` сменился образ PostgreSQL, контейнер
+`postgres` пересоздаётся на том же volume `postgres_data`: данные сохраняются. Так было
+при переходе на образ с pgvector (ADR 0018) и при возврате на обычный
+`postgres:18.6-bookworm` (ADR 0028) — это одна и та же сборка PostgreSQL 18.6. Возврат —
+единственный случай, когда миграции идут раньше смены образа: см. отдельный блок выше.
+Проверено на одноразовой базе: под обычным образом пустые таблицы и само расширение
+снимаются и без библиотеки pgvector, а таблица с векторным индексом (`hnsw`, `ivfflat`)
+— нет: «could not access file "vector"». Если образ базы не менялся, шаг 2 ничего не
+делает.
 
 ## Перед выпуском
 

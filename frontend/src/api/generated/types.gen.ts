@@ -1343,7 +1343,7 @@ export type EvidenceItem = {
     /**
      * Score Type
      */
-    score_type?: 'exact_name' | 'declined_name' | 'ts_rank' | 'cosine' | 'rrf' | 'source_order' | null;
+    score_type?: 'exact_name' | 'declined_name' | 'ts_rank' | 'source_order' | null;
     /**
      * Query
      */
@@ -4745,7 +4745,7 @@ export type EvidenceItemWritable = {
     /**
      * Score Type
      */
-    score_type?: 'exact_name' | 'declined_name' | 'ts_rank' | 'cosine' | 'rrf' | 'source_order' | null;
+    score_type?: 'exact_name' | 'declined_name' | 'ts_rank' | 'source_order' | null;
     /**
      * Query
      */

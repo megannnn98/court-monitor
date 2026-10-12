@@ -46,7 +46,6 @@ uv run python src/main.py validate-config
 | `INVESTIGATION_MAX_LLM_CALLS`, `INVESTIGATION_MAX_FOLLOWUPS`, `INVESTIGATION_MAX_EVIDENCE_ITEMS` | потолки одного вопроса `investigate` ([ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)): обращений к модели `2`, дополнительных раундов поиска `2`, материалов в ответе `40`. Читаются из окружения процесса; `compose.yaml` их в контейнер не передаёт, там действуют значения по умолчанию |
 | `INVESTIGATION_MAX_SEARCHES`, `INVESTIGATION_MAX_PARALLEL_SEARCHES`, `INVESTIGATION_TIMEOUT_SECONDS`, `INVESTIGATION_SEARCH_TIMEOUT_SECONDS` | поисков на вопрос `40`, одновременно `4`, на весь вопрос `120` с, на один поиск `20` с ([ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md)). Запрос может только уменьшить |
 | `INVESTIGATION_TELEGRAM_CHANNELS` | каналы из `channels.csv`, чей публичный поиск спрашивает исследование, через запятую; по умолчанию `ovdinfolive,mediazzzona,pzk_memorial,politzekinfo`; `none` — без внешних источников |
-| `INVESTIGATION_DENSE_MODEL` | модель смыслового поиска, например `intfloat/multilingual-e5-base`; пусто — выключен. Нужны группа `semantic` и индекс `index-publications` |
 | `PIPELINE_SINCE` | рабочая дата (`YYYY-MM-DD`): шаг 2 удаляет публикации раньше неё; в `compose.yaml` — `2026-09-20`; пусто — по дате не удаляется |
 
 Для Docker Compose также используются:
@@ -158,14 +157,14 @@ PostgreSQL integration suite (база обязательно `court_monitor_tes
 ```bash
 # Один раз: отдельный кластер только для тестов, порт 5434. Пароль случайный,
 # его хранит только контейнер.
-docker run -d --name ebnv-pgvector-test -p 127.0.0.1:5434:5432 \
+docker run -d --name ebnv-postgres-test -p 127.0.0.1:5434:5432 \
   -e POSTGRES_USER=court_monitor -e POSTGRES_DB=court_monitor_test \
   -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
-  pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
+  postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
 
 # Каждый раз:
-docker start ebnv-pgvector-test
-TEST_PASSWORD=$(docker inspect ebnv-pgvector-test \
+docker start ebnv-postgres-test
+TEST_PASSWORD=$(docker inspect ebnv-postgres-test \
   --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^POSTGRES_PASSWORD=//p')
 export TEST_DATABASE_URL="postgresql+psycopg://court_monitor:${TEST_PASSWORD}@127.0.0.1:5434/court_monitor_test"
 DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head

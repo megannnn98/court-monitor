@@ -145,7 +145,7 @@ monitoring-status: нет зависших или бесконечно пада�
 
 | Profile | Services |
 |---|---|
-| (none) | PostgreSQL 18.6 with pgvector (`pgvector/pgvector:pg18-bookworm`, pinned by digest) |
+| (none) | PostgreSQL 18.6 (`postgres:18.6-bookworm`, pinned by digest) |
 | `migrate` | one-shot `alembic upgrade head` |
 | `api` | + API |
 | `monitoring` | + Dagster DB init, webserver, daemon |
@@ -168,11 +168,6 @@ gives the containers the GPU ([ADR 0014](../adr/0014-production-deployment.md)).
   risk.
 - A registry card changed after ingestion is not re-read.
 - Dagster schedules are created stopped; they are started by hand.
-- The migration `t4u5v6w7x8y9` creates the `vector` extension: the PostgreSQL image must
-  be the pgvector one before `alembic upgrade head` runs.
-- The tables of the removed vector index stay in the schema, written and read by nothing:
-  `semantic_documents`, `semantic_vector_collections`, `semantic_vectors`,
-  `semantic_index_state`. Dropping them needs its own migration.
 
 ## Reproduce
 
