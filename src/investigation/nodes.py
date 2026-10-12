@@ -386,6 +386,8 @@ async def coverage(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
         bool(assessment.missing)
         and not tasks
         and (bool(assessment.follow_up_queries) or view.rounds > 0)
+        # A lead found for the gap ends its search, it does not exhaust it.
+        and not assessment.leads
     )
     assessment = assessment.model_copy(
         update={"follow_up_tasks": tasks, "enough": not tasks, "exhausted": exhausted}

@@ -7,6 +7,7 @@ never a fact and never decides who the subject is.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 from ingestion.search import SourceSearch, SourceSearchQuery
@@ -14,6 +15,26 @@ from investigation.models import EvidenceItem, InvestigationQuery, RetrieverCapa
 from investigation.services.retrieval import TEXT_FACTS
 
 EXTERNAL_RESULTS = 10
+_WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
+# Letters a declined word of a name may differ in at its end.
+_ENDING = 3
+_MIN_STEM = 3
+
+
+def names(text: str, name: str) -> bool:
+    """Every word of the name stands in the text, in any case of the noun; no name, no
+    filter."""
+    words = [word.lower().replace("ё", "е") for word in _WORD.findall(name) if len(word) > 1]
+    if not words:
+        return True
+    folded = text.lower().replace("ё", "е")
+    return all(
+        re.search(
+            r"(?<![а-яa-z])" + re.escape(word[: max(_MIN_STEM, len(word) - _ENDING)]),
+            folded,
+        )
+        for word in words
+    )
 
 
 class SourceSearchRetriever:
@@ -39,6 +60,9 @@ class SourceSearchRetriever:
         # A site's search box reads every word as required: the name and one word.
         words = " ".join(part for part in (query.name, *query.terms[:1]) if part)
         found = await self._search.search(SourceSearchQuery(text=words, limit=self._limit))
+        # A site's search matches loosely; a post that does not name the person (every
+        # word of the name, in any case) is not about them.
+        found = [item for item in found if names(item.text, query.name)]
         now = datetime.now(UTC)
         return [
             EvidenceItem(

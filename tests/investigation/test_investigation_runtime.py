@@ -969,3 +969,17 @@ def test_a_third_scenario_plugs_in_and_a_repeated_search_is_never_made_twice() -
     assert result.usage.followup_rounds == 1
     assert result.status == "partial"
     assert any("новых способов поиска" in warning for warning in result.warnings)
+
+
+def test_a_gap_a_lead_was_found_for_is_not_called_exhausted() -> None:
+    known = [item for item in WHOLE if item.fact != "charges"]
+
+    def terms(query: InvestigationQuery) -> list[EvidenceItem]:
+        found = article(8, "по «иноагентской» статье", source="entity_groups", key=KEY)
+        return [found.model_copy(update={"leads": (query.fact,)})]
+
+    result = run(groups(known, terms=terms), limits=Limits(max_followups=5))
+
+    assert result.usage.followup_rounds == 1
+    assert not any("новых способов поиска" in warning for warning in result.warnings)
+    assert any("найдены цитаты" in warning for warning in result.warnings)

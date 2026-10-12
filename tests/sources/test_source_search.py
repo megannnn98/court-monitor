@@ -204,3 +204,21 @@ def test_live_telegram_search_answers() -> None:
     found = asyncio.run(TelegramChannelSearch(CHANNEL).search(SourceSearchQuery("суд", limit=3)))
 
     assert found and all(item.url.startswith("https://t.me/ovdinfolive/") for item in found)
+
+
+def test_a_post_that_does_not_name_the_person_is_dropped() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=page(
+                ("ovdinfolive", 3, "Олегу Куваеву заочно запросили 5 лет"),
+                ("ovdinfolive", 2, "Минюст пополнил реестр иноагентов"),
+                ("ovdinfolive", 1, "Создателя «Масяни» Олега Куваева оштрафовали"),
+            ),
+        )
+
+    retriever = SourceSearchRetriever(search_over(httpx.MockTransport(handler)), source="telegram")
+
+    found = asyncio.run(retriever.search(InvestigationQuery(kind="keywords", name="Олег Куваев")))
+
+    assert [item.external_id for item in found] == ["3", "1"]
