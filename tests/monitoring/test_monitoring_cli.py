@@ -55,7 +55,9 @@ def _run(
             monitoring_settings=service.settings,
             monitoring=service,
             runs=MonitoringRuns(SqlAlchemyMonitoringRepository(factory)),
-            results=ResultsService(findings=MonitoringFindingService(factory)),
+            results=ResultsService(
+                session_factory=factory, findings=MonitoringFindingService(factory)
+            ),
         )
 
     assert run_monitoring_command(_parse(*argv), session_factory, build_services=build)

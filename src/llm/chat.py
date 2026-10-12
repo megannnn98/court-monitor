@@ -75,12 +75,26 @@ class Spend:
         self.budget_usd = budget_usd
         self._cost = 0.0
         self._calls = 0
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
         self._lock = threading.Lock()
 
-    def add(self, cost: float) -> None:
+    def add(self, cost: float, *, prompt_tokens: int = 0, completion_tokens: int = 0) -> None:
         with self._lock:
             self._cost += cost
             self._calls += 1
+            self._prompt_tokens += prompt_tokens
+            self._completion_tokens += completion_tokens
+
+    @property
+    def prompt_tokens(self) -> int:
+        with self._lock:
+            return self._prompt_tokens
+
+    @property
+    def completion_tokens(self) -> int:
+        with self._lock:
+            return self._completion_tokens
 
     @property
     def cost_usd(self) -> float:
@@ -144,7 +158,11 @@ def chat_json(
     usage = completion.usage
     cost = float(usage.get("cost") or 0.0)
     if spend is not None:
-        spend.add(cost)
+        spend.add(
+            cost,
+            prompt_tokens=int(usage.get("prompt_tokens") or 0),
+            completion_tokens=int(usage.get("completion_tokens") or 0),
+        )
     logger.info(
         "event=entity_model_call provider=%s model=%s prompt_tokens=%s completion_tokens=%s "
         "cost_usd=%.6f",

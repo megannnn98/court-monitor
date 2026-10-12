@@ -27,7 +27,7 @@ import { formatDate } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-// The operator's words (`entities.unnamed`).
+// The operator's words (`analysis.unnamed.figurants`).
 const SAME = "same";
 const DIFFERENT = "different";
 const RF_ENTRY = "rf_entry";

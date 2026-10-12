@@ -27,6 +27,10 @@ from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from ingestion.sources.website_adapter import WebsiteAdapter
 from ingestion.stored import SqlAlchemyStoredDocuments
+from investigation.models import Limits
+from investigation.service import InvestigationService
+from investigation.services.model import investigation_model_from_env
+from investigation.services.retrieval import LocalDatabaseRetriever, StoredPublicationsRetriever
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
 from orchestrator.cycle import OperatorCycle
@@ -162,7 +166,8 @@ def build_results_service(
     query_provider: MonitoringQueryProvider | None = None,
 ) -> ResultsService:
     return ResultsService(
-        findings=MonitoringFindingService(session_factory, query_provider=query_provider)
+        session_factory=session_factory,
+        findings=MonitoringFindingService(session_factory, query_provider=query_provider),
     )
 
 
@@ -214,6 +219,20 @@ def build_operator_cycle(
         processing=build_processing_service(session_factory),
         identity=identity_service_from_env(env),
         analysis=build_analysis_service(session_factory),
+    )
+
+
+def build_investigation_service(
+    session_factory: sessionmaker[Session], *, env: Mapping[str, str] | None = None
+) -> InvestigationService:
+    """An investigation over the local database: the person's entity group and the
+    stored publications. A model words the answer when OpenRouter is configured; without
+    one the rules alone answer. Another source is one more retriever in this list."""
+    results = build_results_service(session_factory)
+    return InvestigationService(
+        retrievers=[LocalDatabaseRetriever(results), StoredPublicationsRetriever(results)],
+        model=investigation_model_from_env(env),
+        limits=Limits.from_env(env),
     )
 
 
