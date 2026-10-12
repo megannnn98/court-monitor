@@ -65,9 +65,18 @@ def test_an_entity_a_person_took_out_is_gone_with_its_mentions() -> None:
     assert set(found) == {2}
 
 
-def test_two_names_of_several_parts_stay_two_people() -> None:
-    # Both lost their first word under the first version of `name_parts` and merged.
-    mentions = [_mention(1, 1, "Джон Пол Смит"), _mention(2, 2, "Джеймс Пол Смит")]
+@pytest.mark.parametrize(
+    ("one", "other"),
+    [
+        ("Джон Пол Смит", "Джеймс Пол Смит"),
+        ("Джон Давид Смит", "Джеймс Давид Смит"),
+        ("Анна Мария Смит", "Анна Елена Смит"),
+        ("Герман Иван Петрович", "Герман Олег Петрович"),
+    ],
+)
+def test_two_names_of_several_parts_stay_two_people(one: str, other: str) -> None:
+    # Each pair got one set of parts under an earlier `name_parts` and merged.
+    mentions = [_mention(1, 1, one), _mention(2, 2, other)]
 
     found = _entities(mentions)
 
@@ -237,6 +246,44 @@ def test_the_evaluator_tells_a_review_a_missing_entity_and_a_partial_join_apart(
     assert [row["pair_id"] for row in report["errors"]["rules_deepseek_missing_entities"]] == [
         "case-1:b-c"
     ]
+
+
+def test_every_pair_is_decided_left_to_a_human_or_missing() -> None:
+    sample = _sample(
+        [
+            ("a-b", "one_entity"),
+            ("a-c", "offered_to_operator"),
+            ("b-c", "no_entity"),
+            ("c-d", "different_entities"),
+        ]
+    )
+    annotations = _labelled(sample, "same_person")
+    # A special label is outside the identity metric and still one of every pair.
+    annotations["annotations"]["case-1:b-c"]["label"] = "not_a_person"  # type: ignore[index]
+
+    replayed = evaluate_manual.evaluate(sample, annotations)["models"]["rules_deepseek"]
+
+    assert (
+        replayed["all_pairs_automatic"],
+        replayed["all_pairs_abstains"],
+        replayed["all_pairs_missing"],
+    ) == (2, 1, 1)
+    assert replayed["evaluable_pairs"] == 3 and replayed["missing_entity"] == 0
+
+
+def test_a_correct_join_with_a_mention_left_out_is_told_from_a_whole_one() -> None:
+    sample = _sample([("a-b", "one_entity"), ("a-c", "one_entity")])
+    pairs = sample["cases"][0]["pairs"]  # type: ignore[index]
+    whole = {"left_mentions_without_entity": 0, "right_mentions_without_entity": 0}
+    pairs[0]["replay"] = {"rules_deepseek": whole}
+    pairs[1]["replay"] = {"rules_deepseek": {**whole, "right_mentions_without_entity": 2}}
+
+    report = evaluate_manual.evaluate(sample, _labelled(sample, "same_person"))
+
+    replayed = report["models"]["rules_deepseek"]
+    assert (replayed["correct"], replayed["correct_with_every_mention_placed"]) == (2, 1)
+    # ER v2 and the stored rules have no counts in the sample.
+    assert report["models"]["er_v2"]["correct_with_every_mention_placed"] is None
 
 
 def test_a_partial_join_of_two_different_people_is_a_false_merge() -> None:

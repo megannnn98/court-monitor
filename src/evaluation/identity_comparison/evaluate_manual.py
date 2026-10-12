@@ -116,9 +116,32 @@ def model_metrics(rows: list[dict[str, Any]], model: str) -> dict[str, Any]:
         # Yield of correct automatic answers: abstentions remain a separate outcome,
         # not an error. This must not be called accuracy.
         "correct_fraction_of_evaluable": ratio(counts["correct"], len(eligible)),
-        "all_pairs_automatic": sum(row[f"{model}_prediction"] != "abstain" for row in rows),
+        # Over every pair, the special labels too: decided, left to a human, nobody made.
+        "all_pairs_automatic": sum(
+            row[f"{model}_prediction"] not in ("abstain", "missing") for row in rows
+        ),
         "all_pairs_abstains": sum(row[f"{model}_prediction"] == "abstain" for row in rows),
+        "all_pairs_missing": sum(row[f"{model}_prediction"] == "missing" for row in rows),
+        # A join is judged on the mentions the grouping placed. Of the correct pairs,
+        # those with every mention of both sides in an entity; None where the sample
+        # holds no counts for the model.
+        "correct_with_every_mention_placed": _fully_placed(eligible, model),
     }
+
+
+def _fully_placed(rows: list[dict[str, Any]], model: str) -> int | None:
+    counted = [row for row in rows if row.get(f"{model}_replay") is not None]
+    if not counted:
+        return None
+    return len(
+        [
+            row
+            for row in counted
+            if row[f"{model}_outcome"] == "correct"
+            and row[f"{model}_replay"]["left_mentions_without_entity"] == 0
+            and row[f"{model}_replay"]["right_mentions_without_entity"] == 0
+        ]
+    )
 
 
 def stratum_metrics(rows: list[dict[str, Any]], models: list[str]) -> dict[str, Any]:
@@ -182,6 +205,8 @@ def evaluate(sample: dict[str, Any], annotations: dict[str, Any]) -> dict[str, A
             row[f"{model}_decision"] = decision
             row[f"{model}_prediction"] = predicted
             row[f"{model}_outcome"] = outcome(label, predicted)
+            # The counts behind a replayed decision, where the sample has them.
+            row[f"{model}_replay"] = pair.data.get("replay", {}).get(model)
         rows.append(row)
     labels = Counter(row["manual_label"] for row in rows)
     strata: dict[str, list[dict[str, Any]]] = defaultdict(list)
