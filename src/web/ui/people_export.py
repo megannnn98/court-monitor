@@ -27,7 +27,6 @@ from analysis.operator_base.known_base import KnownBase
 from analysis.politics.classification import VERDICT_LABELS
 from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from analysis.rosfinmonitoring.rf_entry import rf_word, strongest_entries
-from analysis.unnamed.figurants import EVENT_LABELS
 from db.orm_models import (
     EntityGroupChargeRecord,
     EntityGroupNewsRecord,
@@ -35,6 +34,7 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
 )
+from processing.evidence.unnamed import EVENT_LABELS
 from results.done_marks import done_marks, is_done
 from results.queries.unnamed_cases import Case, all_cases
 from web.dependencies import get_db

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from analysis.operator_base.base_unnamed import record_age
 from analysis.operator_base.known_base import SHOWN, KnownMatch
-from analysis.unnamed.figurants import place_pattern
+from analysis.unnamed.matching import place_pattern
 from db.orm_models import AirtableKnownPersonRecord
 
 _YEAR = 365.25

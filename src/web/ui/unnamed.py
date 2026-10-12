@@ -27,7 +27,6 @@ from analysis.unnamed.figurants import (
     CRIMINAL_MOTIVE,
     DIFFERENT,
     DUPLICATE,
-    EVENT_LABELS,
     EXISTING_PERSON,
     IDENTIFIED,
     INSUFFICIENT,
@@ -35,15 +34,13 @@ from analysis.unnamed.figurants import (
     RF_ENTRY,
     SAME,
     SUPPLIED_NAME,
-    Candidates,
-    candidate_key,
-    candidates,
     clear_resolution,
     decide,
     forget,
     keep,
     resolve_identity,
 )
+from analysis.unnamed.matching import Candidates, candidate_key, candidates
 from analysis.unnamed.named_candidates import (
     NamedCandidate,
     named_candidates,
@@ -56,6 +53,7 @@ from db.orm_models import (
     UnnamedFigurantRecord,
     UnnamedScreenedRecord,
 )
+from processing.evidence.unnamed import EVENT_LABELS
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
 from web.ui.entities import display_name

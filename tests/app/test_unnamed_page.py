@@ -285,7 +285,7 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
 
 
 def test_the_overview_counts_the_candidates_worth_looking_at() -> None:
-    from analysis.unnamed.figurants import Candidates
+    from analysis.unnamed.matching import Candidates
     from web.ui.overview import _found
 
     assert _found(Candidates([], 545, None, likely=12)) == "вероятных в перечне: 12"

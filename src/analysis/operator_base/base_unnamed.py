@@ -24,7 +24,8 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from analysis.unnamed.figurants import DIFFERENT, SAME, place_pattern, place_stems
+from analysis.unnamed.figurants import DIFFERENT, SAME
+from analysis.unnamed.matching import place_pattern, place_stems
 from db.orm_models import AirtableKnownPersonRecord, UnnamedDecisionRecord
 
 SHOWN = 5

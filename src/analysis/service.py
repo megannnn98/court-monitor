@@ -32,7 +32,8 @@ from analysis.rosfinmonitoring.snapshot_lookup import (
     RosfinmonitoringSnapshotSummary,
     SqlAlchemyRosfinmonitoringSnapshotLookup,
 )
-from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
+from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult
+from processing.evidence.unnamed import unnamed_reader_from_env
 
 # The steps log under the name the operator console reads its runs by.
 logger = logging.getLogger("monitoring")

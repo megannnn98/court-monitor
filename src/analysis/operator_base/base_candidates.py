@@ -24,7 +24,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from analysis.unnamed.figurants import DIFFERENT, SAME, SUPPLIED_NAME, place_pattern
+from analysis.unnamed.figurants import DIFFERENT, SAME, SUPPLIED_NAME
+from analysis.unnamed.matching import place_pattern
 
 SHOWN = 5
 # News of a sentence comes after the sentence: the same day from the court, weeks later
