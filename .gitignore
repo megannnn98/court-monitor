@@ -5,6 +5,8 @@ __pycache__/
 article.html
 /.vscode
 /.env
+# The demo stand's own secrets (ADR 0029); `deploy/demo/env.example` is the template.
+/.env.demo
 .aider*
 /.qwen/
 
