@@ -29,6 +29,7 @@ from web.routers import (
     dossier,
     entities,
     health,
+    investigation,
     investigations,
     junk_holds,
     monitoring,
@@ -184,5 +185,6 @@ for module in (
     ask,
     reference_lists,
     wiki_overview,
+    investigation,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

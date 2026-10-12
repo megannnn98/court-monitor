@@ -11,6 +11,7 @@ from cli import (
     config,
     extraction,
     ingestion,
+    investigation,
     persecution,
     persons,
     rosfinmonitoring,
@@ -28,6 +29,7 @@ _REGISTRATIONS = (
     areas.register_person_resolution,
     areas.register_monitoring,
     areas.register_evaluation,
+    investigation.register,
     config.register,
 )
 

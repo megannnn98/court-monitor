@@ -3003,6 +3003,44 @@
           }
         }
       }
+    },
+    "/api/v1/investigation": {
+      "post": {
+        "summary": "Post Investigation",
+        "operationId": "post_investigation_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestigationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4960,6 +4998,151 @@
         ],
         "title": "EventCountResponse"
       },
+      "EvidenceItem": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "default": ""
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "entity_group",
+              "publication",
+              "external"
+            ],
+            "title": "Source Type"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "article_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Id"
+          },
+          "entity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Key"
+          },
+          "span_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Start"
+          },
+          "span_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span End"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "fact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_type",
+          "source_id",
+          "text"
+        ],
+        "title": "EvidenceItem",
+        "description": "One thing found, with where it comes from. `text` is quoted, never rewritten."
+      },
       "EvidenceResponse": {
         "properties": {
           "article_id": {
@@ -5112,6 +5295,34 @@
           "non_retryable"
         ],
         "title": "FailureKind"
+      },
+      "Finding": {
+        "properties": {
+          "fact": {
+            "type": "string",
+            "title": "Fact"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fact",
+          "statement",
+          "evidence"
+        ],
+        "title": "Finding",
+        "description": "A fact of the result. It cannot exist without evidence."
       },
       "HTTPValidationError": {
         "properties": {
@@ -5352,6 +5563,122 @@
           "last_published_at"
         ],
         "title": "InvestigationFoundResponse"
+      },
+      "InvestigationRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "max_followups": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Followups"
+          },
+          "local_only": {
+            "type": "boolean",
+            "title": "Local Only",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "InvestigationRequest"
+      },
+      "InvestigationResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "partial",
+              "clarification_required",
+              "review_required",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Subject"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceItem"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "missing_information": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Information"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Conflicts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "question"
+        ],
+        "title": "InvestigationResult"
       },
       "InvestigationSearchResponse": {
         "properties": {
@@ -8794,6 +9121,61 @@
         ],
         "title": "StopResponse"
       },
+      "Subject": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "entity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Key"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Subject",
+        "description": "Who the investigation is about. `entity_key` is set only when exactly one\nentity group answers the name."
+      },
+      "SubjectCandidate": {
+        "properties": {
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_key",
+          "name",
+          "description"
+        ],
+        "title": "SubjectCandidate"
+      },
       "TimelineItemResponse": {
         "properties": {
           "event_type": {
@@ -9474,6 +9856,43 @@
         ],
         "title": "UnnamedScreenedResponse",
         "description": "Whom the search set aside on its own."
+      },
+      "Usage": {
+        "properties": {
+          "llm_calls": {
+            "type": "integer",
+            "title": "Llm Calls",
+            "default": 0
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens",
+            "default": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens",
+            "default": 0
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd",
+            "default": 0
+          },
+          "search_calls": {
+            "type": "integer",
+            "title": "Search Calls",
+            "default": 0
+          },
+          "followup_rounds": {
+            "type": "integer",
+            "title": "Followup Rounds",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "Usage",
+        "description": "What a run spent. Summed across the nodes of the graph."
       },
       "ValidationError": {
         "properties": {

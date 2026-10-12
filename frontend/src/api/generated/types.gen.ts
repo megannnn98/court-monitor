@@ -1213,6 +1213,70 @@ export type EventCountResponse = {
 };
 
 /**
+ * EvidenceItem
+ *
+ * One thing found, with where it comes from. `text` is quoted, never rewritten.
+ */
+export type EvidenceItem = {
+    /**
+     * Ref
+     */
+    ref?: string;
+    /**
+     * Source Type
+     */
+    source_type: 'entity_group' | 'publication' | 'external';
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Url
+     */
+    url?: string | null;
+    /**
+     * Article Id
+     */
+    article_id?: number | null;
+    /**
+     * Entity Key
+     */
+    entity_key?: string | null;
+    /**
+     * Span Start
+     */
+    span_start?: number | null;
+    /**
+     * Span End
+     */
+    span_end?: number | null;
+    /**
+     * Text
+     */
+    text: string;
+    /**
+     * Published At
+     */
+    published_at?: string | null;
+    /**
+     * Confidence
+     */
+    confidence?: number | null;
+    /**
+     * Fact
+     */
+    fact?: string | null;
+    /**
+     * Value
+     */
+    value?: string | null;
+    /**
+     * Lead
+     */
+    lead?: string | null;
+};
+
+/**
  * EvidenceResponse
  */
 export type EvidenceResponse = {
@@ -1312,6 +1376,26 @@ export type EvidenceSpanResponse = {
  * FailureKind
  */
 export type FailureKind = 'retryable' | 'non_retryable';
+
+/**
+ * Finding
+ *
+ * A fact of the result. It cannot exist without evidence.
+ */
+export type Finding = {
+    /**
+     * Fact
+     */
+    fact: string;
+    /**
+     * Statement
+     */
+    statement: string;
+    /**
+     * Evidence
+     */
+    evidence: Array<string>;
+};
 
 /**
  * HTTPValidationError
@@ -1453,6 +1537,64 @@ export type InvestigationFoundResponse = {
      * Last Published At
      */
     last_published_at: string | null;
+};
+
+/**
+ * InvestigationRequest
+ */
+export type InvestigationRequest = {
+    /**
+     * Query
+     */
+    query: string;
+    /**
+     * Max Followups
+     */
+    max_followups?: number | null;
+    /**
+     * Local Only
+     */
+    local_only?: boolean;
+};
+
+/**
+ * InvestigationResult
+ */
+export type InvestigationResult = {
+    /**
+     * Status
+     */
+    status: 'completed' | 'partial' | 'clarification_required' | 'review_required' | 'failed';
+    /**
+     * Question
+     */
+    question: string;
+    subject?: Subject | null;
+    /**
+     * Findings
+     */
+    findings?: Array<Finding>;
+    /**
+     * Evidence
+     */
+    evidence?: Array<EvidenceItem>;
+    /**
+     * Missing Information
+     */
+    missing_information?: Array<string>;
+    /**
+     * Conflicts
+     */
+    conflicts?: Array<string>;
+    /**
+     * Warnings
+     */
+    warnings?: Array<string>;
+    /**
+     * Summary
+     */
+    summary?: string | null;
+    usage?: Usage;
 };
 
 /**
@@ -3590,6 +3732,45 @@ export type StopResponse = {
 };
 
 /**
+ * Subject
+ *
+ * Who the investigation is about. `entity_key` is set only when exactly one
+ * entity group answers the name.
+ */
+export type Subject = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Entity Key
+     */
+    entity_key?: string | null;
+    /**
+     * Candidates
+     */
+    candidates?: Array<SubjectCandidate>;
+};
+
+/**
+ * SubjectCandidate
+ */
+export type SubjectCandidate = {
+    /**
+     * Entity Key
+     */
+    entity_key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string;
+};
+
+/**
  * TimelineItemResponse
  */
 export type TimelineItemResponse = {
@@ -4021,6 +4202,38 @@ export type UnnamedScreenedResponse = {
      * Explanation
      */
     explanation: string;
+};
+
+/**
+ * Usage
+ *
+ * What a run spent. Summed across the nodes of the graph.
+ */
+export type Usage = {
+    /**
+     * Llm Calls
+     */
+    llm_calls?: number;
+    /**
+     * Input Tokens
+     */
+    input_tokens?: number;
+    /**
+     * Output Tokens
+     */
+    output_tokens?: number;
+    /**
+     * Cost Usd
+     */
+    cost_usd?: number;
+    /**
+     * Search Calls
+     */
+    search_calls?: number;
+    /**
+     * Followup Rounds
+     */
+    followup_rounds?: number;
 };
 
 /**
@@ -6040,3 +6253,28 @@ export type GetOverviewV1Responses = {
 };
 
 export type GetOverviewV1Response = GetOverviewV1Responses[keyof GetOverviewV1Responses];
+
+export type PostInvestigationV1Data = {
+    body: InvestigationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/investigation';
+};
+
+export type PostInvestigationV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PostInvestigationV1Error = PostInvestigationV1Errors[keyof PostInvestigationV1Errors];
+
+export type PostInvestigationV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: InvestigationResult;
+};
+
+export type PostInvestigationV1Response = PostInvestigationV1Responses[keyof PostInvestigationV1Responses];
