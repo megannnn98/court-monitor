@@ -39,8 +39,7 @@ from orchestrator.models import (
 )
 from orchestrator.repository import SqlAlchemyMonitoringRepository
 from persons.resolution.stage import PersonResolutionStage
-from processing.extraction.models import ExtractionRunStatus
-from processing.service import ProcessingService
+from processing.service import ExtractionRunStatus, ProcessingService
 from results.service import NO_RF_SNAPSHOT, ResultsService
 
 logger = logging.getLogger("monitoring")

@@ -28,7 +28,10 @@ from analysis.politics.classification import (
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck, RfCheckResult
-from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from analysis.rosfinmonitoring.snapshot_lookup import (
+    RosfinmonitoringSnapshotSummary,
+    SqlAlchemyRosfinmonitoringSnapshotLookup,
+)
 from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 
 # The steps log under the name the operator console reads its runs by.
@@ -39,6 +42,7 @@ __all__ = [
     "NewsResult",
     "PoliticsResult",
     "RfCheckResult",
+    "RosfinmonitoringSnapshotSummary",
     "UnnamedResult",
 ]
 
@@ -119,9 +123,13 @@ class AnalysisService:
         """Classify one person and store it; the status."""
         return str(self._classification.classify_person(person_id).status)
 
+    def latest_snapshot(self) -> RosfinmonitoringSnapshotSummary | None:
+        """The published list the database works against now; None before the first.
+        Never the operator's own Airtable list."""
+        return self._snapshot_lookup.latest_imported_snapshot()
+
     def latest_snapshot_id(self) -> int | None:
-        """The latest imported snapshot of the list; None when none was imported."""
-        snapshot = self._snapshot_lookup.latest_imported_snapshot()
+        snapshot = self.latest_snapshot()
         return None if snapshot is None else snapshot.snapshot_id
 
     def persons_pending_rf_match(self, snapshot_id: int) -> list[int]:

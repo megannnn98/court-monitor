@@ -24,7 +24,7 @@ from processing.evidence.digest import (
 )
 from processing.evidence.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
-from processing.extraction.models import ExtractionSaveResult
+from processing.extraction.models import ExtractionRunStatus, ExtractionSaveResult
 from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
 from processing.junk.hold_reader import HoldsRead, hold_reader_from_env, read_holds
 from processing.junk.purge import JunkPurge, JunkPurgeResult, since_from_env
@@ -36,6 +36,7 @@ logger = logging.getLogger("monitoring")
 
 __all__ = [
     "DigestResult",
+    "ExtractionRunStatus",
     "ExtractionSaveResult",
     "FigurantResult",
     "JunkPurgeOutcome",

@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from persons.persistence import SqlAlchemyPersonPersistence
+from application import build_resolution_review_service
 from persons.resolution.review import (
     PersonResolutionReviewService,
     ResolutionReviewAction,
@@ -71,8 +71,7 @@ class PersonResolutionReviewDecisionBody(BaseModel):
 
 
 def _person_resolution_reviews(db: Session) -> PersonResolutionReviewService:
-    session_factory = session_factory_for(db)
-    return PersonResolutionReviewService(SqlAlchemyPersonPersistence(session_factory))
+    return build_resolution_review_service(session_factory_for(db))
 
 
 @router.get("/person-resolution/reviews", response_model=list[ResolutionReviewView])

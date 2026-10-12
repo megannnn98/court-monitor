@@ -32,6 +32,7 @@ from monitor_core.ports import DocumentFetcher
 from orchestrator.cycle import OperatorCycle
 from orchestrator.models import MonitoringSettings
 from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.runs import MonitoringRuns
 from orchestrator.service import MonitoringService, PipelineModules
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_factory import build_entity_review_service
@@ -40,6 +41,7 @@ from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
 from persons.resolution.pending import SqlAlchemyPendingResolution
 from persons.resolution.resolution_service import ExtractionResolutionService
+from persons.resolution.review import PersonResolutionReviewService
 from persons.resolution.stage import PersonResolutionStage
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
@@ -213,6 +215,17 @@ def build_operator_cycle(
         identity=identity_service_from_env(env),
         analysis=build_analysis_service(session_factory),
     )
+
+
+def build_monitoring_runs(session_factory: sessionmaker[Session]) -> MonitoringRuns:
+    return MonitoringRuns(SqlAlchemyMonitoringRepository(session_factory))
+
+
+def build_resolution_review_service(
+    session_factory: sessionmaker[Session],
+) -> PersonResolutionReviewService:
+    """Human review of ER v2 decisions: the person endpoints' compatibility path."""
+    return PersonResolutionReviewService(SqlAlchemyPersonPersistence(session_factory))
 
 
 @dataclass(frozen=True)

@@ -31,10 +31,8 @@ from sqlalchemy.orm import Session
 from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import INCLUSION_NOTES, source_mark
-from analysis.rosfinmonitoring.snapshot_lookup import (
-    RosfinmonitoringSnapshotSummary,
-    SqlAlchemyRosfinmonitoringSnapshotLookup,
-)
+from analysis.service import RosfinmonitoringSnapshotSummary
+from application import build_analysis_service
 from db.orm_models import (
     RosfinmonitoringEntryRecord,
 )
@@ -101,9 +99,7 @@ def _latest(db: Session) -> RosfinmonitoringSnapshotSummary | None:
     The Airtable snapshot is excluded inside the lookup: a list an operator curates is
     not the list the state publishes, and a page headed «Перечень РФМ» must not show it.
     """
-    return SqlAlchemyRosfinmonitoringSnapshotLookup(
-        session_factory_for(db)
-    ).latest_imported_snapshot()
+    return build_analysis_service(session_factory_for(db)).latest_snapshot()
 
 
 def _day(moment: datetime | None) -> str:
