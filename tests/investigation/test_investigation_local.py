@@ -121,6 +121,38 @@ def test_a_declined_name_finds_its_person_and_nobody_else(
     assert results.find_entities("?!") == []
 
 
+def test_a_person_is_found_behind_any_number_of_names_that_only_hold_the_letters(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        for number in range(8):
+            # «Ливанов» holds «иван» inside a word and is mentioned more than Ivan is.
+            session.add(
+                EntityGroupRecord(
+                    key=f"пётр ливанов {number}",
+                    name=f"Пётр Ливанов{'а' * number}",
+                    variants=[],
+                    mention_count=100 - number,
+                    article_count=1,
+                    event_types={},
+                )
+            )
+        session.add(
+            EntityGroupRecord(
+                key="иван кузьмин",
+                name="Иван Кузьмин",
+                variants=[],
+                mention_count=1,
+                article_count=1,
+                event_types={},
+            )
+        )
+
+    hits = build_results_service(session_factory).find_entities("Иван", limit=3)
+
+    assert [hit.name for hit in hits] == ["Иван Кузьмин"]
+
+
 def test_what_the_pipeline_decided_is_read_with_the_words_it_rests_on(
     session_factory: sessionmaker[Session],
 ) -> None:
@@ -234,9 +266,9 @@ def test_missing_facts_are_followed_up_in_the_persons_own_publications(
 
     assert result.status == "partial" and result.findings == []
     assert result.usage.followup_rounds >= 1
-    leads = {item.lead for item in result.evidence if item.lead}
+    leads = {lead for item in result.evidence for lead in item.leads}
     assert "charges" in leads
-    lead = next(item for item in result.evidence if item.lead == "charges")
+    lead = next(item for item in result.evidence if "charges" in item.leads)
     assert "статье 280" in lead.text and lead.article_id is not None
 
 

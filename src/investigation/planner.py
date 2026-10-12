@@ -27,7 +27,7 @@ _NOT_A_NAME = frozenset(
     }
 )  # fmt: skip
 _MAX_NAME_WORDS = 3
-_STEM_ENDING = 2
+_MAX_ENDING = 3
 _MIN_STEM = 3
 
 INTAKE_SCHEMA: dict[str, object] = {
@@ -56,19 +56,27 @@ def subject_by_rules(question: str) -> str | None:
     return " ".join(best[:_MAX_NAME_WORDS]) if best else None
 
 
-def _stem(word: str) -> str:
-    word = word.lower().replace("ё", "е")
-    return word[: max(_MIN_STEM, len(word) - _STEM_ENDING)]
+def _fold(word: str) -> str:
+    return word.lower().replace("ё", "е")
+
+
+def _one_word(first: str, second: str) -> bool:
+    """Two forms of one word: they differ in an ending of at most three letters.
+    «Сидорове» and «Сидоров» are; «Петренко» and «Петров», «Петровского» and «Петров»
+    are not."""
+    shared = 0
+    for left, right in zip(first, second, strict=False):
+        if left != right:
+            break
+        shared += 1
+    return shared >= max(_MIN_STEM, max(len(first), len(second)) - _MAX_ENDING)
 
 
 def named_in(question: str, name: str) -> bool:
     """Every word of the name stands in the question, in any case of the noun."""
-    asked = [_stem(word) for word in _WORD.findall(question)]
-    words = _WORD.findall(name)
-    return bool(words) and all(
-        any(found.startswith(_stem(word)) or _stem(word).startswith(found) for found in asked)
-        for word in words
-    )
+    asked = [_fold(word) for word in _WORD.findall(question)]
+    words = [_fold(word) for word in _WORD.findall(name)]
+    return bool(words) and all(any(_one_word(found, word) for found in asked) for word in words)
 
 
 def intake_messages(question: str) -> tuple[str, str]:

@@ -62,14 +62,16 @@ a run is short and synchronous to its caller. No table was added.
 
 **Identity is the entity group.** A person is looked up by name among the entity
 groups. One group answering is the subject; several are candidates and the status is
-`review_required`; none is `partial` with the person named as not found. ER v2 is not
+`review_required`; none is `partial` with the person named as not found. This is
+settled on everything the search returned, before the ceiling on evidence is applied. ER v2 is not
 imported, and a boundary test holds that.
 
 **A fact needs evidence.** `Finding.evidence` cannot be empty. Findings are built by
 code from what the pipeline decided (role, charges, political or not, the list, the
 latest news), each citing the `EvidenceItem`s that state it. A value a step left as
 «unclear» is missing, not a fact. A quote found while looking for a missing fact is a
-*lead*: it is evidence, it is named in the warnings, and it becomes no finding.
+*lead*: it is evidence, it is named in the warnings, and it becomes no finding. One
+quote may be a lead for several facts.
 
 **Coverage is rules.** `services/coverage.py` says what is known, what is missing, what
 contradicts itself (several values of one fact; a list match by given name and surname
@@ -100,11 +102,20 @@ the queries are `results/dossier.py`. Two boundary tests hold that.
 one method. With OpenRouter configured it is asked at most
 `INVESTIGATION_MAX_LLM_CALLS` (default 2) times:
 
-- at intake, to read the name out of the question. A name the question does not hold
-  is refused, and the rules read the name instead;
-- at the report, to word a summary. Each sentence must cite evidence that exists; a
-  sentence that cites none is dropped, said in the warnings, and the status becomes
-  `review_required`. The summary adds nothing to `findings`.
+- at intake, to read the name out of the question. Each word of the name it returns
+  must be a word of the question up to an ending of three letters, or the rules read
+  the name instead. That stops another person's name; it does not stop two surnames
+  that differ only in such an ending;
+- at the report, to word `model_summary`. Each sentence must cite evidence that
+  exists; a sentence that cites none is dropped, said in the warnings, and the status
+  becomes `review_required`.
+
+**The summary is not checked for support.** That a cited item exists does not show it
+says what the sentence says: a model can put «E1» under anything, by mistake or because
+a publication told it to. So `model_summary` is a separate field, never a source of a
+finding and never an input to `status`; every result that carries one carries the
+warning that it is unchecked, and the command prints it under that heading. The facts
+of a result are `findings`, which no model writes.
 
 Without a model the same graph runs on rules alone.
 
@@ -112,12 +123,17 @@ Without a model the same graph runs on rules alone.
 instructions (`prompts/*.md`), the question in its block, the evidence in its block. A
 closing tag inside a quote is defused so a quote cannot end its block. Beyond the
 prompt, the structure holds: follow-up queries come from the coverage rules, never from
-found text, so a quote cannot add a query, a source or a round; and a model that obeys
-an instruction in a quote produces a sentence without evidence, which is dropped.
+found text, so a quote cannot add a query or a source. A quote found as a lead does
+decide whether its fact is looked up again, which is the loop working as designed. A
+model that obeys an instruction in a quote can still write it into `model_summary`
+under an existing reference: see above for why that field is labelled unchecked.
 
 **Budget is counted.** `Usage` in the state: model calls, input and output tokens,
 cost, searches, follow-up rounds. Hard limits: model calls, rounds, evidence items
-(`INVESTIGATION_MAX_EVIDENCE_ITEMS`, default 40; facts are kept before quotes).
+(`INVESTIGATION_MAX_EVIDENCE_ITEMS`, default 40; facts are kept before quotes, so a
+ceiling below the number of facts cuts facts too, and the result says how many items
+were cut). A call that was paid for and then refused as unusable (a cut answer) is
+counted as a call; its tokens and cost are not.
 
 **Status.** `completed`, `partial` (something is missing), `clarification_required`
 (no name in the question), `review_required` (several people, a contradiction, or a
@@ -129,8 +145,10 @@ model's unsupported claim), `failed` (an exception inside; never an empty succes
 ## Consequences
 
 - An answer about one person carries its grounds and its gaps in one typed value.
-- The first use case is one person. A question about a case, a court or a period is
-  `clarification_required` today.
+- The first use case is one person. A question that names nobody is
+  `clarification_required`. The rules take the longest run of capitalized words for a
+  name, so a question about «Московский Городской Суд» is searched as a person and
+  comes back not found.
 - **No semantic retrieval.** The vector search of
   [ADR 0011](0011-semantic-hybrid-entity-retrieval.md) was removed with its code, and
   Qdrant is not used by this repository now. Name lookup is by word beginnings. A

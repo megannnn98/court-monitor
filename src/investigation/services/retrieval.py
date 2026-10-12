@@ -50,7 +50,7 @@ def _publication(
         span_end=quote.span_end,
         text=quote.quote,
         published_at=quote.published_at,
-        lead=lead,
+        leads=() if lead is None else (lead,),
     )
 
 

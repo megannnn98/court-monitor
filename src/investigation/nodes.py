@@ -41,6 +41,10 @@ from llm.chat import ModelError
 logger = logging.getLogger("investigation")
 
 NO_SUBJECT = "в вопросе не названо имя человека"
+SUMMARY_UNCHECKED = (
+    "сводка написана моделью и не проверена: у каждой фразы есть ссылка на существующий "
+    "материал, но не проверено, что материал говорит именно это"
+)
 REPORT_MAX_TOKENS = 1_500
 # Characters of one piece of evidence shown to the model.
 EVIDENCE_SHOWN = 600
@@ -171,7 +175,9 @@ async def merge_evidence(state: InvestigationState, tools: Toolbox) -> dict[str,
     )
     update: dict[str, Any] = {
         "evidence": merged,
-        "subject": evidence_rules.resolve_subject(subject.name, merged),
+        # On everything found: a ceiling on what is shown must not turn several people
+        # answering the name into one.
+        "subject": evidence_rules.resolve_subject(subject.name, state.get("found", [])),
     }
     if cut:
         update["warnings"] = [f"найдено больше материалов, чем разрешено показать: {cut} отброшено"]
@@ -239,7 +245,10 @@ def supported_summary(
     reply: ModelReply, evidence: Sequence[EvidenceItem]
 ) -> tuple[str | None, int]:
     """The model's sentences that cite existing evidence, joined; and how many were
-    dropped for citing none. None when the answer is unreadable or nothing is left."""
+    dropped for citing none. None when the answer is unreadable or nothing is left.
+
+    This checks that a citation exists, not that the evidence supports the sentence: a
+    model can cite «E1» under anything. So the summary is never a source of a fact."""
     known = {item.ref for item in evidence}
     try:
         sentences = _Report.model_validate(json.loads(reply.text)).sentences
@@ -284,9 +293,8 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
             warnings.append(
                 "лимит дополнительных поисков исчерпан: недостающие данные искали не до конца"
             )
-        leads = sorted({item.lead for item in evidence if item.lead is not None})
-        if leads:
-            cited = ", ".join(item.ref for item in evidence if item.lead is not None)
+        cited = ", ".join(item.ref for item in evidence if item.leads)
+        if cited:
             warnings.append(
                 "по недостающим данным найдены цитаты в публикациях, не проверены: " + cited
             )
@@ -309,6 +317,8 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
             else:
                 spent = _spent(reply)
                 summary, dropped = supported_summary(reply, evidence)
+                if summary is not None:
+                    warnings.append(SUMMARY_UNCHECKED)
                 if dropped:
                     warnings.append(
                         f"{dropped} утверждений модели отброшены: они не ссылаются на материалы"
@@ -325,7 +335,7 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
         missing_information=missing,
         conflicts=conflicts,
         warnings=[*state.get("warnings", []), *warnings],
-        summary=summary,
+        model_summary=summary,
         usage=_usage(state) + spent,
     )
     return {"result": result, "usage": spent, "warnings": warnings}

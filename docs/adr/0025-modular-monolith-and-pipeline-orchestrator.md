@@ -84,7 +84,11 @@ Rules, each held by `tests/test_module_boundaries.py`:
 5. **Two orchestrators, never mixed.** `orchestrator` and `investigation` do not import
    each other.
 
-The allowlist of tolerated violations is empty, and a test keeps it empty.
+The allowlist of tolerated violations is empty, and a test keeps it empty. Relative
+imports are resolved to the module they name before a rule is applied.
+
+The list of internals is a list, not everything a module has: person resolution's
+services and the junk screen's implementation are not on it.
 
 ### What was kept as it was
 
@@ -93,8 +97,9 @@ The allowlist of tolerated violations is empty, and a test keeps it empty.
   tests. A storage failure still stops the ingestion stage; a document that cannot be
   read is still one failed item. The characterization tests of the run were not edited
   to pass.
-- **Logger names.** `monitoring`, `entities` and `operator_console` stay the names the
-  log is filtered by, though the packages are renamed.
+- **Logger names.** `monitoring`, `monitoring.embedder`, `entities` and
+  `operator_console` stay the names the log is filtered by, though the packages are
+  renamed.
 - **The model's role.** DeepSeek names a group the rules made (nominative, gender,
   person or not). It is behind `IdentityService` and decides no identity.
 - **ER v2.** `persons/` is not moved and not extended. The monitoring run reaches it

@@ -92,7 +92,7 @@ def assess(
     if RF_NAME_LEVEL in levels and RF_FULL_LEVEL not in levels:
         conflicts.append(NAME_ONLY_MATCH)
 
-    looked_up = {item.lead for item in evidence if item.lead is not None}
+    looked_up = {lead for item in evidence for lead in item.leads}
     follow_ups = [
         InvestigationQuery(
             kind="publication_terms",

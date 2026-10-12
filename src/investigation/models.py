@@ -60,9 +60,9 @@ class EvidenceItem(BaseModel):
     # for a quote that only shows what a publication says.
     fact: str | None = None
     value: str | None = None
-    # The missing fact this quote was looked up for. A lead is not a fact: a person, or
+    # The missing facts this quote was looked up for. A lead is not a fact: a person, or
     # a later step of the pipeline, decides what it tells.
-    lead: str | None = None
+    leads: tuple[str, ...] = ()
 
     @property
     def identity(self) -> tuple[object, ...]:
@@ -170,7 +170,9 @@ class InvestigationResult(BaseModel):
     missing_information: list[str] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
-    # A model's reading of the evidence, each sentence citing what it rests on; None
-    # when no model was asked. It adds no fact to `findings`.
-    summary: str | None = None
+    # A model's wording of the evidence; None when no model was asked. Each sentence
+    # cites evidence that exists, and that is all that is checked: whether the evidence
+    # says what the sentence says is not. It adds no fact to `findings` and does not
+    # move `status`; read it against the evidence it cites.
+    model_summary: str | None = None
     usage: Usage = Field(default_factory=Usage)

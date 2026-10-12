@@ -17,11 +17,11 @@ def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceIt
         if held is not item:
             # The same quote found twice — by two sources, or again while looking for a
             # missing fact — is one piece of evidence; it keeps whose person it is and
-            # what it was looked up for.
+            # every fact it was looked up for.
             unique[item.identity] = held.model_copy(
                 update={
                     "entity_key": held.entity_key or item.entity_key,
-                    "lead": held.lead or item.lead,
+                    "leads": tuple(dict.fromkeys((*held.leads, *item.leads))),
                 }
             )
     ordered = sorted(unique.values(), key=lambda item: item.fact is None)

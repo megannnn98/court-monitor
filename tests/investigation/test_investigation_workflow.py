@@ -24,6 +24,7 @@ from investigation.models import (
     Usage,
 )
 from investigation.nodes import report_messages
+from investigation.planner import named_in
 from investigation.service import InvestigationService
 from investigation.services.coverage import NAME_ONLY_MATCH, NOT_FOUND
 from investigation.services.model import ModelReply
@@ -46,6 +47,7 @@ def fact(name: str, value: str, *, key: str = KEY, text: str | None = None) -> E
 
 
 def quote(article_id: int, text: str, *, lead: str | None = None) -> EvidenceItem:
+    leads = () if lead is None else (lead,)
     return EvidenceItem(
         source_type="publication",
         source_id="entity_groups",
@@ -55,7 +57,7 @@ def quote(article_id: int, text: str, *, lead: str | None = None) -> EvidenceIte
         span_start=0,
         span_end=len(text),
         text=text,
-        lead=lead,
+        leads=leads,
     )
 
 
@@ -161,7 +163,7 @@ def test_a_person_the_database_knows_whole_is_reported_with_every_fact_cited() -
     assert all(finding.evidence for finding in result.findings)
     assert result.missing_information == [] and result.conflicts == []
     assert (result.usage.search_calls, result.usage.followup_rounds) == (1, 0)
-    assert result.usage.llm_calls == 0 and result.summary is None
+    assert result.usage.llm_calls == 0 and result.model_summary is None
 
 
 def test_every_retriever_is_asked_the_first_query_and_their_evidence_is_merged() -> None:
@@ -202,7 +204,7 @@ def test_a_missing_fact_is_looked_up_once_more_and_a_quote_found_stays_a_lead() 
     assert "charges" not in {finding.fact for finding in result.findings}
     assert result.status == "partial"
     assert result.missing_information == ["статьи обвинения"]
-    lead = next(item for item in result.evidence if item.lead == "charges")
+    lead = next(item for item in result.evidence if "charges" in item.leads)
     assert any(lead.ref in warning for warning in result.warnings)
 
 
@@ -323,13 +325,13 @@ def test_a_quote_found_again_for_a_missing_fact_is_one_piece_and_a_lead() -> Non
     def answers(query: InvestigationQuery) -> list[EvidenceItem]:
         if query.kind == "person":
             return known
-        return [same_quote.model_copy(update={"lead": query.fact})]
+        return [same_quote.model_copy(update={"leads": (query.fact,)})]
 
     retriever = FakeRetriever("entity_groups", answers)
 
     result = run(retriever)
 
-    assert [item.lead for item in result.evidence if item.article_id == 1] == ["charges"]
+    assert [item.leads for item in result.evidence if item.article_id == 1] == [("charges",)]
     # Looked up once: the second round has nothing left to ask for.
     assert len([query for query in retriever.calls if query.kind == "publication_terms"]) == 1
 
@@ -359,6 +361,67 @@ def test_one_quote_found_by_two_sources_is_held_once_and_keeps_its_person() -> N
         assert [item.entity_key for item in held] == [KEY]
 
 
+def test_one_quote_looked_up_for_two_facts_is_a_lead_for_both_and_asked_for_once() -> None:
+    known = [item for item in EVERYTHING if item.fact not in ("charges", "role")]
+
+    def answers(query: InvestigationQuery) -> list[EvidenceItem]:
+        if query.kind == "person":
+            return known
+        # One short publication answers both follow-up queries with the same span.
+        return [quote(7, "обвиняемого арестовали по статье 280", lead=query.fact)]
+
+    retriever = FakeRetriever("entity_groups", answers)
+
+    result = run(retriever)
+
+    (held,) = [item for item in result.evidence if item.article_id == 7]
+    assert set(held.leads) == {"role", "charges"}
+    follow_ups = {query.fact for query in retriever.calls if query.kind == "publication_terms"}
+    assert follow_ups == {"charges", "role"}
+    assert len(retriever.calls) == 3 and result.usage.followup_rounds == 1
+
+
+def test_a_ceiling_on_evidence_never_hides_that_several_people_answer_the_name() -> None:
+    namesake = fact("identity", "Иван Сидоров", key="иван сидоров", text="Иван Сидоров: 9")
+    retriever = FakeRetriever("entity_groups", person_only([IDENTITY, namesake]))
+
+    result = run(retriever, limits=Limits(max_evidence_items=1))
+
+    assert result.status == "review_required"
+    assert result.subject is not None and result.subject.entity_key is None
+    assert len(result.subject.candidates) == 2
+    assert [query.kind for query in retriever.calls] == ["person"]
+
+
+def test_a_models_summary_is_never_passed_off_as_checked() -> None:
+    # The sentence cites evidence that exists and says something that evidence does not.
+    model = FakeModel(sentences=[("Сидоров признал вину.", ["E1"])])
+
+    result = run(FakeRetriever("entity_groups", person_only(EVERYTHING)), model=model)
+
+    assert result.model_summary == "Сидоров признал вину. [E1]"
+    assert any("не проверен" in warning for warning in result.warnings)
+    # No fact came of it, and the facts are what the status speaks of.
+    assert "признал" not in " ".join(finding.statement for finding in result.findings)
+    assert result.status == "completed"
+
+
+@pytest.mark.parametrize(
+    ("question", "name", "held"),
+    [
+        ("что известно о сидорове иване", "Иван Сидоров", True),
+        ("дело Навального", "Навальный", True),
+        ("найди Ивана Петренко", "Иван Петров", False),
+        ("найди Петровского", "Петров", False),
+        ("найди Ивана Сидорова", "Иван Петрович Сидоров", False),
+    ],
+)
+def test_a_name_is_taken_from_a_model_only_if_the_question_holds_it(
+    question: str, name: str, held: bool
+) -> None:
+    assert named_in(question, name) is held
+
+
 def test_a_finding_cannot_be_made_without_evidence() -> None:
     with pytest.raises(ValidationError):
         Finding(fact="role", statement="фигурант", evidence=[])
@@ -375,7 +438,7 @@ def test_a_models_sentences_are_kept_only_with_evidence_that_exists() -> None:
 
     result = run(FakeRetriever("entity_groups", person_only(EVERYTHING)), model=model)
 
-    assert result.summary == "Сидоров — фигурант дела. [E2]"
+    assert result.model_summary == "Сидоров — фигурант дела. [E2]"
     assert result.status == "review_required"
     assert any("2 утверждений модели отброшены" in warning for warning in result.warnings)
     # What the model said adds nothing to the facts.
@@ -412,7 +475,7 @@ def test_the_model_is_asked_no_more_than_the_limit(calls: int, asked: list[str])
     )
 
     assert [schema for schema, _, _ in model.asked] == asked
-    assert result.usage.llm_calls == calls and result.summary is None
+    assert result.usage.llm_calls == calls and result.model_summary is None
     assert any("лимит обращений к модели" in warning for warning in result.warnings)
     assert result.status == "completed"
 
@@ -422,7 +485,7 @@ def test_a_model_that_fails_leaves_the_rules_result() -> None:
         FakeRetriever("entity_groups", person_only(EVERYTHING)), model=FakeModel(fail=True)
     )
 
-    assert result.status == "completed" and result.summary is None
+    assert result.status == "completed" and result.model_summary is None
     assert len(result.findings) == 5
     assert sum("модель" in warning for warning in result.warnings) == 2
 
@@ -453,7 +516,7 @@ def test_a_model_that_obeys_an_instruction_in_a_publication_changes_nothing() ->
     result = run(retriever, model=obedient)
     clean = run(FakeRetriever("entity_groups", person_only(poisoned)))
 
-    assert result.summary is None
+    assert result.model_summary is None
     assert result.status == "review_required"
     assert result.findings == clean.findings
     # The quote added no query, no retriever and no follow-up round.

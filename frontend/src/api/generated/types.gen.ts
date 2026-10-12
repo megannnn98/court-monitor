@@ -1271,9 +1271,9 @@ export type EvidenceItem = {
      */
     value?: string | null;
     /**
-     * Lead
+     * Leads
      */
-    lead?: string | null;
+    leads?: Array<string>;
 };
 
 /**
@@ -1591,9 +1591,9 @@ export type InvestigationResult = {
      */
     warnings?: Array<string>;
     /**
-     * Summary
+     * Model Summary
      */
-    summary?: string | null;
+    model_summary?: string | null;
     usage?: Usage;
 };
 

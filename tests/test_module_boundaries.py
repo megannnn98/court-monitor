@@ -130,6 +130,7 @@ INTERNAL = frozenset(
         "analysis.rosfinmonitoring.persistence",
         "analysis.persecution.classification_service",
         "results.findings",
+        "results.dossier",
         "orchestrator.repository",
         "orchestrator.locks",
     }
@@ -138,7 +139,14 @@ INTERNAL = frozenset(
 # older single-module commands (`cli/ingestion.py`, `cli/extraction.py`, `cli_batches.py`
 # and the like) still build their module's parts themselves; they are listed in the plan
 # as what is left.
-CLOSED_TO_INTERNALS = ("web/", "api.py", "main.py", "cli/monitoring.py", "cli/cycle.py")
+CLOSED_TO_INTERNALS = (
+    "web/",
+    "api.py",
+    "main.py",
+    "cli/monitoring.py",
+    "cli/cycle.py",
+    "cli/investigation.py",
+)
 
 
 def _module_of(path: str) -> str:
@@ -165,14 +173,23 @@ def _dotted(target: str) -> str:
     return ".".join(target.removesuffix(".py").strip("/").split("/"))
 
 
-def _imports(tree: ast.AST) -> Iterator[str]:
+def _imports(tree: ast.AST, path: str) -> Iterator[str]:
+    """Every module the file at `path` imports, by its absolute name: a relative import
+    is resolved against the file's own package."""
+    package = path.split("/")[:-1]
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             yield from (alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            yield node.module
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package[: len(package) - (node.level - 1)]
+                module = ".".join([*base, *([node.module] if node.module else [])])
+            else:
+                module = node.module or ""
+            if module:
+                yield module
             # `from package import module` names the module only in the alias.
-            yield from (f"{node.module}.{alias.name}" for alias in node.names)
+            yield from (f"{module}.{alias.name}" if module else alias.name for alias in node.names)
 
 
 def _files(*prefixes: str) -> Iterator[tuple[str, ast.AST]]:
@@ -182,11 +199,11 @@ def _files(*prefixes: str) -> Iterator[tuple[str, ast.AST]]:
             yield path, ast.parse(file.read_text(encoding="utf-8"))
 
 
-def _imported_modules(tree: ast.AST) -> set[str]:
+def _imported_modules(tree: ast.AST, path: str) -> set[str]:
     """The module files of `src/` a file imports, as dotted names."""
     return {
         _dotted(target)
-        for imported in _imports(tree)
+        for imported in _imports(tree, path)
         if (target := _path_of(imported)) is not None and target.endswith(".py")
     }
 
@@ -195,7 +212,7 @@ def _violations() -> set[str]:
     found: set[str] = set()
     for path, tree in _files():
         forbidden = FORBIDDEN.get(_module_of(path), set())
-        for imported in _imports(tree):
+        for imported in _imports(tree, path):
             target = _path_of(imported)
             if target is not None and _module_of(target) in forbidden:
                 # The package of a `from package import name` is reported once, as the name.
@@ -208,7 +225,7 @@ def _domain_imports_outside(allowed: frozenset[str], prefix: str) -> list[str]:
         f"{path} -> {module}"
         for path, tree in _files(prefix)
         if _module_of(path) != ENTRY_POINT
-        for module in _imported_modules(tree)
+        for module in _imported_modules(tree, path)
         if module.split(".")[0] in _DOMAIN_PACKAGES and module not in allowed
     )
 
@@ -248,7 +265,7 @@ def test_an_investigation_runs_no_sql_of_its_own() -> None:
     offenders = sorted(
         f"{path} -> {imported}"
         for path, tree in _files("investigation/")
-        for imported in _imports(tree)
+        for imported in _imports(tree, path)
         if imported.split(".")[0] in ("sqlalchemy", "db", "psycopg")
     )
 
@@ -260,7 +277,7 @@ def test_dagster_only_schedules_the_orchestrator() -> None:
     offenders = sorted(
         f"{path} -> {module}"
         for path, tree in _files("orchestrator/dagster/")
-        for module in _imported_modules(tree)
+        for module in _imported_modules(tree, path)
         if module.split(".")[0] not in ("orchestrator", "application", "settings")
     )
 
@@ -271,7 +288,7 @@ def test_the_console_and_the_pipeline_commands_use_no_module_internals() -> None
     offenders = sorted(
         f"{path} -> {module}"
         for path, tree in _files(*CLOSED_TO_INTERNALS)
-        for module in _imported_modules(tree)
+        for module in _imported_modules(tree, path)
         if module in INTERNAL
     )
 
@@ -289,6 +306,24 @@ def test_every_named_module_exists() -> None:
     assert missing == []
 
 
+def test_a_relative_import_is_read_as_the_module_it_names() -> None:
+    source = (
+        "from ..identity.service import IdentityService\n"
+        "from . import pending\n"
+        "from .models import ExtractionRunStatus\n"
+        "from ... import analysis\n"
+    )
+
+    found = set(_imports(ast.parse(source), "processing/extraction/pipeline.py"))
+
+    assert {
+        "processing.identity.service",
+        "processing.extraction.pending",
+        "processing.extraction.models",
+        "analysis",
+    } <= found
+
+
 def test_extraction_knows_neither_persons_nor_entity_groups() -> None:
     # Extraction is what person resolution and entity groups both read: it must not
     # depend on what either makes of it.
@@ -296,7 +331,7 @@ def test_extraction_knows_neither_persons_nor_entity_groups() -> None:
     offenders = sorted(
         f"{path} -> {imported}"
         for path, tree in _files("processing/extraction/")
-        for imported in _imports(tree)
+        for imported in _imports(tree, path)
         if imported.startswith(downstream)
     )
 
@@ -308,7 +343,7 @@ def test_identity_knows_nothing_of_person_resolution() -> None:
     offenders = sorted(
         f"{path} -> {imported}"
         for path, tree in _files("processing/identity/")
-        for imported in _imports(tree)
+        for imported in _imports(tree, path)
         if imported.split(".")[0] == "persons"
     )
 

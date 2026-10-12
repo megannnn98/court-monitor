@@ -44,8 +44,8 @@ def _lines(result: InvestigationResult) -> list[str]:
         subject = result.subject
         known_as = subject.candidates[0].name if subject.entity_key else subject.name
         lines.append(f"О ком: {known_as}")
-    if result.summary:
-        lines += ["", result.summary]
+    if result.model_summary:
+        lines += ["", "Сводка модели (не проверена):", result.model_summary]
     if result.findings:
         lines += ["", "Установлено:"]
         lines += [

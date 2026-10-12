@@ -93,7 +93,11 @@ def find_entities(session: Session, name: str, *, limit: int) -> list[EntityHit]
     for word in words:
         query = query.where(folded.like(f"%{_stem(word)}%"))
     hits: list[EntityHit] = []
-    for group in session.scalars(query.limit(limit)):
+    # No LIMIT in SQL: a name that only holds the letters inside a word is dropped below,
+    # and it must not take the place of a person further down.
+    for group in session.scalars(query):
+        if len(hits) >= limit:
+            break
         own = set(name_words(group.name))
         if not all(any(part.startswith(_stem(word)) for part in own) for word in words):
             # The beginning was found inside another word of the name.

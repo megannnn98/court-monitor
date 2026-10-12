@@ -5122,16 +5122,13 @@
             ],
             "title": "Value"
           },
-          "lead": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lead"
+          "leads": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Leads",
+            "default": []
           }
         },
         "type": "object",
@@ -5658,7 +5655,7 @@
             "type": "array",
             "title": "Warnings"
           },
-          "summary": {
+          "model_summary": {
             "anyOf": [
               {
                 "type": "string"
@@ -5667,7 +5664,7 @@
                 "type": "null"
               }
             ],
-            "title": "Summary"
+            "title": "Model Summary"
           },
           "usage": {
             "$ref": "#/components/schemas/Usage"
