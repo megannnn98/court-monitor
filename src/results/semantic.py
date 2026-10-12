@@ -3,7 +3,8 @@
 window. Read only.
 
 Exact search reads every window of the model: at 5 000 windows a few milliseconds.
-An HNSW index is worth it far beyond that (`EXPLAIN` before adding one, ADR 0027).
+An HNSW index is worth it far beyond that (`EXPLAIN` before adding one, ADR 0027); it
+would have to keep this meaning — the best documents, not the best windows.
 """
 
 from __future__ import annotations
@@ -15,9 +16,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from results.search import RankedPublication
-
-# Windows read before articles are folded: an article holds several windows.
-_WINDOWS_PER_ARTICLE = 8
 
 
 def _literal(vector: Sequence[float]) -> str:
@@ -37,7 +35,6 @@ def dense_publications(
     params: dict[str, object] = {
         "model": model_id,
         "vector": _literal(vector),
-        "windows": limit * _WINDOWS_PER_ARTICLE,
         "limit": limit,
     }
     if published_from is not None:
@@ -48,17 +45,15 @@ def dense_publications(
         params["published_to"] = published_to
     statement = text(
         f"""
-        WITH nearest AS (
-            SELECT v.article_id, v.window_start, v.window_end,
+        WITH best AS (
+            -- Each article by its nearest window, before any limit: a limit on windows
+            -- first would let one long article take them all and hide the next ones.
+            SELECT DISTINCT ON (v.article_id) v.article_id, v.window_start, v.window_end,
                    v.embedding <=> CAST(:vector AS vector) AS distance
             FROM publication_vectors v
             JOIN parsed_articles a ON a.id = v.article_id
             WHERE {" AND ".join(where)}
-            ORDER BY distance
-            LIMIT :windows
-        ), best AS (
-            SELECT DISTINCT ON (article_id) article_id, window_start, window_end, distance
-            FROM nearest ORDER BY article_id, distance
+            ORDER BY v.article_id, distance
         )
         SELECT b.article_id, a.title, d.canonical_url, s.name AS source, a.published_at,
                substr(a.text, b.window_start + 1, b.window_end - b.window_start) AS quote,

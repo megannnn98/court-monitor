@@ -130,3 +130,32 @@ def test_a_publication_both_searches_find_ranks_above_one_only_one_finds(
     # «lawyer» holds the name (text search) and is nearest in meaning (dense): first.
     assert quoted[0] == ids["lawyer"]
     assert {item.source_id for item in result.evidence} >= {"publications_dense"}
+
+
+def test_a_long_article_does_not_crowd_the_others_out_of_the_best_documents(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A long text is many windows, all near the query. Taking the nearest windows first
+    and folding them into articles afterwards returned that one article alone."""
+    ids = _seed(session_factory)
+    with session_factory() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("long", "https://long.example.test")
+        long_id, _ = seed.article(
+            source,
+            external_id="long",
+            title="long",
+            text="Адвокат Бонцлер выступила в суде. " * 900,
+        )
+        session.commit()
+    indexed = build_processing_service(session_factory).index_publication_vectors(WordEmbedder())
+    embedder = WordEmbedder()
+
+    found = build_results_service(session_factory).dense_publications(
+        embedder.embed_query("адвокат Бонцлер"), model_id=embedder.model_id, limit=2
+    )
+
+    # Far more windows of the long text than eight times the limit.
+    assert indexed.windows > 20
+    # Two documents were asked for and two came: the long one and the next nearest.
+    assert {publication.article_id for publication in found} == {long_id, ids["lawyer"]}
