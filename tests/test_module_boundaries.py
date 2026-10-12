@@ -141,9 +141,8 @@ INTERNAL = frozenset(
     }
 )
 # Where `INTERNAL` is closed: the console, the API and the commands of the pipeline. The
-# older single-module commands (`cli/ingestion.py`, `cli/extraction.py`, `cli_batches.py`
-# and the like) still build their module's parts themselves; they are listed in the plan
-# as what is left.
+# older single-module commands build their module's parts themselves and are held to
+# their own module instead (`MODULE_TOOLS`).
 CLOSED_TO_INTERNALS = (
     "web/",
     "api.py",
@@ -152,6 +151,76 @@ CLOSED_TO_INTERNALS = (
     "cli/cycle.py",
     "cli/investigation.py",
 )
+
+
+# What the console (`web/`, `api.py`) reads of the domain besides the services: each
+# module's public read contract — its vocabulary (labels, constants), its read models
+# (a row as a page shows it) and a person's decisions on it. They are named here, so a
+# page that starts to read anything else fails the test below; a module keeps the right
+# to change what is not listed. One service per page was not built: it would copy each
+# file's names (ADR 0025).
+CONSOLE_READ_MODELS = frozenset(
+    {
+        # the services
+        "analysis.service",
+        "processing.identity.service",
+        "results.candidates.service",
+        "airtable.service",
+        # vocabularies and read models
+        "airtable.config",
+        "airtable.files",
+        "airtable.models",
+        "analysis.news.case_news",
+        "analysis.operator_base.base_candidates",
+        "analysis.operator_base.base_unnamed",
+        "analysis.operator_base.jurisdiction",
+        "analysis.operator_base.known_base",
+        "analysis.operator_base.known_nameless",
+        "analysis.persecution.classifier",
+        "analysis.persecution.queries",
+        "analysis.politics.classification",
+        "analysis.rosfinmonitoring.inclusion_dates",
+        "analysis.rosfinmonitoring.rf_articles",
+        "analysis.rosfinmonitoring.rf_check",
+        "analysis.rosfinmonitoring.rf_entry",
+        "analysis.unnamed.matching",
+        "analysis.unnamed.named_candidates",
+        "ingestion.sources.source_registry",
+        "processing.evidence.publications",
+        "processing.evidence.regions",
+        "processing.evidence.unnamed",
+        "processing.extraction.name_frequency",
+        "processing.junk.holds",
+        "processing.junk.screen",
+        "processing.roles.officials",
+        "processing.roles.roles",
+        "results.ask",
+        "results.candidates.models",
+        "results.done_marks",
+        "results.models",
+        "results.queries.sentence_cases",
+        "results.queries.unnamed_cases",
+        # a person's decisions, and the actions of the junk-hold station
+        "analysis.unnamed.figurants",
+        "processing.junk.hold_reader",
+        "processing.junk.purge",
+        # the frozen ER v2 path's review (ADR 0024): the person endpoints' compatibility
+        "persons.resolution.review",
+    }
+)
+
+# The older single-module commands: maintenance tools of one module each, which build
+# that module's parts themselves. Each may reach into the modules named here and no
+# other; the ER v2 ones are marked «[legacy: ER v2]» in their help (ADR 0024).
+MODULE_TOOLS: dict[str, frozenset[str]] = {
+    "cli/ingestion.py": frozenset({"ingestion"}),
+    "cli/extraction.py": frozenset({"processing.extraction", "ingestion.sources.source_registry"}),
+    "cli/persons.py": frozenset({"persons", "processing.extraction"}),
+    "cli/persecution.py": frozenset({"analysis.persecution", "persons"}),
+    "cli/rosfinmonitoring.py": frozenset({"analysis.rosfinmonitoring"}),
+    "cli/candidates.py": frozenset({"results.candidates"}),
+    "cli_batches.py": frozenset({"processing.extraction", "analysis.rosfinmonitoring"}),
+}
 
 
 def _module_of(path: str) -> str:
@@ -338,6 +407,41 @@ def test_dagster_only_schedules_the_orchestrator() -> None:
         for path, tree in _files("orchestrator/dagster/")
         for module in _imported_modules(tree, path)
         if module.split(".")[0] not in ("orchestrator", "application", "settings")
+    )
+
+    assert offenders == []
+
+
+def test_the_console_reads_the_domain_only_through_its_public_contracts() -> None:
+    offenders = sorted(
+        f"{path} -> {module}"
+        for path, tree in _files("web/", "api.py")
+        for module in _imported_modules(tree, path)
+        if module.split(".")[0] in _DOMAIN_PACKAGES and module not in CONSOLE_READ_MODELS
+    )
+
+    assert offenders == []
+
+
+def test_every_listed_console_contract_is_still_read() -> None:
+    # A contract nobody reads any more is taken off the list, not kept as a licence.
+    read = {
+        module
+        for path, tree in _files("web/", "api.py")
+        for module in _imported_modules(tree, path)
+    }
+
+    assert sorted(CONSOLE_READ_MODELS - read) == []
+
+
+def test_a_single_module_command_reaches_only_its_own_module() -> None:
+    offenders = sorted(
+        f"{path} -> {module}"
+        for path, allowed in MODULE_TOOLS.items()
+        for _, tree in _files(path)
+        for module in _imported_modules(tree, path)
+        if module.split(".")[0] in _DOMAIN_PACKAGES
+        and not any(module == prefix or module.startswith(f"{prefix}.") for prefix in allowed)
     )
 
     assert offenders == []

@@ -13,7 +13,7 @@ from persons.persistence import SqlAlchemyPersonPersistence
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     classify_persecution_parser = subparsers.add_parser(
         "classify-persecution",
-        help="Classify persons for political persecution",
+        help="[legacy: ER v2] Classify persons for political persecution",
     )
     classify_persecution_parser.add_argument(
         "--person-id",

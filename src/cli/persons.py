@@ -14,7 +14,7 @@ from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     resolve_people_parser = subparsers.add_parser(
         "resolve-people",
-        help="Resolve extracted person mentions to canonical persons",
+        help="[legacy: ER v2] Resolve extracted person mentions to canonical persons",
     )
     resolve_people_parser.add_argument(
         "--article-id",

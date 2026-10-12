@@ -12,7 +12,7 @@ from results.candidates.service import CandidateQueryService
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     list_candidates_parser = subparsers.add_parser(
         "list-candidates",
-        help="List politically persecuted persons absent from Rosfinmonitoring",
+        help="[legacy: ER v2] List politically persecuted persons absent from Rosfinmonitoring",
     )
     list_candidates_parser.add_argument(
         "--snapshot-id",

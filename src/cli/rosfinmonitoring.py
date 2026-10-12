@@ -42,7 +42,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     import_rosfin_parser.set_defaults(handler=run_import_rosfinmonitoring)
     match_rosfin_parser = subparsers.add_parser(
         "match-rosfinmonitoring",
-        help="Match canonical persons against Rosfinmonitoring entries",
+        help="[legacy: ER v2] Match canonical persons against Rosfinmonitoring entries",
     )
     match_rosfin_parser.add_argument(
         "--snapshot-id",
