@@ -20,7 +20,7 @@ from sqlalchemy.engine import make_url
 from db.database import DatabasePoolSettings, validate_database_url
 from ingestion.sources.telegram.source_adapter import telegram_history_days
 from llm.structured import LlmConfigurationError
-from monitoring.models import MonitoringSettings
+from orchestrator.models import MonitoringSettings
 from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.candidates import CandidateConfig
 from persons.resolution.decision import ResolutionThresholds

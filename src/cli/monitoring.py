@@ -23,9 +23,13 @@ from analysis.rosfinmonitoring.rf_check import EntityRfCheck, RfCheckResult
 from analysis.unnamed.figurants import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from application import ApplicationServices, build_application_services
 from ingestion.sources.source_registry import SOURCES, SourceKind
-from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
-from monitoring.service import MonitoringService
 from observability import configure_logging
+from orchestrator.models import (
+    MonitoringAlreadyRunningError,
+    MonitoringRunStatus,
+    MonitoringTrigger,
+)
+from orchestrator.service import MonitoringService
 from processing.evidence.digest import DigestFinder, digest_classifier_from_env, figurant_titles
 from processing.evidence.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
 from processing.identity.normalizer import name_normalizer_from_env

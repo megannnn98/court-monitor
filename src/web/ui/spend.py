@@ -33,7 +33,7 @@ from html import escape
 import httpx
 
 from llm.chat import budget_from_env, endpoint_from_env
-from operator_console import OperationRun, OperationRunStatus
+from orchestrator.operations import OperationRun, OperationRunStatus
 from processing.junk.screen import DECISION
 
 CREDITS_URL = "https://openrouter.ai/api/v1/credits"

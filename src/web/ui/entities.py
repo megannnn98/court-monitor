@@ -28,7 +28,7 @@ from db.orm_models import (
     EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
 )
-from operator_console import (
+from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,

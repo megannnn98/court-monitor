@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from operator_console import OperationRegistry, OperationRunStatus
+from orchestrator.operations import OperationRegistry, OperationRunStatus
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 

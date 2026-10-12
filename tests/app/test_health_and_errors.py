@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from api import app, get_db, get_readiness_checker
-from health import ReadinessChecker, expected_schema_revision
+from web.health import ReadinessChecker, expected_schema_revision
 
 
 @pytest.fixture

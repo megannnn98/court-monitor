@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
+from cli import monitoring as cli
 from db.orm_models import (
     JunkScreenHoldRecord,
     ParsedArticleRecord,
@@ -20,7 +21,6 @@ from db.orm_models import (
     ReviewRecordModel,
     SourceDocument,
 )
-from monitoring import cli
 from processing.junk.article_screen import JunkScreenError
 from processing.junk.holds import hold_again, mark_junk, reextract
 from processing.junk.purge import (

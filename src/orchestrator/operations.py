@@ -620,7 +620,7 @@ MONITOR_CYCLE: tuple[Literal["load", "purge", "entities", "figurants", "politica
 
 
 # The exit code of `monitor` when a source was skipped because another load of it is
-# already running (the scheduled one): `monitoring.cli.MONITOR_EXIT_ALREADY_RUNNING`.
+# already running (the scheduled one): `cli.monitoring.MONITOR_EXIT_ALREADY_RUNNING`.
 _LOAD_ALREADY_RUNNING = 3
 # A source's own run of the load that reached its end, with or without errors in it.
 _SOURCE_LOADED = ("completed", "completed_with_errors")

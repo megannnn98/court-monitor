@@ -38,16 +38,14 @@ MODULE_OF: tuple[tuple[str, str], ...] = (
     ("llm/entity_reviewer.py", PROCESSING),
     ("analysis/", ANALYSIS),
     ("results/", RESULTS),
-    ("monitoring/cli.py", ENTRY_POINT),
-    ("monitoring/dagster/definitions.py", ENTRY_POINT),
-    ("monitoring/dagster/resources.py", ENTRY_POINT),
+    ("orchestrator/dagster/definitions.py", ENTRY_POINT),
+    ("orchestrator/dagster/resources.py", ENTRY_POINT),
     ("monitoring/", ORCHESTRATOR),
     ("db/", SHARED),
     ("monitor_core/", SHARED),
     ("llm/", SHARED),
     ("airtable/", SHARED),
     ("observability.py", SHARED),
-    ("health.py", SHARED),
     ("evaluation/", TOOLING),
 )
 
@@ -70,7 +68,6 @@ FORBIDDEN: dict[str, set[str]] = {
 KNOWN_VIOLATIONS: frozenset[str] = frozenset(
     {
         "airtable/repository.py -> processing.extraction.normalizers",
-        "health.py -> monitoring.models",
     }
 )
 

@@ -26,11 +26,11 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import MonitoringRunRecord
-from monitoring.models import MonitoringRunStatus
+from orchestrator.models import MonitoringRunStatus
 
 logger = logging.getLogger("health")
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ComponentStatus(StrEnum):

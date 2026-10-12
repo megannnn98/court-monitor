@@ -37,7 +37,7 @@ from db.orm_models import (
     ExcludedPersonRecord,
     Source,
 )
-from operator_console import (
+from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,

@@ -13,8 +13,8 @@ from typing import Any
 
 import dagster as dg
 
-from monitoring.models import MonitoringAlreadyRunningError, MonitoringTrigger
-from monitoring.service import (
+from orchestrator.models import MonitoringAlreadyRunningError, MonitoringTrigger
+from orchestrator.service import (
     DiscoveryResult,
     IngestionResult,
     MonitoringService,

@@ -6,7 +6,7 @@ other origins (`web.csrf`, ADR 0022); starting a single step stays on the legacy
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from operator_console import OperationNotFoundError, OperationRegistry
+from orchestrator.operations import OperationNotFoundError, OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.response_models import (
     CycleResponse,

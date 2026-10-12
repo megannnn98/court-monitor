@@ -120,7 +120,7 @@ docker builder du --builder default | tail -1                    # скольк�
 - `compose.yaml` — базовые сервисы и production profile.
 - `compose.gpu.yaml` — зависимости отсева мусора, GPU.
 - `migrations/` — Alembic шаг `migrate`.
-- `src/health.py`, `src/web/routers/health.py` — readiness/liveness.
+- `src/web/health.py`, `src/web/routers/health.py` — readiness/liveness.
 
 ## Ограничения и типичные ошибки
 

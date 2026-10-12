@@ -1,10 +1,10 @@
-"""Monitoring pipeline stages over the existing domain services (ADR 0013).
+"""The technical pipeline orchestrator: monitoring runs over the module facades (ADR 0013).
 
-The orchestrator coordinates, domain services decide: each stage selects its
-work from PostgreSQL (`selection`), calls an existing service per unit of work
-in that service's own transaction, and records counters and failed items on
-the run. The CLI calls `run_source` / `run_derived`; Dagster assets call the
-same stage methods one by one.
+The orchestrator coordinates, the modules decide. Each stage asks a module's public
+API what is still pending (the module reads it from PostgreSQL), calls that API once
+per unit of work, in the module's own transaction, and records counters and failed
+items on the run. It holds no domain query and takes no domain decision. The CLI calls
+`run_source` / `run_derived`; Dagster assets call the same stage methods one by one.
 """
 
 from __future__ import annotations
@@ -13,29 +13,20 @@ import asyncio
 import logging
 import time
 from collections import Counter
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
 
-import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 
-from analysis.persecution.classification_service import PersecutionClassificationService
-from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
-from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from ingestion.sources.source_adapter import DiscoversUntilKnown
-from ingestion.sources.source_registry import SourceDefinition
-from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
-from monitor_core.errors import NoTextError
-from monitor_core.ingestion import IngestionPipeline
-from monitor_core.model import ParsedArticle, SourceReference
-from monitor_core.ports import DocumentFetcher
-from monitoring.locks import advisory_lock
-from monitoring.models import (
+from analysis.service import AnalysisService
+from ingestion.service import IngestionService, SkipReason
+from monitor_core.model import SourceReference
+from orchestrator.locks import advisory_lock
+from orchestrator.models import (
     DERIVED_SCOPE,
     MonitoringRunAbortedError,
     MonitoringRunStatus,
@@ -46,14 +37,11 @@ from monitoring.models import (
     MonitoringTrigger,
     source_scope,
 )
-from monitoring.repository import SqlAlchemyMonitoringRepository
-from monitoring.selection import SqlAlchemyMonitoringWorkQueries
-from persons.resolution.ai_review_service import AutomatedEntityReviewService
-from persons.resolution.resolution_service import ExtractionResolutionService
-from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
+from orchestrator.repository import SqlAlchemyMonitoringRepository
+from persons.resolution.stage import PersonResolutionStage
 from processing.extraction.models import ExtractionRunStatus
-from processing.extraction.pipeline import ExtractionPipeline
-from results.findings import NO_RF_SNAPSHOT, MonitoringFindingService
+from processing.service import ProcessingService
+from results.service import NO_RF_SNAPSHOT, ResultsService
 
 logger = logging.getLogger("monitoring")
 
@@ -136,35 +124,24 @@ class DryRunPlan(BaseModel):
 
 
 @dataclass(frozen=True)
-class MonitoringDependencies:
+class PipelineModules:
+    """The public APIs the orchestrator calls, one per module, and its own run state."""
+
     engine: Engine
     repository: SqlAlchemyMonitoringRepository
-    work: SqlAlchemyMonitoringWorkQueries
-    sources: Mapping[str, SourceDefinition]
-    create_http_client: Callable[[], httpx.AsyncClient]
-    create_fetcher: Callable[[], DocumentFetcher]
-    create_ingestion_persistence: Callable[[SourceDefinition], SqlAlchemyIngestionPersistence]
-    extraction_documents: SqlAlchemyExtractionDocumentRepository
-    extraction_pipeline: ExtractionPipeline
-    resolution: ExtractionResolutionService
-    classification: PersecutionClassificationService
-    rf_matcher: RuleBasedRosfinmonitoringMatcher
-    rf_persistence: RosfinMatchPersistence
-    snapshot_lookup: SqlAlchemyRosfinmonitoringSnapshotLookup
-    findings: MonitoringFindingService
-    # Marks names the operator's Airtable list has and the published one does not as
-    # probable matches, after the official pass. Optional so a deployment can leave it
-    # out; the official verdicts never depend on it.
-    # None: no AI reviewer configured (ENTITY_REVIEW_PROVIDER=none); the stage is skipped
-    # and pending ER decisions go straight to a human, as before (ADR 0020).
-    entity_review: AutomatedEntityReviewService | None = None
+    ingestion: IngestionService
+    processing: ProcessingService
+    # Person resolution (ER v2): the optional path of ADR 0024, kept for this run.
+    resolution: PersonResolutionStage
+    analysis: AnalysisService
+    results: ResultsService
 
 
 class MonitoringService:
-    def __init__(self, dependencies: MonitoringDependencies, settings: MonitoringSettings) -> None:
-        self._deps = dependencies
+    def __init__(self, modules: PipelineModules, settings: MonitoringSettings) -> None:
+        self._deps = modules
         self._settings = settings
-        self._repository = dependencies.repository
+        self._repository = modules.repository
 
     @property
     def settings(self) -> MonitoringSettings:
@@ -174,11 +151,9 @@ class MonitoringService:
     def repository(self) -> SqlAlchemyMonitoringRepository:
         return self._repository
 
-    def _source(self, name: str) -> SourceDefinition:
-        try:
-            return self._deps.sources[name]
-        except KeyError:
-            raise ValueError(f"Unknown source: {name}") from None
+    def _source_base_url(self, name: str) -> str:
+        """ValueError for a source nobody registered."""
+        return self._deps.ingestion.source_base_url(name)
 
     @contextmanager
     def _derived_lock(self, handle: RunHandle, stage: str) -> Iterator[None]:
@@ -227,7 +202,7 @@ class MonitoringService:
         published_to: date | None = None,
     ) -> RunHandle:
         """Raises `MonitoringAlreadyRunningError` when this source is already being monitored."""
-        self._source(source)
+        self._source_base_url(source)
         if refetch_known and trigger is not MonitoringTrigger.BACKFILL:
             raise ValueError("refetch_known is only allowed for a backfill")
         if (
@@ -423,29 +398,14 @@ class MonitoringService:
 
     # -- source stages ---------------------------------------------------------------------
 
-    async def _discover_references(
-        self, source: SourceDefinition, limit: int, *, stop_at_known: bool = False
-    ) -> list[SourceReference]:
-        """`stop_at_known`: a source that pages newest first stops where stored posts begin."""
-        async with self._deps.create_http_client() as client:
-            adapter = source.create_adapter(client, self._deps.create_fetcher())
-            if stop_at_known and isinstance(adapter, DiscoversUntilKnown):
-                return await adapter.discover_until_known(
-                    limit=limit,
-                    known=lambda external_ids: self._deps.work.known_external_ids(
-                        source_base_url=source.base_url, external_ids=list(external_ids)
-                    ),
-                )
-            return await adapter.discover(limit=limit)
-
     def dry_run(self, source: str, *, discovery_limit: int | None = None) -> DryRunPlan:
         """Discovery only: no run row, no ingestion, no checkpoint change."""
-        definition = self._source(source)
+        ingestion = self._deps.ingestion
+        ingestion.source_base_url(source)
         limit = discovery_limit or self._settings.discovery_limit
-        references = asyncio.run(self._discover_references(definition, limit))
-        known = self._deps.work.known_external_ids(
-            source_base_url=definition.base_url,
-            external_ids=[reference.external_id for reference in references],
+        references = asyncio.run(ingestion.discover(source, limit=limit))
+        known = ingestion.known_external_ids(
+            source, [reference.external_id for reference in references]
         )
         new = [reference for reference in references if reference.external_id not in known]
         return DryRunPlan(
@@ -459,7 +419,9 @@ class MonitoringService:
 
     def discover(self, handle: RunHandle) -> DiscoveryResult:
         """Discovery failures (after the source layer's own retries) fail the run."""
-        definition = self._source(_require_source(handle))
+        source = _require_source(handle)
+        ingestion = self._deps.ingestion
+        ingestion.source_base_url(source)
         with self._stage(handle, MonitoringStage.DISCOVERY) as metrics:
             # A backfill goes deep on purpose; a regular run only needs what is new.
             stop_at_known = (
@@ -476,11 +438,10 @@ class MonitoringService:
                 # ends the paging, and the ceiling alone would be thousands of publications.
                 limit = min(limit, FIRST_LOAD_LIMIT)
             references = asyncio.run(
-                self._discover_references(definition, limit, stop_at_known=stop_at_known)
+                ingestion.discover(source, limit=limit, stop_at_known=stop_at_known)
             )
-            known = self._deps.work.known_external_ids(
-                source_base_url=definition.base_url,
-                external_ids=[reference.external_id for reference in references],
+            known = ingestion.known_external_ids(
+                source, [reference.external_id for reference in references]
             )
             skipped = 0 if handle.refetch_known else len(known)
             self._repository.add_counters(
@@ -491,30 +452,17 @@ class MonitoringService:
         return DiscoveryResult(references=tuple(references), known_external_ids=frozenset(known))
 
     async def _ingest_references(
-        self, handle: RunHandle, definition: SourceDefinition, references: Sequence[SourceReference]
+        self, handle: RunHandle, source: str, references: Sequence[SourceReference]
     ) -> tuple[list[int], Counter[str]]:
         article_ids: list[int] = []
         outcomes: Counter[str] = Counter()
-        async with self._deps.create_http_client() as client:
-            pipeline = IngestionPipeline(
-                source_adapter=definition.create_adapter(client, self._deps.create_fetcher()),
-                parser=definition.create_parser(),
-                persistence=self._deps.create_ingestion_persistence(definition),
-            )
+        async with self._deps.ingestion.open(
+            source, published_from=handle.published_from, published_to=handle.published_to
+        ) as documents:
             for reference in references:
                 self._repository.heartbeat(handle.run_id)
                 try:
-                    fetched = await pipeline.read(reference)
-                except NoTextError:
-                    # Nothing to read, nothing broken: a skip, not a failure of the run.
-                    logger.info(
-                        "event=monitoring_document_skipped run_id=%s url=%s reason=no_text",
-                        handle.run_id,
-                        reference.url,
-                    )
-                    self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
-                    outcomes["skipped_no_text"] += 1
-                    continue
+                    document = await documents.read(reference)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
                     kind = self._repository.record_failure(
                         handle.run_id,
@@ -526,22 +474,29 @@ class MonitoringService:
                     self._repository.add_counters(handle.run_id, {"documents_failed": 1})
                     outcomes[f"failed_{kind.value}"] += 1
                     continue
-                parsed = fetched.article
-                if not _published_in_range(
-                    parsed, published_from=handle.published_from, published_to=handle.published_to
-                ):
+                if document.skipped is SkipReason.NO_TEXT:
+                    # Nothing to read, nothing broken: a skip, not a failure of the run.
+                    logger.info(
+                        "event=monitoring_document_skipped run_id=%s url=%s reason=no_text",
+                        handle.run_id,
+                        reference.url,
+                    )
+                    self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
+                    outcomes["skipped_no_text"] += 1
+                    continue
+                if document.skipped is not None:
+                    reason = f"skipped_{document.skipped.value}"
                     logger.info(
                         "event=monitoring_document_skipped run_id=%s url=%s reason=%s published_at=%s",
                         handle.run_id,
                         reference.url,
-                        _published_skip_reason(parsed),
-                        parsed.published_at.isoformat() if parsed.published_at else None,
+                        reason,
+                        document.published_at.isoformat() if document.published_at else None,
                     )
                     self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
-                    outcomes[_published_skip_reason(parsed)] += 1
+                    outcomes[reason] += 1
                     continue
-                result = pipeline.save(fetched)
-                article_ids.append(result.persistence.article_id)
+                article_ids.append(documents.store(document))
                 self._repository.add_counters(handle.run_id, {"documents_ingested": 1})
                 outcomes["ingested"] += 1
         return article_ids, outcomes
@@ -549,12 +504,11 @@ class MonitoringService:
     def ingest(self, handle: RunHandle, discovery: DiscoveryResult) -> IngestionResult:
         """Known documents are not fetched again (unless a backfill refetches); a failed
         document is recorded and does not stop the others."""
-        definition = self._source(_require_source(handle))
+        source = _require_source(handle)
+        self._source_base_url(source)
         references = discovery.to_ingest(refetch_known=handle.refetch_known)
         with self._stage(handle, MonitoringStage.INGESTION) as metrics:
-            article_ids, outcomes = asyncio.run(
-                self._ingest_references(handle, definition, references)
-            )
+            article_ids, outcomes = asyncio.run(self._ingest_references(handle, source, references))
             metrics.update(attempted=len(references), **outcomes)
         return IngestionResult(
             article_ids=tuple(article_ids),
@@ -564,10 +518,9 @@ class MonitoringService:
     def extract(self, handle: RunHandle, ingestion: IngestionResult | None = None) -> StageResult:
         """Articles of the source never extracted with the current versions, plus the ones
         this run (re)ingested. Survives a crash: pending work is read from the database."""
-        definition = self._source(_require_source(handle))
-        pipeline = self._deps.extraction_pipeline
-        pending = self._deps.work.articles_pending_extraction(
-            source_base_url=definition.base_url, versions=pipeline.versions
+        processing = self._deps.processing
+        pending = processing.articles_pending_extraction(
+            source_base_url=self._source_base_url(_require_source(handle))
         )
         article_ids = sorted(set(pending) | set(ingestion.article_ids if ingestion else ()))
         processed = skipped = failed = events = 0
@@ -575,8 +528,7 @@ class MonitoringService:
             for article_id in article_ids:
                 self._repository.heartbeat(handle.run_id)
                 try:
-                    document = self._deps.extraction_documents.get_by_article_id(article_id)
-                    saved = pipeline.run(document)
+                    saved = processing.extract_article(article_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
                     self._repository.record_failure(
                         handle.run_id,
@@ -617,10 +569,8 @@ class MonitoringService:
     def resolve(self, handle: RunHandle) -> StageResult:
         """ER v2 on extraction runs with undecided person mentions. REVIEW is an outcome
         (counted), not a failure; unresolved mentions stay unlinked for downstream stages."""
-        definition = self._source(_require_source(handle))
-        run_ids = self._deps.work.extraction_runs_pending_resolution(
-            source_base_url=definition.base_url,
-            versions=self._deps.extraction_pipeline.versions,
+        run_ids = self._deps.resolution.runs_pending_resolution(
+            source_base_url=self._source_base_url(_require_source(handle))
         )
         created = linked = reviews = failed = 0
         with self._stage(handle, MonitoringStage.RESOLUTION) as metrics:
@@ -635,7 +585,7 @@ class MonitoringService:
                 else:
                     self._repository.heartbeat(handle.run_id)
                 try:
-                    stats = self._deps.resolution.resolve_extraction_run(extraction_run_id)
+                    stats = self._deps.resolution.resolve_run(extraction_run_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
                     self._repository.record_failure(
                         handle.run_id,
@@ -683,15 +633,14 @@ class MonitoringService:
             self._derived_lock(handle, "ai_entity_review"),
             self._stage(handle, MonitoringStage.AI_ENTITY_REVIEW) as metrics,
         ):
-            service = self._deps.entity_review
-            if service is None:
-                metrics.update(status=ENTITY_REVIEW_NOT_CONFIGURED)
-                return StageResult(metrics={"status": ENTITY_REVIEW_NOT_CONFIGURED})
             # Not the discovery ceiling itself: that one grew to let a run reach back, and
             # a review is a model's answer that costs money.
-            batch = service.review_pending(
+            batch = self._deps.resolution.review_pending(
                 limit=min(self._settings.discovery_limit, ENTITY_REVIEW_BATCH)
             )
+            if batch is None:
+                metrics.update(status=ENTITY_REVIEW_NOT_CONFIGURED)
+                return StageResult(metrics={"status": ENTITY_REVIEW_NOT_CONFIGURED})
             metrics.update(
                 reviewed=batch.reviewed,
                 auto_accepted=batch.auto_accepted,
@@ -708,21 +657,18 @@ class MonitoringService:
         )
 
     def classify(self, handle: RunHandle) -> StageResult:
-        classifier = self._deps.classification.classifier
+        analysis = self._deps.analysis
         statuses: Counter[str] = Counter()
         failed = 0
         with (
             self._derived_lock(handle, "classification"),
             self._stage(handle, MonitoringStage.CLASSIFICATION) as metrics,
         ):
-            person_ids = self._deps.work.persons_pending_classification(
-                classifier_name=classifier.classifier_name,
-                classifier_version=classifier.classifier_version,
-            )
+            person_ids = analysis.persons_pending_classification()
             for person_id in person_ids:
                 self._repository.heartbeat(handle.run_id)
                 try:
-                    classification = self._deps.classification.classify_person(person_id)
+                    status = analysis.classify_person(person_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
                     self._repository.record_failure(
                         handle.run_id,
@@ -733,13 +679,13 @@ class MonitoringService:
                     )
                     failed += 1
                     continue
-                statuses[str(classification.status)] += 1
+                statuses[status] += 1
                 self._repository.add_counters(handle.run_id, {"classifications_created": 1})
             metrics.update(
                 pending=len(person_ids),
                 failed=failed,
                 statuses=dict(statuses),
-                classifier=f"{classifier.classifier_name}@{classifier.classifier_version}",
+                classifier=analysis.person_classifier,
             )
         return StageResult(
             processed=sum(statuses.values()),
@@ -751,27 +697,23 @@ class MonitoringService:
     def match_rosfinmonitoring(self, handle: RunHandle) -> int | None:
         """Match against the latest imported snapshot. Without a snapshot nothing is
         matched and nothing becomes NOT_MATCHED; returns the snapshot id used."""
+        analysis = self._deps.analysis
         statuses: Counter[str] = Counter()
         failed = 0
         with (
             self._derived_lock(handle, "rf_matching"),
             self._stage(handle, MonitoringStage.RF_MATCHING) as metrics,
         ):
-            snapshot = self._deps.snapshot_lookup.latest_imported_snapshot()
-            if snapshot is None:
+            snapshot_id = analysis.latest_snapshot_id()
+            if snapshot_id is None:
                 metrics.update(skipped=NO_RF_SNAPSHOT)
                 return None
-            self._repository.set_rf_snapshot(handle.run_id, snapshot.snapshot_id)
-            person_ids = self._deps.work.persons_pending_rf_match(
-                snapshot_id=snapshot.snapshot_id,
-                matcher_name=self._deps.rf_matcher.matcher_name,
-                matcher_version=self._deps.rf_matcher.matcher_version,
-            )
+            self._repository.set_rf_snapshot(handle.run_id, snapshot_id)
+            person_ids = analysis.persons_pending_rf_match(snapshot_id)
             for person_id in person_ids:
                 self._repository.heartbeat(handle.run_id)
                 try:
-                    result = self._deps.rf_matcher.match_person(person_id, snapshot.snapshot_id)
-                    self._deps.rf_persistence.save_match_result(result)
+                    status = analysis.match_person(person_id, snapshot_id)
                 except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
                     self._repository.record_failure(
                         handle.run_id,
@@ -782,22 +724,24 @@ class MonitoringService:
                     )
                     failed += 1
                     continue
-                statuses[result.status.value] += 1
+                statuses[status] += 1
                 self._repository.add_counters(handle.run_id, {"rf_matches_created": 1})
             metrics.update(
-                snapshot_id=snapshot.snapshot_id,
+                snapshot_id=snapshot_id,
                 pending=len(person_ids),
                 failed=failed,
                 statuses=dict(statuses),
             )
-        return snapshot.snapshot_id
+        return snapshot_id
 
     def evaluate_findings(self, handle: RunHandle, *, snapshot_id: int | None) -> StageResult:
         with (
             self._derived_lock(handle, "findings"),
             self._stage(handle, MonitoringStage.FINDINGS) as metrics,
         ):
-            evaluation = self._deps.findings.evaluate(run_id=handle.run_id, snapshot_id=snapshot_id)
+            evaluation = self._deps.results.evaluate_findings(
+                run_id=handle.run_id, snapshot_id=snapshot_id
+            )
             self._repository.add_counters(handle.run_id, {"findings_created": evaluation.created})
             metrics.update(
                 snapshot_id=snapshot_id,
@@ -833,22 +777,3 @@ def _require_source(handle: RunHandle) -> str:
     if handle.source is None:
         raise ValueError(f"Monitoring run {handle.run_id} has no source")
     return handle.source
-
-
-def _published_in_range(
-    article: ParsedArticle, *, published_from: date | None, published_to: date | None
-) -> bool:
-    if published_from is None and published_to is None:
-        return True
-    if article.published_at is None:
-        return False
-    published_on = article.published_at.date()
-    return (published_from is None or published_on >= published_from) and (
-        published_to is None or published_on <= published_to
-    )
-
-
-def _published_skip_reason(article: ParsedArticle) -> str:
-    if article.published_at is None:
-        return "skipped_unknown_published_date"
-    return "skipped_out_of_published_range"

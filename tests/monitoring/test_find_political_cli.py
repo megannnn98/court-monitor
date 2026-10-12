@@ -15,14 +15,14 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
+from cli import monitoring as cli
+from cli.monitoring import add_monitoring_arguments, run_monitoring_command
 from db.orm_models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from monitoring import cli
-from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 
 
 def _parse(*argv: str) -> argparse.Namespace:

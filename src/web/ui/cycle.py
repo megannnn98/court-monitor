@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from operator_console import OperationRegistry
+from orchestrator.operations import OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.ui import spend
 from web.ui.layout import _page

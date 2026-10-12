@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import build_monitoring_service
 from ingestion.sources.source_registry import OVD_INFO
-from monitoring.models import MonitoringSettings, MonitoringTrigger
+from orchestrator.models import MonitoringSettings, MonitoringTrigger
 from persons.resolution.ai_review_service import EntityReviewBatchResult
 
 

@@ -15,35 +15,41 @@ from datetime import timedelta
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.pending import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyPendingPersonAnalysis
 from analysis.persecution.classification_service import PersecutionClassificationService
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from analysis.service import AnalysisService
 from db.database import create_database_engine, create_session_factory
 from ingestion.service import IngestionService
 from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from ingestion.sources.website_adapter import WebsiteAdapter
+from ingestion.stored import SqlAlchemyStoredDocuments
 from monitor_core.ingestion import RetryingDocumentFetcher
 from monitor_core.ports import DocumentFetcher
-from monitoring.models import MonitoringSettings
-from monitoring.repository import SqlAlchemyMonitoringRepository
-from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
-from monitoring.service import MonitoringDependencies, MonitoringService
+from orchestrator.models import MonitoringSettings
+from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.service import MonitoringService, PipelineModules
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_factory import build_entity_review_service
 from persons.resolution.ai_policy import EntityReviewSettings
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
 from persons.resolution.factory import build_person_resolution_service
+from persons.resolution.pending import SqlAlchemyPendingResolution
 from persons.resolution.resolution_service import ExtractionResolutionService
+from persons.resolution.stage import PersonResolutionStage
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.extraction.pending import SqlAlchemyPendingExtraction
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
-from processing.extraction.pipeline import ExtractionPipeline
+from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
 from processing.service import ProcessingService
 from results.findings import MonitoringFindingService, MonitoringQueryProvider
+from results.service import ResultsService
 from settings import ApplicationSettings
 
 HTTP_TIMEOUT_SECONDS = 5.0
@@ -77,7 +83,7 @@ def build_ingestion_service(
 ) -> IngestionService:
     return IngestionService(
         sources=sources,
-        stored=SqlAlchemyMonitoringWorkQueries(session_factory),
+        stored=SqlAlchemyStoredDocuments(session_factory),
         create_http_client=create_http_client,
         create_fetcher=create_fetcher,
         create_persistence=lambda source: SqlAlchemyIngestionPersistence(
@@ -94,9 +100,65 @@ def build_processing_service(
     extraction_pipeline: ExtractionPipeline | None = None,
 ) -> ProcessingService:
     return ProcessingService(
+        session_factory=session_factory,
         pipeline=extraction_pipeline or default_extraction_pipeline(session_factory),
         documents=SqlAlchemyExtractionDocumentRepository(session_factory),
-        pending=SqlAlchemyMonitoringWorkQueries(session_factory),
+        pending=SqlAlchemyPendingExtraction(session_factory),
+    )
+
+
+def build_person_resolution_stage(
+    session_factory: sessionmaker[Session],
+    *,
+    versions: ExtractionVersions,
+    env: Mapping[str, str] | None = None,
+    # None: built from the environment; ENTITY_REVIEW_PROVIDER=none leaves it unset and
+    # every pending ER decision goes to a human (ADR 0020).
+    entity_review: AutomatedEntityReviewService | None = None,
+) -> PersonResolutionStage:
+    person_persistence = SqlAlchemyPersonPersistence(session_factory)
+    if entity_review is None:
+        entity_review = build_entity_review_service(
+            session_factory, EntityReviewSettings.from_env(env)
+        )
+    return PersonResolutionStage(
+        resolution=ExtractionResolutionService(
+            persistence=person_persistence,
+            session_factory=session_factory,
+            person_resolution=build_person_resolution_service(
+                session_factory, env, persistence=person_persistence
+            ),
+        ),
+        pending=SqlAlchemyPendingResolution(session_factory),
+        versions=versions,
+        entity_review=entity_review,
+    )
+
+
+def build_analysis_service(
+    session_factory: sessionmaker[Session],
+    *,
+    evidence_settle_interval: timedelta = EVIDENCE_SETTLE_INTERVAL,
+) -> AnalysisService:
+    return AnalysisService(
+        session_factory=session_factory,
+        classification=PersecutionClassificationService(session_factory),
+        rf_matcher=RuleBasedRosfinmonitoringMatcher(session_factory),
+        rf_persistence=RosfinMatchPersistence(session_factory),
+        snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
+        pending=SqlAlchemyPendingPersonAnalysis(
+            session_factory, evidence_settle_interval=evidence_settle_interval
+        ),
+    )
+
+
+def build_results_service(
+    session_factory: sessionmaker[Session],
+    *,
+    query_provider: MonitoringQueryProvider | None = None,
+) -> ResultsService:
+    return ResultsService(
+        findings=MonitoringFindingService(session_factory, query_provider=query_provider)
     )
 
 
@@ -108,56 +170,35 @@ def build_monitoring_service(
     sources: Mapping[str, SourceDefinition] = SOURCES,
     create_http_client: Callable[[], httpx.AsyncClient] = default_http_client,
     create_fetcher: Callable[[], DocumentFetcher] = default_fetcher,
-    # None: built from the environment; ENTITY_REVIEW_PROVIDER=none leaves it unset and
-    # every pending ER decision goes to a human (ADR 0020).
     entity_review: AutomatedEntityReviewService | None = None,
     query_provider: MonitoringQueryProvider | None = None,
     extraction_pipeline: ExtractionPipeline | None = None,
     evidence_settle_interval: timedelta = EVIDENCE_SETTLE_INTERVAL,
 ) -> MonitoringService:
-    engine = session_factory.kw["bind"]
-    person_persistence = SqlAlchemyPersonPersistence(session_factory)
-    if entity_review is None:
-        entity_review = build_entity_review_service(
-            session_factory, EntityReviewSettings.from_env(env)
-        )
-
-    def ingestion_persistence(source: SourceDefinition) -> SqlAlchemyIngestionPersistence:
-        return SqlAlchemyIngestionPersistence(
-            session_factory=session_factory,
-            source_name=source.source_name,
-            source_base_url=source.base_url,
-        )
-
-    dependencies = MonitoringDependencies(
-        engine=engine,
+    """The orchestrator over the five module facades; it is given nothing else."""
+    processing = build_processing_service(session_factory, extraction_pipeline=extraction_pipeline)
+    modules = PipelineModules(
+        engine=session_factory.kw["bind"],
         repository=SqlAlchemyMonitoringRepository(session_factory),
-        work=SqlAlchemyMonitoringWorkQueries(
+        ingestion=build_ingestion_service(
+            session_factory,
+            sources=sources,
+            create_http_client=create_http_client,
+            create_fetcher=create_fetcher,
+        ),
+        processing=processing,
+        resolution=build_person_resolution_stage(
+            session_factory,
+            versions=processing.extraction_versions,
+            env=env,
+            entity_review=entity_review,
+        ),
+        analysis=build_analysis_service(
             session_factory, evidence_settle_interval=evidence_settle_interval
         ),
-        sources=sources,
-        create_http_client=create_http_client,
-        create_fetcher=create_fetcher,
-        create_ingestion_persistence=ingestion_persistence,
-        extraction_documents=SqlAlchemyExtractionDocumentRepository(session_factory),
-        extraction_pipeline=extraction_pipeline or default_extraction_pipeline(session_factory),
-        resolution=ExtractionResolutionService(
-            persistence=person_persistence,
-            session_factory=session_factory,
-            person_resolution=build_person_resolution_service(
-                session_factory, env, persistence=person_persistence
-            ),
-        ),
-        classification=PersecutionClassificationService(session_factory),
-        rf_matcher=RuleBasedRosfinmonitoringMatcher(session_factory),
-        rf_persistence=RosfinMatchPersistence(session_factory),
-        snapshot_lookup=SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory),
-        findings=MonitoringFindingService(session_factory, query_provider=query_provider),
-        # Probable matches: names the operator's Airtable list has and the published
-        # one does not. They never become confirmed and never make a candidate.
-        entity_review=entity_review,
+        results=build_results_service(session_factory, query_provider=query_provider),
     )
-    return MonitoringService(dependencies, settings)
+    return MonitoringService(modules, settings)
 
 
 @dataclass(frozen=True)

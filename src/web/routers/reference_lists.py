@@ -6,7 +6,7 @@ origins (`web.csrf`)."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from operator_console import OperationConflictError, OperationParameters, OperationRegistry
+from orchestrator.operations import OperationConflictError, OperationParameters, OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.response_models import (
     AirtableOverviewResponse,

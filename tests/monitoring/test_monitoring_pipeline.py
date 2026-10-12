@@ -21,6 +21,7 @@ from support.monitoring_fixtures import (
 )
 from support.person_resolution_fixtures import seed_person
 
+from analysis.pending import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyPendingPersonAnalysis
 from analysis.persecution.classifier import RuleBasedPersecutionClassifier
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from db.orm_models import (
@@ -32,7 +33,7 @@ from db.orm_models import (
     RosfinMatchRecord,
 )
 from monitor_core.errors import TransientDiscoveryError
-from monitoring.models import (
+from orchestrator.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
     MonitoringRunAbortedError,
@@ -40,7 +41,6 @@ from monitoring.models import (
     MonitoringStage,
     MonitoringTrigger,
 )
-from monitoring.selection import EVIDENCE_SETTLE_INTERVAL, SqlAlchemyMonitoringWorkQueries
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from persons.resolution.service import RESOLVER_VERSION
@@ -579,10 +579,10 @@ def test_result_written_during_an_open_evidence_transaction_is_recomputed(
         "matcher_name": RuleBasedRosfinmonitoringMatcher.matcher_name,
         "matcher_version": RuleBasedRosfinmonitoringMatcher.matcher_version,
     }
-    no_settle = SqlAlchemyMonitoringWorkQueries(
+    no_settle = SqlAlchemyPendingPersonAnalysis(
         session_factory, evidence_settle_interval=timedelta(0)
     )
-    production = SqlAlchemyMonitoringWorkQueries(session_factory)
+    production = SqlAlchemyPendingPersonAnalysis(session_factory)
 
     written_after_evidence("1 minute")
     assert (
@@ -617,7 +617,7 @@ def test_rf_match_of_an_older_matcher_version_is_recomputed(
     service = build_service(session_factory, {"ovd-info": upstream})
     service.run_source("ovd-info")
     sidorov = _person_id(session_factory, "Сидоров")
-    work = SqlAlchemyMonitoringWorkQueries(session_factory, evidence_settle_interval=timedelta(0))
+    work = SqlAlchemyPendingPersonAnalysis(session_factory, evidence_settle_interval=timedelta(0))
     current = (
         RuleBasedRosfinmonitoringMatcher.matcher_name,
         RuleBasedRosfinmonitoringMatcher.matcher_version,

@@ -47,7 +47,7 @@ from evaluation.final.corpus import (
 )
 from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
-from monitoring.models import MonitoringSettings
+from orchestrator.models import MonitoringSettings
 from persons.persistence import SqlAlchemyPersonPersistence
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from results.candidates.models import RosfinmonitoringStatus

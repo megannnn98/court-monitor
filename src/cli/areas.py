@@ -12,9 +12,9 @@ import argparse
 
 from cli.context import CliContext
 from cli.external import register_group
+from cli.monitoring import add_monitoring_arguments, run_monitoring_command
 from evaluation.final.cli import add_final_evaluation_arguments, run_final_evaluation_command
 from evaluation.real_world.cli import add_real_world_arguments, run_real_world_command
-from monitoring.cli import add_monitoring_arguments, run_monitoring_command
 from persons.resolution.cli import (
     add_person_resolution_arguments,
     run_evaluate_er,

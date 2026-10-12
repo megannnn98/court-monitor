@@ -3,13 +3,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from monitoring.models import (
+from orchestrator.models import (
     MonitoringRunDetails,
     MonitoringRunStatus,
     MonitoringRunView,
     MonitoringStatusView,
 )
-from monitoring.repository import SqlAlchemyMonitoringRepository
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 from results.findings import MonitoringFindingService
 from results.models import MonitoringFindingView
 from web.dependencies import get_db, session_factory_for

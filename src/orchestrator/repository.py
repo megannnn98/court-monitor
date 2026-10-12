@@ -24,7 +24,7 @@ from db.orm_models import (
     MonitoringRunRecord,
     SourceMonitoringStateRecord,
 )
-from monitoring.models import (
+from orchestrator.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
     MonitoringRunAbortedError,

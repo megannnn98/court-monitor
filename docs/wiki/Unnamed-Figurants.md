@@ -243,7 +243,7 @@ stop
 - Единая точка доказательств «человек ↔ публикация»: `src/processing/evidence/publications.py`
   (`person_evidence_cte`). Она объединяет обычные `entity_group_mentions` и
   ручные `entity_group_unnamed_mentions`.
-- Запуск: `find-political` и `find-unnamed` в `src/monitoring/cli.py`.
+- Запуск: `find-political` и `find-unnamed` в `src/cli/monitoring.py`.
 - Страница: `src/web/ui/unnamed.py`; счётчик в «Очереди»: `src/web/ui/workload.py`.
 
 ## Данные и артефакты

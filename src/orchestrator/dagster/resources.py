@@ -9,7 +9,7 @@ from __future__ import annotations
 import dagster as dg
 
 from application import build_application_services
-from monitoring.service import MonitoringService
+from orchestrator.service import MonitoringService
 
 MONITORING_RESOURCE_KEY = "monitoring"
 

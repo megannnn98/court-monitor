@@ -3,13 +3,13 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from health import (
+from web.dependencies import get_readiness_checker
+from web.health import (
     LivenessReport,
     ReadinessChecker,
     ReadinessReport,
     ReadinessStatus,
 )
-from web.dependencies import get_readiness_checker
 
 router = APIRouter()
 

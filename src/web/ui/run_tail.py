@@ -14,7 +14,7 @@ import re
 from datetime import UTC, datetime
 from html import escape
 
-from operator_console import STALE_AFTER, OperationRun, OperationRunStatus
+from orchestrator.operations import STALE_AFTER, OperationRun, OperationRunStatus
 
 # The lines of a log that say nothing about the work: one request after another to a site.
 _NOISE = ("HTTP Request:", " httpx ")

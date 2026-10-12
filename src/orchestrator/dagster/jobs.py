@@ -16,9 +16,9 @@ selects only still-stale work.
 
 import dagster as dg
 
-from monitoring.dagster.assets import MONITORING_ASSETS
-from monitoring.models import FailureKind, MonitoringRunStatus
-from monitoring.service import MonitoringService
+from orchestrator.dagster.assets import MONITORING_ASSETS
+from orchestrator.models import FailureKind, MonitoringRunStatus
+from orchestrator.service import MonitoringService
 
 MONITORING_JOB = "monitoring_job"
 MONITORING_DERIVED_JOB = "monitoring_derived_job"

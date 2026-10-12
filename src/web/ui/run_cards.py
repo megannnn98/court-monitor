@@ -17,7 +17,7 @@ from datetime import datetime
 from html import escape
 from typing import Any
 
-from operator_console import OperationRun, OperationRunStatus
+from orchestrator.operations import OperationRun, OperationRunStatus
 from web.ui import spend
 from web.ui.run_tail import tail_html
 

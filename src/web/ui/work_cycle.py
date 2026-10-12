@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import OperatorOperationRunRecord
-from operator_console import STALE_AFTER, OperationRunStatus
+from orchestrator.operations import STALE_AFTER, OperationRunStatus
 from web.ui.pipeline import STAGES, TITLES, pipeline_current
 from web.ui.workload import Workload, next_operator_task, workload
 

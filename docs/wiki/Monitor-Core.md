@@ -147,7 +147,7 @@ sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 | Сценарий | Код |
 |---|---|
 | CLI `ingest` / `discover-and-ingest` | `src/cli/ingestion.py` |
-| automated monitoring | `src/monitoring/service.py` (`_ingest_references`) |
+| automated monitoring | `src/orchestrator/service.py` (`_ingest_references`) |
 | источники, парсеры, discovery | `src/ingestion/sources/` |
 | хранилище и его результат `SqlAlchemyPersistenceResult` | `src/ingestion/sources/sqlalchemy_persistence.py` |
 | OpenRouter / Together | `src/llm/chat.py`, `src/llm/together_client.py` |

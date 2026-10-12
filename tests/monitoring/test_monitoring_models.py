@@ -17,7 +17,7 @@ from monitor_core.errors import (
     TransientDiscoveryError,
     TransientFetchError,
 )
-from monitoring.models import (
+from orchestrator.models import (
     FailureKind,
     MonitoringConfigurationError,
     MonitoringSettings,

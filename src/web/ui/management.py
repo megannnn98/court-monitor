@@ -16,9 +16,8 @@ from sqlalchemy.orm import Session
 
 from db.orm_models import MonitoringRunRecord
 from ingestion.sources.source_registry import news_sources
-from monitoring.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
-from monitoring.repository import SqlAlchemyMonitoringRepository
-from operator_console import (
+from orchestrator.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
+from orchestrator.operations import (
     OperationConflictError,
     OperationNotFoundError,
     OperationParameters,
@@ -26,6 +25,7 @@ from operator_console import (
     OperationRun,
     OperationRunStatus,
 )
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui import spend
 from web.ui.funnel import funnel, funnel_html

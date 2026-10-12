@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from operator_console import (
+from orchestrator.operations import (
     OperationNotFoundError,
     OperationRegistry,
     operation_run_to_dict,

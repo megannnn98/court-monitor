@@ -22,13 +22,13 @@ from support.monitoring_fixtures import (
 )
 
 from application import ApplicationServices
-from monitoring.cli import (
+from cli.monitoring import (
     MONITOR_EXIT_ALREADY_RUNNING,
     add_monitoring_arguments,
     run_monitoring_command,
 )
-from monitoring.models import MonitoringStage, MonitoringTrigger
-from monitoring.repository import SqlAlchemyMonitoringRepository
+from orchestrator.models import MonitoringStage, MonitoringTrigger
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 from results.findings import MonitoringFindingService
 
 

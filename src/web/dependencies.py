@@ -8,15 +8,15 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import DatabasePoolSettings, create_database_engine, create_session_factory
-from health import (
-    ReadinessChecker,
-    expected_schema_revision,
-)
-from monitoring.models import (
+from orchestrator.models import (
     MonitoringSettings,
 )
-from operator_console import (
+from orchestrator.operations import (
     OperationRegistry,
+)
+from web.health import (
+    ReadinessChecker,
+    expected_schema_revision,
 )
 
 

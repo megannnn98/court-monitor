@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import dagster as dg
 
-from monitoring.dagster.jobs import SOURCE_TAG, monitoring_job
-from monitoring.models import MonitoringSettings, MonitoringTrigger
+from orchestrator.dagster.jobs import SOURCE_TAG, monitoring_job
+from orchestrator.models import MonitoringSettings, MonitoringTrigger
 
 
 def build_source_schedules(settings: MonitoringSettings) -> list[dg.ScheduleDefinition]:

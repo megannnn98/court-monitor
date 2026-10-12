@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
 from db.orm_models import MonitoringRunRecord, OperatorOperationRunRecord
-from operator_console import (
+from orchestrator.operations import (
     MONITOR_CYCLE,
     OUTPUT_LIMIT,
     Heartbeat,
@@ -366,9 +366,9 @@ def test_the_real_process_runner_captures_output_and_beats(
 ) -> None:
     import sys
 
-    import operator_console
+    import orchestrator.operations
 
-    monkeypatch.setattr(operator_console, "HEARTBEAT_INTERVAL", timedelta(seconds=0.1))
+    monkeypatch.setattr(orchestrator.operations, "HEARTBEAT_INTERVAL", timedelta(seconds=0.1))
     beats: list[int] = []
     command = [sys.executable, "-c", "import time; time.sleep(0.5); print('out')"]
 
@@ -376,7 +376,7 @@ def test_the_real_process_runner_captures_output_and_beats(
         beats.append(1)
         return True
 
-    result = operator_console._run_process(command, beat)
+    result = orchestrator.operations._run_process(command, beat)
 
     assert (result.return_code, result.stdout) == (0, "out\n")
     assert len(beats) >= 2
@@ -417,9 +417,9 @@ def test_an_exception_while_waiting_kills_the_process(
     """The run is recorded failed; its process must not live on unseen."""
     import sys
 
-    import operator_console
+    import orchestrator.operations
 
-    monkeypatch.setattr(operator_console, "HEARTBEAT_INTERVAL", timedelta(seconds=0.1))
+    monkeypatch.setattr(orchestrator.operations, "HEARTBEAT_INTERVAL", timedelta(seconds=0.1))
     pid_file = tmp_path / "pid"
     command = [
         sys.executable,
@@ -431,7 +431,7 @@ def test_an_exception_while_waiting_kills_the_process(
         raise KeyboardInterrupt
 
     with pytest.raises(KeyboardInterrupt):
-        operator_console._run_process(command, stop)
+        orchestrator.operations._run_process(command, stop)
 
     pid = int(pid_file.read_text())
     with pytest.raises(ProcessLookupError):
@@ -526,9 +526,9 @@ def test_the_real_process_runner_streams_output_and_interrupts_on_stop(
 ) -> None:
     import sys
 
-    import operator_console
+    import orchestrator.operations
 
-    monkeypatch.setattr(operator_console, "HEARTBEAT_INTERVAL", timedelta(seconds=0.2))
+    monkeypatch.setattr(orchestrator.operations, "HEARTBEAT_INTERVAL", timedelta(seconds=0.2))
     command = [
         sys.executable,
         "-c",
@@ -548,7 +548,7 @@ def test_the_real_process_runner_streams_output_and_interrupts_on_stop(
         beats.append(stdout)
         return "started" not in stdout
 
-    result = operator_console._run_process(command, stop_once_started)
+    result = orchestrator.operations._run_process(command, stop_once_started)
 
     assert "started\n" in beats
     assert (result.return_code, result.stdout, result.stderr) == (
