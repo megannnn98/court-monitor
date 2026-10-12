@@ -5,7 +5,7 @@
 Accepted. Partially supersedes [ADR 0002](0002-drop-dense-hybrid-search.md):
 dense/hybrid retrieval returns, but on canonical entities, not on article chunks.
 
-**Removed** 2026-09-27 with the vector search (`chore/slim-to-two-scenarios`). The tables it wrote (`semantic_documents` and those of ADR 0018) stay in the schema, unused.
+**Removed** 2026-09-27 with the vector search (`chore/slim-to-two-scenarios`). The tables it wrote (`semantic_documents` and those of ADR 0018) stayed in the schema, unused, until [ADR 0028](0028-remove-unused-vector-retrieval.md) dropped them (migration `m4n5o6p7q8r9`).
 
 ## Context
 

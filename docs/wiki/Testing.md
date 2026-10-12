@@ -23,14 +23,14 @@ uv run pytest
 ```bash
 # Один раз: отдельный кластер только для тестов, порт 5434. Пароль случайный,
 # его хранит только контейнер.
-docker run -d --name ebnv-pgvector-test -p 127.0.0.1:5434:5432 \
+docker run -d --name ebnv-postgres-test -p 127.0.0.1:5434:5432 \
   -e POSTGRES_USER=court_monitor -e POSTGRES_DB=court_monitor_test \
   -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
-  pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
+  postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
 
 # Каждый раз:
-docker start ebnv-pgvector-test
-TEST_PASSWORD=$(docker inspect ebnv-pgvector-test \
+docker start ebnv-postgres-test
+TEST_PASSWORD=$(docker inspect ebnv-postgres-test \
   --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^POSTGRES_PASSWORD=//p')
 export TEST_DATABASE_URL="postgresql+psycopg://court_monitor:${TEST_PASSWORD}@127.0.0.1:5434/court_monitor_test"
 DATABASE_URL="$TEST_DATABASE_URL" uv run alembic upgrade head

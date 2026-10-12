@@ -8,6 +8,13 @@ bounded, status comes from facts alone). What it called the first use case is no
 scenario of two, and what it listed as not done — semantic retrieval, a source outside
 the database, a filter of sources that changes anything — is done here.
 
+**Amended 2026-10-13 by [ADR 0028](0028-remove-unused-vector-retrieval.md): the dense
+(semantic) retrieval is removed.** `publications_dense`, the table `publication_vectors`,
+the command `index-publications`, the setting `INVESTIGATION_DENSE_MODEL` and pgvector no
+longer exist. What this document says of them — the section «Semantic retrieval», the
+dense and hybrid rows of the tables, their measurements — is the record of what was
+built and measured, not of what the code does. Everything else stands.
+
 ## Context
 
 ADR 0026 built one graph for one question: what the database holds of one named person.
@@ -34,7 +41,7 @@ component "LangGraph" as graph {
 }
 component "ScenarioRegistry\nperson_dossier\nidentify_unnamed" as scenarios
 component "RetrieverRegistry" as registry
-component "entity_groups\nstored_publications\npublications_fts\npublications_dense (optional)\nunnamed_figurants" as local
+component "entity_groups\nstored_publications\npublications_fts\nunnamed_figurants" as local
 component "telegram:tg-<channel> ×N" as outside
 database "PostgreSQL\n(results.service read APIs)" as db
 cloud "t.me/s/<channel>?q=" as tme
@@ -115,7 +122,7 @@ of a publication and is part of the result and of the stored run.
 | `entity_groups` | local | entity groups, their verdicts, mentions, `entity_profile` | person, publication_terms | role, charges, politics, rf_list, latest_news | exact / declined name |
 | `stored_publications` | local | `LIKE ALL` over `parsed_articles.text` | person | identity | source order |
 | `publications_fts` | local | PostgreSQL FTS, `search_vector` (GIN) | keywords | role, charges, latest_news, corroboration | `ts_rank_cd` |
-| `publications_dense` | local, optional | pgvector over `publication_vectors` | keywords | same | cosine |
+| ~~`publications_dense`~~ (removed, ADR 0028) | local, optional | pgvector over `publication_vectors` | keywords | same | cosine |
 | `unnamed_figurants` | local | `unnamed_figurants`, the list, mentions | unnamed, publication_people | clues, candidates | — |
 | `telegram:tg-<channel>` | network | the channel's web-preview search | keywords | role, charges, latest_news, corroboration | source order |
 
@@ -135,7 +142,7 @@ the terms of a missing fact by the beginnings of their stems (`'арест':*` f
 «арестовал», which the stemmer cuts differently), at least one of them. Ranked by
 `ts_rank_cd` (normalized), optionally within a date window. No Elasticsearch.
 
-### Semantic retrieval: optional, pgvector, fused by rank
+### Semantic retrieval: optional, pgvector, fused by rank — removed (ADR 0028)
 
 Of the old semantic subsystem (ADR 0011, 0018) the schema and the pgvector extension
 were left; no code, no vectors. Qdrant is not brought back. `publication_vectors` holds
@@ -149,9 +156,10 @@ and the optional `semantic` group is installed; deployment images do not install
 An article ranks by its nearest window, found before any limit: a limit on windows
 first would let one long text take them all.
 
-Hybrid retrieval is the registry: `publications_fts` and `publications_dense` answer
-the same keyword query, and `merge_evidence` fuses every retriever's list by Reciprocal
-Rank Fusion (k = 60) on the document. A `ts_rank` and a cosine are never added. No
+Hybrid retrieval was the registry: `publications_fts` and `publications_dense` answered
+the same keyword query. `merge_evidence` still fuses every retriever's list by Reciprocal
+Rank Fusion (k = 60) on the document — the lists of the name search, the ranked text
+search and the channels. A `ts_rank` and a cosine are never added. No
 cross-encoder: nothing measured asks for one yet.
 
 ### Outside sources: a read-only search per configured source
@@ -425,8 +433,8 @@ the copy (2 446 windows, 1 632 articles), as the one it replaced did.
   do not name the person, but a namesake in a channel is still a lead, never the
   subject. The channel list is configuration; more channels mean more searches per
   round, bounded by the ceilings.
-- Dense retrieval needs its index built (`index-publications`) wherever it is enabled,
-  and rebuilt for a new model; production has none until that command is run there.
+- ~~Dense retrieval needs its index built (`index-publications`) wherever it is enabled,
+  and rebuilt for a new model.~~ Removed before it was deployed anywhere (ADR 0028).
 - `stored_publications` reads every text with `LIKE` (95 ms now, linear in the corpus).
   It recalls better than FTS on the nominative today; when the corpus grows it should
   give way to FTS (PERFORMANCE backlog).
@@ -435,4 +443,4 @@ the copy (2 446 windows, 1 632 articles), as the one it replaced did.
   may pay what the dossier paid; they were not measured here (PERFORMANCE backlog).
 - New settings: `INVESTIGATION_MAX_SEARCHES`, `INVESTIGATION_MAX_PARALLEL_SEARCHES`,
   `INVESTIGATION_TIMEOUT_SECONDS`, `INVESTIGATION_SEARCH_TIMEOUT_SECONDS`,
-  `INVESTIGATION_TELEGRAM_CHANNELS`, `INVESTIGATION_DENSE_MODEL`.
+  `INVESTIGATION_TELEGRAM_CHANNELS` (and `INVESTIGATION_DENSE_MODEL`, removed by ADR 0028).

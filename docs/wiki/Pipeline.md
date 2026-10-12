@@ -291,7 +291,6 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 | сущности и решения шагов | `local` (или `entity_groups`) | человек, роль, статьи, политика, перечень, последнее событие |
 | публикации по имени | `local` (`stored_publications`) | тексты, где есть все слова имени |
 | полнотекстовый поиск | `local` (`publications_fts`) | ранжированный поиск PostgreSQL по словам и падежам |
-| смысловой поиск | `local` (`publications_dense`) | только если задан `INVESTIGATION_DENSE_MODEL` и построен индекс `index-publications` |
 | приметы неназванных | `local` (`unnamed_figurants`) | приметы, подходящие записи перечня, люди публикаций |
 | Telegram-каналы | `telegram` (или `telegram:tg-ovdinfolive`) | собственный поиск публичных каналов из `channels.csv`; список — `INVESTIGATION_TELEGRAM_CHANNELS` |
 
@@ -311,9 +310,6 @@ python src/main.py investigate "Установи фигуранта публик
 python src/main.py investigate "Мария Бонцлер" --json
 python src/main.py investigate --run-id 3f2a…
 python src/main.py investigate --resume 3f2a…
-
-# Индекс смыслового поиска (нужна группа semantic)
-INVESTIGATION_DENSE_MODEL=intfloat/multilingual-e5-base uv run --group semantic python src/main.py index-publications
 ```
 
 Продолжение запуска: уже сделанные поиски не повторяются, недоделанные поиски круга
