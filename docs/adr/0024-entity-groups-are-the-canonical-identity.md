@@ -128,9 +128,16 @@ Any of these, measured, may reopen points 2 and 4.
   suite is green because the defect is expected, not because it is gone. Telling them
   apart needs evidence the pipeline does not extract (a place, an age, a case) and a
   key that can carry it.
-- **Name parts have limits the words alone do not lift** (`name_parts`): a given name
-  the lists do not hold before a surname in «-вич» reads as «Фамилия Имя Отчество»;
-  two given names in a row keep their order. Both are pinned by tests.
+- **Name parts have limits the words alone do not lift** (`name_parts`): two given
+  names before a surname in «-вич» read as «Фамилия Имя Отчество»; two given names in
+  a row keep their order. Both are pinned by tests. No word of a name is dropped (a
+  word that is neither given name nor surname is stored in the third field), except
+  the first word of a span that shows it took a neighbour's surname in; so these
+  limits can keep one person apart from their own shorter name, not merge two people.
+- **Normalizer 1.7.0 was changed three times on this branch** before any push. No
+  database outside the disposable test one was extracted with an earlier form of it,
+  so the version was not raised again. If this branch is ever deployed from an
+  intermediate commit, raise the version before the next change of `name_parts`.
 - **Stored data and re-extraction.** Mentions extracted before normalizer 1.7.0 keep
   the old name parts (`entity_mentions.normalized_data`); 399 of 21 778 mentions of the
   evaluation database differ. Nothing rewrites them in place. The version bump makes a

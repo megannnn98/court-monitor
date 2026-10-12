@@ -542,7 +542,12 @@ now apart outside one article, so some people the old parts joined by accident a
 joined only in part or offered to the operator, and a bare surname that fits two full
 names of its article gets no entity. Six false merges fewer, two correct pairs fewer.
 
-The model was asked 16 times for groups without a stored answer, 0.04 USD in all; the
+A join is judged on the mentions the grouping placed; mentions in no entity are counted
+beside each decision and do not decide. In every replayed row all correct pairs have
+every mention of both sides placed (`correct_with_every_mention_placed` equals
+`correct`), so no correct join here hides a lost mention.
+
+The model was asked 17 times for groups without a stored answer, 0.04 USD in all; the
 answers are in `var/identity_comparison/deepseek_name_answers.json`.
 
 ER v2 left 24 of the pairs to a human; 22 can be judged and all 22 are the same person.
@@ -561,8 +566,10 @@ entry points and the production snapshot show, they are the ground of ADR 0024.
 
 ## 10. Limits of the experiment
 
-- B is the rules alone. Production B adds a model and the operator's decisions; its
-  quality is not measured here in either direction.
+- In sections 3–8 B is the rules alone. Production B adds a model and the operator's
+  decisions; it was measured later, only on the 100 labelled disagreement pairs and
+  only as a replay of its grouping steps ("The operator cycle itself, replayed"). Its
+  quality on the corpus, and after a whole operator cycle, is not measured.
 - The synthetic corpus is small (59 cases), was built for ER v2 and has no article
   context. B joins a surname to a full name only inside an article, so the corpus
   cannot show that; ER v2's use of the same context is also not exercised.
