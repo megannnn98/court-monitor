@@ -22,8 +22,7 @@ from ingestion.sources.sqlalchemy_persistence import (
     SqlAlchemyPersistenceResult,
 )
 from monitor_core.errors import NoTextError
-from monitor_core.ingestion import IngestionPipeline
-from monitor_core.ingestion.pipeline import FetchedArticle
+from monitor_core.ingestion import FetchedArticle, IngestionPipeline
 from monitor_core.model import ParsedArticle, SourceReference
 from monitor_core.ports import DocumentFetcher
 

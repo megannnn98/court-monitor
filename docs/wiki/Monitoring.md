@@ -57,7 +57,7 @@ rectangle "Dagster (orchestrator)" as Dagster #EEF {
 rectangle "CLI\nmonitor / monitor-derived" as CLI
 rectangle "API (read-only)\n/monitoring/*" as API
 
-package "src/monitoring (coordination)" {
+package "src/orchestrator (coordination)" {
   component "MonitoringService" as Svc
   component "SqlAlchemyMonitoringWorkQueries\n(what is still to do)" as Work
   component "SqlAlchemyMonitoringRepository\n(runs, items, checkpoints)" as Repo
@@ -215,7 +215,7 @@ end
 | выбор недоделанной работы | `src/orchestrator/selection.py` |
 | runs/checkpoints/items | `src/orchestrator/repository.py` |
 | findings | `src/results/findings.py` |
-| Dagster definitions | `src/monitoring/dagster/` |
+| Dagster definitions | `src/orchestrator/dagster/` |
 | API/UI status | `src/web/routers/monitoring.py`, `src/web/ui/monitoring.py` |
 
 ## Запуск

@@ -61,7 +61,7 @@ snapshot = `not_matched`, она может попасть в `/ui/candidates`.
 | classification service | `src/analysis/persecution/classification_service.py` |
 | rule-based classifier | `src/analysis/persecution/classifier.py` |
 | queries/latest ids | `src/analysis/persecution/queries.py` |
-| CLI | `src/persecution/cli.py` |
+| CLI | `src/cli/persecution.py` |
 | candidates | `src/results/candidates/service.py` |
 | UI candidates | `src/web/ui/candidates.py`, `src/web/candidate_rows.py` |
 

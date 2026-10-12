@@ -63,7 +63,7 @@ def _application_files() -> list[Path]:
 
 def test_application_packages_are_found() -> None:
     # Guards the guard: an empty set would make the boundary test pass vacuously.
-    assert {"ingestion", "db", "processing", "monitoring", "persons", "settings"} <= (
+    assert {"ingestion", "db", "processing", "orchestrator", "persons", "settings"} <= (
         _application_packages()
     )
 

@@ -227,11 +227,37 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 ## Кодовые точки входа
 
 - Шаги и их порядок: `src/web/ui/pipeline.py`; запуски: `src/orchestrator/operations.py`.
-- CLI шагов 2–5: `src/cli/monitoring.py`.
-- Очистка: `src/processing/junk/purge.py`.
-- Сущности: `src/entities/` — `collector.py`, `grouping.py`, `normalizer.py`,
-  `rf_check.py`, `roles.py`, `politics.py`, `news.py`, `unnamed.py`, `disputes.py`,
-  `answers.py`, `llm.py`.
+- Что делает каждый шаг и в каком порядке: `src/orchestrator/cycle.py` (`OperatorCycle`).
+- CLI шага 1: `src/cli/monitoring.py`; CLI шагов 2–5: `src/cli/cycle.py`.
+
+Шаг вызывает публичный API своего модуля и ничего мимо него
+([ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md)):
+
+| Шаг | Модуль | API | Код за ним |
+|---|---|---|---|
+| 1. Загрузка | `ingestion`, `processing` | `IngestionService`, `ProcessingService.extract_article` через `MonitoringService` | `src/ingestion/sources/`, `src/processing/extraction/` |
+| 2. Очистка | `processing` | `ProcessingService.purge_junk` | `src/processing/junk/` |
+| 3. Люди | `processing` | `IdentityService.rebuild_groups` | `src/processing/identity/` |
+| 4. Фигуранты | `processing` | `ProcessingService.find_figurants` | `src/processing/roles/` |
+| 5. Политические дела | `analysis`, `processing` | `AnalysisService.check_rosfinmonitoring`, `classify_politics`, `find_news`, `find_unnamed`; `ProcessingService.read_digests`, `read_sentences` | `src/analysis/`, `src/processing/evidence/` |
+
+Модель (DeepSeek через OpenRouter) стоит за этими API: общий клиент `src/llm/chat.py`,
+кэш ответов `src/processing/answers.py`.
+
+## Вопрос об одном человеке
+
+Кроме цикла есть разовый вопрос: что база знает о человеке и чего не хватает.
+
+```bash
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py investigate "Что известно про Ивана Сидорова?"'
+```
+
+То же по HTTP: `POST /api/v1/investigation` с телом `{"query": "..."}`. Ответ —
+установленные факты со ссылками на материалы (`E1`, `E2`, …), недостающие данные,
+противоречия и статус: `completed`, `partial`, `clarification_required`,
+`review_required` или `failed`. Вопрос ничего не пишет в базу и не запускает шаги цикла.
+Устройство: [ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md),
+`src/investigation/`.
 
 ## Проверка
 

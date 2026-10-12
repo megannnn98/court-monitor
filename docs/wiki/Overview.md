@@ -83,10 +83,10 @@ snapshot РФМ подтверждено отсутствие, запись по
 | `src/ingestion/sources/` | source registry, adapters, fetch, parse, ingestion persistence |
 | `src/processing/extraction/` | rule-based mentions, normalization, events |
 | `src/persons/` | Person persistence, ER v2, review queue, AI review |
-| `src/persecution/` | political persecution classification |
-| `src/rosfinmonitoring/` | snapshots and matching |
-| `src/candidates/` | final candidate query |
-| `src/monitoring/` | automated pipeline runs, checkpoints, findings |
+| `src/analysis/persecution/` | political persecution classification |
+| `src/analysis/rosfinmonitoring/` | snapshots and matching |
+| `src/results/candidates/` | final candidate query |
+| `src/orchestrator/` | automated pipeline runs, checkpoints, findings |
 | `src/db/`, `migrations/` | ORM and Alembic schema |
 
 ## Данные и артефакты

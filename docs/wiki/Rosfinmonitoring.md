@@ -290,14 +290,14 @@ Match statuses:
 
 | Сценарий | Код |
 |---|---|
-| parsing/import | `src/rosfinmonitoring/` |
+| parsing/import | `src/analysis/rosfinmonitoring/` |
 | matching | `src/analysis/rosfinmonitoring/matcher.py` |
 | даты включения | `src/analysis/rosfinmonitoring/inclusion_dates.py`, `inclusion_store.py` |
 | таблица оператора | `src/analysis/rosfinmonitoring/operator_table.py` |
 | что можно сказать о человеке | `src/analysis/rosfinmonitoring/membership.py` |
 | страница списка и фильтр | `src/web/ui/rfm_list.py` |
 | snapshot lookup | `src/analysis/rosfinmonitoring/snapshot_lookup.py` |
-| CLI | `src/rosfinmonitoring/cli.py` |
+| CLI | `src/cli/rosfinmonitoring.py` |
 | candidate query | `src/results/candidates/service.py` |
 | API | `src/web/routers/rosfinmonitoring.py` |
 

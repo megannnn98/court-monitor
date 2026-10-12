@@ -197,6 +197,7 @@ def test_openapi_lists_versioned_reads_and_only_the_known_actions(client: TestCl
         ("post", "/api/v1/junk-holds/hold"),
         ("post", "/api/v1/junk-holds/reextract"),
         ("post", "/api/v1/ask"),
+        ("post", "/api/v1/investigation"),
         ("post", "/api/v1/airtable/sync"),
         ("post", "/api/v1/airtable/rosfin"),
         ("post", "/api/v1/officials/add"),
