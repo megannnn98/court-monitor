@@ -203,6 +203,10 @@ class ScriptedModel:
     ) -> ModelReply:
         self.calls.append(schema_name)
         if schema_name == "investigation_intake":
+            # The model is offered the registry's scenarios, not the shipped ones.
+            properties = schema["properties"]
+            assert isinstance(properties, dict)
+            assert properties["scenario"]["enum"] == ["test_subject", None]
             body: dict[str, object] = {
                 "scenario": "test_subject",
                 "subject_name": SUBJECT,
@@ -348,3 +352,20 @@ def test_a_status_nobody_holds_ends_the_run_partial_after_one_follow_up() -> Non
     assert result.status == "partial" and result.missing_information == ["status"]
     # The same follow-up would be the same search: it is not made twice.
     assert [query.kind for query in record.calls] == ["person", "keywords"]
+
+
+class UnreadScenario(SubjectScenario):
+    """Registered after the one that matches: it is never asked to read the question."""
+
+    name: ScenarioName = "test_unread"
+
+    def intent_by_rules(self, question: str) -> InvestigationIntent | None:
+        raise AssertionError("a later scenario was read after an earlier one matched")
+
+
+def test_the_first_scenario_that_finds_a_subject_is_taken_without_reading_the_rest() -> None:
+    registry = ScenarioRegistry([SubjectScenario(), UnreadScenario()])
+
+    intent = registry.by_rules(QUESTION)
+
+    assert intent.scenario == "test_subject" and intent.subject_name == SUBJECT
