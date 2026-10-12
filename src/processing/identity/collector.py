@@ -26,9 +26,10 @@ from db.orm_models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
-from entities.answers import input_hash
-from entities.disputes import KeyIndex, merge_decided, same_pairs
-from entities.grouping import (
+from llm.chat import BudgetExceededError, Spend, ask_in_batches
+from processing.answers import input_hash
+from processing.identity.disputes import KeyIndex, merge_decided, same_pairs
+from processing.identity.grouping import (
     Entity,
     GivenName,
     PersonMention,
@@ -43,7 +44,7 @@ from entities.grouping import (
     name_key,
     nominative_form,
 )
-from entities.normalizer import (
+from processing.identity.normalizer import (
     BATCH_SIZE,
     PROMPT_VERSION,
     NameItem,
@@ -51,9 +52,8 @@ from entities.normalizer import (
     NameNormalizerError,
     NormalizedName,
 )
-from entities.overrides import apply_overrides, name_overrides
-from entities.removals import removed_keys, without_removed
-from llm.chat import BudgetExceededError, Spend, ask_in_batches
+from processing.identity.overrides import apply_overrides, name_overrides
+from processing.identity.removals import removed_keys, without_removed
 from processing.junk.purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")

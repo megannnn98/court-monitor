@@ -14,8 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupRecord, EntityNameOverrideRecord
-from entities.disputes import KeyIndex, merge_groups
-from entities.grouping import REGION_SEP, Entity, given_name_first, name_key, split_key
+from processing.identity.disputes import KeyIndex, merge_groups
+from processing.identity.grouping import REGION_SEP, Entity, given_name_first, name_key, split_key
 
 MANUAL = "manual"
 MAX_NAME = 200

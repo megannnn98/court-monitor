@@ -1,6 +1,6 @@
 """Person names to the nominative case by Claude: the forms of an entity in, one name out.
 
-The rules of `entities.grouping` stop where the dictionary does: an unknown surname in
+The rules of `processing.identity.grouping` stop where the dictionary does: an unknown surname in
 the genitive, «Александра» that is a man's name declined. A model reads the forms and a
 quote and answers the nominative name, the gender, and whether this is a person at all
 («Слава Украине» is not). Nothing else is sent: the name forms and one short quote.
@@ -21,7 +21,6 @@ import anthropic
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
-from entities.grouping import _bases, _fold
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -32,6 +31,7 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.identity.grouping import _bases, _fold
 
 logger = logging.getLogger("entities")
 

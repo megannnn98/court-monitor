@@ -1,4 +1,4 @@
-"""Person entities gathered from mentions (`entities.grouping`). Derived and rebuilt whole."""
+"""Person entities gathered from mentions (`processing.identity.grouping`). Derived and rebuilt whole."""
 
 from datetime import date, datetime
 from typing import Any

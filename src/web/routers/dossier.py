@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from entities.news import KIND_LABELS as NEWS_LABELS
-from entities.officials import OFFICIAL_KINDS
 from entities.politics import VERDICT_LABELS
 from entities.rf_articles import listing
 from entities.rf_check import FULL
 from persecution.classifier import POLITICAL_ARTICLES
+from processing.roles.officials import OFFICIAL_KINDS
 from rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from web.dependencies import get_db
 from web.response_models import (

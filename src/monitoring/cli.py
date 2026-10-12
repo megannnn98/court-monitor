@@ -18,22 +18,22 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
-from entities.collector import EntityCollector
-from entities.digest import DigestFinder, digest_classifier_from_env, figurant_titles
 from entities.news import NewsFinder, NewsResult, news_reader_from_env
-from entities.normalizer import name_normalizer_from_env
 from entities.politics import PoliticsFinder, politics_classifier_from_env
 from entities.rf_check import EntityRfCheck, RfCheckResult
-from entities.roles import FigurantFinder, role_classifier_from_env
-from entities.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
 from entities.unnamed import UnnamedFinder, UnnamedResult, unnamed_reader_from_env
 from ingestion.sources.source_registry import SOURCES, SourceKind
 from monitoring.models import MonitoringAlreadyRunningError, MonitoringRunStatus, MonitoringTrigger
 from monitoring.service import MonitoringService
 from observability import configure_logging
+from processing.evidence.digest import DigestFinder, digest_classifier_from_env, figurant_titles
+from processing.evidence.sentences import SentenceFinder, SentencesResult, sentence_reader_from_env
+from processing.identity.normalizer import name_normalizer_from_env
+from processing.identity.service import identity_service_from_env
 from processing.junk.hold_reader import hold_reader_from_env, read_holds
 from processing.junk.purge import JunkPurge, JunkPurgeResult, since_from_env
 from processing.junk.screen import screen_from_env
+from processing.roles.roles import FigurantFinder, role_classifier_from_env
 
 logger = logging.getLogger("monitoring")
 
@@ -279,16 +279,15 @@ def run_monitoring_command(
     if args.command == "purge-junk":
         return _purge_junk(session_factory)
     if args.command == "collect-entities":
-        normalizer = name_normalizer_from_env()
-        if normalizer is None:
+        identity = identity_service_from_env()
+        if not identity.names_by_model:
             logger.warning(
                 "event=entity_names_no_model: neither OPENROUTER_API_KEY nor ANTHROPIC_API_KEY"
             )
-        collected = EntityCollector(
+        collected = identity.rebuild_groups(
             session_factory,
             on_stage=lambda stage: logger.info("event=entities_collect_stage stage=%s", stage),
-            normalizer=normalizer,
-        ).run()
+        )
         _print(
             {
                 "mentions": collected.mentions,

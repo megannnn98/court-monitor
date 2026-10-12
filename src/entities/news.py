@@ -10,7 +10,7 @@ names the latest news: new_case, sentence, ongoing, closed (the person is free o
 dead: a case of the past remembered) or other. The date of our first
 publication is no evidence — we keep only the publications since the working date — so
 the text decides: «задержан в 2023 году», «продлили арест», «апелляционный суд».
-Answers are cached by the quotes (`entities.answers`); nothing sticks: the news changes.
+Answers are cached by the quotes (`processing.answers`); nothing sticks: the news changes.
 """
 
 from __future__ import annotations
@@ -30,8 +30,6 @@ from sqlalchemy import delete, insert, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupNewsRecord, EntityNewsAnswerRecord
-from entities.answers import AnswerCache, ask_missing, input_hash
-from entities.evidence import person_evidence_cte
 from entities.politics import POLITICAL
 from llm.chat import (
     OPENROUTER_MODEL,
@@ -43,6 +41,8 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.answers import AnswerCache, ask_missing, input_hash
+from processing.evidence.publications import person_evidence_cte
 
 logger = logging.getLogger("entities")
 

@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupRecord, EntityMentionRecord
-from entities.collector import EntityCollector
-from entities.grouping import Entity
-from entities.overrides import apply_overrides, clean_name, correct_name
+from processing.identity.collector import EntityCollector
+from processing.identity.grouping import Entity
+from processing.identity.overrides import apply_overrides, clean_name, correct_name
 
 
 def test_a_correction_names_the_entity_and_holds_after_the_region_entered_the_key() -> None:

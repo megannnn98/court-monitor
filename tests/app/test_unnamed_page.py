@@ -22,8 +22,8 @@ from db.orm_models import (
     UnnamedFigurantRecord,
     UnnamedScreenedRecord,
 )
-from entities.collector import EntityCollector
 from operator_console import OperationRegistry
+from processing.identity.collector import EntityCollector
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 from web.ui.workload import workload

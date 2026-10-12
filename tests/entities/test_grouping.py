@@ -7,7 +7,7 @@ from itertools import count
 
 import pytest
 
-from entities.grouping import (
+from processing.identity.grouping import (
     Entity,
     PersonMention,
     attach_aliases,
@@ -214,7 +214,7 @@ def test_a_given_name_that_repeats_the_surname_is_a_bare_surname() -> None:
 
 
 def test_model_names_rename_merge_and_drop_what_is_no_person() -> None:
-    from entities.grouping import GivenName, apply_names
+    from processing.identity.grouping import GivenName, apply_names
 
     moor = mention("Александр", "Моор")
     declined = mention("Александра", "Моора", article=2)
@@ -244,7 +244,7 @@ def test_model_names_rename_merge_and_drop_what_is_no_person() -> None:
 
 
 def test_a_model_neither_adds_nor_drops_the_patronymic_that_parts_namesakes() -> None:
-    from entities.grouping import GivenName, apply_names
+    from processing.identity.grouping import GivenName, apply_names
 
     full = mention("Роман", "Попков", patronymic="Андреевич")
     short = mention("Роман", "Попков", article=2)
@@ -284,13 +284,13 @@ def test_a_model_neither_adds_nor_drops_the_patronymic_that_parts_namesakes() ->
     ],
 )
 def test_a_surname_first_answer_is_turned_given_name_first(answer: str, stored: str) -> None:
-    from entities.grouping import given_name_first
+    from processing.identity.grouping import given_name_first
 
     assert given_name_first(answer) == stored
 
 
 def test_a_surname_first_answer_merges_with_the_same_person() -> None:
-    from entities.grouping import GivenName, apply_names
+    from processing.identity.grouping import GivenName, apply_names
 
     entities = group_mentions(
         [mention("Арсений", "Турбин"), mention("Арсения", "Турбина", article=2)]
@@ -307,7 +307,7 @@ def test_a_surname_first_answer_merges_with_the_same_person() -> None:
 
 
 def test_a_rule_name_written_surname_first_joins_the_same_person() -> None:
-    from entities.grouping import GivenName, apply_names
+    from processing.identity.grouping import GivenName, apply_names
 
     reversed_ = mention("Турбин", "Арсений")  # the text wrote the surname first
     right = mention("Арсений", "Турбин", article=2)
@@ -360,7 +360,7 @@ def test_a_full_name_without_a_region_joins_the_cards_of_one_region() -> None:
 
 
 def test_a_model_name_keeps_the_region_that_parts_namesakes() -> None:
-    from entities.grouping import GivenName, apply_names
+    from processing.identity.grouping import GivenName, apply_names
 
     entities = group_mentions(
         [
@@ -438,7 +438,7 @@ def test_the_forms_are_as_the_text_wrote_them() -> None:
 
 
 def test_a_surname_alone_joins_the_full_name_of_its_article() -> None:
-    from entities.grouping import attach_bare
+    from processing.identity.grouping import attach_bare
 
     noize = Entity("иван алексеев", "Иван Алексеев", [1, 2], Counter({"Иван Алексеев": 2}))
     # «Иноагент Алексеев»: the model kept the surname, the title was no given name.
@@ -467,7 +467,7 @@ def test_a_surname_alone_joins_the_full_name_of_its_article() -> None:
     ],
 )
 def test_a_form_already_in_the_nominative_needs_no_model(form: str, name: str, gender: str) -> None:
-    from entities.grouping import nominative_form
+    from processing.identity.grouping import nominative_form
 
     ruled = nominative_form(form)
 
@@ -493,7 +493,7 @@ def test_a_form_already_in_the_nominative_needs_no_model(form: str, name: str, g
     ],
 )
 def test_a_form_the_rule_is_not_sure_of_goes_to_the_model(form: str) -> None:
-    from entities.grouping import nominative_form
+    from processing.identity.grouping import nominative_form
 
     assert nominative_form(form) is None
 

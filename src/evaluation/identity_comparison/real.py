@@ -22,12 +22,12 @@ from datetime import datetime
 
 from sqlalchemy import Engine, create_engine, text
 
-from entities.grouping import PersonMention, byline, name_key
-from entities.normalizer import BATCH_SIZE
 from evaluation.identity_comparison.rules import entity_of_mention, rules_only_entities
+from processing.identity.grouping import PersonMention, byline, name_key
+from processing.identity.normalizer import BATCH_SIZE
 from processing.junk.purge import CRIMINAL_EVENT_TYPES
 
-# As `entities.collector._AROUND`: the text around a mention that tells a signature.
+# As `processing.identity.collector._AROUND`: the text around a mention that tells a signature.
 AROUND = 40
 SAMPLE_PER_STRATUM = 25
 SAMPLE_SEED = 20261011

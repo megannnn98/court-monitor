@@ -1,7 +1,7 @@
 """The identity the operator cycle really builds, replayed on the labelled sample.
 
 `EntityCollector.run` groups mentions by rules, renames every entity by a model's answer
-(DeepSeek through OpenRouter, `entities.normalizer`) and merges entities the model named
+(DeepSeek through OpenRouter, `processing.identity.normalizer`) and merges entities the model named
 alike, then applies a person's decisions. This replays those steps in memory over the
 mentions of the real database, with the model's answers a production snapshot already
 holds (`entity_name_normalizations`); the few it lacks may be asked once, with the
@@ -43,10 +43,14 @@ from typing import Any
 
 from sqlalchemy import Engine, text
 
-from entities.answers import input_hash
-from entities.collector import _ALIASES, MAX_FORMS, QUOTE_CONTEXT
-from entities.disputes import EntityRef, find_pairs, merge_decided, pair_keys
-from entities.grouping import (
+from evaluation.identity_comparison import annotation, labelling, real
+from evaluation.identity_comparison.rules import entity_of_mention
+from processing.answers import input_hash
+from processing.extraction.models import NAMED_TITLE_SOURCES
+from processing.extraction.normalizers import name_parts
+from processing.identity.collector import _ALIASES, MAX_FORMS, QUOTE_CONTEXT
+from processing.identity.disputes import EntityRef, find_pairs, merge_decided, pair_keys
+from processing.identity.grouping import (
     Entity,
     GivenName,
     PersonMention,
@@ -58,13 +62,14 @@ from entities.grouping import (
     merge_swapped,
     nominative_form,
 )
-from entities.normalizer import BATCH_SIZE, PROMPT_VERSION, NameItem, name_normalizer_from_env
-from entities.overrides import apply_overrides
-from entities.removals import without_removed
-from evaluation.identity_comparison import annotation, labelling, real
-from evaluation.identity_comparison.rules import entity_of_mention
-from processing.extraction.models import NAMED_TITLE_SOURCES
-from processing.extraction.normalizers import name_parts
+from processing.identity.normalizer import (
+    BATCH_SIZE,
+    PROMPT_VERSION,
+    NameItem,
+    name_normalizer_from_env,
+)
+from processing.identity.overrides import apply_overrides
+from processing.identity.removals import without_removed
 
 ONE_ENTITY = "one_entity"
 DIFFERENT_ENTITIES = "different_entities"

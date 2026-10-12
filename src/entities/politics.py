@@ -34,10 +34,7 @@ from db.orm_models import (
     EntityPoliticsAnswerRecord,
     EntityPoliticsDecisionRecord,
 )
-from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
-from entities.disputes import KeyIndex
 from entities.known_base import TrackedCase, TrackedCases
-from entities.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -49,6 +46,9 @@ from llm.chat import (
     endpoint_from_env,
 )
 from persecution.classifier import POLITICAL_ARTICLES
+from processing.answers import AnswerCache, AskResult, ask_missing, input_hash
+from processing.identity.service import KeyIndex
+from processing.roles.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
 
 logger = logging.getLogger("entities")
 

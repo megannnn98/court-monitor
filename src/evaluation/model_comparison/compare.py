@@ -18,10 +18,10 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from entities.grouping import name_key
-from entities.normalizer import NameItem, NameNormalizer
 from entities.politics import MEMORIAL_CATEGORIES, PoliticsClassifier, PoliticsItem, verdict_of
-from entities.roles import _QUOTES, QUOTE_CONTEXT, QUOTES, RoleClassifier, RoleItem, role_of
+from processing.identity.grouping import name_key
+from processing.identity.normalizer import NameItem, NameNormalizer
+from processing.roles.roles import _QUOTES, QUOTE_CONTEXT, QUOTES, RoleClassifier, RoleItem, role_of
 
 logger = logging.getLogger("entities")
 

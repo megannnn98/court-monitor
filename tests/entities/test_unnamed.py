@@ -19,7 +19,6 @@ from db.orm_models import (
     UnnamedKeepRecord,
     UnnamedScreenedRecord,
 )
-from entities.answers import input_hash
 from entities.unnamed import (
     DIFFERENT,
     RF_ENTRY,
@@ -35,6 +34,7 @@ from entities.unnamed import (
     keep,
     resolve_identity,
 )
+from processing.answers import input_hash
 
 TYUMEN = (
     "В Тюмени задержан 17-летний житель города по делу о теракте на железной дороге. "

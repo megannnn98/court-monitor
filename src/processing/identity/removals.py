@@ -14,8 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupRecord, EntityRemovalRecord
-from entities.disputes import KeyIndex
-from entities.grouping import Entity
+from processing.identity.disputes import KeyIndex
+from processing.identity.grouping import Entity
 
 
 def removed_keys(session: Session) -> list[str]:

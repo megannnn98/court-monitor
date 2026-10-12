@@ -1,4 +1,4 @@
-"""«Приговоры»: the sentences a model read from the articles (`entities.sentences`),
+"""«Приговоры»: the sentences a model read from the articles (`processing.evidence.sentences`),
 folded into cases (`entities.sentence_cases`) — what «Спросить» counts over.
 
 Each case: who, where, what punishment, for what, the article's own words, and a
@@ -21,9 +21,9 @@ from sqlalchemy.orm import Session
 
 from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from entities.ask import KIND_LABELS, REASON_LABELS
-from entities.regions import canonical
 from entities.sentence_cases import POLITICAL, Case, Filters, cases
 from entities.sentence_cases import select as select_cases
+from processing.evidence.regions import canonical
 from web.dependencies import get_db
 from web.ui.layout import _page, pager
 

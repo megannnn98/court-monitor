@@ -34,7 +34,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from entities.sentences import COLONY, NOT_POLITICAL, REASONS, UNKNOWN
+from processing.evidence.sentences import COLONY, NOT_POLITICAL, REASONS, UNKNOWN
 
 # What stands for every reason that is a persecution.
 POLITICAL = "political"
@@ -221,7 +221,7 @@ ANY, ONLY, EXCLUDE = "any", "only", "exclude"
 class Filters:
     """Which cases a count is over; an empty field does not narrow."""
 
-    # Reasons of `entities.sentences.REASONS`, or `POLITICAL` for every persecution.
+    # Reasons of `processing.evidence.sentences.REASONS`, or `POLITICAL` for every persecution.
     reasons: tuple[str, ...] = ()
     region: str = ""
     kind: str = ""

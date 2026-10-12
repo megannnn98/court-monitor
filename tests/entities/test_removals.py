@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupRecord, EntityMentionRecord, EntityRemovalRecord
-from entities.collector import EntityCollector
-from entities.grouping import Entity
-from entities.removals import removals, remove, restore, without_removed
+from processing.identity.collector import EntityCollector
+from processing.identity.grouping import Entity
+from processing.identity.removals import removals, remove, restore, without_removed
 
 
 def test_a_removal_takes_the_entity_out_and_holds_after_the_region_entered_the_key() -> None:

@@ -32,7 +32,7 @@ from db.orm_models import (
     EntityRoleDecisionRecord,
 )
 from entities.politics import POLITICAL, PoliticsFinder
-from entities.roles import FIGURANT, FigurantFinder
+from processing.roles.roles import FIGURANT, FigurantFinder
 from web.app import app
 from web.dependencies import get_db
 
@@ -284,7 +284,7 @@ def test_the_exact_key_wins_over_a_surname_stem_match(
     small PostgreSQL table comes back in insertion order — whichever record is read last
     is the one that wins, and today that is an accident of insert order, not a rule.
     """
-    from entities.roles import role_decisions
+    from processing.roles.roles import role_decisions
 
     stale, current = "иван петров", "пётр иванов"
     for order in ((stale, current), (current, stale)):
@@ -311,8 +311,8 @@ def test_a_decision_does_not_silently_revert_after_a_marked_official(
     honour it too. It used to write «figurant» and the next run quietly changed it to
     «mentioned»: the operator saw a decision that the pipeline took back.
     """
-    from entities.officials import OFFICIAL_KINDS, mark_official
-    from entities.roles import MENTIONED, decide_role
+    from processing.roles.officials import OFFICIAL_KINDS, mark_official
+    from processing.roles.roles import MENTIONED, decide_role
 
     with session_factory.begin() as session:
         entity = _seed(session, "мария резова")
@@ -345,7 +345,7 @@ def test_dropping_a_figurant_to_mentioned_takes_it_off_the_political_list(
 ) -> None:
     """`mark_official` deletes the verdict when an entity leaves the figurants; a manual
     role change must do the same, or the person stays on «Результат» until step 5."""
-    from entities.roles import MENTIONED, decide_role
+    from processing.roles.roles import MENTIONED, decide_role
 
     with session_factory.begin() as session:
         entity = _seed(session, "мария резова")

@@ -238,9 +238,9 @@ stop
   перечня: `src/entities/base_unnamed.py`, страница `src/web/ui/base_unnamed.py`.
 - Поиск, подбор, решения: `src/entities/unnamed.py` (`UnnamedFinder`,
   `candidates`, `decide`, `resolve_identity`).
-- Материализация опознаний при пересборке: `src/entities/collector.py`
+- Материализация опознаний при пересборке: `src/processing/identity/collector.py`
   (`_apply_unnamed_resolutions`).
-- Единая точка доказательств «человек ↔ публикация»: `src/entities/evidence.py`
+- Единая точка доказательств «человек ↔ публикация»: `src/processing/evidence/publications.py`
   (`person_evidence_cte`). Она объединяет обычные `entity_group_mentions` и
   ручные `entity_group_unnamed_mentions`.
 - Запуск: `find-political` и `find-unnamed` в `src/monitoring/cli.py`.

@@ -16,9 +16,9 @@ from db.orm_models import (
     EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
-from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
-from entities.roles import (
+from processing.identity.collector import EntityCollector
+from processing.roles.roles import (
     FIGURANT,
     FigurantFinder,
     RoleAnswer,
@@ -480,7 +480,7 @@ def test_the_model_overrules_the_rules_charge_that_names_the_wrong_person(
 def test_a_person_s_mark_wins_either_way_and_survives_a_rebuild(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from entities.officials import mark_official
+    from processing.roles.officials import mark_official
 
     _seed_officials(session_factory)
     classifier = FakeClassifier({"Иван Иванов": "accused", "Ольга Минакова": "judge"})

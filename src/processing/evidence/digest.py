@@ -11,7 +11,7 @@ filtering would empty it, so this never hides every source — it just may not f
 person whose only case article has an opaque headline.
 
 A person's identity can be resolved differently after a rebuild; an article's title
-cannot. So this needs none of `entities.answers`' key/prompt-version/sticky machinery
+cannot. So this needs none of `processing.answers`' key/prompt-version/sticky machinery
 built for entity answers — a plain per-article cache is enough.
 """
 
@@ -31,7 +31,6 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ArticleDigestAnswerRecord
-from entities.evidence import person_evidence_cte
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -44,6 +43,7 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.evidence.publications import person_evidence_cte
 
 logger = logging.getLogger("entities")
 

@@ -190,7 +190,7 @@ uv run mypy --strict src tests
   `TypeError`, а не собственный тип ошибки.
 - Намеренно не перенесены: retry в `src/processing/junk/decision_screen.py`,
   `fetch_listing_page_with_retry` в `src/ingestion/sources/discovery_pagination.py`,
-  Anthropic-путь в `src/entities/normalizer.py`, `src/llm/cli_reviewer.py`.
+  Anthropic-путь в `src/processing/identity/normalizer.py`, `src/llm/cli_reviewer.py`.
 - Отложено (не баги): `ParsedArticle` / `ArticleParser` уже, чем реальная
   семантика документа; параметр `IngestionPipeline(source_adapter=...)` принимает
   любой `DocumentFetcher`; `monitor_core/ingestion/retry.py` можно переименовать в

@@ -23,7 +23,7 @@ from db.orm_models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from entities.collector import EntityCollector
+from processing.identity.collector import EntityCollector
 from web.app import app
 from web.dependencies import get_db
 

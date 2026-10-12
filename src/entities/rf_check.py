@@ -29,7 +29,7 @@ from db.orm_models import (
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
 )
-from entities.disputes import BY_REGION, BY_RF, merge_clear_pairs
+from processing.identity.service import BY_REGION, BY_RF, IdentityService
 from rosfinmonitoring.download import (
     ListPage,
     RosfinmonitoringDownloadError,
@@ -193,7 +193,7 @@ class EntityRfCheck:
                     insert(EntityGroupRfMatchRecord), rows[start : start + INSERT_CHUNK]
                 )
             self._on_stage("merging")
-            merged = merge_clear_pairs(session, listed_level=FULL)
+            merged = IdentityService().merge_confirmed_pairs(session, listed_level=FULL)
         full = sum(level == FULL for level in levels.values())
         result = RfCheckResult(
             snapshot_id=latest.snapshot_id,

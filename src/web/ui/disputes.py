@@ -16,21 +16,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
-from entities.disputes import (
+from entities.rf_check import FULL
+from processing.identity.service import (
     DIFFERENT,
     PATRONYMIC,
     REGION,
     SAME,
     SIMILAR,
     EntityRef,
+    IdentityService,
     Pair,
-    decide,
-    decided_pairs,
-    decision_counts,
-    find_pairs,
+    key_region,
 )
-from entities.grouping import split_key
-from entities.rf_check import FULL
 from web.dependencies import get_db
 from web.ui.entities import (
     _article_links,
@@ -111,7 +108,7 @@ def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
             )
         ).all()
     ]
-    pairs = find_pairs(refs, decided_pairs(db))
+    pairs = IdentityService().disputed_pairs(db, refs)
     if key:
         pairs.sort(key=lambda pair: key not in pair.keys)
     counts = {
@@ -134,7 +131,7 @@ def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
         roles=_roles(db, ids),
         listed=_rf_levels(db, ids),
         charges=_articles_by_group(db, ids),
-        decided=decision_counts(db),
+        decided=IdentityService().decision_counts(db),
     )
 
 
@@ -142,7 +139,7 @@ def settle_pair(db: Session, key_a: str, key_b: str, decision: str) -> None:
     """«Один человек» or «Разные люди», committed; HTTPException 400 for a half decision."""
     if not key_a or not key_b or key_a == key_b or decision not in (SAME, DIFFERENT):
         raise HTTPException(status_code=400, detail="Неполное решение")
-    decide(db, key_a, key_b, decision)
+    IdentityService().decide_pair(db, key_a, key_b, decision)
     db.commit()
 
 
@@ -226,7 +223,7 @@ def ui_disputes(
 
 def _candidate(ref: EntityRef, regions: dict[int, list[Any]]) -> str:
     """A name with its card's region: three «Денис Владимирович Попов» differ by it."""
-    region = str(regions[ref.id][0][0]) if split_key(ref.key)[1] and regions.get(ref.id) else ""
+    region = str(regions[ref.id][0][0]) if key_region(ref.key) and regions.get(ref.id) else ""
     return f"«{display_name(ref.name)}»" + (f" ({region})" if region else "")
 
 

@@ -16,10 +16,10 @@ from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityMentionRecord
-from entities.collector import EntityCollector
 from entities.rf_check import EntityRfCheck
-from entities.roles import FigurantFinder, Kind, RoleAnswer, RoleItem
 from operator_console import OperationRegistry, OperationRunStatus
+from processing.identity.collector import EntityCollector
+from processing.roles.roles import FigurantFinder, Kind, RoleAnswer, RoleItem
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
 

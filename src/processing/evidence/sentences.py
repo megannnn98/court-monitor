@@ -12,7 +12,7 @@ writes one row per sentenced person into `article_sentences`.
   Without that place it wrote requested terms down as sentences (9 of 71 rows on a
   sample).
 - A row is kept only with a quote that stands in the article word for word.
-- The region is one of `entities.regions`; anything else is «».
+- The region is one of `processing.evidence.regions`; anything else is «».
 - The same sentence told by several articles is several rows:
   `entities.sentence_cases` folds them.
 - A row a person hid (`hidden`) stays hidden when the article is read again.
@@ -37,8 +37,6 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
-from entities.grouping import name_key
-from entities.regions import canonical
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -51,6 +49,8 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.evidence.regions import canonical
+from processing.identity.grouping import name_key
 
 logger = logging.getLogger("entities")
 

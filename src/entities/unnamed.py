@@ -10,7 +10,7 @@ that sex, with that initial and born there, is a probable figurant; a person con
    person by age («N-летний», «подросток», «несовершеннолетний»).
 2. A model reads each sentence with a little text around it: is it a Russian criminal
    case against that person, is the person named anyway, and what the text tells of
-   them. Answers are cached by the sentence (`entities.answers`). Whoever that leaves
+   them. Answers are cached by the sentence (`processing.answers`). Whoever that leaves
    is read once more with the whole publication around the sentence (`WIDE_CONTEXT`):
    a press release tells the article and the age paragraphs away from the sentence
    that describes the person, and names them further on. That reading also tells a
@@ -50,7 +50,6 @@ from db.orm_models import (
     UnnamedKeepRecord,
     UnnamedScreenedRecord,
 )
-from entities.answers import AnswerCache, AskResult, ask_missing, input_hash
 from entities.politics import COMMON_CRIME_ARTICLES
 from llm.chat import (
     OPENROUTER_MODEL,
@@ -62,6 +61,7 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.answers import AnswerCache, AskResult, ask_missing, input_hash
 from processing.junk.purge import CRIMINAL_EVENT_TYPES
 
 logger = logging.getLogger("entities")

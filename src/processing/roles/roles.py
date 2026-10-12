@@ -2,7 +2,7 @@
 
 Every entity is looked at, on the Rosfinmonitoring list or not: the list confirms who a
 person is, it does not make a case known (the operator's word). Officials first (judges,
-prosecutors, investigators, governors — `entities.officials`): named in cases, never
+prosecutors, investigators, governors — `processing.roles.officials`): named in cases, never
 their figurants. For everyone else a model reads a few quotes and names the person's
 role: accused, lawyer, judge, … The rules' charge (the only target of an event whose
 legal basis is a Criminal Code article) is the first quote, not a verdict: the extractor
@@ -36,16 +36,6 @@ from db.orm_models import (
     EntityRoleAnswerRecord,
     EntityRoleDecisionRecord,
 )
-from entities.answers import AnswerCache, ask_missing, input_hash
-from entities.disputes import KeyIndex
-from entities.evidence import person_evidence_cte
-from entities.officials import (
-    OFFICIAL_KINDS,
-    official_entity_ids,
-    official_marks,
-    remember_titled,
-    titled_entities,
-)
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -56,7 +46,17 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.answers import AnswerCache, ask_missing, input_hash
+from processing.evidence.publications import person_evidence_cte
+from processing.identity.disputes import KeyIndex
 from processing.junk.hold_reader import EXTRACTOR_NAME
+from processing.roles.officials import (
+    OFFICIAL_KINDS,
+    official_entity_ids,
+    official_marks,
+    remember_titled,
+    titled_entities,
+)
 
 logger = logging.getLogger("entities")
 
@@ -162,7 +162,7 @@ def role_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
 
 def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
     """A person's word on the entity's role, applied at once and kept for every rebuild.
-    `entities.roles.FigurantFinder` writes it again over whatever step 4 finds.
+    `processing.roles.roles.FigurantFinder` writes it again over whatever step 4 finds.
 
     An official mark is more specific than a role decided on a review page, and the
     rebuild honours it (`FigurantFinder.run`). So this honours it too, rather than
@@ -195,7 +195,7 @@ def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
     current.reason = reason
     if role != FIGURANT:
         # No longer a figurant: the verdict that put it on «Результат» goes with it, as
-        # `entities.officials.mark_official` does.
+        # `processing.roles.officials.mark_official` does.
         session.execute(
             delete(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == entity.id)
         )

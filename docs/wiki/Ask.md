@@ -109,7 +109,7 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-s
 
 ## Код
 
-- Чтение приговоров: `src/entities/sentences.py`; субъекты РФ: `src/entities/regions.py`.
+- Чтение приговоров: `src/processing/evidence/sentences.py`; субъекты РФ: `src/processing/evidence/regions.py`.
 - Свёртка в дела и подсчёты: `src/entities/sentence_cases.py`.
 - Вопрос и ответ: `src/entities/ask.py`.
 - Страницы: `src/web/ui/ask.py`, `src/web/ui/sentences.py`.

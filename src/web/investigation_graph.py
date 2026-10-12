@@ -39,7 +39,7 @@ from urllib.parse import quote, urlencode
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from entities.evidence import person_evidence_cte
+from processing.evidence.publications import person_evidence_cte
 from web.ui.entities import EVENT_LABELS, display_name
 
 INITIAL_EVENTS = 20

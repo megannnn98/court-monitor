@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 
 from db.orm_models import EntityGroupNewsRecord, EntityGroupPoliticsRecord, EntityGroupRecord
 from entities.done_marks import Marks, done_marks, is_done
-from entities.evidence import person_evidence_cte
 from entities.known_base import KnownBase, KnownMatch
 from entities.known_nameless import NamelessBase
 from entities.news import NEW_CASE, ONGOING, OTHER, SENTENCE
@@ -32,6 +31,7 @@ from entities.rf_articles import AWAITED, Listing, listing
 from entities.rf_check import FULL
 from entities.rf_entry import strongest_entries
 from entities.unnamed_cases import KEY_PREFIX, Case, political_cases
+from processing.evidence.publications import person_evidence_cte
 from web.ui.entities import _articles_by_group, display_name, regions_text
 from web.ui.political_filters import Filters
 

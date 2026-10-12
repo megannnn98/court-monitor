@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import Row, text
 from sqlalchemy.orm import Session
 
-from entities.evidence import person_evidence_cte
+from processing.evidence.publications import person_evidence_cte
 from web.dependencies import get_db
 from web.ui.entities import EVENT_LABELS, display_name
 from web.ui.layout import _page, pager

@@ -16,7 +16,6 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityMentionRecord,
 )
-from entities.collector import EntityCollector
 from entities.known_base import TrackedCase
 from entities.politics import (
     NAMELESS,
@@ -33,8 +32,9 @@ from entities.politics import (
     verdict_of,
 )
 from entities.rf_check import EntityRfCheck
-from entities.roles import quotes_of
+from processing.identity.collector import EntityCollector
 from processing.junk.hold_reader import add_event
+from processing.roles.roles import quotes_of
 
 RF_PAGE = """<!doctype html><html>
 <div class="panel-heading"><h4>Физические лица</h4></div>

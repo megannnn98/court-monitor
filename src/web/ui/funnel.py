@@ -13,9 +13,9 @@ from html import escape
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from entities.officials import OFFICIAL_KINDS
 from processing.junk.purge import CRIMINAL_EVENT_TYPES, EXPIRED_CONTENT_TYPE
 from processing.junk.screen import HELD
+from processing.roles.officials import OFFICIAL_KINDS
 
 _COUNTS = text(
     """
@@ -33,7 +33,7 @@ _COUNTS = text(
     """
 )
 # The publications whose latest successful extraction found a criminal-case event: the
-# very ones step 3 collects people from (`entities.collector`) and the purge keeps. An
+# very ones step 3 collects people from (`processing.identity.collector`) and the purge keeps. An
 # earlier extraction does not count — the purge and the holds go by the latest too.
 _CRIMINAL_PUBLICATIONS = text(
     """

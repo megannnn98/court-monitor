@@ -15,9 +15,9 @@ from db.orm_models import (
     EntityGroupRecord,
     EntityMentionRecord,
 )
-from entities.collector import EntityCollector
 from entities.news import KINDS as NEWS_SCHEMA_KINDS
 from entities.news import SYSTEM_PROMPT, Kind, NewsAnswer, NewsFinder, NewsItem, NewsReaderError
+from processing.identity.collector import EntityCollector
 
 
 def _person(

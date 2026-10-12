@@ -13,13 +13,13 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
-from entities.disputes import EntityRef, find_pairs
-from entities.grouping import PersonMention
 from evaluation.identity_comparison.rules import entity_of_mention, rules_only_entities
 from evaluation.person_resolution.corpus import CorpusPerson
 from evaluation.person_resolution.er_run import CaseOutcome, ErCase, ErCorpus
 from persons.resolution.models import PersonResolutionAction
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.identity.disputes import EntityRef, find_pairs
+from processing.identity.grouping import PersonMention
 
 CORRECT_JOIN = "correct_join"
 FALSE_MERGE = "false_merge"

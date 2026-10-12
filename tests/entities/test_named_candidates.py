@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityMentionRecord, UnnamedFigurantRecord
-from entities.collector import EntityCollector
 from entities.named_candidates import named_candidates, person_candidate_key
 from entities.unnamed import DIFFERENT, EXISTING_PERSON, SAME, decide, forget, resolve_identity
+from processing.identity.collector import EntityCollector
 
 COURT = "Суд вынес приговор 53-летней жительнице Якутии."
 KEY = "u" * 64

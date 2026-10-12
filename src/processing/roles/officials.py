@@ -37,8 +37,8 @@ from db.orm_models import (
     EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
-from entities.disputes import KeyIndex
-from entities.grouping import _fold
+from processing.identity.disputes import KeyIndex
+from processing.identity.grouping import _fold
 
 logger = logging.getLogger("entities")
 

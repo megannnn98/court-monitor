@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRoleRecord, EntityMentionRecord
-from entities.collector import EntityCollector
+from processing.identity.collector import EntityCollector
 from web.app import app
 from web.dependencies import get_db
 

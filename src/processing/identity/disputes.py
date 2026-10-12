@@ -36,8 +36,8 @@ from db.orm_models import (
     EntityGroupRoleRecord,
     EntityPairDecisionRecord,
 )
-from entities.grouping import Entity, _bases, split_key
 from processing.extraction.name_frequency import lookup_gender
+from processing.identity.grouping import Entity, _bases, split_key
 
 SAME = "same"
 DIFFERENT = "different"

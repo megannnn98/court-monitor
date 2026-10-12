@@ -32,7 +32,6 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import ChatQuestionRecord
-from entities.regions import canonical
 from entities.sentence_cases import (
     ANY,
     EXCLUDE,
@@ -46,7 +45,6 @@ from entities.sentence_cases import (
     listing,
     stats,
 )
-from entities.sentences import KINDS, REASONS
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -56,6 +54,8 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing.evidence.regions import canonical
+from processing.evidence.sentences import KINDS, REASONS
 
 logger = logging.getLogger("entities")
 
