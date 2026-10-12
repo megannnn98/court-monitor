@@ -8,12 +8,15 @@ cannot be configured. The live check is opt-in: `INVESTIGATION_LIVE_SEARCH=1`.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+from urllib.parse import quote, quote_plus
 
 import httpx
 import pytest
 
 from ingestion.search import (
+    SearchAnswerError,
     SearchConfigurationError,
     SourceSearchQuery,
     TelegramChannelSearch,
@@ -222,3 +225,48 @@ def test_a_post_that_does_not_name_the_person_is_dropped() -> None:
     found = asyncio.run(retriever.search(InvestigationQuery(kind="keywords", name="Олег Куваев")))
 
     assert [item.external_id for item in found] == ["3", "1"]
+
+
+def test_the_words_of_a_search_never_reach_the_http_client_s_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """httpx logs each request with its address; the telemetry's hash and length are
+    worth nothing if the name stands a line above them."""
+    marker = "Засекреченный Маркер"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=page(("ovdinfolive", 1, marker)))
+
+    with caplog.at_level(logging.DEBUG):
+        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(marker)))
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    # The request was logged — by its channel alone.
+    assert "https://t.me/s/ovdinfolive" in logged
+    for form in (marker, quote(marker), quote_plus(marker), "Засекреченный", "q="):
+        assert form not in logged
+
+
+def test_an_address_that_is_no_search_is_logged_whole(caplog: pytest.LogCaptureFixture) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"ok")
+
+    async def ask() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await client.get("https://t.me/s/ovdinfolive", params={"before": "5"})
+            await client.get("https://example.test/search", params={"q": "слово"})
+
+    with caplog.at_level(logging.INFO, logger="httpx"):
+        asyncio.run(ask())
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    # Only a query on a channel's page is cut; nothing else of the process's logging is.
+    assert "https://example.test/search?q=" in logged
+
+
+def test_an_answer_that_is_not_a_page_is_a_failed_search_not_an_empty_one() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"error": "rate limited"})
+
+    with pytest.raises(SearchAnswerError):
+        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery("x")))

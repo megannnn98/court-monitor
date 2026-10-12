@@ -55,6 +55,38 @@ class SearchConfigurationError(ValueError):
     """A configured search names a source that is not in the registry."""
 
 
+class SearchAnswerError(RuntimeError):
+    """A source answered with something that is not its page of results."""
+
+
+def _without_words(value: object) -> object:
+    """A search's address as it may be logged: the channel, never the words asked."""
+    if (
+        isinstance(value, httpx.URL)
+        and value.host == TELEGRAM_HOST
+        and value.path.startswith("/s/")
+        and value.query
+    ):
+        return value.copy_with(query=None)
+    return value
+
+
+class _SearchWordsOutOfLogs(logging.Filter):
+    """httpx logs every request with its whole address at INFO, the `q` of a search
+    included: a person's name would stand in the process log, which the investigation's
+    own telemetry takes care never to write (a hash and a length)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(_without_words(value) for value in record.args)
+        return True
+
+
+_HTTPX_LOGGER = logging.getLogger("httpx")
+if not any(isinstance(kept, _SearchWordsOutOfLogs) for kept in _HTTPX_LOGGER.filters):
+    _HTTPX_LOGGER.addFilter(_SearchWordsOutOfLogs())
+
+
 @dataclass(frozen=True)
 class SourceSearchQuery:
     text: str
@@ -147,6 +179,10 @@ class TelegramChannelSearch:
             if response.is_redirect:
                 return b""
             response.raise_for_status()
+            kind = response.headers.get("content-type", "")
+            if kind and "html" not in kind.lower():
+                # Not the page of posts: read as a page it would be «nothing found».
+                raise SearchAnswerError(f"{self.source}: not a page of results ({kind[:40]})")
             return response.content
 
         async def with_retry(client: httpx.AsyncClient) -> bytes:
