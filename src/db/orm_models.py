@@ -71,13 +71,6 @@ from db.models.rosfinmonitoring import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
-from db.models.semantic import (
-    PublicationVectorRecord,
-    SemanticDocumentRecord,
-    SemanticIndexStateRecord,
-    SemanticVectorCollectionRecord,
-    SemanticVectorRecord,
-)
 from db.models.sources import (
     ArticleDigestAnswerRecord,
     ArticleSentenceReadingRecord,
@@ -134,16 +127,11 @@ __all__ = [
     "PersonRecord",
     "PersonResolutionAiReviewRecord",
     "PersonResolutionDecisionRecord",
-    "PublicationVectorRecord",
     "ReviewRecordModel",
     "RfmOperatorEntryRecord",
     "RosfinMatchRecord",
     "RosfinmonitoringEntryRecord",
     "RosfinmonitoringSnapshotRecord",
-    "SemanticDocumentRecord",
-    "SemanticIndexStateRecord",
-    "SemanticVectorCollectionRecord",
-    "SemanticVectorRecord",
     "Source",
     "SourceDocument",
     "SourceMonitoringStateRecord",

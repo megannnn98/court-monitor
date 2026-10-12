@@ -37,8 +37,9 @@ RUN apt-get update \
 COPY docker/certs/ /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
-# Semantic indexing needs sentence-transformers (large); opt in with
-# `docker compose build --build-arg INSTALL_SEMANTIC=1`. compose.gpu.yaml sets it.
+# The junk screen's embedding mode (JUNK_SCREEN=1) needs sentence-transformers (large);
+# opt in with `docker compose build --build-arg INSTALL_SEMANTIC=1`. compose.gpu.yaml
+# sets it. Nothing else in the application loads an embedding model (ADR 0028).
 ARG INSTALL_SEMANTIC=0
 COPY pyproject.toml uv.lock ./
 # Keep downloaded wheels in BuildKit's cache, outside the image layer. This avoids

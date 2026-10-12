@@ -90,9 +90,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        # The same image as compose.yaml: PostgreSQL 18.6 with pgvector, which the applied
-        # migrations still create (ADR 0018).
-        image: pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
+        # The same image as compose.yaml: plain PostgreSQL 18.6. No migration needs an
+        # extension that is not in it (ADR 0028).
+        image: postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
         env:
           # tests/conftest.py only allows a database named court_monitor_test.
           POSTGRES_DB: court_monitor_test
@@ -130,3 +130,50 @@ jobs:
         env:
           TEST_DATABASE_URL: ${{ env.CI_DATABASE_URL }}
         run: uv run pytest
+
+  transition:
+    # The migration that drops the vector tables and the extension (ADR 0028) can only be
+    # tried where there is something to drop. `integration` runs on plain PostgreSQL and
+    # skips those tests; this job runs them, and nothing else, on the image the working
+    # databases were created with. It goes when no database of that kind is left.
+    name: migration from pgvector
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
+        env:
+          POSTGRES_DB: court_monitor_test
+          POSTGRES_USER: court_monitor
+          POSTGRES_PASSWORD: court_monitor_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U court_monitor -d court_monitor_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI_DATABASE_URL: postgresql+psycopg://court_monitor:court_monitor_ci@localhost:5432/court_monitor_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+        run: uv run alembic upgrade head
+
+      # `-rs` prints why a test was skipped; here none of these may be.
+      - name: The removal, on a database that has what is removed
+        env:
+          TEST_DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+        run: |
+          uv run pytest tests/db/test_semantic_removal_migration.py -rs | tee transition.log
+          ! grep -q "SKIPPED" transition.log

@@ -59,5 +59,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_semantic_documents_search_vector_gin", table_name="semantic_documents")
-    op.drop_table("semantic_documents")
+    # The table may be gone already: `m4n5o6p7q8r9` drops it (ADR 0028) and its own
+    # downgrade brings nothing back. Its index goes with it.
+    op.execute("DROP TABLE IF EXISTS semantic_documents")

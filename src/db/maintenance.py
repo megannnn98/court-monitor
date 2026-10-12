@@ -7,7 +7,6 @@ from sqlalchemy import Engine, text
 # Tables written by current domains plus retained legacy-schema tables.
 DISPOSABLE_TABLES = (
     "investigation_runs",
-    "publication_vectors",
     "chat_questions",
     "article_sentences",
     "article_sentence_readings",
@@ -45,10 +44,6 @@ DISPOSABLE_TABLES = (
     "monitoring_run_items",
     "source_monitoring_state",
     "monitoring_runs",
-    "semantic_index_state",
-    "semantic_vectors",
-    "semantic_vector_collections",
-    "semantic_documents",
     "rosfin_matches",
     "rfm_operator_entries",
     "rosfinmonitoring_entries",
