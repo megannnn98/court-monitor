@@ -33,6 +33,7 @@ from ingestion.sources.source_registry import SOURCES, SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from ingestion.sources.website_adapter import WebsiteAdapter
 from ingestion.stored import SqlAlchemyStoredDocuments
+from ingestion.web_search import tavily_search_from_env
 from investigation.models import Limits
 from investigation.service import InvestigationService
 from investigation.services.external import SourceSearchRetriever
@@ -239,9 +240,10 @@ def build_investigation_retrievers(
     session_factory: sessionmaker[Session], *, env: Mapping[str, str] | None = None
 ) -> list[InvestigationRetriever]:
     """The registry of an investigation: the local database (entity groups, the stored
-    publications by name and by ranked text, unnamed figurants) and the configured
+    publications by name and by ranked text, unnamed figurants), the configured
     public Telegram channels' own search (`INVESTIGATION_TELEGRAM_CHANNELS`, «none» for
-    none). Nothing a request carries adds to it."""
+    none) and the web (`TAVILY_API_KEY`, «web:tavily»; none without a key). Nothing a
+    request carries adds to it."""
     limits = Limits.from_env(env)
     # A search the run stopped waiting for must not go on in the database: its thread
     # cannot be stopped, its statement can.
@@ -260,6 +262,11 @@ def build_investigation_retrievers(
             configured_telegram_channels(env), timeout_seconds=float(limits.search_timeout_seconds)
         )
     ]
+    web = tavily_search_from_env(env, timeout_seconds=float(limits.search_timeout_seconds))
+    if web is not None:
+        # An additional retriever, beside the database and the channels, not instead of
+        # them: the planner asks it for what the others cannot hold.
+        outside.append(SourceSearchRetriever(web, source="web"))
     return [*local, *outside]
 
 

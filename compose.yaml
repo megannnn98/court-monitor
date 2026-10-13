@@ -71,6 +71,9 @@ services:
       # Entity names to the nominative (`collect-entities`): OpenRouter if its key is set,
       # else Claude; without a key the rules alone.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # The web as one more outside source of an investigation (`--source web`,
+      # `web:tavily`): a Tavily API key. No key — the run asks no web.
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ENTITY_NORMALIZE_MODEL: ${ENTITY_NORMALIZE_MODEL:-}
       # What one run of an entity step may spend on the model, in USD.
