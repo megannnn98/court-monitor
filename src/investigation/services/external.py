@@ -22,22 +22,72 @@ _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
 # Letters a declined word of a name may differ in at its end.
 _ENDING = 3
 _MIN_STEM = 3
+# How far apart the words of a name may stand in a text and still be the name: a name is
+# written together, and a text that writes it in two places writes two people. Three
+# tokens, not four: at four «Андрей Карлов заявил, что Игорь Сечин не приходил» is a
+# text about Игоря Карлова. On the hand-annotated set a wider window cuts nothing extra,
+# so the tighter one costs nothing and refuses that text.
+_NAME_WINDOW = 3
+
+
+def _tokens(text: str) -> list[tuple[str, bool]]:
+    """The words of a text as written, each with whether it is an initial («И.»)."""
+    result: list[tuple[str, bool]] = []
+    for match in _WORD.finditer(text):
+        word = match.group()
+        folded = word.lower().replace("ё", "е")
+        initial = len(folded) == 1 and word[:1].isupper() and text[match.end() :].startswith(".")
+        result.append((folded, initial))
+    return result
+
+
+def _matches(token: str, *, initial: bool, wanted: str) -> bool:
+    """Whether one word of a text is the word of a name looked for, in any case of the
+    noun, or an initial standing for it.
+
+    Both as written and as the dictionary has them: «Карлов» the surname and «Карлов» the
+    declined «Карла» are one word to a reader and two to pymorphy, which knows the
+    historical figure before it knows the surname.
+    """
+    if initial:
+        return wanted.startswith(token)
+    if len(token) < 2 or len(wanted) < 2:
+        return token == wanted
+    forms = (_lemma(token), token)
+    wanted_forms = (_lemma(wanted), wanted)
+    return any(_same_word(one, other) for one in forms for other in wanted_forms)
 
 
 def names(text: str, name: str) -> bool:
-    """Every word of the name stands in the text, in any case of the noun; no name, no
-    filter."""
-    words = [word.lower().replace("ё", "е") for word in _WORD.findall(name) if len(word) > 1]
-    if not words:
+    """The name stands in the text, in any case of the noun and in any order, and its
+    words stand together.
+
+    Standing anywhere was the noise: with the first three letters of each word matched
+    (`max(3, len - 3)`), a text about «Андрей Карлов» and «Игорь Сечин» was about
+    «Игорь Карлов» — it holds both names in one text and they have nothing to do with
+    each other. Now every word must be found within a few words of the others, in any
+    order and any case, and an initial counts for the word it stands for.
+
+    A name of one word — a surname, or the place an unnamed publication is looked up by —
+    is matched as one word, with no proximity to demand: there is nothing to be near.
+    No name, no filter.
+    """
+    wanted = [word.lower().replace("ё", "е") for word in _WORD.findall(name) if len(word) > 1]
+    if not wanted:
         return True
-    folded = text.lower().replace("ё", "е")
-    return all(
-        re.search(
-            r"(?<![а-яa-z])" + re.escape(word[: max(_MIN_STEM, len(word) - _ENDING)]),
-            folded,
-        )
-        for word in words
-    )
+    tokens = _tokens(text)
+    if not tokens:
+        return False
+    if len(wanted) == 1:
+        return any(_matches(token, initial=initial, wanted=wanted[0]) for token, initial in tokens)
+    for start in range(len(tokens)):
+        window = tokens[start : start + _NAME_WINDOW]
+        if all(
+            any(_matches(token, initial=initial, wanted=word) for token, initial in window)
+            for word in wanted
+        ):
+            return True
+    return False
 
 
 # A word looked for stands in a text in another case of the noun («статья» in «по
