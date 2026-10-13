@@ -151,9 +151,12 @@ def _by_source(result: InvestigationResult) -> dict[str, int]:
     return counts
 
 
-def _holds(text: str, value: str) -> bool:
-    """A text holds a value of a fact as it is written («228.1», «арест»)."""
-    return value.strip().lower() in text.lower()
+def _holds(text: str, value: object) -> bool:
+    """A text holds a value of a fact as it is written. A part may be several ways of
+    writing the same thing («ч. 2» or «части 2»): any of them is the part."""
+    options = value if isinstance(value, list) else [value]
+    folded = text.lower()
+    return any(str(option).strip().lower() in folded for option in options)
 
 
 def _sources(items: Sequence[Any]) -> dict[str, int]:
@@ -189,8 +192,8 @@ def _useful_leads(
         value = str(entry["value"])
         if (fact, value) in reported:
             continue
-        parts = [str(part) for part in entry.get("parts", ())] or [value]
-        common = str(entry.get("common", value))
+        parts = [part for part in entry.get("parts", ())] or [value]
+        common = entry.get("common", value)
         about = [item for item in result.evidence if names(item.text, person)]
         strict = [item for item in about if all(_holds(item.text, part) for part in parts)]
         loose = [item for item in about if _holds(item.text, common)]
