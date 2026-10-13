@@ -84,6 +84,24 @@ class CountingSearch:
     def title(self) -> str:
         return str(self._search.title)
 
+    def mark(self) -> tuple[int, int, int]:
+        """Where the counters stand now, so that what one case cost can be told from
+        what the whole run has cost so far. One search object serves a whole run; its
+        counters only ever grow."""
+        return (self.requests, self.results, len(self.batches))
+
+    def since(self, mark: tuple[int, int, int]) -> dict[str, Any]:
+        """What was asked and brought between a mark and now: this case's own requests
+        and batches, not the ones the earlier cases left behind."""
+        requests, results, batches = mark
+        asked = self.requests - requests
+        return {
+            "tavily_requests": asked,
+            "tavily_results": self.results - results,
+            "tavily_credits": asked * CREDITS_PER_SEARCH,
+            "batches": [dict(batch) for batch in self.batches[batches:]],
+        }
+
     async def search(self, query: Any) -> list[Any]:
         self.requests += 1
         found: list[Any] = await self._search.search(query)
@@ -91,6 +109,7 @@ class CountingSearch:
         self.batches.append(
             {
                 "query": str(getattr(query, "text", "")),
+                "results": len(found),
                 "items": [
                     {
                         "url": getattr(item, "url", ""),
@@ -278,6 +297,9 @@ def measure_person(
     """One person, asked once: what it reports, what it shows, what it cost."""
     question = f"Что известно про {case.query}?"
     expected = material(session, case)
+    # One search object serves the whole run, so its counters are read as a difference:
+    # what a case costs is what it added, not what the run had spent when it was asked.
+    mark = counted[0].mark() if counted else (0, 0, 0)
     started = time.perf_counter()
     result = asyncio.run(built.investigate(question, max_followups=max_followups))
     elapsed = (time.perf_counter() - started) * 1000
@@ -296,6 +318,7 @@ def measure_person(
         person=case.name,
     )
     web_leads = [item for item in web_items if item.leads]
+    cost = _cost(counted, mark)
     return {
         "case_id": case.case_id,
         "kind": "person",
@@ -340,15 +363,13 @@ def measure_person(
         "followup_rounds": result.usage.followup_rounds,
         "llm_calls": result.usage.llm_calls,
         "cost_usd": round(result.usage.cost_usd, 6),
-        "tavily_requests": counted[0].requests if counted else 0,
-        "tavily_results": counted[0].results if counted else 0,
-        "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
+        **_cost(counted, mark),
         "elapsed_ms": round(elapsed),
         "warnings": result.warnings,
         "evidence_sample": _sample(result),
         # What the web was asked, and what it brought, in order — what a ceiling on the
         # queries or the results would be read back from.
-        "web_batches": [dict(batch) for batch in counted[0].batches] if counted else [],
+        "web_batches": cost["batches"],
     }
 
 
@@ -359,6 +380,7 @@ def measure_unnamed(
 ) -> dict[str, Any]:
     """One unnamed figurant: who the run ranks, who it announces, what it cost."""
     question = f"Установи фигуранта публикации {case.article_id}"
+    mark = counted[0].mark() if counted else (0, 0, 0)
     started = time.perf_counter()
     result = asyncio.run(built.investigate(question))
     elapsed = (time.perf_counter() - started) * 1000
@@ -385,9 +407,8 @@ def measure_unnamed(
         "followup_rounds": result.usage.followup_rounds,
         "llm_calls": result.usage.llm_calls,
         "cost_usd": round(result.usage.cost_usd, 6),
-        "tavily_requests": counted[0].requests if counted else 0,
-        "tavily_results": counted[0].results if counted else 0,
-        "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
+        **_cost(counted, mark),
+        "web_batches": _cost(counted, mark)["batches"],
         "elapsed_ms": round(elapsed),
     }
 
@@ -539,6 +560,13 @@ def displaced(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str, 
         "pages_lost_about_the_person": sum(row["lost_about_the_person"] for row in rows),
         "per_case": rows,
     }
+
+
+def _cost(counted: Sequence[CountingSearch], mark: tuple[int, int, int]) -> dict[str, Any]:
+    """What one case asked of the web and was given, in its own terms."""
+    if not counted:
+        return {"tavily_requests": 0, "tavily_results": 0, "tavily_credits": 0, "batches": []}
+    return counted[0].since(mark)
 
 
 def batch_texts(
