@@ -89,6 +89,18 @@ def _forms(word: str) -> frozenset[str]:
     return frozenset(parsed.normal_form for parsed in _morph().parse(word)) or frozenset({word})
 
 
+@lru_cache(maxsize=32768)
+def _surname_forms(word: str) -> frozenset[str]:
+    """Dictionary forms of every reading which is explicitly a surname.
+
+    A rare surname can have an unrelated first reading: pymorphy reads «Кынева» as a
+    place or a female given name before its masculine surname reading. Conversely, all
+    readings must not be used here: «Андреев» also has an inflected-name reading of
+    «Андрей», but its surname reading is a different word.
+    """
+    return frozenset(parsed.normal_form for parsed in _morph().parse(word) if "Surn" in parsed.tag)
+
+
 def _matches(token: str, *, initial: bool, wanted: str, place: bool = False) -> bool:
     """Whether one word of a text is the word of a name looked for, in any case of the
     noun, or an initial standing for it.
@@ -104,6 +116,8 @@ def _matches(token: str, *, initial: bool, wanted: str, place: bool = False) -> 
     if len(token) < 2 or len(wanted) < 2:
         return token == wanted
     if token == wanted:
+        return True
+    if _surname_forms(token) & _surname_forms(wanted):
         return True
     # The dictionary's forms of a word it declined are that word's own. Only a word that
     # stands declined may be looked for by them: otherwise «Владимир» answers to

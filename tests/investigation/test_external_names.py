@@ -22,6 +22,9 @@ def test_two_names_touching_in_a_text_are_two_people() -> None:
 
 def test_the_declined_case_of_the_name_is_the_name() -> None:
     assert names("Игоря Карлова признали виновным.", "Игорь Карлов")
+    assert names("Юрия Дудя внесли в реестр.", "Юрий Дудь")
+    assert names("Ильи Яшина признали виновным.", "Илья Яшин")
+    assert names("Олега Куваева признали виновным.", "Олег Куваев")
 
 
 def test_the_name_written_the_other_way_round_is_the_name() -> None:
@@ -76,6 +79,8 @@ def test_two_names_that_only_look_alike_are_two_people() -> None:
     assert not names("Юрий Петровский дал показания.", "Юрий Петров")
     # A given name is not a patronymic, though the dictionary knows both.
     assert not names("Андреев Владимир дал показания.", "Андрей Владимиров")
+    assert not names("Дмитрий Смирнов дал показания.", "Дмитрий Смирнягин")
+    assert not names("Наталья Бонцлер дала показания.", "Мария Бонцлер")
 
 
 def test_a_declined_surname_the_dictionary_reads_as_another_word_is_the_name() -> None:
@@ -86,11 +91,9 @@ def test_a_declined_surname_the_dictionary_reads_as_another_word_is_the_name() -
     assert names("Суд КБР рассматривает дело о банкротстве Андзора Халилова.", "Андзор Халилов")
 
 
-def test_a_surname_the_dictionary_calls_undeclinable_is_not_matched() -> None:
-    """The cost of that: pymorphy leaves «Кынева» as written and tags it a fixed
-    surname, so a declined word it will not decline is not matched. One Telegram quote
-    and two web texts of the hand-annotated set are lost this way."""
-    assert not names("Политолога Александра Кынева отправили в СИЗО.", "Александр Кынев")
+def test_a_surname_with_a_second_dictionary_reading_is_the_name() -> None:
+    """«Кынева» has a female-surname reading after its first dictionary reading."""
+    assert names("Политолога Александра Кынева отправили в СИЗО.", "Александр Кынев")
 
 
 def test_the_same_three_letters_of_two_names_that_are_two_people() -> None:
