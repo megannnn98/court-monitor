@@ -20,6 +20,7 @@ def _no_outside_sources(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test asks a site: an investigation built from the environment gets no source
     outside the database. A test of a source search gives it a fake transport."""
     monkeypatch.setenv("INVESTIGATION_TELEGRAM_CHANNELS", "none")
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
 
 
 def _truncate_test_tables(engine: Engine) -> None:
