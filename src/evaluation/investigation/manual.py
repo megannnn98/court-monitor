@@ -214,6 +214,7 @@ def _namesake_report(
                     1 for item in result.evidence if item.source_id == "web:tavily"
                 ),
                 "web_items_naming_another": foreign[:5],
+                "model_summary": result.model_summary,
             }
         )
     return {
@@ -222,6 +223,7 @@ def _namesake_report(
         "by_surname_candidates": len(by_surname.subject.candidates if by_surname.subject else []),
         "by_surname_announced_one": by_surname.subject is not None
         and bool(by_surname.subject.entity_key),
+        "by_surname_summary": by_surname.model_summary,
         "people": per_person,
         "tavily_requests": counted[0].requests if counted else 0,
         "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
