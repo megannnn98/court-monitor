@@ -97,9 +97,24 @@ class TavilySearch:
     def title(self) -> str:
         return "Tavily"
 
-    def request_body(self, text: str, *, limit: int) -> dict[str, object]:
+    def request_body(
+        self,
+        text: str,
+        *,
+        limit: int,
+        published_from: datetime | None = None,
+        published_to: datetime | None = None,
+    ) -> dict[str, object]:
         """What is asked of Tavily: the words in the body, the address a constant."""
+        # A query that keeps to a window of dates is asked within it: days, as Tavily
+        # reads them.
+        window = {
+            key: day.date().isoformat()
+            for key, day in (("start_date", published_from), ("end_date", published_to))
+            if day is not None
+        }
         return {
+            **window,
             "query": text,
             "max_results": max(0, min(limit, MAX_RESULTS)),
             "search_depth": SEARCH_DEPTH,
@@ -123,7 +138,12 @@ class TavilySearch:
         async def ask(client: httpx.AsyncClient) -> httpx.Response:
             response = await client.post(
                 TAVILY_URL,
-                json=self.request_body(text, limit=query.limit),
+                json=self.request_body(
+                    text,
+                    limit=query.limit,
+                    published_from=query.published_from,
+                    published_to=query.published_to,
+                ),
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
                     "User-Agent": "court-monitor-investigation/1.0",

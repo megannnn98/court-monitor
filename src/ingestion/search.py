@@ -91,6 +91,10 @@ if not any(isinstance(kept, _SearchWordsOutOfLogs) for kept in _HTTPX_LOGGER.fil
 class SourceSearchQuery:
     text: str
     limit: int = 10
+    # A window of publication dates. A source whose search can keep to one does; a
+    # source that cannot is asked the words alone.
+    published_from: datetime | None = None
+    published_to: datetime | None = None
 
 
 @dataclass(frozen=True)

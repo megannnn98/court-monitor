@@ -25,6 +25,9 @@ from ingestion.web_search import TAVILY_URL, TavilySearch, tavily_search_from_en
 from investigation.services.external import names
 
 KEY = "tvly-a-key-nobody-must-see"
+# Read when the module is loaded: the fixture that keeps every test off the network takes
+# the key out of the environment before a test runs, the live one included.
+LIVE_KEY = os.environ.get("TAVILY_API_KEY") if os.environ.get("INVESTIGATION_LIVE_SEARCH") else None
 NAME = "Мария Бонцлер"
 WORDS = f"{NAME} статья"
 
@@ -228,6 +231,33 @@ def test_without_the_full_text_the_snippet_is_taken() -> None:
     )
 
     assert item.text == "Мария Бонцлер арестована по статье 280."
+
+
+def test_a_window_of_dates_is_asked_of_tavily_as_its_first_and_last_day() -> None:
+    asked: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(json.loads(request.content))
+        return answer(page())
+
+    search = search_over(httpx.MockTransport(handler))
+    asyncio.run(
+        search.search(
+            SourceSearchQuery(
+                WORDS,
+                limit=5,
+                published_from=datetime(2026, 8, 6, 9, 30, tzinfo=UTC),
+                published_to=datetime(2026, 11, 4, 9, 30, tzinfo=UTC),
+            )
+        )
+    )
+    asyncio.run(
+        search.search(SourceSearchQuery(WORDS, published_from=datetime(2026, 8, 6, tzinfo=UTC)))
+    )
+
+    bounded, open_ended = asked
+    assert (bounded["start_date"], bounded["end_date"]) == ("2026-08-06", "2026-11-04")
+    assert open_ended["start_date"] == "2026-08-06" and "end_date" not in open_ended
 
 
 def test_the_asked_limit_is_asked_for_and_no_more_is_kept() -> None:
@@ -444,14 +474,10 @@ def test_without_a_key_there_is_no_web_search() -> None:
     assert KEY not in repr(search)
 
 
-@pytest.mark.skipif(
-    not (os.environ.get("INVESTIGATION_LIVE_SEARCH") and os.environ.get("TAVILY_API_KEY")),
-    reason="live network with a real key: opt-in",
-)
+@pytest.mark.skipif(not LIVE_KEY, reason="live network with a real key: opt-in")
 def test_live_tavily_search_answers() -> None:
-    search = tavily_search_from_env(os.environ)
-    assert search is not None
+    assert LIVE_KEY is not None
 
-    found = asyncio.run(search.search(SourceSearchQuery(NAME, limit=3)))
+    found = asyncio.run(TavilySearch(LIVE_KEY).search(SourceSearchQuery(NAME, limit=3)))
 
     assert found and all(item.url.startswith("https://") for item in found)
