@@ -24,6 +24,7 @@ import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from urllib.parse import unquote
 
 import httpx
 
@@ -240,19 +241,33 @@ def _credits(response: httpx.Response) -> str:
 # The full text comes as Markdown. A menu of links is a chain of addresses, and those
 # are what the 600 characters a reader is shown would be spent on.
 _MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-_MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+# A link whose address holds parentheses of its own («Функция (математика)»): the simple
+# form stops at the first `)` and leaves the tail of the address behind as `")`.
+_MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\(((?:[^()]|\([^()]*\))*)\)")
+# A footnote of a wiki page — a number and an anchor, which say nothing to a reader.
+_MARKDOWN_FOOTNOTE = re.compile(r"\[\[\d+\]\]\([^)]*\)|\[\d+\]\([^)]*\)|\[[^\]]{0,40}\]\(#[^)]*\)")
 _MARKDOWN_BARE_URL = re.compile(r"<https?://[^>]+>|https?://\S+")
 # A heading's hashes and a quote's marker, at the start of their own line only.
 _MARKDOWN_MARKS = re.compile(r"(?m)^\s{0,3}#{1,6}\s+|^\s{0,3}>\s?")
+# What is left of a page's emphasis: a name in bold («**Новая газета**») and a bullet
+# («* Википедия»). Only the marks a reader would not read as words.
+_MARKDOWN_EMPHASIS = re.compile(r"\*\*|(?<=\s)\*(?=\s)|\*(?=\S)|(?<=\S)\*(?=\s)")
+# A word an address cut in half: «%D0%B8%D0%BA%D0%B8» inside a word is not a word.
+_PERCENT_ESCAPE = re.compile(r"(?:%[0-9A-Fa-f]{2}){2,}")
 
 
 def _plain(text: str) -> str:
     """The page's own words without its markup: an image is dropped whole, a link keeps
-    what it says and loses where it goes, headings lose their hashes."""
+    what it says and loses where it goes, a footnote and a bare address are dropped, a
+    heading loses its hashes, a word left in bold loses its marks, and a word an address
+    cut in half is put back together."""
     without_images = _MARKDOWN_IMAGE.sub(" ", text)
     without_links = _MARKDOWN_LINK.sub(r"\1", without_images)
-    without_urls = _MARKDOWN_BARE_URL.sub(" ", without_links)
-    return " ".join(_MARKDOWN_MARKS.sub(" ", without_urls).split())
+    without_notes = _MARKDOWN_FOOTNOTE.sub(" ", without_links)
+    without_urls = _MARKDOWN_BARE_URL.sub(" ", without_notes)
+    without_marks = _MARKDOWN_MARKS.sub(" ", without_urls)
+    without_emphasis = _MARKDOWN_EMPHASIS.sub(" ", without_marks)
+    return " ".join(unquote(_PERCENT_ESCAPE.sub("%", without_emphasis)).split())
 
 
 def _excerpt(text: str, words: str) -> str:

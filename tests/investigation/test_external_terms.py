@@ -66,6 +66,36 @@ def test_a_word_that_only_begins_the_same_way_is_not_the_word_looked_for(
     assert not tells(text, (term,))
 
 
+@pytest.mark.parametrize(
+    ("one", "other", "same"),
+    [
+        # The same word, another case of the noun: the dictionary alone.
+        ("статья", "статьёй", True),
+        ("приговор", "приговора", True),
+        ("задержан", "задержали", True),
+        # One root, two derivatives: this is what a bare lemma would miss.
+        ("обвинение", "обвинён", True),
+        ("обвинение", "обвиняется", True),
+        ("обвиняемый", "обвинение", True),
+        ("арест", "арестован", True),
+        ("Тюмень", "Тюменской", True),
+        # A longer word of one root, deliberately: a text about the detention is what
+        # the follow-up looks for, whichever noun it uses.
+        ("задержан", "задержка", True),
+        ("задержан", "задержанность", True),
+        # Two words that only begin alike: a shared prefix under five letters is a
+        # coincidence, not a root.
+        ("статья", "статус", False),
+        ("статья", "статистика", False),
+        ("арест", "арена", False),
+        ("суд", "судья", False),
+        ("дело", "делопроизводство", False),
+    ],
+)
+def test_what_is_one_word_and_what_is_only_a_coincidence(one: str, other: str, same: bool) -> None:
+    assert tells(other, (one,)) is same
+
+
 def test_a_term_that_is_not_only_words_is_compared_as_written() -> None:
     assert tells("дело по части 2 статьи 205.2 УК", ("205.2",))
     assert not tells("дело по части 2 статьи 205 2 УК", ("205.2",))

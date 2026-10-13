@@ -71,6 +71,10 @@ class CountingSearch:
         self._search = search
         self.requests = 0
         self.results = 0
+        # What each request brought, in order: a ceiling on the queries a run may spend,
+        # or on the results one may bring, is read back from here rather than paid for
+        # twice.
+        self.batches: list[dict[str, Any]] = []
 
     @property
     def source(self) -> str:
@@ -84,6 +88,18 @@ class CountingSearch:
         self.requests += 1
         found: list[Any] = await self._search.search(query)
         self.results += len(found)
+        self.batches.append(
+            {
+                "query": str(getattr(query, "text", "")),
+                "items": [
+                    {
+                        "url": getattr(item, "url", ""),
+                        "text": getattr(item, "text", ""),
+                    }
+                    for item in found
+                ],
+            }
+        )
         return found
 
 
@@ -330,6 +346,9 @@ def measure_person(
         "elapsed_ms": round(elapsed),
         "warnings": result.warnings,
         "evidence_sample": _sample(result),
+        # What the web was asked, and what it brought, in order — what a ceiling on the
+        # queries or the results would be read back from.
+        "web_batches": [dict(batch) for batch in counted[0].batches] if counted else [],
     }
 
 
@@ -520,6 +539,67 @@ def displaced(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str, 
         "pages_lost_about_the_person": sum(row["lost_about_the_person"] for row in rows),
         "per_case": rows,
     }
+
+
+def batch_texts(
+    case: Mapping[str, Any], *, queries: int | None = None, results: int | None = None
+) -> list[str]:
+    """The texts a run would have shown with a ceiling on the queries it may spend or on
+    the results one may bring — read back from what it really was given, not paid for
+    twice."""
+    batches: list[Mapping[str, Any]] = list(case.get("web_batches") or [])
+    if queries is not None:
+        batches = batches[:queries]
+    kept: list[str] = []
+    for batch in batches:
+        rows: list[Mapping[str, Any]] = list(batch.get("items") or [])
+        kept.extend(
+            str(row.get("text", "")) for row in (rows if results is None else rows[:results])
+        )
+    return kept
+
+
+def _holds_all(texts: Sequence[str], parts: Sequence[Any]) -> bool:
+    joined = " ".join(texts).lower()
+    return all(
+        any(
+            str(option).lower() in joined for option in (part if isinstance(part, list) else [part])
+        )
+        for part in parts
+    )
+
+
+def ceilings(
+    report: Mapping[str, Any], queries: Sequence[int], results: Sequence[int | None]
+) -> list[dict[str, Any]]:
+    """What a ceiling costs and buys: the same questions and the same answers, fewer
+    queries per question or fewer results per query — read back from what was paid for
+    once."""
+    rows: list[dict[str, Any]] = []
+    for cap_queries in queries:
+        for cap_results in results:
+            useful = credits = asked = 0
+            for case in report.get("cases", []):
+                if case.get("kind") != "person":
+                    continue
+                batches = list(case.get("web_batches") or [])
+                asked += len(batches)
+                credits += min(cap_queries, len(batches))
+                texts_held = batch_texts(case, queries=cap_queries, results=cap_results)
+                for entry in case.get("lead_detail", []):
+                    parts = entry.get("parts") or [entry.get("value")]
+                    if _holds_all(texts_held, list(parts)):
+                        useful += 1
+            rows.append(
+                {
+                    "max_queries": cap_queries,
+                    "max_results": cap_results if cap_results is not None else 10,
+                    "queries_asked": asked,
+                    "credits": credits,
+                    "useful_leads": useful,
+                }
+            )
+    return rows
 
 
 def as_markdown(reports: Sequence[Mapping[str, Any]]) -> str:

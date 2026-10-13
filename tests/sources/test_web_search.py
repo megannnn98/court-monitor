@@ -207,6 +207,34 @@ def test_the_markup_of_a_page_is_taken_off_before_the_excerpt_is_chosen() -> Non
     assert "по статье 280" in item.text
 
 
+def test_what_a_page_left_of_its_markup_is_taken_off() -> None:
+    """Each rule here answers a page Tavily really returned: a name in bold, a bullet, a
+    wiki footnote, a link whose address holds parentheses, a word an address cut in half."""
+    raw = (
+        "# Материал\n\n"
+        "**Новая газета** Стать соучастником\n\n"
+        "* Википедия:Биографии современников * Википедия:Статьи без изображений\n\n"
+        "[Функция (математика)](https://ru.wikipedia.org/wiki/Функция_(математика))\n\n"
+        "Они предъявляли обвинение[[1]](#cite_note-:9-1) и [12](#cite_note-12).\n\n"
+        "И%D0%BA%D0%B8%D0%BF%D0%B5%D0%B4%D0%B8%D1%8F: известный российский юрист"
+    )
+
+    (item,) = asyncio.run(
+        search_over(
+            httpx.MockTransport(
+                lambda request: httpx.Response(200, json={"results": [page(raw=raw)]})
+            )
+        ).search(SourceSearchQuery(WORDS, limit=5))
+    )
+
+    text = item.text
+    assert "**" not in text and "cite_note" not in text and "%D0" not in text
+    assert '")' not in text
+    # The words a reader reads survive: the menu's, the links', the bold one.
+    assert "Новая газета" in text and "Функция (математика)" in text
+    assert "Википедия" in text
+
+
 def test_a_word_asked_for_is_found_where_it_stands_in_another_case_of_the_noun() -> None:
     raw = "Ничего общего. " * 400 + "Мария Бонцлер: по части 3 статьи 280 УК РФ." + " Хвост. " * 300
 
