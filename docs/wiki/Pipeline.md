@@ -293,6 +293,11 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 | полнотекстовый поиск | `local` (`publications_fts`) | ранжированный поиск PostgreSQL по словам и падежам |
 | приметы неназванных | `local` (`unnamed_figurants`) | приметы, подходящие записи перечня, люди публикаций |
 | Telegram-каналы | `telegram` (или `telegram:tg-ovdinfolive`) | собственный поиск публичных каналов из `channels.csv`; список — `INVESTIGATION_TELEGRAM_CHANNELS` |
+| веб | `web` (или `web:tavily`) | поиск Tavily по тем же словам; есть, когда задан `TAVILY_API_KEY` |
+
+Tavily is an additional retriever. It does not replace local FTS or Telegram and does
+not generate investigation queries. Запросы по-прежнему строит сценарий: веб получает
+тот же keywords-запрос, что и FTS и Telegram, и не больше.
 
 Примеры (в контейнере: `docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py …'`):
 
@@ -305,6 +310,9 @@ python src/main.py investigate "За что преследуют Олега Ку
 
 # Неназванный фигурант публикации: база и Telegram
 python src/main.py investigate "Установи фигуранта публикации 28191" --source local --source telegram
+
+# Досье с вебом (нужен TAVILY_API_KEY): только веб, без базы
+python src/main.py investigate "Мария Бонцлер статья" --source web
 
 # Весь результат как JSON; прочитать сохранённый запуск; продолжить прерванный
 python src/main.py investigate "Мария Бонцлер" --json

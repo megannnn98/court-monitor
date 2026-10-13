@@ -168,14 +168,42 @@ Discovery («the newest items of a feed») and search («material about X») are
 capabilities. `ingestion.search` is the second, separate from the source adapters: a
 `SourceSearch` per configured source, read-only, storing nothing.
 
-One ships: a public Telegram channel's own search, through its web preview
+Two ship: a public Telegram channel's own search, through its web preview
 (`https://t.me/s/<channel>?q=<words>`): no account, no credentials. The channels are
 those of `ingestion/sources/telegram/channels.csv` only, chosen by
 `INVESTIGATION_TELEGRAM_CHANNELS` (default four: ОВД-Инфо LIVE, Медиазона, «Поддержка
 политзеков. Мемориал», Политзек-Инфо; `none` for none). A post is kept only if it
 names every word of the person's name. An answer that is not a page (JSON, plain text)
-is a failed search, not an empty one. Generic web search would need a commercial API
-the project does not have; none was added, and nothing scrapes a search engine.
+is a failed search, not an empty one.
+
+The second is Tavily (`ingestion/web_search.py`), a commercial web search API, and the
+project does have that key now (`TAVILY_API_KEY`; no key — no web search, and no other
+change to the run). It is registered as one more `SourceSearch`, so the retriever is
+`web:tavily` and the source `web`; `--source web` and `--source web:tavily` name it,
+`--local-only` excludes it, and it takes the same search timeout as the channels.
+
+**Tavily is an additional retriever. It does not replace local FTS or Telegram and does
+not generate investigation queries.** The planner still writes every query; Tavily
+receives the same keywords query as FTS and the channels — the name and the first word
+looked for — and nothing more. It is asked with `search_depth: basic` (one credit), at
+most ten results.
+
+The full text is Tavily's own `raw_content`: there is no page loader here, so the
+backend talks to `api.tavily.com` and to nothing else. The excerpt kept opens around the
+words that were asked for, not at the head of the page: the retriever filters a result
+by whether the name stands in it, and the model reads only its first 600 characters.
+Tavily never names a stored publication, so a page the local search found as a
+publication and Tavily found as an address is one document: it stands once, ranked by
+both its lists, and the facts the outside text was looked up for become leads of the
+publication rather than a copy of it beside it.
+
+The key lives in the search object alone — not in `repr`, not in an exception, not in a
+log line, not in `investigation_runs` — and the words asked are never logged either
+(`event=source_search source=tavily results=N`). A 429, a 5xx and a timeout are asked
+for again once; a 400, a 401 and a plan limit are the request's own fault and are not.
+
+Nothing scrapes a search engine, and no other provider (Serper, SearXNG, Brave) was
+added: one commercial API is the whole of the web.
 
 OVD-Info's and Memorial's sites have no search the code can use (404 on `/search`,
 403 on the WordPress API): their stored publications are searched locally instead.
@@ -186,12 +214,13 @@ separate, explicit action.
 
 ### No open-URL tool, no SSRF
 
-A search's address is built from its configured channel alone: scheme `https`, host
-`t.me`, path `/s/<username>` (a username by Telegram's own rule); the words travel only
-as `q`. There is no tool that fetches a URL a user, a model or a text supplies, so
-`localhost`, private ranges, metadata endpoints and `file://` are unreachable by
-construction; `tests/sources/test_source_search.py` sends such strings as words and
-checks the address.
+A search's address is built from its configured source alone: for a channel, scheme
+`https`, host `t.me`, path `/s/<username>` (a username by Telegram's own rule) with the
+words as `q`; for the web, the one constant `https://api.tavily.com/search` with the
+words in the body. There is no tool that fetches a URL a user, a model or a text
+supplies, so `localhost`, private ranges, metadata endpoints and `file://` are
+unreachable by construction; `tests/sources/test_source_search.py` sends such strings
+as words and checks the address.
 
 ### Bounded, timed, retried
 

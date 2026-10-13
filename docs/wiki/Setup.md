@@ -46,6 +46,7 @@ uv run python src/main.py validate-config
 | `INVESTIGATION_MAX_LLM_CALLS`, `INVESTIGATION_MAX_FOLLOWUPS`, `INVESTIGATION_MAX_EVIDENCE_ITEMS` | потолки одного вопроса `investigate` ([ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)): обращений к модели `2`, дополнительных раундов поиска `2`, материалов в ответе `40`. Читаются из окружения процесса; `compose.yaml` их в контейнер не передаёт, там действуют значения по умолчанию |
 | `INVESTIGATION_MAX_SEARCHES`, `INVESTIGATION_MAX_PARALLEL_SEARCHES`, `INVESTIGATION_TIMEOUT_SECONDS`, `INVESTIGATION_SEARCH_TIMEOUT_SECONDS` | поисков на вопрос `40`, одновременно `4`, на весь вопрос `120` с, на один поиск `20` с ([ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md)). Запрос может только уменьшить |
 | `INVESTIGATION_TELEGRAM_CHANNELS` | каналы из `channels.csv`, чей публичный поиск спрашивает исследование, через запятую; по умолчанию `ovdinfolive,mediazzzona,pzk_memorial,politzekinfo`; `none` — без внешних источников |
+| `TAVILY_API_KEY` | ключ Tavily — веб как ещё один внешний источник исследования (`--source web`, ретривер `web:tavily`); без ключа веб не спрашивается вовсе. Ключ живёт только в объекте поиска: не в логах, не в исключениях, не в сохранённых запусках |
 | `PIPELINE_SINCE` | рабочая дата (`YYYY-MM-DD`): шаг 2 удаляет публикации раньше неё; в `compose.yaml` — `2026-09-20`; пусто — по дате не удаляется |
 
 Для Docker Compose также используются:
