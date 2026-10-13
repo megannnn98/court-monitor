@@ -48,6 +48,9 @@ REMOVED_SCORE_TYPES = frozenset({"cosine", "rrf"})
 DEFAULT_MAX_LLM_CALLS = 2
 DEFAULT_MAX_FOLLOWUPS = 2
 DEFAULT_MAX_EVIDENCE_ITEMS = 40
+# What a text found outside the database may add on top of that: the database's own
+# ceiling stays what it was, and the outside is shown beside it rather than in its place.
+DEFAULT_MAX_EXTERNAL_ITEMS = 10
 DEFAULT_MAX_SEARCHES = 40
 DEFAULT_MAX_PARALLEL_SEARCHES = 4
 DEFAULT_TIMEOUT_SECONDS = 120
@@ -391,6 +394,8 @@ class Limits(BaseModel):
     max_llm_calls: int = Field(default=DEFAULT_MAX_LLM_CALLS, ge=0)
     max_followups: int = Field(default=DEFAULT_MAX_FOLLOWUPS, ge=0)
     max_evidence_items: int = Field(default=DEFAULT_MAX_EVIDENCE_ITEMS, ge=1)
+    # Outside the database, beside what the database already showed, not in its place.
+    max_external_items: int = Field(default=DEFAULT_MAX_EXTERNAL_ITEMS, ge=0)
     max_searches: int = Field(default=DEFAULT_MAX_SEARCHES, ge=1)
     max_parallel_searches: int = Field(default=DEFAULT_MAX_PARALLEL_SEARCHES, ge=1)
     # The whole run, and one search of it.
@@ -405,6 +410,9 @@ class Limits(BaseModel):
             max_followups=_limit(env, "INVESTIGATION_MAX_FOLLOWUPS", DEFAULT_MAX_FOLLOWUPS),
             max_evidence_items=max(
                 _limit(env, "INVESTIGATION_MAX_EVIDENCE_ITEMS", DEFAULT_MAX_EVIDENCE_ITEMS), 1
+            ),
+            max_external_items=_limit(
+                env, "INVESTIGATION_MAX_EXTERNAL_ITEMS", DEFAULT_MAX_EXTERNAL_ITEMS
             ),
             max_searches=max(_limit(env, "INVESTIGATION_MAX_SEARCHES", DEFAULT_MAX_SEARCHES), 1),
             max_parallel_searches=max(

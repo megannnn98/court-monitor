@@ -514,7 +514,9 @@ def test_two_quotes_of_one_document_for_different_facts_both_stay() -> None:
 
 def test_a_post_found_twice_is_one_piece_of_evidence() -> None:
     merged, _ = merge(
-        [post(9, "Сидоров"), post(9, "Сидоров").model_copy(update={"query": "other"})], limit=10
+        [post(9, "Сидоров"), post(9, "Сидоров").model_copy(update={"query": "other"})],
+        limit=10,
+        external_limit=10,
     )
 
     assert len(merged) == 1

@@ -145,9 +145,17 @@ def _with_leads_of_its_page(
     return result
 
 
-def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceItem], int]:
+def merge(
+    found: Sequence[EvidenceItem], *, limit: int, external_limit: int = 0
+) -> tuple[list[EvidenceItem], int]:
     """`found` without repeats, ranked, numbered «E1», «E2», …; and how many the
-    ceiling cut."""
+    ceiling cut.
+
+    Two ceilings, and they do not take each other's place: what the database holds keeps
+    `limit` of its own, and what was found outside is shown beside it, up to
+    `external_limit`. Before the web there was only the first ceiling and the second was
+    zero, so nothing a reader saw changed by there being a second one.
+    """
     pages = _pages(found)
     absorbed, copies = _of_the_local_publication(found, pages)
     unique = _with_leads_of_its_page(list(_same_place(found).values()), absorbed, copies)
@@ -173,10 +181,13 @@ def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceIt
         kept.setdefault(key, item)
 
     ordered = sorted(kept.values(), key=lambda item: _rank(item, fused, pages))
-    shown = ordered[:limit]
+    inside = [item for item in ordered if item.source_type != "external"]
+    outside = [item for item in ordered if item.source_type == "external"]
+    shown = inside[:limit] + outside[:external_limit]
+    cut = (len(inside) - len(inside[:limit])) + (len(outside) - len(outside[:external_limit]))
     return (
         [item.model_copy(update={"ref": f"E{number}"}) for number, item in enumerate(shown, 1)],
-        len(ordered) - len(shown),
+        cut,
     )
 
 

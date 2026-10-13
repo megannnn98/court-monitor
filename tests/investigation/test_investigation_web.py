@@ -425,13 +425,125 @@ def test_a_web_text_that_is_nobody_s_lead_ranks_after_the_local_quotes() -> None
         }
     )
 
-    ordered, _ = merge([unasked, local, asked], limit=10)
+    ordered, _ = merge([unasked, local, asked], limit=10, external_limit=10)
 
     assert [item.url for item in ordered] == [
         "https://news.example.test/local",
         "https://other.example.test/b",
         "https://other.example.test/a",
     ]
+
+
+def test_no_number_of_web_results_pushes_out_one_local_quote() -> None:
+    """The database's own ceiling stays the database's own. What was found outside is
+    shown beside it, up to its own small ceiling, however much of it there is."""
+    from investigation.services.evidence import merge
+
+    local = [
+        EvidenceItem(
+            source_type="publication",
+            source_id="publications_fts",
+            url=f"https://news.example.test/local-{number}",
+            article_id=number,
+            span_start=0,
+            span_end=10,
+            text=f"Цитата {number} о деле.",
+        )
+        for number in range(40)
+    ]
+
+    for amount in (1, 10, 50, 200):
+        outside = [
+            EvidenceItem(
+                source_type="external",
+                source_id="web:tavily",
+                external_id=f"w{number}",
+                url=f"https://other.example.test/{number}",
+                text=f"Мария Бонцлер упоминание {number}.",
+                score_type="source_order",
+            )
+            for number in range(amount)
+        ]
+
+        shown, cut = merge([*outside, *local], limit=40, external_limit=10)
+
+        kept_local = [item for item in shown if item.source_type == "publication"]
+        kept_outside = [item for item in shown if item.source_type == "external"]
+        assert len(kept_local) == 40, f"{amount} веб-результатов съели локальные"
+        assert len(kept_outside) == min(10, amount)
+        assert cut == max(0, amount - 10)
+
+
+def test_among_the_ten_shown_from_outside_the_leads_come_first() -> None:
+    """Ten texts found outside are a choice, and the ones the run actually asked for are
+    the ten worth showing."""
+    from investigation.services.evidence import merge
+
+    asked = [
+        EvidenceItem(
+            source_type="external",
+            source_id="web:tavily",
+            external_id=f"a{number}",
+            url=f"https://other.example.test/lead-{number}",
+            text=f"Марии Бонцлер вменили статью {number}.",
+            leads=("charges",),
+            score_type="source_order",
+        )
+        for number in range(6)
+    ]
+    unasked = [
+        EvidenceItem(
+            source_type="external",
+            source_id="web:tavily",
+            external_id=f"u{number}",
+            url=f"https://other.example.test/other-{number}",
+            text=f"Мария Бонцлер упоминание {number}.",
+            score_type="source_order",
+        )
+        for number in range(20)
+    ]
+
+    shown, _ = merge([*unasked, *asked], limit=40, external_limit=10)
+
+    outside = [item for item in shown if item.source_type == "external"]
+    assert len(outside) == 10
+    assert all(item.leads for item in outside[:6])
+    assert not any(item.leads for item in outside[6:])
+
+
+def test_without_a_ceiling_of_its_own_nothing_from_outside_is_shown() -> None:
+    """Before there was a web there was no second ceiling and nothing outside was shown;
+    the two ceilings do not take each other's place in either direction."""
+    from investigation.services.evidence import merge
+
+    local = [
+        EvidenceItem(
+            source_type="publication",
+            source_id="publications_fts",
+            url=f"https://news.example.test/local-{number}",
+            article_id=number,
+            span_start=0,
+            span_end=10,
+            text=f"Цитата {number} о деле.",
+        )
+        for number in range(3)
+    ]
+    outside = [
+        EvidenceItem(
+            source_type="external",
+            source_id="web:tavily",
+            external_id=f"w{number}",
+            url=f"https://other.example.test/{number}",
+            text=f"Мария Бонцлер упоминание {number}.",
+            score_type="source_order",
+        )
+        for number in range(5)
+    ]
+
+    shown, cut = merge([*outside, *local], limit=40)
+
+    assert all(item.source_type == "publication" for item in shown)
+    assert cut == 5
 
 
 def test_a_web_text_nobody_looked_for_is_dropped_first_when_the_ceiling_cuts() -> None:

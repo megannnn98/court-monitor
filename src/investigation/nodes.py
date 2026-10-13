@@ -482,7 +482,9 @@ async def _within_a_slot(
 
 async def merge_evidence(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
     merged, cut = evidence_rules.merge(
-        state.get("found", []), limit=_limits(state).max_evidence_items
+        state.get("found", []),
+        limit=_limits(state).max_evidence_items,
+        external_limit=_limits(state).max_external_items,
     )
     scenario = scenario_of(state, tools)
     subject = scenario.settle(_view({**state, "evidence": merged}))
@@ -578,6 +580,45 @@ class _Report(BaseModel):
     sentences: list[_Sentence]
 
 
+def evidence_for_model(
+    evidence: Sequence[EvidenceItem], *, subject_settled: bool
+) -> tuple[list[EvidenceItem], str | None]:
+    """What the model may read, and why anything was withheld from it.
+
+    A text found outside the database that nobody asked for says the person's name and
+    little else — a namesake's page, a registry card, a hockey player's card. Left in the
+    block, the model writes it as a sentence about the person it was asked about, and a
+    sentence is read as a fact. So such a text is not shown at all, and neither is any
+    text from outside when the database does not know whom the dossier is about: there is
+    nobody to tell a namesake apart from.
+
+    A fact is not one of those texts: it is the run's own assertion about a value, not a
+    page's prose, and it is not a quote of anybody.
+    """
+    outside = [item for item in evidence if item.source_type == "external" and not item.fact]
+    if not outside:
+        return list(evidence), None
+    if not subject_settled:
+        return (
+            [item for item in evidence if item not in outside],
+            (
+                f"сводка не составлена по {len(outside)} текстам из веба: в базе нет "
+                f"человека, о котором этот вопрос, отличить однофамильца не от чего"
+            ),
+        )
+    unasked = [item for item in outside if not item.leads]
+    if not unasked:
+        return list(evidence), None
+    kept = [item for item in evidence if item not in unasked]
+    return (
+        kept,
+        (
+            f"{len(unasked)} текстов из веба, о которых никто не спрашивал, в сводку "
+            f"не переданы: в них только имя"
+        ),
+    )
+
+
 def report_messages(question: str, evidence: Sequence[EvidenceItem]) -> tuple[str, str]:
     """(system, user). The question and the evidence stand in separate blocks; a closing
     tag written inside a quote is defused, so a quote cannot end its own block."""
@@ -655,14 +696,20 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
         if time.time() > state.get("deadline", float("inf")):
             warnings.append("время исследования истекло: результат собран из того, что успели")
 
-    if evidence and tools.model is not None:
+    readable, withheld = evidence_for_model(
+        evidence, subject_settled=bool(subject is not None and subject.entity_key)
+    )
+    if withheld:
+        warnings.append(withheld)
+
+    if readable and tools.model is not None:
         # The summary is the one optional step: it never starts after the deadline and
         # never outlives it. What the run found stands with it or without.
         left = state.get("deadline", float("inf")) - time.time()
         if left <= 0:
             warnings.append(SUMMARY_OUT_OF_TIME)
         elif _may_ask(state, tools):
-            system, user = report_messages(question, evidence)
+            system, user = report_messages(question, readable)
             try:
                 reply = await asyncio.wait_for(
                     _ask(
@@ -683,7 +730,8 @@ async def report(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
                 warnings.append(f"модель не составила сводку: {exc}")
             else:
                 spent = _spent(reply)
-                summary, dropped = supported_summary(reply, evidence)
+                # A citation the model could not read is a citation of nothing.
+                summary, dropped = supported_summary(reply, readable)
                 if summary is not None:
                     warnings.append(SUMMARY_UNCHECKED)
                 if dropped:
