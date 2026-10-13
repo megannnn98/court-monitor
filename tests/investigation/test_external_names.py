@@ -32,10 +32,6 @@ def test_an_initial_stands_for_the_word_it_stands_for() -> None:
     assert names("И. Карлов осуждён судом.", "Игорь Карлов")
 
 
-def test_a_declined_place_is_the_place_looked_for() -> None:
-    assert names("Суд в Тюмени открылся.", "Тюмень")
-
-
 def test_the_name_written_with_a_space_between_is_the_name() -> None:
     assert names("Мария Бонцлер дала показания.", "Мария Бонцлер")
     assert names("Бонцлер Мария дала показания.", "Мария Бонцлер")
@@ -60,14 +56,54 @@ def test_a_patronymic_between_the_words_of_a_name_is_still_the_name() -> None:
 
 
 def test_a_surname_the_dictionary_declines_by_the_wrong_rule_is_still_the_name() -> None:
-    """«Дудя» comes back from pymorphy as the inflected form of the verb «дудеть», and
-    three letters of the name are left where the rule of five is looked for. Eleven real
-    Telegram quotes about Юрия Дудя stopped passing on that. Where a capital is asked, a
-    name, three letters of a root are enough."""
+    """«Дудя» comes back from pymorphy as the inflected form of the verb «дудеть» and is
+    nowhere known as a name, so there is no dictionary form to compare. Two words the
+    dictionary does not know as a person's name may still differ by an ending and nothing
+    else. Eleven real Telegram quotes about Юрия Дудя stopped passing without this."""
     assert names("Юрия Дудя внесли в реестр «экстремистов и террористов»", "Юрий Дудь")
     assert names("Приставы начали взыскивать с блогера Юрия Дудя 200 тысяч рублей", "Юрий Дудь")
-    # The same three letters of two names that are two people.
+
+
+def test_two_names_that_only_look_alike_are_two_people() -> None:
+    """A shared root is not a name. Each pair below shares letters, or is one letter off,
+    or is a word the dictionary knows as a different name — and no two of them is one
+    person."""
+    assert not names("Игорь Карпов дал показания.", "Игорь Карлов")
+    assert not names("Александр Смирнов дал показания.", "Алексей Смирнов")
+    assert not names("Марина Окрушко дала показания.", "Мария Окрушко")
+    assert not names("Олег Кузнецов дал показания.", "Олег Кузьмин")
+    assert not names("Алена Кардашова дала показания.", "Алексей Кардашов")
+    assert not names("Юрий Петровский дал показания.", "Юрий Петров")
+    # A given name is not a patronymic, though the dictionary knows both.
+    assert not names("Андреев Владимир дал показания.", "Андрей Владимиров")
+
+
+def test_a_declined_surname_the_dictionary_reads_as_another_word_is_the_name() -> None:
+    """«Халилова» comes back first as the possessive «халиловый»; the surname is the
+    dictionary's second reading. A word the dictionary declined may be looked for by any
+    of the forms it was declined into — but only if its own first reading is another word,
+    or «Андреев», whose forms include «Андрей», would answer to «Андрей»."""
+    assert names("Суд КБР рассматривает дело о банкротстве Андзора Халилова.", "Андзор Халилов")
+
+
+def test_a_surname_the_dictionary_calls_undeclinable_is_not_matched() -> None:
+    """The cost of that: pymorphy leaves «Кынева» as written and tags it a fixed
+    surname, so a declined word it will not decline is not matched. One Telegram quote
+    and two web texts of the hand-annotated set are lost this way."""
+    assert not names("Политолога Александра Кынева отправили в СИЗО.", "Александр Кынев")
+
+
+def test_the_same_three_letters_of_two_names_that_are_two_people() -> None:
     assert not names("Президент Украины Владимир Зеленский посетил Чехию.", "Павел Зеленский")
+
+
+def test_a_declined_place_is_the_place_looked_for() -> None:
+    """A one-word name may be a place, and a place is declined by an adjective. The
+    allowance is longer than a name's ending and is reached only where the dictionary
+    knows neither word as a person's name, so it never makes «Петров» and «Петровский»
+    one word."""
+    assert names("Поиск по Тюменской области дал результат.", "Тюмень")
+    assert names("Суд в Тюмени открылся.", "Тюмень")
 
 
 def test_an_apposition_of_two_words_between_the_name_breaks_it() -> None:

@@ -29,6 +29,19 @@ def _local(ref: str, text: str = "Приговорён к 18 годам коло
     )
 
 
+def _channel(ref: str, text: str) -> EvidenceItem:
+    """A quote of a Telegram channel. External too, and not the web."""
+    return EvidenceItem(
+        source_type="external",
+        source_id="telegram:tg-pzk_memorial",
+        external_id=ref,
+        url=f"https://t.me/pzk_memorial/{ref}",
+        text=text,
+        ref=ref,
+        score_type="source_order",
+    )
+
+
 def _outside(ref: str, text: str, *, lead: bool = False) -> EvidenceItem:
     return EvidenceItem(
         source_type="external",
@@ -93,3 +106,43 @@ def test_what_the_model_reads_holds_no_web_text_nobody_asked_for() -> None:
     assert "карточка игрока" not in user
     assert "вменена статья 280" in user
     assert "[E1]" in user
+
+
+def test_a_channel_quote_without_a_lead_still_reaches_the_model() -> None:
+    """A channel's quote is about a person the run already settled on and the model has
+    always read it. Only what the web found is screened, and the mode without a web
+    reaches the model exactly what it reached before the web existed."""
+    channel = _channel("E3", f"{SAME_NAME} выступил в суде.")
+
+    readable, withheld = evidence_for_model([_local("E1"), channel], subject_settled=True)
+
+    assert [item.ref for item in readable] == ["E1", "E3"]
+    assert withheld is None
+
+
+def test_when_the_database_has_no_such_person_a_channel_quote_still_reaches_the_model() -> None:
+    """Only the web is withheld: there is a difference between a page the web found about
+    an unknown person and a message in a channel the run is reading."""
+    channel = _channel("E3", f"{SAME_NAME} выступил в суде.")
+    web = _outside("E4", f"{SAME_NAME} — карточка игрока.")
+
+    readable, withheld = evidence_for_model([_local("E1"), channel, web], subject_settled=False)
+
+    assert [item.ref for item in readable] == ["E1", "E3"]
+    assert withheld is not None and "нет человека" in withheld
+
+
+def test_a_channel_quote_is_not_sunk_by_the_webs_rule() -> None:
+    """The rule is asked of the rank itself: with everything else equal, a text the web
+    brought that nobody asked for ranks last, and a channel's quote does not — it stands
+    where the fused rank put it, as before the web existed."""
+    from investigation.services.evidence import _rank
+
+    channel = _channel("c1", f"{SAME_NAME} упомянут в посте.")
+    web = _outside("w1", f"{SAME_NAME} — карточка игрока.")
+
+    assert _rank(web, {}, {}) > _rank(channel, {}, {})
+
+    # A web text the run asked for is ranked as it was before the rule: with the channel's.
+    web_asked = web.model_copy(update={"leads": ("charges",)})
+    assert _rank(web_asked, {}, {}) == _rank(channel, {}, {})

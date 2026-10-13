@@ -32,8 +32,7 @@ _NAME_WINDOW = 3
 
 def _tokens(text: str) -> list[tuple[str, bool, bool]]:
     """The words of a text as written: folded, whether it is an initial («И.»), and
-    whether it is written with a capital — that is, whether it stands where a name
-    stands."""
+    whether it is written with a capital."""
     result: list[tuple[str, bool, bool]] = []
     for match in _WORD.finditer(text):
         word = match.group()
@@ -45,37 +44,89 @@ def _tokens(text: str) -> list[tuple[str, bool, bool]]:
 
 
 # A surname the dictionary has never heard of is declined by the wrong rule: «Дудя» comes
-# back as the inflected form of the verb «дудеть», and three letters are left of the name.
-# Where a capital is asked, a name, three letters of a root are enough — two names sharing
-# three letters and standing in the same three tokens are a coincidence no text needs.
-_NAME_ROOT = 3
+# back as the inflected form of the verb «дудеть», and nothing of the name is left to
+# compare. There the words are one only if they differ by an ending and nothing else: the
+# shorter must be all but one or two of its letters at the start of the longer, and the
+# longer no more than two letters longer. That is what tells «Дудя» of «Дудь» from «Игорь
+# Карпов» of «Игорь Карлов», which differ by a letter and a half and are two people.
+_ENDING_GIVE_UP = 2
+_ENDING_GROWTH = 2
+
+# A name looked for as one word may be a place, and a place is declined by an adjective:
+# «Тюменской» of «Тюмень». That is a longer ending than a name's, so it has its own
+# allowance — and it is reached only where the dictionary knows neither word as a person's
+# name, so it never makes «Петров» and «Петровский» one word.
+_PLACE_ROOT = 4
+_PLACE_GROWTH = 5
+
+# The tags under which the dictionary means a person rather than a common word.
+_PERSON_TAGS = frozenset({"Name", "Surn", "Patr", "Abru"})
 
 
-def _shares_root(one: str, other: str) -> bool:
-    """Whether two words are one name written in two cases."""
+@lru_cache(maxsize=32768)
+def _named(word: str) -> bool:
+    """Whether the dictionary knows this word as a person's name or surname. The tag is
+    read as written — `NOUN,anim,masc,Name sing,nomn` — and its grammemes looked for."""
+    return any(
+        grammeme in _PERSON_TAGS
+        for parsed in _morph().parse(word)
+        for grammeme in str(parsed.tag).replace(",", " ").split()
+    )
+
+
+def _ends_alike(one: str, other: str) -> bool:
+    """Whether two words are one word written in two cases: all but an ending in common."""
     shorter, longer = sorted((one, other), key=len)
-    return len(shorter) >= 4 and longer.startswith(shorter[:_NAME_ROOT])
+    return longer.startswith(shorter[:-_ENDING_GIVE_UP]) and (
+        len(longer) - len(shorter) <= _ENDING_GROWTH
+    )
 
 
-def _matches(token: str, *, initial: bool, capital: bool, wanted: str) -> bool:
+@lru_cache(maxsize=32768)
+def _forms(word: str) -> frozenset[str]:
+    """Every form the dictionary finds in a word: `халилова` is `халилов` and
+    `халиловый` alike, and the first of the two is the one that means the person."""
+    return frozenset(parsed.normal_form for parsed in _morph().parse(word)) or frozenset({word})
+
+
+def _matches(token: str, *, initial: bool, wanted: str, place: bool = False) -> bool:
     """Whether one word of a text is the word of a name looked for, in any case of the
     noun, or an initial standing for it.
 
-    Both as written and as the dictionary has them: «Карлов» the surname and «Карлов» the
-    declined «Карла» are one word to a reader and two to pymorphy, which knows the
-    historical figure before it knows the surname.
+    Two words of a name are the same word when the dictionary says so — the same written
+    form, or the same dictionary form. A shared root is not enough: «Карлов» and «Карпов»
+    share three letters and are two surnames, and so are «Смирнов» under «Алексей» and
+    under «Александр». Where the dictionary knows neither word as a person's name there
+    may be an ending between them, and then it must be only an ending.
     """
     if initial:
         return wanted.startswith(token)
     if len(token) < 2 or len(wanted) < 2:
         return token == wanted
-    forms = (_lemma(token), token)
-    wanted_forms = (_lemma(wanted), wanted)
-    if any(_same_word(one, other) for one in forms for other in wanted_forms):
+    if token == wanted:
         return True
-    # Where the dictionary heard of neither word, they are still one name if they are
-    # written the same and one is the other declined: «Дудя» of «Дудь».
-    return capital and (_shares_root(token, wanted) or _shares_root(_lemma(token), wanted))
+    # The dictionary's forms of a word it declined are that word's own. Only a word that
+    # stands declined may be looked for by them: otherwise «Владимир» answers to
+    # «Владимиров», and the two are a given name and a patronymic.
+    forms = _forms(token)
+    if _lemma(token) != token and wanted in forms:
+        return True
+    wanted_forms = _forms(wanted)
+    if _lemma(wanted) != wanted and token in wanted_forms:
+        return True
+    if _named(token) or _named(wanted):
+        return False
+    if place:
+        shorter, longer = sorted((token, wanted), key=len)
+        if (
+            len(shorter) >= _PLACE_ROOT
+            and longer.startswith(shorter[:_PLACE_ROOT])
+            and (len(longer) - len(shorter) <= _PLACE_GROWTH)
+        ):
+            return True
+    # A place's allowance is added to an ending's, not put in its place: a one-word name
+    # may be a surname too, and «Дудя» is «Дудь» whichever of the two was looked for.
+    return _ends_alike(token, wanted)
 
 
 def names(text: str, name: str) -> bool:
@@ -100,15 +151,14 @@ def names(text: str, name: str) -> bool:
         return False
     if len(wanted) == 1:
         return any(
-            _matches(token, initial=initial, capital=capital, wanted=wanted[0])
-            for token, initial, capital in tokens
+            _matches(token, initial=initial, wanted=wanted[0], place=True)
+            for token, initial, _capital in tokens
         )
     for start in range(len(tokens)):
         window = tokens[start : start + _NAME_WINDOW]
         if all(
             any(
-                _matches(token, initial=initial, capital=capital, wanted=word)
-                for token, initial, capital in window
+                _matches(token, initial=initial, wanted=word) for token, initial, _capital in window
             )
             for word in wanted
         ):

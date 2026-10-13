@@ -585,17 +585,19 @@ def evidence_for_model(
 ) -> tuple[list[EvidenceItem], str | None]:
     """What the model may read, and why anything was withheld from it.
 
-    A text found outside the database that nobody asked for says the person's name and
-    little else — a namesake's page, a registry card, a hockey player's card. Left in the
-    block, the model writes it as a sentence about the person it was asked about, and a
-    sentence is read as a fact. So such a text is not shown at all, and neither is any
-    text from outside when the database does not know whom the dossier is about: there is
-    nobody to tell a namesake apart from.
+    A text the web brought that nobody asked for says the person's name and little else —
+    a namesake's page, a registry card, a hockey player's card. Left in the block, the
+    model writes it as a sentence about the person it was asked about, and a sentence is
+    read as a fact. So such a text is not shown at all, and neither is any text from the
+    web when the database does not know whom the dossier is about: there is nobody to tell
+    a namesake apart from.
 
-    A fact is not one of those texts: it is the run's own assertion about a value, not a
-    page's prose, and it is not a quote of anybody.
+    A channel's quotes are not touched: they name a person the run already settled on, the
+    model has always read them, and a namesake's message in a channel is not a page the web
+    found. A fact is not one of those texts either: it is the run's own assertion about a
+    value, not a page's prose.
     """
-    outside = [item for item in evidence if item.source_type == "external" and not item.fact]
+    outside = [item for item in evidence if evidence_rules.is_web(item) and not item.fact]
     if not outside:
         return list(evidence), None
     if not subject_settled:

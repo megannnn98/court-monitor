@@ -145,9 +145,14 @@ def _with_leads_of_its_page(
     return result
 
 
-def _is_web(item: EvidenceItem) -> bool:
+def is_web(item: EvidenceItem) -> bool:
     """Whether the web retriever found this text, told by the retriever's own kind
-    (`web:tavily`, `web:…`) and not by the provider's name."""
+    (`web:tavily`, `web:…`) and not by the provider's name.
+
+    One place, because three rules answer differently for the web and for a channel's
+    quotes: what the ceiling covers, what is shown last, and what the model is shown.
+    Telegram is not the web in any of them.
+    """
     return item.source_type == "external" and item.source_id.startswith("web:")
 
 
@@ -191,8 +196,8 @@ def merge(
         kept.setdefault(key, item)
 
     ordered = sorted(kept.values(), key=lambda item: _rank(item, fused, pages))
-    outside = [item for item in ordered if _is_web(item)]
-    inside = [item for item in ordered if not _is_web(item)]
+    outside = [item for item in ordered if is_web(item)]
+    inside = [item for item in ordered if not is_web(item)]
     shown = inside[:limit] + outside[:external_limit]
     cut = (len(inside) - len(inside[:limit])) + (len(outside) - len(outside[:external_limit]))
     return (
@@ -205,12 +210,13 @@ def _rank(
     item: EvidenceItem, fused: dict[tuple[object, ...], float], pages: dict[str, EvidenceItem]
 ) -> tuple[bool, bool, bool, float, float]:
     """Facts first, in the order they came; then the quotes; then the fused rank; then the
-    newest. Of the quotes, a text found outside that is nobody's lead comes last: it was
+    newest. Of the quotes, a text the web brought that is nobody's lead comes last: it was
     not looked for, and a ceiling that shows everything would let it push a quote of the
-    person's own publications out of the result."""
+    person's own publications out of the result. A channel's quotes are ranked as they
+    were before the web existed."""
     document = _document_of(item, pages)
     if document is None:
         return (False, False, False, 0.0, 0.0)
     newest = -item.published_at.timestamp() if item.published_at else float("inf")
-    outside_unasked = item.source_type == "external" and not item.leads
-    return (True, outside_unasked, item.entity_key is None, -fused.get(document, 0.0), newest)
+    web_unasked = is_web(item) and not item.leads
+    return (True, web_unasked, item.entity_key is None, -fused.get(document, 0.0), newest)
