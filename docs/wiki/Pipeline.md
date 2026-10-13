@@ -292,12 +292,24 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 | публикации по имени | `local` (`stored_publications`) | тексты, где есть все слова имени |
 | полнотекстовый поиск | `local` (`publications_fts`) | ранжированный поиск PostgreSQL по словам и падежам |
 | приметы неназванных | `local` (`unnamed_figurants`) | приметы, подходящие записи перечня, люди публикаций |
-| Telegram-каналы | `telegram` (или `telegram:tg-ovdinfolive`) | собственный поиск публичных каналов из `channels.csv`; список — `INVESTIGATION_TELEGRAM_CHANNELS` |
-| веб | `web` (или `web:tavily`) | поиск Tavily по тем же словам; есть, когда задан `TAVILY_API_KEY` |
+| Telegram-каналы | `telegram` (или `telegram:tg-ovdinfolive`) | собственный поиск публичных каналов из `channels.csv`; список — `INVESTIGATION_TELEGRAM_CHANNELS`; окно дат поиску канала не передаётся |
+| веб | `web` (или `web:tavily`) | поиск Tavily по тем же словам и с окном дат запроса; есть, когда задан `TAVILY_API_KEY` |
 
 Tavily is an additional retriever. It does not replace local FTS or Telegram and does
 not generate investigation queries. Запросы по-прежнему строит сценарий: веб получает
 тот же keywords-запрос, что и FTS и Telegram, и не больше.
+
+Два правила внешнего текста (Telegram и веб — один и тот же ретривер):
+
+- **lead только если в тексте есть слово, которое искали.** Внешний поиск совпадает
+  нестрого и получает только первое слово запроса, поэтому текст, где есть лишь имя
+  человека, ничего не говорит о факте, ради которого искали, и lead не получает: иначе
+  сценарий прекратил бы искать факт, у которого уже есть lead. Слово ищется по началу
+  («статье», «статьи», «статью» — от «статья»), термин не из одних букв («205.2»)
+  сравнивается как написан.
+- **Окно дат.** Если запрос ограничен датами, окно уходит в Tavily (`start_date`/
+  `end_date`, днями; материалы без даты при этом не отсекаются). Поиск канала такого
+  окна не умеет и получает одни слова.
 
 Примеры (в контейнере: `docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py …'`):
 

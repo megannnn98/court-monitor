@@ -203,6 +203,22 @@ words, so a declined «Марию» and «по статье» are found — and 
 page, where a menu of «Статьи» or another namesake stands long before the article does:
 the retriever filters a result by whether the name stands in it, and the model reads only
 its first 600 characters.
+
+**A lead only if the text holds a word that was looked for.** A channel's search and
+Tavily's both match loosely, and only the first of the looked-for words is sent: a text
+that merely names the person says nothing of the fact the query was for. Such a text is
+kept as evidence and marked no lead, so the scenario still looks for that fact — a lead
+ends the search for it (`looked_up` in both scenarios). The word is found by its
+beginning, in any case of the noun («статье», «статьи», «статью» of «статья», «Тюмени»
+of «Тюмень»), and a term that is not only letters («205.2») is compared as written. The
+rule is one class (`SourceSearchRetriever`), so it is the channels' as much as the web's.
+
+**A window of dates reaches the web, not the channels.** A query the scenario bounds by
+publication dates is asked of Tavily within those days (`start_date`/`end_date`), which
+keeps what was published or last updated in the window; a result Tavily dates not at all
+is not cut, `filter_by_published_date` is not asked for. A channel's own search has no
+such parameter and is given the words alone.
+
 Tavily never names a stored publication, so a page the local search found as a
 publication and Tavily found as an address is one document: it stands once, ranked by
 both its lists, and the facts the outside text was looked up for become leads of the
@@ -473,9 +489,10 @@ the copy (2 446 windows, 1 632 articles), as the one it replaced did.
 - Findings of the person scenario are still only what the pipeline decided; a follow-up
   brings leads. Turning a lead into a fact stays the pipeline's (or a person's) work.
 - Telegram's search is the channel's own and loose; the name filter drops posts that
-  do not name the person, but a namesake in a channel is still a lead, never the
-  subject. The channel list is configuration; more channels mean more searches per
-  round, bounded by the ceilings.
+  do not name the person, and a post that names them but holds none of the words looked
+  for is evidence, not a lead — so a namesake in a channel is never read as the subject
+  and never ends the search for the fact. The channel list is configuration; more
+  channels mean more searches per round, bounded by the ceilings.
 - ~~Dense retrieval needs its index built (`index-publications`) wherever it is enabled,
   and rebuilt for a new model.~~ Removed before it was deployed anywhere (ADR 0028).
 - `stored_publications` reads every text with `LIKE` (95 ms now, linear in the corpus).
