@@ -540,10 +540,73 @@ def test_without_a_ceiling_of_its_own_nothing_from_outside_is_shown() -> None:
         for number in range(5)
     ]
 
-    shown, cut = merge([*outside, *local], limit=40)
+    shown, cut = merge([*outside, *local], limit=40, external_limit=0)
 
     assert all(item.source_type == "publication" for item in shown)
     assert cut == 5
+
+
+def test_a_telegram_quote_is_not_squeezed_by_the_webs_ceiling() -> None:
+    """The web's ten are the web's. A channel's quotes keep the one ceiling they had
+    before there was a web, and are shown under it however much the web brought."""
+    from investigation.services.evidence import merge
+
+    channel = [
+        EvidenceItem(
+            source_type="external",
+            source_id="telegram:tg-pzk_memorial",
+            external_id=f"t{number}",
+            url=f"https://t.me/pzk_memorial/{number}",
+            text=f"Мария Бонцлер цитата {number} о деле.",
+            score_type="source_order",
+        )
+        for number in range(30)
+    ]
+    web = [
+        EvidenceItem(
+            source_type="external",
+            source_id="web:tavily",
+            external_id=f"w{number}",
+            url=f"https://other.example.test/{number}",
+            text=f"Мария Бонцлер упоминание {number}.",
+            score_type="source_order",
+        )
+        for number in range(25)
+    ]
+
+    shown, cut = merge([*web, *channel], limit=40, external_limit=10)
+
+    kept_channel = [item for item in shown if item.source_id.startswith("telegram:")]
+    kept_web = [item for item in shown if item.source_id.startswith("web:")]
+    assert len(kept_channel) == 30, "потолок веба сжал каналы"
+    assert len(kept_web) == 10
+    assert cut == 15
+
+
+def test_the_web_ceiling_follows_the_retriever_not_the_providers_name() -> None:
+    """`web:` is the retriever's kind. Another provider's web search is under the same
+    ceiling, and a provider that is not the web is not under it whatever it is called."""
+    from investigation.services.evidence import merge
+
+    def item(source_id: str, number: int) -> EvidenceItem:
+        return EvidenceItem(
+            source_type="external",
+            source_id=source_id,
+            external_id=f"{source_id}-{number}",
+            url=f"https://example.test/{source_id}/{number}",
+            text="Мария Бонцлер упоминание.",
+            score_type="source_order",
+        )
+
+    shown, _ = merge(
+        [item("web:another-provider", n) for n in range(30)]
+        + [item("telegram:tavily-lookalike", n) for n in range(30)],
+        limit=40,
+        external_limit=10,
+    )
+
+    assert len([i for i in shown if i.source_id == "web:another-provider"]) == 10
+    assert len([i for i in shown if i.source_id.startswith("telegram:")]) == 30
 
 
 def test_a_web_text_nobody_looked_for_is_dropped_first_when_the_ceiling_cuts() -> None:
@@ -573,7 +636,7 @@ def test_a_web_text_nobody_looked_for_is_dropped_first_when_the_ceiling_cuts() -
         for number in range(3)
     ]
 
-    ordered, cut = merge([*noise, *local], limit=3)
+    ordered, cut = merge([*noise, *local], limit=3, external_limit=0)
 
     assert cut == 3
     assert all(item.source_type == "publication" for item in ordered)

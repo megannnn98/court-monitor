@@ -494,7 +494,7 @@ def test_one_document_from_two_retrievers_is_one_piece_of_evidence() -> None:
     by_fts = article(5, same)
     by_name = article(5, same, source="stored_publications")
 
-    merged, cut = merge([by_fts, by_name], limit=10)
+    merged, cut = merge([by_fts, by_name], limit=10, external_limit=10)
 
     assert len(merged) == 1 and cut == 0
 
@@ -507,7 +507,7 @@ def test_two_quotes_of_one_document_for_different_facts_both_stay() -> None:
         update={"leads": ("role",), "span_start": 40, "span_end": 50}
     )
 
-    merged, _ = merge([charges, role], limit=10)
+    merged, _ = merge([charges, role], limit=10, external_limit=10)
 
     assert {item.leads for item in merged} == {("charges",), ("role",)}
 
@@ -530,7 +530,7 @@ def test_facts_rank_before_quotes_and_fused_ranks_order_the_quotes() -> None:
         update={"query": "q", "round": 0}
     )
 
-    merged, _ = merge([first, second, again, IDENTITY], limit=10)
+    merged, _ = merge([first, second, again, IDENTITY], limit=10, external_limit=10)
 
     assert merged[0].fact == "identity"
     assert [item.article_id for item in merged[1:]] == [2, 1]

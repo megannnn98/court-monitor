@@ -145,16 +145,26 @@ def _with_leads_of_its_page(
     return result
 
 
+def _is_web(item: EvidenceItem) -> bool:
+    """Whether the web retriever found this text, told by the retriever's own kind
+    (`web:tavily`, `web:…`) and not by the provider's name."""
+    return item.source_type == "external" and item.source_id.startswith("web:")
+
+
 def merge(
-    found: Sequence[EvidenceItem], *, limit: int, external_limit: int = 0
+    found: Sequence[EvidenceItem], *, limit: int, external_limit: int
 ) -> tuple[list[EvidenceItem], int]:
     """`found` without repeats, ranked, numbered «E1», «E2», …; and how many the
     ceiling cut.
 
-    Two ceilings, and they do not take each other's place: what the database holds keeps
-    `limit` of its own, and what was found outside is shown beside it, up to
-    `external_limit`. Before the web there was only the first ceiling and the second was
-    zero, so nothing a reader saw changed by there being a second one.
+    Two ceilings, and they do not take each other's place. What the database holds and
+    what the channels of Telegram hold keep `limit` of their own, as before the web
+    existed; what the open web brought is shown beside them, up to `external_limit`.
+    Telegram is not the web and is not squeezed by the web's ceiling: before this branch
+    a reader saw its quotes under the one ceiling, and still does.
+
+    `external_limit` has no default on purpose: a call that left it out would silently
+    show no web at all, and the only caller reads it from the run's limits.
     """
     pages = _pages(found)
     absorbed, copies = _of_the_local_publication(found, pages)
@@ -181,8 +191,8 @@ def merge(
         kept.setdefault(key, item)
 
     ordered = sorted(kept.values(), key=lambda item: _rank(item, fused, pages))
-    inside = [item for item in ordered if item.source_type != "external"]
-    outside = [item for item in ordered if item.source_type == "external"]
+    outside = [item for item in ordered if _is_web(item)]
+    inside = [item for item in ordered if not _is_web(item)]
     shown = inside[:limit] + outside[:external_limit]
     cut = (len(inside) - len(inside[:limit])) + (len(outside) - len(outside[:external_limit]))
     return (
