@@ -579,15 +579,22 @@ def ceilings(
     for cap_queries in queries:
         for cap_results in results:
             useful = credits = asked = 0
-            for case in report.get("cases", []):
-                if case.get("kind") != "person":
+            # Both report shapes: the automatic one holds `cases`, the manual one
+            # `persons`; a ceiling is read back the same way from either.
+            for case in [*report.get("cases", []), *report.get("persons", [])]:
+                if case.get("kind", "person") != "person":
                     continue
                 batches = list(case.get("web_batches") or [])
                 asked += len(batches)
                 credits += min(cap_queries, len(batches))
                 texts_held = batch_texts(case, queries=cap_queries, results=cap_results)
-                for entry in case.get("lead_detail", []):
+                # Both report shapes: the automatic one counts `lead_detail`, the manual
+                # one counts `facts` — a ceiling is read back the same way from either.
+                entries = list(case.get("lead_detail") or case.get("facts") or [])
+                for entry in entries:
                     parts = entry.get("parts") or [entry.get("value")]
+                    if entry.get("in_db") == "—" or entry.get("kind"):
+                        continue
                     if _holds_all(texts_held, list(parts)):
                         useful += 1
             rows.append(

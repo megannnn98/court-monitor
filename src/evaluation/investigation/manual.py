@@ -66,6 +66,8 @@ def _fact_rows(
             "in_db": state["state"],
             "web_only": state["web_only"],
             "source": entry.get("source"),
+            "parts": parts,
+            "common": entry.get("common"),
         }
         if result is not None:
             found = [
