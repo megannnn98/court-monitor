@@ -9,7 +9,9 @@ facts, or of different people, both stay.
 One page, one document. A page the local search found as a stored publication and a
 source outside found as an address are the same page: it stands once, ranked by every
 list it was in, and what the outside text was looked up for becomes a lead of the
-publication rather than a copy of it beside it.
+publication rather than a copy of it beside it. A fact is not a publication of
+anything — the clues of an unnamed figurant carry the address of the publication they
+were read of — so it never stands for a page.
 
 Ranking. What the pipeline decided comes before what a text says, so a ceiling never
 cuts a fact to keep a quote. Quotes tied to the person come before quotes that only
@@ -54,55 +56,50 @@ def _same_place(found: Sequence[EvidenceItem]) -> dict[tuple[object, ...], Evide
     return unique
 
 
-def _pages(found: Sequence[EvidenceItem]) -> dict[str, tuple[object, ...]]:
-    """The document every page the run holds a stored publication of stands for: its
-    canonical address and its own id, so an outside result about the same page is of
-    that publication and not of a second document."""
-    pages: dict[str, tuple[object, ...]] = {}
+def _pages(found: Sequence[EvidenceItem]) -> dict[str, EvidenceItem]:
+    """The publication every page the run holds stands for, by its canonical address.
+
+    An outside result of that address is of this publication, not of a second document
+    that happens to share it. A fact is not a publication of anything: the clues of an
+    unnamed figurant carry the very address of the publication they were read of, and a
+    fact must never stand for the page it was told about.
+    """
+    pages: dict[str, EvidenceItem] = {}
     for item in found:
-        if item.article_id is None or not item.url:
+        if item.fact is not None or item.article_id is None or not item.url:
             continue
-        document = item.document
-        if document is not None:
-            pages.setdefault(canonical(item.url), document)
+        pages.setdefault(canonical(item.url), item)
     return pages
 
 
-def _document_of(
-    item: EvidenceItem, pages: dict[str, tuple[object, ...]]
-) -> tuple[object, ...] | None:
+def _document_of(item: EvidenceItem, pages: dict[str, EvidenceItem]) -> tuple[object, ...] | None:
     """The document an item quotes, with a page found outside read as the publication of
     that page the run holds."""
     if item.article_id is None and item.url:
         page = pages.get(canonical(item.url))
-        if page is not None:
-            return page
+        if page is not None and page.document is not None:
+            return page.document
     return item.document
 
 
 def _of_the_local_publication(
-    found: Sequence[EvidenceItem],
+    found: Sequence[EvidenceItem], pages: dict[str, EvidenceItem]
 ) -> tuple[dict[tuple[object, ...], list[str]], set[tuple[object, ...]]]:
     """An outside result of a page the local search found as a stored publication is that
     publication, not a copy of it: the facts it was looked up for become leads of the
     publication, and it is not shown beside it. What it stood in is still the run's own
     ranking of that page."""
-    owners: dict[str, tuple[object, ...]] = {}
-    for item in found:
-        if item.article_id is None or not item.url:
-            continue
-        owners.setdefault(canonical(item.url), item.identity)
     absorbed: dict[tuple[object, ...], list[str]] = defaultdict(list)
     copies: set[tuple[object, ...]] = set()
     for item in found:
         if item.article_id is not None or not item.url:
             continue
-        owner = owners.get(canonical(item.url))
-        if owner is None or owner == item.identity:
+        page = pages.get(canonical(item.url))
+        if page is None or page.identity == item.identity:
             continue
         for lead in item.leads:
-            if lead not in absorbed[owner]:
-                absorbed[owner].append(lead)
+            if lead not in absorbed[page.identity]:
+                absorbed[page.identity].append(lead)
         copies.add(item.identity)
     return absorbed, copies
 
@@ -152,7 +149,7 @@ def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceIt
     """`found` without repeats, ranked, numbered «E1», «E2», …; and how many the
     ceiling cut."""
     pages = _pages(found)
-    absorbed, copies = _of_the_local_publication(found)
+    absorbed, copies = _of_the_local_publication(found, pages)
     unique = _with_leads_of_its_page(list(_same_place(found).values()), absorbed, copies)
     fused = rrf_scores(found)
 
@@ -184,7 +181,7 @@ def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceIt
 
 
 def _rank(
-    item: EvidenceItem, fused: dict[tuple[object, ...], float], pages: dict[str, tuple[object, ...]]
+    item: EvidenceItem, fused: dict[tuple[object, ...], float], pages: dict[str, EvidenceItem]
 ) -> tuple[bool, bool, float, float]:
     """Facts first, in the order they came; then the person's quotes before those that
     only hold the name; then the fused rank; then the newest."""

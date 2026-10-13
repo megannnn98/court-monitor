@@ -21,6 +21,7 @@ import pytest
 
 from ingestion.search import SearchAnswerError, SourceSearchQuery
 from ingestion.web_search import TAVILY_URL, TavilySearch, tavily_search_from_env
+from investigation.services.external import names
 
 KEY = "tvly-a-key-nobody-must-see"
 NAME = "Мария Бонцлер"
@@ -115,6 +116,47 @@ def test_the_text_is_the_pages_own_and_opens_at_the_words_asked_for() -> None:
     # site's own boilerplate.
     assert NAME in item.text[:600]
     assert item.text.endswith("Хвост новости.")
+
+
+def test_the_excerpt_is_anchored_where_the_asked_words_stand_together() -> None:
+    """A header holds the words before the article does: a menu of «Статьи», another
+    «Мария» in a sidebar, and a namesake the run is not asking about."""
+    header = (
+        "Главная Статьи Интервью Мария Иванова — автор блога о праве. Статья. Статьи. Мария. " * 40
+    )
+    between = "Подвал: подписка, реклама, счётчики. " * 30
+    raw = (
+        f"{header}{between}Суд над адвокатом. "
+        "Марию Бонцлер оставили под стражей по статье 280. " + "Подробности дела. " * 300
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return answer(page(raw=raw))
+
+    (item,) = asyncio.run(
+        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
+    )
+
+    # Declined («Марию», «по статье») and thousands of characters further down: the name
+    # is still inside what the retriever filters by and what the model reads of it.
+    assert names(item.text, NAME)
+    assert names(item.text[:600], NAME)
+    assert "по статье 280" in item.text
+
+
+def test_a_word_asked_for_is_found_where_it_stands_in_another_case_of_the_noun() -> None:
+    raw = "Ничего общего. " * 400 + "Мария Бонцлер: по части 3 статьи 280 УК РФ." + " Хвост. " * 300
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return answer(page(raw=raw))
+
+    (item,) = asyncio.run(
+        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
+    )
+
+    assert names(item.text, NAME)
+    assert names(item.text[:600], NAME)
+    assert "части 3 статьи 280" in item.text
 
 
 def test_without_the_full_text_the_snippet_is_taken() -> None:

@@ -531,6 +531,20 @@ def test_the_keywords_of_an_unnamed_figurant_reach_the_web_as_they_reach_the_cha
     assert any("Тюмень" in call for call in asked)
 
 
+def test_the_publication_the_clues_were_read_of_is_not_what_the_web_result_becomes() -> None:
+    """The clues carry the address of the publication they were read of. That address is
+    not a quote of it: the web's result of that very page stays its own evidence, and a
+    fact is never left holding the leads of a page it only describes."""
+    outside = web(web_answer(FIGURANT_TEXT, url=PAGE))
+
+    result = run([figurants(), outside], FIGURANT_QUESTION)
+
+    (item,) = [held for held in result.evidence if held.source_id == "web:tavily"]
+    assert item.url == PAGE and item.leads == ("corroboration",)
+    clues = [held for held in result.evidence if held.fact == "clues"]
+    assert clues and all(held.leads == () for held in clues)
+
+
 def test_a_text_the_web_holds_corroborates_the_candidate_the_publication_left_unnamed() -> None:
     outside = web(web_answer(FIGURANT_TEXT, url=OTHER_PAGE))
 

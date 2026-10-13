@@ -19,7 +19,7 @@ import asyncio
 import logging
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 
 import httpx
@@ -49,7 +49,13 @@ SEARCH_DEPTH = "basic"
 # sentence rather than mid-word. The retriever filters on the name, so it must be
 # inside the excerpt, not at its very first character.
 EXCERPT_LEAD = 200
+# How far after the anchor the asked words still count as standing together: what a
+# reader of the evidence is shown around the place (the retriever's model sees 600).
+NEAR = 600
 _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
+# Letters a declined word of a name may differ in at its end.
+_ENDING = 3
+_MIN_STEM = 3
 
 
 class TavilySearch:
@@ -188,21 +194,58 @@ def _canonical(url: str) -> str:
 
 
 def _excerpt(text: str, words: str) -> str:
-    """The text around the first place the asked words stand: a page's own boilerplate
-    says nothing about the person, and the retriever filters the excerpt by name."""
+    """The window of the page where the most of the asked words stand together.
+
+    A page's own header holds one of them long before the article does — a menu of
+    «Статьи», another «Мария» in a sidebar — and an excerpt the retriever cannot find the
+    name in is a result thrown away whole. So every place a word begins a word is weighed
+    by how many of the asked words the window around it holds, and the best such window
+    is what is kept: a name in any case of the noun, near the rest of the words asked.
+    """
     body = " ".join(text.split())
     if not body:
         return ""
     folded = body.lower().replace("ё", "е")
-    positions = [found for found in (folded.find(word) for word in _words(words)) if found >= 0]
-    if not positions:
+    stems = _stems(words)
+    places = [at for stem in stems for at in _places(folded, stem)]
+    if not places:
         return body[:MAX_TEXT]
-    start = max(0, min(positions) - EXCERPT_LEAD)
+
+    def held(place: int) -> tuple[int, int, int]:
+        # What stands close to the place, in the characters a reader is actually shown:
+        # the words asked for together, not merely somewhere in the same 2000. Of the
+        # places that hold them all, the one where they end soonest — a window whose
+        # words run to its far end is a window whose text begins long before them.
+        around = folded[max(0, place - EXCERPT_LEAD) : place + NEAR]
+        last: dict[str, int] = {}
+        for stem in stems:
+            stands = list(_places(around, stem))
+            if stands:
+                last[stem] = stands[-1]
+        return (len(last), -(max(last.values()) if last else 0), -place)
+
+    start = max(0, max(places, key=held) - EXCERPT_LEAD)
     return body[start : start + MAX_TEXT]
 
 
-def _words(text: str) -> list[str]:
-    return [word.lower().replace("ё", "е") for word in _WORD.findall(text) if len(word) > 2]
+def _stems(text: str) -> list[str]:
+    """The asked words by their beginnings, each one once: «статья» stands in «статье»
+    and «Мария» in «Марию». The same rule the retriever filters a result by
+    (`investigation.services.external.names`), repeated here rather than imported — a
+    domain module never reaches into the investigation, and the other way round."""
+    return list(
+        dict.fromkeys(
+            word[: max(_MIN_STEM, len(word) - _ENDING)]
+            for word in _WORD.findall(text.lower().replace("ё", "е"))
+            if len(word) > 1
+        )
+    )
+
+
+def _places(folded: str, stem: str) -> Iterator[int]:
+    """Where the stem begins a word of the text: the same letters inside another word
+    are not it."""
+    return (match.start() for match in re.finditer(rf"(?<![а-яa-z]){re.escape(stem)}", folded))
 
 
 def _published_at(value: object) -> datetime | None:

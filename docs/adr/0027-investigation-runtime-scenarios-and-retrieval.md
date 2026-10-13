@@ -189,13 +189,17 @@ looked for — and nothing more. It is asked with `search_depth: basic` (one cre
 most ten results.
 
 The full text is Tavily's own `raw_content`: there is no page loader here, so the
-backend talks to `api.tavily.com` and to nothing else. The excerpt kept opens around the
-words that were asked for, not at the head of the page: the retriever filters a result
-by whether the name stands in it, and the model reads only its first 600 characters.
+backend talks to `api.tavily.com` and to nothing else. The excerpt kept opens where the
+asked words stand together — by the beginnings of those words, so a declined «Марию» and
+«по статье» are found — and not at the head of the page, where a menu of «Статьи» or
+another namesake stands long before the article does: the retriever filters a result by
+whether the name stands in it, and the model reads only its first 600 characters.
 Tavily never names a stored publication, so a page the local search found as a
 publication and Tavily found as an address is one document: it stands once, ranked by
 both its lists, and the facts the outside text was looked up for become leads of the
-publication rather than a copy of it beside it.
+publication rather than a copy of it beside it. A fact is not a publication of
+anything: the clues of an unnamed figurant carry the address of the publication they
+were read of, and they never stand for it.
 
 The key lives in the search object alone — not in `repr`, not in an exception, not in a
 log line, not in `investigation_runs` — and the words asked are never logged either
