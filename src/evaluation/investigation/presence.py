@@ -10,6 +10,7 @@ Read only: SELECTs in a read-only transaction.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sqlalchemy import text
@@ -21,6 +22,16 @@ _PERSON = text(
     FROM entity_groups g WHERE lower(g.name) = lower(:name)
     """
 )
+
+
+# The database keeps an article as its number alone («291.1»), while the annotation writes
+# it as it is written in the law («ч. 4 ст. 291.1 УК»). Matching the whole phrase called
+# that fact «not in the database» and credited the web with what the pipeline already had.
+_ARTICLE_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _article_numbers(value: str) -> list[str]:
+    return _ARTICLE_NUMBER.findall(value or "")
 
 
 _HAS_FACT = {
@@ -63,11 +74,22 @@ def presence(session: Session, name: str, fact: str, value: str) -> dict[str, An
     in_db_person = person is not None
     articles = int(person[0]) if person and person[0] is not None else 0
     in_db_fact = False
-    query = _HAS_FACT.get(fact)
-    if query is not None:
-        in_db_fact = (
-            session.execute(text(query), {"name": name, "value": value}).first() is not None
-        )
+    if fact == "charges":
+        # The number is what both sides write: the pipeline's column and the annotation's
+        # phrase carry the same number in a different dress.
+        for number in _article_numbers(value):
+            row = session.execute(
+                text(_HAS_FACT["charges"]), {"name": name, "value": number}
+            ).first()
+            if row is not None:
+                in_db_fact = True
+                break
+    else:
+        query = _HAS_FACT.get(fact)
+        if query is not None:
+            in_db_fact = (
+                session.execute(text(query), {"name": name, "value": value}).first() is not None
+            )
     has_text = session.execute(_PERSON_HAS_TEXT, {"name": name}).first() is not None
     in_db_text = (
         session.execute(_VALUE_IN_TEXT, {"name": name, "value": value}).first() is not None

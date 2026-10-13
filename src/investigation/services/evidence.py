@@ -182,11 +182,14 @@ def merge(found: Sequence[EvidenceItem], *, limit: int) -> tuple[list[EvidenceIt
 
 def _rank(
     item: EvidenceItem, fused: dict[tuple[object, ...], float], pages: dict[str, EvidenceItem]
-) -> tuple[bool, bool, float, float]:
-    """Facts first, in the order they came; then the person's quotes before those that
-    only hold the name; then the fused rank; then the newest."""
+) -> tuple[bool, bool, bool, float, float]:
+    """Facts first, in the order they came; then the quotes; then the fused rank; then the
+    newest. Of the quotes, a text found outside that is nobody's lead comes last: it was
+    not looked for, and a ceiling that shows everything would let it push a quote of the
+    person's own publications out of the result."""
     document = _document_of(item, pages)
     if document is None:
-        return (False, False, 0.0, 0.0)
+        return (False, False, False, 0.0, 0.0)
     newest = -item.published_at.timestamp() if item.published_at else float("inf")
-    return (True, item.entity_key is None, -fused.get(document, 0.0), newest)
+    outside_unasked = item.source_type == "external" and not item.leads
+    return (True, outside_unasked, item.entity_key is None, -fused.get(document, 0.0), newest)

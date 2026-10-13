@@ -396,6 +396,77 @@ def test_the_words_travel_to_tavily_in_the_body_and_the_key_in_the_header() -> N
 # -- the dossier of a person ---------------------------------------------------------------------
 
 
+def test_a_web_text_that_is_nobody_s_lead_ranks_after_the_local_quotes() -> None:
+    from investigation.services.evidence import merge
+
+    local = EvidenceItem(
+        source_type="publication",
+        source_id="publications_fts",
+        url="https://news.example.test/local",
+        article_id=7,
+        span_start=0,
+        span_end=10,
+        text="Суд оставил под стражей.",
+    )
+    unasked = EvidenceItem(
+        source_type="external",
+        source_id="web:tavily",
+        external_id="x",
+        url="https://other.example.test/a",
+        text="Мария Бонцлер пишет о деле.",
+        score_type="source_order",
+    )
+    asked = unasked.model_copy(
+        update={
+            "url": "https://other.example.test/b",
+            "external_id": "y",
+            "leads": ("charges",),
+            "text": "Марии Бонцлер вменили статью 280.",
+        }
+    )
+
+    ordered, _ = merge([unasked, local, asked], limit=10)
+
+    assert [item.url for item in ordered] == [
+        "https://news.example.test/local",
+        "https://other.example.test/b",
+        "https://other.example.test/a",
+    ]
+
+
+def test_a_web_text_nobody_looked_for_is_dropped_first_when_the_ceiling_cuts() -> None:
+    from investigation.services.evidence import merge
+
+    local = [
+        EvidenceItem(
+            source_type="publication",
+            source_id="publications_fts",
+            url=f"https://news.example.test/local-{number}",
+            article_id=number,
+            span_start=0,
+            span_end=10,
+            text=f"Цитата {number} о деле.",
+        )
+        for number in range(3)
+    ]
+    noise = [
+        EvidenceItem(
+            source_type="external",
+            source_id="web:tavily",
+            external_id=f"n{number}",
+            url=f"https://other.example.test/{number}",
+            text=f"Мария Бонцлер упоминание {number}.",
+            score_type="source_order",
+        )
+        for number in range(3)
+    ]
+
+    ordered, cut = merge([*noise, *local], limit=3)
+
+    assert cut == 3
+    assert all(item.source_type == "publication" for item in ordered)
+
+
 def test_a_page_the_web_holds_stays_evidence_of_the_run_with_a_ref_and_a_lead() -> None:
     outside = web(web_answer())
 
