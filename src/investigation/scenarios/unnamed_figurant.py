@@ -38,6 +38,7 @@ from investigation.models import (
     Status,
     Subject,
     SubjectRef,
+    canonical,
 )
 from investigation.scenarios.base import PlannedQuery, ScenarioView
 
@@ -248,6 +249,43 @@ def _is_one_of(name: str, people: Iterable[str]) -> bool:
     return False
 
 
+def _source_pages(evidence: Sequence[EvidenceItem], article_id: int | None) -> set[str]:
+    """Every address the very publication of the clue is known by here: the one the run
+    stored and the one a source outside gave again as a link. The publication cannot
+    corroborate itself, however many retrievers found it."""
+    return {
+        canonical(item.url)
+        for item in evidence
+        if item.url and (item.article_id == article_id or item.fact == "clues")
+    }
+
+
+def _corroborates(item: EvidenceItem, clue: _Clue, source_pages: set[str]) -> bool:
+    """A text corroborates this publication's own clue only if it is a different
+    publication: not its own article by number, and not its own address — which is how a
+    source outside returns the page the run already had."""
+    if "corroboration" not in item.leads or item.article_id == clue.article_id:
+        return False
+    return not (item.url and canonical(item.url) in source_pages)
+
+
+def _about_the_case(text: str, clue: _Clue) -> bool:
+    """A name and a place are what any list of companies prints; a text about *this*
+    case also speaks of one of its articles. Without one it is a listing, not a
+    publication about the case, and it corroborates nobody."""
+    if not clue.articles:
+        return True
+    folded = _fold(text)
+    return any(_mentions_place_articles(folded, article) for article in clue.articles)
+
+
+def _mentions_place_articles(folded: str, article: str) -> bool:
+    parts = [part for part in re.split(r"[.,;()\[\]]", article) if part.strip()]
+    return all(
+        re.search(rf"(?<![0-9]){re.escape(part.strip())}(?![0-9])", folded) for part in parts
+    )
+
+
 def _people_known(view: ScenarioView, article_id: int | None) -> bool:
     """Whether the people the publication names were asked for and the question was
     answered. An empty answer is an answer; a search that was cut by the ceiling, failed
@@ -364,6 +402,7 @@ class UnnamedFigurantScenario:
         # Read from everything found, not from what the ceiling left to show: a person
         # the publication names must be left out even when their line was cut.
         named_here = _named_in(view.found or evidence, clue.article_id)
+        source_pages = _source_pages(evidence, clue.article_id)
         candidates = {
             key: candidate
             for key, candidate in _list_candidates(evidence, clue).items()
@@ -372,12 +411,13 @@ class UnnamedFigurantScenario:
         for candidate in candidates.values():
             surname = surname_stem(surname_of(candidate.name))
             for item in evidence:
+                if not _corroborates(item, clue, source_pages):
+                    continue
                 if (
-                    "corroboration" in item.leads
-                    and item.article_id != clue.article_id
-                    and surname
+                    surname
                     and re.search(rf"(?<![а-я]){re.escape(surname)}", _fold(item.text))
                     and _mentions_place(item.text, clue.place)
+                    and _about_the_case(item.text, clue)
                 ):
                     candidate.add("named_with_place", item.ref)
         place_articles = {
