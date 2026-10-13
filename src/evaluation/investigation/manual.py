@@ -181,10 +181,13 @@ def _namesake_report(
     pair: Mapping[str, Any],
     *,
     use_web: bool,
+    with_model: bool = False,
 ) -> dict[str, Any]:
     """By surname alone the right answer is candidates; by full name, only that person's
     facts. A web item that names the other person is counted separately."""
-    built, counted = service(session_factory, use_web=use_web, use_telegram=True, with_model=False)
+    built, counted = service(
+        session_factory, use_web=use_web, use_telegram=True, with_model=with_model
+    )
     by_surname = asyncio.run(built.investigate(f"Что известно про {pair['query']}?"))
     others = [str(person["name"]) for person in pair.get("people", [])]
     per_person: list[dict[str, Any]] = []
@@ -240,8 +243,8 @@ def run(
     if "persons" in kinds:
         with session_factory() as session:
             for case in document.get("cases", []):
-                if case.get("group") == "noise":
-                    continue
+                # The noisy names are asked too: a person the web cannot place must
+                # produce no fact at all, and that is worth showing in the same table.
                 persons.append(
                     _person_report(
                         session, session_factory, case, use_web=use_web, with_model=with_model
@@ -252,7 +255,9 @@ def run(
             unnamed.append(_unnamed_report(session_factory, case, use_web=use_web))
     if "namesakes" in kinds:
         for pair in document.get("namesake_pairs", []):
-            namesakes.append(_namesake_report(session_factory, pair, use_web=use_web))
+            namesakes.append(
+                _namesake_report(session_factory, pair, use_web=use_web, with_model=with_model)
+            )
     return {
         "mode": "local+telegram+web" if use_web else "local+telegram",
         "with_llm": with_model,
