@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 
 from evaluation.investigation import golden as golden_set
 from evaluation.investigation import manual, retrieval, scenarios, web_benchmark
+from observability import configure_logging
 
 OUT = Path("var/investigation_eval")
 READ_ONLY = {"options": "-c default_transaction_read_only=on -c statement_timeout=60000"}
@@ -57,6 +58,9 @@ def main() -> None:
         help="Ask the model of the environment for the intake and the summary",
     )
     args = parser.parse_args()
+    # The benchmark asks the same services the product does, so it logs what they log —
+    # among it what a search cost, which is the one number a run cannot vouch for itself.
+    configure_logging()
     if not args.database_url:
         raise SystemExit("--database-url or DATABASE_URL is required")
     engine = create_engine(args.database_url, connect_args=READ_ONLY)
