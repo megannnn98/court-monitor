@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -36,7 +37,7 @@ def page(
     *,
     title: str = "Суд над адвокатом",
     raw: str | None = "Городской суд оставил Марию Бонцлер под стражей.",
-    published: str | None = "2026-09-25T07:00:14Z",
+    published: str | None = "Tue, 21 Jul 2026 00:00:00 GMT",
     url: str = "https://news.example.test/boncler-1",
     content: str = "Кратко: Мария Бонцлер арестована.",
 ) -> dict[str, object]:
@@ -72,9 +73,10 @@ def test_a_search_asks_the_one_address_with_the_key_in_the_header_and_the_words_
         "query": WORDS,
         "max_results": 5,
         "search_depth": "basic",
-        "include_raw_content": "text",
+        "include_raw_content": True,
         "include_published_date": True,
         "include_answer": False,
+        "include_usage": True,
     }
     # The words never become an address: there is no query string to carry them.
     assert WORDS not in str(request.url)
@@ -95,7 +97,32 @@ def test_the_answer_is_read_as_external_evidence_of_the_site_that_published_it()
     assert item.external_id == "news.example.test/boncler-1"
     assert item.title == "Суд над адвокатом"
     assert "Бонцлер" in item.text
-    assert item.published_at is not None and item.published_at.year == 2026
+    # Tavily writes the date as a mail header, not as ISO: it is read either way.
+    assert item.published_at == datetime(2026, 7, 21, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("published", "read"),
+    [
+        ("Tue, 21 Jul 2026 00:00:00 GMT", datetime(2026, 7, 21, tzinfo=UTC)),
+        ("2026-09-25T07:00:14Z", datetime(2026, 9, 25, 7, 0, 14, tzinfo=UTC)),
+        ("2026-09-25", datetime(2026, 9, 25, tzinfo=UTC)),
+        (None, None),
+        ("вчера", None),
+        (12345, None),
+    ],
+)
+def test_a_published_date_is_read_in_the_format_tavily_writes_it(
+    published: str | None, read: datetime | None
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return answer(page(published=published))
+
+    (item,) = asyncio.run(
+        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
+    )
+
+    assert item.published_at == read
 
 
 def test_the_text_is_the_pages_own_and_opens_at_the_words_asked_for() -> None:
@@ -139,6 +166,39 @@ def test_the_excerpt_is_anchored_where_the_asked_words_stand_together() -> None:
 
     # Declined («Марию», «по статье») and thousands of characters further down: the name
     # is still inside what the retriever filters by and what the model reads of it.
+    assert names(item.text, NAME)
+    assert names(item.text[:600], NAME)
+    assert "по статье 280" in item.text
+
+
+def test_the_markup_of_a_page_is_taken_off_before_the_excerpt_is_chosen() -> None:
+    """The full text arrives as Markdown: a menu is a chain of addresses, and those are
+    what the 600 characters a reader is shown would otherwise be spent on."""
+    menu = (
+        "# Главная\n\n"
+        + " ".join(
+            f"[{label}](https://news.example.test/section/{number})"
+            for number, label in enumerate(["Статьи", "О Ведомостях", "Интервью", "Мария"] * 5)
+        )
+        + "\n\n![Логотип издания](https://news.example.test/logo.png)\n\n"
+        + "Подкасты: <https://news.example.test/rss> и https://news.example.test/archive\n\n"
+    )
+    raw = (
+        f"{menu}## Материал\n\nМарию Бонцлер оставили под стражей по статье 280 УК РФ. "
+        + "Подробности дела. " * 300
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return answer(page(raw=raw))
+
+    (item,) = asyncio.run(
+        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
+    )
+
+    # What a link says is the site's own words and stays; where it goes does not.
+    assert "http" not in item.text and "](" not in item.text
+    assert "#" not in item.text and "Логотип издания" not in item.text
+    # And the menu of twenty links did not cost the name its place in the window.
     assert names(item.text, NAME)
     assert names(item.text[:600], NAME)
     assert "по статье 280" in item.text
@@ -342,6 +402,34 @@ def test_the_words_and_the_key_never_reach_the_log(
     assert "event=source_search source=tavily results=1" in logged
     for form in (KEY, WORDS, NAME, "Бонцлер"):
         assert form not in logged
+
+
+def test_what_the_search_cost_is_written_where_the_results_are(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"results": [page()], "usage": {"credits": 1}})
+
+    with caplog.at_level(logging.INFO, logger="sources"):
+        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+
+    assert "event=source_search source=tavily results=1 credits=1" in "\n".join(
+        record.getMessage() for record in caplog.records
+    )
+
+
+def test_an_answer_that_says_nothing_of_its_cost_is_logged_without_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return answer(page())
+
+    with caplog.at_level(logging.INFO, logger="sources"):
+        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+
+    assert "event=source_search source=tavily results=1\n" in "\n".join(
+        record.getMessage() + "\n" for record in caplog.records
+    )
 
 
 def test_without_a_key_there_is_no_web_search() -> None:

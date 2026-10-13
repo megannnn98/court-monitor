@@ -189,11 +189,20 @@ looked for — and nothing more. It is asked with `search_depth: basic` (one cre
 most ten results.
 
 The full text is Tavily's own `raw_content`: there is no page loader here, so the
-backend talks to `api.tavily.com` and to nothing else. The excerpt kept opens where the
-asked words stand together — by the beginnings of those words, so a declined «Марию» and
-«по статье» are found — and not at the head of the page, where a menu of «Статьи» or
-another namesake stands long before the article does: the retriever filters a result by
-whether the name stands in it, and the model reads only its first 600 characters.
+backend talks to `api.tavily.com` and to nothing else. It is asked for as `true`, not as
+the «text» the documentation lists beside «markdown» — the string answers an empty
+`raw_content` on the live API, and an empty one costs the retriever most of its results,
+because a snippet does not name the person. Nor does every result carry a full text at
+all; where it does not, the snippet is what is kept. What arrives is Markdown, and the
+markup is taken off before the excerpt is chosen: an image is dropped whole, a link
+keeps what it says and loses where it goes, so a menu of links does not spend the 600
+characters a reader is shown.
+
+The excerpt kept opens where the asked words stand together — by the beginnings of those
+words, so a declined «Марию» and «по статье» are found — and not at the head of the
+page, where a menu of «Статьи» or another namesake stands long before the article does:
+the retriever filters a result by whether the name stands in it, and the model reads only
+its first 600 characters.
 Tavily never names a stored publication, so a page the local search found as a
 publication and Tavily found as an address is one document: it stands once, ranked by
 both its lists, and the facts the outside text was looked up for become leads of the
@@ -203,7 +212,8 @@ were read of, and they never stand for it.
 
 The key lives in the search object alone — not in `repr`, not in an exception, not in a
 log line, not in `investigation_runs` — and the words asked are never logged either
-(`event=source_search source=tavily results=N`). A 429, a 5xx and a timeout are asked
+(`event=source_search source=tavily results=N credits=K` — Tavily is asked what the search
+cost, free, and writes it in the answer). A 429, a 5xx and a timeout are asked
 for again once; a 400, a 401 and a plan limit are the request's own fault and are not.
 
 Nothing scrapes a search engine, and no other provider (Serper, SearXNG, Brave) was

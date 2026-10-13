@@ -6,7 +6,9 @@ the open web, read as its results. What keeps it the same kind of object as
 travel only in the body, nothing is stored, extracted or grouped, and the full text
 comes from the answer itself rather than from a fetch this code makes. That last part
 is why there is no page loader here: the backend only ever talks to `api.tavily.com`,
-so there is no URL for a found text to steer it at (ADR 0027).
+so there is no URL for a found text to steer it at (ADR 0027). What arrives is Markdown,
+and not every result carries a full text at all; where it does not, the snippet is what
+is kept.
 
 The key (`TAVILY_API_KEY`) lives in the object and nowhere else: not in `repr`, not in
 an exception, not in a log line, not in a stored run. The words asked are never logged
@@ -21,6 +23,7 @@ import os
 import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -101,8 +104,13 @@ class TavilySearch:
             "max_results": max(0, min(limit, MAX_RESULTS)),
             "search_depth": SEARCH_DEPTH,
             # The page's own text, so no second fetch of what the answer already read.
-            "include_raw_content": "text",
+            # `true`, not the «text» the documentation lists beside «markdown»: the
+            # string answers an empty raw_content, and an empty one costs the retriever
+            # most of its results — a snippet does not name the person.
+            "include_raw_content": True,
             "include_published_date": True,
+            # Free, and it says what this search cost in the answer itself.
+            "include_usage": True,
             # The answer is a summary written by a model: this search reads texts.
             "include_answer": False,
         }
@@ -141,7 +149,12 @@ class TavilySearch:
                 response = await with_retry(client)
         found = self.parse(response, text=text, limit=query.limit)
         # Never the words: a person's name does not stand in the process log.
-        logger.info("event=source_search source=%s results=%d", self.source, len(found))
+        logger.info(
+            "event=source_search source=%s results=%d%s",
+            self.source,
+            len(found),
+            _credits(response),
+        )
         return found
 
     def parse(self, response: httpx.Response, *, text: str, limit: int) -> list[ExternalEvidence]:
@@ -193,6 +206,35 @@ def _canonical(url: str) -> str:
     return value.rstrip("/")
 
 
+def _credits(response: httpx.Response) -> str:
+    """What the search cost, as it is written in its own log line: Tavily says so in
+    the answer when asked (`include_usage`), free. Nothing when it does not."""
+    try:
+        body = response.json()
+        credits = body.get("usage", {}).get("credits") if isinstance(body, dict) else None
+    except ValueError:
+        return ""
+    return f" credits={credits}" if isinstance(credits, (int, float)) else ""
+
+
+# The full text comes as Markdown. A menu of links is a chain of addresses, and those
+# are what the 600 characters a reader is shown would be spent on.
+_MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+_MARKDOWN_BARE_URL = re.compile(r"<https?://[^>]+>|https?://\S+")
+# A heading's hashes and a quote's marker, at the start of their own line only.
+_MARKDOWN_MARKS = re.compile(r"(?m)^\s{0,3}#{1,6}\s+|^\s{0,3}>\s?")
+
+
+def _plain(text: str) -> str:
+    """The page's own words without its markup: an image is dropped whole, a link keeps
+    what it says and loses where it goes, headings lose their hashes."""
+    without_images = _MARKDOWN_IMAGE.sub(" ", text)
+    without_links = _MARKDOWN_LINK.sub(r"\1", without_images)
+    without_urls = _MARKDOWN_BARE_URL.sub(" ", without_links)
+    return " ".join(_MARKDOWN_MARKS.sub(" ", without_urls).split())
+
+
 def _excerpt(text: str, words: str) -> str:
     """The window of the page where the most of the asked words stand together.
 
@@ -201,8 +243,10 @@ def _excerpt(text: str, words: str) -> str:
     name in is a result thrown away whole. So every place a word begins a word is weighed
     by how many of the asked words the window around it holds, and the best such window
     is what is kept: a name in any case of the noun, near the rest of the words asked.
+    The markup is taken off first: a menu of Markdown links is a chain of addresses, and
+    the words of a link are the words of the site, not of the article.
     """
-    body = " ".join(text.split())
+    body = _plain(text)
     if not body:
         return ""
     folded = body.lower().replace("ё", "е")
@@ -249,12 +293,18 @@ def _places(folded: str, stem: str) -> Iterator[int]:
 
 
 def _published_at(value: object) -> datetime | None:
+    """When the page was published, as Tavily writes it: RFC 2822
+    («Tue, 21 Jul 2026 00:00:00 GMT»), not the ISO the tests were written with."""
     if not isinstance(value, str) or not value.strip():
         return None
+    raw = value.strip()
     try:
-        published = datetime.fromisoformat(value.strip())
-    except ValueError:
-        return None
+        published = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        try:
+            published = datetime.fromisoformat(raw)
+        except ValueError:
+            return None
     # A date without a time is read as UTC: every other source gives an instant.
     return published.replace(tzinfo=UTC) if published.tzinfo is None else published
 
