@@ -357,20 +357,18 @@ def test_a_text_with_the_word_in_another_case_is_a_lead_and_ends_the_search_for_
     assert f"{NAME} обвинение" not in [call.text for call in search_of(outside).calls]
 
 
-def test_a_word_that_only_begins_the_same_way_is_still_the_word_looked_for() -> None:
-    """The known tolerance of the rule, kept on purpose: a word is found by the beginning
-    of the word looked for, so «статус» answers a search for «статья». It costs the run
-    the extra round for that fact and nothing more — a lead is never a fact, and the
-    articles stay in what the result says is missing."""
+def test_a_word_that_only_begins_the_same_way_is_not_the_word_looked_for() -> None:
+    """The rule the dictionary gives: a text that holds «статус» says nothing of the
+    articles, so it is not a lead of them and the run keeps looking for them."""
     outside = web(web_answer("Изменился статус Марии Бонцлер."))
 
     result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
 
     (item,) = page_items(result)
-    assert item.leads == ("charges",)
-    assert f"{NAME} обвинение" not in [call.text for call in search_of(outside).calls]
+    assert item.leads == ()
+    asked = [call.text for call in search_of(outside).calls]
+    assert f"{NAME} статья" in asked and f"{NAME} обвинение" in asked
     assert "статьи обвинения" in result.missing_information
-    assert all(finding.fact != "charges" for finding in result.findings)
 
 
 def test_the_words_travel_to_tavily_in_the_body_and_the_key_in_the_header() -> None:
@@ -621,6 +619,70 @@ def test_the_publication_the_clues_were_read_of_is_not_what_the_web_result_becom
     assert item.url == PAGE and item.leads == ("corroboration",)
     clues = [held for held in result.evidence if held.fact == "clues"]
     assert clues and all(held.leads == () for held in clues)
+
+
+def test_only_a_second_publication_about_the_case_corroborates_the_candidate() -> None:
+    """The publication of the clue cannot confirm itself, however it came back: by its
+    own number, or as the same address from the web. And a name with a place is what any
+    list of companies prints — a text has to speak of the case's article as well."""
+
+    def answer(query: SourceSearchQuery) -> list[ExternalEvidence]:
+        if query.text.startswith("Иванов"):
+            return [
+                # The very publication, found again by the web: not a second one.
+                ExternalEvidence(
+                    source="tavily",
+                    source_name="news.example.test",
+                    external_id=PAGE,
+                    url=PAGE,
+                    text=FIGURANT_TEXT,
+                    published_at=None,
+                    title="Задержали жителя Тюмени",
+                ),
+                # A listing: name and place, but nothing of the case.
+                ExternalEvidence(
+                    source="tavily",
+                    source_name="rusprofile.example",
+                    external_id="rusprofile.example/ip/1",
+                    url="https://rusprofile.example/ip/1",
+                    text="Иванов Иван, 2009 года рождения, Тюмень, ОГРН 1234567890.",
+                    published_at=None,
+                    title="Иванов Иван — выписка ЕГРЮЛ",
+                ),
+                # A second publication about the same case.
+                ExternalEvidence(
+                    source="tavily",
+                    source_name="news.example.test",
+                    external_id="news.example.test/second",
+                    url="https://news.example.test/second",
+                    text="Иванов из Тюмени: то же дело по части 4 статьи 158.1.",
+                    published_at=None,
+                    title="Второе дело о том же",
+                ),
+            ]
+        return []
+
+    outside = web(answer)
+
+    result = run([figurants(), outside], FIGURANT_QUESTION)
+
+    refs = {
+        item.url: item.ref
+        for item in result.evidence
+        if item.source_id == "web:tavily" and "corroboration" in item.leads
+    }
+    (candidate,) = result.candidates
+    cited = {
+        ref
+        for signal in candidate.signals
+        if signal.signal == "named_with_place"
+        for ref in signal.evidence
+    }
+    # Only the second publication: not the source publication the web returned, and not
+    # the listing that carries the name and the place and nothing of the case.
+    assert cited == {refs["https://news.example.test/second"]}
+    assert refs.get("https://rusprofile.example/ip/1") not in cited
+    assert refs.get(PAGE) not in cited
 
 
 def test_a_text_the_web_holds_corroborates_the_candidate_the_publication_left_unnamed() -> None:

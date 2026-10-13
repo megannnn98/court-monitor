@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from functools import lru_cache
+
+from pymorphy3 import MorphAnalyzer
 
 from ingestion.search import SourceSearch, SourceSearchQuery
 from investigation.models import EvidenceItem, InvestigationQuery, RetrieverCapabilities
@@ -37,18 +40,49 @@ def names(text: str, name: str) -> bool:
     )
 
 
-# A word looked for stands in a text in any case of the noun: its last letters may differ.
-_TERM_ENDING = 2
-_MIN_TERM_STEM = 4
+# A word looked for stands in a text in another case of the noun («статья» in «по
+# статье», «статьёй»), and where the dictionary says the two are one root («обвинение»
+# of «обвинён», «арест» of «арестован»). A prefix alone is not enough: «статус» is not
+# «статья». The dictionary is pymorphy3, deterministic and offline, as everywhere else
+# in the pipeline; a word it does not know is left as written.
+_TERM_PREFIX = 5
 _LETTERS_ONLY = re.compile(r"[^\W\d_]+(?:\s+[^\W\d_]+)*", re.UNICODE)
 
 
+@lru_cache(maxsize=1)
+def _morph() -> MorphAnalyzer:
+    return MorphAnalyzer()
+
+
+@lru_cache(maxsize=32768)
+def _lemma(word: str) -> str:
+    """The word as the dictionary writes it: one form for every case of the noun."""
+    parsed = _morph().parse(word)
+    return parsed[0].normal_form if parsed else word
+
+
+def _same_word(one: str, other: str) -> bool:
+    """Two words are one word: the dictionary's own forms of it, or one root of at
+    least five letters («обвин-» of «обвинение» and «обвиняется», «стат-» is too short
+    and is left to «статья» alone)."""
+    if one == other:
+        return True
+    shared = 0
+    for left, right in zip(one, other, strict=False):
+        if left != right:
+            break
+        shared += 1
+    return shared >= _TERM_PREFIX
+
+
 def tells(text: str, terms: tuple[str, ...]) -> bool:
-    """One of the words looked for stands in the text: every word of a term by its
-    beginning («статья» in «по статье»), a term that is not only words («205.2») as it is
-    written. A text that only names the person tells nothing of the fact it was looked up
-    for."""
+    """One of the words looked for stands in the text, in any case of the noun; a term
+    that is not only words («205.2») is compared as written. A text that only names the
+    person tells nothing of the fact it was looked up for."""
     folded = text.lower().replace("ё", "е")
+    held = {_lemma(word) for word in _WORD.findall(folded) if len(word) > 1}
+    if not held:
+        return False
     for term in terms:
         wanted = " ".join(term.lower().replace("ё", "е").split())
         if not wanted:
@@ -57,13 +91,7 @@ def tells(text: str, terms: tuple[str, ...]) -> bool:
             if re.search(r"(?<![\w])" + re.escape(wanted), folded):
                 return True
             continue
-        if all(
-            re.search(
-                r"(?<![а-яa-z])" + re.escape(word[: max(_MIN_TERM_STEM, len(word) - _TERM_ENDING)]),
-                folded,
-            )
-            for word in wanted.split()
-        ):
+        if all(any(_same_word(_lemma(word), seen) for seen in held) for word in wanted.split()):
             return True
     return False
 
