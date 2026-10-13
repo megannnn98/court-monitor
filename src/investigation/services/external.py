@@ -30,18 +30,34 @@ _MIN_STEM = 3
 _NAME_WINDOW = 3
 
 
-def _tokens(text: str) -> list[tuple[str, bool]]:
-    """The words of a text as written, each with whether it is an initial («И.»)."""
-    result: list[tuple[str, bool]] = []
+def _tokens(text: str) -> list[tuple[str, bool, bool]]:
+    """The words of a text as written: folded, whether it is an initial («И.»), and
+    whether it is written with a capital — that is, whether it stands where a name
+    stands."""
+    result: list[tuple[str, bool, bool]] = []
     for match in _WORD.finditer(text):
         word = match.group()
         folded = word.lower().replace("ё", "е")
-        initial = len(folded) == 1 and word[:1].isupper() and text[match.end() :].startswith(".")
-        result.append((folded, initial))
+        capital = word[:1].isupper()
+        initial = len(folded) == 1 and capital and text[match.end() :].startswith(".")
+        result.append((folded, initial, capital))
     return result
 
 
-def _matches(token: str, *, initial: bool, wanted: str) -> bool:
+# A surname the dictionary has never heard of is declined by the wrong rule: «Дудя» comes
+# back as the inflected form of the verb «дудеть», and three letters are left of the name.
+# Where a capital is asked, a name, three letters of a root are enough — two names sharing
+# three letters and standing in the same three tokens are a coincidence no text needs.
+_NAME_ROOT = 3
+
+
+def _shares_root(one: str, other: str) -> bool:
+    """Whether two words are one name written in two cases."""
+    shorter, longer = sorted((one, other), key=len)
+    return len(shorter) >= 4 and longer.startswith(shorter[:_NAME_ROOT])
+
+
+def _matches(token: str, *, initial: bool, capital: bool, wanted: str) -> bool:
     """Whether one word of a text is the word of a name looked for, in any case of the
     noun, or an initial standing for it.
 
@@ -55,7 +71,11 @@ def _matches(token: str, *, initial: bool, wanted: str) -> bool:
         return token == wanted
     forms = (_lemma(token), token)
     wanted_forms = (_lemma(wanted), wanted)
-    return any(_same_word(one, other) for one in forms for other in wanted_forms)
+    if any(_same_word(one, other) for one in forms for other in wanted_forms):
+        return True
+    # Where the dictionary heard of neither word, they are still one name if they are
+    # written the same and one is the other declined: «Дудя» of «Дудь».
+    return capital and (_shares_root(token, wanted) or _shares_root(_lemma(token), wanted))
 
 
 def names(text: str, name: str) -> bool:
@@ -79,11 +99,17 @@ def names(text: str, name: str) -> bool:
     if not tokens:
         return False
     if len(wanted) == 1:
-        return any(_matches(token, initial=initial, wanted=wanted[0]) for token, initial in tokens)
+        return any(
+            _matches(token, initial=initial, capital=capital, wanted=wanted[0])
+            for token, initial, capital in tokens
+        )
     for start in range(len(tokens)):
         window = tokens[start : start + _NAME_WINDOW]
         if all(
-            any(_matches(token, initial=initial, wanted=word) for token, initial in window)
+            any(
+                _matches(token, initial=initial, capital=capital, wanted=word)
+                for token, initial, capital in window
+            )
             for word in wanted
         ):
             return True

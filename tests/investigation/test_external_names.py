@@ -50,6 +50,33 @@ def test_one_word_written_between_the_words_of_a_name_still_agrees() -> None:
     assert not names("Андрей Карлов заявил, что Игорь Сечин не приходил.", "Игорь Карлов")
 
 
+def test_a_patronymic_between_the_words_of_a_name_is_still_the_name() -> None:
+    """A Russian name is written in three words and the middle one is the patronymic.
+    Whether it stands between the two that were looked for or after them, the name is
+    the name: the window of three tokens holds all three."""
+    assert names("Мария Владимировна Бонцлер дала показания.", "Мария Бонцлер")
+    assert names("Бонцлер Мария Владимировна дала показания.", "Мария Бонцлер")
+    assert names("Марии Владимировны Бонцлер признали виновной.", "Мария Бонцлер")
+
+
+def test_a_surname_the_dictionary_declines_by_the_wrong_rule_is_still_the_name() -> None:
+    """«Дудя» comes back from pymorphy as the inflected form of the verb «дудеть», and
+    three letters of the name are left where the rule of five is looked for. Eleven real
+    Telegram quotes about Юрия Дудя stopped passing on that. Where a capital is asked, a
+    name, three letters of a root are enough."""
+    assert names("Юрия Дудя внесли в реестр «экстремистов и террористов»", "Юрий Дудь")
+    assert names("Приставы начали взыскивать с блогера Юрия Дудя 200 тысяч рублей", "Юрий Дудь")
+    # The same three letters of two names that are two people.
+    assert not names("Президент Украины Владимир Зеленский посетил Чехию.", "Павел Зеленский")
+
+
+def test_an_apposition_of_two_words_between_the_name_breaks_it() -> None:
+    """The window ends at three tokens, and this is what that costs: «Мария, дочь
+    Владимира Бонцлер» writes the name in four tokens with two words of apposition
+    between. It does not pass. Measured on the hand-annotated set: nothing of it does."""
+    assert not names("Мария, дочь Владимира Бонцлер, дала показания.", "Мария Бонцлер")
+
+
 def test_a_name_of_one_word_is_matched_without_proximity() -> None:
     """A surname alone, or the place an unnamed publication is looked up by: there is
     nothing to be near."""
