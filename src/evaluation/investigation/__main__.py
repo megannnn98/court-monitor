@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from evaluation.investigation import golden as golden_set
-from evaluation.investigation import retrieval, scenarios, web_benchmark
+from evaluation.investigation import manual, retrieval, scenarios, web_benchmark
 
 OUT = Path("var/investigation_eval")
 READ_ONLY = {"options": "-c default_transaction_read_only=on -c statement_timeout=60000"}
@@ -27,9 +27,21 @@ READ_ONLY = {"options": "-c default_transaction_read_only=on -c statement_timeou
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m evaluation.investigation")
-    parser.add_argument("command", choices=["build", "retrieval", "scenarios", "web"])
+    parser.add_argument("command", choices=["build", "retrieval", "scenarios", "web", "manual"])
     parser.add_argument("--database-url", default=os.environ.get("DATABASE_URL"))
     parser.add_argument("--golden", type=Path, default=OUT / "golden.json")
+    parser.add_argument(
+        "--manual",
+        type=Path,
+        default=OUT / "manual_golden.json",
+        help="the hand-annotated set, with an expected fact per case and its source",
+    )
+    parser.add_argument(
+        "--kinds",
+        nargs="+",
+        default=["persons", "unnamed", "namesakes"],
+        choices=["persons", "unnamed", "namesakes"],
+    )
     parser.add_argument(
         "--modes",
         nargs="+",
@@ -54,6 +66,35 @@ def main() -> None:
             built = golden_set.build(session)
         built.save(args.golden)
         print(json.dumps(golden_set.summary(built), ensure_ascii=False))
+        return
+    if args.command == "manual":
+        document = manual.load(args.manual)
+        reports = [
+            manual.run(
+                factory,
+                document,
+                use_web=mode == "web",
+                with_model=args.with_llm,
+                kinds=args.kinds,
+            )
+            for mode in args.modes
+        ]
+        written = {
+            "modes": args.modes,
+            "with_llm": args.with_llm,
+            "reports": reports,
+            "summary": manual.summary(reports),
+        }
+        if len(reports) == 2:
+            written["displacement"] = manual.displacement(reports[0], reports[1])
+            written["fact_table"] = manual.fact_table(reports[0], reports[1])
+        (OUT / "manual_benchmark.json").write_text(
+            json.dumps(written, indent=1, ensure_ascii=False), encoding="utf-8"
+        )
+        print(json.dumps(written["summary"], indent=1, ensure_ascii=False))
+        if "fact_table" in written:
+            print(json.dumps(written["fact_table"], indent=1, ensure_ascii=False))
+            print(json.dumps(written["displacement"], indent=1, ensure_ascii=False))
         return
     loaded = golden_set.GoldenSet.load(args.golden)
     if args.command == "web":
