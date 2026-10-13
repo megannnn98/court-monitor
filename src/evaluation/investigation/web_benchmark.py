@@ -33,6 +33,7 @@ from application import build_investigation_retrievers
 from evaluation.investigation.golden import GoldenSet, PersonCase, UnnamedCase
 from investigation.models import InvestigationResult
 from investigation.service import InvestigationService
+from investigation.services.external import names
 from investigation.services.model import investigation_model_from_env
 
 # What the web and the channels are asked for when the run is measured: the defaults,
@@ -150,6 +151,89 @@ def _by_source(result: InvestigationResult) -> dict[str, int]:
     return counts
 
 
+def _holds(text: str, value: str) -> bool:
+    """A text holds a value of a fact as it is written («228.1», «арест»)."""
+    return value.strip().lower() in text.lower()
+
+
+def _sources(items: Sequence[Any]) -> dict[str, int]:
+    """What kind of source the text of a lead came from."""
+    return {
+        "web": sum(1 for item in items if item.source_id == "web:tavily"),
+        "telegram": sum(1 for item in items if item.source_id.startswith(TELEGRAM_PREFIX)),
+        "local": sum(
+            1
+            for item in items
+            if item.source_id != "web:tavily" and not item.source_id.startswith(TELEGRAM_PREFIX)
+        ),
+    }
+
+
+def _useful_leads(
+    result: InvestigationResult,
+    expected: Mapping[str, Any],
+    reported: set[tuple[str, str]],
+    *,
+    person: str,
+) -> dict[str, Any]:
+    """The facts the golden set holds and the result did not report: for each, whether some
+    evidence holds the whole value and is about this person.
+
+    A value is a list of parts, and all of them must stand in one text: «18 лет колонии
+    строгого режима» is a verdict, «18 лет» alone is a bus ticket. The loose form of the
+    same fact — the bare article number, the bare year — is counted beside the strict one,
+    so a report can show how much the loose form would have claimed for itself.
+    """
+    found: list[dict[str, Any]] = []
+    for fact, entry in sorted(expected.items()):
+        value = str(entry["value"])
+        if (fact, value) in reported:
+            continue
+        parts = [str(part) for part in entry.get("parts", ())] or [value]
+        common = str(entry.get("common", value))
+        about = [item for item in result.evidence if names(item.text, person)]
+        strict = [item for item in about if all(_holds(item.text, part) for part in parts)]
+        loose = [item for item in about if _holds(item.text, common)]
+        found.append(
+            {
+                "fact": fact,
+                "value": value,
+                "parts": parts,
+                "common": common,
+                "held": bool(strict),
+                "held_by_common_form": bool(loose),
+                "by_source": _sources(strict),
+                "by_source_common": _sources(loose),
+                "refs": [item.ref for item in strict],
+            }
+        )
+    return {
+        "facts_not_reported": len(found),
+        "useful_leads": sum(1 for entry in found if entry["held"]),
+        "useful_leads_web": sum(1 for entry in found if entry["by_source"]["web"]),
+        "useful_leads_telegram": sum(1 for entry in found if entry["by_source"]["telegram"]),
+        "useful_leads_local": sum(1 for entry in found if entry["by_source"]["local"]),
+        "useful_leads_common_form": sum(1 for entry in found if entry["held_by_common_form"]),
+        "lead_detail": found,
+    }
+
+
+def _sample(result: InvestigationResult, limit: int = 40) -> list[dict[str, Any]]:
+    """What a person would read: every outside item with enough of its text to judge it
+    by eye, and what it was kept for."""
+    return [
+        {
+            "ref": item.ref,
+            "source": item.source_id,
+            "url": item.url,
+            "leads": list(item.leads),
+            "published_at": item.published_at.isoformat() if item.published_at else None,
+            "text": item.text[:400],
+        }
+        for item in result.evidence[:limit]
+    ]
+
+
 def measure_person(
     session: Session,
     built: InvestigationService,
@@ -169,6 +253,13 @@ def measure_person(
     shown = _shown_urls(result)
     hits = expected & shown
     web_items = [item for item in result.evidence if item.source_id == "web:tavily"]
+    useful = _useful_leads(
+        result,
+        {fact: {"value": value} for fact, value in case.facts.items()},
+        reported,
+        person=case.name,
+    )
+    web_leads = [item for item in web_items if item.leads]
     return {
         "case_id": case.case_id,
         "kind": "person",
@@ -185,10 +276,28 @@ def measure_person(
         "material_expected": len(expected),
         "material_found": len(hits),
         "material_recall": round(len(hits) / len(expected), 3) if expected else None,
+        **useful,
         "evidence": len(result.evidence),
         "evidence_by_source": _by_source(result),
         "leads": sum(1 for item in result.evidence if item.leads),
-        "web_leads": sum(1 for item in web_items if item.leads),
+        "web_leads": len(web_leads),
+        "web_leads_holding_a_value": sum(
+            1
+            for item in web_leads
+            if any(_holds(item.text, str(entry["value"])) for entry in useful["lead_detail"])
+        ),
+        "local_shown": sorted(
+            address
+            for address in (
+                canonical(item.url)
+                for item in result.evidence
+                if item.url
+                and item.source_id != "web:tavily"
+                and not item.source_id.startswith(TELEGRAM_PREFIX)
+            )
+            if address
+        ),
+        "local_expected": sorted(expected),
         "searches": result.usage.search_calls,
         "network_searches": result.usage.network_searches,
         "failed_searches": result.usage.failed_searches,
@@ -200,6 +309,7 @@ def measure_person(
         "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
         "elapsed_ms": round(elapsed),
         "warnings": result.warnings,
+        "evidence_sample": _sample(result),
     }
 
 
@@ -283,6 +393,16 @@ def summarise(report: Mapping[str, Any]) -> dict[str, Any]:
         return round(total(key, where) / len(where), 2) if where else 0.0
 
     closed = [case for case in people if case["status"] == "completed"]
+    # `есть ли в перечне Росфинмониторинга` is required of every dossier and is decided
+    # only for a person who IS on the list — that is most of none of them, so no dossier
+    # closes. The second figure is the same count without that fact: what the retrieval
+    # answers, with the defect of the subject left aside (it is not this benchmark's to
+    # fix).
+    without_list = [
+        case
+        for case in people
+        if [m for m in case.get("missing", ()) if "Росфинмониторинга" not in m] == []
+    ]
     return {
         "mode": report.get("mode"),
         "cases": len(cases),
@@ -292,11 +412,21 @@ def summarise(report: Mapping[str, Any]) -> dict[str, Any]:
         "facts_precision_mean": _mean([case.get("facts_precision") for case in people]),
         "false_facts": total("false_facts", people),
         "dossiers_closed": len(closed),
+        "dossiers_closed_without_rf_list": len(without_list),
+        "still_missing_rf_list": sum(
+            1 for case in people if any("Росфинмониторинга" in m for m in case.get("missing", ()))
+        ),
         "material_recall_mean": _mean([case.get("material_recall") for case in people]),
         "material_found": total("material_found", people),
         "material_expected": total("material_expected", people),
+        "facts_not_reported": total("facts_not_reported", people),
+        "useful_leads": total("useful_leads", people),
+        "useful_leads_web": total("useful_leads_web", people),
+        "useful_leads_telegram": total("useful_leads_telegram", people),
+        "useful_leads_local": total("useful_leads_local", people),
         "leads": total("leads"),
         "web_leads": total("web_leads"),
+        "web_leads_holding_a_value": total("web_leads_holding_a_value", people),
         "evidence_mean": average("evidence"),
         "evidence_local": total("evidence"),
         "searches_mean": average("searches"),
@@ -331,13 +461,48 @@ def delta(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
+def displaced(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str, Any]:
+    """What the web pushed out of the shown evidence: local pages a reader saw without it
+    and does not see with it, and how many of those were about the person."""
+    left = {
+        case["case_id"]: case for case in before.get("cases", []) if case.get("kind") == "person"
+    }
+    right = {
+        case["case_id"]: case for case in after.get("cases", []) if case.get("kind") == "person"
+    }
+    rows: list[dict[str, Any]] = []
+    for case_id, one in left.items():
+        two = right.get(case_id)
+        if two is None:
+            continue
+        lost = sorted(set(one.get("local_shown", [])) - set(two.get("local_shown", [])))
+        if not lost:
+            continue
+        expected = set(one.get("local_expected", []))
+        rows.append(
+            {
+                "case_id": case_id,
+                "lost": len(lost),
+                "lost_about_the_person": len([url for url in lost if url in expected]),
+                "urls": lost[:10],
+            }
+        )
+    return {
+        "cases_with_loss": len(rows),
+        "pages_lost": sum(row["lost"] for row in rows),
+        "pages_lost_about_the_person": sum(row["lost_about_the_person"] for row in rows),
+        "per_case": rows,
+    }
+
+
 def as_markdown(reports: Sequence[Mapping[str, Any]]) -> str:
     rows = [summarise(report) for report in reports]
     header = (
         "| режим | кейсов | recall фактов | precision | ложных фактов | закрытых досье "
-        "| recall материала | наводок | улик/кейс | поисков/кейс | кругов | Tavily | "
+        "| recall материала | не сообщено фактов | полезных наводок (веб/тг/лок) | "
+        "наводок веб | из них со значением | улик/кейс | поисков/кейс | кругов | Tavily | "
         "кредитов | LLM | USD | мс/кейс |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
     lines = [header]
     for row in rows:
@@ -345,16 +510,26 @@ def as_markdown(reports: Sequence[Mapping[str, Any]]) -> str:
             f"| {row['mode']} | {row['cases']} | {row['facts_recall_mean']} | "
             f"{row['facts_precision_mean']} | {row['false_facts']} | {row['dossiers_closed']} | "
             f"{row['material_recall_mean']} ({row['material_found']}/{row['material_expected']}) | "
-            f"{row['leads']} | {row['evidence_mean']} | {row['searches_mean']} | "
+            f"{row['facts_not_reported']} | {row['useful_leads']} "
+            f"({row['useful_leads_web']}/{row['useful_leads_telegram']}/{row['useful_leads_local']}) | "
+            f"{row['web_leads']} | {row['web_leads_holding_a_value']} | "
+            f"{row['evidence_mean']} | {row['searches_mean']} | "
             f"{row['followup_rounds_mean']} | {row['tavily_requests']} | {row['tavily_credits']} | "
             f"{row['llm_calls']} | {row['cost_usd']} | {row['elapsed_ms_mean']} |"
         )
     if len(rows) == 2:
         change = delta(reports[0], reports[1])
+        pushed = displaced(reports[0], reports[1])
         lines.append("")
         lines.append("### Что изменил web (B − A)")
         lines.append("")
         for key, value in change.items():
             if value:
                 lines.append(f"- `{key}`: {value:+}")
+        lines.append("")
+        lines.append(
+            f"### Вытеснено потолком: {pushed['pages_lost']} локальных страниц в "
+            f"{pushed['cases_with_loss']} кейсах, из них о человеке — "
+            f"{pushed['pages_lost_about_the_person']}"
+        )
     return "\n".join(lines)

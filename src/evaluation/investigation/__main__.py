@@ -84,6 +84,7 @@ def main() -> None:
         print(table)
         if len(reports) == 2:
             print(json.dumps(web_benchmark.delta(reports[0], reports[1]), indent=1))
+            print(json.dumps(web_benchmark.displaced(reports[0], reports[1])["per_case"], indent=1))
         return
     if args.command == "retrieval":
         with factory() as session:
