@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -30,6 +30,7 @@ from investigation.models import (
     RetrieverCapabilities,
 )
 from investigation.runs import InMemoryRunStore
+from investigation.scenarios.unnamed_figurant import WINDOW_DAYS
 from investigation.service import InvestigationService, UnknownSourceError
 from investigation.services.external import SourceSearchRetriever
 
@@ -331,6 +332,47 @@ def test_the_web_is_asked_once_per_query_though_the_run_has_rounds() -> None:
     assert asked and len(asked) == len(set(asked))
 
 
+def test_a_text_that_only_names_her_is_no_lead_and_the_fact_is_looked_for_again() -> None:
+    """A lead ends the search for its fact. A text found for the charges that says nothing
+    of an article — the web matches loosely, and is sent the first word only — must not
+    end it: the second words for the charges are still asked."""
+    outside = web(web_answer("Мария Бонцлер выступила в суде."))
+
+    result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
+
+    (item,) = page_items(result)
+    assert item.source_id == "web:tavily" and item.leads == ()
+    asked = [call.text for call in search_of(outside).calls]
+    assert f"{NAME} статья" in asked
+    assert f"{NAME} обвинение" in asked
+
+
+def test_a_text_with_the_word_in_another_case_is_a_lead_and_ends_the_search_for_it() -> None:
+    outside = web(web_answer("Марии Бонцлер вменили две статьи."))
+
+    result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
+
+    (item,) = page_items(result)
+    assert item.leads == ("charges",)
+    assert f"{NAME} обвинение" not in [call.text for call in search_of(outside).calls]
+
+
+def test_a_word_that_only_begins_the_same_way_is_still_the_word_looked_for() -> None:
+    """The known tolerance of the rule, kept on purpose: a word is found by the beginning
+    of the word looked for, so «статус» answers a search for «статья». It costs the run
+    the extra round for that fact and nothing more — a lead is never a fact, and the
+    articles stay in what the result says is missing."""
+    outside = web(web_answer("Изменился статус Марии Бонцлер."))
+
+    result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
+
+    (item,) = page_items(result)
+    assert item.leads == ("charges",)
+    assert f"{NAME} обвинение" not in [call.text for call in search_of(outside).calls]
+    assert "статьи обвинения" in result.missing_information
+    assert all(finding.fact != "charges" for finding in result.findings)
+
+
 def test_the_words_travel_to_tavily_in_the_body_and_the_key_in_the_header() -> None:
     asked: list[httpx.Request] = []
 
@@ -529,6 +571,42 @@ def test_the_keywords_of_an_unnamed_figurant_reach_the_web_as_they_reach_the_cha
     # A candidate's surname with the place, and the place with the article.
     assert any("Иванов" in call for call in asked)
     assert any("Тюмень" in call for call in asked)
+
+
+def test_the_window_of_dates_of_a_figurants_query_reaches_the_web() -> None:
+    """«The place and the article, about when the publication came out»: the web is asked
+    within the same days the database is, and a query with no window is asked with none."""
+    outside = web(web_answer(FIGURANT_TEXT, url=OTHER_PAGE))
+
+    run([figurants(), outside], FIGURANT_QUESTION)
+
+    calls = {call.text: call for call in search_of(outside).calls}
+    assert CLUE.published_at is not None
+    around = timedelta(days=WINDOW_DAYS)
+    bounded = calls["Тюмень 158.1"]
+    assert (bounded.published_from, bounded.published_to) == (
+        CLUE.published_at - around,
+        CLUE.published_at + around,
+    )
+    by_surname = calls["Иванов Тюмень"]
+    assert (by_surname.published_from, by_surname.published_to) == (None, None)
+
+
+def test_a_text_with_the_place_and_not_the_article_is_no_lead_of_the_dated_query() -> None:
+    """The dated query looks for the article in the place. A text of the place alone is
+    kept (the place is whom the query is about) and is nobody's corroboration."""
+    outside = web(
+        lambda query: (
+            web_answer("В Тюмени открыли новый мост.", url=OTHER_PAGE)(query)
+            if query.text.startswith("Тюмень")
+            else []
+        )
+    )
+
+    result = run([figurants(), outside], FIGURANT_QUESTION)
+
+    (item,) = [held for held in result.evidence if held.source_id == "web:tavily"]
+    assert item.leads == ()
 
 
 def test_the_publication_the_clues_were_read_of_is_not_what_the_web_result_becomes() -> None:
