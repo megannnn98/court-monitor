@@ -234,6 +234,20 @@ def _sample(result: InvestigationResult, limit: int = 40) -> list[dict[str, Any]
     ]
 
 
+def _web_only(session: Session, case: PersonCase) -> dict[str, str]:
+    """The facts of the golden set the database does not hold: not decided there, and not
+    written in a publication of that person the run already stores. Everything else is
+    not the web's to be credited with."""
+    from evaluation.investigation.presence import presence
+
+    held = {
+        fact: value
+        for fact, value in case.facts.items()
+        if presence(session, case.name, fact, value)["state"] == "no"
+    }
+    return held
+
+
 def measure_person(
     session: Session,
     built: InvestigationService,
@@ -253,9 +267,12 @@ def measure_person(
     shown = _shown_urls(result)
     hits = expected & shown
     web_items = [item for item in result.evidence if item.source_id == "web:tavily"]
+    # The web is credited with what the database does not hold: a fact already decided
+    # there, or a publication of that very person already saying it, is not the web's.
+    for_web = _web_only(session, case)
     useful = _useful_leads(
         result,
-        {fact: {"value": value} for fact, value in case.facts.items()},
+        {fact: {"value": value} for fact, value in for_web.items()},
         reported,
         person=case.name,
     )
@@ -421,6 +438,13 @@ def summarise(report: Mapping[str, Any]) -> dict[str, Any]:
         "material_expected": total("material_expected", people),
         "facts_not_reported": total("facts_not_reported", people),
         "useful_leads": total("useful_leads", people),
+        # A case is a case: three facts of one person are not three people.
+        "cases_with_a_web_lead": sum(1 for case in people if (case.get("useful_leads_web") or 0)),
+        "cases_with_missing_facts": sum(
+            1 for case in people if (case.get("facts_not_reported") or 0)
+        ),
+        "facts_held_by_common_form_only": total("useful_leads_common_form", people)
+        - total("useful_leads", people),
         "useful_leads_web": total("useful_leads_web", people),
         "useful_leads_telegram": total("useful_leads_telegram", people),
         "useful_leads_local": total("useful_leads_local", people),
