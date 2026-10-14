@@ -41,6 +41,7 @@ import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from random import random
 from typing import TYPE_CHECKING, Any, TypeGuard
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit
 
@@ -89,9 +90,6 @@ MAX_SSE_EVENT_BYTES = 32 * 1024 * 1024
 # handshake and the tool listing of one search, measured at ~0.8 s, and is not taken on
 # here. What a search does pay is `initialize` + `list_tools` + `call_tool` + `DELETE`.
 HANDSHAKE_NOTE = " mcp_session=short_lived"
-# The floor under the SDK's per-request read timeout: a search slower than this is not a
-# search any more, and the SDK's POST task would otherwise wait for ever.
-MIN_READ_TIMEOUT_SECONDS = 10.0
 # How much of the text before the words stand is kept, so the excerpt opens at a
 # sentence rather than mid-word. The retriever filters on the name, so it must be
 # inside the excerpt, not at its very first character.
@@ -414,8 +412,9 @@ class TavilyMcpSearch:
                 write,
                 # The SDK's POST task swallows a dropped connection and leaves the
                 # request unanswered, so without a read timeout a call can wait for
-                # ever. This is the bound the run itself gives one search.
-                read_timeout_seconds=max(self._timeout, MIN_READ_TIMEOUT_SECONDS),
+                # ever. This is the bound the run itself gives one search, so the SDK
+                # ends it no later than the run would.
+                read_timeout_seconds=self._timeout,
             ) as session:
                 await session.initialize()
                 return await work(session)
@@ -454,7 +453,7 @@ class TavilyMcpSearch:
                 lambda: self._attempt(seen, asked),
                 attempts=self._attempts,
                 should_retry=lambda exc: _transient(_only(exc), seen),
-                delay_seconds=lambda failures: self._base_delay_seconds * (2 ** (failures - 1)),
+                delay_seconds=self._delay,
                 sleep=asyncio.sleep,
             )
         except BaseException as exc:
@@ -482,6 +481,19 @@ class TavilyMcpSearch:
             f" request_id={request_id}" if request_id else "",
         )
         return found
+
+    def _delay(self, failures: int) -> float:
+        """How long to wait before asking again: the base, doubled per failure, and spread.
+
+        The spread is not decoration. Several runs of this service share one Tavily key,
+        they hit the same rate limit at the same moment and back off the same amount, and
+        without it they arrive together and are limited together again. A caller that
+        asked for no delay at all gets none, which is what the tests run on.
+        """
+        if self._base_delay_seconds <= 0:
+            return 0.0
+        ceiling: float = self._base_delay_seconds * (2 ** (failures - 1))
+        return ceiling * (0.5 + float(random()))
 
     async def _attempt(self, seen: _LastStatus, asked: Any) -> Any:
         """One try: a fresh status, a fresh session, and a client of our own to carry it."""

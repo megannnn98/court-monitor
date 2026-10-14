@@ -20,6 +20,7 @@ import asyncio
 import gc
 import logging
 import os
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -538,6 +539,23 @@ def test_a_search_against_a_loopback_server_answers_over_the_product_s_path() ->
             "end_date": "",
         }
     ]
+
+
+def test_a_search_that_never_answers_ends_in_a_failure_and_not_in_a_hang() -> None:
+    """The SDK's POST task swallows a dropped connection and leaves the request unanswered,
+    so without a read timeout a call waits for ever. The timeout is the bound the run
+    itself gives one search."""
+
+    async def go() -> float:
+        started = time.perf_counter()
+        async with fake_tavily_mcp([results(page())], delay_forever=True) as (client, _r):
+            with pytest.raises((TavilyMcpError, SearchAnswerError, asyncio.TimeoutError)):
+                await TavilyMcpSearch(
+                    KEY, url=ENDPOINT, client=client, base_delay_seconds=0, timeout_seconds=0.5
+                ).search(SourceSearchQuery(WORDS, limit=5))
+        return time.perf_counter() - started
+
+    assert asyncio.run(go()) < 20
 
 
 def test_two_searches_at_once_each_get_their_own_answer() -> None:
