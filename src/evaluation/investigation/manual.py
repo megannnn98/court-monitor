@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -32,8 +33,14 @@ from evaluation.investigation.web_benchmark import (
     ceilings,
     service,
 )
-from investigation.models import InvestigationResult
+from investigation.models import Finding, InvestigationResult
+from investigation.services.charges import normalised_charges
 from investigation.services.external import names
+
+# The number of an article, as both sides write it: the pipeline's column holds «291.1»
+# and the annotation a whole citation. Comparing the whole phrase called a fact the database
+# already held «not held», and credited the web with what was there before it.
+_ARTICLES = re.compile(r"\d+(?:\.\d+)?")
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -79,31 +86,14 @@ def _fact_rows(
             about = [item for item in result.evidence if names(item.text, str(case["query"]))]
             found = [item for item in about if _holds_all([item.text], parts)]
             loose = [item for item in about if _holds_all([item.text], [entry.get("common")])]
-            confirmed = [
-                finding
-                for finding in result.findings
-                if finding.fact == entry["fact"] and _reported_value(finding) == str(entry["value"])
-            ]
+            confirmed = _confirmed(result, str(entry["fact"]), str(entry["value"]))
             row.update(
                 {
                     # Retrieval: a page of the open web holds it.
                     "evidence_contains_expected_value": bool(found),
                     # The product: the run says it.
                     "confirmed_finding": bool(confirmed),
-                    "confirmed_by": [
-                        {
-                            "ref": ref,
-                            "source": next(
-                                (item.source_id for item in result.evidence if item.ref == ref),
-                                "—",
-                            ),
-                            "url": next(
-                                (item.url for item in result.evidence if item.ref == ref), None
-                            ),
-                        }
-                        for finding in confirmed
-                        for ref in finding.evidence
-                    ],
+                    "confirmed_by": _cited_by(result, confirmed),
                     "evidence_contains_common_form_only": bool(loose) and not bool(found),
                     "evidence": [
                         {"ref": item.ref, "source": item.source_id, "url": item.url}
@@ -115,13 +105,59 @@ def _fact_rows(
     return rows
 
 
-def _reported_value(finding: Any) -> str:
+def _reported_value(finding: Finding) -> str:
     """The value a finding states, as the scenario wrote it: «статьи обвинения: <value>»."""
     statement: str = finding.statement
     if ": " in statement:
         statement = statement.split(": ", 1)[1]
-    # `person_dossier` writes the charges the way the law writes them and nothing else.
     return statement.split(" (", 1)[0].strip()
+
+
+def _as_written(value: str, fact: str) -> str:
+    """One value as one thing writes it.
+
+    A charge is compared by its article number, not by its spelling. The annotation writes
+    it as the law writes it («ст. 276 УК»), the pipeline as it normalises it («ст. 276 УК
+    РФ»), and the database as a bare number («275.1») — three writings of one thing, and
+    the benchmark asks about the thing. Every other fact is compared as written, because
+    that is how the pipeline reports it.
+    """
+    if fact != "charges":
+        return " ".join(str(value).split())
+    numbers = {
+        number for charge in normalised_charges(str(value)) for number in _ARTICLES.findall(charge)
+    }
+    numbers.update(_ARTICLES.findall(str(value)))
+    return ",".join(sorted(numbers)) if numbers else " ".join(str(value).split())
+
+
+def _confirmed(result: InvestigationResult, fact: str, expected: str) -> list[Finding]:
+    """The findings that state this fact as this value, however each of them writes it."""
+    wanted = _as_written(expected, fact)
+    return [
+        finding
+        for finding in result.findings
+        if finding.fact == fact and _as_written(_reported_value(finding), fact) == wanted
+    ]
+
+
+def _cited_by(result: InvestigationResult, findings: Sequence[Finding]) -> list[dict[str, Any]]:
+    """Where a confirmed fact rests: the refs it cites, the source each came from and its
+    address. A fact the web alone rests on is what the web is credited with, and a reader
+    can follow either back to a page."""
+    cited: list[dict[str, Any]] = []
+    for finding in findings:
+        for ref in finding.evidence:
+            item = next((held for held in result.evidence if held.ref == ref), None)
+            cited.append(
+                {
+                    "ref": ref,
+                    "source": item.source_id if item else "—",
+                    "url": item.url if item else None,
+                    "title": item.title if item else None,
+                }
+            )
+    return cited
 
 
 def _person_report(
@@ -144,14 +180,28 @@ def _person_report(
     # A namesake's dossier has no expected facts of its own: what it must not do is report
     # somebody else's. Counted apart, because a web mode that looks better only because of
     # noise is worse, not better.
-    false_findings = [
-        {"fact": finding.fact, "statement": finding.statement}
-        for finding in result.findings
-        if not any(
-            finding.fact == row["fact"] and _reported_value(finding) == row["value"]
-            for row in expected
-        )
-    ]
+    # What the annotation did not write down is not a false finding: the set is what a
+    # person could verify from public sources, not everything the database holds. A finding
+    # is false when the case says nobody should be reported and the run reported somebody,
+    # or when the annotation expects that very fact and this is a different value of it.
+    # Everything else is unannotated, and is counted as such.
+    negative = not expected and any(
+        entry.get("kind") == "not_established" for entry in case.get("expected", [])
+    )
+    annotated = {str(row["fact"]) for row in expected}
+    written = {_as_written(str(row["value"]), str(row["fact"])) for row in expected}
+    false_findings: list[dict[str, Any]] = []
+    unannotated: list[dict[str, Any]] = []
+    for finding in result.findings:
+        value = _reported_value(finding)
+        if _as_written(value, finding.fact) in written:
+            continue
+        row = {
+            "fact": finding.fact,
+            "statement": finding.statement,
+            "evidence": list(finding.evidence),
+        }
+        (false_findings if negative or finding.fact in annotated else unannotated).append(row)
     return {
         "case_id": case["case_id"],
         "group": case.get("group"),
@@ -170,6 +220,7 @@ def _person_report(
             if row.get("evidence_contains_expected_value") and not row.get("confirmed_finding")
         ),
         "false_findings": false_findings,
+        "unannotated_findings": unannotated,
         "evidence": len(result.evidence),
         "web_evidence": len(web_items),
         "web_leads": sum(1 for item in web_items if item.leads),
