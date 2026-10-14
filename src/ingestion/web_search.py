@@ -41,10 +41,13 @@ import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 from urllib.parse import unquote, urlsplit
 
 import httpx2
+
+if TYPE_CHECKING:
+    from mcp.shared.exceptions import MCPError
 
 from ingestion.search import (
     DEFAULT_ATTEMPTS,
@@ -78,11 +81,17 @@ SEARCH_DEPTHS = ("basic", "advanced", "fast", "ultra-fast")
 # more, so the SDK's default 1 MiB cap on one server-sent event is raised: without it a
 # search that did return the page fails while reading the answer.
 MAX_SSE_EVENT_BYTES = 32 * 1024 * 1024
-# A session is opened and closed inside the one search that uses it. The SDK's context
-# managers end in the task that entered them, and the graph runs every search in a task of
-# its own, so a session could not be shared between searches without failing on exit. Its
-# cost is one `initialize` round trip, measured at ~0.5 s against a ~2 s search.
+# A session is opened and closed inside the one search that uses it. The SDK's transport
+# and session hold anyio task groups, which a search running in a task of its own may only
+# enter and leave there — so one session per search it is. Reusing one across searches is
+# possible (a call may be made from any task) but needs a task of its own to own it, an
+# explicit shutdown and a reconnection after the server drops the session; that buys the
+# handshake and the tool listing of one search, measured at ~0.8 s, and is not taken on
+# here. What a search does pay is `initialize` + `list_tools` + `call_tool` + `DELETE`.
 HANDSHAKE_NOTE = " mcp_session=short_lived"
+# The floor under the SDK's per-request read timeout: a search slower than this is not a
+# search any more, and the SDK's POST task would otherwise wait for ever.
+MIN_READ_TIMEOUT_SECONDS = 10.0
 # How much of the text before the words stand is kept, so the excerpt opens at a
 # sentence rather than mid-word. The retriever filters on the name, so it must be
 # inside the excerpt, not at its very first character.
@@ -105,6 +114,10 @@ class _AskedWordsOutOfLogs(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.args, tuple):
             record.args = tuple(_without_asked_words(value) for value in record.args)
+        elif isinstance(record.args, (Mapping, str, bytes)):
+            # One mapping or one message passed as `%(x)s`: not a tuple, and just as able
+            # to carry the words.
+            record.args = (_without_asked_words(record.args),)
         # The SDK writes most of its call lines already formatted, so the words are in the
         # message itself and not in the arguments.
         if isinstance(record.msg, str):
@@ -112,8 +125,14 @@ class _AskedWordsOutOfLogs(logging.Filter):
         return True
 
 
-_ASKED = re.compile(r"(['\"]query['\"]\s*:\s*)['\"][^'\"]*['\"]")
+# «query»: the asked words, in a repr or in a formatted message. Both quote forms, and a
+# name with an apostrophe in it («В'ячеслав») does not end the match at the apostrophe.
+_ASKED = re.compile(r"(['\"]query['\"]\s*:\s*)(['\"]).*?\2", re.DOTALL)
 _WHOLE_QUERY = re.compile(r"\bquery=[^&,\s]*", re.IGNORECASE)
+# The SDK's own loggers. `mcp.client.session` writes to a logger of its own name,
+# `client`, which is not under `mcp` — the filter is attached to every one of them by
+# name, and so is the level.
+_SDK_LOGGERS = ("mcp", "client")
 
 
 def _without_asked_words(value: object) -> object:
@@ -127,22 +146,29 @@ def _without_asked_words(value: object) -> object:
     if isinstance(value, (list, tuple)):
         return [_without_asked_words(held) for held in value]
     if isinstance(value, str):
-        return _WHOLE_QUERY.sub("query=<query>", _ASKED.sub(r"\1'<query>'", value))
+        return _WHOLE_QUERY.sub("query=<query>", _ASKED.sub(r"\1\2<query>\2", value))
     return value
 
 
 def _quiet_mcp_words() -> None:
-    """Put the filter on every logger of the MCP client, whoever creates it later.
+    """The SDK's own loggers: no DEBUG line about a call, and whatever is logged anyway
+    has the words taken out of it.
 
-    A filter belongs to the logger whose record it reads, not to an ancestor of it, so
-    each of the SDK's own loggers gets one. They are created as the SDK is imported,
-    which is where this is done.
+    The transport writes every message it sends and every message it receives at DEBUG —
+    the whole answer of a search, a page's own text and all — and one search's DEBUG
+    trace is a page the reader of the result was never shown. So the level goes first and
+    the filter is the second line: a filter belongs to the logger whose record it reads,
+    not to an ancestor of it, so each of the SDK's loggers gets one. They are created as
+    the SDK is imported, which is where this is done.
     """
     for name in list(logging.Logger.manager.loggerDict):
-        if name == "mcp" or name.startswith("mcp."):
-            logger_ = logging.getLogger(name)
-            if not any(isinstance(kept, _AskedWordsOutOfLogs) for kept in logger_.filters):
-                logger_.addFilter(_AskedWordsOutOfLogs())
+        root = name.split(".", 1)[0]
+        if root not in _SDK_LOGGERS:
+            continue
+        logger_ = logging.getLogger(name)
+        logger_.setLevel(max(logger_.level or logging.NOTSET, logging.INFO))
+        if not any(isinstance(kept, _AskedWordsOutOfLogs) for kept in logger_.filters):
+            logger_.addFilter(_AskedWordsOutOfLogs())
 
 
 class TavilyMcpError(RuntimeError):
@@ -155,7 +181,43 @@ class TavilyMcpError(RuntimeError):
     """
 
 
-def _transient(exc: BaseException) -> bool:
+# The SDK's own JSON-RPC error codes, as `mcp_types` publishes them. The client turns an
+# HTTP status of the server into `INTERNAL_ERROR` and a stream that ended without an
+# answer into `CONNECTION_CLOSED` or `REQUEST_TIMEOUT`; the status itself is lost.
+_INTERNAL_ERROR = -32603
+_CONNECTION_CLOSED = -32000
+_REQUEST_TIMEOUT = -32001
+# What a status has to be for the same call to be worth making again.
+_TRANSIENT_STATUS = frozenset({408, 409, 425, 429})
+
+
+class _LastStatus:
+    """The status of the last response the server gave, kept beside the call.
+
+    The SDK folds every HTTP failure of the server into one JSON-RPC error and keeps the
+    status to itself, so a rejected key and a rate limit arrive alike. Only the HTTP client
+    still sees the status: a hook on the response records it here, and the decision
+    whether to ask again is made from it. Without it, nothing but a timeout is worth
+    retrying, and a Tavily that is rate-limiting is exactly the case that is.
+    """
+
+    def __init__(self) -> None:
+        self.status: int | None = None
+
+    async def record(self, response: Any) -> None:
+        """An HTTP client's response hook, which the client awaits."""
+        self.status = int(response.status_code)
+
+    def forget(self) -> None:
+        self.status = None
+
+    @property
+    def transient(self) -> bool:
+        status = self.status
+        return status is not None and (status in _TRANSIENT_STATUS or status >= 500)
+
+
+def _transient(exc: BaseException, seen: _LastStatus) -> bool:
     """Whether the failure is worth asking the server again.
 
     A timeout, a refused, reset or half-open connection, a rate limit and Tavily's own
@@ -163,13 +225,49 @@ def _transient(exc: BaseException) -> bool:
     answer whose shape is not a search's and every protocol failure are not: the same
     call answers the same way again, and a retry that cannot succeed only spends the run's
     time and the plan's searches.
+
+    A JSON-RPC error stands for two different things — a status the SDK folded into it
+    (`INTERNAL_ERROR`) and a stream that ended under the call (`CONNECTION_CLOSED`,
+    `REQUEST_TIMEOUT`) — so the first is decided by the status the HTTP client saw, and
+    the second by what it says about itself.
     """
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError, ConnectionError, OSError)):
         return True
     if isinstance(exc, (httpx2.TimeoutException, httpx2.NetworkError, httpx2.RemoteProtocolError)):
         return True
     code = getattr(getattr(exc, "response", None), "status_code", None)
-    return isinstance(code, int) and (code in {408, 409, 425, 429} or code >= 500)
+    if isinstance(code, int):
+        return code in _TRANSIENT_STATUS or code >= 500
+    if _is_mcp_error(exc):
+        if exc.code in {_CONNECTION_CLOSED, _REQUEST_TIMEOUT}:
+            return True
+        # A status the SDK folded into a protocol error. Known and transient: retry.
+        # Known and not: the key was refused, the tool is not published — do not.
+        # Unseen (no hook, or the failure was not HTTP at all): do not, because a
+        # retry that may hit a refused key spends the run's time for nothing.
+        return exc.code == _INTERNAL_ERROR and seen.transient
+    return False
+
+
+def _only(exc: BaseException) -> BaseException:
+    """The one failure inside a group, where there is only one.
+
+    The SDK's transport and session end in anyio task groups, and a task group re-raises
+    what ended the block as an `ExceptionGroup` even when a single thing caused it — so
+    the `SearchAnswerError` this code raised itself comes back wrapped. A group of one is
+    that one thing; a group of several is not one failure a retry can judge.
+    """
+    if isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
+        return _only(exc.exceptions[0])
+    return exc
+
+
+def _is_mcp_error(exc: BaseException) -> TypeGuard[MCPError]:
+    """Whether this is the SDK's own protocol error. Imported lazily: the SDK is only
+    imported when a search is actually made."""
+    from mcp.shared.exceptions import MCPError
+
+    return isinstance(exc, MCPError)
 
 
 class TavilyMcpSearch:
@@ -273,11 +371,14 @@ class TavilyMcpSearch:
 
     # ── the session ──────────────────────────────────────────────────────────────
 
-    def _http_client(self) -> tuple[Any, bool]:
+    def _http_client(self, seen: _LastStatus | None = None) -> tuple[Any, bool]:
         """The SDK's own HTTP client, carrying the key as a bearer header and nothing
-        else, or a caller's own client."""
+        else, or a caller's own client. Ours also records what status the server gave, so
+        that a rate limit can be told from a refused key after the SDK folded both into
+        one protocol error."""
         if self._client is not None:
             return self._client, False
+        hooks = {"response": [seen.record]} if seen is not None else None
         return (
             httpx2.AsyncClient(
                 headers={
@@ -285,55 +386,53 @@ class TavilyMcpSearch:
                     "User-Agent": "court-monitor-investigation/1.0",
                 },
                 timeout=self._timeout,
+                event_hooks=hooks,
             ),
             True,
         )
 
-    async def _session(self, client: Any) -> Any:
-        """One MCP session over `client`: connected, initialized, and closed with it.
+    async def _with_session(self, client: Any, work: Any) -> Any:
+        """One MCP session, opened and closed inside one `async with`, in one task.
 
-        Both context managers are kept, not just what they yield: the SDK's session and
-        transport hold an anyio task group, and a context manager that nothing refers to
-        is collected — which closes the generator it wrapped and cancels the search that
-        is still using it.
+        Not `__aenter__` in a function and `__aexit__` in another: the SDK's transport
+        and session each hold an anyio task group, and a context manager the frame does
+        not hold is collected — which closes the generator it wrapped and cancels the
+        search that is still using it. Here the frame holds both for as long as the call
+        runs, a cancelled search closes them with the cancellation rather than after it,
+        and each of them is told what ended the block.
         """
         from mcp import ClientSession
         from mcp.client.streamable_http import streamable_http_client
 
         _quiet_mcp_words()
-        transport = streamable_http_client(
+        async with streamable_http_client(
             self._url, http_client=client, max_sse_event_size=MAX_SSE_EVENT_BYTES
-        )
-        streams = await transport.__aenter__()
-        session = ClientSession(streams[0], streams[1])
-        await session.__aenter__()
-        try:
-            await session.initialize()
-        except BaseException:
-            await session.__aexit__(None, None, None)
-            await transport.__aexit__(None, None, None)
-            raise
-        return _Session(session, transport)
+        ) as streams:
+            read, write = streams[0], streams[1]
+            async with ClientSession(
+                read,
+                write,
+                # The SDK's POST task swallows a dropped connection and leaves the
+                # request unanswered, so without a read timeout a call can wait for
+                # ever. This is the bound the run itself gives one search.
+                read_timeout_seconds=max(self._timeout, MIN_READ_TIMEOUT_SECONDS),
+            ) as session:
+                await session.initialize()
+                return await work(session)
 
     async def tools(self) -> list[Mapping[str, Any]]:
         """What the server publishes: every tool with the schema it published it under."""
-        client, own = self._http_client()
+        seen = _LastStatus()
+        connection, own = self._http_client(seen)
         try:
-            found: list[Mapping[str, Any]] = await self._with_session(client, self._read_tools)
+            found: list[Mapping[str, Any]] = await self._with_session(connection, self._read_tools)
             return found
         finally:
             if own:
-                await client.aclose()
+                await connection.aclose()
 
-    async def _with_session(self, client: Any, work: Any) -> Any:
-        held = await self._session(client)
-        try:
-            return await work(held)
-        finally:
-            await held.aclose()
-
-    async def _read_tools(self, held: _Session) -> list[Mapping[str, Any]]:
-        listed = await held.session.list_tools()
+    async def _read_tools(self, session: Any) -> list[Mapping[str, Any]]:
+        listed = await session.list_tools()
         return [
             {"name": tool.name, "description": tool.description, "input_schema": tool.input_schema}
             for tool in listed.tools
@@ -344,36 +443,36 @@ class TavilyMcpSearch:
         if not text:
             return []
 
-        def asked(held: _Session) -> Any:
-            return self._call(held, text, query)
+        def asked(session: Any) -> Any:
+            return self._call(session, text, query)
 
-        client, own = self._http_client()
+        seen = _LastStatus()
         found: list[ExternalEvidence]
         request_id: str | None
         try:
             found, request_id = await retry_async(
-                lambda: self._with_session(client, asked),
+                lambda: self._attempt(seen, asked),
                 attempts=self._attempts,
-                should_retry=_transient,
+                should_retry=lambda exc: _transient(_only(exc), seen),
                 delay_seconds=lambda failures: self._base_delay_seconds * (2 ** (failures - 1)),
                 sleep=asyncio.sleep,
             )
-        except asyncio.CancelledError:
-            raise
-        except SearchAnswerError:
-            # The server answered and what it answered is not a search's. Retrying buys
-            # the same answer, so this one is raised as it is: the investigation turns it
-            # into a warning and a failed search, not into a lost run.
-            raise
-        except Exception as exc:
+        except BaseException as exc:
+            cause = _only(exc)
+            if isinstance(cause, SearchAnswerError):
+                # The server answered and what it answered is not a search's. Retrying
+                # buys the same answer, so this one is raised as it is: the run turns it
+                # into a warning and a failed search, not into a lost run.
+                raise cause
+            if not isinstance(cause, Exception):
+                # A cancellation or a signal, wrapped or not: it is not ours to turn into
+                # a failed search, and the caller is waiting for it.
+                raise cause
             # Only the class of the cause is ever logged: a transport error carries the
             # request it made, and the request carries the person's name.
             raise TavilyMcpError(
-                f"{self.source}: the search failed ({type(exc).__name__})"
+                f"{self.source}: the search failed ({type(cause).__name__})"
             ) from exc
-        finally:
-            if own:
-                await client.aclose()
         # Never the words: a person's name does not stand in the process log.
         logger.info(
             "event=source_search source=%s results=%d%s%s",
@@ -384,13 +483,23 @@ class TavilyMcpSearch:
         )
         return found
 
-    async def _call(self, held: _Session, text: str, query: SourceSearchQuery) -> Any:
+    async def _attempt(self, seen: _LastStatus, asked: Any) -> Any:
+        """One try: a fresh status, a fresh session, and a client of our own to carry it."""
+        seen.forget()
+        connection, own = self._http_client(seen)
+        try:
+            return await self._with_session(connection, asked)
+        finally:
+            if own:
+                await connection.aclose()
+
+    async def _call(self, session: Any, text: str, query: SourceSearchQuery) -> Any:
         """One search inside one session: the tool the server publishes, then its answer.
 
         The tool is chosen from `list_tools()` and not from what this code remembers, and
         the arguments from the schema that tool published under.
         """
-        published = await self._read_tools(held)
+        published = await self._read_tools(session)
         tool = next((entry for entry in published if entry["name"] == self._search_tool), None)
         if tool is None:
             raise SearchAnswerError(
@@ -407,7 +516,7 @@ class TavilyMcpSearch:
                 published_to=query.published_to,
             ),
         )
-        answered = await held.session.call_tool(self._search_tool, arguments)
+        answered = await session.call_tool(self._search_tool, arguments)
         body = self.answer_of(answered)
         return self.parse(body, text=text, limit=query.limit), _request_id(body)
 
@@ -467,22 +576,6 @@ class TavilyMcpSearch:
             published_at=_published_at(entry.get("published_date")),
             title=(str(entry["title"]).strip() or None) if entry.get("title") else None,
         )
-
-
-class _Session:
-    """The SDK's session and its transport, closed in the reverse order they were opened,
-    both inside the task that opened them."""
-
-    def __init__(self, session: Any, transport: Any) -> None:
-        self.session = session
-        self._transport = transport
-
-    async def aclose(self) -> None:
-        for held in (self.session, self._transport):
-            try:
-                await held.__aexit__(None, None, None)
-            except Exception:  # noqa: BLE001 - closing costs nothing; a live socket does
-                logger.debug("event=mcp_session_close_failed error=%s", type(held).__name__)
 
 
 def _holds_results(body: object) -> bool:

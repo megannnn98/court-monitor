@@ -71,6 +71,8 @@ class Recorder:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
         self.authorizations: list[str | None] = []
+        self.posts = 0
+        self.terminations = 0
 
     @property
     def last(self) -> dict[str, Any]:
@@ -94,6 +96,7 @@ async def fake_tavily_mcp(
     delay_seconds: float = 0.0,
     delay_forever: bool = False,
     text_only: bool = False,
+    statuses: list[int] | None = None,
 ) -> AsyncIterator[tuple[httpx2.AsyncClient, Recorder]]:
     """A Tavily MCP server in this process, and the client that reaches it.
 
@@ -114,6 +117,7 @@ async def fake_tavily_mcp(
         delay_seconds=delay_seconds,
         delay_forever=delay_forever,
         text_only=text_only,
+        statuses=statuses,
     )
     async with (
         _lifespan(served),
@@ -136,6 +140,7 @@ def _build(
     delay_seconds: float,
     delay_forever: bool,
     text_only: bool,
+    statuses: list[int] | None = None,
 ) -> tuple[Any, Any]:
     """The Tavily MCP server: the app whose lifespan has to run, and the guarded app that
     is actually served — the one only a right bearer header reaches."""
@@ -168,6 +173,10 @@ def _build(
 
     async def guard(scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] == "http":
+            if scope.get("method") == "POST":
+                recorder.posts += 1
+            elif scope.get("method") == "DELETE":
+                recorder.terminations += 1
             header = next(
                 (
                     (k, v)
@@ -187,6 +196,20 @@ def _build(
                 )
                 await send({"type": "http.response.body", "body": b'{"detail":"invalid key"}'})
                 return
+            # A server of its own that fails a few times before it answers, so a retry of
+            # the client can be told from a retry that never happens.
+            if statuses and scope.get("method") == "POST":
+                forced = statuses.pop(0)
+                if forced >= 400:
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": forced,
+                            "headers": [(b"content-type", b"text/plain")],
+                        }
+                    )
+                    await send({"type": "http.response.body", "body": b"later"})
+                    return
         await app(scope, receive, send)
 
     return app, guard
@@ -198,7 +221,8 @@ def served_tavily_mcp(answers: Any, **options: Any) -> Iterator[tuple[str, Recor
 
     A run is driven by `asyncio.run` from ordinary synchronous test code, and a server
     bound to one event loop cannot follow it into another; a server on a port can. What
-    the client sees — the handshake, the tools, the answers — is the same either way.
+    the client sees — the handshake, the tools, the answers — is the same either way, and
+    a search made against it builds its own HTTP client, which is the production path.
     """
     import threading
 
@@ -214,6 +238,7 @@ def served_tavily_mcp(answers: Any, **options: Any) -> Iterator[tuple[str, Recor
         delay_seconds=options.get("delay_seconds", 0.0),
         delay_forever=options.get("delay_forever", False),
         text_only=options.get("text_only", False),
+        statuses=options.get("statuses"),
     )
     running = uvicorn.Server(
         uvicorn.Config(app=guarded, host="127.0.0.1", port=0, log_level="warning")

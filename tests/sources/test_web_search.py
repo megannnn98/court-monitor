@@ -17,13 +17,14 @@ check is opt-in: `INVESTIGATION_LIVE_SEARCH=1` with `TAVILY_API_KEY`.
 from __future__ import annotations
 
 import asyncio
+import gc
 import logging
 import os
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from sources.mcp_server import ENDPOINT, KEY, fake_tavily_mcp, page, results
+from sources.mcp_server import ENDPOINT, KEY, fake_tavily_mcp, page, results, served_tavily_mcp
 
 from ingestion.search import SearchAnswerError, SourceSearchQuery
 from ingestion.web_search import (
@@ -31,6 +32,7 @@ from ingestion.web_search import (
     TAVILY_MCP_URL,
     TavilyMcpError,
     TavilyMcpSearch,
+    _AskedWordsOutOfLogs,
     tavily_search_from_env,
 )
 from investigation.services.external import names
@@ -404,6 +406,54 @@ def test_a_rejected_key_is_not_asked_again_and_never_reaches_the_message() -> No
     assert len(asyncio.run(go())) == 1
 
 
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_a_rate_limit_and_a_server_failure_are_asked_again_once(status: int) -> None:
+    """The SDK folds every HTTP failure of the server into one protocol error and keeps
+    the status to itself. The status is what tells a rate limit from a refused key, so it
+    is read off the HTTP client this code makes, and a server that fails once must be
+    asked again. The search here builds that client itself, as one against Tavily does."""
+
+    with served_tavily_mcp([results(page())], statuses=[status]) as (endpoint, recorder):
+        found = asyncio.run(
+            TavilyMcpSearch(KEY, url=endpoint, base_delay_seconds=0).search(
+                SourceSearchQuery(WORDS, limit=5)
+            )
+        )
+
+    assert len(found) == 1
+    # A failed attempt, then a whole one: the handshake, the tool call and the retry that
+    # followed the failure the server put in front of the first one.
+    assert recorder.calls and recorder.posts > len(recorder.calls)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_a_refused_key_is_not_asked_again_though_the_sdk_hides_the_status(status: int) -> None:
+    with (
+        served_tavily_mcp([results(page())], statuses=[status]) as (endpoint, recorder),
+        pytest.raises((TavilyMcpError, SearchAnswerError)),
+    ):
+        asyncio.run(
+            TavilyMcpSearch(KEY, url=endpoint, base_delay_seconds=0).search(
+                SourceSearchQuery(WORDS, limit=5)
+            )
+        )
+
+    assert recorder.posts == 1
+
+
+def test_a_status_nobody_recorded_is_not_taken_for_a_transient_failure() -> None:
+    """A client of the caller's own carries no hook, so nothing is known of the status:
+    the same call may have been refused for want of a key, and a second one would be."""
+
+    async def go() -> int:
+        async with fake_tavily_mcp([results(page())], statuses=[503]) as (client, recorder):
+            with pytest.raises((TavilyMcpError, SearchAnswerError)):
+                await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
+            return recorder.posts
+
+    assert asyncio.run(go()) == 1
+
+
 def test_a_search_that_never_answers_is_a_timeout_of_the_run_not_a_lost_run() -> None:
     async def go() -> str:
         async with fake_tavily_mcp([results(page())], delay_seconds=0.2) as (client, _recorder):
@@ -417,18 +467,56 @@ def test_a_search_that_never_answers_is_a_timeout_of_the_run_not_a_lost_run() ->
 
 
 def test_a_cancelled_search_leaves_nothing_behind() -> None:
-    async def go() -> bool:
-        async with fake_tavily_mcp([results(page())], delay_seconds=0.2) as (client, _recorder):
+    """A search the run stopped waiting for is cancelled mid-call. The session must end
+    with the cancellation — the server's session terminated, the SDK's task groups closed
+    in the task that opened them — and nothing of the client may be left to be collected
+    later, in whatever task that might be."""
+
+    async def go() -> tuple[bool, int]:
+        async with fake_tavily_mcp([results(page())], delay_seconds=0.3) as (client, recorder):
+            before = set(asyncio.all_tasks())
             work = asyncio.ensure_future(search_over(client).search(SourceSearchQuery(WORDS)))
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0.05)
             work.cancel()
             try:
                 await work
             except asyncio.CancelledError:
-                return True
-            return False
+                pass
+            else:
+                return False, recorder.terminations
+            gc.collect()
+            left = [
+                task
+                for task in asyncio.all_tasks() - before
+                # The test server's own SSE writer is the harness, not the client.
+                if "sse_starlette" not in str(task.get_coro().cr_frame.f_globals.get("__name__"))
+            ]
+            return not left, recorder.terminations
 
-    assert asyncio.run(go()) is True
+    clean, terminations = asyncio.run(go())
+    assert clean is True
+    assert terminations == 1
+
+
+def test_a_search_against_a_loopback_server_answers_over_the_product_s_path() -> None:
+    with served_tavily_mcp([results(page())]) as (endpoint, recorder):
+        found = asyncio.run(
+            TavilyMcpSearch(KEY, url=endpoint, base_delay_seconds=0).search(
+                SourceSearchQuery(WORDS, limit=5)
+            )
+        )
+
+    assert len(found) == 1
+    assert recorder.calls == [
+        {
+            "query": WORDS,
+            "max_results": 5,
+            "search_depth": "basic",
+            "include_raw_content": True,
+            "start_date": "",
+            "end_date": "",
+        }
+    ]
 
 
 def test_two_searches_at_once_each_get_their_own_answer() -> None:
@@ -489,18 +577,39 @@ def test_the_words_and_the_key_never_reach_the_log(
     logged = "\n".join(record.getMessage() for record in caplog.records)
     assert "event=source_search source=tavily results=1" in logged
     assert "request_id=req-1" in logged
-    # The SDK's own call line is still there — with the query taken out of it.
-    assert "method='tools/call'" in logged
-    assert "<query>" in logged
+    # The SDK's own call line is not there at all: its level was raised, so a message it
+    # writes about a call — arguments, answer and all — is never built.
+    assert "tools/call" not in logged
     for form in (KEY, WORDS, NAME, "Бонцлер"):
         assert form not in logged
 
 
-def test_a_page_the_search_brought_back_is_not_the_query_and_is_not_logged_as_one(
+def test_the_filter_takes_the_words_out_even_if_a_call_line_is_written() -> None:
+    """The level is the first line of defence; the filter is the second, and it is what
+    stands if a deployment turns the SDK's logging up."""
+    record = logging.LogRecord(
+        name="mcp.client.streamable_http",
+        level=logging.DEBUG,
+        pathname=__file__,
+        lineno=1,
+        msg="Sending client message: method='tools/call' params={'query': \"В'ячеслав Присяжнюк статья\"}",
+        args=None,
+        exc_info=None,
+    )
+
+    _AskedWordsOutOfLogs().filter(record)
+
+    assert "Присяжнюк" not in record.msg
+    assert "tools/call" in record.msg
+
+
+def test_a_page_the_search_brought_back_is_not_logged_by_the_transport(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """What the transport logs about a page is the page's own text — evidence, held in the
-    result and shown to a reader anyway — and not the words the search was asked with."""
+    """The SDK writes every message it receives at DEBUG — the whole answer, a page's own
+    text and all. A page a reader of the result was never shown must not turn up in the
+    process log, so the transport's own level is raised and the filter is the second
+    line of defence."""
 
     async def go() -> None:
         async with fake_tavily_mcp([results(page(raw_content=f"{NAME} арестована."))]) as (
@@ -514,7 +623,38 @@ def test_a_page_the_search_brought_back_is_not_the_query_and_is_not_logged_as_on
 
     logged = "\n".join(record.getMessage() for record in caplog.records)
     assert WORDS not in logged
-    assert "Бонцлер" in logged
+    assert "Бонцлер" not in logged
+
+
+def test_a_name_with_an_apostrophe_in_it_is_not_logged_either(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    name = "В'ячеслав Присяжнюк"
+    words = f"{name} статья"
+
+    async def go() -> None:
+        async with fake_tavily_mcp([results(page(raw_content="Ничего о деле."))]) as (client, _r):
+            await search_over(client).search(SourceSearchQuery(words, limit=5))
+
+    with caplog.at_level(logging.DEBUG):
+        asyncio.run(go())
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert words not in logged and "Присяжнюк" not in logged
+
+
+def test_the_key_is_not_in_the_headers_the_transport_logs(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def go() -> None:
+        async with fake_tavily_mcp([results(page())]) as (client, _recorder):
+            await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
+
+    with caplog.at_level(logging.DEBUG):
+        asyncio.run(go())
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert KEY not in logged
 
 
 def test_what_the_search_cost_is_not_logged_as_a_number_the_server_never_sent(
