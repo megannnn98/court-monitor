@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import build_investigation_retrievers
 from evaluation.investigation.golden import GoldenSet, PersonCase, UnnamedCase
+from ingestion.search import document_key
 from ingestion.web_search import SEARCH_DEPTH, SEARCH_DEPTH_ENV
 from investigation import telemetry
 from investigation.models import InvestigationResult
@@ -74,12 +75,14 @@ _URLS_OF_ARTICLES = text(
 
 
 def canonical(url: str | None) -> str:
-    """An address as two sources write it alike; what one page is, whatever wrote it."""
-    if not url:
-        return ""
-    value = url.split("#", 1)[0].split("?", 1)[0].lower()
-    value = value.removeprefix("https://").removeprefix("http://").removeprefix("www.")
-    return value.rstrip("/")
+    """What one page is, whatever wrote it — the runtime's own key, not a second one.
+
+    This used to drop the whole query, so `site.ru/news.php?id=2` was counted as the
+    article the database already holds for `?id=1`: the benchmark would credit the run
+    with a page it never showed. The run's own `document_key` is what decides which page
+    an item is, and the measurement asks the same question the product does.
+    """
+    return document_key(url)
 
 
 class CountingSearch:

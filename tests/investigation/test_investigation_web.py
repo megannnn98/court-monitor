@@ -399,6 +399,38 @@ def test_the_words_travel_to_tavily_in_the_body_and_the_key_in_the_header() -> N
     assert set(recorder.authorizations) == {"Bearer a-key"}
 
 
+def test_two_articles_of_one_feed_found_by_the_web_both_stand() -> None:
+    """The same host and path, a different article of it. They are one document each, and
+    neither is a repeat of the other — a key that dropped the query would keep the first
+    and throw the second away, and with it everything it was looked up for."""
+    outside = SourceSearchRetriever(
+        FakeSearch(
+            "tavily",
+            lambda query: [
+                ExternalEvidence(
+                    source="tavily",
+                    source_name="news.example.test",
+                    external_id=f"news.example.test/news.php?id={number}",
+                    url=f"https://news.example.test/news.php?id={number}",
+                    text=f"Марию Бонцлер обвиняют по ч. 3 ст. 20{number} УК РФ.",
+                    published_at=None,
+                    title=f"Материал {number}",
+                )
+                for number in (1, 2)
+            ],
+        ),
+        source="web",
+    )
+
+    result = run([people(), outside], DOSSIER_QUESTION)
+
+    shown = sorted(str(item.url) for item in result.evidence if item.url and "news.php" in item.url)
+    assert shown == [
+        "https://news.example.test/news.php?id=1",
+        "https://news.example.test/news.php?id=2",
+    ]
+
+
 def test_a_page_of_the_same_feed_but_another_article_is_the_web_s_own() -> None:
     """`site.ru/news.php?id=1` and `?id=2` are two articles of one feed. Dropping the query
     would make the second stand for the publication the database already holds and

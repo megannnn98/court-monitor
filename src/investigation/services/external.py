@@ -306,6 +306,11 @@ def charges_of(text: str, name: str) -> set[str]:
                 context = carried
             elif names(context, name):
                 carried = context
+            else:
+                # Somebody else's citation. An enumeration after it is theirs: «Петрова
+                # обвиняют по ст. 207.3 … Иванову вменяют ст. 280 … и ст. 282 …» is two
+                # cases, and the last article is the second one's.
+                carried = None
             if names(context, name) and _CHARGE_ASSERTION.search(context):
                 found.add(spelling)
         previous = match.end()
@@ -313,15 +318,14 @@ def charges_of(text: str, name: str) -> set[str]:
 
 
 # What may stand between two citations of one case and still be the same case. Everything
-# else — a name, a verb, a place — starts somebody else's.
-_CONNECTIVE = frozenset(
-    {"и", "а", "также", "по", "кроме", "того", "либо", "или", "а также", "а_также", "ли", "да"}
-)
+# else — a name, a verb, a place — starts somebody else's. An empty gap (a bare comma) is
+# one case too: «ст. 280 УК РФ, ч. 2 ст. 282 УК РФ».
+_CONNECTIVE = frozenset({"и", "а", "также", "по", "кроме", "того", "либо", "или", "ли", "да"})
 
 
 def _only_connectives(between: str) -> bool:
     words = [word.lower().replace("ё", "е") for word in _WORD.findall(between)]
-    return bool(words) and all(word in _CONNECTIVE or len(word) == 1 for word in words)
+    return all(word in _CONNECTIVE or len(word) == 1 for word in words)
 
 
 def _charge_lead(text: str, name: str) -> bool:

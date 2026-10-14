@@ -684,7 +684,7 @@ def _request_id(body: Mapping[str, Any]) -> str | None:
 
 
 def _canonical(url: str) -> str:
-    """The page's own id, as `ingestion.urls.document_key` writes it."""
+    """The page's own id, as `ingestion.search.document_key` writes it."""
     return document_key(url)
 
 

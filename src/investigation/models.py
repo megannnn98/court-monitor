@@ -15,6 +15,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from ingestion.search import document_key
+
 # Where a piece of evidence comes from: the pipeline's verdicts on an entity group, a
 # stored publication, an entry of the Rosfinmonitoring list, an unnamed figurant's
 # description, or a source outside the database.
@@ -241,13 +243,21 @@ class EvidenceItem(BaseModel):
 
     @property
     def document(self) -> tuple[object, ...] | None:
-        """The document it quotes, by the strongest id it has; None for a fact."""
+        """The document it quotes, by the strongest id it has; None for a fact.
+
+        A page outside the database is keyed by `document_key`, which keeps what the
+        address says about *which* page this is: `site.ru/news.php?id=1` and `?id=2` are
+        two articles of one feed, and a key that dropped the query would make the second
+        a repeat of the first and lose it. `canonical` stays for the callers that want
+        the looser address — the embed view of a Telegram post, where the query is part
+        of the same page.
+        """
         if self.fact is not None:
             return None
         if self.article_id is not None:
             return ("article", self.article_id)
         if self.url:
-            return ("url", canonical(self.url))
+            return ("url", document_key(self.url))
         return ("text", fingerprint_text(self.text))
 
 

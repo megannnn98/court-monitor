@@ -53,6 +53,21 @@ NAME = "Мария Бонцлер"
             "Марию Бонцлер обвиняют по ст. 280 УК РФ, а также по ст. 282 УК РФ.",
             {"ст. 280 УК РФ", "ст. 282 УК РФ"},
         ),
+        # Even a bare comma between the two is one case.
+        (
+            "Марию Бонцлер обвиняют по ч. 1 ст. 280 УК РФ, ч. 2 ст. 282 УК РФ.",
+            {"ч. 1 ст. 280 УК РФ", "ч. 2 ст. 282 УК РФ"},
+        ),
+        # Another man's case first, and his enumeration after it: not hers either.
+        (
+            "Петрова обвиняют по ст. 207.3 УК РФ. Иванову вменяют ст. 280 УК РФ и ст. 282 УК РФ.",
+            set(),
+        ),
+        # And her own case after his: hers again.
+        (
+            "Иванову вменяют ст. 280 УК РФ. Марию Бонцлер обвиняют по ст. 207.3 УК РФ.",
+            {"ст. 207.3 УК РФ"},
+        ),
         # And a Russian charge is not lost to a word that only begins like a country.
         ("Марию Бонцлер обвинили по ст. 280 УК кроме того.", {"ст. 280 УК РФ"}),
         ("Марию Бонцлер обвинили по ст. 280 УК. В Крыму то же.", {"ст. 280 УК РФ"}),
@@ -62,6 +77,16 @@ def test_only_a_charge_of_this_person_is_a_charge_of_this_person(
     text: str, expected: set[str]
 ) -> None:
     assert charges_of(text, NAME) == expected
+
+
+def test_an_enumeration_stops_where_the_next_person_starts() -> None:
+    """The rule that carries a verdict from one citation to the next carries it only
+    while the same case goes on. A citation of somebody else ends it — and his own
+    enumeration after that is his, not the first person's."""
+    both = "Петрова обвиняют по ст. 207.3 УК РФ. Иванову вменяют ст. 280 УК РФ и ст. 282 УК РФ."
+
+    assert charges_of(both, "Петрова") == {"ст. 207.3 УК РФ"}
+    assert charges_of(both, "Иванов") == {"ст. 280 УК РФ", "ст. 282 УК РФ"}
 
 
 def test_the_lead_is_the_same_question_with_an_empty_answer_asked_of_it() -> None:

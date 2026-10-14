@@ -7,6 +7,7 @@ from typing import Any
 from evaluation.investigation.web_benchmark import (
     CountingSearch,
     as_markdown,
+    canonical,
     credits_per_search,
     summarise,
 )
@@ -59,6 +60,19 @@ def test_a_search_of_the_depth_the_run_asked_for_is_priced_at_that_depth() -> No
 
     assert counted.requests == 1
     assert counted.since((0, 0, 0))["tavily_credits"] == 2
+
+
+def test_the_benchmark_asks_the_same_question_about_a_page_which_page_it_is() -> None:
+    """The run's own key decides which page an item is. The measurement has to ask the
+    same question, or `?id=2` is counted as the article the database already holds."""
+    assert canonical("https://news.example.test/news.php?id=2") == (
+        "news.example.test/news.php?id=2"
+    )
+    assert canonical("https://news.example.test/news.php?id=1") != (
+        "news.example.test/news.php?id=2"
+    )
+    # The same page as it is written with a campaign on it is still that page.
+    assert canonical("https://news.example.test/a?utm_source=tg") == "news.example.test/a"
 
 
 def test_a_report_holds_the_hash_and_the_length_of_a_query_but_never_the_query() -> None:
