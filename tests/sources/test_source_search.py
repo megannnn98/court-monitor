@@ -21,6 +21,7 @@ from ingestion.search import (
     SourceSearchQuery,
     TelegramChannelSearch,
     configured_telegram_channels,
+    document_key,
 )
 from ingestion.sources.telegram.channels import TelegramChannel
 from investigation.models import InvestigationQuery
@@ -180,6 +181,31 @@ def test_only_channels_of_the_registry_can_be_configured() -> None:
         )
     with pytest.raises(SearchConfigurationError):
         TelegramChannelSearch(TelegramChannel(username="a/../b", title="", topics=()))
+
+
+def test_a_post_of_a_channel_is_its_path_and_no_view_of_it() -> None:
+    """The database stores the embed view it read and the channel's own search answers
+    with the bare address. One post, two writings — and a key that kept the difference
+    would show the post twice and leave the publication without what it was looked up for.
+    """
+    embed = "https://t.me/ovdinfolive/5?embed=1&mode=tme"
+    plain = "https://t.me/ovdinfolive/5"
+
+    assert document_key(embed) == document_key(plain) == "t.me/ovdinfolive/5"
+    # And a post is not the feed it stands in.
+    assert document_key("https://t.me/s/ovdinfolive/5") != document_key(plain)
+
+
+def test_two_articles_of_one_feed_are_two_pages() -> None:
+    assert document_key("https://news.example.test/news.php?id=1") != document_key(
+        "https://news.example.test/news.php?id=2"
+    )
+    # A campaign on the address is not part of which page this is.
+    assert document_key("https://news.example.test/a?utm_source=tg") == "news.example.test/a"
+    # A page number is.
+    assert (
+        document_key("https://news.example.test/list?from=20") == "news.example.test/list?from=20"
+    )
 
 
 def test_a_post_found_outside_is_external_evidence_and_a_lead_only() -> None:

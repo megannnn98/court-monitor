@@ -749,6 +749,42 @@ def test_a_page_the_local_search_found_too_stands_once_and_keeps_the_leads() -> 
     assert item.leads == ("charges",)
 
 
+def test_a_channel_post_stays_one_quote_with_the_publication_the_database_holds() -> None:
+    """The same post has two addresses: the database stores the embed view it read
+    (`?embed=1&mode=tme`), the channel's own search answers with the bare one. They are
+    one post, so the run shows it once and the facts it was looked up for stand on the
+    publication — as they did before the web, and as a channel's quotes always do."""
+    stored = stored_publication(
+        PUBLISHED, url="https://t.me/ovdinfolive/5?embed=1&mode=tme", article_id=11
+    )
+    channel = SourceSearchRetriever(
+        FakeSearch(
+            "tg-ovdinfolive",
+            lambda query: [
+                ExternalEvidence(
+                    source="tg-ovdinfolive",
+                    source_name="ОВД-Инфо LIVE",
+                    external_id="5",
+                    url="https://t.me/ovdinfolive/5",
+                    text=PUBLISHED,
+                    published_at=datetime(2026, 9, 25, tzinfo=UTC),
+                    title="Суд над адвокатом",
+                )
+            ],
+        ),
+        source="telegram",
+    )
+
+    result = run([people_with(stored), channel], DOSSIER_QUESTION)
+
+    posts = [item for item in result.evidence if item.url and "t.me/ovdinfolive/5" in item.url]
+    assert len(posts) == 1
+    # The publication is what stands, and the fact the post was looked up for is its own.
+    (shown,) = posts
+    assert shown.article_id == 11
+    assert shown.leads == ("charges",)
+
+
 def test_the_page_the_web_brought_outranks_the_one_only_the_database_found() -> None:
     """Both lists a page stood in rank it: the page the web named as well as the local
     search is the publication, and both its lists count for it."""

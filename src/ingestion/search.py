@@ -294,6 +294,14 @@ _TRACKING_NAMES = frozenset(
 )
 
 
+# The one host where a post is its path and nothing else. The database stores the embed
+# view it read (`?embed=1&mode=tme` — the view that carries the post's text and date) and a
+# channel's own search answers with the bare address. Those are one post, and a key that
+# kept the difference would show the post twice and leave the publication it stands for
+# without the facts it was looked up for.
+_PATH_IS_THE_PAGE = frozenset({"t.me"})
+
+
 def document_key(url: str | None) -> str:
     """The page at `url`, as an id no two different pages share.
 
@@ -304,16 +312,27 @@ def document_key(url: str | None) -> str:
 
     What is *not* the same page is another article of one feed:
     `site.ru/news.php?id=1` and `?id=2` are two articles, and the query says which one. Only
-    the parameters that name the campaign or the click are dropped.
+    the parameters that name the campaign or the click are dropped — and on `t.me` nothing
+    is dropped at all, because there a post is `/<channel>/<id>` and every query is one of
+    its views (`embed`, `mode`, `single`). The feed view `/s/<channel>` is a page of posts,
+    not a post, and stays a page of its own: it is the address a search is asked at, never
+    one that evidence carries.
 
     The path is left exactly as the site writes it: a path may be case-sensitive, and two
     addresses differing in the case of a path are two pages however alike they look.
+
+    `investigation.models.canonical` is the other key and stays where it is: it is what the
+    embed view of a post and the address of an unnamed publication's own publication are
+    compared by, and it folds the query away on purpose. The two keys ask different
+    questions, and a caller has to know which one it is asking.
     """
     if not url:
         return ""
     parts = urlsplit(url)
     host = (parts.hostname or "").lower().removeprefix("www.")
     path = parts.path.rstrip("/")
+    if host in _PATH_IS_THE_PAGE:
+        return f"{host}{path}"
     query = urlencode(
         sorted(
             (key, value)
