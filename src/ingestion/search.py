@@ -26,6 +26,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import httpx
 from selectolax.parser import HTMLParser
@@ -269,3 +270,60 @@ def telegram_searches(
     channels: Sequence[TelegramChannel], *, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
 ) -> list[TelegramChannelSearch]:
     return [TelegramChannelSearch(channel, timeout_seconds=timeout_seconds) for channel in channels]
+
+
+# Query parameters that name the campaign or the click, not the page. Matched as prefixes
+# for the `utm_` family and as whole names for the rest: `from=20` is a page number, and
+# `ref` inside a longer name is somebody else's idea of a parameter.
+_TRACKING_PREFIXES = ("utm_", "_openstat")
+_TRACKING_NAMES = frozenset(
+    {
+        "fbclid",
+        "gclid",
+        "yclid",
+        "msclkid",
+        "dclid",
+        "twclid",
+        "mc_cid",
+        "mc_eid",
+        "spm",
+        "ref",
+        "referrer",
+        "source",
+    }
+)
+
+
+def document_key(url: str | None) -> str:
+    """The page at `url`, as an id no two different pages share.
+
+    Two retrievers may find the same page by different addresses — `http` and `https`,
+    with and without `www.`, with a campaign on it or without. Those are one document, and
+    a run that shows it twice shows the reader the same thing twice; this is what
+    `ExternalEvidence.external_id` is.
+
+    What is *not* the same page is another article of one feed:
+    `site.ru/news.php?id=1` and `?id=2` are two articles, and the query says which one. Only
+    the parameters that name the campaign or the click are dropped.
+
+    The path is left exactly as the site writes it: a path may be case-sensitive, and two
+    addresses differing in the case of a path are two pages however alike they look.
+    """
+    if not url:
+        return ""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    path = parts.path.rstrip("/")
+    query = urlencode(
+        sorted(
+            (key, value)
+            for key, value in parse_qsl(parts.query, keep_blank_values=False)
+            if not _tracking(key)
+        )
+    )
+    return f"{host}{path}{'?' + query if query else ''}"
+
+
+def _tracking(key: str) -> bool:
+    lowered = key.lower()
+    return lowered in _TRACKING_NAMES or lowered.startswith(_TRACKING_PREFIXES)

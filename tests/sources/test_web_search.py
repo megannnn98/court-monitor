@@ -21,6 +21,8 @@ import gc
 import logging
 import os
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -448,6 +450,30 @@ def test_a_rate_limit_and_a_server_failure_are_asked_again_once(status: int) -> 
     assert recorder.calls and recorder.posts > len(recorder.calls)
 
 
+def test_a_limit_on_the_call_itself_is_retried_and_not_stamped_out_by_the_closing_delete() -> None:
+    """Where the limit really bites is the call, not the handshake. The transport ends the
+    session with a DELETE and opens an SSE stream, and both answer *after* the call that
+    failed — a status that accepted the last response of anything would read 200 where the
+    call got 503 and never retry."""
+    first, second = (
+        results(page(url="https://news.example.test/one")),
+        results(page(url="https://news.example.test/two")),
+    )
+
+    with served_tavily_mcp([first, second], statuses=[0, 0, 0, 503]) as (endpoint, recorder):
+        found = asyncio.run(
+            TavilyMcpSearch(KEY, url=endpoint, base_delay_seconds=0).search(
+                SourceSearchQuery(WORDS, limit=5)
+            )
+        )
+
+    # The server refused the call before the tool ran, so the answer the retry got is the
+    # one that was waiting: the first of the two.
+    assert [item.url for item in found] == ["https://news.example.test/one"]
+    assert len(recorder.calls) == 1
+    assert recorder.terminations >= 1
+
+
 @pytest.mark.parametrize("status", [401, 403])
 def test_a_refused_key_is_not_asked_again_though_the_sdk_hides_the_status(status: int) -> None:
     with (
@@ -539,6 +565,28 @@ def test_a_search_against_a_loopback_server_answers_over_the_product_s_path() ->
             "end_date": "",
         }
     ]
+
+
+def test_an_answer_too_large_for_one_event_is_not_asked_for_again() -> None:
+    """One server-sent event larger than the cap the client reads fails the same way every
+    time. Retrying it would spend a credit and seconds to read the very same page."""
+
+    async def go() -> tuple[int, bool]:
+        async with fake_tavily_mcp([results(page(raw_content="x" * 4096))]) as (client, recorder):
+            with pytest.raises((TavilyMcpError, SearchAnswerError)):
+                await TavilyMcpSearch(
+                    KEY,
+                    url=ENDPOINT,
+                    client=client,
+                    base_delay_seconds=0,
+                    max_sse_event_bytes=1024,
+                ).search(SourceSearchQuery(WORDS, limit=5))
+            return recorder.posts, recorder.terminations >= 1
+
+    posts, terminated = asyncio.run(go())
+    # One attempt only: the same four POSTs, no second round of them.
+    assert posts == 4
+    assert terminated is True
 
 
 def test_a_search_that_never_answers_ends_in_a_failure_and_not_in_a_hang() -> None:
@@ -680,6 +728,38 @@ def test_a_name_with_an_apostrophe_in_it_is_not_logged_either(
 
     logged = "\n".join(record.getMessage() for record in caplog.records)
     assert words not in logged and "Присяжнюк" not in logged
+
+
+def test_the_filter_keeps_a_mapped_message_formattable() -> None:
+    """One mapping passed for `%(x)s` stays a mapping: wrapped in a tuple the format would
+    raise, and a logging error loses the record whole."""
+    logger = logging.getLogger("mcp.client.streamable_http")
+    logger.addFilter(_AskedWordsOutOfLogs())
+    try:
+        with caplog_handler() as captured:
+            logger.warning("вызов: %(query)s", {"query": "Иван Петров статья"})
+    finally:
+        logger.filters.clear()
+
+    assert captured == ["вызов: <query>"]
+    assert "Петров" not in "".join(captured)
+
+
+@contextmanager
+def caplog_handler() -> Iterator[list[str]]:
+    """What the logger above wrote, as the list of formatted lines."""
+    written: list[str] = []
+
+    class _Handler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            written.append(record.getMessage())
+
+    handler = _Handler()
+    logging.getLogger("mcp.client.streamable_http").addHandler(handler)
+    try:
+        yield written
+    finally:
+        logging.getLogger("mcp.client.streamable_http").removeHandler(handler)
 
 
 def test_the_key_is_not_in_the_headers_the_transport_logs(

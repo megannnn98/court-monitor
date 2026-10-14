@@ -277,14 +277,18 @@ def charges_of(text: str, name: str) -> set[str]:
     citation before it, never across one. That is where one person's case ends and
     another's begins in a text that speaks of two: «Марию Бонцлер обвинили по ст. 207.3
     УК РФ. А Иванову вменяют ст. 280 УК РФ» has two cases, and the second article is not
-    the first person's. Where a citation has no predecessor the window is 25 words, and a
-    subject normally appears before its accusation.
+    the first person's.
+
+    The enumeration «по ч. 1 ст. 280 УК РФ и ч. 2 ст. 282 УК РФ» is one case written in
+    two citations, and nothing but a conjunction stands between them — so the second takes
+    the verdict of the first. A single letter is not a word: «ч.» is a part, not a name.
     """
     words = list(_WORD.finditer(text))
     if not words:
         return set()
     found: set[str] = set()
     previous = 0
+    carried: str | None = None
     for match in CHARGE.finditer(text):
         spelling = russian_charge(match, text)
         if spelling is not None:
@@ -296,10 +300,28 @@ def charges_of(text: str, name: str) -> set[str]:
             floor = next((index for index, word in enumerate(words) if word.start() >= previous), 0)
             start = words[max(back, floor)].start() if words else 0
             context = text[start : match.start()]
+            if not names(context, name) and _only_connectives(context) and carried is not None:
+                # One case, written in two citations: the name and the accusation of the
+                # first are the name and the accusation of the second.
+                context = carried
+            elif names(context, name):
+                carried = context
             if names(context, name) and _CHARGE_ASSERTION.search(context):
                 found.add(spelling)
         previous = match.end()
     return found
+
+
+# What may stand between two citations of one case and still be the same case. Everything
+# else — a name, a verb, a place — starts somebody else's.
+_CONNECTIVE = frozenset(
+    {"и", "а", "также", "по", "кроме", "того", "либо", "или", "а также", "а_также", "ли", "да"}
+)
+
+
+def _only_connectives(between: str) -> bool:
+    words = [word.lower().replace("ё", "е") for word in _WORD.findall(between)]
+    return bool(words) and all(word in _CONNECTIVE or len(word) == 1 for word in words)
 
 
 def _charge_lead(text: str, name: str) -> bool:

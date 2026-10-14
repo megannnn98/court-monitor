@@ -25,7 +25,8 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 
-from investigation.models import EvidenceItem, canonical
+from ingestion.search import document_key
+from investigation.models import EvidenceItem
 
 # The k of Reciprocal Rank Fusion (Cormack et al., 2009): 1 / (k + rank).
 RRF_K = 60
@@ -57,18 +58,21 @@ def _same_place(found: Sequence[EvidenceItem]) -> dict[tuple[object, ...], Evide
 
 
 def _pages(found: Sequence[EvidenceItem]) -> dict[str, EvidenceItem]:
-    """The publication every page the run holds stands for, by its canonical address.
+    """The publication every page the run holds stands for, by the id of that page.
 
-    An outside result of that address is of this publication, not of a second document
-    that happens to share it. A fact is not a publication of anything: the clues of an
-    unnamed figurant carry the very address of the publication they were read of, and a
-    fact must never stand for the page it was told about.
+    An outside result of that id is of this publication, not of a second document that
+    happens to share it. The id keeps what the address says about *which* page this is —
+    `site.ru/news.php?id=1` and `?id=2` are two articles of one feed, and dropping the
+    query would make the second stand for the first and disappear into it. A fact is not a
+    publication of anything: the clues of an unnamed figurant carry the very address of the
+    publication they were read of, and a fact must never stand for the page it was told
+    about.
     """
     pages: dict[str, EvidenceItem] = {}
     for item in found:
         if item.fact is not None or item.article_id is None or not item.url:
             continue
-        pages.setdefault(canonical(item.url), item)
+        pages.setdefault(document_key(item.url), item)
     return pages
 
 
@@ -76,7 +80,7 @@ def _document_of(item: EvidenceItem, pages: dict[str, EvidenceItem]) -> tuple[ob
     """The document an item quotes, with a page found outside read as the publication of
     that page the run holds."""
     if item.article_id is None and item.url:
-        page = pages.get(canonical(item.url))
+        page = pages.get(document_key(item.url))
         if page is not None and page.document is not None:
             return page.document
     return item.document
@@ -94,7 +98,7 @@ def _of_the_local_publication(
     for item in found:
         if item.article_id is not None or not item.url:
             continue
-        page = pages.get(canonical(item.url))
+        page = pages.get(document_key(item.url))
         if page is None or page.identity == item.identity:
             continue
         for lead in item.leads:

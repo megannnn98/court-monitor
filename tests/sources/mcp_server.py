@@ -197,7 +197,9 @@ def _build(
                 await send({"type": "http.response.body", "body": b'{"detail":"invalid key"}'})
                 return
             # A server of its own that fails a few times before it answers, so a retry of
-            # the client can be told from a retry that never happens.
+            # the client can be told from a retry that never happens. A status below 400 is
+            # no failure: it only says which POST this is, so that a failure can be put in
+            # front of the call and not in front of the handshake.
             if statuses and scope.get("method") == "POST":
                 forced = statuses.pop(0)
                 if forced >= 400:

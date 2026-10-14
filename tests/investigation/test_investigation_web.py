@@ -177,6 +177,11 @@ def people(answers: Answers | None = None) -> FakeRetriever:
     )
 
 
+def people_with(*extra: EvidenceItem) -> FakeRetriever:
+    """The database's own person, and publications of it the local search holds."""
+    return people(lambda query: [*KNOWN, *extra] if query.kind == "person" else [])
+
+
 def fts(answers: Answers | None = None) -> FakeRetriever:
     return FakeRetriever(
         "publications_fts", answers or (lambda query: []), kinds=("keywords",), facts=TEXT
@@ -392,6 +397,36 @@ def test_the_words_travel_to_tavily_in_the_body_and_the_key_in_the_header() -> N
     assert recorder.calls
     assert all(NAME in call["query"] for call in recorder.calls)
     assert set(recorder.authorizations) == {"Bearer a-key"}
+
+
+def test_a_page_of_the_same_feed_but_another_article_is_the_web_s_own() -> None:
+    """`site.ru/news.php?id=1` and `?id=2` are two articles of one feed. Dropping the query
+    would make the second stand for the publication the database already holds and
+    disappear into it — along with the facts it was looked up for."""
+    stored = stored_publication(
+        "Первый материал о Марии Бонцлер.", url="https://news.example.test/news.php?id=1"
+    )
+    outside = SourceSearchRetriever(
+        FakeSearch(
+            "tavily",
+            web_answer(
+                "Марию Бонцлер обвиняют по ч. 3 ст. 207.3 УК РФ.",
+                url="https://news.example.test/news.php?id=2",
+            ),
+        ),
+        source="web",
+    )
+
+    result = run([people_with(stored), outside], DOSSIER_QUESTION)
+
+    shown = {item.url for item in result.evidence}
+    assert "https://news.example.test/news.php?id=2" in shown
+    (found,) = [item for item in result.evidence if item.url and item.url.endswith("id=2")]
+    # Its own lead is its own: the publication of the database is a different article, and
+    # is not credited with what this one was looked up for.
+    assert found.leads == ("charges",)
+    local = [item for item in result.evidence if item.article_id == 7]
+    assert [item.leads for item in local] == [()]
 
 
 # -- the dossier of a person ---------------------------------------------------------------------

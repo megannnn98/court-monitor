@@ -1,75 +1,88 @@
-"""A Criminal Code reference is a lead only when it is about the requested person."""
+"""What counts as a charge of *this* person: the local rule the extractor defers to.
+
+Deterministic, offline and readable — a charge is an accusation about a name, and the
+words that make it one are the words around it. Each case here is a text the open web
+really produces.
+"""
 
 from __future__ import annotations
 
 import pytest
 
-from investigation.models import (
-    EvidenceItem,
-    InvestigationIntent,
-    InvestigationQuery,
-    PersonSubject,
-    Subject,
-)
-from investigation.scenarios.base import ScenarioView
-from investigation.scenarios.person_dossier import PersonDossierScenario
-from investigation.services.external import SourceSearchRetriever
+from investigation.services.charges import normalised_charges
+from investigation.services.external import _charge_lead, charges_of
 
-
-def charges_leads(text: str) -> tuple[str, ...]:
-    return SourceSearchRetriever._leads(
-        InvestigationQuery(kind="keywords", name="Мария Бонцлер", fact="charges"), text
-    )
+NAME = "Мария Бонцлер"
 
 
 @pytest.mark.parametrize(
-    "text",
+    ("text", "expected"),
     [
-        "Марию Бонцлер обвинили по ч. 3 ст. 207.3 УК РФ.",
-        "Марию Бонцлер обвинили по статье 207.3 УК РФ.",
-        "Против Марии Бонцлер возбудили уголовное дело по статье 207.3 УК РФ.",
-        "Задержана Мария Бонцлер. Ей вменяют статью 207.3 УК РФ.",
-        "Суд приговорил Марию Бонцлер к сроку по статье 207.3 УК РФ.",
-    ],
-)
-def test_contextual_charge_lead_handles_normal_accusation_wording(text: str) -> None:
-    assert charges_leads(text) == ("charges",)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "Иван Петров обвинён по ст. 360 УК, а Мария Бонцлер дала интервью о выборах.",
-        "Статья 207.3 УК РФ предусматривает до 15 лет. Мария Бонцлер рассказала о выборах.",
+        # A charge of her, in every way the news writes it.
+        ("Марию Бонцлер обвиняют по ч. 3 ст. 207.3 УК РФ.", {"ч. 3 ст. 207.3 УК РФ"}),
+        ("Мария Бонцлер: суд приговорил по ст. 280 УК РФ.", {"ст. 280 УК РФ"}),
+        ("Задержана Мария Бонцлер. Ей вменяют ст. 210 УК РФ.", {"ст. 210 УК РФ"}),
+        # An accusation of somebody else, in a text that names her as well.
         (
-            "Посол вымышленной страны сообщил о статье 360 УК РФ в международном деле. "
-            "Мария Бонцлер дала отдельный комментарий."
+            "Марию Бонцлер обвинили по ст. 207.3 УК РФ. А Иванову вменяют ст. 280 УК РФ.",
+            {"ст. 207.3 УК РФ"},
         ),
+        # A namesake, a sportsman and a registry card.
+        ("Обвинили Марию Бонцлер из другого региона по ст. 116 УК РФ.", {"ст. 116 УК РФ"}),
+        # A law quoted in passing, and a comment about the law itself.
+        ("Статья 228 УК РФ касается незаконного оборота наркотиков.", set()),
+        ("Дело возбуждено по ст. 360 УК РФ в отношении Иванова.", set()),
+        # An article far away from the name: fifty words of other news first.
+        (
+            "Мария Бонцлер была в суде. "
+            + "Суд continued to hear the case. " * 50
+            + "По ч. 3 ст. 207.3 УК РФ.",
+            set(),
+        ),
+        # «Статья» and «статус» are not a charge.
+        ("Изменился статус Марии Бонцлер.", set()),
+        ("Мария Бонцлер: статья о жёнах военнослужащих.", set()),
+        # Another country's code is nobody's charge here.
+        ("Марию Бонцлер обвинили по ч. 3 ст. 342 УК Беларуси.", set()),
+        # One case, two citations.
+        (
+            "Марию Бонцлер обвиняют по ч. 1 ст. 280 УК РФ и ч. 2 ст. 282 УК РФ.",
+            {"ч. 1 ст. 280 УК РФ", "ч. 2 ст. 282 УК РФ"},
+        ),
+        (
+            "Марию Бонцлер обвиняют по ст. 280 УК РФ, а также по ст. 282 УК РФ.",
+            {"ст. 280 УК РФ", "ст. 282 УК РФ"},
+        ),
+        # And a Russian charge is not lost to a word that only begins like a country.
+        ("Марию Бонцлер обвинили по ст. 280 УК кроме того.", {"ст. 280 УК РФ"}),
+        ("Марию Бонцлер обвинили по ст. 280 УК. В Крыму то же.", {"ст. 280 УК РФ"}),
     ],
 )
-def test_an_article_about_someone_else_or_a_general_legal_text_is_not_a_lead(text: str) -> None:
-    assert charges_leads(text) == ()
+def test_only_a_charge_of_this_person_is_a_charge_of_this_person(
+    text: str, expected: set[str]
+) -> None:
+    assert charges_of(text, NAME) == expected
 
 
-def test_a_rejected_charge_lead_does_not_close_the_charge_follow_up() -> None:
-    text = "Иван Петров обвинён по ст. 360 УК, а Мария Бонцлер дала интервью о выборах."
-    intent = InvestigationIntent(
-        scenario="person_dossier", subject_name="Мария Бонцлер", requested_facts=["charges"]
-    )
-    assessment = PersonDossierScenario().assess(
-        ScenarioView(
-            intent=intent,
-            subject_ref=PersonSubject(name="Мария Бонцлер"),
-            subject=Subject(name="Мария Бонцлер", entity_key="мария бонцлер"),
-            evidence=[
-                EvidenceItem(
-                    source_type="external",
-                    source_id="web:test",
-                    text=text,
-                    leads=charges_leads(text),
-                )
-            ],
-        )
-    )
+def test_the_lead_is_the_same_question_with_an_empty_answer_asked_of_it() -> None:
+    assert _charge_lead("Марию Бонцлер обвиняют по ч. 3 ст. 207.3 УК РФ.", NAME) is True
+    assert _charge_lead("Дело возбуждено по ст. 360 УК РФ в отношении Иванова.", NAME) is False
 
-    assert any(query.fact == "charges" for query in assessment.follow_up_queries)
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("ст. 280 УК", {"ст. 280 УК РФ"}),
+        ("ч. 2 ст. 20.3.3 КоАП РФ", set()),
+        ("ст. 159 ГК", set()),
+        # «кроме того» and «Крым» only begin like a country.
+        ("ст. 280 УК кроме того", {"ст. 280 УК РФ"}),
+        ("ст. 280 УК Крым", {"ст. 280 УК РФ"}),
+        ("ст. 342 УК РБ", set()),
+        ("ч. 3 ст. 286 УК Республики Беларусь", set()),
+        # And the country a longer way off does not reach the citation.
+        ("ст. 280 УК РФ. В Беларуси то же самое.", {"ст. 280 УК РФ"}),
+    ],
+)
+def test_a_code_is_read_as_ours_only_where_it_is_ours(text: str, expected: set[str]) -> None:
+    assert normalised_charges(text) == expected

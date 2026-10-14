@@ -42,8 +42,8 @@ from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from random import random
-from typing import TYPE_CHECKING, Any, TypeGuard
-from urllib.parse import parse_qsl, unquote, urlencode, urlsplit
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
+from urllib.parse import unquote, urlsplit
 
 import httpx2
 
@@ -59,6 +59,7 @@ from ingestion.search import (
     ExternalEvidence,
     SearchAnswerError,
     SourceSearchQuery,
+    document_key,
 )
 from monitor_core.retry import retry_async
 
@@ -112,10 +113,13 @@ class _AskedWordsOutOfLogs(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.args, tuple):
             record.args = tuple(_without_asked_words(value) for value in record.args)
-        elif isinstance(record.args, (Mapping, str, bytes)):
-            # One mapping or one message passed as `%(x)s`: not a tuple, and just as able
-            # to carry the words.
-            record.args = (_without_asked_words(record.args),)
+        elif isinstance(record.args, Mapping):
+            # One mapping passed for `%(x)s`. It stays a mapping: wrapped in a tuple, the
+            # format would raise, and a logging error loses the record whole.
+            record.args = cast(
+                "tuple[object, ...] | Mapping[str, object] | None",
+                _without_asked_words(record.args),
+            )
         # The SDK writes most of its call lines already formatted, so the words are in the
         # message itself and not in the arguments.
         if isinstance(record.msg, str):
@@ -129,7 +133,9 @@ _ASKED = re.compile(r"(['\"]query['\"]\s*:\s*)(['\"]).*?\2", re.DOTALL)
 _WHOLE_QUERY = re.compile(r"\bquery=[^&,\s]*", re.IGNORECASE)
 # The SDK's own loggers. `mcp.client.session` writes to a logger of its own name,
 # `client`, which is not under `mcp` — the filter is attached to every one of them by
-# name, and so is the level.
+# name, and so is the level. `client` is a name any other library may also use; raising
+# its level and filtering it costs that library its DEBUG lines and nothing else, which is
+# the lesser of the two.
 _SDK_LOGGERS = ("mcp", "client")
 
 
@@ -203,8 +209,15 @@ class _LastStatus:
         self.status: int | None = None
 
     async def record(self, response: Any) -> None:
-        """An HTTP client's response hook, which the client awaits."""
-        self.status = int(response.status_code)
+        """An HTTP client's response hook, which the client awaits.
+
+        Only a failed POST counts. The transport opens an SSE stream right after the
+        handshake and ends the session with a DELETE, and both answer after the call that
+        failed: without this filter the 200 of the DELETE would stand in for the 429 of
+        the call, and a rate limit would never be retried.
+        """
+        if response.request.method == "POST" and response.status_code >= 400:
+            self.status = int(response.status_code)
 
     def forget(self) -> None:
         self.status = None
@@ -237,14 +250,29 @@ def _transient(exc: BaseException, seen: _LastStatus) -> bool:
     if isinstance(code, int):
         return code in _TRANSIENT_STATUS or code >= 500
     if _is_mcp_error(exc):
-        if exc.code in {_CONNECTION_CLOSED, _REQUEST_TIMEOUT}:
+        if exc.code == _REQUEST_TIMEOUT:
             return True
+        if exc.code == _CONNECTION_CLOSED:
+            # The stream ended under the call. One such ending is worth another try, but
+            # an answer too large for one event is the same answer every time: retrying it
+            # spends a credit to read the very same page again.
+            return not _is_oversize(exc.message)
         # A status the SDK folded into a protocol error. Known and transient: retry.
         # Known and not: the key was refused, the tool is not published — do not.
         # Unseen (no hook, or the failure was not HTTP at all): do not, because a
         # retry that may hit a refused key spends the run's time for nothing.
         return exc.code == _INTERNAL_ERROR and seen.transient
     return False
+
+
+# How the SDK's own transport says that one server-sent event was larger than the cap it
+# was told to read. It is httpx's wording, so it is matched narrowly and covered by a test
+# rather than trusted: a different wording costs one wasted retry, not a wrong answer.
+_OVERSIZE = ("exceeded", "byte limit")
+
+
+def _is_oversize(message: str) -> bool:
+    return any(fragment in message for fragment in _OVERSIZE)
 
 
 def _only(exc: BaseException) -> BaseException:
@@ -282,6 +310,7 @@ class TavilyMcpSearch:
         search_tool: str = SEARCH_TOOL,
         search_depth: str = SEARCH_DEPTH,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        max_sse_event_bytes: int = MAX_SSE_EVENT_BYTES,
         attempts: int = DEFAULT_ATTEMPTS,
         base_delay_seconds: float = DEFAULT_BASE_DELAY_SECONDS,
         client: Any | None = None,
@@ -296,6 +325,9 @@ class TavilyMcpSearch:
         self._url = url
         self._search_tool = search_tool
         self._search_depth = search_depth
+        # How much of one server-sent event the SDK will read. A page's own text runs to
+        # megabytes, and the SDK's own default of 1 MiB fails a search that did answer.
+        self._max_sse_event_bytes = max_sse_event_bytes
         # None: a client per search, closed with it — a search runs on whatever event
         # loop its caller has, and the SDK's client is bound to the one it is made on.
         # A caller's own client is the caller's to close.
@@ -404,7 +436,7 @@ class TavilyMcpSearch:
 
         _quiet_mcp_words()
         async with streamable_http_client(
-            self._url, http_client=client, max_sse_event_size=MAX_SSE_EVENT_BYTES
+            self._url, http_client=client, max_sse_event_size=self._max_sse_event_bytes
         ) as streams:
             read, write = streams[0], streams[1]
             async with ClientSession(
@@ -638,36 +670,8 @@ def _request_id(body: Mapping[str, Any]) -> str | None:
 
 
 def _canonical(url: str) -> str:
-    """The address as one site writes it alike: the id the same page has everywhere.
-
-    Not the address with no query at all. `?utm_source=…` and `?fbclid=…` are the same page
-    as the bare address, and `?id=1` and `?id=2` are two pages of the same script — which
-    is what `site.ru/news.php?id=1` and `site.ru/news.php?id=2` really are. Dropping the
-    whole query would make the second of them disappear into the first, so the tracking is
-    dropped and what is left is kept, in the order the site writes it.
-    """
-    parts = urlsplit(url)
-    host = (parts.hostname or "").lower().removeprefix("www.")
-    # The path is left as the site writes it: it may be case-sensitive, and two addresses
-    # that differ in the case of a path are two pages however alike they look.
-    path = parts.path.rstrip("/")
-    kept = [
-        (key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=False)
-        if not _is_tracking(key)
-    ]
-    query = urlencode(sorted(kept))
-    return f"{host}{path}{'?' + query if query else ''}"
-
-
-# Query parameters that name the campaign or the click, not the page. Everything else is
-# part of which page this is.
-_TRACKING = ("utm_", "fbclid", "gclid", "yclid", "mc_cid", "mc_eid", "_openstat", "from")
-
-
-def _is_tracking(key: str) -> bool:
-    lowered = key.lower()
-    return lowered.startswith(_TRACKING) or lowered in {"spm", "ref", "referrer"}
+    """The page's own id, as `ingestion.urls.document_key` writes it."""
+    return document_key(url)
 
 
 # The full text comes as Markdown. A menu of links is a chain of addresses, and those

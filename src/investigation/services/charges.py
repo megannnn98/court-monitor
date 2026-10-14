@@ -15,13 +15,15 @@ import re
 # The country a Criminal Code belongs to, as it is written right after the code — and
 # sometimes after the country the case itself is about («дело в Беларуси, ст. 342 УК РБ»).
 # Nothing but spaces and an opening bracket may come between: a comma or a full stop ends
-# the citation, so «ст. 280 УК РФ. В Беларуси…» stays Russian.
+# the citation, so «ст. 280 УК РФ. В Беларуси…» stays Russian. The two-letter abbreviations
+# end at a letter: «УК кроме того» and «УК Крым» are not countries, and a Russian charge
+# must not be lost to a word that merely begins like one.
 _FOREIGN_CODE = re.compile(
     r"^\s*(?:ук\s*)?\(?\s*(?:республик\w*\s*)?"
     r"(?:беларус\w*|украин\w*|казах\w*|армен\w*|армян\w*|грузин\w*|молдав\w*|латви\w*"
     r"|литв\w*|эстон\w*"
     r"|киргиз\w*|узбек\w*|таджик\w*|туркм\w*|азербайджан\w*|серби\w*|албан\w*|македон\w*"
-    r"|рб|рк|кр)"
+    r"|рб|рк|кр)(?![а-яёa-z])"
     r"\s*\)?",
     re.IGNORECASE,
 )
